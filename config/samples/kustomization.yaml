@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- ols_v1alpha1_olsconfig.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples

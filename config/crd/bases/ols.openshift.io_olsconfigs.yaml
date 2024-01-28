@@ -40,7 +40,7 @@ spec:
                 properties:
                   providers:
                     items:
-                      description: ModelSpec defines the desired state of LLM provider.
+                      description: ProviderSpec defines the desired state of LLM provider.
                       properties:
                         credentialsSecretRef:
                           description: Name of a Kubernetes Secret resource containing
