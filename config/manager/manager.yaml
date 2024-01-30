@@ -87,6 +87,13 @@ spec:
           periodSeconds: 10
         # TODO(user): Configure the resources accordingly based on the project requirements.
         # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        env:
+        # watches the namespace where the operator is deployed
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         resources:
           limits:
             cpu: 500m
