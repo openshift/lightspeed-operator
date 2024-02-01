@@ -53,7 +53,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		log.Error(err, "Failed to get olsconfig")
 		return ctrl.Result{}, err
 	}
-	log.Info("olsconfig reconcile loop")
+	log.Info("OLSConfig reconcile loop")
 	return ctrl.Result{}, nil
 }
 
