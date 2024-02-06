@@ -1,5 +1,5 @@
 # Adds namespace to all resources.
-namespace: openshift-lightspeed-operator
+namespace: openshift-lightspeed
 
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
@@ -26,13 +26,33 @@ resources:
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
 #- ../prometheus
 
-patchesStrategicMerge:
-# Protect the /metrics endpoint by putting it behind auth.
-# If you want your controller-manager to expose the /metrics
-# endpoint w/o any authn/z, please comment the following line.
-- manager_auth_proxy_patch.yaml
-
-
+patches:
+  # Protect the /metrics endpoint by putting it behind auth.
+  # If you want your controller-manager to expose the /metrics
+  # endpoint w/o any authn/z, please comment the following line.
+  - path: manager_auth_proxy_patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: controller-manager
+  - path: manager_config_patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: controller-manager
+  # set image of lightspeed-service-api
+  # todo: sync with the release version of openshift/lightspeed-service-api
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --images=lightspeed-service=quay.io/openshift/lightspeed-service-api:latest
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: controller-manager
 
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
