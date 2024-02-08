@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
 func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
@@ -64,10 +62,16 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 		return fmt.Errorf("failed to get OLS configmap: %w", err)
 	}
 
-	err = r.Update(ctx, cm)
-	if err != nil {
-		return fmt.Errorf("failed to update OLS configmap: %w", err)
+	cmDataHash := cm.ObjectMeta.Annotations[OLSConfigHashKey]
+	foundCMDataHash := getSHAfromConfigmap(foundCm)
+
+	if cmDataHash != foundCMDataHash {
+		err = r.Update(ctx, cm)
+		if err != nil {
+			return fmt.Errorf("failed to update OLS configmap: %w", err)
+		}
 	}
+
 	r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
 	r.logger.Info("OLS configmap reconciled", "configmap", cm.Name, "hash", cm.Annotations[OLSConfigHashKey])
 	return nil
@@ -101,6 +105,7 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 
 	foundDeployment := &appsv1.Deployment{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, foundDeployment)
+
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(deployment, map[string]string{
 			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
@@ -119,6 +124,7 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 		updateDeploymentAnnotations(deployment, map[string]string{
 			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
 		})
+
 		err = r.Update(ctx, deployment)
 		if err != nil {
 			return fmt.Errorf("failed to update OLS deployment: %w", err)

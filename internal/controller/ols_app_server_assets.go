@@ -24,7 +24,6 @@ func (r *OLSConfigReconciler) generateServiceAccount(cr *olsv1alpha1.OLSConfig) 
 }
 
 func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
-
 	providerConfigs := []ProviderConfig{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
 		credentialPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name, LLMApiTokenFileName)
@@ -65,14 +64,10 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		LLMProviders: providerConfigs,
 		OLSConfig:    olsConfig,
 	}
+
 	configFileBytes, err := yaml.Marshal(appSrvConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OLS config file %w", err)
-	}
-
-	configFileHash, err := hashBytes(configFileBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate OLS config file hash %w", err)
 	}
 
 	cm := corev1.ConfigMap{
@@ -85,20 +80,20 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 				"app.kubernetes.io/name":       "lightspeed-service-api",
 				"app.kubernetes.io/part-of":    "openshift-lightspeed",
 			},
-			Annotations: map[string]string{
-				OLSConfigHashKey: configFileHash,
-			},
 		},
 		Data: map[string]string{
 			OLSConfigFilename: string(configFileBytes),
 		},
 	}
 
+	cm.ObjectMeta.Annotations = map[string]string{
+		OLSConfigHashKey: getSHAfromConfigmap(&cm),
+	}
+
 	return &cm, nil
 }
 
 func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
-
 	// mount points of API key secret
 	const OLSConfigMountPath = "/etc/ols"
 	const OLSConfigVolumeName = "cm-olsconfig"
