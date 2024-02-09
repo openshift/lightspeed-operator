@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+
 	"github.com/openshift/lightspeed-operator/internal/controller"
 	//+kubebuilder:scaffold:imports
 )
@@ -46,7 +47,8 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 	// The default images of operands
 	defaultImages = map[string]string{
-		"lightspeed-service": controller.OLSAppServerImageDefault,
+		"lightspeed-service":       controller.OLSAppServerImageDefault,
+		"lightspeed-service-redis": controller.OLSAppRedisServerImageDefault,
 	}
 )
 
@@ -157,7 +159,8 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Options: controller.OLSConfigReconcilerOptions{
-			LightspeedServiceImage: imagesMap["lightspeed-service"],
+			LightspeedServiceImage:      imagesMap["lightspeed-service"],
+			LightspeedServiceRedisImage: imagesMap["lightspeed-service-redis"],
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")
