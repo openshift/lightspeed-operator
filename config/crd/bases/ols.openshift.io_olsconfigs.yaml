@@ -103,13 +103,25 @@ spec:
                       redis:
                         description: RedisSpec defines the desired state of Redis.
                         properties:
+                          credentials:
+                            description: Redis credentials
+                            properties:
+                              passwordPath:
+                                description: Redis credentials password path
+                                type: string
+                              usernamePath:
+                                description: Redis credentials username path
+                                type: string
+                            type: object
                           host:
+                            default: lightspeed-redis-server.openshift-lightspeed.svc
                             description: Redis host
                             type: string
                           maxMemory:
                             anyOf:
                             - type: integer
                             - type: string
+                            default: 1024mb
                             description: Redis maxmemory
                             x-kubernetes-int-or-string: true
                           maxMemoryPolicy:

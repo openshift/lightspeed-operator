@@ -45,10 +45,30 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
-
-	conversationCache := ConversationCacheConfig{
-		Type:   string(cr.Spec.OLSConfig.ConversationCache.Type),
-		Memory: MemoryCacheConfig{MaxEntries: cr.Spec.OLSConfig.ConversationCache.Memory.MaxEntries},
+	var conversationCache ConversationCacheConfig
+	if cr.Spec.OLSConfig.ConversationCache.Memory != (olsv1alpha1.MemorySpec{}) {
+		conversationCache = ConversationCacheConfig{
+			Type:   string(cr.Spec.OLSConfig.ConversationCache.Type),
+			Memory: MemoryCacheConfig{MaxEntries: cr.Spec.OLSConfig.ConversationCache.Memory.MaxEntries},
+		}
+	} else {
+		var redisCredentialsConfig RedisCredentialsConfig
+		if cr.Spec.OLSConfig.ConversationCache.Redis != (olsv1alpha1.RedisSpec{}) && cr.Spec.OLSConfig.ConversationCache.Redis.Credentials != (olsv1alpha1.RedisCredentialsSpec{}) {
+			redisCredentialsConfig = RedisCredentialsConfig{
+				UsernamePath: cr.Spec.OLSConfig.ConversationCache.Redis.Credentials.UsernamePath,
+				PasswordPath: cr.Spec.OLSConfig.ConversationCache.Redis.Credentials.PasswordPath,
+			}
+		}
+		conversationCache = ConversationCacheConfig{
+			Type: string(cr.Spec.OLSConfig.ConversationCache.Type),
+			Redis: RedisCacheConfig{
+				Host:            cr.Spec.OLSConfig.ConversationCache.Redis.Host,
+				Port:            cr.Spec.OLSConfig.ConversationCache.Redis.Port,
+				MaxMemory:       cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemory,
+				MaxMemoryPolicy: cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy,
+				Credentials:     redisCredentialsConfig,
+			},
+		}
 	}
 
 	olsConfig := OLSConfig{
