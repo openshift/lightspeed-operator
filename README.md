@@ -95,8 +95,8 @@ spec:
     - credentialsSecretRef:
         name: openai-api-keys
       models:
-      - name: gpt-3.5-turbo-1106
-      name: OpenAI
+      - name: gpt-3.5-turbo
+      name: openai
       url: https://api.openai.com/v1
     - credentialsSecretRef:
         name: bam-api-keys
