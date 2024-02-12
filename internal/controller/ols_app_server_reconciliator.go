@@ -60,8 +60,17 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 		if err != nil {
 			return fmt.Errorf("failed to create OLS configmap: %w", err)
 		}
+		r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
 	} else if err != nil {
 		return fmt.Errorf("failed to get OLS configmap: %w", err)
+	}
+	foundCmHash, err := hashBytes([]byte(foundCm.Data[OLSConfigFilename]))
+	if err != nil {
+		return fmt.Errorf("failed to generate hash for the existing OLS configmap: %w", err)
+	}
+	if foundCmHash == cm.Annotations[OLSConfigHashKey] {
+		r.logger.Info("OLS configmap reconciliation skipped", "configmap", foundCm.Name, "hash", foundCm.Annotations[OLSConfigHashKey])
+		return nil
 	}
 
 	err = r.Update(ctx, cm)
