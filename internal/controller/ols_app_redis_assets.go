@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
@@ -37,7 +38,7 @@ func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig)
 						{
 							Name:            "lightspeed-redis-server",
 							Image:           r.Options.LightspeedServiceRedisImage,
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: corev1.PullIfNotPresent,
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: OLSAppRedisServicePort,
@@ -59,6 +60,10 @@ func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig)
 				},
 			},
 		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &deployment, r.Scheme); err != nil {
+		return nil, err
 	}
 
 	return &deployment, nil
@@ -87,6 +92,10 @@ func (r *OLSConfigReconciler) generateRedisService(cr *olsv1alpha1.OLSConfig) (*
 			},
 			Selector: DeploymentSelectorLabels,
 		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &service, r.Scheme); err != nil {
+		return nil, err
 	}
 
 	return &service, nil

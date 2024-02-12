@@ -51,14 +51,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
 	var conversationCache ConversationCacheConfig
-	if cr.Spec.OLSConfig.ConversationCache.Memory != (olsv1alpha1.MemorySpec{}) {
-		conversationCache = ConversationCacheConfig{
-			Type:   string(cr.Spec.OLSConfig.ConversationCache.Type),
-			Memory: MemoryCacheConfig{MaxEntries: cr.Spec.OLSConfig.ConversationCache.Memory.MaxEntries},
-		}
-	} else {
+	if cr.Spec.OLSConfig.ConversationCache.Redis != (olsv1alpha1.RedisSpec{}) {
 		var redisCredentialsConfig RedisCredentialsConfig
-		if cr.Spec.OLSConfig.ConversationCache.Redis != (olsv1alpha1.RedisSpec{}) && cr.Spec.OLSConfig.ConversationCache.Redis.Credentials != (olsv1alpha1.RedisCredentialsSpec{}) {
+		if cr.Spec.OLSConfig.ConversationCache.Redis.Credentials != (olsv1alpha1.RedisCredentialsSpec{}) {
 			redisCredentialsConfig = RedisCredentialsConfig{
 				UsernamePath: cr.Spec.OLSConfig.ConversationCache.Redis.Credentials.UsernamePath,
 				PasswordPath: cr.Spec.OLSConfig.ConversationCache.Redis.Credentials.PasswordPath,
@@ -73,6 +68,16 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 				MaxMemoryPolicy: cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy,
 				Credentials:     redisCredentialsConfig,
 			},
+		}
+	} else if cr.Spec.OLSConfig.ConversationCache.Memory != (olsv1alpha1.MemorySpec{}) {
+		conversationCache = ConversationCacheConfig{
+			Type:   string(cr.Spec.OLSConfig.ConversationCache.Type),
+			Memory: MemoryCacheConfig{MaxEntries: cr.Spec.OLSConfig.ConversationCache.Memory.MaxEntries},
+		}
+	} else {
+		conversationCache = ConversationCacheConfig{
+			Type:   OLSDefaultCacheType,
+			Memory: MemoryCacheConfig{MaxEntries: OLSDefaultMemoryCacheEntries},
 		}
 	}
 
