@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/yaml"
 )
 
@@ -20,11 +21,15 @@ func (r *OLSConfigReconciler) generateServiceAccount(cr *olsv1alpha1.OLSConfig) 
 			Namespace: cr.Namespace,
 		},
 	}
+
+	if err := controllerutil.SetControllerReference(cr, &sa, r.Scheme); err != nil {
+		return nil, err
+	}
+
 	return &sa, nil
 }
 
 func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
-
 	providerConfigs := []ProviderConfig{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
 		credentialPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name, LLMApiTokenFileName)
@@ -114,11 +119,14 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		},
 	}
 
+	if err := controllerutil.SetControllerReference(cr, &cm, r.Scheme); err != nil {
+		return nil, err
+	}
+
 	return &cm, nil
 }
 
 func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
-
 	// mount points of API key secret
 	const OLSConfigMountPath = "/etc/ols"
 	const OLSConfigVolumeName = "cm-olsconfig"
@@ -235,6 +243,10 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		},
 	}
 
+	if err := controllerutil.SetControllerReference(cr, &deployment, r.Scheme); err != nil {
+		return nil, err
+	}
+
 	return &deployment, nil
 }
 
@@ -267,6 +279,10 @@ func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev
 			},
 			Selector: DeploymentSelectorLabels,
 		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &service, r.Scheme); err != nil {
+		return nil, err
 	}
 
 	return &service, nil
