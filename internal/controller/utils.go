@@ -16,6 +16,15 @@ func updateDeploymentAnnotations(deployment *appsv1.Deployment, annotations map[
 	}
 }
 
+func updateDeploymentTemplateAnnotations(deployment *appsv1.Deployment, annotations map[string]string) {
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	for k, v := range annotations {
+		deployment.Spec.Template.Annotations[k] = v
+	}
+}
+
 func hashBytes(sourceStr []byte) (string, error) {
 	hashFunc := sha256.New()
 	_, err := hashFunc.Write(sourceStr)
