@@ -13,7 +13,7 @@ const (
 	// OLSConfigName is the name of the OLSConfig configmap
 	OLSConfigCmName = "olsconfig"
 	// OLSNamespaceDefault is the default namespace for OLS
-	OLSNamespaceDefault = "openshift-lightspeed-operator"
+	OLSNamespaceDefault = "openshift-lightspeed"
 	// OLSAppServerServiceAccountName is the name of service account running the application server
 	OLSAppServerServiceAccountName = "lightspeed-app-server"
 	// OLSAppServerDeploymentName is the name of the OLS application server deployment
