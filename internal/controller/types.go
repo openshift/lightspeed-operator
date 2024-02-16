@@ -61,16 +61,9 @@ type LoggingConfig struct {
 
 type ConversationCacheConfig struct {
 	// Type of cache to use. Default: "memory"
-	Type string `json:"type" default:"memory"`
-	// Memory cache configuration
-	Memory MemoryCacheConfig `json:"memory,omitempty"`
+	Type string `json:"type" default:"redis"`
 	// Redis cache configuration
 	Redis RedisCacheConfig `json:"redis,omitempty"`
-}
-
-type MemoryCacheConfig struct {
-	// Maximum number of cache entries. Default: "1000"
-	MaxEntries int `json:"max_entries,omitempty" default:"1000"`
 }
 
 type RedisCacheConfig struct {
@@ -82,13 +75,4 @@ type RedisCacheConfig struct {
 	MaxMemory *intstr.IntOrString `json:"max_memory,omitempty" default:"1024mb"`
 	// Redis maxmemory policy
 	MaxMemoryPolicy string `json:"max_memory_policy,omitempty" default:"allkeys-lru"`
-	// Redis credentials configuration
-	Credentials RedisCredentialsConfig `json:"credentials,omitempty"`
-}
-
-type RedisCredentialsConfig struct {
-	// Redis credentials username path
-	UsernamePath string `json:"username_path,omitempty"`
-	// Redis credentials password path
-	PasswordPath string `json:"password_path,omitempty"`
 }

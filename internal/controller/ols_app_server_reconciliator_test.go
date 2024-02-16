@@ -31,7 +31,8 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 		reconciler = &OLSConfigReconciler{
 			Options: OLSConfigReconcilerOptions{
-				LightspeedServiceImage: "lightspeed-service:latest",
+				LightspeedServiceImage:      "lightspeed-service:latest",
+				LightspeedServiceRedisImage: "lightspeed-service-redis:latest",
 			},
 			logger:     logf.Log.WithName("olsconfig.reconciler"),
 			Client:     k8sClient,
@@ -99,6 +100,14 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should create a service for lightspeed-redis-server", func() {
+
+			By("Get redis service")
+			svc := &corev1.Service{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppRedisServiceName, Namespace: cr.Namespace}, svc)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("should create a config map olsconfig", func() {
 
 			By("Get the config map")
@@ -112,6 +121,15 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, dep)
+			Expect(err).NotTo(HaveOccurred())
+
+		})
+
+		It("should create a deployment lightspeed-redis-server", func() {
+
+			By("Get redis deployment")
+			dep := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppRedisDeploymentName, Namespace: cr.Namespace}, dep)
 			Expect(err).NotTo(HaveOccurred())
 
 		})

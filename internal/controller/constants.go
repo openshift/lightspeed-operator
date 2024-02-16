@@ -49,8 +49,6 @@ const (
 	OLSAppRedisMaxMemoryPolicy = "allkeys-lru"
 	// OLSDefaultCacheType is the default cache type for OLS
 	OLSDefaultCacheType = "redis"
-	// OLSDefaultMemoryCacheEntries is the default memory cache entries for OLS
-	OLSDefaultMemoryCacheEntries = 1000
 
 	/*** state cache keys ***/
 	OLSConfigHashStateCacheKey = "olsconfigmap-hash"
