@@ -91,28 +91,9 @@ spec:
                   conversationCache:
                     description: Conversation cache settings
                     properties:
-                      memory:
-                        description: MemorySpec defines the desired of in-memory cache.
-                        properties:
-                          maxEntries:
-                            default: 1000
-                            description: 'Maximum number of cache entries. Default:
-                              "1000"'
-                            type: integer
-                        type: object
                       redis:
                         description: RedisSpec defines the desired state of Redis.
                         properties:
-                          credentials:
-                            description: Redis credentials
-                            properties:
-                              passwordPath:
-                                description: Redis credentials password path
-                                type: string
-                              usernamePath:
-                                description: Redis credentials username path
-                                type: string
-                            type: object
                           host:
                             default: lightspeed-redis-server.openshift-lightspeed.svc
                             description: Redis host

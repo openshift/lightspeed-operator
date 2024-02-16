@@ -92,8 +92,7 @@ type DeploymentConfig struct {
 type CacheType string
 
 const (
-	Redis  CacheType = "redis"
-	Memory CacheType = "memory"
+	Redis CacheType = "redis"
 )
 
 // ConversationCacheSpec defines the desired state of OLS conversation cache.
@@ -103,8 +102,6 @@ type ConversationCacheSpec struct {
 	Type CacheType `json:"type,omitempty"`
 	// +optional
 	Redis RedisSpec `json:"redis,omitempty"`
-	// +optional
-	Memory MemorySpec `json:"memory,omitempty"`
 }
 
 // RedisSpec defines the desired state of Redis.
@@ -124,23 +121,6 @@ type RedisSpec struct {
 	// Redis maxmemory policy. Default: "allkeys-lru"
 	// +kubebuilder:default=allkeys-lru
 	MaxMemoryPolicy string `json:"maxMemoryPolicy,omitempty"`
-	// Redis credentials
-	Credentials RedisCredentialsSpec `json:"credentials,omitempty"`
-}
-
-// RedisCredentialsSpec defines redis credentails.
-type RedisCredentialsSpec struct {
-	// Redis credentials username path
-	UsernamePath string `json:"usernamePath,omitempty"`
-	// Redis credentials password path
-	PasswordPath string `json:"passwordPath,omitempty"`
-}
-
-// MemorySpec defines the desired of in-memory cache.
-type MemorySpec struct {
-	// Maximum number of cache entries. Default: "1000"
-	// +kubebuilder:default=1000
-	MaxEntries int `json:"maxEntries,omitempty"`
 }
 
 // ModelSpec defines the desired state of in-memory cache.

@@ -32,20 +32,14 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Name: "reconcile App Service",
 			Task: r.reconcileService,
 		},
-	}
-
-	if olsconfig.Spec.OLSConfig.ConversationCache.Redis != (olsv1alpha1.RedisSpec{}) {
-		redisTasks := []ReconcileTask{
-			{
-				Name: "reconcile Redis Deployment",
-				Task: r.reconcileRedisDeployment,
-			},
-			{
-				Name: "reconcile Redis Service",
-				Task: r.reconcileRedisService,
-			},
-		}
-		tasks = append(tasks, redisTasks...)
+		{
+			Name: "reconcile Redis Deployment",
+			Task: r.reconcileRedisDeployment,
+		},
+		{
+			Name: "reconcile Redis Service",
+			Task: r.reconcileRedisService,
+		},
 	}
 
 	for _, task := range tasks {

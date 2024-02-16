@@ -43,8 +43,12 @@ const (
 	OLSAppServerServicePort = 8080
 	// OLSAppRedisServicePort is the port number of the OLS redis server service
 	OLSAppRedisServicePort = 6379
+	// OLSAppRedisMaxMemory is the max memory of the OLS redis cache
+	OLSAppRedisMaxMemory = "1024mb"
+	// OLSAppRedisMaxMemoryPolicy is the max memory policy of the OLS redis cache
+	OLSAppRedisMaxMemoryPolicy = "allkeys-lru"
 	// OLSDefaultCacheType is the default cache type for OLS
-	OLSDefaultCacheType = "memory"
+	OLSDefaultCacheType = "redis"
 	// OLSDefaultMemoryCacheEntries is the default memory cache entries for OLS
 	OLSDefaultMemoryCacheEntries = 1000
 
