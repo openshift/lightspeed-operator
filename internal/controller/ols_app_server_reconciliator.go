@@ -56,11 +56,15 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	foundCm := &corev1.ConfigMap{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSConfigCmName, Namespace: cr.Namespace}, foundCm)
 	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("creating a new configmap", "configmap", cm.Name)
 		err = r.Create(ctx, cm)
 		if err != nil {
 			return fmt.Errorf("failed to create OLS configmap: %w", err)
 		}
 		r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
+
+		return nil
+
 	} else if err != nil {
 		return fmt.Errorf("failed to get OLS configmap: %w", err)
 	}
@@ -91,10 +95,12 @@ func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *o
 	foundSa := &corev1.ServiceAccount{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerServiceAccountName, Namespace: cr.Namespace}, foundSa)
 	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("creating a new service account", "serviceAccount", sa.Name)
 		err = r.Create(ctx, sa)
 		if err != nil {
 			return fmt.Errorf("failed to create OLS service account: %w", err)
 		}
+		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to get OLS service account: %w", err)
 	}
@@ -114,6 +120,7 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 		updateDeploymentAnnotations(deployment, map[string]string{
 			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
 		})
+		r.logger.Info("creating a new deployment", "deployment", deployment.Name)
 		err = r.Create(ctx, deployment)
 		if err != nil {
 			return fmt.Errorf("failed to create OLS deployment: %w", err)
@@ -137,7 +144,6 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 
 		r.logger.Info("OLS deployment reconciliation skipped", "deployment", foundDeployment.Name, "olsconfig hash", foundDeployment.Annotations[OLSConfigHashKey])
 	}
-
 	return nil
 }
 
@@ -150,10 +156,13 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 	foundService := &corev1.Service{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerServiceName, Namespace: cr.Namespace}, foundService)
 	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("creating a new service", "service", service.Name)
 		err = r.Create(ctx, service)
 		if err != nil {
 			return fmt.Errorf("failed to create OLS service: %w", err)
 		}
+
+		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to get OLS service: %w", err)
 	}
