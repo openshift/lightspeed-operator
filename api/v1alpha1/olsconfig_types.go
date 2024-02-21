@@ -85,7 +85,8 @@ type OLSSpec struct {
 type DeploymentConfig struct {
 	// Defines the number of desired OLS pods. Default: "1"
 	// +kubebuilder:default=1
-	Replicas int32 `json:"replicas,omitempty"`
+	Replicas  *int32                       `json:"replicas,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=redis;memory
