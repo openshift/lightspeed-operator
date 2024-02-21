@@ -111,22 +111,22 @@ func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *o
 }
 
 func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	deployment, err := r.generateOLSDeployment(cr)
+	desiredDeployment, err := r.generateOLSDeployment(cr)
 	if err != nil {
 		return fmt.Errorf("failed to generate OLS deployment: %w", err)
 	}
 
-	foundDeployment := &appsv1.Deployment{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, foundDeployment)
+	existingDeployment := &appsv1.Deployment{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		updateDeploymentAnnotations(deployment, map[string]string{
+		updateDeploymentAnnotations(desiredDeployment, map[string]string{
 			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
 		})
-		updateDeploymentTemplateAnnotations(deployment, map[string]string{
+		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
 			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
 		})
-		r.logger.Info("creating a new deployment", "deployment", deployment.Name)
-		err = r.Create(ctx, deployment)
+		r.logger.Info("creating a new deployment", "deployment", desiredDeployment.Name)
+		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
 			return fmt.Errorf("failed to create OLS deployment: %w", err)
 		}
@@ -135,24 +135,12 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 		return fmt.Errorf("failed to get OLS deployment: %w", err)
 	}
 
-	if foundDeployment.Annotations == nil ||
-		foundDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] {
-		updateDeploymentAnnotations(deployment, map[string]string{
-			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
-		})
-		// update the deployment template annotation triggers the rolling update
-		updateDeploymentTemplateAnnotations(deployment, map[string]string{
-			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
-		})
-		err = r.Update(ctx, deployment)
-		if err != nil {
-			return fmt.Errorf("failed to update OLS deployment: %w", err)
-		}
-		r.logger.Info("OLS deployment reconciled", "deployment", deployment.Name, "olsconfig hash", deployment.Annotations[OLSConfigHashKey])
-	} else {
+	err = r.updateOLSDeployment(ctx, existingDeployment, desiredDeployment)
 
-		r.logger.Info("OLS deployment reconciliation skipped", "deployment", foundDeployment.Name, "olsconfig hash", foundDeployment.Annotations[OLSConfigHashKey])
+	if err != nil {
+		return fmt.Errorf("failed to update OLS deployment: %w", err)
 	}
+
 	return nil
 }
 
