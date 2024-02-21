@@ -72,6 +72,9 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	if err != nil {
 		return fmt.Errorf("failed to generate hash for the existing OLS configmap: %w", err)
 	}
+	// update the state cache with the hash of the existing configmap.
+	// so that we can skip the reconciling the deployment if the configmap has not changed.
+	r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
 	if foundCmHash == cm.Annotations[OLSConfigHashKey] {
 		r.logger.Info("OLS configmap reconciliation skipped", "configmap", foundCm.Name, "hash", foundCm.Annotations[OLSConfigHashKey])
 		return nil
@@ -81,7 +84,6 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	if err != nil {
 		return fmt.Errorf("failed to update OLS configmap: %w", err)
 	}
-	r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
 	r.logger.Info("OLS configmap reconciled", "configmap", cm.Name, "hash", cm.Annotations[OLSConfigHashKey])
 	return nil
 }
@@ -120,6 +122,9 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 		updateDeploymentAnnotations(deployment, map[string]string{
 			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
 		})
+		updateDeploymentTemplateAnnotations(deployment, map[string]string{
+			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+		})
 		r.logger.Info("creating a new deployment", "deployment", deployment.Name)
 		err = r.Create(ctx, deployment)
 		if err != nil {
@@ -133,6 +138,10 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	if foundDeployment.Annotations == nil ||
 		foundDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] {
 		updateDeploymentAnnotations(deployment, map[string]string{
+			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+		})
+		// update the deployment template annotation triggers the rolling update
+		updateDeploymentTemplateAnnotations(deployment, map[string]string{
 			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
 		})
 		err = r.Update(ctx, deployment)
