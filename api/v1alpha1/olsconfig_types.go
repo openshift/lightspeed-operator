@@ -89,7 +89,7 @@ type DeploymentConfig struct {
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-// +kubebuilder:validation:Enum=redis;memory
+// +kubebuilder:validation:Enum=redis
 type CacheType string
 
 const (
@@ -98,8 +98,8 @@ const (
 
 // ConversationCacheSpec defines the desired state of OLS conversation cache.
 type ConversationCacheSpec struct {
-	// Conversation cache type. Default: "memory"
-	// +kubebuilder:default=memory
+	// Conversation cache type. Default: "redis"
+	// +kubebuilder:default=redis
 	Type CacheType `json:"type,omitempty"`
 	// +optional
 	Redis RedisSpec `json:"redis,omitempty"`
@@ -116,7 +116,7 @@ type RedisSpec struct {
 	MaxMemoryPolicy string `json:"maxMemoryPolicy,omitempty"`
 }
 
-// ModelSpec defines the desired state of in-memory cache.
+// ModelSpec defines the desired state of cache.
 type ModelSpec struct {
 	// Model name
 	// +kubebuilder:validation:Required
