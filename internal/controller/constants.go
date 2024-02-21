@@ -30,13 +30,15 @@ const (
 	// todo: image vesion should synchronize with the release version of the lightspeed-service-api image.
 	OLSAppServerImageDefault = "quay.io/openshift/lightspeed-service-api:latest"
 	// Image of the OLS application redis server
-	OLSAppRedisServerImageDefault = "quay.io/openshift/lightspeed-service-redis:latest"
+	OLSAppRedisServerImageDefault = "quay.io/vchalla/lightspeed-service-redis:latest"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
 	// OLSAppServerServiceName is the name of the OLS application server service
 	OLSAppServerServiceName = "lightspeed-app-server"
 	// OLSAppRedisServiceName is the name of OLS application redis server service
 	OLSAppRedisServiceName = "lightspeed-redis-server"
+	// OLSAppRedisSecretName is the name of OLS application redis secret
+	OLSAppRedisSecretName = "lightspeed-redis-secret"
 	// OLSAppServerContainerPort is the port number of the lightspeed-service-api container exposes
 	OLSAppServerContainerPort = 8080
 	// OLSAppServerServicePort is the port number of the OLS application server service

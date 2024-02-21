@@ -94,10 +94,17 @@ spec:
                       redis:
                         description: RedisSpec defines the desired state of Redis.
                         properties:
-                          host:
-                            default: lightspeed-redis-server.openshift-lightspeed.svc
-                            description: Redis host
-                            type: string
+                          credentialsSecretRef:
+                            description: Name of a Kubernetes Secret resource containing
+                              redis credentials.
+                            properties:
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  TODO: Add other useful fields. apiVersion, kind,
+                                  uid?'
+                                type: string
+                            type: object
+                            x-kubernetes-map-type: atomic
                           maxMemory:
                             anyOf:
                             - type: integer
@@ -109,12 +116,6 @@ spec:
                             default: allkeys-lru
                             description: 'Redis maxmemory policy. Default: "allkeys-lru"'
                             type: string
-                          port:
-                            default: 6379
-                            description: 'Redis port. Default: "6379"'
-                            maximum: 65535
-                            minimum: 1
-                            type: integer
                         type: object
                       type:
                         default: memory

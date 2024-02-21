@@ -55,8 +55,6 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 	conversationCache := ConversationCacheConfig{
 		Type: string(OLSDefaultCacheType),
 		Redis: RedisCacheConfig{
-			Host:            strings.Join([]string{OLSAppRedisServiceName, cr.Namespace, "svc"}, "."),
-			Port:            OLSAppRedisServicePort,
 			MaxMemory:       &OLSRedisMaxMemory,
 			MaxMemoryPolicy: OLSAppRedisMaxMemoryPolicy,
 		},

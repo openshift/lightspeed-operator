@@ -67,12 +67,11 @@ type ConversationCacheConfig struct {
 }
 
 type RedisCacheConfig struct {
-	// Redis host
-	Host string `json:"host,omitempty" default:"lightspeed-redis-server.openshift-lightspeed.svc"`
-	// Redis port
-	Port int `json:"port,omitempty" default:"6379"`
 	// Redis maxmemory
 	MaxMemory *intstr.IntOrString `json:"max_memory,omitempty" default:"1024mb"`
 	// Redis maxmemory policy
 	MaxMemoryPolicy string `json:"max_memory_policy,omitempty" default:"allkeys-lru"`
+	// Path to the file containing redis credentials in the app server container.
+	// default to "lightspeed_redis_secret.txt"
+	CredentialsPath string `json:"credentials_path,omitempty"`
 }

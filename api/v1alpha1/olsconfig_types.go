@@ -106,14 +106,8 @@ type ConversationCacheSpec struct {
 
 // RedisSpec defines the desired state of Redis.
 type RedisSpec struct {
-	// Redis host
-	// +kubebuilder:default=lightspeed-redis-server.openshift-lightspeed.svc
-	Host string `json:"host,omitempty"`
-	// Redis port. Default: "6379"
-	// +kubebuilder:default=6379
-	// +kubebuilder:validation:Maximum=65535
-	// +kubebuilder:validation:Minimum=1
-	Port int `json:"port,omitempty"`
+	// +optional
+	CredentialsSecretRef corev1.LocalObjectReference `json:"credentialsSecretRef,omitempty"`
 	// Redis maxmemory
 	// +kubebuilder:validation:XIntOrString
 	// +kubebuilder:default="1024mb"
