@@ -55,8 +55,7 @@ spec:
                         models:
                           description: List of models from the provider
                           items:
-                            description: ModelSpec defines the desired state of in-memory
-                              cache.
+                            description: ModelSpec defines the desired state of cache.
                             properties:
                               name:
                                 description: Model name
@@ -107,11 +106,10 @@ spec:
                             type: string
                         type: object
                       type:
-                        default: memory
-                        description: 'Conversation cache type. Default: "memory"'
+                        default: redis
+                        description: 'Conversation cache type. Default: "redis"'
                         enum:
                         - redis
-                        - memory
                         type: string
                     type: object
                   defaultModel:

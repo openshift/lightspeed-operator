@@ -32,14 +32,6 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Name: "reconcile App Service",
 			Task: r.reconcileService,
 		},
-		{
-			Name: "reconcile Redis Deployment",
-			Task: r.reconcileRedisDeployment,
-		},
-		{
-			Name: "reconcile Redis Service",
-			Task: r.reconcileRedisService,
-		},
 	}
 
 	for _, task := range tasks {
@@ -172,45 +164,5 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 		return fmt.Errorf("failed to get OLS service: %w", err)
 	}
 	r.logger.Info("OLS service reconciled", "service", service.Name)
-	return nil
-}
-
-func (r *OLSConfigReconciler) reconcileRedisDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	deployment, err := r.generateRedisDeployment(cr)
-	if err != nil {
-		return fmt.Errorf("failed to generate OLS redis deployment: %w", err)
-	}
-
-	foundDeployment := &appsv1.Deployment{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppRedisDeploymentName, Namespace: cr.Namespace}, foundDeployment)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.Create(ctx, deployment)
-		if err != nil {
-			return fmt.Errorf("failed to create OLS redis deployment: %w", err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("failed to get OLS redis deployment: %w", err)
-	}
-	r.logger.Info("OLS redis deployment reconciled", "deployment", deployment.Name)
-	return nil
-}
-
-func (r *OLSConfigReconciler) reconcileRedisService(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	service, err := r.generateRedisService(cr)
-	if err != nil {
-		return fmt.Errorf("failed to generate OLS redis service: %w", err)
-	}
-
-	foundService := &corev1.Service{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppRedisServiceName, Namespace: cr.Namespace}, foundService)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.Create(ctx, service)
-		if err != nil {
-			return fmt.Errorf("failed to create OLS redis service: %w", err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("failed to get OLS redis service: %w", err)
-	}
-	r.logger.Info("OLS redis service reconciled", "service", service.Name)
 	return nil
 }
