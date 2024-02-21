@@ -131,9 +131,34 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppRedisDeploymentName, Namespace: cr.Namespace}, dep)
 			Expect(err).NotTo(HaveOccurred())
-
 		})
 
-	})
+		It("should trigger rolling update of the deployment when changing the generated config", func() {
 
+			By("Get the deployment")
+			dep := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
+			oldHash := dep.Spec.Template.Annotations[OLSConfigHashKey]
+			Expect(oldHash).NotTo(BeEmpty())
+
+			By("Update the OLSConfig custom resource")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.LogLevel = "ERROR"
+
+			By("Reconcile the app server")
+			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get the deployment")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
+			Expect(dep.Annotations[OLSConfigHashKey]).NotTo(Equal(oldHash))
+			Expect(dep.Annotations[OLSConfigHashKey]).NotTo(Equal(oldHash))
+		})
+	})
 })

@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"strings"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -131,10 +129,8 @@ func getOLSConfigWithCacheCR() *olsv1alpha1.OLSConfig {
 				ConversationCache: olsv1alpha1.ConversationCacheSpec{
 					Type: olsv1alpha1.Redis,
 					Redis: olsv1alpha1.RedisSpec{
-						Host:            strings.Join([]string{OLSAppRedisServiceName, OLSNamespaceDefault, "svc"}, "."),
 						MaxMemory:       &OLSRedisMaxMemory,
 						MaxMemoryPolicy: OLSAppRedisMaxMemoryPolicy,
-						Port:            OLSAppRedisServicePort,
 					},
 				},
 			},

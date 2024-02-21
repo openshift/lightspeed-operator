@@ -85,7 +85,8 @@ type OLSSpec struct {
 type DeploymentConfig struct {
 	// Defines the number of desired OLS pods. Default: "1"
 	// +kubebuilder:default=1
-	Replicas int32 `json:"replicas,omitempty"`
+	Replicas  *int32                       `json:"replicas,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=redis;memory
@@ -106,14 +107,6 @@ type ConversationCacheSpec struct {
 
 // RedisSpec defines the desired state of Redis.
 type RedisSpec struct {
-	// Redis host
-	// +kubebuilder:default=lightspeed-redis-server.openshift-lightspeed.svc
-	Host string `json:"host,omitempty"`
-	// Redis port. Default: "6379"
-	// +kubebuilder:default=6379
-	// +kubebuilder:validation:Maximum=65535
-	// +kubebuilder:validation:Minimum=1
-	Port int `json:"port,omitempty"`
 	// Redis maxmemory
 	// +kubebuilder:validation:XIntOrString
 	// +kubebuilder:default="1024mb"
