@@ -60,7 +60,7 @@ type LoggingConfig struct {
 }
 
 type ConversationCacheConfig struct {
-	// Type of cache to use. Default: "memory"
+	// Type of cache to use. Default: "redis"
 	Type string `json:"type" default:"redis"`
 	// Redis cache configuration
 	Redis RedisCacheConfig `json:"redis,omitempty"`

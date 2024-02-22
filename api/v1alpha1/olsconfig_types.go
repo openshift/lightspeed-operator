@@ -85,10 +85,11 @@ type OLSSpec struct {
 type DeploymentConfig struct {
 	// Defines the number of desired OLS pods. Default: "1"
 	// +kubebuilder:default=1
-	Replicas int32 `json:"replicas,omitempty"`
+	Replicas  *int32                       `json:"replicas,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-// +kubebuilder:validation:Enum=redis;memory
+// +kubebuilder:validation:Enum=redis
 type CacheType string
 
 const (
@@ -97,8 +98,8 @@ const (
 
 // ConversationCacheSpec defines the desired state of OLS conversation cache.
 type ConversationCacheSpec struct {
-	// Conversation cache type. Default: "memory"
-	// +kubebuilder:default=memory
+	// Conversation cache type. Default: "redis"
+	// +kubebuilder:default=redis
 	Type CacheType `json:"type,omitempty"`
 	// +optional
 	Redis RedisSpec `json:"redis,omitempty"`
@@ -117,7 +118,7 @@ type RedisSpec struct {
 	MaxMemoryPolicy string `json:"maxMemoryPolicy,omitempty"`
 }
 
-// ModelSpec defines the desired state of in-memory cache.
+// ModelSpec defines the desired state of cache.
 type ModelSpec struct {
 	// Model name
 	// +kubebuilder:validation:Required

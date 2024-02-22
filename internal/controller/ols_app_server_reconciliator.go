@@ -80,6 +80,9 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	if err != nil {
 		return fmt.Errorf("failed to generate hash for the existing OLS configmap: %w", err)
 	}
+	// update the state cache with the hash of the existing configmap.
+	// so that we can skip the reconciling the deployment if the configmap has not changed.
+	r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
 	if foundCmHash == cm.Annotations[OLSConfigHashKey] {
 		r.logger.Info("OLS configmap reconciliation skipped", "configmap", foundCm.Name, "hash", foundCm.Annotations[OLSConfigHashKey])
 		return nil
@@ -89,7 +92,6 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	if err != nil {
 		return fmt.Errorf("failed to update OLS configmap: %w", err)
 	}
-	r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
 	r.logger.Info("OLS configmap reconciled", "configmap", cm.Name, "hash", cm.Annotations[OLSConfigHashKey])
 	return nil
 }
@@ -117,19 +119,22 @@ func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *o
 }
 
 func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	deployment, err := r.generateOLSDeployment(cr)
+	desiredDeployment, err := r.generateOLSDeployment(cr)
 	if err != nil {
 		return fmt.Errorf("failed to generate OLS deployment: %w", err)
 	}
 
-	foundDeployment := &appsv1.Deployment{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, foundDeployment)
+	existingDeployment := &appsv1.Deployment{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		updateDeploymentAnnotations(deployment, map[string]string{
+		updateDeploymentAnnotations(desiredDeployment, map[string]string{
 			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
 		})
-		r.logger.Info("creating a new deployment", "deployment", deployment.Name)
-		err = r.Create(ctx, deployment)
+		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
+			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+		})
+		r.logger.Info("creating a new deployment", "deployment", desiredDeployment.Name)
+		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
 			return fmt.Errorf("failed to create OLS deployment: %w", err)
 		}
@@ -138,20 +143,12 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 		return fmt.Errorf("failed to get OLS deployment: %w", err)
 	}
 
-	if foundDeployment.Annotations == nil ||
-		foundDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] {
-		updateDeploymentAnnotations(deployment, map[string]string{
-			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
-		})
-		err = r.Update(ctx, deployment)
-		if err != nil {
-			return fmt.Errorf("failed to update OLS deployment: %w", err)
-		}
-		r.logger.Info("OLS deployment reconciled", "deployment", deployment.Name, "olsconfig hash", deployment.Annotations[OLSConfigHashKey])
-	} else {
+	err = r.updateOLSDeployment(ctx, existingDeployment, desiredDeployment)
 
-		r.logger.Info("OLS deployment reconciliation skipped", "deployment", foundDeployment.Name, "olsconfig hash", foundDeployment.Annotations[OLSConfigHashKey])
+	if err != nil {
+		return fmt.Errorf("failed to update OLS deployment: %w", err)
 	}
+
 	return nil
 }
 
