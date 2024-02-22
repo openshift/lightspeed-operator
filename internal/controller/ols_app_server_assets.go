@@ -51,15 +51,23 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 	}
 	OLSRedisMaxMemory := intstr.FromString(OLSAppRedisMaxMemory)
 	OLSRedisMaxMemoryPolicy := OLSAppRedisMaxMemoryPolicy
-	if cr.Spec.OLSConfig.ConversationCache.Redis != (olsv1alpha1.RedisSpec{}) {
+	redisConfig := cr.Spec.OLSConfig.ConversationCache.Redis
+	if redisConfig.MaxMemory != nil && redisConfig.MaxMemory.String() != "" {
 		OLSRedisMaxMemory = *cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemory
+	}
+	if redisConfig.MaxMemoryPolicy != "" {
 		OLSRedisMaxMemoryPolicy = cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy
 	}
+	redisPasswordPath := path.Join(CredentialsMountRoot, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name, OLSPasswordFileName)
 	conversationCache := ConversationCacheConfig{
 		Type: string(OLSDefaultCacheType),
 		Redis: RedisCacheConfig{
+			Host:            strings.Join([]string{OLSAppRedisServiceName, cr.Namespace, "svc"}, "."),
+			Port:            OLSAppRedisServicePort,
 			MaxMemory:       &OLSRedisMaxMemory,
 			MaxMemoryPolicy: OLSRedisMaxMemoryPolicy,
+			PasswordPath:    redisPasswordPath,
+			CACertPath:      path.Join(OLSAppCertsMountRoot, OLSAppRedisCertsSecretName, OLSRedisCAVolumeName, "service-ca.crt"),
 		},
 	}
 

@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -21,24 +22,28 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Task: r.reconcileServiceAccount,
 		},
 		{
-			Name: "reconcile OLSConfigMap",
-			Task: r.reconcileOLSConfigMap,
+			Name: "reconcile Redis Secret",
+			Task: r.reconcileRedisSecret,
 		},
 		{
-			Name: "reconcile App Deployment",
-			Task: r.reconcileDeployment,
+			Name: "reconcile OLSConfigMap",
+			Task: r.reconcileOLSConfigMap,
 		},
 		{
 			Name: "reconcile App Service",
 			Task: r.reconcileService,
 		},
 		{
-			Name: "reconcile Redis Deployment",
-			Task: r.reconcileRedisDeployment,
-		},
-		{
 			Name: "reconcile Redis Service",
 			Task: r.reconcileRedisService,
+		},
+		{
+			Name: "reconcile App Deployment",
+			Task: r.reconcileDeployment,
+		},
+		{
+			Name: "reconcile Redis Deployment",
+			Task: r.reconcileRedisDeployment,
 		},
 	}
 
@@ -96,6 +101,61 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	return nil
 }
 
+func (r *OLSConfigReconciler) reconcileRedisSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	secretName := OLSAppRedisSecretName
+	redisConfig := cr.Spec.OLSConfig.ConversationCache.Redis
+	if redisConfig != (olsv1alpha1.RedisSpec{}) {
+		if (redisConfig.CredentialsSecretRef != corev1.LocalObjectReference{}) && (redisConfig.CredentialsSecretRef.Name != "") {
+			secretName = redisConfig.CredentialsSecretRef.Name
+		}
+	}
+	cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = secretName
+	secret, err := r.generateRedisSecret(cr)
+	if err != nil {
+		return fmt.Errorf("failed to generate OLS redis secret: %w", err)
+	}
+	foundSecret := &corev1.Secret{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: secretName, Namespace: cr.Namespace}, foundSecret)
+	if err != nil && errors.IsNotFound(err) {
+		labelSelector := labels.Set{"app.kubernetes.io/name": "lightspeed-service-redis"}.AsSelector()
+		oldSecrets := &corev1.SecretList{}
+		err = r.Client.List(ctx, oldSecrets, &client.ListOptions{Namespace: cr.Namespace, LabelSelector: labelSelector})
+		if err != nil {
+			return fmt.Errorf("failed to list old OLS redis secrets: %w", err)
+		}
+		for _, oldSecret := range oldSecrets.Items {
+			if err := r.Client.Delete(ctx, &oldSecret); err != nil {
+				return fmt.Errorf("failed to delete old OLS redis secret: %w", err)
+			}
+		}
+		err = r.Create(ctx, secret)
+		if err != nil {
+			return fmt.Errorf("failed to create OLS redis secret: %w", err)
+		}
+		r.stateCache[OLSRedisSecretHashStateCacheKey] = secret.Annotations[OLSRedisSecretHashKey]
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get OLS redis secret: %w", err)
+	}
+	foundSecretHash, err := hashBytes(foundSecret.Data[OLSRedisSecretKeyName])
+	if err != nil {
+		return fmt.Errorf("failed to generate hash for the existing OLS redis secret: %w", err)
+	}
+	if foundSecretHash == r.stateCache[OLSRedisSecretHashStateCacheKey] {
+		r.logger.Info("OLS redis secret reconciliation skipped", "secret", foundSecret.Name, "hash", foundSecret.Annotations[OLSRedisSecretHashKey])
+		return nil
+	}
+	r.stateCache[OLSRedisSecretHashStateCacheKey] = foundSecretHash
+	secret.Annotations[OLSRedisSecretHashKey] = foundSecretHash
+	secret.Data[OLSRedisSecretKeyName] = foundSecret.Data[OLSRedisSecretKeyName]
+	err = r.Update(ctx, secret)
+	if err != nil {
+		return fmt.Errorf("failed to update OLS redis secret: %w", err)
+	}
+	r.logger.Info("OLS redis secret reconciled", "secret", secret.Name, "hash", secret.Annotations[OLSRedisSecretHashKey])
+	return nil
+}
+
 func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	sa, err := r.generateServiceAccount(cr)
 	if err != nil {
@@ -128,10 +188,12 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
+			OLSRedisSecretHashKey: r.stateCache[OLSRedisSecretHashStateCacheKey],
 		})
 		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
+			OLSRedisSecretHashKey: r.stateCache[OLSRedisSecretHashStateCacheKey],
 		})
 		r.logger.Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
@@ -176,22 +238,37 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 }
 
 func (r *OLSConfigReconciler) reconcileRedisDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	deployment, err := r.generateRedisDeployment(cr)
+	desiredDeployment, err := r.generateRedisDeployment(cr)
 	if err != nil {
 		return fmt.Errorf("failed to generate OLS redis deployment: %w", err)
 	}
 
-	foundDeployment := &appsv1.Deployment{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppRedisDeploymentName, Namespace: cr.Namespace}, foundDeployment)
+	existingDeployment := &appsv1.Deployment{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppRedisDeploymentName, Namespace: cr.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		err = r.Create(ctx, deployment)
+		updateDeploymentAnnotations(desiredDeployment, map[string]string{
+			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+		})
+		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
+			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+		})
+		r.logger.Info("creating a new OLS redis deployment", "deployment", desiredDeployment.Name)
+		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
 			return fmt.Errorf("failed to create OLS redis deployment: %w", err)
 		}
+		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to get OLS redis deployment: %w", err)
 	}
-	r.logger.Info("OLS redis deployment reconciled", "deployment", deployment.Name)
+
+	err = r.updateRedisDeployment(ctx, existingDeployment, desiredDeployment)
+
+	if err != nil {
+		return fmt.Errorf("failed to update OLS redis deployment: %w", err)
+	}
+
+	r.logger.Info("OLS redis deployment reconciled", "deployment", desiredDeployment.Name)
 	return nil
 }
 

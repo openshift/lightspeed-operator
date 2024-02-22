@@ -1,12 +1,14 @@
 package controller
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // updateDeploymentAnnotations updates the annotations in a given deployment.
@@ -36,6 +38,41 @@ func setDeploymentReplicas(deployment *appsv1.Deployment, replicas int32) bool {
 	}
 
 	return false
+}
+
+// setVolumes sets the volumes for a given deployment.
+func setVolumes(deployment *appsv1.Deployment, desiredVolumes []corev1.Volume) bool {
+	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Volumes, desiredVolumes) {
+		deployment.Spec.Template.Spec.Volumes = desiredVolumes
+		return true
+	}
+	return false
+}
+
+// setVolumeMounts sets the volumes mounts for a specific container in a given deployment.
+func setVolumeMounts(deployment *appsv1.Deployment, desiredVolumeMounts []corev1.VolumeMount, containerName string) (bool, error) {
+	containerIndex, err := getContainerIndex(deployment, containerName)
+	if err != nil {
+		return false, err
+	}
+	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Containers[containerIndex].VolumeMounts, desiredVolumeMounts) {
+		deployment.Spec.Template.Spec.Containers[containerIndex].VolumeMounts = desiredVolumeMounts
+		return true, nil
+	}
+	return false, nil
+}
+
+// setCommand sets the command for a specific container in a given deployment.
+func setCommand(deployment *appsv1.Deployment, desiredCommand []string, containerName string) (bool, error) {
+	containerIndex, err := getContainerIndex(deployment, containerName)
+	if err != nil {
+		return false, err
+	}
+	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Containers[containerIndex].Command, desiredCommand) {
+		deployment.Spec.Template.Spec.Containers[containerIndex].Command = desiredCommand
+		return true, nil
+	}
+	return false, nil
 }
 
 // setDeploymentContainerResources sets the resource requirements for a specific container in a given deployment.
@@ -71,4 +108,18 @@ func hashBytes(sourceStr []byte) (string, error) {
 		return "", fmt.Errorf("failed to generate hash %w", err)
 	}
 	return fmt.Sprintf("%x", hashFunc.Sum(nil)), nil
+}
+
+func getSecretContent(rclient client.Client, secretName string, namespace string, secretField string) (string, error) {
+	foundSecret := &corev1.Secret{}
+	ctx := context.Background()
+	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
+	if err != nil {
+		return "", fmt.Errorf("Error fetching secret: %w", err)
+	}
+	encodedSecretValue, ok := foundSecret.Data[secretField]
+	if !ok {
+		return "", fmt.Errorf("Secret field %s not present in the secret", secretField)
+	}
+	return string(encodedSecretValue), nil
 }
