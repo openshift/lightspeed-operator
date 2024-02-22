@@ -168,3 +168,4 @@ To develop the Operator you'll need the following tools:
 - [go](https://golang.org/dl/), version 1.21
 - [docker](https://docs.docker.com/install/), version 17.03+.
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) or [oc](https://docs.openshift.com/container-platform/latest/cli_reference/openshift_cli/getting-started-cli.html#installing-openshift-cli) and access to an OpenShift cluster of a compatible version.
+- [golangci-lint](https://golangci-lint.run/usage/install/#local-installation), version v1.54.2
