@@ -19,7 +19,7 @@ const (
 	// OLSAppServerDeploymentName is the name of the OLS application server deployment
 	OLSAppServerDeploymentName = "lightspeed-app-server"
 	// APIKeyMountRoot is the directory hosting the API key file in the container
-	APIKeyMountRoot = "/etc/apikeys"
+	APIKeyMountRoot = "/etc/apikeys" // #nosec G101
 	// LLMApiTokenFileName is the name of the file containing the API token to access LLM in the secret referenced by the OLSConfig
 	LLMApiTokenFileName = "apitoken"
 	// OLSConfigFilename is the name of the application server configuration file

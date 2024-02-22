@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"path"
 
-	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/yaml"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
 func (r *OLSConfigReconciler) generateServiceAccount(cr *olsv1alpha1.OLSConfig) (*corev1.ServiceAccount, error) {
