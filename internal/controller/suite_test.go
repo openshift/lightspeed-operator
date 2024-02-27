@@ -17,12 +17,17 @@ limitations under the License.
 package controller
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,9 +42,13 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
+var ctx context.Context
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
+var cr *olsv1alpha1.OLSConfig
+var reconciler *OLSConfigReconciler
+var crNamespacedName types.NamespacedName
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -71,10 +80,64 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	ctx = context.Background()
+
+	By("Create the namespace openshift-lightspeed")
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "openshift-lightspeed",
+		},
+	}
+	err = k8sClient.Create(ctx, ns)
+	Expect(err).NotTo(HaveOccurred())
+
+	reconciler = &OLSConfigReconciler{
+		Options: OLSConfigReconcilerOptions{
+			LightspeedServiceImage:      "lightspeed-service:latest",
+			LightspeedServiceRedisImage: "lightspeed-service-redis:latest",
+		},
+		logger:     logf.Log.WithName("olsconfig.reconciler"),
+		Client:     k8sClient,
+		Scheme:     k8sClient.Scheme(),
+		stateCache: make(map[string]string),
+	}
+	cr = &olsv1alpha1.OLSConfig{}
+	crNamespacedName = types.NamespacedName{
+		Name:      "cluster",
+		Namespace: "openshift-lightspeed",
+	}
+
+	By("Create a complete OLSConfig custom resource")
+	err = k8sClient.Get(ctx, crNamespacedName, cr)
+	if err != nil && errors.IsNotFound(err) {
+		cr = getCompleteOLSConfigCR()
+		err = k8sClient.Create(ctx, cr)
+		Expect(err).NotTo(HaveOccurred())
+	} else if err == nil {
+		cr = getCompleteOLSConfigCR()
+		err = k8sClient.Update(ctx, cr)
+		Expect(err).NotTo(HaveOccurred())
+	} else {
+		Fail("Failed to create or update the OLSConfig custom resource")
+	}
+
+	By("Get the OLSConfig custom resource")
+	err = k8sClient.Get(ctx, crNamespacedName, cr)
+	Expect(err).NotTo(HaveOccurred())
+
 })
 
 var _ = AfterSuite(func() {
+	By("Delete the namespace openshift-lightspeed")
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "openshift-lightspeed",
+		},
+	}
+	err := k8sClient.Delete(ctx, ns)
+	Expect(err).NotTo(HaveOccurred())
+
 	By("tearing down the test environment")
-	err := testEnv.Stop()
+	err = testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })

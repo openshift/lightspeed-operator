@@ -43,7 +43,8 @@ type OLSConfigReconciler struct {
 }
 
 type OLSConfigReconcilerOptions struct {
-	LightspeedServiceImage string
+	LightspeedServiceImage      string
+	LightspeedServiceRedisImage string
 }
 
 //+kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -82,6 +83,11 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	err = r.reconcileAppServer(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile application server")
+		return ctrl.Result{}, err
+	}
+	err = r.reconcileRedisServer(ctx, olsconfig)
+	if err != nil {
+		r.logger.Error(err, "Failed to reconcile ols redis")
 		return ctrl.Result{}, err
 	}
 	r.logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)

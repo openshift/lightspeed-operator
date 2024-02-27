@@ -25,11 +25,11 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Task: r.reconcileOLSConfigMap,
 		},
 		{
-			Name: "reconcile Deployment",
+			Name: "reconcile App Deployment",
 			Task: r.reconcileDeployment,
 		},
 		{
-			Name: "reconcile Service",
+			Name: "reconcile App Service",
 			Task: r.reconcileService,
 		},
 	}

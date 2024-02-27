@@ -89,50 +89,34 @@ type DeploymentConfig struct {
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-// +kubebuilder:validation:Enum=redis;memory
+// +kubebuilder:validation:Enum=redis
 type CacheType string
 
 const (
-	Redis  CacheType = "redis"
-	Memory CacheType = "memory"
+	Redis CacheType = "redis"
 )
 
 // ConversationCacheSpec defines the desired state of OLS conversation cache.
 type ConversationCacheSpec struct {
-	// Conversation cache type. Default: "memory"
-	// +kubebuilder:default=memory
+	// Conversation cache type. Default: "redis"
+	// +kubebuilder:default=redis
 	Type CacheType `json:"type,omitempty"`
 	// +optional
 	Redis RedisSpec `json:"redis,omitempty"`
-	// +optional
-	Memory MemorySpec `json:"memory,omitempty"`
 }
 
 // RedisSpec defines the desired state of Redis.
 type RedisSpec struct {
-	// Redis host
-	Host string `json:"host,omitempty"`
-	// Redis port. Default: "6379"
-	// +kubebuilder:default=6379
-	// +kubebuilder:validation:Maximum=65535
-	// +kubebuilder:validation:Minimum=1
-	Port int `json:"port,omitempty"`
 	// Redis maxmemory
 	// +kubebuilder:validation:XIntOrString
+	// +kubebuilder:default="1024mb"
 	MaxMemory *intstr.IntOrString `json:"maxMemory,omitempty"`
 	// Redis maxmemory policy. Default: "allkeys-lru"
 	// +kubebuilder:default=allkeys-lru
 	MaxMemoryPolicy string `json:"maxMemoryPolicy,omitempty"`
 }
 
-// MemorySpec defines the desired of in-memory cache.
-type MemorySpec struct {
-	// Maximum number of cache entries. Default: "1000"
-	// +kubebuilder:default=1000
-	MaxEntries int `json:"maxEntries,omitempty"`
-}
-
-// ModelSpec defines the desired state of in-memory cache.
+// ModelSpec defines the desired state of cache.
 type ModelSpec struct {
 	// Model name
 	// +kubebuilder:validation:Required

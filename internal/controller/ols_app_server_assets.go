@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"path"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,10 +50,20 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
-
+	OLSRedisMaxMemory := intstr.FromString(OLSAppRedisMaxMemory)
+	OLSRedisMaxMemoryPolicy := OLSAppRedisMaxMemoryPolicy
+	if cr.Spec.OLSConfig.ConversationCache.Redis != (olsv1alpha1.RedisSpec{}) {
+		OLSRedisMaxMemory = *cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemory
+		OLSRedisMaxMemoryPolicy = cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy
+	}
 	conversationCache := ConversationCacheConfig{
-		Type:   string(cr.Spec.OLSConfig.ConversationCache.Type),
-		Memory: MemoryCacheConfig{MaxEntries: cr.Spec.OLSConfig.ConversationCache.Memory.MaxEntries},
+		Type: string(OLSDefaultCacheType),
+		Redis: RedisCacheConfig{
+			Host:            strings.Join([]string{OLSAppRedisServiceName, cr.Namespace, "svc"}, "."),
+			Port:            OLSAppRedisServicePort,
+			MaxMemory:       &OLSRedisMaxMemory,
+			MaxMemoryPolicy: OLSRedisMaxMemoryPolicy,
+		},
 	}
 
 	olsConfig := OLSConfig{

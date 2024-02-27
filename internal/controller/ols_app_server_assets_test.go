@@ -2,16 +2,18 @@ package controller
 
 import (
 	"path"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
 var _ = Describe("App server assets", func() {
@@ -50,6 +52,7 @@ var _ = Describe("App server assets", func() {
 
 		It("should generate the olsconfig config map", func() {
 			cm, err := r.generateOLSConfigMap(cr)
+			OLSRedisMaxMemory := intstr.FromString(OLSAppRedisMaxMemory)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(cr.Namespace))
@@ -66,8 +69,13 @@ var _ = Describe("App server assets", func() {
 						LibLogLevel: "INFO",
 					},
 					ConversationCache: ConversationCacheConfig{
-						Type:   "memory",
-						Memory: MemoryCacheConfig{MaxEntries: 1},
+						Type: "redis",
+						Redis: RedisCacheConfig{
+							Host:            strings.Join([]string{OLSAppRedisServiceName, cr.Namespace, "svc"}, "."),
+							Port:            OLSAppRedisServicePort,
+							MaxMemory:       &OLSRedisMaxMemory,
+							MaxMemoryPolicy: OLSAppRedisMaxMemoryPolicy,
+						},
 					},
 				},
 				LLMProviders: []ProviderConfig{
@@ -196,8 +204,12 @@ var _ = Describe("App server assets", func() {
 			const expectedConfigStr = `llm_providers: []
 ols_config:
   conversation_cache:
-    memory: {}
-    type: ""
+    redis:
+      host: lightspeed-redis-server.openshift-lightspeed.svc
+      max_memory: 1024mb
+      max_memory_policy: allkeys-lru
+      port: 6379
+    type: redis
   logging_config:
     app_log_level: ""
     lib_log_level: ""
@@ -296,10 +308,8 @@ func getCompleteOLSConfigCR() *olsv1alpha1.OLSConfig {
 				DefaultProvider: "testProvider",
 				LogLevel:        "INFO",
 				ConversationCache: olsv1alpha1.ConversationCacheSpec{
-					Type: olsv1alpha1.Memory,
-					Memory: olsv1alpha1.MemorySpec{
-						MaxEntries: 1,
-					},
+					Type:  olsv1alpha1.Redis,
+					Redis: olsv1alpha1.RedisSpec{},
 				},
 			},
 		},

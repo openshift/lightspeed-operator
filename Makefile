@@ -130,9 +130,10 @@ build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
 LIGHTSPEED_SERVICE_IMG ?= quay.io/openshift/lightspeed-service-api:latest
+LIGHTSPEED_SERVICE_REDIS_IMG ?= quay.io/openshift/lightspeed-service-redis:latest
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go --images="lightspeed-service=$(LIGHTSPEED_SERVICE_IMG)"
+	go run ./cmd/main.go --images="lightspeed-service=$(LIGHTSPEED_SERVICE_IMG),lightspeed-service-redis=$(LIGHTSPEED_SERVICE_REDIS_IMG)"
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.

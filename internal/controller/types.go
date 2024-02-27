@@ -3,6 +3,8 @@ package controller
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
@@ -59,14 +61,19 @@ type LoggingConfig struct {
 }
 
 type ConversationCacheConfig struct {
-	// Type of cache to use. Default: "memory"
-	Type string `json:"type" default:"memory"`
-	// Memory cache configuration
-	Memory MemoryCacheConfig `json:"memory,omitempty"`
-	// todo: add redis cache configuration
+	// Type of cache to use. Default: "redis"
+	Type string `json:"type" default:"redis"`
+	// Redis cache configuration
+	Redis RedisCacheConfig `json:"redis,omitempty"`
 }
 
-type MemoryCacheConfig struct {
-	// Maximum number of cache entries. Default: "1000"
-	MaxEntries int `json:"max_entries,omitempty" default:"1000"`
+type RedisCacheConfig struct {
+	// Redis host
+	Host string `json:"host,omitempty" default:"lightspeed-redis-server.openshift-lightspeed.svc"`
+	// Redis port
+	Port int `json:"port,omitempty" default:"6379"`
+	// Redis maxmemory
+	MaxMemory *intstr.IntOrString `json:"max_memory,omitempty" default:"1024mb"`
+	// Redis maxmemory policy
+	MaxMemoryPolicy string `json:"max_memory_policy,omitempty" default:"allkeys-lru"`
 }
