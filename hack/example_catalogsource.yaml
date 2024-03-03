@@ -1,0 +1,14 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: lightspeed-operator-catalog
+  namespace: openshift-marketplace
+spec:
+  displayName: LightSpeed Operator
+  sourceType: grpc
+  secrets:
+    - pull-secret
+  image: quay.io/openshift/lightspeed-catalog:0.0.1
+  updateStrategy:
+    registryPoll:
+      interval: 10m
