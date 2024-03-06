@@ -93,7 +93,7 @@ var _ = BeforeSuite(func() {
 
 	reconciler = &OLSConfigReconciler{
 		Options: OLSConfigReconcilerOptions{
-			LightspeedServiceImage:      "lightspeed-service:latest",
+			LightspeedServiceImage:      "lightspeed-service-api:latest",
 			LightspeedServiceRedisImage: "lightspeed-service-redis:latest",
 		},
 		logger:     logf.Log.WithName("olsconfig.reconciler"),

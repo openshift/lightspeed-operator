@@ -106,9 +106,10 @@ spec:
       url: https://bam-api.res.ibm.com
   ols:
     conversationCache:
-      memory:
-        maxEntries: 1000
-      type: memory
+      redis:
+        maxMemory: "2000mb"
+        maxMemoryPolicy: "allkeys-lru"
+      type: redis
     defaultModel: ibm/granite-13b-chat-v2
     defaultProvider: bam
     enableDeveloperUI: false
@@ -117,36 +118,66 @@ spec:
       replicas: 1
 ```
 
-3. The operator should create a configmap, a deployment and a service for running the [lightspeed-service](https://github.com/openshift/lightspeed-service) application server.
+3. The operator should create below set of resources for running the [lightspeed-service](https://github.com/openshift/lightspeed-service) application server.
 
 ```shell
+➜ kubectl get secrets -n openshift-lightspeed
+NAME                                                     TYPE                                  DATA   AGE
+builder-dockercfg-cqcsz                                  kubernetes.io/dockercfg               1      10m
+builder-token-2vkj5                                      kubernetes.io/service-account-token   4      10m
+default-dockercfg-tptk6                                  kubernetes.io/dockercfg               1      10m
+default-token-l5q4k                                      kubernetes.io/service-account-token   4      10m
+deployer-dockercfg-9p7w8                                 kubernetes.io/dockercfg               1      10m
+deployer-token-kcmmd                                     kubernetes.io/service-account-token   4      10m
+lightspeed-app-server-dockercfg-rd7qk                    kubernetes.io/dockercfg               1      9m33s
+lightspeed-app-server-token-4g6cj                        kubernetes.io/service-account-token   4      9m33s
+lightspeed-operator-controller-manager-dockercfg-wdgjz   kubernetes.io/dockercfg               1      10m
+lightspeed-operator-controller-manager-token-whfr6       kubernetes.io/service-account-token   4      10m
+lightspeed-redis-certs                                   kubernetes.io/tls                     2      22s
+lightspeed-redis-secret                                  Opaque                                1      2s
+
 ➜ kubectl get configmaps -n openshift-lightspeed
 NAME                       DATA   AGE
-kube-root-ca.crt           1      4h9m
-olsconfig                  1      4h9m
-openshift-service-ca.crt   1      4h9m
+kube-root-ca.crt           1      4m11s
+olsconfig                  1      3m5s
+openshift-service-ca.crt   1      4m11s
 
 ➜ kubectl get services -n openshift-lightspeed
-NAME                                                     TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
-lightspeed-app-server                                    ClusterIP   172.30.8.150    <none>        8080/TCP   22m
-lightspeed-operator-controller-manager-metrics-service   ClusterIP   172.30.35.253   <none>        8443/TCP   2d15h
+NAME                                                     TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
+lightspeed-app-server                                    ClusterIP   172.30.176.179   <none>        8080/TCP   4m47s
+lightspeed-redis-server                                  ClusterIP   172.30.85.42     <none>        6379/TCP   4m47s
+lightspeed-operator-controller-manager-metrics-service   ClusterIP   172.30.35.253    <none>        8443/TCP   4m47s
 
 ➜ kubectl get deployments -n openshift-lightspeed
 NAME                                     READY   UP-TO-DATE   AVAILABLE   AGE
-lightspeed-app-server                    1/1     1            1           23m
+lightspeed-app-server                    1/1     1            1           7m5s
+lightspeed-redis-server                  1/1     1            1           7m5s
 lightspeed-operator-controller-manager   1/1     1            1           2d15h
 
 ➜ kubectl get pods -n openshift-lightspeed
-NAME                                                      READY   STATUS    RESTARTS   AGE
-lightspeed-app-server-77bd6d666c-4ct7v                    1/1     Running   0          23m
-lightspeed-operator-controller-manager-6759d8c66d-bfnzs   2/2     Running   0          2d15h
+NAME                                                      READY   STATUS              RESTARTS      AGE
+lightspeed-app-server-f7fd6cf6-k7s7p                      1/1     Running             0             6m47s
+lightspeed-operator-controller-manager-7c849865ff-9vwj9   2/2     Running             0             7m19s
+lightspeed-redis-server-7b75497676-np7zk                  1/1     Running             0             6m47s
 
-➜ kubectl logs ols-app-server-5c9765967d-vvwnh -n openshift-lightspeed
+➜ kubectl logs lightspeed-app-server-f7fd6cf6-k7s7p -n openshift-lightspeed
 2024-02-02 12:00:06,982 [ols.app.main:main.py:29] INFO: Embedded Gradio UI is disabled. To enable set enable_dev_ui: true in the dev section of the configuration file
 INFO:     Started server process [1]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+```
+
+#### Redis Secret Management
+By default redis server spins up with a randomly generated password located in the secret `lightspeed-redis-secret`. One can go edit password their password to a desired value to get it reflected across the system. In addition to that redis secret name can also be explicitly specified in `olsconfig.yaml` as shown in the below example.
+```
+conversationCache:
+  redis:
+    maxMemory: "2000mb"
+    maxMemoryPolicy: "allkeys-lru"
+    credentialsSecretRef:
+      name: xyz
+  type: redis
 ```
 
 ### Modifying the API definitions

@@ -21,12 +21,6 @@ var _ = Describe("App server assets", func() {
 	var cr *olsv1alpha1.OLSConfig
 	var r *OLSConfigReconciler
 	var rOptions *OLSConfigReconcilerOptions
-	deploymentSelectorLabels := map[string]string{
-		"app.kubernetes.io/component":  "application-server",
-		"app.kubernetes.io/managed-by": "lightspeed-operator",
-		"app.kubernetes.io/name":       "lightspeed-service-api",
-		"app.kubernetes.io/part-of":    "openshift-lightspeed",
-	}
 
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
@@ -75,6 +69,8 @@ var _ = Describe("App server assets", func() {
 							Port:            OLSAppRedisServicePort,
 							MaxMemory:       &OLSRedisMaxMemory,
 							MaxMemoryPolicy: OLSAppRedisMaxMemoryPolicy,
+							PasswordPath:    path.Join(CredentialsMountRoot, OLSAppRedisSecretName, OLSPasswordFileName),
+							CACertPath:      path.Join(OLSAppCertsMountRoot, OLSAppRedisCertsSecretName, OLSRedisCAVolumeName, "service-ca.crt"),
 						},
 					},
 				},
@@ -121,7 +117,12 @@ var _ = Describe("App server assets", func() {
 					Value: path.Join("/etc/ols", OLSConfigFilename),
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(Equal([]corev1.VolumeMount{
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
+				{
+					Name:      "secret-lightspeed-redis-secret",
+					MountPath: "/etc/credentials/lightspeed-redis-secret",
+					ReadOnly:  true,
+				},
 				{
 					Name:      "secret-test-secret",
 					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
@@ -132,13 +133,26 @@ var _ = Describe("App server assets", func() {
 					MountPath: "/etc/ols",
 					ReadOnly:  true,
 				},
+				{
+					Name:      "cm-olsredisca",
+					MountPath: "/etc/certs/lightspeed-redis-certs/cm-olsredisca",
+					ReadOnly:  true,
+				},
 			}))
-			Expect(dep.Spec.Template.Spec.Volumes).To(Equal([]corev1.Volume{
+			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
 				{
 					Name: "secret-test-secret",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
 							SecretName: "test-secret",
+						},
+					},
+				},
+				{
+					Name: "secret-lightspeed-redis-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: OLSAppRedisSecretName,
 						},
 					},
 				},
@@ -150,8 +164,16 @@ var _ = Describe("App server assets", func() {
 						},
 					},
 				},
+				{
+					Name: "cm-olsredisca",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: OLSRedisCACmName},
+						},
+					},
+				},
 			}))
-			Expect(dep.Spec.Selector.MatchLabels).To(Equal(deploymentSelectorLabels))
+			Expect(dep.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
 		})
 
 		It("should generate the OLS service", func() {
@@ -159,7 +181,7 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(service.Name).To(Equal(OLSAppServerServiceName))
 			Expect(service.Namespace).To(Equal(cr.Namespace))
-			Expect(service.Spec.Selector).To(Equal(deploymentSelectorLabels))
+			Expect(service.Spec.Selector).To(Equal(generateAppServerSelectorLabels()))
 			Expect(service.Spec.Ports).To(Equal([]corev1.ServicePort{
 				{
 					Name:       "http",
@@ -205,9 +227,11 @@ var _ = Describe("App server assets", func() {
 ols_config:
   conversation_cache:
     redis:
+      ca_cert_path: /etc/certs/lightspeed-redis-certs/cm-olsredisca/service-ca.crt
       host: lightspeed-redis-server.openshift-lightspeed.svc
       max_memory: 1024mb
       max_memory_policy: allkeys-lru
+      password_path: /etc/credentials/lightspeed-redis-secret/password
       port: 6379
     type: redis
   logging_config:
@@ -222,7 +246,7 @@ ols_config:
 			Expect(err).NotTo(HaveOccurred())
 			Expect(service.Name).To(Equal(OLSAppServerServiceName))
 			Expect(service.Namespace).To(Equal("openshift-lightspeed"))
-			Expect(service.Spec.Selector).To(Equal(deploymentSelectorLabels))
+			Expect(service.Spec.Selector).To(Equal(generateAppServerSelectorLabels()))
 			Expect(service.Spec.Ports).To(Equal([]corev1.ServicePort{
 				{
 					Name:       "http",
@@ -235,6 +259,7 @@ ols_config:
 
 		It("should generate the OLS deployment", func() {
 			// todo: update this test after updating the test for generateOLSConfigMap
+			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = OLSAppRedisSecretName
 			dep, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(OLSAppServerDeploymentName))
@@ -254,14 +279,33 @@ ols_config:
 					Value: path.Join("/etc/ols", OLSConfigFilename),
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(Equal([]corev1.VolumeMount{
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
+				{
+					Name:      "secret-lightspeed-redis-secret",
+					MountPath: "/etc/credentials/lightspeed-redis-secret",
+					ReadOnly:  true,
+				},
 				{
 					Name:      "cm-olsconfig",
 					MountPath: "/etc/ols",
 					ReadOnly:  true,
 				},
+
+				{
+					Name:      "cm-olsredisca",
+					MountPath: "/etc/certs/lightspeed-redis-certs/cm-olsredisca",
+					ReadOnly:  true,
+				},
 			}))
-			Expect(dep.Spec.Template.Spec.Volumes).To(Equal([]corev1.Volume{
+			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
+				{
+					Name: "secret-lightspeed-redis-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: OLSAppRedisSecretName,
+						},
+					},
+				},
 				{
 					Name: "cm-olsconfig",
 					VolumeSource: corev1.VolumeSource{
@@ -270,8 +314,18 @@ ols_config:
 						},
 					},
 				},
+				{
+					Name: "cm-olsredisca",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: OLSRedisCACmName,
+							},
+						},
+					},
+				},
 			}))
-			Expect(dep.Spec.Selector.MatchLabels).To(Equal(deploymentSelectorLabels))
+			Expect(dep.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
 
 		})
 	})
@@ -308,8 +362,12 @@ func getCompleteOLSConfigCR() *olsv1alpha1.OLSConfig {
 				DefaultProvider: "testProvider",
 				LogLevel:        "INFO",
 				ConversationCache: olsv1alpha1.ConversationCacheSpec{
-					Type:  olsv1alpha1.Redis,
-					Redis: olsv1alpha1.RedisSpec{},
+					Type: olsv1alpha1.Redis,
+					Redis: olsv1alpha1.RedisSpec{
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: OLSAppRedisSecretName,
+						},
+					},
 				},
 			},
 		},

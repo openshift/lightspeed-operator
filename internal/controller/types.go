@@ -76,4 +76,8 @@ type RedisCacheConfig struct {
 	MaxMemory *intstr.IntOrString `json:"max_memory,omitempty" default:"1024mb"`
 	// Redis maxmemory policy
 	MaxMemoryPolicy string `json:"max_memory_policy,omitempty" default:"allkeys-lru"`
+	// Path to the file containing redis credentials in the app server container.
+	PasswordPath string `json:"password_path,omitempty"`
+	// Redis CA certificate path
+	CACertPath string `json:"ca_cert_path,omitempty"`
 }

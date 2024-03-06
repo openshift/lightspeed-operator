@@ -3,12 +3,12 @@ package controller
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"path"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -19,15 +19,10 @@ var _ = Describe("App redis server assets", func() {
 	var cr *olsv1alpha1.OLSConfig
 	var r *OLSConfigReconciler
 	var rOptions *OLSConfigReconcilerOptions
-	deploymentSelectorLabels := map[string]string{
-		"app.kubernetes.io/component":  "redis-server",
-		"app.kubernetes.io/managed-by": "lightspeed-operator",
-		"app.kubernetes.io/name":       "lightspeed-service-redis",
-		"app.kubernetes.io/part-of":    "openshift-lightspeed",
-	}
 
-	validateRedisDeployment := func(dep *appsv1.Deployment, err error) {
-		Expect(err).NotTo(HaveOccurred())
+	validateRedisDeployment := func(dep *appsv1.Deployment, password string) {
+		replicas := int32(1)
+		revisionHistoryLimit := int32(0)
 		Expect(dep.Name).To(Equal(OLSAppRedisDeploymentName))
 		Expect(dep.Namespace).To(Equal(cr.Namespace))
 		Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(rOptions.LightspeedServiceRedisImage))
@@ -49,21 +44,83 @@ var _ = Describe("App redis server assets", func() {
 				corev1.ResourceMemory: resource.MustParse("1Gi"),
 			},
 		}))
-		Expect(dep.Spec.Selector.MatchLabels).To(Equal(deploymentSelectorLabels))
+		Expect(dep.Spec.Template.Spec.Containers[0].Command).To(Equal([]string{"redis-server",
+			"--port", "0",
+			"--tls-port", "6379",
+			"--tls-cert-file", path.Join(OLSAppCertsMountRoot, "tls.crt"),
+			"--tls-key-file", path.Join(OLSAppCertsMountRoot, "tls.key"),
+			"--tls-ca-cert-file", path.Join(OLSAppCertsMountRoot, OLSRedisCAVolumeName, "service-ca.crt"),
+			"--tls-auth-clients", "optional",
+			"--protected-mode", "no",
+			"--requirepass", password},
+		))
+		Expect(dep.Spec.Selector.MatchLabels).To(Equal(generateRedisSelectorLabels()))
+		Expect(dep.Spec.RevisionHistoryLimit).To(Equal(&revisionHistoryLimit))
+		Expect(dep.Spec.Replicas).To(Equal(&replicas))
+		Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(Equal([]corev1.VolumeMount{
+			{
+				Name:      "secret-" + OLSAppRedisCertsSecretName,
+				MountPath: OLSAppCertsMountRoot,
+				ReadOnly:  true,
+			},
+			{
+				Name:      OLSRedisCAVolumeName,
+				MountPath: path.Join(OLSAppCertsMountRoot, OLSRedisCAVolumeName),
+				ReadOnly:  true,
+			},
+		}))
+		Expect(dep.Spec.Template.Spec.Volumes).To(Equal([]corev1.Volume{
+			{
+				Name: "secret-" + OLSAppRedisCertsSecretName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: OLSAppRedisCertsSecretName,
+					},
+				},
+			},
+			{
+				Name: OLSRedisCAVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{Name: OLSRedisCACmName},
+					},
+				},
+			},
+		}))
 	}
 
 	validateRedisService := func(service *corev1.Service, err error) {
+		internalTrafficPolicy := corev1.ServiceInternalTrafficPolicyCluster
+		ipFamilies := []corev1.IPFamily{corev1.IPv4Protocol}
+		ipFamilyPolicy := corev1.IPFamilyPolicySingleStack
 		Expect(err).NotTo(HaveOccurred())
 		Expect(service.Name).To(Equal(OLSAppRedisServiceName))
 		Expect(service.Namespace).To(Equal(cr.Namespace))
-		Expect(service.Spec.Selector).To(Equal(deploymentSelectorLabels))
+		Expect(service.Labels).To(Equal(generateRedisSelectorLabels()))
+		Expect(service.Annotations).To(Equal(map[string]string{
+			"service.beta.openshift.io/serving-cert-secret-name": OLSAppRedisCertsSecretName,
+		}))
+		Expect(service.Spec.Selector).To(Equal(generateRedisSelectorLabels()))
+		Expect(service.Spec.SessionAffinity).To(Equal(corev1.ServiceAffinityNone))
+		Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+		Expect(service.Spec.InternalTrafficPolicy).To(Equal(&internalTrafficPolicy))
+		Expect(service.Spec.IPFamilies).To(Equal(ipFamilies))
+		Expect(service.Spec.IPFamilyPolicy).To(Equal(&ipFamilyPolicy))
 		Expect(service.Spec.Ports).To(Equal([]corev1.ServicePort{
 			{
 				Name:       "server",
 				Port:       OLSAppRedisServicePort,
+				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.Parse("server"),
 			},
 		}))
+	}
+
+	validateRedisSecret := func(secret *corev1.Secret) {
+		Expect(secret.Namespace).To(Equal(cr.Namespace))
+		Expect(secret.Labels).To(Equal(generateRedisSelectorLabels()))
+		Expect(secret.Annotations).To(HaveKey(OLSRedisSecretHashKey))
+		Expect(secret.Data).To(HaveKey(OLSRedisSecretKeyName))
 	}
 
 	Context("complete custom resource", func() {
@@ -82,12 +139,106 @@ var _ = Describe("App redis server assets", func() {
 		})
 
 		It("should generate the OLS redis deployment", func() {
-			validateRedisDeployment(r.generateRedisDeployment(cr))
+			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = "dummy-secret-1"
+			secret, _ := r.generateRedisSecret(cr)
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "dummy-secret-1",
+				},
+			})
+			secretCreationErr := r.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+			password, _ := getSecretContent(r.Client, secret.Name, cr.Namespace, OLSPasswordFileName)
+			deployment, err := r.generateRedisDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			validateRedisDeployment(deployment, password)
+			secretDeletionErr := r.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+		})
 
+		It("should work when no update in the OLS redis deployment", func() {
+			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = "dummy-secret-2"
+			secret, _ := r.generateRedisSecret(cr)
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "dummy-secret-2",
+				},
+			})
+			secretCreationErr := r.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+			deployment, err := r.generateRedisDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			deployment.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Deployment",
+					APIVersion: "apps/v1",
+					UID:        "ownerUID",
+					Name:       "lightspeed-redis-server-1",
+				},
+			})
+			deployment.ObjectMeta.Name = "lightspeed-redis-server-1"
+			deploymentCreationErr := r.Create(ctx, deployment)
+			Expect(deploymentCreationErr).NotTo(HaveOccurred())
+			updateErr := r.updateRedisDeployment(ctx, deployment, deployment)
+			Expect(updateErr).NotTo(HaveOccurred())
+			secretDeletionErr := r.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+			deploymentDeletionErr := r.Delete(ctx, deployment)
+			Expect(deploymentDeletionErr).NotTo(HaveOccurred())
+		})
+
+		It("should work when there is an update in the OLS redis deployment", func() {
+			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = "dummy-secret-3"
+			secret, _ := r.generateRedisSecret(cr)
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "dummy-secret-3",
+				},
+			})
+			secretCreationErr := r.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+			deployment, err := r.generateRedisDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			deployment.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Deployment",
+					APIVersion: "apps/v1",
+					UID:        "ownerUID",
+					Name:       "lightspeed-redis-server-2",
+				},
+			})
+			deployment.ObjectMeta.Name = "lightspeed-redis-server-2"
+			deploymentCreationErr := r.Create(ctx, deployment)
+			Expect(deploymentCreationErr).NotTo(HaveOccurred())
+			deploymentClone := deployment.DeepCopy()
+			deploymentClone.Spec.Template.Spec.Containers[0].Command = []string{"sleep", "infinity"}
+			updateErr := r.updateRedisDeployment(ctx, deployment, deploymentClone)
+			Expect(updateErr).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Spec.Containers[0].Command).To(Equal([]string{"sleep", "infinity"}))
+			secretDeletionErr := r.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+			deploymentDeletionErr := r.Delete(ctx, deployment)
+			Expect(deploymentDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should generate the OLS redis service", func() {
 			validateRedisService(r.generateRedisService(cr))
+		})
+
+		It("should generate the OLS redis secret", func() {
+			secret, err := r.generateRedisSecret(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secret.Name).To(Equal("lightspeed-redis-secret"))
+			validateRedisSecret(secret)
 		})
 	})
 
@@ -107,12 +258,36 @@ var _ = Describe("App redis server assets", func() {
 		})
 
 		It("should generate the OLS redis deployment", func() {
-			validateRedisDeployment(r.generateRedisDeployment(cr))
-
+			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = "dummy-secret-4"
+			secret, _ := r.generateRedisSecret(cr)
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "dummy-secret-4",
+				},
+			})
+			secretCreationErr := r.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+			password, _ := getSecretContent(r.Client, secret.Name, cr.Namespace, OLSPasswordFileName)
+			deployment, err := r.generateRedisDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			validateRedisDeployment(deployment, password)
+			secretDeletionErr := r.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should generate the OLS redis service", func() {
 			validateRedisService(r.generateRedisService(cr))
+		})
+
+		It("should generate the OLS redis secret", func() {
+			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = OLSAppRedisSecretName
+			secret, err := r.generateRedisSecret(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secret.Name).To(Equal("lightspeed-redis-secret"))
+			validateRedisSecret(secret)
 		})
 	})
 
@@ -132,6 +307,9 @@ func getOLSConfigWithCacheCR() *olsv1alpha1.OLSConfig {
 					Redis: olsv1alpha1.RedisSpec{
 						MaxMemory:       &OLSRedisMaxMemory,
 						MaxMemoryPolicy: OLSAppRedisMaxMemoryPolicy,
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: OLSAppRedisSecretName,
+						},
 					},
 				},
 			},

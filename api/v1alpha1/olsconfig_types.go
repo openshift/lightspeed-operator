@@ -107,6 +107,8 @@ type ConversationCacheSpec struct {
 
 // RedisSpec defines the desired state of Redis.
 type RedisSpec struct {
+	// +optional
+	CredentialsSecretRef corev1.LocalObjectReference `json:"credentialsSecretRef,omitempty"`
 	// Redis maxmemory
 	// +kubebuilder:validation:XIntOrString
 	// +kubebuilder:default="1024mb"

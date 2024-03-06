@@ -25,12 +25,12 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Task: r.reconcileOLSConfigMap,
 		},
 		{
-			Name: "reconcile App Deployment",
-			Task: r.reconcileDeployment,
-		},
-		{
 			Name: "reconcile App Service",
 			Task: r.reconcileService,
+		},
+		{
+			Name: "reconcile App Deployment",
+			Task: r.reconcileDeployment,
 		},
 	}
 
@@ -62,6 +62,7 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 			return fmt.Errorf("failed to create OLS configmap: %w", err)
 		}
 		r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
+		r.stateCache[OLSRedisConfigHashStateCacheKey] = cm.Annotations[OLSRedisConfigHashKey]
 
 		return nil
 
@@ -75,6 +76,7 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	// update the state cache with the hash of the existing configmap.
 	// so that we can skip the reconciling the deployment if the configmap has not changed.
 	r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
+	r.stateCache[OLSRedisConfigHashStateCacheKey] = cm.Annotations[OLSRedisConfigHashKey]
 	if foundCmHash == cm.Annotations[OLSConfigHashKey] {
 		r.logger.Info("OLS configmap reconciliation skipped", "configmap", foundCm.Name, "hash", foundCm.Annotations[OLSConfigHashKey])
 		return nil
@@ -120,10 +122,12 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
+			OLSRedisSecretHashKey: r.stateCache[OLSRedisSecretHashStateCacheKey],
 		})
 		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
+			OLSRedisSecretHashKey: r.stateCache[OLSRedisSecretHashStateCacheKey],
 		})
 		r.logger.Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
