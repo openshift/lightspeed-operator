@@ -17,6 +17,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - console.openshift.io
+  resources:
+  - consoleexternalloglinks
+  - consolelinks
+  - consoleplugins
+  - consoleplugins/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - update
+- apiGroups:
   - ""
   resources:
   - configmaps
@@ -78,3 +90,12 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - operator.openshift.io
+  resources:
+  - consoles
+  verbs:
+  - get
+  - list
+  - update
+  - watch

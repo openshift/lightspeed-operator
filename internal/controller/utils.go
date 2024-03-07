@@ -130,3 +130,44 @@ func podVolumeEqual(a, b []corev1.Volume) bool {
 
 	return true
 }
+
+// deploymentSpecEqual compares two appsv1.DeploymentSpec and returns true if they are equal.
+func deploymentSpecEqual(a, b *appsv1.DeploymentSpec) bool {
+	if !apiequality.Semantic.DeepEqual(a.Template.Spec.NodeSelector, b.Template.Spec.NodeSelector) || // check node selector
+		!apiequality.Semantic.DeepEqual(a.Template.Spec.Tolerations, b.Template.Spec.Tolerations) || // check toleration
+		!apiequality.Semantic.DeepEqual(a.Strategy, b.Strategy) || // check strategy
+		!podVolumeEqual(a.Template.Spec.Volumes, b.Template.Spec.Volumes) || // check volumes
+		*a.Replicas != *b.Replicas { // check replicas
+		return false
+	}
+
+	// check containers
+	if len(a.Template.Spec.Containers) != len(b.Template.Spec.Containers) {
+		return false
+	}
+	for i := range a.Template.Spec.Containers {
+		if !containerSpecEqual(&a.Template.Spec.Containers[i], &b.Template.Spec.Containers[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// containerSpecEqual compares two corev1.Container and returns true if they are equal.
+// checks performed on limited fields
+func containerSpecEqual(a, b *corev1.Container) bool {
+	return (a.Name == b.Name || // check name
+		a.Image != b.Image || // check image
+		apiequality.Semantic.DeepEqual(a.Ports, b.Ports) || // check ports
+		apiequality.Semantic.DeepEqual(a.Env, b.Env) || // check env
+		apiequality.Semantic.DeepEqual(a.Args, b.Args) || // check arguments
+		apiequality.Semantic.DeepEqual(a.VolumeMounts, b.VolumeMounts) || // check volume mounts
+		apiequality.Semantic.DeepEqual(a.Resources, b.Resources) || // check resources
+		apiequality.Semantic.DeepEqual(a.SecurityContext, b.SecurityContext) || // check security context
+		a.ImagePullPolicy == b.ImagePullPolicy || // check image pull policy
+		apiequality.Semantic.DeepEqual(a.LivenessProbe, b.LivenessProbe) || // check liveness probe
+		apiequality.Semantic.DeepEqual(a.ReadinessProbe, b.ReadinessProbe) || // check readiness probe
+		apiequality.Semantic.DeepEqual(a.StartupProbe, b.StartupProbe)) // check startup probe
+
+}

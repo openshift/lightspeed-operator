@@ -45,19 +45,24 @@ type OLSConfigReconciler struct {
 type OLSConfigReconcilerOptions struct {
 	LightspeedServiceImage      string
 	LightspeedServiceRedisImage string
+	ConsoleUIImage              string
 }
 
-//+kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/finalizers,verbs=update
 // RBAC for managing deployments of OLS application server
-//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // Service for exposing lightspeed service API endpoints
-//+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // ServiceAccount to run OLS application server
-//+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 // ConfigMap for OLS application server configuration
-//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// ConsolePlugin for install console plugin
+// +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks;consoleplugins;consoleplugins/finalizers,verbs=get;create;update;delete
+// Modify console CR to activate console plugin
+// +kubebuilder:rbac:groups=operator.openshift.io,resources=consoles,verbs=watch;list;get;update
 
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
@@ -90,6 +95,12 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.logger.Error(err, "Failed to reconcile ols redis")
 		return ctrl.Result{}, err
 	}
+	err = r.reconcileConsoleUI(ctx, olsconfig)
+	if err != nil {
+		r.logger.Error(err, "Failed to reconcile console UI")
+		return ctrl.Result{}, err
+	}
+
 	r.logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
 
 	return ctrl.Result{}, nil
