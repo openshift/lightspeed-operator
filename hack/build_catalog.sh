@@ -1,8 +1,15 @@
+# Helper tool to build the File Based Catalog (FBC) for the operator with semantic versioning
+# Example , if you want to build catalog image for lishtspeed-operator version 0.0.2, set the
+# VERSION variable to 0.0.2 and run the script. The script will build the bundle image and
+# catalog image and push it to the quay.io registry.
+# Pre-requisites: opm, podman, make
+# Usage: ./hack/build_catalog.sh
+
 #!/bin/bash
 set -euo pipefail
 DEFAULT_PLATFORM="linux/amd64"
 export QUAY_USER=""  # Set quay user for personal builds
-VERSION="0.0.1"    # Set the version
+VERSION="0.0.1"    # Set the operator version
 QUAY_USER="${QUAY_USER:-openshift}"
 
 export IMAGE_TAG_BASE="quay.io/${QUAY_USER}/lightspeed-operator"
