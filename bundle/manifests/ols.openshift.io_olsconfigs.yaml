@@ -1,0 +1,233 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.12.0
+  creationTimestamp: null
+  name: olsconfigs.ols.openshift.io
+spec:
+  group: ols.openshift.io
+  names:
+    kind: OLSConfig
+    listKind: OLSConfigList
+    plural: olsconfigs
+    singular: olsconfig
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: OLSConfig is the Schema for the olsconfigs API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: OLSConfigSpec defines the desired state of OLSConfig
+            properties:
+              llm:
+                description: LLMSpec defines the desired state of the large language
+                  model (LLM).
+                properties:
+                  providers:
+                    items:
+                      description: ProviderSpec defines the desired state of LLM provider.
+                      properties:
+                        credentialsSecretRef:
+                          description: Name of a Kubernetes Secret resource containing
+                            API provider credentials.
+                          properties:
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        models:
+                          description: List of models from the provider
+                          items:
+                            description: ModelSpec defines the desired state of cache.
+                            properties:
+                              name:
+                                description: Model name
+                                type: string
+                              url:
+                                description: Model API URL
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          type: array
+                        name:
+                          description: Provider name
+                          type: string
+                        url:
+                          description: Provider API URL
+                          type: string
+                      type: object
+                    type: array
+                required:
+                - providers
+                type: object
+              ols:
+                description: OLSSpec defines the desired state of OLS deployment.
+                properties:
+                  classifierModel:
+                    description: Classifier model name
+                    type: string
+                  classifierProvider:
+                    description: Classifier provider name
+                    type: string
+                  conversationCache:
+                    description: Conversation cache settings
+                    properties:
+                      redis:
+                        description: RedisSpec defines the desired state of Redis.
+                        properties:
+                          maxMemory:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            default: 1024mb
+                            description: Redis maxmemory
+                            x-kubernetes-int-or-string: true
+                          maxMemoryPolicy:
+                            default: allkeys-lru
+                            description: 'Redis maxmemory policy. Default: "allkeys-lru"'
+                            type: string
+                        type: object
+                      type:
+                        default: redis
+                        description: 'Conversation cache type. Default: "redis"'
+                        enum:
+                        - redis
+                        type: string
+                    type: object
+                  defaultModel:
+                    description: Default model for usage
+                    type: string
+                  defaultProvider:
+                    description: Default provider for usage
+                    type: string
+                  deployment:
+                    description: OLS deployment settings
+                    properties:
+                      replicas:
+                        default: 1
+                        description: 'Defines the number of desired OLS pods. Default:
+                          "1"'
+                        format: int32
+                        type: integer
+                      resources:
+                        description: ResourceRequirements describes the compute resource
+                          requirements.
+                        properties:
+                          claims:
+                            description: "Claims lists the names of resources, defined
+                              in spec.resourceClaims, that are used by this container.
+                              \n This is an alpha field and requires enabling the
+                              DynamicResourceAllocation feature gate. \n This field
+                              is immutable. It can only be set for containers."
+                            items:
+                              description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                              properties:
+                                name:
+                                  description: Name must match the name of one entry
+                                    in pod.spec.resourceClaims of the Pod where this
+                                    field is used. It makes that resource available
+                                    inside a container.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                          limits:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: 'Limits describes the maximum amount of compute
+                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            type: object
+                          requests:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: 'Requests describes the minimum amount of
+                              compute resources required. If Requests is omitted for
+                              a container, it defaults to Limits if that is explicitly
+                              specified, otherwise to an implementation-defined value.
+                              Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            type: object
+                        type: object
+                    type: object
+                  enableDeveloperUI:
+                    default: false
+                    description: 'Enable developer UI. Default: "false"'
+                    type: boolean
+                  logLevel:
+                    default: INFO
+                    description: 'Log level. Default: "INFO". Valid options are DEBUG,
+                      INFO, WARNING, ERROR and CRITICAL.'
+                    enum:
+                    - DEBUG
+                    - INFO
+                    - WARNING
+                    - ERROR
+                    - CRITICAL
+                    type: string
+                  summarizerModel:
+                    description: Summarizer model name
+                    type: string
+                  summarizerProvider:
+                    description: Summarizer provider name
+                    type: string
+                  validatorModel:
+                    description: Validator model name
+                    type: string
+                  validatorProvider:
+                    description: Validator provider name
+                    type: string
+                  yamlModel:
+                    description: YAML model name
+                    type: string
+                  yamlProvider:
+                    description: YAML provider name
+                    type: string
+                type: object
+            required:
+            - llm
+            type: object
+          status:
+            description: OLSConfigStatus defines the observed state of OLS deployment.
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null
