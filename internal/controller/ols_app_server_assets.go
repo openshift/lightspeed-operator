@@ -59,9 +59,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
-	OLSRedisMaxMemory := intstr.FromString(OLSAppRedisMaxMemory)
-	OLSRedisMaxMemoryPolicy := OLSAppRedisMaxMemoryPolicy
-	secretName := OLSAppRedisSecretName
+	OLSRedisMaxMemory := intstr.FromString(RedisMaxMemory)
+	OLSRedisMaxMemoryPolicy := RedisMaxMemoryPolicy
+	secretName := RedisSecretName
 	redisConfig := cr.Spec.OLSConfig.ConversationCache.Redis
 	if redisConfig != (olsv1alpha1.RedisSpec{}) {
 		if (redisConfig.CredentialsSecretRef != corev1.LocalObjectReference{}) && (redisConfig.CredentialsSecretRef.Name != "") {
@@ -75,16 +75,16 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 	if redisConfig.MaxMemoryPolicy != "" {
 		OLSRedisMaxMemoryPolicy = cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy
 	}
-	redisPasswordPath := path.Join(CredentialsMountRoot, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name, OLSPasswordFileName)
+	redisPasswordPath := path.Join(CredentialsMountRoot, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name, OLSComponentPasswordFileName)
 	conversationCache := ConversationCacheConfig{
 		Type: string(OLSDefaultCacheType),
 		Redis: RedisCacheConfig{
-			Host:            strings.Join([]string{OLSAppRedisServiceName, cr.Namespace, "svc"}, "."),
-			Port:            OLSAppRedisServicePort,
+			Host:            strings.Join([]string{RedisServiceName, cr.Namespace, "svc"}, "."),
+			Port:            RedisServicePort,
 			MaxMemory:       &OLSRedisMaxMemory,
 			MaxMemoryPolicy: OLSRedisMaxMemoryPolicy,
 			PasswordPath:    redisPasswordPath,
-			CACertPath:      path.Join(OLSAppCertsMountRoot, OLSAppRedisCertsSecretName, OLSRedisCAVolumeName, "service-ca.crt"),
+			CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
 		},
 	}
 
@@ -128,8 +128,8 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 			Namespace: cr.Namespace,
 			Labels:    generateAppServerSelectorLabels(),
 			Annotations: map[string]string{
-				OLSConfigHashKey:      configFileHash,
-				OLSRedisConfigHashKey: redisConfigHash,
+				OLSConfigHashKey:   configFileHash,
+				RedisConfigHashKey: redisConfigHash,
 			},
 		},
 		Data: map[string]string{

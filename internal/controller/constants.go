@@ -12,18 +12,18 @@ const (
 	/*** application server configuration file ***/
 	// OLSConfigName is the name of the OLSConfig configmap
 	OLSConfigCmName = "olsconfig"
-	// OLSRedisCACmName is the name of the OLS redis server TLS ca certificate configmap
-	OLSRedisCACmName = "openshift-service-ca.crt"
-	// OLSRedisCAVolumeName is the name of the OLS redis TLS ca certificate volume name
-	OLSRedisCAVolumeName = "cm-olsredisca"
+	// RedisCAConfigMap is the name of the OLS redis server TLS ca certificate configmap
+	RedisCAConfigMap = "openshift-service-ca.crt"
+	// RedisCAVolume is the name of the OLS redis TLS ca certificate volume name
+	RedisCAVolume = "cm-olsredisca"
 	// OLSNamespaceDefault is the default namespace for OLS
 	OLSNamespaceDefault = "openshift-lightspeed"
 	// OLSAppServerServiceAccountName is the name of service account running the application server
 	OLSAppServerServiceAccountName = "lightspeed-app-server"
 	// OLSAppServerDeploymentName is the name of the OLS application server deployment
 	OLSAppServerDeploymentName = "lightspeed-app-server"
-	// OLSAppRedisDeploymentName is the name of OLS application redis deployment
-	OLSAppRedisDeploymentName = "lightspeed-redis-server"
+	// RedisDeploymentName is the name of OLS application redis deployment
+	RedisDeploymentName = "lightspeed-redis-server"
 	// APIKeyMountRoot is the directory hosting the API key file in the container
 	APIKeyMountRoot = "/etc/apikeys" // #nosec G101
 	// CredentialsMountRoot is the directory hosting the credential files in the container
@@ -32,48 +32,48 @@ const (
 	OLSAppCertsMountRoot = "/etc/certs"
 	// LLMApiTokenFileName is the name of the file containing the API token to access LLM in the secret referenced by the OLSConfig
 	LLMApiTokenFileName = "apitoken"
-	// OLSPasswordFileName is the name of the file containing password for its infra
-	OLSPasswordFileName = "password"
+	// OLSComponentPasswordFileName is the generic name of the password file for each of its components
+	OLSComponentPasswordFileName = "password"
 	// OLSConfigFilename is the name of the application server configuration file
 	OLSConfigFilename = "olsconfig.yaml"
-	// OLSRedisSecretKeyName is the name of the key holding redis server secret
-	OLSRedisSecretKeyName = "password"
+	// RedisSecretKeyName is the name of the key holding redis server secret
+	RedisSecretKeyName = "password"
 	// Image of the OLS application server
 	// todo: image vesion should synchronize with the release version of the lightspeed-service-api image.
 	OLSAppServerImageDefault = "quay.io/openshift/lightspeed-service-api:latest"
 	// Image of the OLS application redis server
-	OLSAppRedisServerImageDefault = "quay.io/openshift/lightspeed-service-redis:latest"
+	RedisServerImageDefault = "quay.io/openshift/lightspeed-service-redis:latest"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
-	// OLSRedisConfigHashKey is the key of the hash value of the OLS's redis config
-	OLSRedisConfigHashKey = "hash/olsredisconfig"
-	// OLSRedisSecretHashKey is the key of the hash value of OLS Redis secret
+	// RedisConfigHashKey is the key of the hash value of the OLS's redis config
+	RedisConfigHashKey = "hash/olsredisconfig"
+	// RedisSecretHashKey is the key of the hash value of OLS Redis secret
 	// #nosec G101
-	OLSRedisSecretHashKey = "hash/redis-secret"
+	RedisSecretHashKey = "hash/redis-secret"
 	// OLSAppServerServiceName is the name of the OLS application server service
 	OLSAppServerServiceName = "lightspeed-app-server"
-	// OLSAppRedisServiceName is the name of OLS application redis server service
-	OLSAppRedisServiceName = "lightspeed-redis-server"
-	// OLSAppRedisSecretName is the name of OLS application redis secret
-	OLSAppRedisSecretName = "lightspeed-redis-secret"
+	// RedisServiceName is the name of OLS application redis server service
+	RedisServiceName = "lightspeed-redis-server"
+	// RedisSecretName is the name of OLS application redis secret
+	RedisSecretName = "lightspeed-redis-secret"
 	// OLSAppRedisCertsName is the name of the OLS application redis certs secret
-	OLSAppRedisCertsSecretName = "lightspeed-redis-certs"
+	RedisCertsSecretName = "lightspeed-redis-certs"
 	// OLSAppServerContainerPort is the port number of the lightspeed-service-api container exposes
 	OLSAppServerContainerPort = 8080
 	// OLSAppServerServicePort is the port number of the OLS application server service
 	OLSAppServerServicePort = 8080
-	// OLSAppRedisServicePort is the port number of the OLS redis server service
-	OLSAppRedisServicePort = 6379
-	// OLSAppRedisMaxMemory is the max memory of the OLS redis cache
-	OLSAppRedisMaxMemory = "1024mb"
-	// OLSAppRedisMaxMemoryPolicy is the max memory policy of the OLS redis cache
-	OLSAppRedisMaxMemoryPolicy = "allkeys-lru"
+	// RedisServicePort is the port number of the OLS redis server service
+	RedisServicePort = 6379
+	// RedisMaxMemory is the max memory of the OLS redis cache
+	RedisMaxMemory = "1024mb"
+	// RedisMaxMemoryPolicy is the max memory policy of the OLS redis cache
+	RedisMaxMemoryPolicy = "allkeys-lru"
 	// OLSDefaultCacheType is the default cache type for OLS
 	OLSDefaultCacheType = "redis"
 
 	/*** state cache keys ***/
-	OLSConfigHashStateCacheKey      = "olsconfigmap-hash"
-	OLSRedisConfigHashStateCacheKey = "olsredisconfig-hash"
+	OLSConfigHashStateCacheKey   = "olsconfigmap-hash"
+	RedisConfigHashStateCacheKey = "olsredisconfig-hash"
 	// #nosec G101
-	OLSRedisSecretHashStateCacheKey = "olsredissecret-hash"
+	RedisSecretHashStateCacheKey = "olsredissecret-hash"
 )

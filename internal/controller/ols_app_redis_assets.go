@@ -29,43 +29,43 @@ func generateRedisSelectorLabels() map[string]string {
 func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	cacheReplicas := int32(1)
 	revisionHistoryLimit := int32(0)
-	redisPassword, err := getSecretContent(r.Client, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name, cr.Namespace, OLSPasswordFileName)
+	redisPassword, err := getSecretContent(r.Client, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name, cr.Namespace, OLSComponentPasswordFileName)
 	if err != nil {
 		return nil, fmt.Errorf("Password is a must to start redis deployment : %w", err)
 	}
 	tlsCertsVolume := corev1.Volume{
-		Name: "secret-" + OLSAppRedisCertsSecretName,
+		Name: "secret-" + RedisCertsSecretName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: OLSAppRedisCertsSecretName,
+				SecretName: RedisCertsSecretName,
 			},
 		},
 	}
 	redisCAConfigVolume := corev1.Volume{
-		Name: OLSRedisCAVolumeName,
+		Name: RedisCAVolume,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: OLSRedisCACmName,
+					Name: RedisCAConfigMap,
 				},
 			},
 		},
 	}
 	volumes := []corev1.Volume{tlsCertsVolume, redisCAConfigVolume}
 	redisTLSVolumeMount := corev1.VolumeMount{
-		Name:      "secret-" + OLSAppRedisCertsSecretName,
+		Name:      "secret-" + RedisCertsSecretName,
 		MountPath: OLSAppCertsMountRoot,
 		ReadOnly:  true,
 	}
 	redisCAVolumeMount := corev1.VolumeMount{
-		Name:      OLSRedisCAVolumeName,
-		MountPath: path.Join(OLSAppCertsMountRoot, OLSRedisCAVolumeName),
+		Name:      RedisCAVolume,
+		MountPath: path.Join(OLSAppCertsMountRoot, RedisCAVolume),
 		ReadOnly:  true,
 	}
 	volumeMounts := []corev1.VolumeMount{redisTLSVolumeMount, redisCAVolumeMount}
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OLSAppRedisDeploymentName,
+			Name:      RedisDeploymentName,
 			Namespace: cr.Namespace,
 			Labels:    generateRedisSelectorLabels(),
 		},
@@ -86,7 +86,7 @@ func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig)
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Ports: []corev1.ContainerPort{
 								{
-									ContainerPort: OLSAppRedisServicePort,
+									ContainerPort: RedisServicePort,
 									Name:          "server",
 								},
 							},
@@ -106,7 +106,7 @@ func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig)
 								"--tls-port", "6379",
 								"--tls-cert-file", path.Join(OLSAppCertsMountRoot, "tls.crt"),
 								"--tls-key-file", path.Join(OLSAppCertsMountRoot, "tls.key"),
-								"--tls-ca-cert-file", path.Join(OLSAppCertsMountRoot, OLSRedisCAVolumeName, "service-ca.crt"),
+								"--tls-ca-cert-file", path.Join(OLSAppCertsMountRoot, RedisCAVolume, "service-ca.crt"),
 								"--tls-auth-clients", "optional",
 								"--protected-mode", "no",
 								"--requirepass", redisPassword},
@@ -132,20 +132,20 @@ func (r *OLSConfigReconciler) updateRedisDeployment(ctx context.Context, existin
 
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
-		existingDeployment.Annotations[OLSRedisConfigHashKey] != r.stateCache[OLSRedisConfigHashStateCacheKey] {
+		existingDeployment.Annotations[RedisConfigHashKey] != r.stateCache[RedisConfigHashStateCacheKey] {
 		updateDeploymentAnnotations(existingDeployment, map[string]string{
-			OLSRedisConfigHashKey: r.stateCache[OLSRedisConfigHashStateCacheKey],
+			RedisConfigHashKey: r.stateCache[RedisConfigHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
 		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			OLSRedisConfigHashKey: r.stateCache[OLSRedisConfigHashStateCacheKey],
+			RedisConfigHashKey: r.stateCache[RedisConfigHashStateCacheKey],
 		})
 
 		changed = true
 	}
 
-	// Validate volume mounts for a specific container in deployment.
-	if commandChanged, err := setCommand(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].Command, OLSAppRedisDeploymentName); err != nil {
+	// Update command to a desired value for a specified container.
+	if commandChanged, err := setCommand(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].Command, RedisDeploymentName); err != nil {
 		return err
 	} else if commandChanged {
 		changed = true
@@ -157,7 +157,7 @@ func (r *OLSConfigReconciler) updateRedisDeployment(ctx context.Context, existin
 			return err
 		}
 	} else {
-		r.logger.Info("OLS redis deployment reconciliation skipped", "deployment", existingDeployment.Name, "olsconfig hash", existingDeployment.Annotations[OLSRedisConfigHashKey])
+		r.logger.Info("OLS redis deployment reconciliation skipped", "deployment", existingDeployment.Name, "olsconfig hash", existingDeployment.Annotations[RedisConfigHashKey])
 	}
 
 	return nil
@@ -169,11 +169,11 @@ func (r *OLSConfigReconciler) generateRedisService(cr *olsv1alpha1.OLSConfig) (*
 	ipFamilyPolicy := corev1.IPFamilyPolicySingleStack
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OLSAppRedisServiceName,
+			Name:      RedisServiceName,
 			Namespace: cr.Namespace,
 			Labels:    generateRedisSelectorLabels(),
 			Annotations: map[string]string{
-				"service.beta.openshift.io/serving-cert-secret-name": OLSAppRedisCertsSecretName,
+				"service.beta.openshift.io/serving-cert-secret-name": RedisCertsSecretName,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -182,7 +182,7 @@ func (r *OLSConfigReconciler) generateRedisService(cr *olsv1alpha1.OLSConfig) (*
 			IPFamilyPolicy:        &ipFamilyPolicy,
 			Ports: []corev1.ServicePort{
 				{
-					Port:       OLSAppRedisServicePort,
+					Port:       RedisServicePort,
 					Protocol:   corev1.ProtocolTCP,
 					Name:       "server",
 					TargetPort: intstr.Parse("server"),
@@ -219,11 +219,11 @@ func (r *OLSConfigReconciler) generateRedisSecret(cr *olsv1alpha1.OLSConfig) (*c
 			Namespace: cr.Namespace,
 			Labels:    generateRedisSelectorLabels(),
 			Annotations: map[string]string{
-				OLSRedisSecretHashKey: passwordHash,
+				RedisSecretHashKey: passwordHash,
 			},
 		},
 		Data: map[string][]byte{
-			OLSRedisSecretKeyName: []byte(encodedPassword),
+			RedisSecretKeyName: []byte(encodedPassword),
 		},
 	}
 

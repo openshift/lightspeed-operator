@@ -76,11 +76,11 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		},
 	}
 	redisCAConfigVolume := corev1.Volume{
-		Name: OLSRedisCAVolumeName,
+		Name: RedisCAVolume,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: OLSRedisCACmName,
+					Name: RedisCAConfigMap,
 				},
 			},
 		},
@@ -103,8 +103,8 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		ReadOnly:  true,
 	}
 	olsRedisCAVolumeMount := corev1.VolumeMount{
-		Name:      OLSRedisCAVolumeName,
-		MountPath: path.Join(OLSAppCertsMountRoot, OLSAppRedisCertsSecretName, OLSRedisCAVolumeName),
+		Name:      RedisCAVolume,
+		MountPath: path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume),
 		ReadOnly:  true,
 	}
 	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsRedisCAVolumeMount)
@@ -174,15 +174,15 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
-		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] || existingDeployment.Annotations[OLSRedisSecretHashKey] != r.stateCache[OLSRedisSecretHashStateCacheKey] {
+		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] || existingDeployment.Annotations[RedisSecretHashKey] != r.stateCache[RedisSecretHashStateCacheKey] {
 		updateDeploymentAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
-			OLSRedisSecretHashKey: r.stateCache[OLSRedisSecretHashStateCacheKey],
+			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
 		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
-			OLSRedisSecretHashKey: r.stateCache[OLSRedisSecretHashStateCacheKey],
+			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 
 		changed = true

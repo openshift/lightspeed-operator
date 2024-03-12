@@ -46,7 +46,7 @@ var _ = Describe("App server assets", func() {
 
 		It("should generate the olsconfig config map", func() {
 			cm, err := r.generateOLSConfigMap(cr)
-			OLSRedisMaxMemory := intstr.FromString(OLSAppRedisMaxMemory)
+			OLSRedisMaxMemory := intstr.FromString(RedisMaxMemory)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(cr.Namespace))
@@ -65,12 +65,12 @@ var _ = Describe("App server assets", func() {
 					ConversationCache: ConversationCacheConfig{
 						Type: "redis",
 						Redis: RedisCacheConfig{
-							Host:            strings.Join([]string{OLSAppRedisServiceName, cr.Namespace, "svc"}, "."),
-							Port:            OLSAppRedisServicePort,
+							Host:            strings.Join([]string{RedisServiceName, cr.Namespace, "svc"}, "."),
+							Port:            RedisServicePort,
 							MaxMemory:       &OLSRedisMaxMemory,
-							MaxMemoryPolicy: OLSAppRedisMaxMemoryPolicy,
-							PasswordPath:    path.Join(CredentialsMountRoot, OLSAppRedisSecretName, OLSPasswordFileName),
-							CACertPath:      path.Join(OLSAppCertsMountRoot, OLSAppRedisCertsSecretName, OLSRedisCAVolumeName, "service-ca.crt"),
+							MaxMemoryPolicy: RedisMaxMemoryPolicy,
+							PasswordPath:    path.Join(CredentialsMountRoot, RedisSecretName, OLSComponentPasswordFileName),
+							CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
 						},
 					},
 				},
@@ -152,7 +152,7 @@ var _ = Describe("App server assets", func() {
 					Name: "secret-lightspeed-redis-secret",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: OLSAppRedisSecretName,
+							SecretName: RedisSecretName,
 						},
 					},
 				},
@@ -168,7 +168,7 @@ var _ = Describe("App server assets", func() {
 					Name: "cm-olsredisca",
 					VolumeSource: corev1.VolumeSource{
 						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: OLSRedisCACmName},
+							LocalObjectReference: corev1.LocalObjectReference{Name: RedisCAConfigMap},
 						},
 					},
 				},
@@ -259,7 +259,7 @@ ols_config:
 
 		It("should generate the OLS deployment", func() {
 			// todo: update this test after updating the test for generateOLSConfigMap
-			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = OLSAppRedisSecretName
+			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = RedisSecretName
 			dep, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(OLSAppServerDeploymentName))
@@ -302,7 +302,7 @@ ols_config:
 					Name: "secret-lightspeed-redis-secret",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: OLSAppRedisSecretName,
+							SecretName: RedisSecretName,
 						},
 					},
 				},
@@ -319,7 +319,7 @@ ols_config:
 					VolumeSource: corev1.VolumeSource{
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: OLSRedisCACmName,
+								Name: RedisCAConfigMap,
 							},
 						},
 					},
@@ -365,7 +365,7 @@ func getCompleteOLSConfigCR() *olsv1alpha1.OLSConfig {
 					Type: olsv1alpha1.Redis,
 					Redis: olsv1alpha1.RedisSpec{
 						CredentialsSecretRef: corev1.LocalObjectReference{
-							Name: OLSAppRedisSecretName,
+							Name: RedisSecretName,
 						},
 					},
 				},
