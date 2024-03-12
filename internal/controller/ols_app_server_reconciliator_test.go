@@ -26,7 +26,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 			By("Get the service account")
 			sa := &corev1.ServiceAccount{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerServiceAccountName, Namespace: cr.Namespace}, sa)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerServiceAccountName, Namespace: OLSNamespaceDefault}, sa)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -34,7 +34,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 			By("Get the service")
 			svc := &corev1.Service{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerServiceName, Namespace: cr.Namespace}, svc)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerServiceName, Namespace: OLSNamespaceDefault}, svc)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -42,7 +42,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 			By("Get the config map")
 			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSConfigCmName, Namespace: cr.Namespace}, cm)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSConfigCmName, Namespace: OLSNamespaceDefault}, cm)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -50,7 +50,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, dep)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 
 		})
@@ -59,7 +59,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, dep)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
 			oldHash := dep.Spec.Template.Annotations[OLSConfigHashKey]
@@ -76,7 +76,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the deployment")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, dep)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
 			Expect(dep.Annotations[OLSConfigHashKey]).NotTo(Equal(oldHash))
@@ -101,7 +101,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 			By("Get the deployment and check the new volume")
 			dep := &appsv1.Deployment{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, dep)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			defaultSecretMode := int32(420)
 			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{

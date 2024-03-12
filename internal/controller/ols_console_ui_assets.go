@@ -42,7 +42,7 @@ func (r *OLSConfigReconciler) generateConsoleUIConfigMap(cr *olsv1alpha1.OLSConf
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ConsoleUIConfigMapName,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 			Labels:    generateConsoleUILabels(),
 		},
 		Data: map[string]string{
@@ -61,7 +61,7 @@ func (r *OLSConfigReconciler) generateConsoleUIService(cr *olsv1alpha1.OLSConfig
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ConsoleUIServiceName,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 			Labels:    generateConsoleUILabels(),
 			Annotations: map[string]string{
 				"service.beta.openshift.io/serving-cert-secret-name": ConsoleUIServiceCertSecretName,
@@ -95,7 +95,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ConsoleUIDeploymentName,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 			Labels:    generateConsoleUILabels(),
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -195,7 +195,7 @@ func (r *OLSConfigReconciler) generateConsoleUIPlugin(cr *olsv1alpha1.OLSConfig)
 			Backend: consolev1.ConsolePluginBackend{
 				Service: &consolev1.ConsolePluginService{
 					Name:      ConsoleUIServiceName,
-					Namespace: cr.Namespace,
+					Namespace: r.Options.Namespace,
 					Port:      ConsoleUIHTTPSPort,
 					BasePath:  "/",
 				},
@@ -208,10 +208,9 @@ func (r *OLSConfigReconciler) generateConsoleUIPlugin(cr *olsv1alpha1.OLSConfig)
 		},
 	}
 
-	// todo: set the owner reference after changing the CRD to cluster scoped
-	// if err := controllerutil.SetControllerReference(cr, plugin, r.Scheme); err != nil {
-	// 	return nil, err
-	// }
+	if err := controllerutil.SetControllerReference(cr, plugin, r.Scheme); err != nil {
+		return nil, err
+	}
 
 	return plugin, nil
 }

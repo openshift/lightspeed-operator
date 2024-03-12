@@ -22,7 +22,7 @@ func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig)
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OLSAppRedisDeploymentName,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 			Labels:    DeploymentSelectorLabels,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -80,7 +80,7 @@ func (r *OLSConfigReconciler) generateRedisService(cr *olsv1alpha1.OLSConfig) (*
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OLSAppRedisServiceName,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 			Labels:    DeploymentSelectorLabels,
 		},
 		Spec: corev1.ServiceSpec{

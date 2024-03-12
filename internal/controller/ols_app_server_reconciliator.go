@@ -54,7 +54,7 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	}
 
 	foundCm := &corev1.ConfigMap{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSConfigCmName, Namespace: cr.Namespace}, foundCm)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSConfigCmName, Namespace: r.Options.Namespace}, foundCm)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new configmap", "configmap", cm.Name)
 		err = r.Create(ctx, cm)
@@ -96,7 +96,7 @@ func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *o
 	}
 
 	foundSa := &corev1.ServiceAccount{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerServiceAccountName, Namespace: cr.Namespace}, foundSa)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerServiceAccountName, Namespace: r.Options.Namespace}, foundSa)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new service account", "serviceAccount", sa.Name)
 		err = r.Create(ctx, sa)
@@ -118,7 +118,7 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	}
 
 	existingDeployment := &appsv1.Deployment{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, existingDeployment)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
 			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
@@ -152,7 +152,7 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 	}
 
 	foundService := &corev1.Service{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerServiceName, Namespace: cr.Namespace}, foundService)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerServiceName, Namespace: r.Options.Namespace}, foundService)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new service", "service", service.Name)
 		err = r.Create(ctx, service)

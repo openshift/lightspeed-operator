@@ -92,15 +92,6 @@ func listImages() []string {
 	return imgs
 }
 
-// getWatchNamespace returns the Namespace the operator should be watching for changes
-func getWatchNamespace() (string, error) {
-	ns, found := os.LookupEnv(controller.WatchNamespaceEnvVar)
-	if !found {
-		return "", fmt.Errorf("%s must be set", controller.WatchNamespaceEnvVar)
-	}
-	return ns, nil
-}
-
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
@@ -119,14 +110,6 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-
-	watchNamespace, err := getWatchNamespace()
-	if err != nil {
-		setupLog.Error(err,
-			fmt.Sprintf("%s is not set, will watch all namespaces", controller.WatchNamespaceEnvVar))
-	} else {
-		setupLog.Info("watching namespace", "namespace", watchNamespace)
-	}
 
 	imagesMap, err := validateImages(images)
 	if err != nil {
@@ -153,7 +136,6 @@ func main() {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
-		Namespace: watchNamespace,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -166,6 +148,7 @@ func main() {
 		Options: controller.OLSConfigReconcilerOptions{
 			LightspeedServiceImage:      imagesMap["lightspeed-service"],
 			LightspeedServiceRedisImage: imagesMap["lightspeed-service-redis"],
+			Namespace:                   controller.OLSNamespaceDefault,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")

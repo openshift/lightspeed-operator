@@ -46,6 +46,7 @@ type OLSConfigReconcilerOptions struct {
 	LightspeedServiceImage      string
 	LightspeedServiceRedisImage string
 	ConsoleUIImage              string
+	Namespace                   string
 }
 
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
