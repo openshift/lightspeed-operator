@@ -79,8 +79,9 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 		r.logger.Info("OLS configmap reconciliation skipped", "configmap", foundCm.Name, "hash", foundCm.Annotations[OLSConfigHashKey])
 		return nil
 	}
-
-	err = r.Update(ctx, cm)
+	foundCm.Data = cm.Data
+	foundCm.Annotations = cm.Annotations
+	err = r.Update(ctx, foundCm)
 	if err != nil {
 		return fmt.Errorf("failed to update OLS configmap: %w", err)
 	}

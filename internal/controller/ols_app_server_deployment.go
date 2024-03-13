@@ -184,6 +184,16 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 		changed = true
 	}
 
+	// validate volumes including token secrets and application config map
+	if !podVolumeEqual(existingDeployment.Spec.Template.Spec.Volumes, desiredDeployment.Spec.Template.Spec.Volumes) {
+		changed = true
+		existingDeployment.Spec.Template.Spec.Volumes = desiredDeployment.Spec.Template.Spec.Volumes
+		_, err := setDeploymentContainerVolumeMounts(existingDeployment, "lightspeed-service-api", desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts)
+		if err != nil {
+			return err
+		}
+	}
+
 	if changed {
 		r.logger.Info("updating OLS deployment", "name", existingDeployment.Name)
 		if err := r.Update(ctx, existingDeployment); err != nil {
