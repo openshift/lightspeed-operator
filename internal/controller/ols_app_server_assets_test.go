@@ -132,6 +132,11 @@ var _ = Describe("App server assets", func() {
 					MountPath: "/etc/ols",
 					ReadOnly:  true,
 				},
+				{
+					Name:      "ols-user-data",
+					ReadOnly:  false,
+					MountPath: "/app-root/ols-user-data",
+				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(Equal([]corev1.Volume{
 				{
@@ -148,6 +153,12 @@ var _ = Describe("App server assets", func() {
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
 						},
+					},
+				},
+				{
+					Name: "ols-user-data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 			}))
@@ -260,6 +271,11 @@ ols_config:
 					MountPath: "/etc/ols",
 					ReadOnly:  true,
 				},
+				{
+					Name:      "ols-user-data",
+					ReadOnly:  false,
+					MountPath: "/app-root/ols-user-data",
+				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(Equal([]corev1.Volume{
 				{
@@ -268,6 +284,12 @@ ols_config:
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
 						},
+					},
+				},
+				{
+					Name: "ols-user-data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 			}))
