@@ -40,6 +40,8 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	// mount points of API key secret
 	const OLSConfigMountPath = "/etc/ols"
 	const OLSConfigVolumeName = "cm-olsconfig"
+	const OLSUserDataVolumeName = "ols-user-data"
+	const OLSUserDataMountPath = "/app-root/ols-user-data"
 	DeploymentSelectorLabels := map[string]string{
 		"app.kubernetes.io/component":  "application-server",
 		"app.kubernetes.io/managed-by": "lightspeed-operator",
@@ -78,6 +80,13 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		},
 	}
 	volumes = append(volumes, volume)
+	volume = corev1.Volume{
+		Name: OLSUserDataVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+	volumes = append(volumes, volume)
 
 	// mount the volumes of api keys secrets and OLS config map to the container
 	volumeMounts := []corev1.VolumeMount{}
@@ -93,6 +102,11 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		Name:      OLSConfigVolumeName,
 		MountPath: OLSConfigMountPath,
 		ReadOnly:  true,
+	}
+	volumeMounts = append(volumeMounts, volumeMount)
+	volumeMount = corev1.VolumeMount{
+		Name:      OLSUserDataVolumeName,
+		MountPath: OLSUserDataMountPath,
 	}
 	volumeMounts = append(volumeMounts, volumeMount)
 
