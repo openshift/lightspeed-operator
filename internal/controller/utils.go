@@ -131,7 +131,7 @@ func getSecretContent(rclient client.Client, secretName string, namespace string
 	ctx := context.Background()
 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
 	if err != nil {
-		return "", fmt.Errorf("Error fetching secret: %w", err)
+		return "", fmt.Errorf("Error: %w while fetching secret: %s", err, secretName)
 	}
 	encodedSecretValue, ok := foundSecret.Data[secretField]
 	if !ok {

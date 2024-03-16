@@ -164,7 +164,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
 ```
 
 #### Redis Secret Management
-By default redis server spins up with a randomly generated password located in the secret `lightspeed-redis-secret`. One can go edit password their password to a desired value to get it reflected across the system. In addition to that redis secret name can also be explicitly specified in `olsconfig.yaml` as shown in the below example.
+By default redis server spins up with a randomly generated password located in the secret `lightspeed-redis-secret`. One can go edit password their password to a desired value to get it reflected across the system. In addition to that redis secret name can also be explicitly specified in cluster CR as shown in the below example.
 ```
 conversationCache:
   redis:

@@ -144,7 +144,7 @@ func (r *OLSConfigReconciler) updateRedisDeployment(ctx context.Context, existin
 		changed = true
 	}
 
-	// Validate volume mounts for a specific container in deployment.
+	// Updated command for specified container in deployment.
 	if commandChanged, err := setCommand(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].Command, OLSAppRedisDeploymentName); err != nil {
 		return err
 	} else if commandChanged {
