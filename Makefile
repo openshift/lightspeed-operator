@@ -112,8 +112,27 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
+test: manifests generate fmt vet envtest test-crds ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
+
+OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/operator/v1/zz_generated.crd-manifests/00_console-operator.crd.yaml
+OS_CONSOLE_PLUGIN_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/console/v1/zz_generated.crd-manifests/90_consoleplugin.crd.yaml
+TEST_CRD_DIR = .testcrds
+OS_CONSOLE_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-crd.yaml
+OS_CONSOLE_PLUGIN_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-plugin-crd.yaml
+
+.PHONY: test-crds
+test-crds: $(TEST_CRD_DIR) $(OS_CONSOLE_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_FILE)  ## Test Dependencies CRDs
+
+$(TEST_CRD_DIR):
+	mkdir -p $(TEST_CRD_DIR)
+
+$(OS_CONSOLE_CRD_FILE): $(TEST_CRD_DIR)
+	wget -O $(OS_CONSOLE_CRD_FILE) $(OS_CONSOLE_CRD_URL)
+
+$(OS_CONSOLE_PLUGIN_CRD_FILE): $(TEST_CRD_DIR)
+	wget -O $(OS_CONSOLE_PLUGIN_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_URL)
+
 
 .PHONY: lint
 lint: ## Run golangci-lint against code.
@@ -131,9 +150,10 @@ build: manifests generate fmt vet ## Build manager binary.
 
 LIGHTSPEED_SERVICE_IMG ?= quay.io/openshift/lightspeed-service-api:latest
 LIGHTSPEED_SERVICE_REDIS_IMG ?= quay.io/openshift/lightspeed-service-redis:latest
+CONSOLE_PLUGIN_IMG ?= quay.io/openshift/lightspeed-console-plugin:latest
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go --images="lightspeed-service=$(LIGHTSPEED_SERVICE_IMG),lightspeed-service-redis=$(LIGHTSPEED_SERVICE_REDIS_IMG)"
+	go run ./cmd/main.go --images="lightspeed-service=$(LIGHTSPEED_SERVICE_IMG),lightspeed-service-redis=$(LIGHTSPEED_SERVICE_REDIS_IMG),console-plugin=$(CONSOLE_PLUGIN_IMG)"
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
