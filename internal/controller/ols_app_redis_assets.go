@@ -144,7 +144,6 @@ func (r *OLSConfigReconciler) updateRedisDeployment(ctx context.Context, existin
 		changed = true
 	}
 
-	// Update command to a desired value for a specified container.
 	if commandChanged, err := setCommand(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].Command, RedisDeploymentName); err != nil {
 		return err
 	} else if commandChanged {

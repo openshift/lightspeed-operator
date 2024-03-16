@@ -29,6 +29,8 @@ import (
 	k8sflag "k8s.io/component-base/cli/flag"
 	"k8s.io/utils/ptr"
 
+	consolev1 "github.com/openshift/api/console/v1"
+	openshiftv1 "github.com/openshift/api/operator/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -49,11 +51,14 @@ var (
 	defaultImages = map[string]string{
 		"lightspeed-service":       controller.OLSAppServerImageDefault,
 		"lightspeed-service-redis": controller.RedisServerImageDefault,
+		"console-plugin":           controller.ConsoleUIImageDefault,
 	}
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(consolev1.AddToScheme(scheme))
+	utilruntime.Must(openshiftv1.AddToScheme(scheme))
 
 	utilruntime.Must(olsv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
