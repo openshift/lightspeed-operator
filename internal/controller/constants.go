@@ -76,4 +76,24 @@ const (
 	OLSRedisConfigHashStateCacheKey = "olsredisconfig-hash"
 	// #nosec G101
 	OLSRedisSecretHashStateCacheKey = "olsredissecret-hash"
+
+	/*** console UI plugin ***/
+	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
+	ConsoleUIConfigMapName = "lightspeed-console-plugin"
+	// ConsoleUIServiceCertSecretName is the name of the console UI service certificate secret
+	ConsoleUIServiceCertSecretName = "lightspeed-console-plugin-cert"
+	// ConsoleUIServiceName is the name of the console UI service
+	ConsoleUIServiceName = "lightspeed-console-plugin"
+	// ConsoleUIDeploymentName is the name of the console UI deployment
+	ConsoleUIDeploymentName = "lightspeed-console-plugin"
+	// ConsoleUIImage is the image of the console UI plugin
+	ConsoleUIImageDefault = "quay.io/openshift/lightspeed-console-plugin:latest"
+	// ConsoleUIHTTPSPort is the port number of the console UI service
+	ConsoleUIHTTPSPort = 9443
+	// ConsoleUIPluginName is the name of the console UI plugin
+	ConsoleUIPluginName = "lightspeed-console-plugin"
+	// ConsoleUIPluginDisplayName is the display name of the console UI plugin
+	ConsoleUIPluginDisplayName = "Lightspeed Console"
+	// ConsoleCRName is the name of the console custom resource
+	ConsoleCRName = "cluster"
 )

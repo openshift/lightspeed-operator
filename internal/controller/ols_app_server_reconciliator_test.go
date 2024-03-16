@@ -83,4 +83,36 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Annotations[OLSConfigHashKey]).NotTo(Equal(oldHash))
 		})
 	})
+
+	Context("Creation logic", Ordered, func() {
+		It("should reconcile from OLSConfig custom resource", func() {
+			By("Reconcile the OLSConfig custom resource")
+			err := reconciler.reconcileAppServer(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+		})
+
+		It("should update deployment volumes when changing the token secret", func() {
+			By("Reconcile after modifying the token secret")
+			crNewVolume := getCompleteOLSConfigCR()
+			crNewVolume.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: "new-token-secret"}
+			err := reconciler.reconcileAppServer(ctx, crNewVolume)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get the deployment and check the new volume")
+			dep := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: cr.Namespace}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			defaultSecretMode := int32(420)
+			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
+				Name: "secret-new-token-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  "new-token-secret",
+						DefaultMode: &defaultSecretMode,
+					},
+				},
+			}))
+		})
+	})
 })

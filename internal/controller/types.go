@@ -15,6 +15,12 @@ type ReconcileTask struct {
 	Task ReconcileFunc
 }
 
+type DeleteFunc func(context.Context) error
+type DeleteTask struct {
+	Name string
+	Task DeleteFunc
+}
+
 /*** application server configuration file ***/
 // root of the app server configuration file
 type AppSrvConfigFile struct {

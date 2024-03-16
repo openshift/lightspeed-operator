@@ -40,6 +40,8 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	// mount points of API key secret
 	const OLSConfigMountPath = "/etc/ols"
 	const OLSConfigVolumeName = "cm-olsconfig"
+	const OLSUserDataVolumeName = "ols-user-data"
+	const OLSUserDataMountPath = "/app-root/ols-user-data"
 	revisionHistoryLimit := int32(0)
 
 	// map from secret name to secret mount path
@@ -75,6 +77,12 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			},
 		},
 	}
+	olsUserDataVolume := corev1.Volume{
+		Name: OLSUserDataVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
 	redisCAConfigVolume := corev1.Volume{
 		Name: OLSRedisCAVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -85,7 +93,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			},
 		},
 	}
-	volumes = append(volumes, olsConfigVolume, redisCAConfigVolume)
+	volumes = append(volumes, olsConfigVolume, olsUserDataVolume, redisCAConfigVolume)
 
 	// mount the volumes of api keys secrets and OLS config map to the container
 	volumeMounts := []corev1.VolumeMount{}
@@ -102,12 +110,16 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		MountPath: OLSConfigMountPath,
 		ReadOnly:  true,
 	}
+	olsUserDataVolumeMount := corev1.VolumeMount{
+		Name:      OLSUserDataVolumeName,
+		MountPath: OLSUserDataMountPath,
+	}
 	olsRedisCAVolumeMount := corev1.VolumeMount{
 		Name:      OLSRedisCAVolumeName,
 		MountPath: path.Join(OLSAppCertsMountRoot, OLSAppRedisCertsSecretName, OLSRedisCAVolumeName),
 		ReadOnly:  true,
 	}
-	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsRedisCAVolumeMount)
+	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount, olsRedisCAVolumeMount)
 
 	replicas := getOLSServerReplicas(cr)
 	resources := getOLSServerResources(cr)
@@ -210,6 +222,16 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 		return err
 	} else if resourcesChanged {
 		changed = true
+	}
+
+	// validate volumes including token secrets and application config map
+	if !podVolumeEqual(existingDeployment.Spec.Template.Spec.Volumes, desiredDeployment.Spec.Template.Spec.Volumes) {
+		changed = true
+		existingDeployment.Spec.Template.Spec.Volumes = desiredDeployment.Spec.Template.Spec.Volumes
+		_, err := setDeploymentContainerVolumeMounts(existingDeployment, "lightspeed-service-api", desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts)
+		if err != nil {
+			return err
+		}
 	}
 
 	if changed {

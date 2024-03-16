@@ -134,6 +134,11 @@ var _ = Describe("App server assets", func() {
 					ReadOnly:  true,
 				},
 				{
+					Name:      "ols-user-data",
+					ReadOnly:  false,
+					MountPath: "/app-root/ols-user-data",
+				},
+				{
 					Name:      "cm-olsredisca",
 					MountPath: "/etc/certs/lightspeed-redis-certs/cm-olsredisca",
 					ReadOnly:  true,
@@ -162,6 +167,12 @@ var _ = Describe("App server assets", func() {
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
 						},
+					},
+				},
+				{
+					Name: "ols-user-data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 				{
@@ -290,7 +301,11 @@ ols_config:
 					MountPath: "/etc/ols",
 					ReadOnly:  true,
 				},
-
+				{
+					Name:      "ols-user-data",
+					ReadOnly:  false,
+					MountPath: "/app-root/ols-user-data",
+				},
 				{
 					Name:      "cm-olsredisca",
 					MountPath: "/etc/certs/lightspeed-redis-certs/cm-olsredisca",
@@ -312,6 +327,12 @@ ols_config:
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
 						},
+					},
+				},
+				{
+					Name: "ols-user-data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 				{
