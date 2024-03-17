@@ -18,7 +18,6 @@ var _ = Describe("Redis server reconciliator", Ordered, func() {
 
 		It("should reconcile from OLSConfig custom resource", func() {
 			By("Reconcile the OLSConfig custom resource")
-			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = RedisSecretName
 			err := reconciler.reconcileRedisServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -61,9 +60,7 @@ var _ = Describe("Redis server reconciliator", Ordered, func() {
 			olsConfig := &olsv1alpha1.OLSConfig{}
 			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
-			olsConfig.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef = corev1.LocalObjectReference{
-				Name: "dummy-secret",
-			}
+			olsConfig.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret = "dummy-secret"
 
 			By("Reconcile the app server")
 			err = reconciler.reconcileAppServer(ctx, olsConfig)

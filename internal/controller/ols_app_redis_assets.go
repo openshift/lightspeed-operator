@@ -26,10 +26,31 @@ func generateRedisSelectorLabels() map[string]string {
 	}
 }
 
+func getRedisCAConfigVolume() corev1.Volume {
+	return corev1.Volume{
+		Name: RedisCAVolume,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: RedisCAConfigMap,
+				},
+			},
+		},
+	}
+}
+
+func getRedisCAVolumeMount(mountPath string) corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      RedisCAVolume,
+		MountPath: mountPath,
+		ReadOnly:  true,
+	}
+}
+
 func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	cacheReplicas := int32(1)
 	revisionHistoryLimit := int32(0)
-	redisPassword, err := getSecretContent(r.Client, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name, cr.Namespace, OLSComponentPasswordFileName)
+	redisPassword, err := getSecretContent(r.Client, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret, cr.Namespace, OLSComponentPasswordFileName)
 	if err != nil {
 		return nil, fmt.Errorf("Password is a must to start redis deployment : %w", err)
 	}
@@ -41,28 +62,13 @@ func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig)
 			},
 		},
 	}
-	redisCAConfigVolume := corev1.Volume{
-		Name: RedisCAVolume,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: RedisCAConfigMap,
-				},
-			},
-		},
-	}
-	volumes := []corev1.Volume{tlsCertsVolume, redisCAConfigVolume}
+	volumes := []corev1.Volume{tlsCertsVolume, getRedisCAConfigVolume()}
 	redisTLSVolumeMount := corev1.VolumeMount{
 		Name:      "secret-" + RedisCertsSecretName,
 		MountPath: OLSAppCertsMountRoot,
 		ReadOnly:  true,
 	}
-	redisCAVolumeMount := corev1.VolumeMount{
-		Name:      RedisCAVolume,
-		MountPath: path.Join(OLSAppCertsMountRoot, RedisCAVolume),
-		ReadOnly:  true,
-	}
-	volumeMounts := []corev1.VolumeMount{redisTLSVolumeMount, redisCAVolumeMount}
+	volumeMounts := []corev1.VolumeMount{redisTLSVolumeMount, getRedisCAVolumeMount(path.Join(OLSAppCertsMountRoot, RedisCAVolume))}
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RedisDeploymentName,
@@ -163,9 +169,6 @@ func (r *OLSConfigReconciler) updateRedisDeployment(ctx context.Context, existin
 }
 
 func (r *OLSConfigReconciler) generateRedisService(cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
-	internalTrafficPolicy := corev1.ServiceInternalTrafficPolicyCluster
-	ipFamilies := []corev1.IPFamily{corev1.IPv4Protocol}
-	ipFamilyPolicy := corev1.IPFamilyPolicySingleStack
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RedisServiceName,
@@ -176,9 +179,6 @@ func (r *OLSConfigReconciler) generateRedisService(cr *olsv1alpha1.OLSConfig) (*
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			InternalTrafficPolicy: &internalTrafficPolicy,
-			IPFamilies:            ipFamilies,
-			IPFamilyPolicy:        &ipFamilyPolicy,
 			Ports: []corev1.ServicePort{
 				{
 					Port:       RedisServicePort,
@@ -187,9 +187,8 @@ func (r *OLSConfigReconciler) generateRedisService(cr *olsv1alpha1.OLSConfig) (*
 					TargetPort: intstr.Parse("server"),
 				},
 			},
-			Selector:        generateRedisSelectorLabels(),
-			SessionAffinity: corev1.ServiceAffinityNone,
-			Type:            corev1.ServiceTypeClusterIP,
+			Selector: generateRedisSelectorLabels(),
+			Type:     corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -214,7 +213,7 @@ func (r *OLSConfigReconciler) generateRedisSecret(cr *olsv1alpha1.OLSConfig) (*c
 	}
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name,
+			Name:      cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret,
 			Namespace: cr.Namespace,
 			Labels:    generateRedisSelectorLabels(),
 			Annotations: map[string]string{

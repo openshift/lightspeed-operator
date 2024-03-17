@@ -170,8 +170,7 @@ conversationCache:
   redis:
     maxMemory: "2000mb"
     maxMemoryPolicy: "allkeys-lru"
-    credentialsSecretRef:
-      name: xyz
+    credentialsSecret: xyz
   type: redis
 ```
 

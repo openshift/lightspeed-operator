@@ -75,8 +75,7 @@ const (
 	OLSConfigHashStateCacheKey   = "olsconfigmap-hash"
 	RedisConfigHashStateCacheKey = "olsredisconfig-hash"
 	// #nosec G101
-	RedisSecretHashStateCacheKey    = "olsredissecret-hash"
-	OLSRedisSecretHashStateCacheKey = "olsredissecret-hash"
+	RedisSecretHashStateCacheKey = "olsredissecret-hash"
 
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap

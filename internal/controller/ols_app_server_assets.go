@@ -59,30 +59,27 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
-	OLSRedisMaxMemory := intstr.FromString(RedisMaxMemory)
-	OLSRedisMaxMemoryPolicy := RedisMaxMemoryPolicy
-	secretName := RedisSecretName
+	redisMaxMemory := intstr.FromString(RedisMaxMemory)
+	redisMaxMemoryPolicy := RedisMaxMemoryPolicy
+	redisSecretName := RedisSecretName
 	redisConfig := cr.Spec.OLSConfig.ConversationCache.Redis
-	if redisConfig != (olsv1alpha1.RedisSpec{}) {
-		if (redisConfig.CredentialsSecretRef != corev1.LocalObjectReference{}) && (redisConfig.CredentialsSecretRef.Name != "") {
-			secretName = redisConfig.CredentialsSecretRef.Name
-		}
-	}
-	cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = secretName
 	if redisConfig.MaxMemory != nil && redisConfig.MaxMemory.String() != "" {
-		OLSRedisMaxMemory = *cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemory
+		redisMaxMemory = *cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemory
 	}
 	if redisConfig.MaxMemoryPolicy != "" {
-		OLSRedisMaxMemoryPolicy = cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy
+		redisMaxMemoryPolicy = cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy
 	}
-	redisPasswordPath := path.Join(CredentialsMountRoot, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name, OLSComponentPasswordFileName)
+	if redisConfig.CredentialsSecret != "" {
+		redisSecretName = cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret
+	}
+	redisPasswordPath := path.Join(CredentialsMountRoot, redisSecretName, OLSComponentPasswordFileName)
 	conversationCache := ConversationCacheConfig{
 		Type: string(OLSDefaultCacheType),
 		Redis: RedisCacheConfig{
 			Host:            strings.Join([]string{RedisServiceName, cr.Namespace, "svc"}, "."),
 			Port:            RedisServicePort,
-			MaxMemory:       &OLSRedisMaxMemory,
-			MaxMemoryPolicy: OLSRedisMaxMemoryPolicy,
+			MaxMemory:       &redisMaxMemory,
+			MaxMemoryPolicy: redisMaxMemoryPolicy,
 			PasswordPath:    redisPasswordPath,
 			CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
 		},

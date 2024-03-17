@@ -105,7 +105,7 @@ func (r *OLSConfigReconciler) reconcileRedisSecret(ctx context.Context, cr *olsv
 		return fmt.Errorf("failed to generate OLS redis secret: %w", err)
 	}
 	foundSecret := &corev1.Secret{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name, Namespace: cr.Namespace}, foundSecret)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret, Namespace: cr.Namespace}, foundSecret)
 	if err != nil && errors.IsNotFound(err) {
 		labelSelector := labels.Set{"app.kubernetes.io/name": "lightspeed-service-redis"}.AsSelector()
 		oldSecrets := &corev1.SecretList{}

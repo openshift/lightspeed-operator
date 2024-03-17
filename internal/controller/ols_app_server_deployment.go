@@ -51,7 +51,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		secretMounts[provider.CredentialsSecretRef.Name] = credentialMountPath
 	}
 
-	redisSecretName := cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name
+	redisSecretName := cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret
 	redisCredentialsMountPath := path.Join(CredentialsMountRoot, redisSecretName)
 	secretMounts[redisSecretName] = redisCredentialsMountPath
 	// declare api key secrets and OLS config map as volumes to the pod
@@ -83,17 +83,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
-	redisCAConfigVolume := corev1.Volume{
-		Name: RedisCAVolume,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: RedisCAConfigMap,
-				},
-			},
-		},
-	}
-	volumes = append(volumes, olsConfigVolume, olsUserDataVolume, redisCAConfigVolume)
+	volumes = append(volumes, olsConfigVolume, olsUserDataVolume, getRedisCAConfigVolume())
 
 	// mount the volumes of api keys secrets and OLS config map to the container
 	volumeMounts := []corev1.VolumeMount{}
@@ -114,12 +104,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		Name:      OLSUserDataVolumeName,
 		MountPath: OLSUserDataMountPath,
 	}
-	olsRedisCAVolumeMount := corev1.VolumeMount{
-		Name:      RedisCAVolume,
-		MountPath: path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume),
-		ReadOnly:  true,
-	}
-	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount, olsRedisCAVolumeMount)
+	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount, getRedisCAVolumeMount(path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume)))
 
 	replicas := getOLSServerReplicas(cr)
 	resources := getOLSServerResources(cr)

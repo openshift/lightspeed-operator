@@ -270,7 +270,7 @@ ols_config:
 
 		It("should generate the OLS deployment", func() {
 			// todo: update this test after updating the test for generateOLSConfigMap
-			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecretRef.Name = RedisSecretName
+			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret = RedisSecretName
 			dep, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(OLSAppServerDeploymentName))
@@ -385,9 +385,7 @@ func getCompleteOLSConfigCR() *olsv1alpha1.OLSConfig {
 				ConversationCache: olsv1alpha1.ConversationCacheSpec{
 					Type: olsv1alpha1.Redis,
 					Redis: olsv1alpha1.RedisSpec{
-						CredentialsSecretRef: corev1.LocalObjectReference{
-							Name: RedisSecretName,
-						},
+						CredentialsSecret: RedisSecretName,
 					},
 				},
 			},
