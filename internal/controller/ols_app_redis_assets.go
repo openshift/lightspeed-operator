@@ -49,7 +49,7 @@ func getRedisCAVolumeMount(mountPath string) corev1.VolumeMount {
 
 func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	cacheReplicas := int32(1)
-	revisionHistoryLimit := int32(0)
+	revisionHistoryLimit := int32(1)
 	redisPassword, err := getSecretContent(r.Client, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret, r.Options.Namespace, OLSComponentPasswordFileName)
 	if err != nil {
 		return nil, fmt.Errorf("Password is a must to start redis deployment : %w", err)

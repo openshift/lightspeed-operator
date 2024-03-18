@@ -42,7 +42,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	const OLSConfigVolumeName = "cm-olsconfig"
 	const OLSUserDataVolumeName = "ols-user-data"
 	const OLSUserDataMountPath = "/app-root/ols-user-data"
-	revisionHistoryLimit := int32(0)
+	revisionHistoryLimit := int32(1)
 
 	// map from secret name to secret mount path
 	secretMounts := map[string]string{}

@@ -23,7 +23,7 @@ var _ = Describe("App redis server assets", func() {
 
 	validateRedisDeployment := func(dep *appsv1.Deployment, password string) {
 		replicas := int32(1)
-		revisionHistoryLimit := int32(0)
+		revisionHistoryLimit := int32(1)
 		Expect(dep.Name).To(Equal(RedisDeploymentName))
 		Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
 		Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(rOptions.LightspeedServiceRedisImage))
