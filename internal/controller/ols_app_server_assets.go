@@ -27,7 +27,7 @@ func (r *OLSConfigReconciler) generateServiceAccount(cr *olsv1alpha1.OLSConfig) 
 	sa := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OLSAppServerServiceAccountName,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 		},
 	}
 
@@ -76,7 +76,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 	conversationCache := ConversationCacheConfig{
 		Type: string(OLSDefaultCacheType),
 		Redis: RedisCacheConfig{
-			Host:            strings.Join([]string{RedisServiceName, cr.Namespace, "svc"}, "."),
+			Host:            strings.Join([]string{RedisServiceName, r.Options.Namespace, "svc"}, "."),
 			Port:            RedisServicePort,
 			MaxMemory:       &redisMaxMemory,
 			MaxMemoryPolicy: redisMaxMemoryPolicy,
@@ -122,7 +122,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OLSConfigCmName,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 			Labels:    generateAppServerSelectorLabels(),
 			Annotations: map[string]string{
 				OLSConfigHashKey:   configFileHash,
@@ -145,7 +145,7 @@ func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OLSAppServerDeploymentName,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 			Labels:    generateAppServerSelectorLabels(),
 		},
 		Spec: corev1.ServiceSpec{

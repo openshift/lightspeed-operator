@@ -147,9 +147,9 @@ type ProviderSpec struct {
 	Models []ModelSpec `json:"models,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster
 // OLSConfig is the Schema for the olsconfigs API
 type OLSConfig struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -160,8 +160,8 @@ type OLSConfig struct {
 	Status OLSConfigStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:scope=Cluster
 // OLSConfigList contains a list of OLSConfig
 type OLSConfigList struct {
 	metav1.TypeMeta `json:",inline"`

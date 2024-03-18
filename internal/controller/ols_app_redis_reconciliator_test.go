@@ -27,7 +27,7 @@ var _ = Describe("Redis server reconciliator", Ordered, func() {
 
 			By("Get redis service")
 			svc := &corev1.Service{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: RedisServiceName, Namespace: cr.Namespace}, svc)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: RedisServiceName, Namespace: OLSNamespaceDefault}, svc)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -35,7 +35,7 @@ var _ = Describe("Redis server reconciliator", Ordered, func() {
 
 			By("Get redis deployment")
 			dep := &appsv1.Deployment{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: RedisDeploymentName, Namespace: cr.Namespace}, dep)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: RedisDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -43,7 +43,7 @@ var _ = Describe("Redis server reconciliator", Ordered, func() {
 
 			By("Get the secret")
 			secret := &corev1.Secret{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: RedisSecretName, Namespace: cr.Namespace}, secret)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: RedisSecretName, Namespace: OLSNamespaceDefault}, secret)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -51,7 +51,7 @@ var _ = Describe("Redis server reconciliator", Ordered, func() {
 
 			By("Get the redis deployment")
 			dep := &appsv1.Deployment{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: RedisDeploymentName, Namespace: cr.Namespace}, dep)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: RedisDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
 			oldHash := dep.Spec.Template.Annotations[RedisConfigHashKey]
@@ -70,7 +70,7 @@ var _ = Describe("Redis server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the redis deployment")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: RedisDeploymentName, Namespace: cr.Namespace}, dep)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: RedisDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			fmt.Printf("%v", dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())

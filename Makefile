@@ -115,8 +115,8 @@ vet: ## Run go vet against code.
 test: manifests generate fmt vet envtest test-crds ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
-OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/operator/v1/zz_generated.crd-manifests/00_console-operator.crd.yaml
-OS_CONSOLE_PLUGIN_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/console/v1/zz_generated.crd-manifests/90_consoleplugin.crd.yaml
+OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/operator/v1/zz_generated.crd-manifests/0000_50_console_01_consoles.crd.yaml
+OS_CONSOLE_PLUGIN_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/console/v1/zz_generated.crd-manifests/90_consoleplugins.crd.yaml
 TEST_CRD_DIR = .testcrds
 OS_CONSOLE_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-crd.yaml
 OS_CONSOLE_PLUGIN_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-plugin-crd.yaml

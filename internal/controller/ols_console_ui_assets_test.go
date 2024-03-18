@@ -26,6 +26,7 @@ var _ = Describe("Console UI assets", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
 				ConsoleUIImage: ConsoleUIImageDefault,
+				Namespace:      OLSNamespaceDefault,
 			}
 			cr = getCompleteOLSConfigCR()
 			r = &OLSConfigReconciler{
@@ -41,7 +42,7 @@ var _ = Describe("Console UI assets", func() {
 			cm, err := r.generateConsoleUIConfigMap(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(ConsoleUIConfigMapName))
-			Expect(cm.Namespace).To(Equal(cr.Namespace))
+			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(cm.Labels).To(Equal(labels))
 
 			// todo: check the nginx config
@@ -51,7 +52,7 @@ var _ = Describe("Console UI assets", func() {
 			svc, err := r.generateConsoleUIService(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(svc.Name).To(Equal(ConsoleUIServiceName))
-			Expect(svc.Namespace).To(Equal(cr.Namespace))
+			Expect(svc.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(svc.Labels).To(Equal(labels))
 			Expect(svc.ObjectMeta.Annotations["service.beta.openshift.io/serving-cert-secret-name"]).To(Equal(ConsoleUIServiceCertSecretName))
 			Expect(svc.Spec.Ports[0].Port).To(Equal(int32(ConsoleUIHTTPSPort)))
@@ -64,7 +65,7 @@ var _ = Describe("Console UI assets", func() {
 			dep, err := r.generateConsoleUIDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(ConsoleUIDeploymentName))
-			Expect(dep.Namespace).To(Equal(cr.Namespace))
+			Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(dep.Labels).To(Equal(labels))
 			Expect(dep.Spec.Template.Labels).To(Equal(labels))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-console-plugin"))
@@ -80,7 +81,7 @@ var _ = Describe("Console UI assets", func() {
 			Expect(plugin.Name).To(Equal(ConsoleUIPluginName))
 			Expect(plugin.Labels).To(Equal(labels))
 			Expect(plugin.Spec.Backend.Service.Name).To(Equal(ConsoleUIServiceName))
-			Expect(plugin.Spec.Backend.Service.Namespace).To(Equal(cr.Namespace))
+			Expect(plugin.Spec.Backend.Service.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(plugin.Spec.Backend.Service.Port).To(Equal(int32(ConsoleUIHTTPSPort)))
 			Expect(plugin.Spec.Backend.Service.BasePath).To(Equal("/"))
 		})

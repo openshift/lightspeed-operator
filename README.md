@@ -56,7 +56,6 @@ apiVersion: ols.openshift.io/v1alpha1
 kind: OLSConfig
 metadata:
   name: cluster
-  namespace: openshift-lightspeed
 spec:
   llm:
     providers:

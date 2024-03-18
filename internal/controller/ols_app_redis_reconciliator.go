@@ -51,7 +51,7 @@ func (r *OLSConfigReconciler) reconcileRedisDeployment(ctx context.Context, cr *
 	}
 
 	existingDeployment := &appsv1.Deployment{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: RedisDeploymentName, Namespace: cr.Namespace}, existingDeployment)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: RedisDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
 			RedisConfigHashKey: r.stateCache[RedisConfigHashStateCacheKey],
@@ -86,7 +86,7 @@ func (r *OLSConfigReconciler) reconcileRedisService(ctx context.Context, cr *ols
 	}
 
 	foundService := &corev1.Service{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: RedisServiceName, Namespace: cr.Namespace}, foundService)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: RedisServiceName, Namespace: r.Options.Namespace}, foundService)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, service)
 		if err != nil {
@@ -105,11 +105,11 @@ func (r *OLSConfigReconciler) reconcileRedisSecret(ctx context.Context, cr *olsv
 		return fmt.Errorf("failed to generate OLS redis secret: %w", err)
 	}
 	foundSecret := &corev1.Secret{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret, Namespace: cr.Namespace}, foundSecret)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret, Namespace: r.Options.Namespace}, foundSecret)
 	if err != nil && errors.IsNotFound(err) {
 		labelSelector := labels.Set{"app.kubernetes.io/name": "lightspeed-service-redis"}.AsSelector()
 		oldSecrets := &corev1.SecretList{}
-		err = r.Client.List(ctx, oldSecrets, &client.ListOptions{Namespace: cr.Namespace, LabelSelector: labelSelector})
+		err = r.Client.List(ctx, oldSecrets, &client.ListOptions{Namespace: r.Options.Namespace, LabelSelector: labelSelector})
 		if err != nil {
 			return fmt.Errorf("failed to list old OLS redis secrets: %w", err)
 		}

@@ -55,21 +55,21 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 		It("should create a service lightspeed-console-plugin", func() {
 			By("Get the service")
 			svc := &corev1.Service{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIServiceName, Namespace: cr.Namespace}, svc)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIServiceName, Namespace: OLSNamespaceDefault}, svc)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should create a config map lightspeed-console-plugin", func() {
 			By("Get the config map")
 			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIConfigMapName, Namespace: cr.Namespace}, cm)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIConfigMapName, Namespace: OLSNamespaceDefault}, cm)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should create a deployment lightspeed-console-plugin", func() {
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: cr.Namespace}, dep)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 		})
 

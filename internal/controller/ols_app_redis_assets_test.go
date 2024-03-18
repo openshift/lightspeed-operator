@@ -25,7 +25,7 @@ var _ = Describe("App redis server assets", func() {
 		replicas := int32(1)
 		revisionHistoryLimit := int32(0)
 		Expect(dep.Name).To(Equal(RedisDeploymentName))
-		Expect(dep.Namespace).To(Equal(cr.Namespace))
+		Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
 		Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(rOptions.LightspeedServiceRedisImage))
 		Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-redis-server"))
 		Expect(dep.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
@@ -93,7 +93,7 @@ var _ = Describe("App redis server assets", func() {
 	validateRedisService := func(service *corev1.Service, err error) {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(service.Name).To(Equal(RedisServiceName))
-		Expect(service.Namespace).To(Equal(cr.Namespace))
+		Expect(service.Namespace).To(Equal(OLSNamespaceDefault))
 		Expect(service.Labels).To(Equal(generateRedisSelectorLabels()))
 		Expect(service.Annotations).To(Equal(map[string]string{
 			"service.beta.openshift.io/serving-cert-secret-name": RedisCertsSecretName,
@@ -121,6 +121,7 @@ var _ = Describe("App redis server assets", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
 				LightspeedServiceRedisImage: "lightspeed-service-redis:latest",
+				Namespace:                   OLSNamespaceDefault,
 			}
 			cr = getOLSConfigWithCacheCR()
 			r = &OLSConfigReconciler{
@@ -240,6 +241,7 @@ var _ = Describe("App redis server assets", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
 				LightspeedServiceRedisImage: "lightspeed-service-redis:latest",
+				Namespace:                   OLSNamespaceDefault,
 			}
 			cr = getNoCacheCR()
 			r = &OLSConfigReconciler{
@@ -292,7 +294,7 @@ func getOLSConfigWithCacheCR() *olsv1alpha1.OLSConfig {
 	return &olsv1alpha1.OLSConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cluster",
-			Namespace: "openshift-lightspeed",
+			Namespace: OLSNamespaceDefault,
 		},
 		Spec: olsv1alpha1.OLSConfigSpec{
 			OLSConfig: olsv1alpha1.OLSSpec{
@@ -313,7 +315,7 @@ func getNoCacheCR() *olsv1alpha1.OLSConfig {
 	return &olsv1alpha1.OLSConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cluster",
-			Namespace: "openshift-lightspeed",
+			Namespace: OLSNamespaceDefault,
 		},
 	}
 

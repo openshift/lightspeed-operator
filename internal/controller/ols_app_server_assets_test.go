@@ -26,6 +26,7 @@ var _ = Describe("App server assets", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
 				LightspeedServiceImage: "lightspeed-service:latest",
+				Namespace:              OLSNamespaceDefault,
 			}
 			cr = getCompleteOLSConfigCR()
 			r = &OLSConfigReconciler{
@@ -41,7 +42,7 @@ var _ = Describe("App server assets", func() {
 			sa, err := r.generateServiceAccount(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(sa.Name).To(Equal(OLSAppServerServiceAccountName))
-			Expect(sa.Namespace).To(Equal(cr.Namespace))
+			Expect(sa.Namespace).To(Equal(OLSNamespaceDefault))
 		})
 
 		It("should generate the olsconfig config map", func() {
@@ -49,7 +50,7 @@ var _ = Describe("App server assets", func() {
 			OLSRedisMaxMemory := intstr.FromString(RedisMaxMemory)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
-			Expect(cm.Namespace).To(Equal(cr.Namespace))
+			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
 			olsconfigGenerated := AppSrvConfigFile{}
 			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
@@ -65,7 +66,7 @@ var _ = Describe("App server assets", func() {
 					ConversationCache: ConversationCacheConfig{
 						Type: "redis",
 						Redis: RedisCacheConfig{
-							Host:            strings.Join([]string{RedisServiceName, cr.Namespace, "svc"}, "."),
+							Host:            strings.Join([]string{RedisServiceName, OLSNamespaceDefault, "svc"}, "."),
 							Port:            RedisServicePort,
 							MaxMemory:       &OLSRedisMaxMemory,
 							MaxMemoryPolicy: RedisMaxMemoryPolicy,
@@ -101,7 +102,7 @@ var _ = Describe("App server assets", func() {
 			dep, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(OLSAppServerDeploymentName))
-			Expect(dep.Namespace).To(Equal(cr.Namespace))
+			Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(rOptions.LightspeedServiceImage))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
@@ -191,7 +192,7 @@ var _ = Describe("App server assets", func() {
 			service, err := r.generateService(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(service.Name).To(Equal(OLSAppServerServiceName))
-			Expect(service.Namespace).To(Equal(cr.Namespace))
+			Expect(service.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(service.Spec.Selector).To(Equal(generateAppServerSelectorLabels()))
 			Expect(service.Spec.Ports).To(Equal([]corev1.ServicePort{
 				{
@@ -210,6 +211,7 @@ var _ = Describe("App server assets", func() {
 			cr = getEmptyOLSConfigCR()
 			rOptions = &OLSConfigReconcilerOptions{
 				LightspeedServiceImage: "lightspeed-service:latest",
+				Namespace:              OLSNamespaceDefault,
 			}
 			r = &OLSConfigReconciler{
 				Options:    *rOptions,
@@ -224,7 +226,7 @@ var _ = Describe("App server assets", func() {
 			sa, err := r.generateServiceAccount(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(sa.Name).To(Equal(OLSAppServerServiceAccountName))
-			Expect(sa.Namespace).To(Equal("openshift-lightspeed"))
+			Expect(sa.Namespace).To(Equal(OLSNamespaceDefault))
 		})
 
 		It("should generate the olsconfig config map", func() {
@@ -233,7 +235,7 @@ var _ = Describe("App server assets", func() {
 			cm, err := r.generateOLSConfigMap(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
-			Expect(cm.Namespace).To(Equal("openshift-lightspeed"))
+			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
 			const expectedConfigStr = `llm_providers: []
 ols_config:
   conversation_cache:
@@ -256,7 +258,7 @@ ols_config:
 			service, err := r.generateService(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(service.Name).To(Equal(OLSAppServerServiceName))
-			Expect(service.Namespace).To(Equal("openshift-lightspeed"))
+			Expect(service.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(service.Spec.Selector).To(Equal(generateAppServerSelectorLabels()))
 			Expect(service.Spec.Ports).To(Equal([]corev1.ServicePort{
 				{
@@ -274,7 +276,7 @@ ols_config:
 			dep, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(OLSAppServerDeploymentName))
-			Expect(dep.Namespace).To(Equal("openshift-lightspeed"))
+			Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(rOptions.LightspeedServiceImage))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
@@ -357,8 +359,7 @@ func getCompleteOLSConfigCR() *olsv1alpha1.OLSConfig {
 	// fill the CR with all implemented fields in the configuration file
 	return &olsv1alpha1.OLSConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cluster",
-			Namespace: "openshift-lightspeed",
+			Name: "cluster",
 		},
 		Spec: olsv1alpha1.OLSConfigSpec{
 			LLMConfig: olsv1alpha1.LLMSpec{
@@ -397,8 +398,7 @@ func getEmptyOLSConfigCR() *olsv1alpha1.OLSConfig {
 	// The CR has no fields set in its specs
 	return &olsv1alpha1.OLSConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cluster",
-			Namespace: "openshift-lightspeed",
+			Name: "cluster",
 		},
 	}
 

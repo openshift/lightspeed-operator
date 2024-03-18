@@ -50,7 +50,7 @@ func getRedisCAVolumeMount(mountPath string) corev1.VolumeMount {
 func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	cacheReplicas := int32(1)
 	revisionHistoryLimit := int32(0)
-	redisPassword, err := getSecretContent(r.Client, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret, cr.Namespace, OLSComponentPasswordFileName)
+	redisPassword, err := getSecretContent(r.Client, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret, r.Options.Namespace, OLSComponentPasswordFileName)
 	if err != nil {
 		return nil, fmt.Errorf("Password is a must to start redis deployment : %w", err)
 	}
@@ -72,7 +72,7 @@ func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig)
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RedisDeploymentName,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 			Labels:    generateRedisSelectorLabels(),
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -172,7 +172,7 @@ func (r *OLSConfigReconciler) generateRedisService(cr *olsv1alpha1.OLSConfig) (*
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RedisServiceName,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 			Labels:    generateRedisSelectorLabels(),
 			Annotations: map[string]string{
 				"service.beta.openshift.io/serving-cert-secret-name": RedisCertsSecretName,
@@ -214,7 +214,7 @@ func (r *OLSConfigReconciler) generateRedisSecret(cr *olsv1alpha1.OLSConfig) (*c
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 			Labels:    generateRedisSelectorLabels(),
 			Annotations: map[string]string{
 				RedisSecretHashKey: passwordHash,

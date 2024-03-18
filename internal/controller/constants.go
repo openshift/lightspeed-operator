@@ -1,10 +1,6 @@
 package controller
 
 const (
-	/*** Operator environment variables ***/
-	// WatchNamespaceEnvVar is the environment variable to specify the namespace to watch
-	WatchNamespaceEnvVar = "WATCH_NAMESPACE"
-
 	/*** Operator Settings ***/
 	// OLSConfigName is the name of the OLSConfig Custom Resource
 	OLSConfigName = "cluster"

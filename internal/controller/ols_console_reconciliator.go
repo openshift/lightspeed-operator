@@ -61,7 +61,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, c
 		return fmt.Errorf("failed to generate Console Plugin configmap: %w", err)
 	}
 	foundCm := &corev1.ConfigMap{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIConfigMapName, Namespace: cr.Namespace}, foundCm)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIConfigMapName, Namespace: r.Options.Namespace}, foundCm)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating Console UI configmap", "configmap", cm.Name)
 		err = r.Create(ctx, cm)
@@ -91,7 +91,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr 
 		return fmt.Errorf("failed to generate Console Plugin service: %w", err)
 	}
 	foundService := &corev1.Service{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIServiceName, Namespace: cr.Namespace}, foundService)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIServiceName, Namespace: r.Options.Namespace}, foundService)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating Console UI service", "service", service.Name)
 		err = r.Create(ctx, service)
@@ -126,7 +126,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 		return fmt.Errorf("failed to generate Console Plugin deployment: %w", err)
 	}
 	foundDeployment := &appsv1.Deployment{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIDeploymentName, Namespace: cr.Namespace}, foundDeployment)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIDeploymentName, Namespace: r.Options.Namespace}, foundDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating Console UI deployment", "deployment", deployment.Name)
 		err = r.Create(ctx, deployment)

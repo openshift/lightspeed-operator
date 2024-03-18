@@ -112,7 +112,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OLSAppServerDeploymentName,
-			Namespace: cr.Namespace,
+			Namespace: r.Options.Namespace,
 			Labels:    generateAppServerSelectorLabels(),
 		},
 		Spec: appsv1.DeploymentSpec{

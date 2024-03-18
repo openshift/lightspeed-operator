@@ -96,7 +96,7 @@ var _ = BeforeSuite(func() {
 	By("Create the namespace openshift-lightspeed")
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "openshift-lightspeed",
+			Name: OLSNamespaceDefault,
 		},
 	}
 	err = k8sClient.Create(ctx, ns)
@@ -106,6 +106,7 @@ var _ = BeforeSuite(func() {
 		Options: OLSConfigReconcilerOptions{
 			LightspeedServiceImage:      "lightspeed-service-api:latest",
 			LightspeedServiceRedisImage: "lightspeed-service-redis:latest",
+			Namespace:                   OLSNamespaceDefault,
 		},
 		logger:     logf.Log.WithName("olsconfig.reconciler"),
 		Client:     k8sClient,
@@ -114,8 +115,7 @@ var _ = BeforeSuite(func() {
 	}
 	cr = &olsv1alpha1.OLSConfig{}
 	crNamespacedName = types.NamespacedName{
-		Name:      "cluster",
-		Namespace: "openshift-lightspeed",
+		Name: "cluster",
 	}
 
 	By("Create a complete OLSConfig custom resource")
@@ -142,7 +142,7 @@ var _ = AfterSuite(func() {
 	By("Delete the namespace openshift-lightspeed")
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "openshift-lightspeed",
+			Name: OLSNamespaceDefault,
 		},
 	}
 	err := k8sClient.Delete(ctx, ns)
