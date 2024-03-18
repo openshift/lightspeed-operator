@@ -46,7 +46,7 @@ func (r *OLSConfigReconciler) reconcileRedisDeployment(ctx context.Context, cr *
 	}
 
 	foundDeployment := &appsv1.Deployment{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppRedisDeploymentName, Namespace: cr.Namespace}, foundDeployment)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppRedisDeploymentName, Namespace: r.Options.Namespace}, foundDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, deployment)
 		if err != nil {
@@ -66,7 +66,7 @@ func (r *OLSConfigReconciler) reconcileRedisService(ctx context.Context, cr *ols
 	}
 
 	foundService := &corev1.Service{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppRedisServiceName, Namespace: cr.Namespace}, foundService)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppRedisServiceName, Namespace: r.Options.Namespace}, foundService)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, service)
 		if err != nil {

@@ -24,7 +24,7 @@ var _ = Describe("Redis server reconciliator", Ordered, func() {
 
 			By("Get redis service")
 			svc := &corev1.Service{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppRedisServiceName, Namespace: cr.Namespace}, svc)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppRedisServiceName, Namespace: OLSNamespaceDefault}, svc)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -32,7 +32,7 @@ var _ = Describe("Redis server reconciliator", Ordered, func() {
 
 			By("Get redis deployment")
 			dep := &appsv1.Deployment{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppRedisDeploymentName, Namespace: cr.Namespace}, dep)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppRedisDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
