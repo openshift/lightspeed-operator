@@ -26,6 +26,7 @@ type DeleteTask struct {
 type AppSrvConfigFile struct {
 	LLMProviders []ProviderConfig `json:"llm_providers"`
 	OLSConfig    OLSConfig        `json:"ols_config,omitempty"`
+	DevConfig    DevConfig        `json:"dev_config,omitempty"`
 }
 
 type ProviderConfig struct {
@@ -82,4 +83,9 @@ type RedisCacheConfig struct {
 	MaxMemory *intstr.IntOrString `json:"max_memory,omitempty" default:"1024mb"`
 	// Redis maxmemory policy
 	MaxMemoryPolicy string `json:"max_memory_policy,omitempty" default:"allkeys-lru"`
+}
+
+type DevConfig struct {
+	// TLS enable/disable
+	DisableTLS bool `json:"disable_tls" default:"false"`
 }

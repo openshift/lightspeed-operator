@@ -76,9 +76,14 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		ConversationCache: conversationCache,
 	}
 
+	devConfig := DevConfig{
+		DisableTLS: true,
+	}
+
 	appSrvConfigFile := AppSrvConfigFile{
 		LLMProviders: providerConfigs,
 		OLSConfig:    olsConfig,
+		DevConfig:    devConfig,
 	}
 	configFileBytes, err := yaml.Marshal(appSrvConfigFile)
 	if err != nil {
