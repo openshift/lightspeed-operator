@@ -14,6 +14,15 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
+func generateAppServerSelectorLabels() map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/component":  "application-server",
+		"app.kubernetes.io/managed-by": "lightspeed-operator",
+		"app.kubernetes.io/name":       "lightspeed-service-api",
+		"app.kubernetes.io/part-of":    "openshift-lightspeed",
+	}
+}
+
 func (r *OLSConfigReconciler) generateServiceAccount(cr *olsv1alpha1.OLSConfig) (*corev1.ServiceAccount, error) {
 	sa := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -50,19 +59,29 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
-	OLSRedisMaxMemory := intstr.FromString(OLSAppRedisMaxMemory)
-	OLSRedisMaxMemoryPolicy := OLSAppRedisMaxMemoryPolicy
-	if cr.Spec.OLSConfig.ConversationCache.Redis != (olsv1alpha1.RedisSpec{}) {
-		OLSRedisMaxMemory = *cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemory
-		OLSRedisMaxMemoryPolicy = cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy
+	redisMaxMemory := intstr.FromString(RedisMaxMemory)
+	redisMaxMemoryPolicy := RedisMaxMemoryPolicy
+	redisSecretName := RedisSecretName
+	redisConfig := cr.Spec.OLSConfig.ConversationCache.Redis
+	if redisConfig.MaxMemory != nil && redisConfig.MaxMemory.String() != "" {
+		redisMaxMemory = *cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemory
 	}
+	if redisConfig.MaxMemoryPolicy != "" {
+		redisMaxMemoryPolicy = cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy
+	}
+	if redisConfig.CredentialsSecret != "" {
+		redisSecretName = cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret
+	}
+	redisPasswordPath := path.Join(CredentialsMountRoot, redisSecretName, OLSComponentPasswordFileName)
 	conversationCache := ConversationCacheConfig{
 		Type: string(OLSDefaultCacheType),
 		Redis: RedisCacheConfig{
-			Host:            strings.Join([]string{OLSAppRedisServiceName, r.Options.Namespace, "svc"}, "."),
-			Port:            OLSAppRedisServicePort,
-			MaxMemory:       &OLSRedisMaxMemory,
-			MaxMemoryPolicy: OLSRedisMaxMemoryPolicy,
+			Host:            strings.Join([]string{RedisServiceName, r.Options.Namespace, "svc"}, "."),
+			Port:            RedisServicePort,
+			MaxMemory:       &redisMaxMemory,
+			MaxMemoryPolicy: redisMaxMemoryPolicy,
+			PasswordPath:    redisPasswordPath,
+			CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
 		},
 	}
 
@@ -90,23 +109,29 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		return nil, fmt.Errorf("failed to generate OLS config file %w", err)
 	}
 
+	redisConfigFileBytes, err := yaml.Marshal(conversationCache.Redis)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate OLS redis config bytes %w", err)
+	}
+
 	configFileHash, err := hashBytes(configFileBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OLS config file hash %w", err)
+	}
+
+	redisConfigHash, err := hashBytes(redisConfigFileBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate OLS redis config hash %w", err)
 	}
 
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OLSConfigCmName,
 			Namespace: r.Options.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/component":  "application-server",
-				"app.kubernetes.io/managed-by": "lightspeed-operator",
-				"app.kubernetes.io/name":       "lightspeed-service-api",
-				"app.kubernetes.io/part-of":    "openshift-lightspeed",
-			},
+			Labels:    generateAppServerSelectorLabels(),
 			Annotations: map[string]string{
-				OLSConfigHashKey: configFileHash,
+				OLSConfigHashKey:   configFileHash,
+				RedisConfigHashKey: redisConfigHash,
 			},
 		},
 		Data: map[string]string{
@@ -122,22 +147,11 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 }
 
 func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
-	DeploymentSelectorLabels := map[string]string{
-		"app.kubernetes.io/component":  "application-server",
-		"app.kubernetes.io/managed-by": "lightspeed-operator",
-		"app.kubernetes.io/name":       "lightspeed-service-api",
-		"app.kubernetes.io/part-of":    "openshift-lightspeed",
-	}
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OLSAppServerServiceName,
 			Namespace: r.Options.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/component":  "application-server",
-				"app.kubernetes.io/managed-by": "lightspeed-operator",
-				"app.kubernetes.io/name":       "lightspeed-service-api",
-				"app.kubernetes.io/part-of":    "openshift-lightspeed",
-			},
+			Labels:    generateAppServerSelectorLabels(),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -148,7 +162,7 @@ func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev
 					TargetPort: intstr.Parse("http"),
 				},
 			},
-			Selector: DeploymentSelectorLabels,
+			Selector: generateAppServerSelectorLabels(),
 		},
 	}
 

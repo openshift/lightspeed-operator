@@ -100,6 +100,10 @@ spec:
                       redis:
                         description: RedisSpec defines the desired state of Redis.
                         properties:
+                          credentialsSecret:
+                            default: lightspeed-redis-secret
+                            description: Secret that holds redis credentials
+                            type: string
                           maxMemory:
                             anyOf:
                             - type: integer

@@ -50,7 +50,7 @@ var (
 	// The default images of operands
 	defaultImages = map[string]string{
 		"lightspeed-service":       controller.OLSAppServerImageDefault,
-		"lightspeed-service-redis": controller.OLSAppRedisServerImageDefault,
+		"lightspeed-service-redis": controller.RedisServerImageDefault,
 		"console-plugin":           controller.ConsoleUIImageDefault,
 	}
 )

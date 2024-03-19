@@ -42,12 +42,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	const OLSConfigVolumeName = "cm-olsconfig"
 	const OLSUserDataVolumeName = "ols-user-data"
 	const OLSUserDataMountPath = "/app-root/ols-user-data"
-	DeploymentSelectorLabels := map[string]string{
-		"app.kubernetes.io/component":  "application-server",
-		"app.kubernetes.io/managed-by": "lightspeed-operator",
-		"app.kubernetes.io/name":       "lightspeed-service-api",
-		"app.kubernetes.io/part-of":    "openshift-lightspeed",
-	}
+	revisionHistoryLimit := int32(1)
 
 	// map from secret name to secret mount path
 	secretMounts := map[string]string{}
@@ -56,6 +51,9 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		secretMounts[provider.CredentialsSecretRef.Name] = credentialMountPath
 	}
 
+	redisSecretName := cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret
+	redisCredentialsMountPath := path.Join(CredentialsMountRoot, redisSecretName)
+	secretMounts[redisSecretName] = redisCredentialsMountPath
 	// declare api key secrets and OLS config map as volumes to the pod
 	volumes := []corev1.Volume{}
 	for secretName := range secretMounts {
@@ -69,7 +67,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		}
 		volumes = append(volumes, volume)
 	}
-	volume := corev1.Volume{
+	olsConfigVolume := corev1.Volume{
 		Name: OLSConfigVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -79,14 +77,13 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			},
 		},
 	}
-	volumes = append(volumes, volume)
-	volume = corev1.Volume{
+	olsUserDataVolume := corev1.Volume{
 		Name: OLSUserDataVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
-	volumes = append(volumes, volume)
+	volumes = append(volumes, olsConfigVolume, olsUserDataVolume, getRedisCAConfigVolume())
 
 	// mount the volumes of api keys secrets and OLS config map to the container
 	volumeMounts := []corev1.VolumeMount{}
@@ -98,17 +95,16 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		}
 		volumeMounts = append(volumeMounts, volumeMount)
 	}
-	volumeMount := corev1.VolumeMount{
+	olsConfigVolumeMount := corev1.VolumeMount{
 		Name:      OLSConfigVolumeName,
 		MountPath: OLSConfigMountPath,
 		ReadOnly:  true,
 	}
-	volumeMounts = append(volumeMounts, volumeMount)
-	volumeMount = corev1.VolumeMount{
+	olsUserDataVolumeMount := corev1.VolumeMount{
 		Name:      OLSUserDataVolumeName,
 		MountPath: OLSUserDataMountPath,
 	}
-	volumeMounts = append(volumeMounts, volumeMount)
+	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount, getRedisCAVolumeMount(path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume)))
 
 	replicas := getOLSServerReplicas(cr)
 	resources := getOLSServerResources(cr)
@@ -117,16 +113,16 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OLSAppServerDeploymentName,
 			Namespace: r.Options.Namespace,
-			Labels:    DeploymentSelectorLabels,
+			Labels:    generateAppServerSelectorLabels(),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: DeploymentSelectorLabels,
+				MatchLabels: generateAppServerSelectorLabels(),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: DeploymentSelectorLabels,
+					Labels: generateAppServerSelectorLabels(),
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -158,6 +154,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 					ServiceAccountName: OLSAppServerServiceAccountName,
 				},
 			},
+			RevisionHistoryLimit: &revisionHistoryLimit,
 		},
 	}
 
@@ -174,13 +171,15 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
-		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] {
+		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] || existingDeployment.Annotations[RedisSecretHashKey] != r.stateCache[RedisSecretHashStateCacheKey] {
 		updateDeploymentAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
 		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 
 		changed = true
@@ -188,6 +187,18 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 
 	// Validate deployment replicas.
 	if setDeploymentReplicas(existingDeployment, *desiredDeployment.Spec.Replicas) {
+		changed = true
+	}
+
+	// Validate deployment volumes.
+	if setVolumes(existingDeployment, desiredDeployment.Spec.Template.Spec.Volumes) {
+		changed = true
+	}
+
+	// Validate volume mounts for a specific container in deployment.
+	if volumeMountsChanged, err := setVolumeMounts(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts, "lightspeed-service-api"); err != nil {
+		return err
+	} else if volumeMountsChanged {
 		changed = true
 	}
 
