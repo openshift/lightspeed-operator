@@ -195,6 +195,10 @@ spec:
                             type: object
                         type: object
                     type: object
+                  disableAuth:
+                    default: false
+                    description: 'Disable Authorization for OLS server. Default: "false"'
+                    type: boolean
                   logLevel:
                     default: INFO
                     description: 'Log level. Default: "INFO". Valid options are DEBUG,

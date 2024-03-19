@@ -85,6 +85,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, c
 
 	return nil
 }
+
 func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	service, err := r.generateConsoleUIService(cr)
 	if err != nil {
@@ -106,7 +107,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr 
 
 	if serviceEqual(foundService, service) &&
 		foundService.ObjectMeta.Annotations != nil &&
-		foundService.ObjectMeta.Annotations["service.beta.openshift.io/serving-cert-secret-name"] == service.ObjectMeta.Annotations["service.beta.openshift.io/serving-cert-secret-name"] {
+		foundService.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] == service.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] {
 		r.logger.Info("Console UI service unchanged, reconciliation skipped", "service", service.Name)
 		return nil
 	}
@@ -120,6 +121,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr 
 
 	return nil
 }
+
 func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	deployment, err := r.generateConsoleUIDeployment(cr)
 	if err != nil {
