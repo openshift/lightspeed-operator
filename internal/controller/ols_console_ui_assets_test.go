@@ -5,9 +5,9 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
+	consolev1 "github.com/openshift/api/console/v1"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("Console UI assets", func() {
@@ -84,6 +84,14 @@ var _ = Describe("Console UI assets", func() {
 			Expect(plugin.Spec.Backend.Service.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(plugin.Spec.Backend.Service.Port).To(Equal(int32(ConsoleUIHTTPSPort)))
 			Expect(plugin.Spec.Backend.Service.BasePath).To(Equal("/"))
+			Expect(plugin.Spec.Backend.Type).To(Equal(consolev1.Service))
+
+			Expect(plugin.Spec.Proxy).To(HaveLen(1))
+			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Name).To(Equal(OLSAppServerServiceName))
+			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Port).To(Equal(int32(OLSAppServerServicePort)))
+			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(plugin.Spec.Proxy[0].Endpoint.Type).To(Equal(consolev1.ProxyTypeService))
+
 		})
 
 	})
