@@ -92,6 +92,9 @@ var _ = Describe("App server assets", func() {
 						},
 					},
 				},
+				DevConfig: DevConfig{
+					DisableTLS: true,
+				},
 			}
 
 			Expect(olsconfigGenerated).To(Equal(olsConfigExpected))
@@ -214,7 +217,9 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
-			const expectedConfigStr = `llm_providers: []
+			const expectedConfigStr = `dev_config:
+  disable_tls: true
+llm_providers: []
 ols_config:
   conversation_cache:
     redis:
