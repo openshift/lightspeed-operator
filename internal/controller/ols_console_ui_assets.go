@@ -205,6 +205,20 @@ func (r *OLSConfigReconciler) generateConsoleUIPlugin(cr *olsv1alpha1.OLSConfig)
 			I18n: consolev1.ConsolePluginI18n{
 				LoadType: consolev1.Preload,
 			},
+			Proxy: []consolev1.ConsolePluginProxy{
+				{
+					Alias:         ConsoleProxyAlias,
+					Authorization: consolev1.None,
+					Endpoint: consolev1.ConsolePluginProxyEndpoint{
+						Service: &consolev1.ConsolePluginProxyServiceConfig{
+							Name:      OLSAppServerServiceName,
+							Namespace: r.Options.Namespace,
+							Port:      OLSAppServerServicePort,
+						},
+						Type: consolev1.ProxyTypeService,
+					},
+				},
+			},
 		},
 	}
 

@@ -68,4 +68,7 @@ const (
 	ConsoleUIPluginDisplayName = "Lightspeed Console"
 	// ConsoleCRName is the name of the console custom resource
 	ConsoleCRName = "cluster"
+	// ConsoleProxyAlias is the alias of the console proxy
+	// The console backend exposes following proxy endpoint: /api/proxy/plugin/<plugin-name>/<proxy-alias>/<request-path>?<optional-query-parameters>
+	ConsoleProxyAlias = "ols"
 )
