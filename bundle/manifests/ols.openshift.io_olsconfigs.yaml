@@ -178,10 +178,6 @@ spec:
                             type: object
                         type: object
                     type: object
-                  enableDeveloperUI:
-                    default: false
-                    description: 'Enable developer UI. Default: "false"'
-                    type: boolean
                   logLevel:
                     default: INFO
                     description: 'Log level. Default: "INFO". Valid options are DEBUG,
