@@ -60,6 +60,8 @@ type OLSConfigReconcilerOptions struct {
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 // ConfigMap for OLS application server configuration
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// Secret access for redis server configuration
+// +kubebuilder:rbac:groups=core,resources=secret,verbs=get;list;watch;create;update;patch;delete
 // ConsolePlugin for install console plugin
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks;consoleplugins;consoleplugins/finalizers,verbs=get;create;update;delete
 // Modify console CR to activate console plugin
