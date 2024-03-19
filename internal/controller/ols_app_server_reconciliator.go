@@ -6,6 +6,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,6 +20,14 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 		{
 			Name: "reconcile ServiceAccount",
 			Task: r.reconcileServiceAccount,
+		},
+		{
+			Name: "reconcile SARRole",
+			Task: r.reconcileSARRole,
+		},
+		{
+			Name: "reconcile SARRoleBinding",
+			Task: r.reconcileSARRoleBinding,
 		},
 		{
 			Name: "reconcile OLSConfigMap",
@@ -108,6 +117,50 @@ func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *o
 		return fmt.Errorf("failed to get OLS service account: %w", err)
 	}
 	r.logger.Info("OLS service account reconciled", "serviceAccount", sa.Name)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileSARRole(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	role, err := r.generateSARClusterRole(cr)
+	if err != nil {
+		return fmt.Errorf("failed to generate SAR cluster role: %w", err)
+	}
+
+	foundRole := &rbacv1.ClusterRole{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: role.Name}, foundRole)
+	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("creating a new SAR cluster role", "ClusterRole", role.Name)
+		err = r.Create(ctx, role)
+		if err != nil {
+			return fmt.Errorf("failed to create SAR cluster role: %w", err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get SAR cluster role: %w", err)
+	}
+	r.logger.Info("SAR cluster role reconciled", "ClusterRole", role.Name)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileSARRoleBinding(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	rb, err := r.generateSARClusterRoleBinding(cr)
+	if err != nil {
+		return fmt.Errorf("failed to generate SAR cluster role binding: %w", err)
+	}
+
+	foundRB := &rbacv1.ClusterRoleBinding{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: rb.Name}, foundRB)
+	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("creating a new SAR cluster role binding", "ClusterRoleBinding", rb.Name)
+		err = r.Create(ctx, rb)
+		if err != nil {
+			return fmt.Errorf("failed to create SAR cluster role binding: %w", err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get SAR cluster role binding: %w", err)
+	}
+	r.logger.Info("SAR cluster role binding reconciled", "ClusterRoleBinding", rb.Name)
 	return nil
 }
 

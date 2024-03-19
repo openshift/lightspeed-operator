@@ -12,6 +12,10 @@ const (
 	OLSNamespaceDefault = "openshift-lightspeed"
 	// OLSAppServerServiceAccountName is the name of service account running the application server
 	OLSAppServerServiceAccountName = "lightspeed-app-server"
+	// OLSAppServerSARRoleName is the name of the SAR role for the service account running the application server
+	OLSAppServerSARRoleName = OLSAppServerServiceAccountName + "-sar-role"
+	// OLSAppServerSARRoleBindingName is the name of the SAR role binding for the service account running the application server
+	OLSAppServerSARRoleBindingName = OLSAppServerSARRoleName + "-binding"
 	// OLSAppServerDeploymentName is the name of the OLS application server deployment
 	OLSAppServerDeploymentName = "lightspeed-app-server"
 	// OLSAppRedisDeploymentName is the name of OLS application redis deployment
