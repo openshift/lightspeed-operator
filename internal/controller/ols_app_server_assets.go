@@ -125,7 +125,7 @@ func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev
 	}
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OLSAppServerDeploymentName,
+			Name:      OLSAppServerServiceName,
 			Namespace: r.Options.Namespace,
 			Labels: map[string]string{
 				"app.kubernetes.io/component":  "application-server",
