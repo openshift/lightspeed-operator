@@ -79,7 +79,6 @@ spec:
       type: redis
     defaultModel: ibm/granite-13b-chat-v2
     defaultProvider: bam
-    enableDeveloperUI: false
     logLevel: INFO
     deployment:
       replicas: 1
