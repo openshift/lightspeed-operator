@@ -10,6 +10,8 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
 // updateDeploymentAnnotations updates the annotations in a given deployment.
@@ -221,7 +223,10 @@ func containerSpecEqual(a, b *corev1.Container) bool {
 		apiequality.Semantic.DeepEqual(a.LivenessProbe, b.LivenessProbe) && // check liveness probe
 		apiequality.Semantic.DeepEqual(a.ReadinessProbe, b.ReadinessProbe) && // check readiness probe
 		apiequality.Semantic.DeepEqual(a.StartupProbe, b.StartupProbe)) // check startup probe
+}
 
+func containerPortsSpecEqual(a, b *corev1.Container) bool {
+	return apiequality.Semantic.DeepEqual(a.Ports, b.Ports) // check ports
 }
 
 // serviceEqual compares two v1.Service and returns true if they are equal.
@@ -285,4 +290,9 @@ func SetDefaults_Deployment(obj *appsv1.Deployment) {
 		obj.Spec.ProgressDeadlineSeconds = new(int32)
 		*obj.Spec.ProgressDeadlineSeconds = 600
 	}
+}
+
+// isTLSDisabled checks if TLS is disabled in the OLSConfig
+func isTLSDisabled(cr *olsv1alpha1.OLSConfig) bool {
+	return cr.Spec.OLSConfig.DisableTLS
 }

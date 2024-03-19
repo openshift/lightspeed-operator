@@ -56,6 +56,9 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Enum=DEBUG;INFO;WARNING;ERROR;CRITICAL
 	// +kubebuilder:default=INFO
 	LogLevel string `json:"logLevel,omitempty"`
+	// Disable TLS for OLS server. Default: "false"
+	// +kubebuilder:default=false
+	DisableTLS bool `json:"disableTLS,omitempty"`
 	// Default model for usage
 	DefaultModel string `json:"defaultModel,omitempty"`
 	// Default provider for usage

@@ -107,7 +107,8 @@ func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig)
 									corev1.ResourceMemory: resource.MustParse("1Gi"),
 								},
 							},
-							Command: []string{"redis-server",
+							Command: []string{
+								"redis-server",
 								"--port", "0",
 								"--tls-port", "6379",
 								"--tls-cert-file", path.Join(OLSAppCertsMountRoot, "tls.crt"),
@@ -115,7 +116,8 @@ func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig)
 								"--tls-ca-cert-file", path.Join(OLSAppCertsMountRoot, RedisCAVolume, "service-ca.crt"),
 								"--tls-auth-clients", "optional",
 								"--protected-mode", "no",
-								"--requirepass", redisPassword},
+								"--requirepass", redisPassword,
+							},
 						},
 					},
 					Volumes: volumes,
@@ -175,7 +177,7 @@ func (r *OLSConfigReconciler) generateRedisService(cr *olsv1alpha1.OLSConfig) (*
 			Namespace: r.Options.Namespace,
 			Labels:    generateRedisSelectorLabels(),
 			Annotations: map[string]string{
-				"service.beta.openshift.io/serving-cert-secret-name": RedisCertsSecretName,
+				ServingCertSecretAnnotationKey: RedisCertsSecretName,
 			},
 		},
 		Spec: corev1.ServiceSpec{

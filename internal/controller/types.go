@@ -58,6 +58,8 @@ type OLSConfig struct {
 	Logging LoggingConfig `json:"logging_config,omitempty"`
 	// Conversation cache
 	ConversationCache ConversationCacheConfig `json:"conversation_cache,omitempty"`
+	// TLS configuration
+	TLSConfig TLSConfig `json:"tls_config,omitempty"`
 }
 
 type LoggingConfig struct {
@@ -92,4 +94,9 @@ type RedisCacheConfig struct {
 type DevConfig struct {
 	// TLS enable/disable
 	DisableTLS bool `json:"disable_tls" default:"false"`
+}
+
+type TLSConfig struct {
+	TLSCertificatePath string `json:"tls_certificate_path,omitempty"`
+	TLSKeyPath         string `json:"tls_key_path,omitempty"`
 }

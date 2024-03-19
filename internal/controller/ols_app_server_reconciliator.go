@@ -141,7 +141,6 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	}
 
 	err = r.updateOLSDeployment(ctx, existingDeployment, desiredDeployment)
-
 	if err != nil {
 		return fmt.Errorf("failed to update OLS deployment: %w", err)
 	}
@@ -168,6 +167,19 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 	} else if err != nil {
 		return fmt.Errorf("failed to get OLS service: %w", err)
 	}
+
+	if serviceEqual(foundService, service) &&
+		foundService.ObjectMeta.Annotations != nil &&
+		foundService.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] == service.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] {
+		r.logger.Info("OLS service unchanged, reconciliation skipped", "service", service.Name)
+		return nil
+	}
+
+	err = r.Update(ctx, service)
+	if err != nil {
+		return fmt.Errorf("failed to update OLS service: %w", err)
+	}
+
 	r.logger.Info("OLS service reconciled", "service", service.Name)
 	return nil
 }

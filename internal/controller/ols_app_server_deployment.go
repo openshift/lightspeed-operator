@@ -50,10 +50,35 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		credentialMountPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name)
 		secretMounts[provider.CredentialsSecretRef.Name] = credentialMountPath
 	}
-
+	// Redis volume
 	redisSecretName := cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret
 	redisCredentialsMountPath := path.Join(CredentialsMountRoot, redisSecretName)
 	secretMounts[redisSecretName] = redisCredentialsMountPath
+	// TLS volume
+	tlsSecretNameMountPath := path.Join(OLSAppCertsMountRoot, OLSCertsSecretName)
+	secretMounts[OLSCertsSecretName] = tlsSecretNameMountPath
+
+	// Container ports
+	ports := []corev1.ContainerPort{
+		{
+			ContainerPort: OLSAppServerContainerPort,
+			Name:          "https",
+			Protocol:      corev1.ProtocolTCP,
+		},
+	}
+
+	if isTLSDisabled(cr) {
+		// Remove volume mount with the secret
+		delete(secretMounts, OLSCertsSecretName)
+		ports = []corev1.ContainerPort{
+			{
+				ContainerPort: OLSAppServerHTTPContainerPort,
+				Name:          "http",
+				Protocol:      corev1.ProtocolTCP,
+			},
+		}
+	}
+
 	// declare api key secrets and OLS config map as volumes to the pod
 	volumes := []corev1.Volume{}
 	for secretName := range secretMounts {
@@ -130,13 +155,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 							Name:            "lightspeed-service-api",
 							Image:           r.Options.LightspeedServiceImage,
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: OLSAppServerContainerPort,
-									Name:          "http",
-									Protocol:      corev1.ProtocolTCP,
-								},
-							},
+							Ports:           ports,
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: &[]bool{false}[0],
 							},
@@ -217,6 +236,17 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 		if err != nil {
 			return err
 		}
+	}
+
+	containerIndex, err := getContainerIndex(existingDeployment, "lightspeed-service-api")
+	if err != nil {
+		return err
+	}
+
+	// validate port definitions
+	if !containerPortsSpecEqual(&existingDeployment.Spec.Template.Spec.Containers[containerIndex], &desiredDeployment.Spec.Template.Spec.Containers[containerIndex]) {
+		changed = true
+		existingDeployment.Spec.Template.Spec.Containers[containerIndex].Ports = desiredDeployment.Spec.Template.Spec.Containers[containerIndex].Ports
 	}
 
 	if changed {
