@@ -8,7 +8,9 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("App server reconciliator", Ordered, func() {
@@ -27,6 +29,22 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Get the service account")
 			sa := &corev1.ServiceAccount{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerServiceAccountName, Namespace: OLSNamespaceDefault}, sa)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create a SAR cluster role lightspeed-app-server-sar-role", func() {
+
+			By("Get the SAR cluster role")
+			role := &rbacv1.ClusterRole{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: OLSAppServerSARRoleName}, role)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create a SAR cluster role binding lightspeed-app-server-sar-role-binding", func() {
+
+			By("Get the SAR cluster role binding")
+			rb := &rbacv1.ClusterRoleBinding{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: OLSAppServerSARRoleBindingName}, rb)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
