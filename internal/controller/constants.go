@@ -50,8 +50,6 @@ const (
 	// RedisSecretHashKey is the key of the hash value of OLS Redis secret
 	// #nosec G101
 	RedisSecretHashKey = "hash/redis-secret"
-	// OLSAppServerServiceName is the name of the OLS application server service
-	OLSAppServerServiceName = "lightspeed-app-server"
 	// RedisServiceName is the name of OLS application redis server service
 	RedisServiceName = "lightspeed-redis-server"
 	// RedisSecretName is the name of OLS application redis secret
@@ -59,9 +57,13 @@ const (
 	// OLSAppRedisCertsName is the name of the OLS application redis certs secret
 	RedisCertsSecretName = "lightspeed-redis-certs"
 	// OLSAppServerContainerPort is the port number of the lightspeed-service-api container exposes
-	OLSAppServerContainerPort = 8080
-	// OLSAppServerServicePort is the port number of the OLS application server service
-	OLSAppServerServicePort = 8080
+	OLSAppServerContainerPort = 8443
+	// OLSAppServerServicePort is the port number for OLS application server service.
+	OLSAppServerServicePort = 8443
+	// OLSAppServerServiceName is the name of the OLS application server service
+	OLSAppServerServiceName = "lightspeed-app-server"
+	// OLSCertsSecretName is the name of the TLS secret for OLS.
+	OLSCertsSecretName = "lightspeed-tls" // #nosec G101
 	// RedisServicePort is the port number of the OLS redis server service
 	RedisServicePort = 6379
 	// RedisMaxMemory is the max memory of the OLS redis cache
@@ -70,7 +72,9 @@ const (
 	RedisMaxMemoryPolicy = "allkeys-lru"
 	// OLSDefaultCacheType is the default cache type for OLS
 	OLSDefaultCacheType = "redis"
-
+	// Annotation key for serving certificate secret name
+	// #nosec G101
+	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
 	/*** state cache keys ***/
 	OLSConfigHashStateCacheKey   = "olsconfigmap-hash"
 	RedisConfigHashStateCacheKey = "olsredisconfig-hash"

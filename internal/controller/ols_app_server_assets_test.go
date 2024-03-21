@@ -17,7 +17,6 @@ import (
 )
 
 var _ = Describe("App server assets", func() {
-
 	var cr *olsv1alpha1.OLSConfig
 	var r *OLSConfigReconciler
 	var rOptions *OLSConfigReconcilerOptions
@@ -74,6 +73,10 @@ var _ = Describe("App server assets", func() {
 							CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
 						},
 					},
+					TLSConfig: TLSConfig{
+						TLSCertificatePath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.crt"),
+						TLSKeyPath:         path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.key"),
+					},
 				},
 				LLMProviders: []ProviderConfig{
 					{
@@ -89,7 +92,7 @@ var _ = Describe("App server assets", func() {
 					},
 				},
 				DevConfig: DevConfig{
-					DisableTLS: true,
+					DisableAuth: false,
 				},
 			}
 
@@ -98,7 +101,6 @@ var _ = Describe("App server assets", func() {
 			cmHash, err := hashBytes([]byte(cm.Data[OLSConfigFilename]))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.ObjectMeta.Annotations[OLSConfigHashKey]).To(Equal(cmHash))
-
 		})
 
 		It("should generate the OLS deployment", func() {
@@ -111,7 +113,7 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
 				{
 					ContainerPort: OLSAppServerContainerPort,
-					Name:          "http",
+					Name:          "https",
 					Protocol:      corev1.ProtocolTCP,
 				},
 			}))
@@ -130,6 +132,11 @@ var _ = Describe("App server assets", func() {
 				{
 					Name:      "secret-test-secret",
 					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
+					ReadOnly:  true,
+				},
+				{
+					Name:      "secret-lightspeed-tls",
+					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
 					ReadOnly:  true,
 				},
 				{
@@ -162,6 +169,14 @@ var _ = Describe("App server assets", func() {
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
 							SecretName: RedisSecretName,
+						},
+					},
+				},
+				{
+					Name: "secret-lightspeed-tls",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: OLSCertsSecretName,
 						},
 					},
 				},
@@ -199,14 +214,13 @@ var _ = Describe("App server assets", func() {
 			Expect(service.Spec.Selector).To(Equal(generateAppServerSelectorLabels()))
 			Expect(service.Spec.Ports).To(Equal([]corev1.ServicePort{
 				{
-					Name:       "http",
+					Name:       "https",
 					Port:       OLSAppServerServicePort,
 					Protocol:   corev1.ProtocolTCP,
-					TargetPort: intstr.Parse("http"),
+					TargetPort: intstr.Parse("https"),
 				},
 			}))
 		})
-
 	})
 
 	Context("empty custom resource", func() {
@@ -240,7 +254,7 @@ var _ = Describe("App server assets", func() {
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
 			const expectedConfigStr = `dev_config:
-  disable_tls: true
+  disable_auth: false
 llm_providers: []
 ols_config:
   conversation_cache:
@@ -255,6 +269,9 @@ ols_config:
   logging_config:
     app_log_level: ""
     lib_log_level: ""
+  tls_config:
+    tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
+    tls_key_path: /etc/certs/lightspeed-tls/tls.key
 `
 			Expect(cm.Data[OLSConfigFilename]).To(Equal(expectedConfigStr))
 		})
@@ -265,12 +282,13 @@ ols_config:
 			Expect(service.Name).To(Equal(OLSAppServerServiceName))
 			Expect(service.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(service.Spec.Selector).To(Equal(generateAppServerSelectorLabels()))
+			Expect(service.Annotations[ServingCertSecretAnnotationKey]).To(Equal(OLSCertsSecretName))
 			Expect(service.Spec.Ports).To(Equal([]corev1.ServicePort{
 				{
-					Name:       "http",
+					Name:       "https",
 					Port:       OLSAppServerServicePort,
 					Protocol:   corev1.ProtocolTCP,
-					TargetPort: intstr.Parse("http"),
+					TargetPort: intstr.Parse("https"),
 				},
 			}))
 		})
@@ -287,7 +305,7 @@ ols_config:
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
 				{
 					ContainerPort: OLSAppServerContainerPort,
-					Name:          "http",
+					Name:          "https",
 					Protocol:      corev1.ProtocolTCP,
 				},
 			}))
@@ -301,6 +319,11 @@ ols_config:
 				{
 					Name:      "secret-lightspeed-redis-secret",
 					MountPath: "/etc/credentials/lightspeed-redis-secret",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "secret-lightspeed-tls",
+					MountPath: "/etc/certs/lightspeed-tls",
 					ReadOnly:  true,
 				},
 				{
@@ -325,6 +348,14 @@ ols_config:
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
 							SecretName: RedisSecretName,
+						},
+					},
+				},
+				{
+					Name: "secret-lightspeed-tls",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: OLSCertsSecretName,
 						},
 					},
 				},
@@ -354,10 +385,8 @@ ols_config:
 				},
 			}))
 			Expect(dep.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
-
 		})
 	})
-
 })
 
 func getCompleteOLSConfigCR() *olsv1alpha1.OLSConfig {
@@ -394,6 +423,7 @@ func getCompleteOLSConfigCR() *olsv1alpha1.OLSConfig {
 						CredentialsSecret: RedisSecretName,
 					},
 				},
+				DisableAuth: false,
 			},
 		},
 	}
@@ -406,5 +436,4 @@ func getEmptyOLSConfigCR() *olsv1alpha1.OLSConfig {
 			Name: "cluster",
 		},
 	}
-
 }

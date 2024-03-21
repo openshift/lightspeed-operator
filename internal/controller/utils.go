@@ -221,7 +221,6 @@ func containerSpecEqual(a, b *corev1.Container) bool {
 		apiequality.Semantic.DeepEqual(a.LivenessProbe, b.LivenessProbe) && // check liveness probe
 		apiequality.Semantic.DeepEqual(a.ReadinessProbe, b.ReadinessProbe) && // check readiness probe
 		apiequality.Semantic.DeepEqual(a.StartupProbe, b.StartupProbe)) // check startup probe
-
 }
 
 // serviceEqual compares two v1.Service and returns true if they are equal.

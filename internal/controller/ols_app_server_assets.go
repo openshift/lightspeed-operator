@@ -142,10 +142,14 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 			LibLogLevel: cr.Spec.OLSConfig.LogLevel,
 		},
 		ConversationCache: conversationCache,
+		TLSConfig: TLSConfig{
+			TLSCertificatePath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.crt"),
+			TLSKeyPath:         path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.key"),
+		},
 	}
 
 	devConfig := DevConfig{
-		DisableTLS: true,
+		DisableAuth: cr.Spec.OLSConfig.DisableAuth,
 	}
 
 	appSrvConfigFile := AppSrvConfigFile{
@@ -201,20 +205,22 @@ func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev
 			Name:      OLSAppServerServiceName,
 			Namespace: r.Options.Namespace,
 			Labels:    generateAppServerSelectorLabels(),
+			Annotations: map[string]string{
+				ServingCertSecretAnnotationKey: OLSCertsSecretName,
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Port:       OLSAppServerServicePort,
-					Name:       "http",
+					Name:       "https",
 					Protocol:   corev1.ProtocolTCP,
-					TargetPort: intstr.Parse("http"),
+					Port:       OLSAppServerServicePort,
+					TargetPort: intstr.Parse("https"),
 				},
 			},
 			Selector: generateAppServerSelectorLabels(),
 		},
 	}
-
 	if err := controllerutil.SetControllerReference(cr, &service, r.Scheme); err != nil {
 		return nil, err
 	}

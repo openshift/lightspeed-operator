@@ -54,7 +54,6 @@ func (r *OLSConfigReconciler) generateConsoleUIConfigMap(cr *olsv1alpha1.OLSConf
 	}
 
 	return cm, nil
-
 }
 
 func (r *OLSConfigReconciler) generateConsoleUIService(cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
@@ -64,7 +63,7 @@ func (r *OLSConfigReconciler) generateConsoleUIService(cr *olsv1alpha1.OLSConfig
 			Namespace: r.Options.Namespace,
 			Labels:    generateConsoleUILabels(),
 			Annotations: map[string]string{
-				"service.beta.openshift.io/serving-cert-secret-name": ConsoleUIServiceCertSecretName,
+				ServingCertSecretAnnotationKey: ConsoleUIServiceCertSecretName,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -88,7 +87,6 @@ func (r *OLSConfigReconciler) generateConsoleUIService(cr *olsv1alpha1.OLSConfig
 }
 
 func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
-
 	replicas := int32(2)
 	val_true := true
 	volumeDefaultMode := int32(420)
