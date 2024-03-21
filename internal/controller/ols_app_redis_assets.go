@@ -117,6 +117,7 @@ func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig)
 								"--tls-auth-clients", "optional",
 								"--protected-mode", "no",
 								"--requirepass", redisPassword,
+								"--save", "",
 							},
 						},
 					},

@@ -53,7 +53,8 @@ var _ = Describe("App redis server assets", func() {
 			"--tls-ca-cert-file", path.Join(OLSAppCertsMountRoot, RedisCAVolume, "service-ca.crt"),
 			"--tls-auth-clients", "optional",
 			"--protected-mode", "no",
-			"--requirepass", password},
+			"--requirepass", password,
+			"--save", ""},
 		))
 		Expect(dep.Spec.Selector.MatchLabels).To(Equal(generateRedisSelectorLabels()))
 		Expect(dep.Spec.RevisionHistoryLimit).To(Equal(&revisionHistoryLimit))
