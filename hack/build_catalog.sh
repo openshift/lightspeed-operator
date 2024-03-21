@@ -44,7 +44,7 @@ name: lightspeed-operator
 schema: olm.package
 EOF
 
-bin/opm render "${BUNDLE_IMAGE}" --output=yaml >> "${CATALOG_FILE}"
+opm render "${BUNDLE_IMAGE}" --output=yaml >> "${CATALOG_FILE}"
 cat << EOF >> "${CATALOG_FILE}"
 ---
 schema: olm.channel
