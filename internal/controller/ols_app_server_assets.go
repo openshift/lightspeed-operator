@@ -3,7 +3,6 @@ package controller
 import (
 	"fmt"
 	"path"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -108,29 +107,37 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
-	redisMaxMemory := intstr.FromString(RedisMaxMemory)
-	redisMaxMemoryPolicy := RedisMaxMemoryPolicy
-	redisSecretName := RedisSecretName
-	redisConfig := cr.Spec.OLSConfig.ConversationCache.Redis
-	if redisConfig.MaxMemory != nil && redisConfig.MaxMemory.String() != "" {
-		redisMaxMemory = *cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemory
-	}
-	if redisConfig.MaxMemoryPolicy != "" {
-		redisMaxMemoryPolicy = cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy
-	}
-	if redisConfig.CredentialsSecret != "" {
-		redisSecretName = cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret
-	}
-	redisPasswordPath := path.Join(CredentialsMountRoot, redisSecretName, OLSComponentPasswordFileName)
+	// TODO: Update DB
+	// redisMaxMemory := intstr.FromString(RedisMaxMemory)
+	// redisMaxMemoryPolicy := RedisMaxMemoryPolicy
+	// redisSecretName := RedisSecretName
+	// redisConfig := cr.Spec.OLSConfig.ConversationCache.Redis
+	// if redisConfig.MaxMemory != nil && redisConfig.MaxMemory.String() != "" {
+	// 	redisMaxMemory = *cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemory
+	// }
+	// if redisConfig.MaxMemoryPolicy != "" {
+	// 	redisMaxMemoryPolicy = cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy
+	// }
+	// if redisConfig.CredentialsSecret != "" {
+	// 	redisSecretName = cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret
+	// }
+	// redisPasswordPath := path.Join(CredentialsMountRoot, redisSecretName, OLSComponentPasswordFileName)
+	// conversationCache := ConversationCacheConfig{
+	// 	Type: string(OLSDefaultCacheType),
+	// 	Redis: RedisCacheConfig{
+	// 		Host:            strings.Join([]string{RedisServiceName, r.Options.Namespace, "svc"}, "."),
+	// 		Port:            RedisServicePort,
+	// 		MaxMemory:       &redisMaxMemory,
+	// 		MaxMemoryPolicy: redisMaxMemoryPolicy,
+	// 		PasswordPath:    redisPasswordPath,
+	// 		CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
+	// 	},
+	// }
+
 	conversationCache := ConversationCacheConfig{
-		Type: string(OLSDefaultCacheType),
-		Redis: RedisCacheConfig{
-			Host:            strings.Join([]string{RedisServiceName, r.Options.Namespace, "svc"}, "."),
-			Port:            RedisServicePort,
-			MaxMemory:       &redisMaxMemory,
-			MaxMemoryPolicy: redisMaxMemoryPolicy,
-			PasswordPath:    redisPasswordPath,
-			CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
+		Type: "memory",
+		Memory: MemoryCacheConfig{
+			MaxEntries: 1000,
 		},
 	}
 
@@ -165,21 +172,21 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OLS config file %w", err)
 	}
-
-	redisConfigFileBytes, err := yaml.Marshal(conversationCache.Redis)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate OLS redis config bytes %w", err)
-	}
+	// TODO: Update DB
+	// redisConfigFileBytes, err := yaml.Marshal(conversationCache.Redis)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to generate OLS redis config bytes %w", err)
+	// }
 
 	configFileHash, err := hashBytes(configFileBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OLS config file hash %w", err)
 	}
-
-	redisConfigHash, err := hashBytes(redisConfigFileBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate OLS redis config hash %w", err)
-	}
+	// TODO: Update DB
+	// redisConfigHash, err := hashBytes(redisConfigFileBytes)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to generate OLS redis config hash %w", err)
+	// }
 
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -187,8 +194,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 			Namespace: r.Options.Namespace,
 			Labels:    generateAppServerSelectorLabels(),
 			Annotations: map[string]string{
-				OLSConfigHashKey:   configFileHash,
-				RedisConfigHashKey: redisConfigHash,
+				OLSConfigHashKey: configFileHash,
+				// TODO: Update DB
+				//RedisConfigHashKey: redisConfigHash,
 			},
 		},
 		Data: map[string]string{

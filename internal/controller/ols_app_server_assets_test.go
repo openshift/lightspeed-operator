@@ -2,7 +2,6 @@ package controller
 
 import (
 	"path"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -47,7 +46,8 @@ var _ = Describe("App server assets", func() {
 
 		It("should generate the olsconfig config map", func() {
 			cm, err := r.generateOLSConfigMap(cr)
-			OLSRedisMaxMemory := intstr.FromString(RedisMaxMemory)
+			// TODO: Update DB
+			//OLSRedisMaxMemory := intstr.FromString(RedisMaxMemory)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
@@ -63,15 +63,22 @@ var _ = Describe("App server assets", func() {
 						AppLogLevel: "INFO",
 						LibLogLevel: "INFO",
 					},
+					// TODO: Update DB
+					// ConversationCache: ConversationCacheConfig{
+					// 	Type: "redis",
+					// 	Redis: RedisCacheConfig{
+					// 		Host:            strings.Join([]string{RedisServiceName, OLSNamespaceDefault, "svc"}, "."),
+					// 		Port:            RedisServicePort,
+					// 		MaxMemory:       &OLSRedisMaxMemory,
+					// 		MaxMemoryPolicy: RedisMaxMemoryPolicy,
+					// 		PasswordPath:    path.Join(CredentialsMountRoot, RedisSecretName, OLSComponentPasswordFileName),
+					// 		CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
+					// 	},
+					// },
 					ConversationCache: ConversationCacheConfig{
-						Type: "redis",
-						Redis: RedisCacheConfig{
-							Host:            strings.Join([]string{RedisServiceName, OLSNamespaceDefault, "svc"}, "."),
-							Port:            RedisServicePort,
-							MaxMemory:       &OLSRedisMaxMemory,
-							MaxMemoryPolicy: RedisMaxMemoryPolicy,
-							PasswordPath:    path.Join(CredentialsMountRoot, RedisSecretName, OLSComponentPasswordFileName),
-							CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
+						Type: "memory",
+						Memory: MemoryCacheConfig{
+							MaxEntries: 1000,
 						},
 					},
 					TLSConfig: TLSConfig{
