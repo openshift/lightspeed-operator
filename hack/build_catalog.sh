@@ -88,6 +88,3 @@ podman build --platform="${DEFAULT_PLATFORM}" -f "${CATALOG_DOCKER_FILE}" -t "${
 echo "Pushing catalog image ${CATALOG_IMAGE}"
 podman push "${CATALOG_IMAGE}"
 echo "Catalog image ${CATALOG_IMAGE} pushed successfully"
-
-echo "Restoring files after running the script"
-restore
