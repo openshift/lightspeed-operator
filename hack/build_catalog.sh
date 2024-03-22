@@ -6,6 +6,30 @@
 # Usage: ./hack/build_catalog.sh
 
 #!/bin/bash
+
+# Backup files before running script
+backup() {
+  echo "Backing up files"
+  mkdir -p backup
+  cp "${CSV_FILE}" backup/lightspeed-operator.clusterserviceversion.yaml.bak
+  cp "${KUSTOMIZATION_FILE}" backup/kustomization.yaml.bak
+  cp "${CATALOG_FILE}" backup/operator.yaml.bak
+  cp "${OLS_CONFIG_FILE}" backup/ols.openshift.io_olsconfigs.yaml.bak
+}
+
+
+# Reverse backup files
+restore() {
+  echo "Restoring files"
+  cp backup/lightspeed-operator.clusterserviceversion.yaml.bak "${CSV_FILE}"
+  cp backup/kustomization.yaml.bak "${KUSTOMIZATION_FILE}"
+  cp backup/operator.yaml.bak "${CATALOG_FILE}"
+  cp backup/ols.openshift.io_olsconfigs.yaml.bak "${OLS_CONFIG_FILE}"
+  rm -rf backup
+}
+
+trap restore EXIT
+
 set -euo pipefail
 DEFAULT_PLATFORM="linux/amd64"
 export QUAY_USER=""  # Set quay user for personal builds
@@ -19,6 +43,12 @@ CATALOG_IMAGE="quay.io/${QUAY_USER}/lightspeed-catalog:${VERSION}"
 CSV_FILE="bundle/manifests/lightspeed-operator.clusterserviceversion.yaml"
 CATALOG_FILE="lightspeed-catalog/operator.yaml"
 CATALOG_DOCKER_FILE="lightspeed-catalog.Dockerfile"
+OLS_CONFIG_FILE="bundle/manifests/ols.openshift.io_olsconfigs.yaml"
+KUSTOMIZATION_FILE="config/manager/kustomization.yaml"
+
+echo "Backup files before running the script"
+backup
+
 
 echo "Building File Based Catalog (FBC) for ${USER}"
 echo "Set IMAGE_TAG_BASE: ${IMAGE_TAG_BASE}"
@@ -57,3 +87,7 @@ echo "Building catalog image ${CATALOG_IMAGE}"
 podman build --platform="${DEFAULT_PLATFORM}" -f "${CATALOG_DOCKER_FILE}" -t "${CATALOG_IMAGE}" .
 echo "Pushing catalog image ${CATALOG_IMAGE}"
 podman push "${CATALOG_IMAGE}"
+echo "Catalog image ${CATALOG_IMAGE} pushed successfully"
+
+echo "Restoring files after running the script"
+restore
