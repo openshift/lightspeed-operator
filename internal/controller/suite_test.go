@@ -44,13 +44,15 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var ctx context.Context
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
-var cr *olsv1alpha1.OLSConfig
-var reconciler *OLSConfigReconciler
-var crNamespacedName types.NamespacedName
+var (
+	ctx              context.Context
+	cfg              *rest.Config
+	k8sClient        client.Client
+	testEnv          *envtest.Environment
+	cr               *olsv1alpha1.OLSConfig
+	reconciler       *OLSConfigReconciler
+	crNamespacedName types.NamespacedName
+)
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -121,11 +123,11 @@ var _ = BeforeSuite(func() {
 	By("Create a complete OLSConfig custom resource")
 	err = k8sClient.Get(ctx, crNamespacedName, cr)
 	if err != nil && errors.IsNotFound(err) {
-		cr = getCompleteOLSConfigCR()
+		cr = getDefaultOLSConfigCR()
 		err = k8sClient.Create(ctx, cr)
 		Expect(err).NotTo(HaveOccurred())
 	} else if err == nil {
-		cr = getCompleteOLSConfigCR()
+		cr = getDefaultOLSConfigCR()
 		err = k8sClient.Update(ctx, cr)
 		Expect(err).NotTo(HaveOccurred())
 	} else {
@@ -135,7 +137,6 @@ var _ = BeforeSuite(func() {
 	By("Get the OLSConfig custom resource")
 	err = k8sClient.Get(ctx, crNamespacedName, cr)
 	Expect(err).NotTo(HaveOccurred())
-
 })
 
 var _ = AfterSuite(func() {
