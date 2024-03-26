@@ -14,18 +14,14 @@ import (
 )
 
 var _ = Describe("App server reconciliator", Ordered, func() {
-
 	Context("Creation logic", Ordered, func() {
-
 		It("should reconcile from OLSConfig custom resource", func() {
 			By("Reconcile the OLSConfig custom resource")
 			err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-
 		})
 
 		It("should create a service account lightspeed-app-server", func() {
-
 			By("Get the service account")
 			sa := &corev1.ServiceAccount{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerServiceAccountName, Namespace: OLSNamespaceDefault}, sa)
@@ -33,7 +29,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		})
 
 		It("should create a SAR cluster role lightspeed-app-server-sar-role", func() {
-
 			By("Get the SAR cluster role")
 			role := &rbacv1.ClusterRole{}
 			err := k8sClient.Get(ctx, client.ObjectKey{Name: OLSAppServerSARRoleName}, role)
@@ -41,7 +36,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		})
 
 		It("should create a SAR cluster role binding lightspeed-app-server-sar-role-binding", func() {
-
 			By("Get the SAR cluster role binding")
 			rb := &rbacv1.ClusterRoleBinding{}
 			err := k8sClient.Get(ctx, client.ObjectKey{Name: OLSAppServerSARRoleBindingName}, rb)
@@ -49,7 +43,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		})
 
 		It("should create a service lightspeed-app-server", func() {
-
 			By("Get the service")
 			svc := &corev1.Service{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerServiceName, Namespace: OLSNamespaceDefault}, svc)
@@ -57,7 +50,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		})
 
 		It("should create a config map olsconfig", func() {
-
 			By("Get the config map")
 			cm := &corev1.ConfigMap{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSConfigCmName, Namespace: OLSNamespaceDefault}, cm)
@@ -65,16 +57,13 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		})
 
 		It("should create a deployment lightspeed-app-server", func() {
-
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
-
 		})
 
 		It("should trigger rolling update of the deployment when changing the generated config", func() {
-
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
@@ -107,12 +96,11 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Reconcile the OLSConfig custom resource")
 			err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-
 		})
 
 		It("should update deployment volumes when changing the token secret", func() {
 			By("Reconcile after modifying the token secret")
-			crNewVolume := getCompleteOLSConfigCR()
+			crNewVolume := getDefaultOLSConfigCR()
 			crNewVolume.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: "new-token-secret"}
 			err := reconciler.reconcileAppServer(ctx, crNewVolume)
 			Expect(err).NotTo(HaveOccurred())

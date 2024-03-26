@@ -148,6 +148,10 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		},
 	}
 
+	if queryFilters := getQueryFilters(cr); queryFilters != nil {
+		olsConfig.QueryFilters = queryFilters
+	}
+
 	devConfig := DevConfig{
 		DisableAuth: cr.Spec.OLSConfig.DisableAuth,
 	}
@@ -226,4 +230,20 @@ func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev
 	}
 
 	return &service, nil
+}
+
+func getQueryFilters(cr *olsv1alpha1.OLSConfig) []QueryFilters {
+	if cr.Spec.OLSConfig.QueryFilters == nil {
+		return nil
+	}
+
+	filters := []QueryFilters{}
+	for _, filter := range cr.Spec.OLSConfig.QueryFilters {
+		filters = append(filters, QueryFilters{
+			Name:        filter.Name,
+			Pattern:     filter.Pattern,
+			ReplaceWith: filter.ReplaceWith,
+		})
+	}
+	return filters
 }
