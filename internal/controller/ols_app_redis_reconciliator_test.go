@@ -9,6 +9,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -49,6 +50,19 @@ var _ = Describe("Redis server reconciliator", Ordered, func() {
 
 		It("should trigger a rolling deployment when there is an update in secret name", func() {
 
+			By("create the provider secret")
+			secret, _ := generateRandomSecret()
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "test-secret",
+				},
+			})
+			secretCreationErr := reconciler.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+
 			By("Get the redis deployment")
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: RedisDeploymentName, Namespace: OLSNamespaceDefault}, dep)
@@ -75,6 +89,10 @@ var _ = Describe("Redis server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
 			Expect(dep.Annotations[RedisConfigHashKey]).NotTo(Equal(oldHash))
+
+			By("Delete the provider secret")
+			secretDeletionErr := reconciler.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 	})
 })

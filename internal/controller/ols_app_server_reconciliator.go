@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -28,6 +29,10 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 		{
 			Name: "reconcile SARRoleBinding",
 			Task: r.reconcileSARRoleBinding,
+		},
+		{
+			Name: "reconcile LLM Secrets",
+			Task: r.reconcileLLMSecrets,
 		},
 		{
 			Name: "reconcile OLSConfigMap",
@@ -176,12 +181,14 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
-			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
+			OLSConfigHashKey:              r.stateCache[OLSConfigHashStateCacheKey],
+			OLSProviderCredentialsHashKey: r.stateCache[OLSProviderCredentialsHashStateCacheKey],
+			RedisSecretHashKey:            r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
-			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
+			OLSConfigHashKey:              r.stateCache[OLSConfigHashStateCacheKey],
+			OLSProviderCredentialsHashKey: r.stateCache[OLSProviderCredentialsHashStateCacheKey],
+			RedisSecretHashKey:            r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		r.logger.Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
@@ -234,5 +241,40 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 	}
 
 	r.logger.Info("OLS service reconciled", "service", service.Name)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	providerCredentials := ""
+	var providerApiToken string
+	for _, provider := range cr.Spec.LLMConfig.Providers {
+		foundSecret := &corev1.Secret{}
+		err := r.Client.Get(ctx, client.ObjectKey{Name: provider.CredentialsSecretRef.Name, Namespace: r.Options.Namespace}, foundSecret)
+		if err != nil {
+			return fmt.Errorf("failed to fetch provider secret: %w", err)
+		}
+		providerApiToken, err = getSecretContent(r.Client, provider.CredentialsSecretRef.Name, r.Options.Namespace, LLMApiTokenFileName)
+		if err != nil {
+			return fmt.Errorf("failed fetching token for provider: %s. error: %w", provider.Name, err)
+		}
+		providerCredentials += providerApiToken
+		if err = controllerutil.SetControllerReference(cr, foundSecret, r.Scheme); err != nil {
+			return fmt.Errorf("failed to set controller reference to secret: %s. error: %w", foundSecret.Name, err)
+		}
+		err = r.Update(ctx, foundSecret)
+		if err != nil {
+			return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
+		}
+	}
+	foundProviderCredentialsHash, err := hashBytes([]byte(providerCredentials))
+	if err != nil {
+		return fmt.Errorf("failed to generate OLS provider credentials hash %w", err)
+	}
+	if foundProviderCredentialsHash == r.stateCache[OLSProviderCredentialsHashStateCacheKey] {
+		r.logger.Info("OLS llm secrets reconciliation skipped", "hash", foundProviderCredentialsHash)
+		return nil
+	}
+	r.stateCache[OLSProviderCredentialsHashStateCacheKey] = foundProviderCredentialsHash
+	r.logger.Info("OLS llm secrets reconciled", "hash", foundProviderCredentialsHash)
 	return nil
 }

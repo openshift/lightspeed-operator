@@ -48,6 +48,7 @@ metadata:
   namespace: openshift-lightspeed
 type: Opaque
 ```
+These `apitoken` values can be updated if user wishes to change them later. They get reflected automatically into the system.
 
 3. Create an `OLSConfig` custom resource
 
