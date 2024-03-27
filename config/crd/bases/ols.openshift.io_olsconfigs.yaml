@@ -210,6 +210,23 @@ spec:
                     - ERROR
                     - CRITICAL
                     type: string
+                  queryFilters:
+                    description: Query filters
+                    items:
+                      description: QueryFiltersSpec defines filters to manipulate
+                        questions/queries.
+                      properties:
+                        name:
+                          description: Filter name.
+                          type: string
+                        pattern:
+                          description: Filter pattern.
+                          type: string
+                        replaceWith:
+                          description: Replacement for the matched pattern.
+                          type: string
+                      type: object
+                    type: array
                   summarizerModel:
                     description: Summarizer model name
                     type: string

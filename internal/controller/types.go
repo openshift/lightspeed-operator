@@ -60,6 +60,8 @@ type OLSConfig struct {
 	ConversationCache ConversationCacheConfig `json:"conversation_cache,omitempty"`
 	// TLS configuration
 	TLSConfig TLSConfig `json:"tls_config,omitempty"`
+	// Query filters
+	QueryFilters []QueryFilters `json:"query_filters,omitempty"`
 }
 
 type LoggingConfig struct {
@@ -99,4 +101,13 @@ type DevConfig struct {
 type TLSConfig struct {
 	TLSCertificatePath string `json:"tls_certificate_path,omitempty"`
 	TLSKeyPath         string `json:"tls_key_path,omitempty"`
+}
+
+type QueryFilters struct {
+	// Filter name.
+	Name string `json:"name,omitempty"`
+	// Filter pattern.
+	Pattern string `json:"pattern,omitempty"`
+	// Replacement for the matched pattern.
+	ReplaceWith string `json:"replace_with,omitempty"`
 }

@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +30,7 @@ var _ = Describe("App server assets", func() {
 				LightspeedServiceImage: "lightspeed-service:latest",
 				Namespace:              OLSNamespaceDefault,
 			}
-			cr = getCompleteOLSConfigCR()
+			cr = getDefaultOLSConfigCR()
 			r = &OLSConfigReconciler{
 				Options:    *rOptions,
 				logger:     logf.Log.WithName("olsconfig.reconciler"),
@@ -103,6 +104,22 @@ var _ = Describe("App server assets", func() {
 			cmHash, err := hashBytes([]byte(cm.Data[OLSConfigFilename]))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.ObjectMeta.Annotations[OLSConfigHashKey]).To(Equal(cmHash))
+		})
+
+		It("should generate configmap with queryFilters", func() {
+			crWithFilters := addQueryFiltersToCR(cr)
+			cm, err := r.generateOLSConfigMap(crWithFilters)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Name).To(Equal(OLSConfigCmName))
+			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("query_filters", ContainElement(MatchAllKeys(Keys{
+				"name":         Equal("testFilter"),
+				"pattern":      Equal("testPattern"),
+				"replace_with": Equal("testReplace"),
+			})))))
 		})
 
 		It("should generate the OLS deployment", func() {
@@ -413,7 +430,7 @@ func generateRandomSecret() (*corev1.Secret, error) {
 	return &secret, nil
 }
 
-func getCompleteOLSConfigCR() *olsv1alpha1.OLSConfig {
+func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 	// fill the CR with all implemented fields in the configuration file
 	return &olsv1alpha1.OLSConfig{
 		ObjectMeta: metav1.ObjectMeta{
@@ -460,4 +477,15 @@ func getEmptyOLSConfigCR() *olsv1alpha1.OLSConfig {
 			Name: "cluster",
 		},
 	}
+}
+
+func addQueryFiltersToCR(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.OLSConfig.QueryFilters = []olsv1alpha1.QueryFiltersSpec{
+		{
+			Name:        "testFilter",
+			Pattern:     "testPattern",
+			ReplaceWith: "testReplace",
+		},
+	}
+	return cr
 }

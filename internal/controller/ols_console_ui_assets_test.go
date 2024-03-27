@@ -11,7 +11,6 @@ import (
 )
 
 var _ = Describe("Console UI assets", func() {
-
 	var cr *olsv1alpha1.OLSConfig
 	var r *OLSConfigReconciler
 	var rOptions *OLSConfigReconcilerOptions
@@ -28,7 +27,7 @@ var _ = Describe("Console UI assets", func() {
 				ConsoleUIImage: ConsoleUIImageDefault,
 				Namespace:      OLSNamespaceDefault,
 			}
-			cr = getCompleteOLSConfigCR()
+			cr = getDefaultOLSConfigCR()
 			r = &OLSConfigReconciler{
 				Options:    *rOptions,
 				logger:     logf.Log.WithName("olsconfig.reconciler"),
@@ -58,7 +57,6 @@ var _ = Describe("Console UI assets", func() {
 			Expect(svc.Spec.Ports[0].Port).To(Equal(int32(ConsoleUIHTTPSPort)))
 			Expect(svc.Spec.Ports[0].TargetPort.StrVal).To(Equal("https"))
 			Expect(svc.Spec.Ports[0].Protocol).To(Equal(corev1.ProtocolTCP))
-
 		})
 
 		It("should generate the console UI deployment", func() {
@@ -91,9 +89,6 @@ var _ = Describe("Console UI assets", func() {
 			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Port).To(Equal(int32(OLSAppServerServicePort)))
 			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(plugin.Spec.Proxy[0].Endpoint.Type).To(Equal(consolev1.ProxyTypeService))
-
 		})
-
 	})
-
 })
