@@ -74,8 +74,16 @@ type LoggingConfig struct {
 type ConversationCacheConfig struct {
 	// Type of cache to use. Default: "redis"
 	Type string `json:"type" default:"redis"`
+	// TODO: Update DB
 	// Redis cache configuration
-	Redis RedisCacheConfig `json:"redis,omitempty"`
+	//Redis RedisCacheConfig `json:"redis,omitempty"`
+	// Memory cache configuration
+	Memory MemoryCacheConfig `json:"memory,omitempty"`
+}
+
+type MemoryCacheConfig struct {
+	// Maximum number of cache entries. Default: "1000"
+	MaxEntries int `json:"max_entries,omitempty" default:"1000"`
 }
 
 type RedisCacheConfig struct {

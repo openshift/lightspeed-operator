@@ -2,7 +2,6 @@ package controller
 
 import (
 	"path"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -47,7 +46,8 @@ var _ = Describe("App server assets", func() {
 
 		It("should generate the olsconfig config map", func() {
 			cm, err := r.generateOLSConfigMap(cr)
-			OLSRedisMaxMemory := intstr.FromString(RedisMaxMemory)
+			// TODO: Update DB
+			//OLSRedisMaxMemory := intstr.FromString(RedisMaxMemory)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
@@ -63,15 +63,22 @@ var _ = Describe("App server assets", func() {
 						AppLogLevel: "INFO",
 						LibLogLevel: "INFO",
 					},
+					// TODO: Update DB
+					// ConversationCache: ConversationCacheConfig{
+					// 	Type: "redis",
+					// 	Redis: RedisCacheConfig{
+					// 		Host:            strings.Join([]string{RedisServiceName, OLSNamespaceDefault, "svc"}, "."),
+					// 		Port:            RedisServicePort,
+					// 		MaxMemory:       &OLSRedisMaxMemory,
+					// 		MaxMemoryPolicy: RedisMaxMemoryPolicy,
+					// 		PasswordPath:    path.Join(CredentialsMountRoot, RedisSecretName, OLSComponentPasswordFileName),
+					// 		CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
+					// 	},
+					// },
 					ConversationCache: ConversationCacheConfig{
-						Type: "redis",
-						Redis: RedisCacheConfig{
-							Host:            strings.Join([]string{RedisServiceName, OLSNamespaceDefault, "svc"}, "."),
-							Port:            RedisServicePort,
-							MaxMemory:       &OLSRedisMaxMemory,
-							MaxMemoryPolicy: RedisMaxMemoryPolicy,
-							PasswordPath:    path.Join(CredentialsMountRoot, RedisSecretName, OLSComponentPasswordFileName),
-							CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
+						Type: "memory",
+						Memory: MemoryCacheConfig{
+							MaxEntries: 1000,
 						},
 					},
 					TLSConfig: TLSConfig{
@@ -142,11 +149,6 @@ var _ = Describe("App server assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
 				{
-					Name:      "secret-lightspeed-redis-secret",
-					MountPath: "/etc/credentials/lightspeed-redis-secret",
-					ReadOnly:  true,
-				},
-				{
 					Name:      "secret-test-secret",
 					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
 					ReadOnly:  true,
@@ -166,11 +168,6 @@ var _ = Describe("App server assets", func() {
 					ReadOnly:  false,
 					MountPath: "/app-root/ols-user-data",
 				},
-				{
-					Name:      "cm-olsredisca",
-					MountPath: "/etc/certs/lightspeed-redis-certs/cm-olsredisca",
-					ReadOnly:  true,
-				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
 				{
@@ -178,14 +175,6 @@ var _ = Describe("App server assets", func() {
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
 							SecretName: "test-secret",
-						},
-					},
-				},
-				{
-					Name: "secret-lightspeed-redis-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName: RedisSecretName,
 						},
 					},
 				},
@@ -209,14 +198,6 @@ var _ = Describe("App server assets", func() {
 					Name: "ols-user-data",
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-				{
-					Name: "cm-olsredisca",
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: RedisCAConfigMap},
-						},
 					},
 				},
 			}))
@@ -275,14 +256,9 @@ var _ = Describe("App server assets", func() {
 llm_providers: []
 ols_config:
   conversation_cache:
-    redis:
-      ca_cert_path: /etc/certs/lightspeed-redis-certs/cm-olsredisca/service-ca.crt
-      host: lightspeed-redis-server.openshift-lightspeed.svc
-      max_memory: 1024mb
-      max_memory_policy: allkeys-lru
-      password_path: /etc/credentials/lightspeed-redis-secret/password
-      port: 6379
-    type: redis
+    memory:
+      max_entries: 1000
+    type: memory
   logging_config:
     app_log_level: ""
     lib_log_level: ""
@@ -312,7 +288,6 @@ ols_config:
 
 		It("should generate the OLS deployment", func() {
 			// todo: update this test after updating the test for generateOLSConfigMap
-			cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret = RedisSecretName
 			dep, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(OLSAppServerDeploymentName))
@@ -334,11 +309,6 @@ ols_config:
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
 				{
-					Name:      "secret-lightspeed-redis-secret",
-					MountPath: "/etc/credentials/lightspeed-redis-secret",
-					ReadOnly:  true,
-				},
-				{
 					Name:      "secret-lightspeed-tls",
 					MountPath: "/etc/certs/lightspeed-tls",
 					ReadOnly:  true,
@@ -353,21 +323,8 @@ ols_config:
 					ReadOnly:  false,
 					MountPath: "/app-root/ols-user-data",
 				},
-				{
-					Name:      "cm-olsredisca",
-					MountPath: "/etc/certs/lightspeed-redis-certs/cm-olsredisca",
-					ReadOnly:  true,
-				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
-				{
-					Name: "secret-lightspeed-redis-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName: RedisSecretName,
-						},
-					},
-				},
 				{
 					Name: "secret-lightspeed-tls",
 					VolumeSource: corev1.VolumeSource{
@@ -388,16 +345,6 @@ ols_config:
 					Name: "ols-user-data",
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-				{
-					Name: "cm-olsredisca",
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: RedisCAConfigMap,
-							},
-						},
 					},
 				},
 			}))
@@ -434,13 +381,7 @@ func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 				DefaultModel:    "testModel",
 				DefaultProvider: "testProvider",
 				LogLevel:        "INFO",
-				ConversationCache: olsv1alpha1.ConversationCacheSpec{
-					Type: olsv1alpha1.Redis,
-					Redis: olsv1alpha1.RedisSpec{
-						CredentialsSecret: RedisSecretName,
-					},
-				},
-				DisableAuth: false,
+				DisableAuth:     false,
 			},
 		},
 	}

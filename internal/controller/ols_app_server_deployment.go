@@ -50,10 +50,12 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		credentialMountPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name)
 		secretMounts[provider.CredentialsSecretRef.Name] = credentialMountPath
 	}
+	// TODO: Update DB
 	// Redis volume
-	redisSecretName := cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret
-	redisCredentialsMountPath := path.Join(CredentialsMountRoot, redisSecretName)
-	secretMounts[redisSecretName] = redisCredentialsMountPath
+	//redisSecretName := cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret
+	//redisCredentialsMountPath := path.Join(CredentialsMountRoot, redisSecretName)
+	//secretMounts[redisSecretName] = redisCredentialsMountPath
+
 	// TLS volume
 	tlsSecretNameMountPath := path.Join(OLSAppCertsMountRoot, OLSCertsSecretName)
 	secretMounts[OLSCertsSecretName] = tlsSecretNameMountPath
@@ -96,7 +98,9 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
-	volumes = append(volumes, olsConfigVolume, olsUserDataVolume, getRedisCAConfigVolume())
+	// TODO: Update DB
+	//volumes = append(volumes, olsConfigVolume, olsUserDataVolume, getRedisCAConfigVolume())
+	volumes = append(volumes, olsConfigVolume, olsUserDataVolume)
 
 	// mount the volumes of api keys secrets and OLS config map to the container
 	volumeMounts := []corev1.VolumeMount{}
@@ -117,8 +121,9 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		Name:      OLSUserDataVolumeName,
 		MountPath: OLSUserDataMountPath,
 	}
-	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount, getRedisCAVolumeMount(path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume)))
-
+	// TODO: Update DB
+	//volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount, getRedisCAVolumeMount(path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume)))
+	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount)
 	replicas := getOLSServerReplicas(cr)
 	resources := getOLSServerResources(cr)
 
@@ -178,15 +183,19 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
-		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] || existingDeployment.Annotations[RedisSecretHashKey] != r.stateCache[RedisSecretHashStateCacheKey] {
+		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] {
+		// TODO: Update DB
+		//|| existingDeployment.Annotations[RedisSecretHashKey] != r.stateCache[RedisSecretHashStateCacheKey] {
 		updateDeploymentAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
-			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
+			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+			// TODO: Update DB
+			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
 		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
-			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
+			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+			// TODO: Update DB
+			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 
 		changed = true
