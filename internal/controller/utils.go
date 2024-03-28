@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"crypto/sha256"
 	"fmt"
 
@@ -9,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // updateDeploymentAnnotations updates the annotations in a given deployment.
@@ -63,18 +61,19 @@ func setVolumeMounts(deployment *appsv1.Deployment, desiredVolumeMounts []corev1
 	return false, nil
 }
 
+// TODO: Update DB
 // setCommand sets the command for a specific container in a given deployment.
-func setCommand(deployment *appsv1.Deployment, desiredCommand []string, containerName string) (bool, error) {
-	containerIndex, err := getContainerIndex(deployment, containerName)
-	if err != nil {
-		return false, err
-	}
-	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Containers[containerIndex].Command, desiredCommand) {
-		deployment.Spec.Template.Spec.Containers[containerIndex].Command = desiredCommand
-		return true, nil
-	}
-	return false, nil
-}
+// func setCommand(deployment *appsv1.Deployment, desiredCommand []string, containerName string) (bool, error) {
+// 	containerIndex, err := getContainerIndex(deployment, containerName)
+// 	if err != nil {
+// 		return false, err
+// 	}
+// 	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Containers[containerIndex].Command, desiredCommand) {
+// 		deployment.Spec.Template.Spec.Containers[containerIndex].Command = desiredCommand
+// 		return true, nil
+// 	}
+// 	return false, nil
+// }
 
 // setDeploymentContainerResources sets the resource requirements for a specific container in a given deployment.
 func setDeploymentContainerResources(deployment *appsv1.Deployment, resources *corev1.ResourceRequirements, containerName string) (bool, error) {
@@ -126,19 +125,20 @@ func hashBytes(sourceStr []byte) (string, error) {
 	return fmt.Sprintf("%x", hashFunc.Sum(nil)), nil
 }
 
-func getSecretContent(rclient client.Client, secretName string, namespace string, secretField string) (string, error) {
-	foundSecret := &corev1.Secret{}
-	ctx := context.Background()
-	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
-	if err != nil {
-		return "", fmt.Errorf("Error: %w while fetching secret: %s", err, secretName)
-	}
-	encodedSecretValue, ok := foundSecret.Data[secretField]
-	if !ok {
-		return "", fmt.Errorf("Secret field %s not present in the secret", secretField)
-	}
-	return string(encodedSecretValue), nil
-}
+// TODO: Update DB
+// func getSecretContent(rclient client.Client, secretName string, namespace string, secretField string) (string, error) {
+// 	foundSecret := &corev1.Secret{}
+// 	ctx := context.Background()
+// 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
+// 	if err != nil {
+// 		return "", fmt.Errorf("Error: %w while fetching secret: %s", err, secretName)
+// 	}
+// 	encodedSecretValue, ok := foundSecret.Data[secretField]
+// 	if !ok {
+// 		return "", fmt.Errorf("Secret field %s not present in the secret", secretField)
+// 	}
+// 	return string(encodedSecretValue), nil
+// }
 
 // podVolumEqual compares two slices of corev1.Volume and returns true if they are equal.
 // covers 3 volume types: Secret, ConfigMap, EmptyDir
