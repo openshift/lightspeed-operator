@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -155,6 +156,28 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 								},
 							},
 							Resources: *resources,
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/readiness",
+										Port:   intstr.FromString("https"),
+										Scheme: corev1.URISchemeHTTPS,
+									},
+								},
+								InitialDelaySeconds: 60,
+								PeriodSeconds:       10,
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/liveness",
+										Port:   intstr.FromString("https"),
+										Scheme: corev1.URISchemeHTTPS,
+									},
+								},
+								InitialDelaySeconds: 60,
+								PeriodSeconds:       10,
+							},
 						},
 					},
 					Volumes:            volumes,
