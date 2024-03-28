@@ -1,2 +1,4 @@
 resources:
-- monitor.yaml
+  - monitor-operator.yaml
+  - role.yaml
+  - role_binding.yaml

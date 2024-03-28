@@ -3,7 +3,9 @@ package controller
 import (
 	"fmt"
 	"path"
+	"strings"
 
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -248,6 +250,49 @@ func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev
 	}
 
 	return &service, nil
+}
+
+func (r *OLSConfigReconciler) generateServiceMonitor(cr *olsv1alpha1.OLSConfig) (*monv1.ServiceMonitor, error) {
+	metaLabels := generateAppServerSelectorLabels()
+	metaLabels["monitoring.openshift.io/collection-profile"] = "full"
+	metaLabels["app.kubernetes.io/component"] = "metrics"
+
+	serviceMonitor := monv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      AppServerServiceMonitorName,
+			Namespace: r.Options.Namespace,
+			Labels:    metaLabels,
+		},
+		Spec: monv1.ServiceMonitorSpec{
+			Endpoints: []monv1.Endpoint{
+				{
+					Port:     "https",
+					Path:     AppServerMetricsPath,
+					Interval: "30s",
+					Scheme:   "https",
+					TLSConfig: &monv1.TLSConfig{
+						CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
+						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
+						KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
+						SafeTLSConfig: monv1.SafeTLSConfig{
+							InsecureSkipVerify: false,
+							ServerName:         strings.Join([]string{OLSAppServerServiceName, r.Options.Namespace, "svc"}, "."),
+						},
+					},
+				},
+			},
+			JobLabel: "app.kubernetes.io/name",
+			Selector: metav1.LabelSelector{
+				MatchLabels: generateAppServerSelectorLabels(),
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &serviceMonitor, r.Scheme); err != nil {
+		return nil, err
+	}
+
+	return &serviceMonitor, nil
 }
 
 func getQueryFilters(cr *olsv1alpha1.OLSConfig) []QueryFilters {
