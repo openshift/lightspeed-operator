@@ -79,6 +79,8 @@ type OLSSpec struct {
 	YamlProvider string `json:"yamlProvider,omitempty"`
 	// YAML model name
 	YamlModel string `json:"yamlModel,omitempty"`
+	// Query filters
+	QueryFilters []QueryFiltersSpec `json:"queryFilters,omitempty"`
 }
 
 // DeploymentConfig defines the schema for overriding deployment of OLS instance.
@@ -117,6 +119,16 @@ type RedisSpec struct {
 	// Redis maxmemory policy. Default: "allkeys-lru"
 	// +kubebuilder:default=allkeys-lru
 	MaxMemoryPolicy string `json:"maxMemoryPolicy,omitempty"`
+}
+
+// QueryFiltersSpec defines filters to manipulate questions/queries.
+type QueryFiltersSpec struct {
+	// Filter name.
+	Name string `json:"name,omitempty"`
+	// Filter pattern.
+	Pattern string `json:"pattern,omitempty"`
+	// Replacement for the matched pattern.
+	ReplaceWith string `json:"replaceWith,omitempty"`
 }
 
 // ModelSpec defines the desired state of cache.

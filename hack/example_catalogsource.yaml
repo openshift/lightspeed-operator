@@ -6,8 +6,6 @@ metadata:
 spec:
   displayName: LightSpeed Operator
   sourceType: grpc
-  secrets:
-    - pull-secret
   image: quay.io/openshift/lightspeed-catalog:0.0.1
   updateStrategy:
     registryPoll:

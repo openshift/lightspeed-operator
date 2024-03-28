@@ -101,14 +101,20 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.logger.Error(err, "Failed to reconcile application server")
 		return ctrl.Result{}, err
 	}
-	err = r.reconcileRedisServer(ctx, olsconfig)
-	if err != nil {
-		r.logger.Error(err, "Failed to reconcile ols redis")
-		return ctrl.Result{}, err
-	}
+	// TODO: Update DB
+	// err = r.reconcileRedisServer(ctx, olsconfig)
+	// if err != nil {
+	// 	r.logger.Error(err, "Failed to reconcile ols redis")
+	// 	return ctrl.Result{}, err
+	// }
 	err = r.reconcileConsoleUI(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile console UI")
+		return ctrl.Result{}, err
+	}
+	err = r.reconcileLLMSecrets(ctx, olsconfig)
+	if err != nil {
+		r.logger.Error(err, "Failed to reconcile LLM Provider Secrets")
 		return ctrl.Result{}, err
 	}
 

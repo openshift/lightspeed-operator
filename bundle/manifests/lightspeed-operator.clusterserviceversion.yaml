@@ -187,7 +187,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/xrajesh/lightspeed-operator:0.0.96
+                image: quay.io/openshift/lightspeed-operator:0.0.1
                 livenessProbe:
                   httpGet:
                     path: /healthz

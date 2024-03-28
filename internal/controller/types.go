@@ -60,6 +60,8 @@ type OLSConfig struct {
 	ConversationCache ConversationCacheConfig `json:"conversation_cache,omitempty"`
 	// TLS configuration
 	TLSConfig TLSConfig `json:"tls_config,omitempty"`
+	// Query filters
+	QueryFilters []QueryFilters `json:"query_filters,omitempty"`
 }
 
 type LoggingConfig struct {
@@ -72,8 +74,16 @@ type LoggingConfig struct {
 type ConversationCacheConfig struct {
 	// Type of cache to use. Default: "redis"
 	Type string `json:"type" default:"redis"`
+	// TODO: Update DB
 	// Redis cache configuration
-	Redis RedisCacheConfig `json:"redis,omitempty"`
+	//Redis RedisCacheConfig `json:"redis,omitempty"`
+	// Memory cache configuration
+	Memory MemoryCacheConfig `json:"memory,omitempty"`
+}
+
+type MemoryCacheConfig struct {
+	// Maximum number of cache entries. Default: "1000"
+	MaxEntries int `json:"max_entries,omitempty" default:"1000"`
 }
 
 type RedisCacheConfig struct {
@@ -99,4 +109,13 @@ type DevConfig struct {
 type TLSConfig struct {
 	TLSCertificatePath string `json:"tls_certificate_path,omitempty"`
 	TLSKeyPath         string `json:"tls_key_path,omitempty"`
+}
+
+type QueryFilters struct {
+	// Filter name.
+	Name string `json:"name,omitempty"`
+	// Filter pattern.
+	Pattern string `json:"pattern,omitempty"`
+	// Replacement for the matched pattern.
+	ReplaceWith string `json:"replace_with,omitempty"`
 }

@@ -63,18 +63,19 @@ func setVolumeMounts(deployment *appsv1.Deployment, desiredVolumeMounts []corev1
 	return false, nil
 }
 
+// TODO: Update DB
 // setCommand sets the command for a specific container in a given deployment.
-func setCommand(deployment *appsv1.Deployment, desiredCommand []string, containerName string) (bool, error) {
-	containerIndex, err := getContainerIndex(deployment, containerName)
-	if err != nil {
-		return false, err
-	}
-	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Containers[containerIndex].Command, desiredCommand) {
-		deployment.Spec.Template.Spec.Containers[containerIndex].Command = desiredCommand
-		return true, nil
-	}
-	return false, nil
-}
+// func setCommand(deployment *appsv1.Deployment, desiredCommand []string, containerName string) (bool, error) {
+// 	containerIndex, err := getContainerIndex(deployment, containerName)
+// 	if err != nil {
+// 		return false, err
+// 	}
+// 	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Containers[containerIndex].Command, desiredCommand) {
+// 		deployment.Spec.Template.Spec.Containers[containerIndex].Command = desiredCommand
+// 		return true, nil
+// 	}
+// 	return false, nil
+// }
 
 // setDeploymentContainerResources sets the resource requirements for a specific container in a given deployment.
 func setDeploymentContainerResources(deployment *appsv1.Deployment, resources *corev1.ResourceRequirements, containerName string) (bool, error) {
@@ -126,6 +127,7 @@ func hashBytes(sourceStr []byte) (string, error) {
 	return fmt.Sprintf("%x", hashFunc.Sum(nil)), nil
 }
 
+// TODO: Update DB
 func getSecretContent(rclient client.Client, secretName string, namespace string, secretField string) (string, error) {
 	foundSecret := &corev1.Secret{}
 	ctx := context.Background()
