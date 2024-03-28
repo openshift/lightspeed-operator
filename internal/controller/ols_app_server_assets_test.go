@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -364,6 +365,31 @@ ols_config:
 			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe).ToNot(BeNil())
 			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet.Port).To(Equal(intstr.FromString("https")))
 			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet.Path).To(Equal("/readiness"))
+		})
+
+		It("should generate the OLS service monitor", func() {
+			serviceMonitor, err := r.generateServiceMonitor(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(serviceMonitor.Name).To(Equal(AppServerServiceMonitorName))
+			Expect(serviceMonitor.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(serviceMonitor.Spec.Endpoints).To(ConsistOf(
+				monv1.Endpoint{
+					Port:     "https",
+					Path:     AppServerMetricsPath,
+					Interval: "30s",
+					Scheme:   "https",
+					TLSConfig: &monv1.TLSConfig{
+						SafeTLSConfig: monv1.SafeTLSConfig{
+							InsecureSkipVerify: false,
+							ServerName:         "lightspeed-app-server.openshift-lightspeed.svc",
+						},
+						CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
+						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
+						KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
+					},
+				},
+			))
+			Expect(serviceMonitor.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
 		})
 	})
 })

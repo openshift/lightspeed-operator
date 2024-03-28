@@ -3,6 +3,7 @@ package controller
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 
@@ -96,6 +97,13 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
 			Expect(dep.Annotations[OLSConfigHashKey]).NotTo(Equal(oldHash))
 			Expect(dep.Annotations[OLSConfigHashKey]).NotTo(Equal(oldHash))
+		})
+
+		It("should create a service monitor lightspeed-app-server-monitor", func() {
+			By("Get the service monitor")
+			sm := &monv1.ServiceMonitor{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: AppServerServiceMonitorName, Namespace: OLSNamespaceDefault}, sm)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
