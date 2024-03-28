@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,6 +37,10 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 		{
 			Name: "reconcile App Service",
 			Task: r.reconcileService,
+		},
+		{
+			Name: "reconcile App TLS Certs",
+			Task: r.reconcileTLSSecret,
 		},
 		{
 			Name: "reconcile App Deployment",
@@ -177,10 +182,14 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
 			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			OLSCAHashKey:       r.stateCache[OLSCAHashStateCacheKey],
+			OLSAppTLSHashKey:   r.stateCache[OLSAppTLSHashStateCacheKey],
 			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
 			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			OLSCAHashKey:       r.stateCache[OLSCAHashStateCacheKey],
+			OLSAppTLSHashKey:   r.stateCache[OLSAppTLSHashStateCacheKey],
 			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		r.logger.Info("creating a new deployment", "deployment", desiredDeployment.Name)
@@ -234,5 +243,36 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 	}
 
 	r.logger.Info("OLS service reconciled", "service", service.Name)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileTLSSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	var secretValues map[string]string
+	foundSecret := &corev1.Secret{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSCertsSecretName, Namespace: r.Options.Namespace}, foundSecret)
+	if err != nil {
+		return fmt.Errorf("failed to fetch secret: %w", err)
+	}
+	secretValues, err = getSecretContent(r.Client, OLSCertsSecretName, r.Options.Namespace, []string{"tls.key", "tls.crt"})
+	if err != nil {
+		return fmt.Errorf("failed fetching tls certs from secret: %s. error: %w", OLSCertsSecretName, err)
+	}
+	if err = controllerutil.SetControllerReference(cr, foundSecret, r.Scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference to secret: %s. error: %w", foundSecret.Name, err)
+	}
+	err = r.Update(ctx, foundSecret)
+	if err != nil {
+		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
+	}
+	foundTLSSecretHash, err := hashBytes([]byte(secretValues["tls.key"] + secretValues["tls.crt"]))
+	if err != nil {
+		return fmt.Errorf("failed to generate OLS app tls certs hash %w", err)
+	}
+	if foundTLSSecretHash == r.stateCache[OLSAppTLSHashStateCacheKey] {
+		r.logger.Info("OLS app tls secret reconciliation skipped", "hash", foundTLSSecretHash)
+		return nil
+	}
+	r.stateCache[OLSAppTLSHashStateCacheKey] = foundTLSSecretHash
+	r.logger.Info("OLS app tls secret reconciled", "hash", foundTLSSecretHash)
 	return nil
 }

@@ -45,6 +45,16 @@ const (
 	RedisServerImageDefault = "quay.io/openshift/lightspeed-service-redis:latest"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
+	// OLSAppTLSHashKey is the key of the hash value of the OLS App TLS certificates
+	OLSAppTLSHashKey = "hash/olstls"
+	// OLSCAHashKey is the key of the hash value of the OLS CA certificate
+	OLSCAHashKey = "hash/ca"
+	// OLSConsoleTLSHashKey is the key of the hash value of the OLS Console TLS certificates
+	OLSConsoleTLSHashKey = "hash/olsconsoletls"
+	// RedisTLSHashKey is the key of the hash value of Redis
+	RedisTLSHashKey = "hash/redistls"
+	// RedisCAHashKey is the key of the hash value of Redis CA Cert
+	RedisCAHashKey = "hash/redisca"
 	// RedisConfigHashKey is the key of the hash value of the OLS's redis config
 	RedisConfigHashKey = "hash/olsredisconfig"
 	// RedisSecretHashKey is the key of the hash value of OLS Redis secret
@@ -76,8 +86,13 @@ const (
 	// #nosec G101
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
 	/*** state cache keys ***/
-	OLSConfigHashStateCacheKey   = "olsconfigmap-hash"
-	RedisConfigHashStateCacheKey = "olsredisconfig-hash"
+	OLSAppTLSHashStateCacheKey     = "olsapptls-hash"
+	OLSConfigHashStateCacheKey     = "olsconfigmap-hash"
+	OLSConsoleTLSHashStateCacheKey = "olsconsoletls-hash"
+	OLSCAHashStateCacheKey         = "olsca-hash"
+	RedisConfigHashStateCacheKey   = "olsredisconfig-hash"
+	RedisTLSHashStateCacheKey      = "redistls-hash"
+	RedisCAHashStateCacheKey       = "redisca-hash"
 	// #nosec G101
 	RedisSecretHashStateCacheKey = "olsredissecret-hash"
 

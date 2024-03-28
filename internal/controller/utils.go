@@ -126,18 +126,23 @@ func hashBytes(sourceStr []byte) (string, error) {
 	return fmt.Sprintf("%x", hashFunc.Sum(nil)), nil
 }
 
-func getSecretContent(rclient client.Client, secretName string, namespace string, secretField string) (string, error) {
+func getSecretContent(rclient client.Client, secretName string, namespace string, secretFields []string) (map[string]string, error) {
 	foundSecret := &corev1.Secret{}
 	ctx := context.Background()
 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
 	if err != nil {
-		return "", fmt.Errorf("Error: %w while fetching secret: %s", err, secretName)
+		return nil, fmt.Errorf("Error: %w while fetching secret: %s", err, secretName)
 	}
-	encodedSecretValue, ok := foundSecret.Data[secretField]
-	if !ok {
-		return "", fmt.Errorf("Secret field %s not present in the secret", secretField)
+	secretValues := make(map[string]string)
+	for _, field := range secretFields {
+		value, ok := foundSecret.Data[field]
+		if !ok {
+			return nil, fmt.Errorf("secret field %s not present in the secret", field)
+		}
+		secretValues[field] = string(value)
 	}
-	return string(encodedSecretValue), nil
+
+	return secretValues, nil
 }
 
 // podVolumEqual compares two slices of corev1.Volume and returns true if they are equal.

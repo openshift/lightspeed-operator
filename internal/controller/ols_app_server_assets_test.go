@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"path"
 	"strings"
 
@@ -405,6 +407,43 @@ ols_config:
 		})
 	})
 })
+
+func generateRandomSecret() (*corev1.Secret, error) {
+	randomPassword := make([]byte, 12)
+	_, _ = rand.Read(randomPassword)
+	// Encode the password to base64
+	encodedPassword := base64.StdEncoding.EncodeToString(randomPassword)
+	passwordHash, _ := hashBytes([]byte(encodedPassword))
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-secret",
+			Namespace: "openshift-lightspeed",
+			Labels:    generateAppServerSelectorLabels(),
+			Annotations: map[string]string{
+				RedisSecretHashKey: "test-hash",
+			},
+		},
+		Data: map[string][]byte{
+			LLMApiTokenFileName: []byte(passwordHash),
+			"tls.key":           []byte("test tls key"),
+			"tls.crt":           []byte("test tls crt"),
+		},
+	}
+	return &secret, nil
+}
+
+func generateRandomConfigMap() (*corev1.ConfigMap, error) {
+	configMap := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-configmap",
+			Namespace: "openshift-lightspeed",
+		},
+		Data: map[string]string{
+			"service-ca.crt": "random ca cert content",
+		},
+	}
+	return &configMap, nil
+}
 
 func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 	// fill the CR with all implemented fields in the configuration file

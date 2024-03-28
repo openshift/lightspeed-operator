@@ -50,7 +50,7 @@ func getRedisCAVolumeMount(mountPath string) corev1.VolumeMount {
 func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	cacheReplicas := int32(1)
 	revisionHistoryLimit := int32(1)
-	redisPassword, err := getSecretContent(r.Client, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret, r.Options.Namespace, OLSComponentPasswordFileName)
+	secretContent, err := getSecretContent(r.Client, cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret, r.Options.Namespace, []string{OLSComponentPasswordFileName})
 	if err != nil {
 		return nil, fmt.Errorf("Password is a must to start redis deployment : %w", err)
 	}
@@ -116,7 +116,7 @@ func (r *OLSConfigReconciler) generateRedisDeployment(cr *olsv1alpha1.OLSConfig)
 								"--tls-ca-cert-file", path.Join(OLSAppCertsMountRoot, RedisCAVolume, "service-ca.crt"),
 								"--tls-auth-clients", "optional",
 								"--protected-mode", "no",
-								"--requirepass", redisPassword,
+								"--requirepass", secretContent[OLSComponentPasswordFileName],
 							},
 						},
 					},
@@ -140,13 +140,19 @@ func (r *OLSConfigReconciler) updateRedisDeployment(ctx context.Context, existin
 
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
-		existingDeployment.Annotations[RedisConfigHashKey] != r.stateCache[RedisConfigHashStateCacheKey] {
+		existingDeployment.Annotations[RedisConfigHashKey] != r.stateCache[RedisConfigHashStateCacheKey] ||
+		existingDeployment.Annotations[RedisTLSHashKey] != r.stateCache[RedisTLSHashStateCacheKey] ||
+		existingDeployment.Annotations[RedisCAHashKey] != r.stateCache[RedisCAHashStateCacheKey] {
 		updateDeploymentAnnotations(existingDeployment, map[string]string{
 			RedisConfigHashKey: r.stateCache[RedisConfigHashStateCacheKey],
+			RedisTLSHashKey:    r.stateCache[RedisTLSHashStateCacheKey],
+			RedisCAHashKey:     r.stateCache[RedisCAHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
 		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
 			RedisConfigHashKey: r.stateCache[RedisConfigHashStateCacheKey],
+			RedisTLSHashKey:    r.stateCache[RedisTLSHashStateCacheKey],
+			RedisCAHashKey:     r.stateCache[RedisCAHashStateCacheKey],
 		})
 
 		changed = true

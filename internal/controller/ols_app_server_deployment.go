@@ -178,14 +178,18 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
-		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] || existingDeployment.Annotations[RedisSecretHashKey] != r.stateCache[RedisSecretHashStateCacheKey] {
+		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] || existingDeployment.Annotations[RedisSecretHashKey] != r.stateCache[RedisSecretHashStateCacheKey] || existingDeployment.Annotations[OLSAppTLSHashKey] != r.stateCache[OLSAppTLSHashStateCacheKey] || existingDeployment.Annotations[OLSCAHashKey] != r.stateCache[OLSCAHashStateCacheKey] {
 		updateDeploymentAnnotations(existingDeployment, map[string]string{
 			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			OLSAppTLSHashKey:   r.stateCache[OLSAppTLSHashStateCacheKey],
+			OLSCAHashKey:       r.stateCache[OLSCAHashStateCacheKey],
 			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
 		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
 			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			OLSAppTLSHashKey:   r.stateCache[OLSAppTLSHashStateCacheKey],
+			OLSCAHashKey:       r.stateCache[OLSCAHashStateCacheKey],
 			RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 

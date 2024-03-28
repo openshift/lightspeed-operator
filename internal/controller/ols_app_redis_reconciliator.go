@@ -10,6 +10,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
@@ -24,6 +25,14 @@ func (r *OLSConfigReconciler) reconcileRedisServer(ctx context.Context, olsconfi
 		{
 			Name: "reconcile Redis Service",
 			Task: r.reconcileRedisService,
+		},
+		{
+			Name: "reconcile Redis CA Configmap",
+			Task: r.reconcileRedisCAConfigMap,
+		},
+		{
+			Name: "reconcile Redis TLS Secret",
+			Task: r.reconcileRedisTLSSecret,
 		},
 		{
 			Name: "reconcile Redis Deployment",
@@ -55,9 +64,13 @@ func (r *OLSConfigReconciler) reconcileRedisDeployment(ctx context.Context, cr *
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
 			RedisConfigHashKey: r.stateCache[RedisConfigHashStateCacheKey],
+			RedisTLSHashKey:    r.stateCache[RedisTLSHashStateCacheKey],
+			RedisCAHashKey:     r.stateCache[RedisCAHashStateCacheKey],
 		})
 		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
 			RedisConfigHashKey: r.stateCache[RedisConfigHashStateCacheKey],
+			RedisTLSHashKey:    r.stateCache[RedisTLSHashStateCacheKey],
+			RedisCAHashKey:     r.stateCache[RedisCAHashStateCacheKey],
 		})
 		r.logger.Info("creating a new OLS redis deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
@@ -144,5 +157,68 @@ func (r *OLSConfigReconciler) reconcileRedisSecret(ctx context.Context, cr *olsv
 		return fmt.Errorf("failed to update OLS redis secret: %w", err)
 	}
 	r.logger.Info("OLS redis secret reconciled", "secret", secret.Name, "hash", secret.Annotations[RedisSecretHashKey])
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileRedisTLSSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	var secretValues map[string]string
+	foundSecret := &corev1.Secret{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: RedisCertsSecretName, Namespace: r.Options.Namespace}, foundSecret)
+	if err != nil {
+		return fmt.Errorf("failed to fetch secret: %w", err)
+	}
+	secretValues, err = getSecretContent(r.Client, RedisCertsSecretName, r.Options.Namespace, []string{"tls.key", "tls.crt"})
+	if err != nil {
+		return fmt.Errorf("failed fetching tls certs from secret: %s. error: %w", RedisCertsSecretName, err)
+	}
+	if err = controllerutil.SetControllerReference(cr, foundSecret, r.Scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference to secret: %s. error: %w", foundSecret.Name, err)
+	}
+	err = r.Update(ctx, foundSecret)
+	if err != nil {
+		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
+	}
+	foundTLSSecretHash, err := hashBytes([]byte(secretValues["tls.key"] + secretValues["tls.crt"]))
+	if err != nil {
+		return fmt.Errorf("failed to generate OLS app tls certs hash %w", err)
+	}
+	if foundTLSSecretHash == r.stateCache[RedisTLSHashStateCacheKey] {
+		r.logger.Info("Redis tls secret reconciliation skipped", "hash", foundTLSSecretHash)
+		return nil
+	}
+	r.stateCache[RedisTLSHashStateCacheKey] = foundTLSSecretHash
+	r.logger.Info("Redis tls secret reconciled", "hash", foundTLSSecretHash)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileRedisCAConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	foundConfigMap := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: RedisCAConfigMap, Namespace: r.Options.Namespace}, foundConfigMap)
+	if err != nil {
+		return fmt.Errorf("failed to fetch ConfigMap: %w", err)
+	}
+	if err = controllerutil.SetControllerReference(cr, foundConfigMap, r.Scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference to configmap: %s. error: %w", foundConfigMap.Name, err)
+	}
+	err = r.Update(ctx, foundConfigMap)
+	if err != nil {
+		return fmt.Errorf("failed to update configmap:%s. error: %w", foundConfigMap.Name, err)
+	}
+	configMapCACert, ok := foundConfigMap.Data["service-ca.crt"]
+	if !ok {
+		return fmt.Errorf("failed to get configmap:%s content", foundConfigMap.Name)
+	}
+
+	foundCAHash, err := hashBytes([]byte(configMapCACert))
+	if err != nil {
+		return fmt.Errorf("failed to generate Redis CA cert hash %w", err)
+	}
+	if foundCAHash == r.stateCache[RedisCAHashStateCacheKey] {
+		r.logger.Info("Redis CA cert reconciliation skipped", "hash", foundCAHash)
+		return nil
+	}
+	r.stateCache[RedisCAHashStateCacheKey] = foundCAHash
+	r.stateCache[OLSCAHashStateCacheKey] = foundCAHash
+	r.logger.Info("Redis CA cert reconciled", "hash", foundCAHash)
 	return nil
 }

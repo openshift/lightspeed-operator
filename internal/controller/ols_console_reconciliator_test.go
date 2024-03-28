@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +30,19 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			}
 			err := k8sClient.Create(ctx, &console)
 			Expect(err).NotTo(HaveOccurred())
-
+			By("create the console tls secret")
+			tlsSecret, _ = generateRandomSecret()
+			tlsSecret.Name = ConsoleUIServiceCertSecretName
+			tlsSecret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       ConsoleUIServiceCertSecretName,
+				},
+			})
+			secretCreationErr := reconciler.Create(ctx, tlsSecret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterAll(func() {
@@ -43,7 +56,9 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 				return
 			}
 			Expect(err).NotTo(HaveOccurred())
-
+			By("Delete the console tls secret")
+			secretDeletionErr := reconciler.Delete(ctx, tlsSecret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should reconcile from OLSConfig custom resource", func() {
@@ -88,6 +103,92 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(console.Spec.Plugins).To(ContainElement(ConsoleUIPluginName))
 		})
 
+		It("should trigger rolling update of the console deployment when changing tls secret content", func() {
+
+			By("Get the deployment")
+			dep := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
+			oldHash := dep.Spec.Template.Annotations[OLSConsoleTLSHashKey]
+			Expect(oldHash).NotTo(BeEmpty())
+
+			foundSecret := &corev1.Secret{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIServiceCertSecretName, Namespace: OLSNamespaceDefault}, foundSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Update the console tls secret content")
+			foundSecret.Data["tls.key"] = []byte("new-value")
+			err = k8sClient.Update(ctx, foundSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Reconcile the console
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile the console")
+			err = reconciler.reconcileConsoleUI(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get the updated deployment")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
+
+			// Verify that the hash in deployment annotations has been updated
+			Expect(dep.Annotations[OLSConsoleTLSHashKey]).NotTo(Equal(oldHash))
+		})
+
+		It("should trigger rolling update of the console deployment when recreating tls secret", func() {
+
+			By("Get the deployment")
+			dep := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
+			oldHash := dep.Spec.Template.Annotations[OLSConsoleTLSHashKey]
+			Expect(oldHash).NotTo(BeEmpty())
+
+			By("Delete the console tls secret")
+			secretDeletionErr := reconciler.Delete(ctx, tlsSecret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+
+			By("Recreate the provider secret")
+			tlsSecret, _ = generateRandomSecret()
+			tlsSecret.Name = ConsoleUIServiceCertSecretName
+			tlsSecret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       ConsoleUIServiceCertSecretName,
+				},
+			})
+			secretCreationErr := reconciler.Create(ctx, tlsSecret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			// Reconcile the console
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile the console")
+			err = reconciler.reconcileConsoleUI(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get the updated deployment")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
+
+			// Verify that the hash in deployment annotations has been updated
+			Expect(dep.Annotations[OLSConsoleTLSHashKey]).NotTo(Equal(oldHash))
+			By("Delete the console tls secret")
+			secretDeletionErr = reconciler.Delete(ctx, tlsSecret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+		})
+
 	})
 
 	Context("Deleting logic", Ordered, func() {
@@ -105,6 +206,19 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			}
 			err := k8sClient.Create(ctx, &console)
 			Expect(err).NotTo(HaveOccurred())
+			By("create the console tls secret")
+			tlsSecret, _ = generateRandomSecret()
+			tlsSecret.Name = ConsoleUIServiceCertSecretName
+			tlsSecret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       ConsoleUIServiceCertSecretName,
+				},
+			})
+			secretCreationErr := reconciler.Create(ctx, tlsSecret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterAll(func() {
@@ -118,6 +232,9 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 				return
 			}
 			Expect(err).NotTo(HaveOccurred())
+			By("Delete the console tls secret")
+			secretDeletionErr := reconciler.Delete(ctx, tlsSecret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should reconcile from OLSConfig custom resource", func() {

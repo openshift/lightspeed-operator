@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -27,6 +28,10 @@ func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, olsconfig 
 		{
 			Name: "reconcile Console Plugin Service",
 			Task: r.reconcileConsoleUIService,
+		},
+		{
+			Name: "reconcile Console Plugin TLS Certs",
+			Task: r.reconcileConsoleTLSSecret,
 		},
 		{
 			Name: "reconcile Console Plugin Deployment",
@@ -130,6 +135,12 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 	foundDeployment := &appsv1.Deployment{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIDeploymentName, Namespace: r.Options.Namespace}, foundDeployment)
 	if err != nil && errors.IsNotFound(err) {
+		updateDeploymentAnnotations(deployment, map[string]string{
+			OLSConsoleTLSHashKey: r.stateCache[OLSConsoleTLSHashStateCacheKey],
+		})
+		updateDeploymentTemplateAnnotations(deployment, map[string]string{
+			OLSConsoleTLSHashKey: r.stateCache[OLSConsoleTLSHashStateCacheKey],
+		})
 		r.logger.Info("creating Console UI deployment", "deployment", deployment.Name)
 		err = r.Create(ctx, deployment)
 		if err != nil {
@@ -143,12 +154,18 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 
 	// fill in the default values for the deployment for comparison
 	SetDefaults_Deployment(deployment)
-	if deploymentSpecEqual(&foundDeployment.Spec, &deployment.Spec) {
+	if deploymentSpecEqual(&foundDeployment.Spec, &deployment.Spec) && foundDeployment.Annotations[OLSConsoleTLSHashKey] == r.stateCache[OLSConsoleTLSHashStateCacheKey] && foundDeployment.Spec.Template.Annotations[OLSConsoleTLSHashKey] == r.stateCache[OLSConsoleTLSHashStateCacheKey] {
 		r.logger.Info("Console UI deployment unchanged, reconciliation skipped", "deployment", deployment.Name)
 		return nil
 	}
 
 	foundDeployment.Spec = deployment.Spec
+	updateDeploymentAnnotations(foundDeployment, map[string]string{
+		OLSConsoleTLSHashKey: r.stateCache[OLSConsoleTLSHashStateCacheKey],
+	})
+	updateDeploymentTemplateAnnotations(foundDeployment, map[string]string{
+		OLSConsoleTLSHashKey: r.stateCache[OLSConsoleTLSHashStateCacheKey],
+	})
 	err = r.Update(ctx, foundDeployment)
 	if err != nil {
 		return fmt.Errorf("failed to update Console UI deployment: %w", err)
@@ -275,5 +292,36 @@ func (r *OLSConfigReconciler) deactivateConsoleUI(ctx context.Context) error {
 		return fmt.Errorf("failed to update Console: %w", err)
 	}
 	r.logger.Info("Console UI plugin deactivated")
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileConsoleTLSSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	var secretValues map[string]string
+	foundSecret := &corev1.Secret{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIServiceCertSecretName, Namespace: r.Options.Namespace}, foundSecret)
+	if err != nil {
+		return fmt.Errorf("failed to fetch secret: %w", err)
+	}
+	secretValues, err = getSecretContent(r.Client, ConsoleUIServiceCertSecretName, r.Options.Namespace, []string{"tls.key", "tls.crt"})
+	if err != nil {
+		return fmt.Errorf("failed fetching tls certs from secret: %s. error: %w", ConsoleUIServiceCertSecretName, err)
+	}
+	if err = controllerutil.SetControllerReference(cr, foundSecret, r.Scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference to secret: %s. error: %w", foundSecret.Name, err)
+	}
+	err = r.Update(ctx, foundSecret)
+	if err != nil {
+		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
+	}
+	foundTLSSecretHash, err := hashBytes([]byte(secretValues["tls.key"] + secretValues["tls.crt"]))
+	if err != nil {
+		return fmt.Errorf("failed to generate OLS console tls certs hash %w", err)
+	}
+	if foundTLSSecretHash == r.stateCache[OLSConsoleTLSHashStateCacheKey] {
+		r.logger.Info("OLS console tls secret reconciliation skipped", "hash", foundTLSSecretHash)
+		return nil
+	}
+	r.stateCache[OLSConsoleTLSHashStateCacheKey] = foundTLSSecretHash
+	r.logger.Info("OLS console tls secret reconciled", "hash", foundTLSSecretHash)
 	return nil
 }
