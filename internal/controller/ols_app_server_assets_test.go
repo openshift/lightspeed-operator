@@ -85,6 +85,11 @@ var _ = Describe("App server assets", func() {
 						TLSCertificatePath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.crt"),
 						TLSKeyPath:         path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.key"),
 					},
+					ReferenceContent: ReferenceContent{
+						EmbeddingsModelPath:  "/app-root/embeddings_model",
+						ProductDocsIndexId:   "ocp-product-docs-4_15",
+						ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/4.15",
+					},
 				},
 				LLMProviders: []ProviderConfig{
 					{
@@ -262,6 +267,10 @@ ols_config:
   logging_config:
     app_log_level: ""
     lib_log_level: ""
+  reference_content:
+    embeddings_model_path: /app-root/embeddings_model
+    product_docs_index_id: ocp-product-docs-4_15
+    product_docs_index_path: /app-root/vector_db/ocp_product_docs/4.15
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key

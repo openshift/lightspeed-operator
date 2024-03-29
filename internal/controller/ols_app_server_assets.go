@@ -153,6 +153,11 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 			TLSCertificatePath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.crt"),
 			TLSKeyPath:         path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.key"),
 		},
+		ReferenceContent: ReferenceContent{
+			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/4.15",
+			ProductDocsIndexId:   "ocp-product-docs-4_15",
+			EmbeddingsModelPath:  "/app-root/embeddings_model",
+		},
 	}
 
 	if queryFilters := getQueryFilters(cr); queryFilters != nil {

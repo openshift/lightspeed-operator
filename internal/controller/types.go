@@ -62,6 +62,8 @@ type OLSConfig struct {
 	TLSConfig TLSConfig `json:"tls_config,omitempty"`
 	// Query filters
 	QueryFilters []QueryFilters `json:"query_filters,omitempty"`
+	// Reference content for RAG
+	ReferenceContent ReferenceContent `json:"reference_content,omitempty"`
 }
 
 type LoggingConfig struct {
@@ -118,4 +120,13 @@ type QueryFilters struct {
 	Pattern string `json:"pattern,omitempty"`
 	// Replacement for the matched pattern.
 	ReplaceWith string `json:"replace_with,omitempty"`
+}
+
+type ReferenceContent struct {
+	// Path to the file containing the product docs index in the app server container.
+	ProductDocsIndexPath string `json:"product_docs_index_path,omitempty"`
+	// Name of the index to load.
+	ProductDocsIndexId string `json:"product_docs_index_id,omitempty"`
+	// Path to the file containing the product docs embeddings model in the app server container.
+	EmbeddingsModelPath string `json:"embeddings_model_path,omitempty"`
 }
