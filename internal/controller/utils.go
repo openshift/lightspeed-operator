@@ -3,6 +3,8 @@ package controller
 import (
 	"crypto/sha256"
 	"fmt"
+	"os"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -284,4 +286,17 @@ func SetDefaults_Deployment(obj *appsv1.Deployment) {
 		obj.Spec.ProgressDeadlineSeconds = new(int32)
 		*obj.Spec.ProgressDeadlineSeconds = 600
 	}
+}
+
+func getProxyEnvVars() []corev1.EnvVar {
+	envVars := []corev1.EnvVar{}
+	for _, envvar := range []string{"HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "NO_PROXY", "no_proxy"} {
+		if value := os.Getenv(envvar); value != "" {
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  strings.ToLower(envvar),
+				Value: value,
+			})
+		}
+	}
+	return envVars
 }
