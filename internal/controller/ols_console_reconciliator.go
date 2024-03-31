@@ -58,7 +58,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, olsconfig 
 func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	cm, err := r.generateConsoleUIConfigMap(cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate Console Plugin configmap: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginConfigMap, err)
 	}
 	foundCm := &corev1.ConfigMap{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIConfigMapName, Namespace: r.Options.Namespace}, foundCm)
@@ -66,11 +66,12 @@ func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, c
 		r.logger.Info("creating Console UI configmap", "configmap", cm.Name)
 		err = r.Create(ctx, cm)
 		if err != nil {
-			return fmt.Errorf("failed to create Console UI configmap: %w", err)
+			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginConfigMap, err)
+			return fmt.Errorf("%s: %w", ErrCreateConsolePluginConfigMap, err)
 		}
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to get Console UI configmap: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetConsolePluginConfigMap, err)
 	}
 
 	if apiequality.Semantic.DeepEqual(foundCm.Data, cm.Data) {
@@ -79,7 +80,8 @@ func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, c
 	}
 	err = r.Update(ctx, cm)
 	if err != nil {
-		return fmt.Errorf("failed to update Console UI configmap: %w", err)
+		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginConfigMap, err)
+		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginConfigMap, err)
 	}
 	r.logger.Info("Console configmap reconciled", "configmap", cm.Name)
 
@@ -89,7 +91,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, c
 func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	service, err := r.generateConsoleUIService(cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate Console Plugin service: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginService, err)
 	}
 	foundService := &corev1.Service{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIServiceName, Namespace: r.Options.Namespace}, foundService)
@@ -97,12 +99,13 @@ func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr 
 		r.logger.Info("creating Console UI service", "service", service.Name)
 		err = r.Create(ctx, service)
 		if err != nil {
-			return fmt.Errorf("failed to create Console UI service: %w", err)
+			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginService, err)
+			return fmt.Errorf("%s: %w", ErrCreateConsolePluginService, err)
 		}
 		r.logger.Info("Console UI service created", "service", service.Name)
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to get Console UI service: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetConsolePluginService, err)
 	}
 
 	if serviceEqual(foundService, service) &&
@@ -114,7 +117,8 @@ func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr 
 
 	err = r.Update(ctx, service)
 	if err != nil {
-		return fmt.Errorf("failed to update Console UI service: %w", err)
+		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginService, err)
+		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginService, err)
 	}
 
 	r.logger.Info("Console UI service reconciled", "service", service.Name)
@@ -125,7 +129,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr 
 func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	deployment, err := r.generateConsoleUIDeployment(cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate Console Plugin deployment: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginDeployment, err)
 	}
 	foundDeployment := &appsv1.Deployment{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIDeploymentName, Namespace: r.Options.Namespace}, foundDeployment)
@@ -133,12 +137,13 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 		r.logger.Info("creating Console UI deployment", "deployment", deployment.Name)
 		err = r.Create(ctx, deployment)
 		if err != nil {
-			return fmt.Errorf("failed to create Console UI deployment: %w", err)
+			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginDeployment, err)
+			return fmt.Errorf("%s: %w", ErrCreateConsolePluginDeployment, err)
 		}
 		r.logger.Info("Console UI deployment created", "deployment", deployment.Name)
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to get Console UI deployment: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetConsolePluginDeployment, err)
 	}
 
 	// fill in the default values for the deployment for comparison
@@ -151,7 +156,8 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 	foundDeployment.Spec = deployment.Spec
 	err = r.Update(ctx, foundDeployment)
 	if err != nil {
-		return fmt.Errorf("failed to update Console UI deployment: %w", err)
+		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginDeployment, err)
+		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginDeployment, err)
 	}
 	r.logger.Info("Console UI deployment reconciled", "deployment", deployment.Name)
 
@@ -161,7 +167,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 func (r *OLSConfigReconciler) reconcileConsoleUIPlugin(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	plugin, err := r.generateConsoleUIPlugin(cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate Console Plugin: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateConsolePlugin, err)
 	}
 	foundPlugin := &consolev1.ConsolePlugin{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIPluginName}, foundPlugin)
@@ -169,12 +175,13 @@ func (r *OLSConfigReconciler) reconcileConsoleUIPlugin(ctx context.Context, cr *
 		r.logger.Info("creating Console Plugin", "plugin", plugin.Name)
 		err = r.Create(ctx, plugin)
 		if err != nil {
-			return fmt.Errorf("failed to create Console Plugin: %w", err)
+			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePlugin, err)
+			return fmt.Errorf("%s: %w", ErrCreateConsolePlugin, err)
 		}
 		r.logger.Info("Console Plugin created", "plugin", plugin.Name)
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to get Console Plugin: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetConsolePlugin, err)
 	}
 
 	if apiequality.Semantic.DeepEqual(foundPlugin.Spec, plugin.Spec) {
@@ -185,7 +192,8 @@ func (r *OLSConfigReconciler) reconcileConsoleUIPlugin(ctx context.Context, cr *
 	foundPlugin.Spec = plugin.Spec
 	err = r.Update(ctx, foundPlugin)
 	if err != nil {
-		return fmt.Errorf("failed to update Console Plugin: %w", err)
+		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePlugin, err)
+		return fmt.Errorf("%s: %w", ErrUpdateConsolePlugin, err)
 	}
 	r.logger.Info("Console Plugin reconciled", "plugin", plugin.Name)
 
@@ -196,7 +204,7 @@ func (r *OLSConfigReconciler) activateConsoleUI(ctx context.Context, cr *olsv1al
 	console := &openshiftv1.Console{}
 	err := r.Client.Get(ctx, client.ObjectKey{Name: ConsoleCRName}, console)
 	if err != nil {
-		return fmt.Errorf("failed to get Console: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetConsole, err)
 	}
 	if console.Spec.Plugins == nil {
 		console.Spec.Plugins = []string{ConsoleUIPluginName}
@@ -205,9 +213,10 @@ func (r *OLSConfigReconciler) activateConsoleUI(ctx context.Context, cr *olsv1al
 	} else {
 		return nil
 	}
+
 	err = r.Update(ctx, console)
 	if err != nil {
-		return fmt.Errorf("failed to update Console: %w", err)
+		return fmt.Errorf("%s: %w", ErrUpdateConsole, err)
 	}
 	r.logger.Info("Console UI plugin activated")
 	return nil
@@ -246,11 +255,11 @@ func (r *OLSConfigReconciler) deleteConsoleUIPlugin(ctx context.Context) error {
 			r.logger.Info("Console Plugin not found, skip deletion")
 			return nil
 		}
-		return fmt.Errorf("failed to get Console Plugin: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetConsolePlugin, err)
 	}
 	err = r.Delete(ctx, plugin)
 	if err != nil {
-		return fmt.Errorf("failed to delete Console Plugin: %w", err)
+		return fmt.Errorf("%s: %w", ErrDeleteConsolePlugin, err)
 	}
 	r.logger.Info("Console Plugin deleted")
 	return nil
@@ -260,7 +269,7 @@ func (r *OLSConfigReconciler) deactivateConsoleUI(ctx context.Context) error {
 	console := &openshiftv1.Console{}
 	err := r.Client.Get(ctx, client.ObjectKey{Name: ConsoleCRName}, console)
 	if err != nil {
-		return fmt.Errorf("failed to get Console: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetConsole, err)
 	}
 	if console.Spec.Plugins == nil {
 		return nil
@@ -272,7 +281,7 @@ func (r *OLSConfigReconciler) deactivateConsoleUI(ctx context.Context) error {
 	}
 	err = r.Update(ctx, console)
 	if err != nil {
-		return fmt.Errorf("failed to update Console: %w", err)
+		return fmt.Errorf("%s: %w", ErrUpdateConsole, err)
 	}
 	r.logger.Info("Console UI plugin deactivated")
 	return nil
