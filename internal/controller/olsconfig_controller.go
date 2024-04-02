@@ -20,18 +20,29 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/go-logr/logr"
+
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+)
+
+// Definitions to manage status conditions
+const (
+	typeApiReady           = "ApiReady"
+	typeCacheReady         = "CacheReady"
+	typeConsolePluginReady = "ConsolePluginReady"
+	typeCRReconciled       = "Reconciled"
 )
 
 // OLSConfigReconciler reconciles a OLSConfig object
@@ -99,8 +110,12 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	err = r.reconcileAppServer(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile application server")
+		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", nil)
 		return ctrl.Result{}, err
 	}
+	// Update status condition for API server
+	r.updateStatusCondition(ctx, olsconfig, typeApiReady, true, "All components are successfully deployed", nil)
+
 	// TODO: Update DB
 	// err = r.reconcileRedisServer(ctx, olsconfig)
 	// if err != nil {
@@ -110,12 +125,48 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	err = r.reconcileConsoleUI(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile console UI")
+		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", nil)
 		return ctrl.Result{}, err
 	}
+	// Update status condition for Console Plugin
+	r.updateStatusCondition(ctx, olsconfig, typeConsolePluginReady, true, "All components are successfully deployed", nil)
 
 	r.logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
 
+	// Update status condition for Custom Resource
+	r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, true, "Custom resource successfully reconciled", nil)
+
 	return ctrl.Result{}, nil
+}
+
+// updateStatusCondition updates the status condition of the OLSConfig Custom Resource instance.
+// TODO: Should we support Unknown status and ObservedGeneration?
+// TODO: conditionType must be metav1.Condition?
+func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig, conditionType string, status bool, message string, err error) {
+	condition := metav1.Condition{
+		Type:               conditionType,
+		Status:             metav1.ConditionUnknown,
+		LastTransitionTime: metav1.Time{},
+		Reason:             "Reconciling",
+	}
+
+	if status {
+		condition.Status = metav1.ConditionTrue
+	} else {
+		condition.Status = metav1.ConditionFalse
+	}
+
+	if err != nil {
+		condition.Message = fmt.Sprintf("%s: %v", message, err)
+	} else {
+		condition.Message = message
+	}
+
+	meta.SetStatusCondition(&olsconfig.Status.Conditions, condition)
+
+	if updateErr := r.Status().Update(ctx, olsconfig); updateErr != nil {
+		r.logger.Error(err, ErrUpdateCRStatusCondition)
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.

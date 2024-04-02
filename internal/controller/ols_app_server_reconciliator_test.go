@@ -9,6 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -19,6 +20,13 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Reconcile the OLSConfig custom resource")
 			err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
+			reconciler.updateStatusCondition(ctx, cr, typeApiReady, true, "All components are successfully deployed", nil)
+			expectedCondition := metav1.Condition{
+				Type:   typeApiReady,
+				Status: metav1.ConditionTrue,
+			}
+			Expect(cr.Status.Conditions).To(ContainElement(HaveField("Type", expectedCondition.Type)))
+			Expect(cr.Status.Conditions).To(ContainElement(HaveField("Status", expectedCondition.Status)))
 		})
 
 		It("should create a service account lightspeed-app-server", func() {
