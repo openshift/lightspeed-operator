@@ -251,11 +251,11 @@ func (r *OLSConfigReconciler) reconcileTLSSecret(ctx context.Context, cr *olsv1a
 	foundSecret := &corev1.Secret{}
 	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSCertsSecretName, Namespace: r.Options.Namespace}, foundSecret)
 	if err != nil {
-		return fmt.Errorf("failed to fetch secret: %w", err)
+		return fmt.Errorf("secret not found: %w", err)
 	}
 	secretValues, err = getSecretContent(r.Client, OLSCertsSecretName, r.Options.Namespace, []string{"tls.key", "tls.crt"})
 	if err != nil {
-		return fmt.Errorf("failed fetching tls certs from secret: %s. error: %w", OLSCertsSecretName, err)
+		return fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", OLSCertsSecretName, err)
 	}
 	if err = controllerutil.SetControllerReference(cr, foundSecret, r.Scheme); err != nil {
 		return fmt.Errorf("failed to set controller reference to secret: %s. error: %w", foundSecret.Name, err)

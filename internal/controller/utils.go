@@ -132,7 +132,7 @@ func getSecretContent(rclient client.Client, secretName string, namespace string
 	ctx := context.Background()
 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
 	if err != nil {
-		return nil, fmt.Errorf("Error: %w while fetching secret: %s", err, secretName)
+		return nil, fmt.Errorf("secret not found: %s. error: %w", secretName, err)
 	}
 	secretValues := make(map[string]string)
 	for _, field := range secretFields {
