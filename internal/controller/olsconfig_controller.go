@@ -19,13 +19,15 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -82,7 +84,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	olsconfig := &olsv1alpha1.OLSConfig{}
 	err := r.Get(ctx, req.NamespacedName, olsconfig)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			r.logger.Info("olsconfig resource not found. Ignoring since object must be deleted")
 			err = r.removeConsoleUI(ctx)
 			if err != nil {
@@ -116,6 +118,29 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	r.logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
 
 	return ctrl.Result{}, nil
+}
+
+// waitForSecret waits for the secret to be created before the timeout expires.
+func (r *OLSConfigReconciler) waitForSecret(ctx context.Context, name string) error {
+	interval := 1 * time.Second
+	timeout := 5 * time.Second
+
+	deadlineCtx, deadlineCancel := context.WithTimeout(ctx, timeout)
+	defer deadlineCancel()
+
+	secret := corev1.Secret{}
+	err := wait.PollUntilContextCancel(deadlineCtx, interval, true, func(ctx context.Context) (bool, error) {
+		err := r.Get(ctx, client.ObjectKey{Namespace: r.Options.Namespace, Name: name}, &secret)
+		if err != nil && errors.IsNotFound(err) {
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

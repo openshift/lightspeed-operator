@@ -169,6 +169,11 @@ func (r *OLSConfigReconciler) reconcileSARRoleBinding(ctx context.Context, cr *o
 }
 
 func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	// Wait for the TLS secret to be created before proceeding with the deployment.
+	if err := r.waitForSecret(ctx, OLSCertsSecretName); err != nil {
+		return fmt.Errorf("failed to get %s secret: %w", OLSCertsSecretName, err)
+	}
+
 	desiredDeployment, err := r.generateOLSDeployment(cr)
 	if err != nil {
 		return fmt.Errorf("failed to generate OLS deployment: %w", err)
