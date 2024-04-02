@@ -128,12 +128,11 @@ func hashBytes(sourceStr []byte) (string, error) {
 }
 
 // TODO: Update DB
-func getSecretContent(rclient client.Client, secretName string, namespace string, secretField string) (string, error) {
-	foundSecret := &corev1.Secret{}
+func getSecretContent(rclient client.Client, secretName string, namespace string, secretField string, foundSecret *corev1.Secret) (string, error) {
 	ctx := context.Background()
 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
 	if err != nil {
-		return "", fmt.Errorf("Error: %w while fetching secret: %s", err, secretName)
+		return "", fmt.Errorf("Secret %s not found: %w", secretName, err)
 	}
 	encodedSecretValue, ok := foundSecret.Data[secretField]
 	if !ok {

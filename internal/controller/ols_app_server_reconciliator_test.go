@@ -126,7 +126,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			oldHash := dep.Spec.Template.Annotations[OLSProviderCredentialsHashKey]
+			oldHash := dep.Spec.Template.Annotations[LLMProviderHashKey]
 
 			By("Update the provider secret content")
 			secret.Data[LLMApiTokenFileName] = []byte("new-value")
@@ -147,7 +147,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
 
 			// Verify that the hash in deployment annotations has been updated
-			Expect(dep.Annotations[OLSProviderCredentialsHashKey]).NotTo(Equal(oldHash))
+			Expect(dep.Annotations[LLMProviderHashKey]).NotTo(Equal(oldHash))
 		})
 
 		It("should trigger rolling update of the deployment when recreating secret", func() {
@@ -157,7 +157,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			oldHash := dep.Spec.Template.Annotations[OLSProviderCredentialsHashKey]
+			oldHash := dep.Spec.Template.Annotations[LLMProviderHashKey]
 			Expect(oldHash).NotTo(BeEmpty())
 
 			By("Delete the provider secret")
@@ -192,7 +192,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			Expect(dep.Annotations[OLSProviderCredentialsHashKey]).NotTo(Equal(oldHash))
+			Expect(dep.Annotations[LLMProviderHashKey]).NotTo(Equal(oldHash))
 		})
 	})
 

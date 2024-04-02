@@ -45,9 +45,9 @@ const (
 	//RedisServerImageDefault = "quay.io/openshift/lightspeed-service-redis:latest"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
-	// OLSProviderCredentialsHashKey is the key of the hash value of OLS LLM provider credentials consolidated
+	// LLMProviderHashKey is the key of the hash value of OLS LLM provider credentials consolidated
 	// #nosec G101
-	OLSProviderCredentialsHashKey = "hash/olsprovidercredentials"
+	LLMProviderHashKey = "hash/llmprovider"
 	// RedisConfigHashKey is the key of the hash value of the OLS's redis config
 	RedisConfigHashKey = "hash/olsredisconfig"
 	// RedisSecretHashKey is the key of the hash value of OLS Redis secret
@@ -79,9 +79,9 @@ const (
 	// #nosec G101
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
 	/*** state cache keys ***/
-	OLSConfigHashStateCacheKey              = "olsconfigmap-hash"
-	OLSProviderCredentialsHashStateCacheKey = "olsprovidercredentials-hash"
-	RedisConfigHashStateCacheKey            = "olsredisconfig-hash"
+	OLSConfigHashStateCacheKey   = "olsconfigmap-hash"
+	LLMProviderHashStateCacheKey = "llmprovider-hash"
+	RedisConfigHashStateCacheKey = "olsredisconfig-hash"
 	// #nosec G101
 	RedisSecretHashStateCacheKey = "olsredissecret-hash"
 

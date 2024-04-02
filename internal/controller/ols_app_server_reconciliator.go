@@ -179,14 +179,14 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey:              r.stateCache[OLSConfigHashStateCacheKey],
-			OLSProviderCredentialsHashKey: r.stateCache[OLSProviderCredentialsHashStateCacheKey],
+			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			LLMProviderHashKey: r.stateCache[LLMProviderHashStateCacheKey],
 			// TODO: Update DB
 			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey:              r.stateCache[OLSConfigHashStateCacheKey],
-			OLSProviderCredentialsHashKey: r.stateCache[OLSProviderCredentialsHashStateCacheKey],
+			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			LLMProviderHashKey: r.stateCache[LLMProviderHashStateCacheKey],
 			// TODO: Update DB
 			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
@@ -246,16 +246,11 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 
 func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	providerCredentials := ""
-	var providerApiToken string
 	for _, provider := range cr.Spec.LLMConfig.Providers {
 		foundSecret := &corev1.Secret{}
-		err := r.Client.Get(ctx, client.ObjectKey{Name: provider.CredentialsSecretRef.Name, Namespace: r.Options.Namespace}, foundSecret)
+		providerApiToken, err := getSecretContent(r.Client, provider.CredentialsSecretRef.Name, r.Options.Namespace, LLMApiTokenFileName, foundSecret)
 		if err != nil {
-			return fmt.Errorf("failed to fetch provider secret: %w", err)
-		}
-		providerApiToken, err = getSecretContent(r.Client, provider.CredentialsSecretRef.Name, r.Options.Namespace, LLMApiTokenFileName)
-		if err != nil {
-			return fmt.Errorf("failed fetching token for provider: %s. error: %w", provider.Name, err)
+			return fmt.Errorf("Secret token not found for provider: %s. error: %w", provider.Name, err)
 		}
 		providerCredentials += providerApiToken
 		if err = controllerutil.SetControllerReference(cr, foundSecret, r.Scheme); err != nil {
@@ -270,11 +265,11 @@ func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1
 	if err != nil {
 		return fmt.Errorf("failed to generate OLS provider credentials hash %w", err)
 	}
-	if foundProviderCredentialsHash == r.stateCache[OLSProviderCredentialsHashStateCacheKey] {
+	if foundProviderCredentialsHash == r.stateCache[LLMProviderHashStateCacheKey] {
 		r.logger.Info("OLS llm secrets reconciliation skipped", "hash", foundProviderCredentialsHash)
 		return nil
 	}
-	r.stateCache[OLSProviderCredentialsHashStateCacheKey] = foundProviderCredentialsHash
+	r.stateCache[LLMProviderHashStateCacheKey] = foundProviderCredentialsHash
 	r.logger.Info("OLS llm secrets reconciled", "hash", foundProviderCredentialsHash)
 	return nil
 }

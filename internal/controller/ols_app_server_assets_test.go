@@ -37,6 +37,24 @@ var _ = Describe("App server assets", func() {
 				Scheme:     k8sClient.Scheme(),
 				stateCache: make(map[string]string),
 			}
+			By("create the provider secret")
+			secret, _ = generateRandomSecret()
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "test-secret",
+				},
+			})
+			secretCreationErr := r.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			By("Delete the provider secret")
+			secretDeletionErr := r.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should generate a service account", func() {
