@@ -14,10 +14,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var secret *corev1.Secret
 var _ = Describe("App server reconciliator", Ordered, func() {
 	Context("Creation logic", Ordered, func() {
-
+		var secret *corev1.Secret
 		BeforeEach(func() {
 			By("create the provider secret")
 			secret, _ = generateRandomSecret()
@@ -204,7 +203,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 	})
 
 	Context("Creation logic", Ordered, func() {
-
+		var secret *corev1.Secret
 		BeforeEach(func() {
 			By("create the provider secret")
 			secret, _ = generateRandomSecret()
