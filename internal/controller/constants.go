@@ -42,7 +42,7 @@ const (
 	// todo: image vesion should synchronize with the release version of the lightspeed-service-api image.
 	OLSAppServerImageDefault = "quay.io/openshift/lightspeed-service-api:latest"
 	// Image of the OLS application redis server
-	RedisServerImageDefault = "quay.io/openshift/lightspeed-service-redis:latest"
+	//RedisServerImageDefault = "quay.io/openshift/lightspeed-service-redis:latest"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
 	// OLSAppTLSHashKey is the key of the hash value of the OLS App TLS certificates
