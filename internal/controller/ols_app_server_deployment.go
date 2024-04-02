@@ -154,12 +154,10 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 								AllowPrivilegeEscalation: &[]bool{false}[0],
 							},
 							VolumeMounts: volumeMounts,
-							Env: []corev1.EnvVar{
-								{
-									Name:  "OLS_CONFIG_FILE",
-									Value: path.Join(OLSConfigMountPath, OLSConfigFilename),
-								},
-							},
+							Env: append(getProxyEnvVars(), corev1.EnvVar{
+								Name:  "OLS_CONFIG_FILE",
+								Value: path.Join(OLSConfigMountPath, OLSConfigFilename),
+							}),
 							Resources: *resources,
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{

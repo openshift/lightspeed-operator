@@ -6,7 +6,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	v1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -44,7 +43,7 @@ func (r *OLSConfigReconciler) generateSARClusterRole(cr *olsv1alpha1.OLSConfig) 
 		ObjectMeta: metav1.ObjectMeta{
 			Name: OLSAppServerSARRoleName,
 		},
-		Rules: []v1.PolicyRule{
+		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{"authorization.k8s.io"},
 				Resources: []string{"subjectaccessreviews"},
@@ -65,14 +64,14 @@ func (r *OLSConfigReconciler) generateSARClusterRoleBinding(cr *olsv1alpha1.OLSC
 		ObjectMeta: metav1.ObjectMeta{
 			Name: OLSAppServerSARRoleBindingName,
 		},
-		Subjects: []v1.Subject{
+		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Name:      OLSAppServerServiceAccountName,
 				Namespace: r.Options.Namespace,
 			},
 		},
-		RoleRef: v1.RoleRef{
+		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
 			Name:     OLSAppServerSARRoleName,
