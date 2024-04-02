@@ -60,7 +60,7 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	cm, err := r.generateOLSConfigMap(cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate OLS configmap: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateAPIConfigmap, err)
 	}
 
 	foundCm := &corev1.ConfigMap{}
@@ -69,7 +69,8 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 		r.logger.Info("creating a new configmap", "configmap", cm.Name)
 		err = r.Create(ctx, cm)
 		if err != nil {
-			return fmt.Errorf("failed to create OLS configmap: %w", err)
+			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateAPIConfigmap, err)
+			return fmt.Errorf("%s: %w", ErrCreateAPIConfigmap, err)
 		}
 		r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
 		// TODO: Update DB
@@ -78,11 +79,11 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 		return nil
 
 	} else if err != nil {
-		return fmt.Errorf("failed to get OLS configmap: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetAPIConfigmap, err)
 	}
 	foundCmHash, err := hashBytes([]byte(foundCm.Data[OLSConfigFilename]))
 	if err != nil {
-		return fmt.Errorf("failed to generate hash for the existing OLS configmap: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateHash, err)
 	}
 	// update the state cache with the hash of the existing configmap.
 	// so that we can skip the reconciling the deployment if the configmap has not changed.
@@ -97,7 +98,9 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	foundCm.Annotations = cm.Annotations
 	err = r.Update(ctx, foundCm)
 	if err != nil {
-		return fmt.Errorf("failed to update OLS configmap: %w", err)
+
+		r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrUpdateAPIConfigmap, err)
+		return fmt.Errorf("%s: %w", ErrUpdateAPIConfigmap, err)
 	}
 	r.logger.Info("OLS configmap reconciled", "configmap", cm.Name, "hash", cm.Annotations[OLSConfigHashKey])
 	return nil
@@ -106,7 +109,7 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	sa, err := r.generateServiceAccount(cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate OLS service account: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateAPIServiceAccount, err)
 	}
 
 	foundSa := &corev1.ServiceAccount{}
@@ -115,11 +118,12 @@ func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *o
 		r.logger.Info("creating a new service account", "serviceAccount", sa.Name)
 		err = r.Create(ctx, sa)
 		if err != nil {
-			return fmt.Errorf("failed to create OLS service account: %w", err)
+			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateAPIServiceAccount, err)
+			return fmt.Errorf("%s: %w", ErrCreateAPIServiceAccount, err)
 		}
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to get OLS service account: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetAPIServiceAccount, err)
 	}
 	r.logger.Info("OLS service account reconciled", "serviceAccount", sa.Name)
 	return nil
@@ -128,7 +132,7 @@ func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *o
 func (r *OLSConfigReconciler) reconcileSARRole(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	role, err := r.generateSARClusterRole(cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate SAR cluster role: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateSARClusterRole, err)
 	}
 
 	foundRole := &rbacv1.ClusterRole{}
@@ -137,11 +141,12 @@ func (r *OLSConfigReconciler) reconcileSARRole(ctx context.Context, cr *olsv1alp
 		r.logger.Info("creating a new SAR cluster role", "ClusterRole", role.Name)
 		err = r.Create(ctx, role)
 		if err != nil {
-			return fmt.Errorf("failed to create SAR cluster role: %w", err)
+			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateSARClusterRole, err)
+			return fmt.Errorf("%s: %w", ErrCreateSARClusterRole, err)
 		}
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to get SAR cluster role: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetSARClusterRole, err)
 	}
 	r.logger.Info("SAR cluster role reconciled", "ClusterRole", role.Name)
 	return nil
@@ -150,7 +155,7 @@ func (r *OLSConfigReconciler) reconcileSARRole(ctx context.Context, cr *olsv1alp
 func (r *OLSConfigReconciler) reconcileSARRoleBinding(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	rb, err := r.generateSARClusterRoleBinding(cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate SAR cluster role binding: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateSARClusterRoleBinding, err)
 	}
 
 	foundRB := &rbacv1.ClusterRoleBinding{}
@@ -159,11 +164,12 @@ func (r *OLSConfigReconciler) reconcileSARRoleBinding(ctx context.Context, cr *o
 		r.logger.Info("creating a new SAR cluster role binding", "ClusterRoleBinding", rb.Name)
 		err = r.Create(ctx, rb)
 		if err != nil {
-			return fmt.Errorf("failed to create SAR cluster role binding: %w", err)
+			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateSARClusterRoleBinding, err)
+			return fmt.Errorf("%s: %w", ErrCreateSARClusterRoleBinding, err)
 		}
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to get SAR cluster role binding: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetSARClusterRoleBinding, err)
 	}
 	r.logger.Info("SAR cluster role binding reconciled", "ClusterRoleBinding", rb.Name)
 	return nil
@@ -172,7 +178,7 @@ func (r *OLSConfigReconciler) reconcileSARRoleBinding(ctx context.Context, cr *o
 func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	desiredDeployment, err := r.generateOLSDeployment(cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate OLS deployment: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateAPIDeployment, err)
 	}
 
 	existingDeployment := &appsv1.Deployment{}
@@ -193,16 +199,18 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 		r.logger.Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
-			return fmt.Errorf("failed to create OLS deployment: %w", err)
+			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateAPIDeployment, err)
+			return fmt.Errorf("%s: %w", ErrCreateAPIDeployment, err)
 		}
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to get OLS deployment: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetAPIDeployment, err)
 	}
 
 	err = r.updateOLSDeployment(ctx, existingDeployment, desiredDeployment)
 	if err != nil {
-		return fmt.Errorf("failed to update OLS deployment: %w", err)
+		r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrUpdateAPIDeployment, err)
+		return fmt.Errorf("%s: %w", ErrUpdateAPIDeployment, err)
 	}
 
 	return nil
@@ -211,7 +219,7 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	service, err := r.generateService(cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate OLS service: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateAPIService, err)
 	}
 
 	foundService := &corev1.Service{}
@@ -220,12 +228,13 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 		r.logger.Info("creating a new service", "service", service.Name)
 		err = r.Create(ctx, service)
 		if err != nil {
-			return fmt.Errorf("failed to create OLS service: %w", err)
+			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateAPIService, err)
+			return fmt.Errorf("%s: %w", ErrCreateAPIService, err)
 		}
 
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to get OLS service: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetAPIServiceAccount, err)
 	}
 
 	if serviceEqual(foundService, service) &&
@@ -237,7 +246,8 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 
 	err = r.Update(ctx, service)
 	if err != nil {
-		return fmt.Errorf("failed to update OLS service: %w", err)
+		r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrUpdateAPIService, err)
+		return fmt.Errorf("%s: %w", ErrUpdateAPIService, err)
 	}
 
 	r.logger.Info("OLS service reconciled", "service", service.Name)

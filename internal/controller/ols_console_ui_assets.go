@@ -118,6 +118,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 								},
 							},
 							ImagePullPolicy: corev1.PullIfNotPresent,
+							Env:             getProxyEnvVars(),
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("10m"),
