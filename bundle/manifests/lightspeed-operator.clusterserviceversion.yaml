@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-03-07T20:52:06Z"
+    createdAt: "2024-04-03T03:27:50Z"
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
@@ -53,6 +53,9 @@ spec:
       displayName: OLSConfig
       kind: OLSConfig
       name: olsconfigs.ols.openshift.io
+      statusDescriptors:
+      - displayName: Conditions
+        path: conditions
       version: v1alpha1
   description: OpenShift LightSpeed (OLS) is an AI powered assistant that runs on
     OpenShift and provides answers to product questions using backend LLM services.
@@ -77,9 +80,33 @@ spec:
           - update
           - watch
         - apiGroups:
+          - console.openshift.io
+          resources:
+          - consoleexternalloglinks
+          - consolelinks
+          - consoleplugins
+          - consoleplugins/finalizers
+          verbs:
+          - create
+          - delete
+          - get
+          - update
+        - apiGroups:
           - ""
           resources:
           - configmaps
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
           verbs:
           - create
           - delete
@@ -139,6 +166,29 @@ spec:
           - patch
           - update
         - apiGroups:
+          - operator.openshift.io
+          resources:
+          - consoles
+          verbs:
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterrolebindings
+          - clusterroles
+          verbs:
+          - '*'
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - rolebindings
+          - roles
+          verbs:
+          - '*'
+        - apiGroups:
           - authentication.k8s.io
           resources:
           - tokenreviews
@@ -179,7 +229,7 @@ spec:
                 - --health-probe-bind-address=:8081
                 - --metrics-bind-address=127.0.0.1:8080
                 - --leader-elect
-                - --images=lightspeed-service=quay.io/openshift/lightspeed-service-api:latest,lightspeed-service-redis=quay.io/openshift/lightspeed-service-redis:latest
+                - --images=lightspeed-service=quay.io/openshift/lightspeed-service-api:latest
                 command:
                 - /manager
                 env:
@@ -187,7 +237,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/openshift/lightspeed-operator:0.0.1
+                image: quay.io/openshift/lightspeed-operator:latest
                 livenessProbe:
                   httpGet:
                     path: /healthz
