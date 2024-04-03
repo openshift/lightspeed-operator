@@ -152,6 +152,18 @@ spec:
           - update
           - watch
         - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - ols.openshift.io
           resources:
           - olsconfigs
@@ -279,6 +291,8 @@ spec:
                 - --secure-listen-address=0.0.0.0:8443
                 - --upstream=http://127.0.0.1:8080/
                 - --logtostderr=true
+                - --tls-cert-file=/etc/tls/private/tls.crt
+                - --tls-private-key-file=/etc/tls/private/tls.key
                 - --v=0
                 image: gcr.io/kubebuilder/kube-rbac-proxy:v0.14.1
                 name: kube-rbac-proxy
@@ -298,10 +312,18 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                volumeMounts:
+                - mountPath: /etc/tls/private
+                  name: controller-manager-tls
+                  readOnly: true
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: lightspeed-operator-controller-manager
               terminationGracePeriodSeconds: 10
+              volumes:
+              - name: controller-manager-tls
+                secret:
+                  secretName: controller-manager-tls
       permissions:
       - rules:
         - apiGroups:

@@ -11,6 +11,7 @@ import (
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -415,9 +416,28 @@ ols_config:
 						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
 						KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
 					},
+					BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
 				},
 			))
 			Expect(serviceMonitor.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
+		})
+
+		It("should generate the SAR cluster role", func() {
+			clusterRole, err := r.generateSARClusterRole(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(clusterRole.Name).To(Equal(OLSAppServerSARRoleName))
+			Expect(clusterRole.Rules).To(ConsistOf(
+				rbacv1.PolicyRule{
+					APIGroups: []string{"authorization.k8s.io"},
+					Resources: []string{"subjectaccessreviews"},
+					Verbs:     []string{"create"},
+				},
+				rbacv1.PolicyRule{
+					APIGroups: []string{"authentication.k8s.io"},
+					Resources: []string{"tokenreviews"},
+					Verbs:     []string{"create"},
+				},
+			))
 		})
 	})
 })

@@ -279,6 +279,7 @@ func (r *OLSConfigReconciler) generateServiceMonitor(cr *olsv1alpha1.OLSConfig) 
 							ServerName:         strings.Join([]string{OLSAppServerServiceName, r.Options.Namespace, "svc"}, "."),
 						},
 					},
+					BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
 				},
 			},
 			JobLabel: "app.kubernetes.io/name",

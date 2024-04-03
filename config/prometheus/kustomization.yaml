@@ -2,3 +2,5 @@ resources:
   - monitor-operator.yaml
   - role.yaml
   - role_binding.yaml
+  - clusterrole.yaml
+  - clusterrole_binding.yaml

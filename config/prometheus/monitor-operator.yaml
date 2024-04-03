@@ -19,7 +19,11 @@ spec:
       scheme: https
       bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
       tlsConfig:
-        insecureSkipVerify: true
+        insecureSkipVerify: false
+        caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+        certFile: /etc/prometheus/secrets/metrics-client-certs/tls.crt
+        keyFile: /etc/prometheus/secrets/metrics-client-certs/tls.key
+        serverName: lightspeed-operator-controller-manager-metrics-service.openshift-lightspeed.svc
   selector:
     matchLabels:
       control-plane: controller-manager

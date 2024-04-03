@@ -293,7 +293,7 @@ func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1
 func (r *OLSConfigReconciler) reconcileServiceMonitor(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	sm, err := r.generateServiceMonitor(cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate OLS service monitor: %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateServiceMonitor, err)
 	}
 
 	foundSm := &monv1.ServiceMonitor{}
@@ -302,11 +302,11 @@ func (r *OLSConfigReconciler) reconcileServiceMonitor(ctx context.Context, cr *o
 		r.logger.Info("creating a new service monitor", "serviceMonitor", sm.Name)
 		err = r.Create(ctx, sm)
 		if err != nil {
-			return fmt.Errorf("failed to create OLS service monitor: %w", err)
+			return fmt.Errorf("%s: %w", ErrCreateServiceMonitor, err)
 		}
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to get OLS service monitor: %w", err)
+		return fmt.Errorf("%s: %w", ErrGetServiceMonitor, err)
 	}
 	if serviceMonitorEqual(foundSm, sm) {
 		r.logger.Info("OLS service monitor unchanged, reconciliation skipped", "serviceMonitor", sm.Name)
@@ -315,7 +315,7 @@ func (r *OLSConfigReconciler) reconcileServiceMonitor(ctx context.Context, cr *o
 	foundSm.Spec = sm.Spec
 	err = r.Update(ctx, foundSm)
 	if err != nil {
-		return fmt.Errorf("failed to update OLS service monitor: %w", err)
+		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)
 	}
 	r.logger.Info("OLS service monitor reconciled", "serviceMonitor", sm.Name)
 	return nil
