@@ -58,7 +58,7 @@ echo "Adding bundle image to FBC using image ${BUNDLE_IMAGE}"
 if [ -f "${CATALOG_FILE}" ]; then
   rm -f "${CATALOG_FILE}"
 fi
-touch "${CATALOG_FILE}"
+
 cat << EOF >> "${CATALOG_FILE}"
 ---
 defaultChannel: preview
