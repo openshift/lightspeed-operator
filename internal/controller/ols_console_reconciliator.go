@@ -50,7 +50,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, olsconfig 
 		}
 	}
 
-	r.logger.Info("reconcileConsoleUI completes")
+	r.logger.Info("reconcileConsoleUI completed")
 
 	return nil
 }
@@ -242,7 +242,7 @@ func (r *OLSConfigReconciler) removeConsoleUI(ctx context.Context) error {
 		}
 	}
 
-	r.logger.Info("DeleteConsoleUIPlugin completes")
+	r.logger.Info("DeleteConsoleUIPlugin completed")
 
 	return nil
 }
