@@ -1,0 +1,3 @@
+resources:
+  # this clusterrole is used by users to query the OLS API endpoint
+  - query_access_clusterrole.yaml

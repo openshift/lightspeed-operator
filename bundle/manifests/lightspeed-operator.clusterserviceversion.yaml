@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-03T03:27:50Z"
+    createdAt: "2024-04-05T08:25:31Z"
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.33.0

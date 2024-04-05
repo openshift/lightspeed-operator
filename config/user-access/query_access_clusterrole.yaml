@@ -1,0 +1,16 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: query-access
+    app.kubernetes.io/component: user-access
+    app.kubernetes.io/created-by: lightspeed-operator
+    app.kubernetes.io/part-of: lightspeed-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: query-access
+rules:
+  - nonResourceURLs:
+      - "/ols-access"
+    verbs:
+      - "get"
