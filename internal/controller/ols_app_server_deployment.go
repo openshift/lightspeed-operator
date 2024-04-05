@@ -48,6 +48,10 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	// map from secret name to secret mount path
 	secretMounts := map[string]string{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
+		_, err := getSecretContent(r.Client, provider.CredentialsSecretRef.Name, r.Options.Namespace, LLMApiTokenFileName, &corev1.Secret{})
+		if err != nil {
+			return nil, err
+		}
 		credentialMountPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name)
 		secretMounts[provider.CredentialsSecretRef.Name] = credentialMountPath
 	}
@@ -204,17 +208,17 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
-		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] {
-		// TODO: Update DB
-		//|| existingDeployment.Annotations[RedisSecretHashKey] != r.stateCache[RedisSecretHashStateCacheKey] {
+		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] || existingDeployment.Annotations[LLMProviderHashKey] != r.stateCache[LLMProviderHashStateCacheKey] {
 		updateDeploymentAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			LLMProviderHashKey: r.stateCache[LLMProviderHashStateCacheKey],
 			// TODO: Update DB
 			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
 		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey: r.stateCache[OLSConfigHashStateCacheKey],
+			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			LLMProviderHashKey: r.stateCache[LLMProviderHashStateCacheKey],
 			// TODO: Update DB
 			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})

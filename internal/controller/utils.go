@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // updateDeploymentAnnotations updates the annotations in a given deployment.
@@ -128,19 +130,18 @@ func hashBytes(sourceStr []byte) (string, error) {
 }
 
 // TODO: Update DB
-// func getSecretContent(rclient client.Client, secretName string, namespace string, secretField string) (string, error) {
-// 	foundSecret := &corev1.Secret{}
-// 	ctx := context.Background()
-// 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
-// 	if err != nil {
-// 		return "", fmt.Errorf("Error: %w while fetching secret: %s", err, secretName)
-// 	}
-// 	encodedSecretValue, ok := foundSecret.Data[secretField]
-// 	if !ok {
-// 		return "", fmt.Errorf("Secret field %s not present in the secret", secretField)
-// 	}
-// 	return string(encodedSecretValue), nil
-// }
+func getSecretContent(rclient client.Client, secretName string, namespace string, secretField string, foundSecret *corev1.Secret) (string, error) {
+	ctx := context.Background()
+	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
+	if err != nil {
+		return "", fmt.Errorf("Secret %s not found: %w", secretName, err)
+	}
+	encodedSecretValue, ok := foundSecret.Data[secretField]
+	if !ok {
+		return "", fmt.Errorf("Secret field %s not present in the secret", secretField)
+	}
+	return string(encodedSecretValue), nil
+}
 
 // podVolumEqual compares two slices of corev1.Volume and returns true if they are equal.
 // covers 3 volume types: Secret, ConfigMap, EmptyDir

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -31,8 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-
-	"github.com/go-logr/logr"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
@@ -107,15 +106,6 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	r.logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
-	err = r.reconcileAppServer(ctx, olsconfig)
-	if err != nil {
-		r.logger.Error(err, "Failed to reconcile application server")
-		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", nil)
-		return ctrl.Result{}, err
-	}
-	// Update status condition for API server
-	r.updateStatusCondition(ctx, olsconfig, typeApiReady, true, "All components are successfully deployed", nil)
-
 	// TODO: Update DB
 	// err = r.reconcileRedisServer(ctx, olsconfig)
 	// if err != nil {
@@ -131,6 +121,20 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Update status condition for Console Plugin
 	r.updateStatusCondition(ctx, olsconfig, typeConsolePluginReady, true, "All components are successfully deployed", nil)
 
+	err = r.reconcileAppServer(ctx, olsconfig)
+	if err != nil {
+		r.logger.Error(err, "Failed to reconcile application server")
+		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", nil)
+		return ctrl.Result{}, err
+	}
+	// Update status condition for API server
+	r.updateStatusCondition(ctx, olsconfig, typeApiReady, true, "All components are successfully deployed", nil)
+
+	err = r.reconcileLLMSecrets(ctx, olsconfig)
+	if err != nil {
+		r.logger.Error(err, "Failed to reconcile LLM Provider Secrets")
+		return ctrl.Result{}, err
+	}
 	r.logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
 
 	// Update status condition for Custom Resource

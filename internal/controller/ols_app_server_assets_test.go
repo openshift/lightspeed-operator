@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"path"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,7 +22,7 @@ var _ = Describe("App server assets", func() {
 	var cr *olsv1alpha1.OLSConfig
 	var r *OLSConfigReconciler
 	var rOptions *OLSConfigReconcilerOptions
-
+	var secret *corev1.Secret
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
@@ -35,6 +37,24 @@ var _ = Describe("App server assets", func() {
 				Scheme:     k8sClient.Scheme(),
 				stateCache: make(map[string]string),
 			}
+			By("create the provider secret")
+			secret, _ = generateRandomSecret()
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "test-secret",
+				},
+			})
+			secretCreationErr := r.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			By("Delete the provider secret")
+			secretDeletionErr := r.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should generate a service account", func() {
@@ -367,6 +387,28 @@ ols_config:
 		})
 	})
 })
+
+func generateRandomSecret() (*corev1.Secret, error) {
+	randomPassword := make([]byte, 12)
+	_, _ = rand.Read(randomPassword)
+	// Encode the password to base64
+	encodedPassword := base64.StdEncoding.EncodeToString(randomPassword)
+	passwordHash, _ := hashBytes([]byte(encodedPassword))
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-secret",
+			Namespace: "openshift-lightspeed",
+			Labels:    generateAppServerSelectorLabels(),
+			Annotations: map[string]string{
+				RedisSecretHashKey: "test-hash",
+			},
+		},
+		Data: map[string][]byte{
+			LLMApiTokenFileName: []byte(passwordHash),
+		},
+	}
+	return &secret, nil
+}
 
 func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 	// fill the CR with all implemented fields in the configuration file
