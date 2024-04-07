@@ -35,8 +35,8 @@ type OLSConfigSpec struct {
 
 // OLSConfigStatus defines the observed state of OLS deployment.
 type OLSConfigStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 // LLMSpec defines the desired state of the large language model (LLM).

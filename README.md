@@ -48,6 +48,7 @@ metadata:
   namespace: openshift-lightspeed
 type: Opaque
 ```
+These `apitoken` values can be updated if the user wishes to change them later. The same applies to all the TLS and CA certs related to individual components. They get reflected automatically across the system.
 
 3. Create an `OLSConfig` custom resource
 

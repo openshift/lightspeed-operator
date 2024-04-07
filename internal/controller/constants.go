@@ -55,6 +55,9 @@ const (
 	RedisTLSHashKey = "hash/redistls"
 	// RedisCAHashKey is the key of the hash value of Redis CA Cert
 	RedisCAHashKey = "hash/redisca"
+	// LLMProviderHashKey is the key of the hash value of OLS LLM provider credentials consolidated
+	// #nosec G101
+	LLMProviderHashKey = "hash/llmprovider"
 	// RedisConfigHashKey is the key of the hash value of the OLS's redis config
 	RedisConfigHashKey = "hash/olsredisconfig"
 	// RedisSecretHashKey is the key of the hash value of OLS Redis secret
@@ -93,6 +96,7 @@ const (
 	RedisConfigHashStateCacheKey   = "olsredisconfig-hash"
 	RedisTLSHashStateCacheKey      = "redistls-hash"
 	RedisCAHashStateCacheKey       = "redisca-hash"
+	LLMProviderHashStateCacheKey   = "llmprovider-hash"
 	// #nosec G101
 	RedisSecretHashStateCacheKey = "olsredissecret-hash"
 

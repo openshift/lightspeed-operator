@@ -22,7 +22,7 @@ var _ = Describe("App server assets", func() {
 	var cr *olsv1alpha1.OLSConfig
 	var r *OLSConfigReconciler
 	var rOptions *OLSConfigReconcilerOptions
-
+	var secret *corev1.Secret
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
@@ -37,6 +37,24 @@ var _ = Describe("App server assets", func() {
 				Scheme:     k8sClient.Scheme(),
 				stateCache: make(map[string]string),
 			}
+			By("create the provider secret")
+			secret, _ = generateRandomSecret()
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "test-secret",
+				},
+			})
+			secretCreationErr := r.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			By("Delete the provider secret")
+			secretDeletionErr := r.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should generate a service account", func() {
@@ -86,6 +104,11 @@ var _ = Describe("App server assets", func() {
 					TLSConfig: TLSConfig{
 						TLSCertificatePath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.crt"),
 						TLSKeyPath:         path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.key"),
+					},
+					ReferenceContent: ReferenceContent{
+						EmbeddingsModelPath:  "/app-root/embeddings_model",
+						ProductDocsIndexId:   "ocp-product-docs-4_15",
+						ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/4.15",
 					},
 				},
 				LLMProviders: []ProviderConfig{
@@ -264,6 +287,10 @@ ols_config:
   logging_config:
     app_log_level: ""
     lib_log_level: ""
+  reference_content:
+    embeddings_model_path: /app-root/embeddings_model
+    product_docs_index_id: ocp-product-docs-4_15
+    product_docs_index_path: /app-root/vector_db/ocp_product_docs/4.15
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key

@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: quay.io/openshift/lightspeed-operator
-  newTag: 0.0.1
+  newTag: latest
