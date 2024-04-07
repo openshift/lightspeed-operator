@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/part-of: lightspeed-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: lightspeed-operator
-  name: olsconfig-sample
+  name: cluster
 spec:
   llm:
     providers:
