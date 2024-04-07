@@ -169,7 +169,7 @@ func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconf
 	meta.SetStatusCondition(&olsconfig.Status.Conditions, condition)
 
 	if updateErr := r.Status().Update(ctx, olsconfig); updateErr != nil {
-		r.logger.Error(err, ErrUpdateCRStatusCondition)
+		r.logger.Error(updateErr, ErrUpdateCRStatusCondition)
 	}
 }
 
