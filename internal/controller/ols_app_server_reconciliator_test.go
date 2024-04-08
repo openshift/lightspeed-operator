@@ -171,42 +171,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Annotations[OLSAppTLSHashKey]).NotTo(Equal(oldHash))
 		})
 
-		It("should trigger rolling update of the deployment when changing LLM secret content", func() {
-
-			By("Reconcile for LLM Provider Secrets")
-			olsConfig := &olsv1alpha1.OLSConfig{}
-			err := reconciler.reconcileLLMSecrets(ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Get the deployment")
-			dep := &appsv1.Deployment{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			oldHash := dep.Spec.Template.Annotations[LLMProviderHashKey]
-
-			By("Update the provider secret content")
-			secret.Data[LLMApiTokenFileName] = []byte("new-value")
-			err = k8sClient.Update(ctx, secret)
-			Expect(err).NotTo(HaveOccurred())
-
-			// Reconcile the app server
-			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Reconcile the app server")
-			err = reconciler.reconcileAppServer(ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Get the updated deployment")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-
-			// Verify that the hash in deployment annotations has been updated
-			Expect(dep.Annotations[LLMProviderHashKey]).NotTo(Equal(oldHash))
-		})
-
 		It("should trigger rolling update of the deployment when recreating tls secret", func() {
 
 			By("Get the deployment")
@@ -229,7 +193,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 					Kind:       "Secret",
 					APIVersion: "v1",
 					UID:        "ownerUID",
-					Name:       "test-secret",
+					Name:       OLSCertsSecretName,
 				},
 			})
 
@@ -237,10 +201,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(secretCreationErr).NotTo(HaveOccurred())
 			olsConfig := &olsv1alpha1.OLSConfig{}
 			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Reconcile for LLM Provider Secrets Again")
-			err = reconciler.reconcileLLMSecrets(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Reconcile the app server")
@@ -251,10 +211,50 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
+			Expect(dep.Annotations[OLSAppTLSHashKey]).NotTo(Equal(oldHash))
+		})
+
+		It("should trigger rolling update of the deployment when changing LLM secret content", func() {
+
+			By("Reconcile for LLM Provider Secrets")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err := reconciler.reconcileLLMSecrets(ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get the deployment")
+			dep := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
+			oldHash := dep.Spec.Template.Annotations[LLMProviderHashKey]
+
+			By("Update the provider secret content")
+			secret.Data[LLMApiTokenFileName] = []byte("new-value")
+			err = k8sClient.Update(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile for LLM Provider Secrets Again")
+			err = reconciler.reconcileLLMSecrets(ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Reconcile the app server
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile the app server")
+			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get the updated deployment")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
+
+			// Verify that the hash in deployment annotations has been updated
 			Expect(dep.Annotations[LLMProviderHashKey]).NotTo(Equal(oldHash))
 		})
 
-		It("should trigger rolling update of the deployment when recreating secret", func() {
+		It("should trigger rolling update of the deployment when recreating provider secret", func() {
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
@@ -274,7 +274,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 					Kind:       "Secret",
 					APIVersion: "v1",
 					UID:        "ownerUID",
-					Name:       OLSCertsSecretName,
+					Name:       "test-secret",
 				},
 			})
 
@@ -285,6 +285,10 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
+			By("Reconcile for LLM Provider Secrets Again")
+			err = reconciler.reconcileLLMSecrets(ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
 			By("Reconcile the app server")
 			err = reconciler.reconcileAppServer(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
@@ -293,7 +297,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			Expect(dep.Annotations[OLSAppTLSHashKey]).NotTo(Equal(oldHash))
+			Expect(dep.Annotations[LLMProviderHashKey]).NotTo(Equal(oldHash))
 		})
 	})
 
