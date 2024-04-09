@@ -71,6 +71,8 @@ type LoggingConfig struct {
 	AppLogLevel string `json:"app_log_level" default:"info"`
 	// Library log level
 	LibLogLevel string `json:"lib_log_level" default:"warning"`
+	// Uvicorn log level
+	UvicornLogLevel string `json:"uvicorn_log_level" default:"info"`
 }
 
 type ConversationCacheConfig struct {
