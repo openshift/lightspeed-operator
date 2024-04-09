@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: service
     app.kubernetes.io/part-of: lightspeed-operator
     control-plane: controller-manager
-  name: lightspeed-operator-controller-manager-metrics-service
+  name: lightspeed-operator-controller-manager-metrics-service-test
 spec:
   ports:
   - name: https
