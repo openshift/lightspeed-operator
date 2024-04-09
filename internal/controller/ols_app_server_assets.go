@@ -299,6 +299,52 @@ func (r *OLSConfigReconciler) generateServiceMonitor(cr *olsv1alpha1.OLSConfig) 
 	return &serviceMonitor, nil
 }
 
+func (r *OLSConfigReconciler) generatePrometheusRule(cr *olsv1alpha1.OLSConfig) (*monv1.PrometheusRule, error) {
+	metaLabels := generateAppServerSelectorLabels()
+	metaLabels["app.kubernetes.io/component"] = "metrics"
+
+	rule := monv1.PrometheusRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      AppServerPrometheusRuleName,
+			Namespace: r.Options.Namespace,
+			Labels:    metaLabels,
+		},
+		Spec: monv1.PrometheusRuleSpec{
+			Groups: []monv1.RuleGroup{
+				{
+					Name: "ols.operations.rules",
+					Rules: []monv1.Rule{
+						{
+							Record: "ols:rest_api_query_calls_total:2xx",
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"2..\"})"),
+							Labels: map[string]string{"status_code": "2xx"},
+						},
+						{
+							Record: "ols:rest_api_query_calls_total:4xx",
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"4..\"})"),
+							Labels: map[string]string{"status_code": "4xx"},
+						},
+						{
+							Record: "ols:rest_api_query_calls_total:5xx",
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"5..\"})"),
+							Labels: map[string]string{"status_code": "5xx"},
+						},
+						{
+							Record: "ols:provider_model_configuration",
+							Expr:   intstr.FromString("max by (provider,model) (ols_provider_model_configuration)"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &rule, r.Scheme); err != nil {
+		return nil, err
+	}
+
+	return &rule, nil
+}
 func getQueryFilters(cr *olsv1alpha1.OLSConfig) []QueryFilters {
 	if cr.Spec.OLSConfig.QueryFilters == nil {
 		return nil

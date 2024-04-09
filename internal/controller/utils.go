@@ -269,6 +269,12 @@ func serviceMonitorEqual(a *monv1.ServiceMonitor, b *monv1.ServiceMonitor) bool 
 		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
 }
 
+// prometheusRuleEqual compares two monv1.PrometheusRule and returns true if they are equal.
+func prometheusRuleEqual(a *monv1.PrometheusRule, b *monv1.PrometheusRule) bool {
+	return apiequality.Semantic.DeepEqual(a.ObjectMeta.Labels, b.ObjectMeta.Labels) &&
+		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
+}
+
 // This is copied from https://github.com/kubernetes/kubernetes/blob/v1.29.2/pkg/apis/apps/v1/defaults.go#L38
 // to avoid importing the whole k8s.io/kubernetes package.
 // SetDefaults_Deployment sets additional defaults compared to its counterpart
