@@ -330,3 +330,8 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+# Update bundle and catalog artifacts.
+update-bundle-catalog:
+	hack/update_bundle_catalog.sh
+
