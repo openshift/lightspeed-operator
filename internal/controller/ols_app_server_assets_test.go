@@ -23,6 +23,7 @@ var _ = Describe("App server assets", func() {
 	var r *OLSConfigReconciler
 	var rOptions *OLSConfigReconcilerOptions
 	var secret *corev1.Secret
+	defaultVolumeMode := int32(420)
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
@@ -199,7 +200,8 @@ var _ = Describe("App server assets", func() {
 					Name: "secret-test-secret",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: "test-secret",
+							SecretName:  "test-secret",
+							DefaultMode: &defaultVolumeMode,
 						},
 					},
 				},
@@ -207,7 +209,8 @@ var _ = Describe("App server assets", func() {
 					Name: "secret-lightspeed-tls",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: OLSCertsSecretName,
+							SecretName:  OLSCertsSecretName,
+							DefaultMode: &defaultVolumeMode,
 						},
 					},
 				},
@@ -216,6 +219,7 @@ var _ = Describe("App server assets", func() {
 					VolumeSource: corev1.VolumeSource{
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
+							DefaultMode:          &defaultVolumeMode,
 						},
 					},
 				},
@@ -358,7 +362,8 @@ ols_config:
 					Name: "secret-lightspeed-tls",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: OLSCertsSecretName,
+							SecretName:  OLSCertsSecretName,
+							DefaultMode: &defaultVolumeMode,
 						},
 					},
 				},
@@ -367,6 +372,7 @@ ols_config:
 					VolumeSource: corev1.VolumeSource{
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
+							DefaultMode:          &defaultVolumeMode,
 						},
 					},
 				},

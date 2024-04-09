@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -45,7 +46,15 @@ func setDeploymentReplicas(deployment *appsv1.Deployment, replicas int32) bool {
 
 // setVolumes sets the volumes for a given deployment.
 func setVolumes(deployment *appsv1.Deployment, desiredVolumes []corev1.Volume) bool {
-	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Volumes, desiredVolumes) {
+	existingVolumes := deployment.Spec.Template.Spec.Volumes
+	sort.Slice(existingVolumes, func(i, j int) bool {
+		return existingVolumes[i].Name < existingVolumes[j].Name
+	})
+	sort.Slice(desiredVolumes, func(i, j int) bool {
+		return desiredVolumes[i].Name < desiredVolumes[j].Name
+	})
+
+	if !apiequality.Semantic.DeepEqual(existingVolumes, desiredVolumes) {
 		deployment.Spec.Template.Spec.Volumes = desiredVolumes
 		return true
 	}
@@ -58,7 +67,16 @@ func setVolumeMounts(deployment *appsv1.Deployment, desiredVolumeMounts []corev1
 	if err != nil {
 		return false, err
 	}
-	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Containers[containerIndex].VolumeMounts, desiredVolumeMounts) {
+
+	existingVolumeMounts := deployment.Spec.Template.Spec.Containers[containerIndex].VolumeMounts
+	sort.Slice(existingVolumeMounts, func(i, j int) bool {
+		return existingVolumeMounts[i].Name < existingVolumeMounts[j].Name
+	})
+	sort.Slice(desiredVolumeMounts, func(i, j int) bool {
+		return desiredVolumeMounts[i].Name < desiredVolumeMounts[j].Name
+	})
+
+	if !apiequality.Semantic.DeepEqual(existingVolumeMounts, desiredVolumeMounts) {
 		deployment.Spec.Template.Spec.Containers[containerIndex].VolumeMounts = desiredVolumeMounts
 		return true, nil
 	}

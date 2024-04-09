@@ -121,6 +121,12 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Update status condition for Console Plugin
 	r.updateStatusCondition(ctx, olsconfig, typeConsolePluginReady, true, "All components are successfully deployed", nil)
 
+	err = r.reconcileLLMSecrets(ctx, olsconfig)
+	if err != nil {
+		r.logger.Error(err, "Failed to reconcile LLM Provider Secrets")
+		return ctrl.Result{}, err
+	}
+
 	err = r.reconcileAppServer(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile application server")
@@ -130,11 +136,6 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Update status condition for API server
 	r.updateStatusCondition(ctx, olsconfig, typeApiReady, true, "All components are successfully deployed", nil)
 
-	err = r.reconcileLLMSecrets(ctx, olsconfig)
-	if err != nil {
-		r.logger.Error(err, "Failed to reconcile LLM Provider Secrets")
-		return ctrl.Result{}, err
-	}
 	r.logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
 
 	// Update status condition for Custom Resource
@@ -169,7 +170,7 @@ func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconf
 	meta.SetStatusCondition(&olsconfig.Status.Conditions, condition)
 
 	if updateErr := r.Status().Update(ctx, olsconfig); updateErr != nil {
-		r.logger.Error(err, ErrUpdateCRStatusCondition)
+		r.logger.Error(updateErr, ErrUpdateCRStatusCondition)
 	}
 }
 

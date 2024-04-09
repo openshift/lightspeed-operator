@@ -44,6 +44,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	const OLSUserDataVolumeName = "ols-user-data"
 	const OLSUserDataMountPath = "/app-root/ols-user-data"
 	revisionHistoryLimit := int32(1)
+	volumeDefaultMode := int32(420)
 
 	// map from secret name to secret mount path
 	secretMounts := map[string]string{}
@@ -81,7 +82,8 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			Name: "secret-" + secretName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: secretName,
+					SecretName:  secretName,
+					DefaultMode: &volumeDefaultMode,
 				},
 			},
 		}
@@ -94,6 +96,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: OLSConfigCmName,
 				},
+				DefaultMode: &volumeDefaultMode,
 			},
 		},
 	}
@@ -208,7 +211,8 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
-		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] || existingDeployment.Annotations[LLMProviderHashKey] != r.stateCache[LLMProviderHashStateCacheKey] {
+		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] ||
+		existingDeployment.Annotations[LLMProviderHashKey] != r.stateCache[LLMProviderHashStateCacheKey] {
 		updateDeploymentAnnotations(existingDeployment, map[string]string{
 			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
 			LLMProviderHashKey: r.stateCache[LLMProviderHashStateCacheKey],
