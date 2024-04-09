@@ -144,8 +144,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
 		DefaultProvider: cr.Spec.OLSConfig.DefaultProvider,
 		Logging: LoggingConfig{
-			AppLogLevel: cr.Spec.OLSConfig.LogLevel,
-			LibLogLevel: cr.Spec.OLSConfig.LogLevel,
+			AppLogLevel:     cr.Spec.OLSConfig.LogLevel,
+			LibLogLevel:     cr.Spec.OLSConfig.LogLevel,
+			UvicornLogLevel: cr.Spec.OLSConfig.LogLevel,
 		},
 		ConversationCache: conversationCache,
 		TLSConfig: TLSConfig{

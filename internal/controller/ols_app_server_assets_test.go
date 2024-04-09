@@ -81,8 +81,9 @@ var _ = Describe("App server assets", func() {
 					DefaultModel:    "testModel",
 					DefaultProvider: "testProvider",
 					Logging: LoggingConfig{
-						AppLogLevel: "INFO",
-						LibLogLevel: "INFO",
+						AppLogLevel:     "INFO",
+						LibLogLevel:     "INFO",
+						UvicornLogLevel: "INFO",
 					},
 					// TODO: Update DB
 					// ConversationCache: ConversationCacheConfig{
@@ -291,6 +292,7 @@ ols_config:
   logging_config:
     app_log_level: ""
     lib_log_level: ""
+    uvicorn_log_level: ""
   reference_content:
     embeddings_model_path: /app-root/embeddings_model
     product_docs_index_id: ocp-product-docs-4_15
