@@ -455,6 +455,14 @@ ols_config:
 			Expect(serviceMonitor.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
 		})
 
+		It("should generate the OLS prometheus rules", func() {
+			prometheusRule, err := r.generatePrometheusRule(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(prometheusRule.Name).To(Equal(AppServerPrometheusRuleName))
+			Expect(prometheusRule.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(len(prometheusRule.Spec.Groups[0].Rules)).To(Equal(4))
+		})
+
 		It("should generate the SAR cluster role", func() {
 			clusterRole, err := r.generateSARClusterRole(cr)
 			Expect(err).NotTo(HaveOccurred())
