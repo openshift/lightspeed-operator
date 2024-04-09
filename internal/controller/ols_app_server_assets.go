@@ -49,6 +49,11 @@ func (r *OLSConfigReconciler) generateSARClusterRole(cr *olsv1alpha1.OLSConfig) 
 				Resources: []string{"subjectaccessreviews"},
 				Verbs:     []string{"create"},
 			},
+			{
+				APIGroups: []string{"authentication.k8s.io"},
+				Resources: []string{"tokenreviews"},
+				Verbs:     []string{"create"},
+			},
 		},
 	}
 
