@@ -12,12 +12,19 @@ import (
 	"strings"
 	"time"
 
+	consolev1 "github.com/openshift/api/console/v1"
+	openshiftv1 "github.com/openshift/api/operator/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
 const (
@@ -60,12 +67,20 @@ func GetClient(options *ClientOptions) (*Client, error) {
 		return nil, err
 	}
 
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(consolev1.AddToScheme(scheme))
+	utilruntime.Must(openshiftv1.AddToScheme(scheme))
+	utilruntime.Must(olsv1alpha1.AddToScheme(scheme))
 	// Create a new client
-	k8sClient, err := client.New(cfg, client.Options{})
+	k8sClient, err := client.New(cfg, client.Options{
+		Scheme: scheme,
+	})
 	if err != nil {
 		fmt.Printf("Error creating client: %s\n", err)
 		return nil, err
 	}
+
 	singletonClient = &Client{
 		kClient:               k8sClient,
 		timeout:               DefaultClientTimeout,
@@ -202,6 +217,24 @@ func (c *Client) WaitForSecretCreated(secret *corev1.Secret) error {
 	})
 	if err != nil {
 		return fmt.Errorf("WaitForSecretCreated - waiting for the Secret %s/%s to be created: %w ; last error: %w", secret.GetNamespace(), secret.GetName(), err, lastErr)
+	}
+
+	return nil
+}
+
+func (c *Client) WaitForObjectCreated(obj client.Object) error {
+	var lastErr error
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, DefaultPollTimeout, true, func(ctx context.Context) (bool, error) {
+		err := c.Get(obj)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to get Object: %w", err)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("WaitForObjectCreated - waiting for the %s %s/%s to be created: %w ; last error: %w", gvk.Kind, obj.GetNamespace(), obj.GetName(), err, lastErr)
 	}
 
 	return nil

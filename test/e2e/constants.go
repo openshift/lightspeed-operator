@@ -35,10 +35,13 @@ const (
 	AppServerServiceName = "lightspeed-app-server"
 	// AppServerServiceHTTPSPort is the port number of the OLS application server service
 	AppServerServiceHTTPSPort = 8443
-	// OLSConsolePluginDeploymentName is the name of the OLS console plugin deployment
-	OLSConsolePluginDeploymentName = "lightspeed-console-plugin"
-	// OLSConsolePluginServiceName is the name of the OLS console plugin service
-	OLSConsolePluginServiceName = "lightspeed-console-plugin"
+	// ConsolePluginServiceName is the name of the OLS console plugin deployment
+	ConsolePluginDeploymentName = "lightspeed-console-plugin"
+	// ConsolePluginServiceName is the name of the OLS console plugin service
+	ConsolePluginServiceName = "lightspeed-console-plugin"
+	// ConsoleUIPluginName is the name of the OLS console plugin
+	ConsoleUIPluginName = "lightspeed-console-plugin"
+
 	// OLSConsolePluginServiceHTTPSPort is the port number of the OLS console plugin service
 	OLSConsolePluginServiceHTTPSPort = 9443
 	// AppServerConfigMapName is the name of the OLS application server config map
