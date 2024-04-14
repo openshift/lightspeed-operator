@@ -112,8 +112,8 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: manifests generate fmt vet envtest test-crds ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
+test: manifests generate fmt vet envtest test-crds ## Run local tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./internal/... -coverprofile cover.out
 
 OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/operator/v1/zz_generated.crd-manifests/0000_50_console_01_consoles.crd.yaml
 OS_CONSOLE_PLUGIN_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/console/v1/zz_generated.crd-manifests/90_consoleplugins.crd.yaml
@@ -133,6 +133,16 @@ $(OS_CONSOLE_CRD_FILE): $(TEST_CRD_DIR)
 $(OS_CONSOLE_PLUGIN_CRD_FILE): $(TEST_CRD_DIR)
 	wget -O $(OS_CONSOLE_PLUGIN_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_URL)
 
+
+.PHONY: test-e2e
+test-e2e: ## Run e2e tests with an Openshift cluster. Requires KUBECONFIG and LLM_TOKEN environment variables.
+ifndef KUBECONFIG
+	$(error KUBECONFIG environment variable is not set)
+endif
+ifndef LLM_TOKEN
+	$(error LLM_TOKEN  environment variable is not set)
+endif
+	go test ./test/e2e  -ginkgo.v -ginkgo.progress -test.v
 
 .PHONY: lint
 lint: ## Run golangci-lint against code.
