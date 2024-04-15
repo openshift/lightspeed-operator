@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-09T16:20:33Z"
+    createdAt: "2024-04-15T14:40:32Z"
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
@@ -294,7 +294,7 @@ spec:
                 - --tls-cert-file=/etc/tls/private/tls.crt
                 - --tls-private-key-file=/etc/tls/private/tls.key
                 - --v=0
-                image: gcr.io/kubebuilder/kube-rbac-proxy:v0.14.1
+                image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
                 name: kube-rbac-proxy
                 ports:
                 - containerPort: 8443
