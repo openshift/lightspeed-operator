@@ -59,6 +59,9 @@ spec:
                               type: string
                           type: object
                           x-kubernetes-map-type: atomic
+                        deploymentName:
+                          description: Azure OpenAI deployment name
+                          type: string
                         models:
                           description: List of models from the provider
                           items:
@@ -77,10 +80,28 @@ spec:
                         name:
                           description: Provider name
                           type: string
+                        projectID:
+                          description: Watsonx Project ID
+                          type: string
+                        type:
+                          enum:
+                          - azure_openai
+                          - bam
+                          - openai
+                          - watsonx
+                          type: string
                         url:
                           description: Provider API URL
                           type: string
                       type: object
+                      x-kubernetes-validations:
+                      - message: '''deploymentName'' must be specified for ''azure_openai''
+                          provider'
+                        rule: self.type != "azure_openai" || self.deploymentName !=
+                          ""
+                      - message: '''projectID'' must be specified for ''watsonx''
+                          provider'
+                        rule: self.type != "watsonx" || self.projectID != ""
                     type: array
                 required:
                 - providers
