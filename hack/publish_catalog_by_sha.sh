@@ -29,7 +29,7 @@ trap restore EXIT
 set -euo pipefail
 
 # Begin configuration
-export QUAY_USER="xrajesh"  # Set quay user for personal builds
+export QUAY_USER=""  # Set quay user for personal builds
 VERSION="0.0.1"    # Set the bundle version - currently 0.0.1
 QUAY_USER="${QUAY_USER:-openshift}"
 TARGET_TAG=$(git rev-parse --short HEAD)  # Set the target tag for the bundle and catalog image
