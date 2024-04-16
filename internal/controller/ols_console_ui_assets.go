@@ -109,7 +109,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 					Containers: []corev1.Container{
 						{
 							Name:  "lightspeed-console-plugin",
-							Image: ConsoleUIImageDefault,
+							Image: r.Options.ConsoleUIImage,
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: ConsoleUIHTTPSPort,

@@ -153,6 +153,7 @@ func main() {
 		Scheme: mgr.GetScheme(),
 		Options: controller.OLSConfigReconcilerOptions{
 			LightspeedServiceImage: imagesMap["lightspeed-service"],
+			ConsoleUIImage:         imagesMap["console-plugin"],
 			// TODO: Update DB
 			//LightspeedServiceRedisImage: imagesMap["lightspeed-service-redis"],
 			Namespace: controller.OLSNamespaceDefault,
