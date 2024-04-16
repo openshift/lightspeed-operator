@@ -120,6 +120,7 @@ var _ = Describe("App server assets", func() {
 						Name:            "testProvider",
 						URL:             "testURL",
 						CredentialsPath: "/etc/apikeys/test-secret/apitoken",
+						Type:            "bam",
 						Models: []ModelConfig{
 							{
 								Name: "testModel",
@@ -154,6 +155,36 @@ var _ = Describe("App server assets", func() {
 				"pattern":      Equal("testPattern"),
 				"replace_with": Equal("testReplace"),
 			})))))
+		})
+
+		It("should generate configmap with Azure OpenAI provider", func() {
+			azureOpenAI := addAzureOpenAIProvider(cr)
+			cm, err := r.generateOLSConfigMap(azureOpenAI)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
+				"name":            Equal("openai"),
+				"type":            Equal("azure_openai"),
+				"deployment_name": Equal("testDeployment"),
+			}))))
+		})
+
+		It("should generate configmap with IBM watsonx provider", func() {
+			watsonx := addWatsonxProvider(cr)
+			cm, err := r.generateOLSConfigMap(watsonx)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
+				"name":       Equal("watsonx"),
+				"type":       Equal("watsonx"),
+				"project_id": Equal("testProjectID"),
+			}))))
 		})
 
 		It("should generate the OLS deployment", func() {
@@ -479,6 +510,7 @@ func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 						CredentialsSecretRef: corev1.LocalObjectReference{
 							Name: "test-secret",
 						},
+						Type: "bam",
 						Models: []olsv1alpha1.ModelSpec{
 							{
 								Name: "testModel",
@@ -515,5 +547,19 @@ func addQueryFiltersToCR(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 			ReplaceWith: "testReplace",
 		},
 	}
+	return cr
+}
+
+func addAzureOpenAIProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.LLMConfig.Providers[0].Name = "openai"
+	cr.Spec.LLMConfig.Providers[0].Type = "azure_openai"
+	cr.Spec.LLMConfig.Providers[0].AzureDeploymentName = "testDeployment"
+	return cr
+}
+
+func addWatsonxProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.LLMConfig.Providers[0].Name = "watsonx"
+	cr.Spec.LLMConfig.Providers[0].Type = "watsonx"
+	cr.Spec.LLMConfig.Providers[0].WatsonProjectID = "testProjectID"
 	return cr
 }

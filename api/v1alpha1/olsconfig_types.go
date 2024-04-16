@@ -142,6 +142,8 @@ type ModelSpec struct {
 }
 
 // ProviderSpec defines the desired state of LLM provider.
+// +kubebuilder:validation:XValidation:message="'deploymentName' must be specified for 'azure_openai' provider",rule="self.type != \"azure_openai\" || self.deploymentName != \"\""
+// +kubebuilder:validation:XValidation:message="'projectID' must be specified for 'watsonx' provider",rule="self.type != \"watsonx\" || self.projectID != \"\""
 type ProviderSpec struct {
 	// Provider name
 	// +kubebuilder:validation:Required
@@ -157,6 +159,17 @@ type ProviderSpec struct {
 	// +kubebuilder:validation:Required
 	// +required
 	Models []ModelSpec `json:"models,omitempty"`
+	// +kubebuilder:validation:Required
+	// +required
+	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Provider Type"
+	Type string `json:"type,omitempty"`
+	// Azure OpenAI deployment name
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Azure OpenAI deployment name"
+	AzureDeploymentName string `json:"deploymentName,omitempty"`
+	// Watsonx Project ID
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Watsonx Project ID"
+	WatsonProjectID string `json:"projectID,omitempty"`
 }
 
 // +kubebuilder:object:root=true

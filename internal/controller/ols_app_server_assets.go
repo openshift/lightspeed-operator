@@ -106,10 +106,13 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		}
 
 		providerConfig := ProviderConfig{
-			Name:            provider.Name,
-			URL:             provider.URL,
-			CredentialsPath: credentialPath,
-			Models:          modelConfigs,
+			Name:                provider.Name,
+			Type:                provider.Type,
+			URL:                 provider.URL,
+			CredentialsPath:     credentialPath,
+			Models:              modelConfigs,
+			AzureDeploymentName: provider.AzureDeploymentName,
+			WatsonProjectID:     provider.WatsonProjectID,
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
