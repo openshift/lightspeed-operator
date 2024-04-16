@@ -266,9 +266,12 @@ spec:
                   yamlProvider:
                     description: YAML provider name
                     type: string
+                required:
+                - defaultModel
                 type: object
             required:
             - llm
+            - ols
             type: object
           status:
             description: OLSConfigStatus defines the observed state of OLS deployment.
