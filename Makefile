@@ -179,11 +179,12 @@ build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
 LIGHTSPEED_SERVICE_IMG ?= quay.io/openshift-lightspeed/lightspeed-service-api:latest
+LIGHTSPEED_SERVICE_POSTGRES_IMG ?= registry.redhat.io/rhel9/postgresql-16@sha256:0d52a138698bf42dbbf5b9e4f35f4925b6155eef9f447e436c6db1a7ae304239
 CONSOLE_PLUGIN_IMG ?= quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
     #TODO: Update DB
-	go run ./cmd/main.go --service-image="$(LIGHTSPEED_SERVICE_IMG)" --console-image="$(CONSOLE_PLUGIN_IMG)"
+	go run ./cmd/main.go --service-image="$(LIGHTSPEED_SERVICE_IMG)" --postgres-image="$(LIGHTSPEED_SERVICE_POSTGRES_IMG)" --console-image="$(CONSOLE_PLUGIN_IMG)"
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.

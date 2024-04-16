@@ -37,6 +37,9 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/args/-
         value: --console-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:ee29784d6904526d49d6fb810e024cdc20f25f86e24c8ac1a334391950c2cb77
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:0d52a138698bf42dbbf5b9e4f35f4925b6155eef9f447e436c6db1a7ae304239
     target:
       group: apps
       version: v1
