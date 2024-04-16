@@ -30,7 +30,9 @@ type OLSConfigSpec struct {
 	// +kubebuilder:validation:Required
 	// +required
 	LLMConfig LLMSpec `json:"llm"`
-	OLSConfig OLSSpec `json:"ols,omitempty"`
+	// +kubebuilder:validation:Required
+	// +required
+	OLSConfig OLSSpec `json:"ols"`
 }
 
 // OLSConfigStatus defines the observed state of OLS deployment.
@@ -60,7 +62,9 @@ type OLSSpec struct {
 	// +kubebuilder:default=false
 	DisableAuth bool `json:"disableAuth,omitempty"`
 	// Default model for usage
-	DefaultModel string `json:"defaultModel,omitempty"`
+	// +kubebuilder:validation:Required
+	// +required
+	DefaultModel string `json:"defaultModel"`
 	// Default provider for usage
 	DefaultProvider string `json:"defaultProvider,omitempty"`
 	// Classifier provider name
