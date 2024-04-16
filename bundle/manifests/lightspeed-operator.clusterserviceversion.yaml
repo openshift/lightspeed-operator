@@ -127,18 +127,27 @@ spec:
             path: ols.additionalCAConfigMapRef
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
-          - displayName: Redis
-            path: ols.conversationCache.redis
-          - description: Secret that holds redis credentials
+          - displayName: Postgres
+            path: ols.conversationCache.postgres
+          - description: Secret that holds Postgres credentials
             displayName: Credentials secret
-            path: ols.conversationCache.redis.credentialsSecret
-          - description: Redis maxmemory
-            displayName: Max Memory
-            path: ols.conversationCache.redis.maxMemory
-          - description: 'Redis maxmemory policy. Default: "allkeys-lru"'
-            displayName: Max Memory Policy
-            path: ols.conversationCache.redis.maxMemoryPolicy
-          - description: 'Conversation cache type. Default: "redis"'
+            path: ols.conversationCache.postgres.credentialsSecret
+          - description: Postgres database name
+            displayName: Database name
+            path: ols.conversationCache.postgres.dbName
+          - description: Postgres max connections
+            displayName: Max connections
+            path: ols.conversationCache.postgres.maxConnections
+          - description: Postgres max connections
+            displayName: Max connections
+            path: ols.conversationCache.postgres.maxConnections
+          - description: Postgres shared buffers
+            displayName: Shared buffers
+            path: ols.conversationCache.postgres.sharedBuffers
+          - description: Postgres user name
+            displayName: User name
+            path: ols.conversationCache.postgres.user
+          - description: 'Conversation cache type. Default: "postgres"'
             displayName: Cache Type
             path: ols.conversationCache.type
           - description: Default model for usage
@@ -475,6 +484,7 @@ spec:
               verbs:
                 - create
                 - delete
+                - deletecollection
                 - get
                 - list
                 - patch

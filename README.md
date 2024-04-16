@@ -122,10 +122,10 @@ spec:
       url: "https://myendpoint.openai.azure.com/"
   ols:
     conversationCache:
-      redis:
-        maxMemory: 2000mb
-        maxMemoryPolicy: allkeys-lru
-      type: redis
+      postgres:
+        sharedBuffers: 256MB
+        maxConnections: 2000
+      type: postgres
     defaultModel: gpt-3.5-turbo
     defaultProvider: openai
     logLevel: INFO
@@ -187,22 +187,25 @@ openshift-service-ca.crt    1      33m
 
 ➜ oc get services -n openshift-lightspeed
 NAME                                                     TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
-lightspeed-app-server                                     ClusterIP   172.31.165.151   <none>        8443/TCP   22m
-lightspeed-console-plugin                                 ClusterIP   172.31.158.29    <none>        9443/TCP   29m
-lightspeed-operator-controller-manager-service            ClusterIP   172.31.63.140    <none>        8443/TCP   24m
+lightspeed-app-server                                    ClusterIP   172.30.176.179   <none>        8080/TCP   4m47s
+lightspeed-postgres-server                               ClusterIP   172.30.85.42     <none>        6379/TCP   4m47s
+lightspeed-operator-controller-manager-metrics-service   ClusterIP   172.30.35.253    <none>        8443/TCP   4m47s
+lightspeed-console-plugin                                ClusterIP   172.31.158.29    <none>        9443/TCP   29m
+lightspeed-operator-controller-manager-service           ClusterIP   172.31.63.140    <none>        8443/TCP   24m
 
 ➜ oc get deployments -n openshift-lightspeed
 NAME                                     READY   UP-TO-DATE   AVAILABLE   AGE
-lightspeed-app-server                    1/1     1            1           23m
+lightspeed-app-server                    1/1     1            1           7m5s
+lightspeed-postgres-server                  1/1     1            1           7m5s
+lightspeed-operator-controller-manager   1/1     1            1           2d15h
 lightspeed-console-plugin                2/2     2            2           30m
-lightspeed-operator-controller-manager   1/1     1            1           25m
 
 ➜ oc get pods -n openshift-lightspeed
 NAME                                                      READY   STATUS              RESTARTS      AGE
+lightspeed-operator-controller-manager-7c849865ff-9vwj9   2/2     Running             0             7m19s
+lightspeed-postgres-server-7b75497676-np7zk               1/1     Running             0             6m47s
 lightspeed-app-server-97c9c6d96-6tv6j                     2/2     Running                0          23m
-lilightspeed-console-plugin-7f6cd7c9fd-6lp7x              1/1     Running                0          30m
 lightspeed-console-plugin-7f6cd7c9fd-wctj8                1/1     Running                0          30m
-lightspeed-operator-controller-manager-69585cc7fc-xltpc   1/1     Running                0          26m
 
 ➜ oc logs lightspeed-app-server-f7fd6cf6-k7s7p -n openshift-lightspeed
 2024-02-02 12:00:06,982 [ols.app.main:main.py:29] INFO: Embedded Gradio UI is disabled. To enable set enable_dev_ui: true in the dev section of the configuration file
@@ -210,6 +213,17 @@ INFO:     Started server process [1]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+```
+
+#### Postgres Secret Management
+By default postgres server spins up with a randomly generated password located in the secret `lightspeed-postgres-secret`. One can go edit password their password to a desired value to get it reflected across the system. In addition to that postgres secret name can also be explicitly specified in cluster CR as shown in the below example.
+```
+conversationCache:
+  postgres:
+    sharedBuffers: "256MB"
+    maxConnections: 2000
+    credentialsSecret: xyz
+  type: postgres
 ```
 
 ### Modifying the API definitions
@@ -255,7 +269,7 @@ When using Visual Studio Code, we can use the debugger settings below to execute
 
 ### End to End tests
 
-To run the end to end tests with a Openshift cluster, we need to have a running operator in the namespace `openshift-lightspeed`.
+To run the end to end tests with a OpenShift cluster, we need to have a running operator in the namespace `openshift-lightspeed`.
 Please refer to the section [Running on the cluster](#running-on-the-cluster).
 Then we should set 2 environment variables:
 
