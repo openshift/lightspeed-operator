@@ -28,6 +28,8 @@ const (
 	/*** application server configuration file ***/
 	// OLSConfigName is the name of the OLSConfig configmap
 	OLSConfigCmName = "olsconfig"
+	// OLSCAConfigMap is the name of the OLS TLS ca certificate configmap
+	OLSCAConfigMap = "openshift-service-ca.crt"
 	// OLSNamespaceDefault is the default namespace for OLS
 	OLSNamespaceDefault = "openshift-lightspeed"
 	// OLSAppServerServiceAccountName is the name of service account running the application server
@@ -66,7 +68,6 @@ const (
 	// CertBundleDir is the path of the volume for the certificate bundle
 	CertBundleDir = "cert-bundle"
 
-	// Image of the OLS application redis server
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
 	// LLMProviderHashKey is the key of the hash value of OLS LLM provider credentials consolidated
@@ -90,18 +91,13 @@ const (
 	// #nosec G101
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
 	/*** state cache keys ***/
-	// OLSAppTLSHashStateCacheKey is the key of the hash value of the OLS App TLS certificates
-	OLSAppTLSHashStateCacheKey = "olsapptls-hash"
-	// OLSConfigHashStateCacheKey is the key of the hash value of the OLSConfig configmap
-	OLSConfigHashStateCacheKey = "olsconfigmap-hash"
-	// OLSConsoleTLSHashStateCacheKey is the key of the hash value of the OLS Console TLS certificates
-	OLSConsoleTLSHashStateCacheKey = "olsconsoletls-hash"
-	// LLMProviderHashStateCacheKey is the key of the hash value of OLS LLM provider credentials consolidated
+	OLSConfigHashStateCacheKey   = "olsconfigmap-hash"
 	LLMProviderHashStateCacheKey = "llmprovider-hash"
 	// AzureOpenAIType is the name of the Azure OpenAI provider type
 	AzureOpenAIType = "azure_openai"
 	// AdditionalCAHashStateCacheKey is the key of the hash value of the additional CA certificates in the state cache
 	AdditionalCAHashStateCacheKey = "additionalca-hash"
+
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
 	ConsoleUIConfigMapName = "lightspeed-console-plugin"
@@ -112,7 +108,7 @@ const (
 	// ConsoleUIDeploymentName is the name of the console UI deployment
 	ConsoleUIDeploymentName = "lightspeed-console-plugin"
 	// ConsoleUIImage is the image of the console UI plugin
-	ConsoleUIImageDefault = "quay.io/openshift-lightspeed/lightspeed-console-plugin:latest"
+	ConsoleUIImageDefault = "quay.io/openshift/lightspeed-console-plugin:latest"
 	// ConsoleUIHTTPSPort is the port number of the console UI service
 	ConsoleUIHTTPSPort = 9443
 	// ConsoleUIPluginName is the name of the console UI plugin
@@ -124,12 +120,92 @@ const (
 	// ConsoleProxyAlias is the alias of the console proxy
 	// The console backend exposes following proxy endpoint: /api/proxy/plugin/<plugin-name>/<proxy-alias>/<request-path>?<optional-query-parameters>
 	ConsoleProxyAlias = "ols"
+	// OLSConsoleTLSHashStateCacheKey is the key of the hash value of the OLS Console TLS certificates
+	OLSConsoleTLSHashStateCacheKey = "olsconsoletls-hash"
 
 	/*** watchers ***/
 	WatcherAnnotationKey = "ols.openshift.io/watcher"
+
+	/*** Postgres Constants ***/
+	// PostgresCAVolume is the name of the OLS postgres TLS ca certificate volume name
+	PostgresCAVolume = "cm-olspostgresca"
+	// PostgresDeploymentName is the name of OLS application postgres deployment
+	PostgresDeploymentName = "lightspeed-postgres-server"
+	// PostgresSecretKeyName is the name of the key holding postgres server secret
+	PostgresSecretKeyName = "password"
+	// Image of the OLS application postgres server
+	PostgresServerImageDefault = "registry.redhat.io/rhel9/postgresql-16:9.5-1732622748"
+	// PostgresDefaultUser is the default user name for postgres
+	PostgresDefaultUser = "postgres"
+	// PostgresDefaultDbName is the default db name for postgres
+	PostgresDefaultDbName = "postgres"
+	// PostgresConfigHashKey is the key of the hash value of the OLS's postgres config
+	PostgresConfigHashKey = "hash/olspostgresconfig"
+	// PostgresSecretHashKey is the key of the hash value of OLS Postgres secret
+	// #nosec G101
+	PostgresSecretHashKey = "hash/postgres-secret"
+	// PostgresServiceName is the name of OLS application postgres server service
+	PostgresServiceName = "lightspeed-postgres-server"
+	// PostgresSecretName is the name of OLS application postgres secret
+	PostgresSecretName = "lightspeed-postgres-secret"
+	// PostgresCertsSecretName is the name of the postgres certs secret
+	PostgresCertsSecretName = "lightspeed-postgres-certs"
+	// PostgresBootstrapSecretName is the name of the postgres bootstrap secret
+	// #nosec G101
+	PostgresBootstrapSecretName = "lightspeed-postgres-bootstrap"
+	// PostgresBootstrapVolumeMountPath is the path of bootstrap volume mount
+	PostgresBootstrapVolumeMountPath = "/usr/share/container-scripts/postgresql/start/create-extensions.sh"
+	// PostgresExtensionScript is the name of the postgres extensions script
+	PostgresExtensionScript = "create-extensions.sh"
+	// PostgresConfigMap is the name of the postgres config map
+	PostgresConfigMap = "lightspeed-postgres-conf"
+	// PostgresConfigVolumeMountPath is the path of postgres configuration volume mount
+	PostgresConfigVolumeMountPath = "/usr/share/pgsql/postgresql.conf.sample"
+	// PostgresConfig is the name of postgres configuration used to start the server
+	PostgresConfig = "postgresql.conf.sample"
+	// PostgresDataVolume is the name of postgres data volume
+	PostgresDataVolume = "postgres-data"
+	// PostgresDataVolumeMountPath is the path of postgres data volume mount
+	PostgresDataVolumeMountPath = "/var/lib/pgsql/data"
+	// PostgresServicePort is the port number of the OLS postgres server service
+	PostgresServicePort = 5432
+	// PostgresSharedBuffers is the share buffers value for postgres cache
+	PostgresSharedBuffers = "256MB"
+	// PostgresMaxConnections is the max connections values for postgres cache
+	PostgresMaxConnections = 2000
+	// PostgresDefaultSSLMode is the default ssl mode for postgres
+	PostgresDefaultSSLMode = "require"
+	// PostgresBootStrapScriptContent is the postgres's bootstrap script content
+	PostgresBootStrapScriptContent = `
+#!/bin/bash
+
+cat /var/lib/pgsql/data/userdata/postgresql.conf
+
+echo "attempting to create pg_trgm extension if it does not exist"
+
+_psql () { psql --set ON_ERROR_STOP=1 "$@" ; }
+
+echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $POSTGRESQL_DATABASE
+`
+	// PostgresConfigMapContent is the postgres's config content
+	PostgresConfigMapContent = `
+huge_pages = off
+ssl = on
+ssl_cert_file = '/etc/certs/tls.crt'
+ssl_key_file = '/etc/certs/tls.key'
+ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
+`
+	/*** state cache keys ***/
+	// OLSAppTLSHashStateCacheKey is the key of the hash value of the OLS App TLS certificates
+	OLSAppTLSHashStateCacheKey = "olsapptls-hash"
+	// OLSConfigHashStateCacheKey is the key of the hash value of the OLSConfig configmap
 	// TelemetryPullSecretNamespace "openshift-config" contains the telemetry pull secret to determine the enablement of telemetry
 	// #nosec G101
 	TelemetryPullSecretNamespace = "openshift-config"
 	// TelemetryPullSecretName is the name of the secret containing the telemetry pull secret
-	TelemetryPullSecretName = "pull-secret"
+	TelemetryPullSecretName         = "pull-secret"
+	OLSDefaultCacheType             = "postgres"
+	PostgresConfigHashStateCacheKey = "olspostgresconfig-hash"
+	// #nosec G101
+	PostgresSecretHashStateCacheKey = "olspostgressecret-hash"
 )

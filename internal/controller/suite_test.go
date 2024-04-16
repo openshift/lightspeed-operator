@@ -140,10 +140,10 @@ var _ = BeforeSuite(func() {
 
 	reconciler = &OLSConfigReconciler{
 		Options: OLSConfigReconcilerOptions{
-			LightspeedServiceImage:      "lightspeed-service-api:latest",
-			LightspeedServiceRedisImage: "lightspeed-service-redis:latest",
-			ConsoleUIImage:              ConsoleUIImageDefault,
-			Namespace:                   OLSNamespaceDefault,
+			LightspeedServiceImage:         OLSAppServerImageDefault,
+			LightspeedServicePostgresImage: PostgresServerImageDefault,
+			ConsoleUIImage:                 ConsoleUIImageDefault,
+			Namespace:                      OLSNamespaceDefault,
 		},
 		logger:     logf.Log.WithName("olsconfig.reconciler"),
 		Client:     k8sClient,
