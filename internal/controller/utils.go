@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -260,6 +261,12 @@ func serviceEqual(a *corev1.Service, b *corev1.Service) bool {
 	}
 
 	return true
+}
+
+// serviceMonitorEqual compares two monv1.ServiceMonitor and returns true if they are equal.
+func serviceMonitorEqual(a *monv1.ServiceMonitor, b *monv1.ServiceMonitor) bool {
+	return apiequality.Semantic.DeepEqual(a.ObjectMeta.Labels, b.ObjectMeta.Labels) &&
+		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
 }
 
 // This is copied from https://github.com/kubernetes/kubernetes/blob/v1.29.2/pkg/apis/apps/v1/defaults.go#L38

@@ -41,6 +41,11 @@ const (
 	// Image of the OLS application server
 	// todo: image vesion should synchronize with the release version of the lightspeed-service-api image.
 	OLSAppServerImageDefault = "quay.io/openshift/lightspeed-service-api:latest"
+	// AppServerServiceMonitorName is the name of the service monitor for the OLS application server
+	AppServerServiceMonitorName = "lightspeed-app-server-monitor"
+	// AppServerMetricsPath is the path of the metrics endpoint of the OLS application server
+	AppServerMetricsPath = "/metrics"
+
 	// Image of the OLS application redis server
 	//RedisServerImageDefault = "quay.io/openshift/lightspeed-service-redis:latest"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap

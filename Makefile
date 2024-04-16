@@ -117,12 +117,14 @@ test: manifests generate fmt vet envtest test-crds ## Run local tests.
 
 OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/operator/v1/zz_generated.crd-manifests/0000_50_console_01_consoles.crd.yaml
 OS_CONSOLE_PLUGIN_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/console/v1/zz_generated.crd-manifests/90_consoleplugins.crd.yaml
+MONITORING_CRD_URL = https://raw.githubusercontent.com/openshift/prometheus-operator/master/bundle.yaml
 TEST_CRD_DIR = .testcrds
 OS_CONSOLE_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-crd.yaml
 OS_CONSOLE_PLUGIN_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-plugin-crd.yaml
+MONITORING_CRD_FILE = $(TEST_CRD_DIR)/monitoring-crd.yaml
 
 .PHONY: test-crds
-test-crds: $(TEST_CRD_DIR) $(OS_CONSOLE_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_FILE)  ## Test Dependencies CRDs
+test-crds: $(TEST_CRD_DIR) $(OS_CONSOLE_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_FILE) $(MONITORING_CRD_FILE) ## Test Dependencies CRDs
 
 $(TEST_CRD_DIR):
 	mkdir -p $(TEST_CRD_DIR)
@@ -132,6 +134,9 @@ $(OS_CONSOLE_CRD_FILE): $(TEST_CRD_DIR)
 
 $(OS_CONSOLE_PLUGIN_CRD_FILE): $(TEST_CRD_DIR)
 	wget -O $(OS_CONSOLE_PLUGIN_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_URL)
+
+$(MONITORING_CRD_FILE): $(TEST_CRD_DIR)
+	wget -O $(MONITORING_CRD_FILE) $(MONITORING_CRD_URL)
 
 
 .PHONY: test-e2e
