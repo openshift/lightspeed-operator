@@ -108,6 +108,7 @@ var _ = BeforeSuite(func() {
 		Options: OLSConfigReconcilerOptions{
 			LightspeedServiceImage:      "lightspeed-service-api:latest",
 			LightspeedServiceRedisImage: "lightspeed-service-redis:latest",
+			ConsoleUIImage:              ConsoleUIImageDefault,
 			Namespace:                   OLSNamespaceDefault,
 		},
 		logger:     logf.Log.WithName("olsconfig.reconciler"),
