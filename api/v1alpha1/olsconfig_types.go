@@ -20,7 +20,6 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -149,39 +148,41 @@ type ConsoleContainerConfig struct {
 	CAcertificate string `json:"caCertificate,omitempty"`
 }
 
-// +kubebuilder:validation:Enum=redis
+// +kubebuilder:validation:Enum=postgres
 type CacheType string
 
 const (
-	Redis CacheType = "redis"
+	Postgres CacheType = "postgres"
 )
 
 // ConversationCacheSpec defines the desired state of OLS conversation cache.
 type ConversationCacheSpec struct {
-	// Conversation cache type. Default: "redis"
-	// +kubebuilder:default=redis
+	// Conversation cache type. Default: "postgres"
+	// +kubebuilder:default=postgres
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Cache Type"
 	Type CacheType `json:"type,omitempty"`
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Redis"
-	Redis RedisSpec `json:"redis,omitempty"`
+	Postgres PostgresSpec `json:"postgres,omitempty"`
 }
 
-// RedisSpec defines the desired state of Redis.
-type RedisSpec struct {
-	// Secret that holds redis credentials
-	// +kubebuilder:default="lightspeed-redis-secret"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Credentials secret"
+// PostgresSpec defines the desired state of Postgres.
+type PostgresSpec struct {
+	// Postgres user name
+	// +kubebuilder:default="postgres"
+	User string `json:"user,omitempty"`
+	// Postgres database name
+	// +kubebuilder:default="postgres"
+	DbName string `json:"dbName,omitempty"`
+	// Secret that holds postgres credentials
+	// +kubebuilder:default="lightspeed-postgres-secret"
 	CredentialsSecret string `json:"credentialsSecret,omitempty"`
-	// Redis maxmemory
+	// Postgres sharedbuffers
 	// +kubebuilder:validation:XIntOrString
-	// +kubebuilder:default="1024mb"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max Memory"
-	MaxMemory *intstr.IntOrString `json:"maxMemory,omitempty"`
-	// Redis maxmemory policy. Default: "allkeys-lru"
-	// +kubebuilder:default=allkeys-lru
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max Memory Policy"
-	MaxMemoryPolicy string `json:"maxMemoryPolicy,omitempty"`
+	// +kubebuilder:default="256MB"
+	SharedBuffers string `json:"sharedBuffers,omitempty"`
+	// Postgres maxconnections. Default: "2000"
+	// +kubebuilder:default=2000
+	MaxConnections int `json:"maxConnections,omitempty"`
 }
 
 // QueryFiltersSpec defines filters to manipulate questions/queries.

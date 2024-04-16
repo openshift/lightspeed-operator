@@ -62,9 +62,8 @@ var (
 	// The default images of operands
 	defaultImages = map[string]string{
 		"lightspeed-service": controller.OLSAppServerImageDefault,
-		// TODO: Update DB
-		//"lightspeed-service-redis": controller.RedisServerImageDefault,
-		"console-plugin": controller.ConsoleUIImageDefault,
+		"postgres-image":     controller.PostgresServerImageDefault,
+		"console-plugin":     controller.ConsoleUIImageDefault,
 	}
 )
 
@@ -79,20 +78,20 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-// validateImages overides the default images with the serviceImage and consoleImage provided by the user
-// if the images are not provided, the default images are used.
-func validateImages(serviceImage string, consoleImage string) (map[string]string, error) {
+// overrideImages overides the default images with the images provided by the user
+// if an images is not provided, the default is used.
+func overrideImages(serviceImage string, consoleImage string, postgresImage string) map[string]string {
 	res := defaultImages
-	if serviceImage == "" && consoleImage == "" {
-		return res, nil
-	}
 	if serviceImage != "" {
 		res["lightspeed-service"] = serviceImage
 	}
 	if consoleImage != "" {
 		res["console-plugin"] = consoleImage
 	}
-	return res, nil
+	if postgresImage != "" {
+		res["postgres-image"] = postgresImage
+	}
+	return res
 }
 
 func listImages() []string {
@@ -120,6 +119,7 @@ func main() {
 	var serviceImage string
 	var consoleImage string
 	var namespace string
+	var postgresImage string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -134,6 +134,7 @@ func main() {
 	flag.StringVar(&serviceImage, "service-image", controller.OLSAppServerImageDefault, "The image of the lightspeed-service container.")
 	flag.StringVar(&consoleImage, "console-image", controller.ConsoleUIImageDefault, "The image of the console-plugin container.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
+	flag.StringVar(&postgresImage, "postgres-image", controller.PostgresServerImageDefault, "The image of the PostgreSQL server.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -146,11 +147,7 @@ func main() {
 		namespace = getWatchNamespace()
 	}
 
-	imagesMap, err := validateImages(serviceImage, consoleImage)
-	if err != nil {
-		setupLog.Error(err, "invalid images")
-		os.Exit(1)
-	}
+	imagesMap := overrideImages(serviceImage, consoleImage, postgresImage)
 	setupLog.Info("Images setting loaded", "images", listImages())
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "reconcilerIntervalMinutes", reconcilerIntervalMinutes, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
 
@@ -253,12 +250,11 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Options: controller.OLSConfigReconcilerOptions{
-			LightspeedServiceImage: imagesMap["lightspeed-service"],
-			ConsoleUIImage:         imagesMap["console-plugin"],
-			// TODO: Update DB
-			//LightspeedServiceRedisImage: imagesMap["lightspeed-service-redis"],
-			Namespace:         namespace,
-			ReconcileInterval: time.Duration(reconcilerIntervalMinutes) * time.Minute, // #nosec G115
+			LightspeedServiceImage:         imagesMap["lightspeed-service"],
+			ConsoleUIImage:                 imagesMap["console-plugin"],
+			LightspeedServicePostgresImage: imagesMap["postgres-image"],
+			Namespace:                      namespace,
+			ReconcileInterval:              time.Duration(reconcilerIntervalMinutes) * time.Minute, // #nosec G115
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")
