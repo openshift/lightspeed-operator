@@ -48,7 +48,7 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/args/-
-        value: --images=lightspeed-service=quay.io/openshift/lightspeed-service-api:latest
+        value: --images=lightspeed-service=quay.io/openshift/lightspeed-service-api:latest,lightspeed-service-postgres=quay.io/vchalla/lightspeed-service-postgres:latest
     target:
       group: apps
       version: v1

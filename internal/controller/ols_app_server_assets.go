@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"path"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -106,37 +107,33 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
-	// TODO: Update DB
-	// redisMaxMemory := intstr.FromString(RedisMaxMemory)
-	// redisMaxMemoryPolicy := RedisMaxMemoryPolicy
-	// redisSecretName := RedisSecretName
-	// redisConfig := cr.Spec.OLSConfig.ConversationCache.Redis
-	// if redisConfig.MaxMemory != nil && redisConfig.MaxMemory.String() != "" {
-	// 	redisMaxMemory = *cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemory
-	// }
-	// if redisConfig.MaxMemoryPolicy != "" {
-	// 	redisMaxMemoryPolicy = cr.Spec.OLSConfig.ConversationCache.Redis.MaxMemoryPolicy
-	// }
-	// if redisConfig.CredentialsSecret != "" {
-	// 	redisSecretName = cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret
-	// }
-	// redisPasswordPath := path.Join(CredentialsMountRoot, redisSecretName, OLSComponentPasswordFileName)
-	// conversationCache := ConversationCacheConfig{
-	// 	Type: string(OLSDefaultCacheType),
-	// 	Redis: RedisCacheConfig{
-	// 		Host:            strings.Join([]string{RedisServiceName, r.Options.Namespace, "svc"}, "."),
-	// 		Port:            RedisServicePort,
-	// 		MaxMemory:       &redisMaxMemory,
-	// 		MaxMemoryPolicy: redisMaxMemoryPolicy,
-	// 		PasswordPath:    redisPasswordPath,
-	// 		CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
-	// 	},
-	// }
 
+	postgresSharedBuffers := intstr.FromString(PostgresSharedBuffers)
+	postgresMaxConnections := PostgresMaxConnections
+	postgresSecretName := PostgresSecretName
+	postgresConfig := cr.Spec.OLSConfig.ConversationCache.Postgres
+	if postgresConfig.SharedBuffers != nil && postgresConfig.SharedBuffers.String() != "" {
+		postgresSharedBuffers = *cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers
+	}
+	if postgresConfig.MaxConnections != (-1) {
+		postgresMaxConnections = cr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections
+	}
+	if postgresConfig.CredentialsSecret != "" {
+		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
+	}
+	postgresPasswordPath := path.Join(CredentialsMountRoot, postgresSecretName, OLSComponentPasswordFileName)
 	conversationCache := ConversationCacheConfig{
-		Type: "memory",
-		Memory: MemoryCacheConfig{
-			MaxEntries: 1000,
+		Type: string(OLSDefaultCacheType),
+		Postgres: PostgresCacheConfig{
+			Host:           strings.Join([]string{PostgresServiceName, r.Options.Namespace, "svc"}, "."),
+			Port:           PostgresServicePort,
+			User:           PostgresDefaultUser,
+			DbName:         PostgresDefaultDbName,
+			SharedBuffers:  &postgresSharedBuffers,
+			MaxConnections: postgresMaxConnections,
+			PasswordPath:   postgresPasswordPath,
+			SSLMode:        PostgresDefaultSSLMode,
+			CACertPath:     path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
 		},
 	}
 
@@ -177,21 +174,21 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OLS config file %w", err)
 	}
-	// TODO: Update DB
-	// redisConfigFileBytes, err := yaml.Marshal(conversationCache.Redis)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to generate OLS redis config bytes %w", err)
-	// }
+
+	postgresConfigFileBytes, err := yaml.Marshal(conversationCache.Postgres)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate OLS postgres config bytes %w", err)
+	}
 
 	configFileHash, err := hashBytes(configFileBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OLS config file hash %w", err)
 	}
-	// TODO: Update DB
-	// redisConfigHash, err := hashBytes(redisConfigFileBytes)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to generate OLS redis config hash %w", err)
-	// }
+
+	postgresConfigHash, err := hashBytes(postgresConfigFileBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate OLS postgres config hash %w", err)
+	}
 
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -199,9 +196,8 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 			Namespace: r.Options.Namespace,
 			Labels:    generateAppServerSelectorLabels(),
 			Annotations: map[string]string{
-				OLSConfigHashKey: configFileHash,
-				// TODO: Update DB
-				//RedisConfigHashKey: redisConfigHash,
+				OLSConfigHashKey:      configFileHash,
+				PostgresConfigHashKey: postgresConfigHash,
 			},
 		},
 		Data: map[string]string{

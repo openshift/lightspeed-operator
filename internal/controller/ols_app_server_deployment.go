@@ -56,11 +56,14 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		credentialMountPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name)
 		secretMounts[provider.CredentialsSecretRef.Name] = credentialMountPath
 	}
-	// TODO: Update DB
-	// Redis volume
-	//redisSecretName := cr.Spec.OLSConfig.ConversationCache.Redis.CredentialsSecret
-	//redisCredentialsMountPath := path.Join(CredentialsMountRoot, redisSecretName)
-	//secretMounts[redisSecretName] = redisCredentialsMountPath
+
+	// Postgres Volume
+	postgresSecretName := PostgresSecretName
+	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
+		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
+	}
+	postgresCredentialsMountPath := path.Join(CredentialsMountRoot, postgresSecretName)
+	secretMounts[postgresSecretName] = postgresCredentialsMountPath
 
 	// TLS volume
 	tlsSecretNameMountPath := path.Join(OLSAppCertsMountRoot, OLSCertsSecretName)
@@ -106,9 +109,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
-	// TODO: Update DB
-	//volumes = append(volumes, olsConfigVolume, olsUserDataVolume, getRedisCAConfigVolume())
-	volumes = append(volumes, olsConfigVolume, olsUserDataVolume)
+	volumes = append(volumes, olsConfigVolume, olsUserDataVolume, getPostgresCAConfigVolume())
 
 	// mount the volumes of api keys secrets and OLS config map to the container
 	volumeMounts := []corev1.VolumeMount{}
@@ -129,9 +130,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		Name:      OLSUserDataVolumeName,
 		MountPath: OLSUserDataMountPath,
 	}
-	// TODO: Update DB
-	//volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount, getRedisCAVolumeMount(path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume)))
-	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount)
+	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount, getPostgresCAVolumeMount(path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume)))
 	replicas := getOLSServerReplicas(cr)
 	resources := getOLSServerResources(cr)
 
@@ -212,19 +211,18 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
 		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] ||
-		existingDeployment.Annotations[LLMProviderHashKey] != r.stateCache[LLMProviderHashStateCacheKey] {
+		existingDeployment.Annotations[LLMProviderHashKey] != r.stateCache[LLMProviderHashStateCacheKey] ||
+		existingDeployment.Annotations[PostgresSecretHashKey] != r.stateCache[PostgresSecretHashStateCacheKey] {
 		updateDeploymentAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
-			LLMProviderHashKey: r.stateCache[LLMProviderHashStateCacheKey],
-			// TODO: Update DB
-			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
+			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
+			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
+			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
 		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
-			LLMProviderHashKey: r.stateCache[LLMProviderHashStateCacheKey],
-			// TODO: Update DB
-			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
+			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
+			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
+			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
 		})
 
 		changed = true

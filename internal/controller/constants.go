@@ -8,10 +8,10 @@ const (
 	/*** application server configuration file ***/
 	// OLSConfigName is the name of the OLSConfig configmap
 	OLSConfigCmName = "olsconfig"
-	// RedisCAConfigMap is the name of the OLS redis server TLS ca certificate configmap
-	RedisCAConfigMap = "openshift-service-ca.crt"
-	// RedisCAVolume is the name of the OLS redis TLS ca certificate volume name
-	RedisCAVolume = "cm-olsredisca"
+	// OLSCAConfigMap is the name of the OLS TLS ca certificate configmap
+	OLSCAConfigMap = "openshift-service-ca.crt"
+	// PostgresCAVolume is the name of the OLS postgres TLS ca certificate volume name
+	PostgresCAVolume = "cm-olspostgresca"
 	// OLSNamespaceDefault is the default namespace for OLS
 	OLSNamespaceDefault = "openshift-lightspeed"
 	// OLSAppServerServiceAccountName is the name of service account running the application server
@@ -22,8 +22,8 @@ const (
 	OLSAppServerSARRoleBindingName = OLSAppServerSARRoleName + "-binding"
 	// OLSAppServerDeploymentName is the name of the OLS application server deployment
 	OLSAppServerDeploymentName = "lightspeed-app-server"
-	// RedisDeploymentName is the name of OLS application redis deployment
-	RedisDeploymentName = "lightspeed-redis-server"
+	// PostgresDeploymentName is the name of OLS application postgres deployment
+	PostgresDeploymentName = "lightspeed-postgres-server"
 	// APIKeyMountRoot is the directory hosting the API key file in the container
 	APIKeyMountRoot = "/etc/apikeys" // #nosec G101
 	// CredentialsMountRoot is the directory hosting the credential files in the container
@@ -36,29 +36,49 @@ const (
 	OLSComponentPasswordFileName = "password"
 	// OLSConfigFilename is the name of the application server configuration file
 	OLSConfigFilename = "olsconfig.yaml"
-	// RedisSecretKeyName is the name of the key holding redis server secret
-	RedisSecretKeyName = "password"
+	// PostgresSecretKeyName is the name of the key holding postgres server secret
+	PostgresSecretKeyName = "password"
 	// Image of the OLS application server
 	// todo: image vesion should synchronize with the release version of the lightspeed-service-api image.
 	OLSAppServerImageDefault = "quay.io/openshift/lightspeed-service-api:latest"
-	// Image of the OLS application redis server
-	//RedisServerImageDefault = "quay.io/openshift/lightspeed-service-redis:latest"
+	// Image of the OLS application postgres server
+	PostgresServerImageDefault = "quay.io/openshift/lightspeed-service-postgres:latest"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
 	// LLMProviderHashKey is the key of the hash value of OLS LLM provider credentials consolidated
 	// #nosec G101
 	LLMProviderHashKey = "hash/llmprovider"
-	// RedisConfigHashKey is the key of the hash value of the OLS's redis config
-	RedisConfigHashKey = "hash/olsredisconfig"
-	// RedisSecretHashKey is the key of the hash value of OLS Redis secret
+	// PostgresDefaultUser is the default user name for postgres
+	PostgresDefaultUser = "postgres"
+	// PostgresDefaultDbName is the default db name for postgres
+	PostgresDefaultDbName = "postgres"
+	// PostgresConfigHashKey is the key of the hash value of the OLS's postgres config
+	PostgresConfigHashKey = "hash/olspostgresconfig"
+	// PostgresSecretHashKey is the key of the hash value of OLS Postgres secret
 	// #nosec G101
-	RedisSecretHashKey = "hash/redis-secret"
-	// RedisServiceName is the name of OLS application redis server service
-	RedisServiceName = "lightspeed-redis-server"
-	// RedisSecretName is the name of OLS application redis secret
-	RedisSecretName = "lightspeed-redis-secret"
-	// OLSAppRedisCertsName is the name of the OLS application redis certs secret
-	RedisCertsSecretName = "lightspeed-redis-certs"
+	PostgresSecretHashKey = "hash/postgres-secret"
+	// PostgresServiceName is the name of OLS application postgres server service
+	PostgresServiceName = "lightspeed-postgres-server"
+	// PostgresSecretName is the name of OLS application postgres secret
+	PostgresSecretName = "lightspeed-postgres-secret"
+	// PostgresCertsSecretName is the name of the postgres certs secret
+	PostgresCertsSecretName = "lightspeed-postgres-certs"
+	// PostgresBootstrapSecretName is the name of the postgres bootstrap secret
+	PostgresBootstrapSecretName = "postgres-bootstrap"
+	// PostgresBootstrapVolumeMount is the name of bootstrap volume mount
+	PostgresBootstrapVolumeMount = "/usr/share/container-scripts/postgresql/start/create-extensions.sh"
+	// PostgresExtensionScript is the name of the postgres extensions script
+	PostgresExtensionScript = "create-extensions.sh"
+	// PostgresConfigMap is the name of the postgres config map
+	PostgresConfigMap = "postgres-conf"
+	// PostgresConfigVolumeMount is the name of postgres configuration volume mount
+	PostgresConfigVolumeMount = "/usr/share/pgsql/postgresql.conf.sample"
+	// PostgresConfig is the name of postgres configuration used to start the server
+	PostgresConfig = "postgresql.conf.sample"
+	// PostgresDataVolume is the name of postgres data volume
+	PostgresDataVolume = "postgres-data"
+	// PostgresDataVolumeMount is the name of postgres data volume mount
+	PostgresDataVolumeMount = "/var/lib/pgsql/data"
 	// OLSAppServerContainerPort is the port number of the lightspeed-service-api container exposes
 	OLSAppServerContainerPort = 8443
 	// OLSAppServerServicePort is the port number for OLS application server service.
@@ -67,23 +87,46 @@ const (
 	OLSAppServerServiceName = "lightspeed-app-server"
 	// OLSCertsSecretName is the name of the TLS secret for OLS.
 	OLSCertsSecretName = "lightspeed-tls" // #nosec G101
-	// RedisServicePort is the port number of the OLS redis server service
-	RedisServicePort = 6379
-	// RedisMaxMemory is the max memory of the OLS redis cache
-	RedisMaxMemory = "1024mb"
-	// RedisMaxMemoryPolicy is the max memory policy of the OLS redis cache
-	RedisMaxMemoryPolicy = "allkeys-lru"
+	// PostgresServicePort is the port number of the OLS postgres server service
+	PostgresServicePort = 5432
+	// PostgresSharedBuffers is the share buffers value for postgres cache
+	PostgresSharedBuffers = "256MB"
+	// PostgresMaxConnections is the max connections values for postgres cache
+	PostgresMaxConnections = 2000
+	// PostgresDefaultSSLMode is the default ssl mode for postgres
+	PostgresDefaultSSLMode = "require"
+	// PostgresBootStrapScriptContent is the postgres's bootstrap script content
+	PostgresBootStrapScriptContent = `
+	#!/bin/bash
+	
+	echo "attempting to create pg_trgm extension if it does not exist"
+	
+	_psql () { psql --set ON_ERROR_STOP=1 "$@" ; }
+	
+	echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $POSTGRESQL_DATABASE
+	`
+	// PostgresConfigMapContent is the postgres's config content
+	PostgresConfigMapContent = `huge_pages = off
+	ssl = on
+	ssl_cert_file = '/etc/certs/tls.crt'
+	ssl_key_file = '/etc/certs/tls.key'
+	ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
+	logging_collector = on
+	log_filename = 'postgresql-%a.log'
+	log_truncate_on_rotation = on
+	log_rotation_age = 1d
+	log_rotation_size = 0`
 	// OLSDefaultCacheType is the default cache type for OLS
-	OLSDefaultCacheType = "redis"
+	OLSDefaultCacheType = "postgres"
 	// Annotation key for serving certificate secret name
 	// #nosec G101
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
 	/*** state cache keys ***/
-	OLSConfigHashStateCacheKey   = "olsconfigmap-hash"
-	LLMProviderHashStateCacheKey = "llmprovider-hash"
-	RedisConfigHashStateCacheKey = "olsredisconfig-hash"
+	OLSConfigHashStateCacheKey      = "olsconfigmap-hash"
+	LLMProviderHashStateCacheKey    = "llmprovider-hash"
+	PostgresConfigHashStateCacheKey = "olspostgresconfig-hash"
 	// #nosec G101
-	RedisSecretHashStateCacheKey = "olsredissecret-hash"
+	PostgresSecretHashStateCacheKey = "olspostgressecret-hash"
 
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap

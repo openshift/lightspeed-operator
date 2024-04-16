@@ -83,19 +83,19 @@ func setVolumeMounts(deployment *appsv1.Deployment, desiredVolumeMounts []corev1
 	return false, nil
 }
 
-// TODO: Update DB
-// setCommand sets the command for a specific container in a given deployment.
-// func setCommand(deployment *appsv1.Deployment, desiredCommand []string, containerName string) (bool, error) {
-// 	containerIndex, err := getContainerIndex(deployment, containerName)
-// 	if err != nil {
-// 		return false, err
-// 	}
-// 	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Containers[containerIndex].Command, desiredCommand) {
-// 		deployment.Spec.Template.Spec.Containers[containerIndex].Command = desiredCommand
-// 		return true, nil
-// 	}
-// 	return false, nil
-// }
+// setDeploymentContainerEnvs sets the envs for a specific container in a given deployment.
+func setDeploymentContainerEnvs(deployment *appsv1.Deployment, desiredEnvs []corev1.EnvVar, containerName string) (bool, error) {
+	containerIndex, err := getContainerIndex(deployment, containerName)
+	if err != nil {
+		return false, err
+	}
+	existingEnvs := deployment.Spec.Template.Spec.Containers[containerIndex].Env
+	if !apiequality.Semantic.DeepEqual(existingEnvs, desiredEnvs) {
+		deployment.Spec.Template.Spec.Containers[containerIndex].Env = desiredEnvs
+		return true, nil
+	}
+	return false, nil
+}
 
 // setDeploymentContainerResources sets the resource requirements for a specific container in a given deployment.
 func setDeploymentContainerResources(deployment *appsv1.Deployment, resources *corev1.ResourceRequirements, containerName string) (bool, error) {

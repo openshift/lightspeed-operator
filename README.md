@@ -74,10 +74,10 @@ spec:
       url: https://bam-api.res.ibm.com
   ols:
     conversationCache:
-      redis:
-        maxMemory: 2000mb
-        maxMemoryPolicy: allkeys-lru
-      type: redis
+      postgres:
+        sharedBuffers: 256MB
+        maxConnections: 2000
+      type: postgres
     defaultModel: ibm/granite-13b-chat-v2
     defaultProvider: bam
     logLevel: INFO
@@ -139,20 +139,20 @@ openshift-service-ca.crt   1      4m11s
 ➜ oc get services -n openshift-lightspeed
 NAME                                                     TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
 lightspeed-app-server                                    ClusterIP   172.30.176.179   <none>        8080/TCP   4m47s
-lightspeed-redis-server                                  ClusterIP   172.30.85.42     <none>        6379/TCP   4m47s
+lightspee-postgres-server                                  ClusterIP   172.30.85.42     <none>        6379/TCP   4m47s
 lightspeed-operator-controller-manager-metrics-service   ClusterIP   172.30.35.253    <none>        8443/TCP   4m47s
 
 ➜ oc get deployments -n openshift-lightspeed
 NAME                                     READY   UP-TO-DATE   AVAILABLE   AGE
 lightspeed-app-server                    1/1     1            1           7m5s
-lightspeed-redis-server                  1/1     1            1           7m5s
+lightspeed-postgres-server                  1/1     1            1           7m5s
 lightspeed-operator-controller-manager   1/1     1            1           2d15h
 
 ➜ oc get pods -n openshift-lightspeed
 NAME                                                      READY   STATUS              RESTARTS      AGE
 lightspeed-app-server-f7fd6cf6-k7s7p                      1/1     Running             0             6m47s
 lightspeed-operator-controller-manager-7c849865ff-9vwj9   2/2     Running             0             7m19s
-lightspeed-redis-server-7b75497676-np7zk                  1/1     Running             0             6m47s
+lightspeed-postgres-server-7b75497676-np7zk                  1/1     Running             0             6m47s
 
 ➜ oc logs lightspeed-app-server-f7fd6cf6-k7s7p -n openshift-lightspeed
 2024-02-02 12:00:06,982 [ols.app.main:main.py:29] INFO: Embedded Gradio UI is disabled. To enable set enable_dev_ui: true in the dev section of the configuration file
@@ -162,15 +162,15 @@ INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
 ```
 
-#### Redis Secret Management
-By default redis server spins up with a randomly generated password located in the secret `lightspeed-redis-secret`. One can go edit password their password to a desired value to get it reflected across the system. In addition to that redis secret name can also be explicitly specified in cluster CR as shown in the below example.
+#### Postgres Secret Management
+By default postgres server spins up with a randomly generated password located in the secret `lightspeed-postgres-secret`. One can go edit password their password to a desired value to get it reflected across the system. In addition to that postgres secret name can also be explicitly specified in cluster CR as shown in the below example.
 ```
 conversationCache:
-  redis:
-    maxMemory: "2000mb"
-    maxMemoryPolicy: "allkeys-lru"
+  postgres:
+    sharedBuffers: "256MB"
+    maxConnections: 2000
     credentialsSecret: xyz
-  type: redis
+  type: postgres
 ```
 
 ### Modifying the API definitions

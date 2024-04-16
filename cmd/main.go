@@ -49,10 +49,9 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 	// The default images of operands
 	defaultImages = map[string]string{
-		"lightspeed-service": controller.OLSAppServerImageDefault,
-		// TODO: Update DB
-		//"lightspeed-service-redis": controller.RedisServerImageDefault,
-		"console-plugin": controller.ConsoleUIImageDefault,
+		"lightspeed-service":          controller.OLSAppServerImageDefault,
+		"lightspeed-service-postgres": controller.PostgresServerImageDefault,
+		"console-plugin":              controller.ConsoleUIImageDefault,
 	}
 )
 
@@ -147,10 +146,9 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Options: controller.OLSConfigReconcilerOptions{
-			LightspeedServiceImage: imagesMap["lightspeed-service"],
-			// TODO: Update DB
-			//LightspeedServiceRedisImage: imagesMap["lightspeed-service-redis"],
-			Namespace: controller.OLSNamespaceDefault,
+			LightspeedServiceImage:         imagesMap["lightspeed-service"],
+			LightspeedServicePostgresImage: imagesMap["lightspeed-service-postgres"],
+			Namespace:                      controller.OLSNamespaceDefault,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")
