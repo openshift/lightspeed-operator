@@ -9,6 +9,7 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,6 +24,15 @@ var _ = Describe("TLS activation", Ordered, func() {
 	BeforeAll(func() {
 		client, err = GetClient()
 		Expect(err).NotTo(HaveOccurred())
+		By("Create 1 LLM token secrets")
+		secret, err := generateLLMTokenSecret(LLMTokenFirstSecretName)
+		Expect(err).NotTo(HaveOccurred())
+		err = client.Create(secret)
+		if errors.IsAlreadyExists(err) {
+			err = client.Update(secret)
+		}
+		Expect(err).NotTo(HaveOccurred())
+
 		By("Creating a OLSConfig CR")
 		cr, err = generateOLSConfig()
 		Expect(err).NotTo(HaveOccurred())
@@ -58,6 +68,18 @@ var _ = Describe("TLS activation", Ordered, func() {
 		Expect(cr).NotTo(BeNil())
 		err = client.Delete(cr)
 		Expect(err).NotTo(HaveOccurred())
+
+		By("Delete the 1 LLM token Secret")
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      LLMTokenFirstSecretName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.Delete(secret)
+		if !errors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
 
 	})
 
