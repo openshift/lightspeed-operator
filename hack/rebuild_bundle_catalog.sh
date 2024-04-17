@@ -1,9 +1,12 @@
-# Helper tool to build the File Based Catalog (FBC) for the operator with semantic versioning
-# Example , if you want to build catalog image for lishtspeed-operator version 0.0.2, set the
-# VERSION variable to 0.0.2 and run the script. The script will build the bundle image and
-# catalog image and push it to the quay.io registry.
+# Helper tool to regenerate bundle and catalog image and push it to the quay.io registry
+# for a specific version of the operator. This script helps developers to create a new 
+# version of the bundle and catalog image.
+# TO create Bundle CSV Version 0.0.2 and Catalog image with version 0.0.2
+# Set the VERSION variable to 0.0.2 and run the script.
+# The script will build the bundle image and catalog image and with VERSION as the tag
+# and push it to the quay.io registry.
 # Pre-requisites: opm, podman, make
-# Usage: ./hack/build_catalog.sh
+# Usage: ./hack/rebuild_bundle_catalog.sh
 
 #!/bin/bash
 
@@ -33,10 +36,12 @@ trap restore EXIT
 set -euo pipefail
 DEFAULT_PLATFORM="linux/amd64"
 export QUAY_USER=""  # Set quay user for personal builds
-VERSION="0.0.1"    # Set the operator version
+VERSION="0.0.1"    # Set the bundle, catalog version
+OPERATOR_TAG="latest" # Set the operator tag
 QUAY_USER="${QUAY_USER:-openshift}"
 
-export IMAGE_TAG_BASE="quay.io/${QUAY_USER}/lightspeed-operator"
+export IMAGE_TAG_BASE="quay.io/openshift/lightspeed-operator"
+OPERATOR_IMAGE="${IMAGE_TAG_BASE}:${OPERATOR_TAG}"
 BUNDLE_IMAGE="quay.io/${QUAY_USER}/lightspeed-operator-bundle:v${VERSION}"
 CATALOG_IMAGE="quay.io/${QUAY_USER}/lightspeed-catalog:${VERSION}"
 
@@ -50,24 +55,16 @@ echo "Backup files before running the script"
 backup
 
 
-echo "Building File Based Catalog (FBC) for ${USER}"
-echo "Set IMAGE_TAG_BASE: ${IMAGE_TAG_BASE}"
+echo "Building File Based Catalog (FBC) for ${QUAY_USER}"
 
 rm -rf ./bundle
-make bundle VERSION="${VERSION}"
-sed -i.bak "s/name: lightspeed-operator.v[0-9]+.[0-9]+.[0-9]+/name: lightspeed-operator.v${VERSION}/" "${CSV_FILE}"
-sed -i.bak "s/version: [0-9]+.[0-9]+.[0-9]+/version: ${VERSION}/" "${CSV_FILE}"
-rm -rf "${CSV_FILE}.bak"
-echo "Built bundle image ${BUNDLE_IMAGE}"
+make bundle VERSION="${VERSION}" IMG="${OPERATOR_IMAGE}"
 
-make bundle-build bundle-push VERSION="${VERSION}" BUNDLE_IMAGE="${BUNDLE_IMAGE}"
+make bundle-build bundle-push VERSION="${VERSION}" BUNDLE_IMG="${BUNDLE_IMAGE}" 
 
 echo "Adding bundle image to FBC using image ${BUNDLE_IMAGE}" 
-if [ -f "${CATALOG_FILE}" ]; then
-  rm -f "${CATALOG_FILE}"
-fi
-touch "${CATALOG_FILE}"
-cat << EOF >> "${CATALOG_FILE}"
+
+cat << EOF > "${CATALOG_FILE}"
 ---
 defaultChannel: preview
 name: lightspeed-operator
