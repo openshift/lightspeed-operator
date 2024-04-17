@@ -117,7 +117,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: corev1.PullAlways,
 							Env:             getProxyEnvVars(),
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
