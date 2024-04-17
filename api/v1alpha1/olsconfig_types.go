@@ -29,9 +29,11 @@ import (
 type OLSConfigSpec struct {
 	// +kubebuilder:validation:Required
 	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="LLM Settings"
 	LLMConfig LLMSpec `json:"llm"`
 	// +kubebuilder:validation:Required
 	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="OLS Settings"
 	OLSConfig OLSSpec `json:"ols"`
 }
 
@@ -45,45 +47,61 @@ type OLSConfigStatus struct {
 type LLMSpec struct {
 	// +kubebuilder:validation:Required
 	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Providers"
 	Providers []ProviderSpec `json:"providers"`
 }
 
 // OLSSpec defines the desired state of OLS deployment.
 type OLSSpec struct {
 	// Conversation cache settings
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2,displayName="Conversation Cache"
 	ConversationCache ConversationCacheSpec `json:"conversationCache,omitempty"`
 	// OLS deployment settings
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,displayName="Deployment"
 	DeploymentConfig DeploymentConfig `json:"deployment,omitempty"`
-	// Log level. Default: "INFO". Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL.
+	// Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".
 	// +kubebuilder:validation:Enum=DEBUG;INFO;WARNING;ERROR;CRITICAL
 	// +kubebuilder:default=INFO
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Log level"
 	LogLevel string `json:"logLevel,omitempty"`
 	// Disable Authorization for OLS server. Default: "false"
 	// +kubebuilder:default=false
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Authorization",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	DisableAuth bool `json:"disableAuth,omitempty"`
 	// Default model for usage
 	// +kubebuilder:validation:Required
 	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	DefaultModel string `json:"defaultModel"`
 	// Default provider for usage
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	DefaultProvider string `json:"defaultProvider,omitempty"`
 	// Classifier provider name
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Classifier Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	ClassifierProvider string `json:"classifierProvider,omitempty"`
 	// Classifier model name
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Classifier Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	ClassifierModel string `json:"classifierModel,omitempty"`
 	// Summarizer provider name
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Summarizer Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	SummarizerProvider string `json:"summarizerProvider,omitempty"`
 	// Summarizer model name
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Summarizer Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	SummarizerModel string `json:"summarizerModel,omitempty"`
 	// Validator provider name
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Validator Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	ValidatorProvider string `json:"validatorProvider,omitempty"`
 	// Validator model name
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Validator Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	ValidatorModel string `json:"validatorModel,omitempty"`
 	// YAML provider name
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="YAML Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	YamlProvider string `json:"yamlProvider,omitempty"`
 	// YAML model name
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="YAML Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	YamlModel string `json:"yamlModel,omitempty"`
 	// Query filters
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Query Filters"
 	QueryFilters []QueryFiltersSpec `json:"queryFilters,omitempty"`
 }
 
@@ -91,7 +109,11 @@ type OLSSpec struct {
 type DeploymentConfig struct {
 	// Defines the number of desired OLS pods. Default: "1"
 	// +kubebuilder:default=1
-	Replicas  *int32                       `json:"replicas,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
+	Replicas *int32 `json:"replicas,omitempty"`
+	// The resource requirements for OLS instance.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
@@ -106,8 +128,10 @@ const (
 type ConversationCacheSpec struct {
 	// Conversation cache type. Default: "redis"
 	// +kubebuilder:default=redis
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Cache Type"
 	Type CacheType `json:"type,omitempty"`
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Redis"
 	Redis RedisSpec `json:"redis,omitempty"`
 }
 
@@ -115,23 +139,29 @@ type ConversationCacheSpec struct {
 type RedisSpec struct {
 	// Secret that holds redis credentials
 	// +kubebuilder:default="lightspeed-redis-secret"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Credentials secret"
 	CredentialsSecret string `json:"credentialsSecret,omitempty"`
 	// Redis maxmemory
 	// +kubebuilder:validation:XIntOrString
 	// +kubebuilder:default="1024mb"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max Memory"
 	MaxMemory *intstr.IntOrString `json:"maxMemory,omitempty"`
 	// Redis maxmemory policy. Default: "allkeys-lru"
 	// +kubebuilder:default=allkeys-lru
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max Memory Policy"
 	MaxMemoryPolicy string `json:"maxMemoryPolicy,omitempty"`
 }
 
 // QueryFiltersSpec defines filters to manipulate questions/queries.
 type QueryFiltersSpec struct {
 	// Filter name.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Filter Name"
 	Name string `json:"name,omitempty"`
 	// Filter pattern.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="The pattern to replace"
 	Pattern string `json:"pattern,omitempty"`
 	// Replacement for the matched pattern.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Replace With"
 	ReplaceWith string `json:"replaceWith,omitempty"`
 }
 
@@ -140,8 +170,11 @@ type ModelSpec struct {
 	// Model name
 	// +kubebuilder:validation:Required
 	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Name"
 	Name string `json:"name"`
 	// Model API URL
+	// +kubebuilder:validation:Pattern=`^https?://.*$`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="URL"
 	URL string `json:"url,omitempty"`
 }
 
@@ -152,16 +185,21 @@ type ProviderSpec struct {
 	// Provider name
 	// +kubebuilder:validation:Required
 	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,displayName="Name"
 	Name string `json:"name,omitempty"`
 	// Provider API URL
+	// +kubebuilder:validation:Pattern=`^https?://.*$`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2,displayName="URL"
 	URL string `json:"url,omitempty"`
-	// Name of a Kubernetes Secret resource containing API provider credentials.
+	// The name of the secret object that stores API provider credentials
 	// +kubebuilder:validation:Required
 	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=3,displayName="Credential Secret"
 	CredentialsSecretRef corev1.LocalObjectReference `json:"credentialsSecretRef,omitempty"`
 	// List of models from the provider
 	// +kubebuilder:validation:Required
 	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Models"
 	Models []ModelSpec `json:"models,omitempty"`
 	// +kubebuilder:validation:Required
 	// +required
@@ -179,7 +217,8 @@ type ProviderSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
-// OLSConfig is the Schema for the olsconfigs API
+// +kubebuilder:validation:XValidation:rule="self.metadata.name == 'cluster'",message=".metadata.name must be 'cluster'"
+// Red Hat OpenShift LightSpeed instance. OLSConfig is the Schema for the olsconfigs API
 type OLSConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

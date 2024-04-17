@@ -20,6 +20,8 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
+var testURL = "https://testURL"
+
 var _ = Describe("App server assets", func() {
 	var cr *olsv1alpha1.OLSConfig
 	var r *OLSConfigReconciler
@@ -118,13 +120,13 @@ var _ = Describe("App server assets", func() {
 				LLMProviders: []ProviderConfig{
 					{
 						Name:            "testProvider",
-						URL:             "testURL",
+						URL:             testURL,
 						CredentialsPath: "/etc/apikeys/test-secret/apitoken",
 						Type:            "bam",
 						Models: []ModelConfig{
 							{
 								Name: "testModel",
-								URL:  "testURL",
+								URL:  testURL,
 							},
 						},
 					},
@@ -506,7 +508,7 @@ func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 				Providers: []olsv1alpha1.ProviderSpec{
 					{
 						Name: "testProvider",
-						URL:  "testURL",
+						URL:  testURL,
 						CredentialsSecretRef: corev1.LocalObjectReference{
 							Name: "test-secret",
 						},
@@ -514,7 +516,7 @@ func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 						Models: []olsv1alpha1.ModelSpec{
 							{
 								Name: "testModel",
-								URL:  "testURL",
+								URL:  testURL,
 							},
 						},
 					},

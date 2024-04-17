@@ -17,7 +17,8 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: OLSConfig is the Schema for the olsconfigs API
+        description: Red Hat OpenShift LightSpeed instance. OLSConfig is the Schema
+          for the olsconfigs API
         properties:
           apiVersion:
             description: |-
@@ -48,8 +49,8 @@ spec:
                       description: ProviderSpec defines the desired state of LLM provider.
                       properties:
                         credentialsSecretRef:
-                          description: Name of a Kubernetes Secret resource containing
-                            API provider credentials.
+                          description: The name of the secret object that stores API
+                            provider credentials
                           properties:
                             name:
                               description: |-
@@ -72,6 +73,7 @@ spec:
                                 type: string
                               url:
                                 description: Model API URL
+                                pattern: ^https?://.*$
                                 type: string
                             required:
                             - name
@@ -92,6 +94,7 @@ spec:
                           type: string
                         url:
                           description: Provider API URL
+                          pattern: ^https?://.*$
                           type: string
                       type: object
                       x-kubernetes-validations:
@@ -158,10 +161,10 @@ spec:
                         description: 'Defines the number of desired OLS pods. Default:
                           "1"'
                         format: int32
+                        minimum: 0
                         type: integer
                       resources:
-                        description: ResourceRequirements describes the compute resource
-                          requirements.
+                        description: The resource requirements for OLS instance.
                         properties:
                           claims:
                             description: |-
@@ -222,8 +225,8 @@ spec:
                     type: boolean
                   logLevel:
                     default: INFO
-                    description: 'Log level. Default: "INFO". Valid options are DEBUG,
-                      INFO, WARNING, ERROR and CRITICAL.'
+                    description: 'Log level. Valid options are DEBUG, INFO, WARNING,
+                      ERROR and CRITICAL. Default: "INFO".'
                     enum:
                     - DEBUG
                     - INFO
@@ -351,6 +354,9 @@ spec:
         required:
         - spec
         type: object
+        x-kubernetes-validations:
+        - message: .metadata.name must be 'cluster'
+          rule: self.metadata.name == 'cluster'
     served: true
     storage: true
     subresources:
