@@ -17,6 +17,10 @@ const (
 	LLMDefaultProvider = "openai"
 	// LLMProviderEnvVar is the environment variable containing the LLM provider
 	LLMProviderEnvVar = "LLM_PROVIDER"
+	// LLMTypeEnvVar is the environment variable containing the LLM type
+	LLMTypeEnvVar = "LLM_TYPE"
+	// LLMDefaultType is the default LLM type
+	LLMDefaultType = "openai"
 	// OpenAIDefaultModel is the default model to use
 	OpenAIDefaultModel = "gpt-3.5-turbo"
 	// OpenAIAlternativeModel is the alternative model to test model change
