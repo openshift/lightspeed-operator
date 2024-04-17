@@ -36,6 +36,10 @@ func generateOLSConfig() (*olsv1alpha1.OLSConfig, error) { // nolint:unused
 	if llmModel == "" {
 		llmModel = OpenAIDefaultModel
 	}
+	llmType := os.Getenv(LLMTypeEnvVar)
+	if llmType == "" {
+		llmType = LLMDefaultType
+	}
 	replicas := int32(1)
 	maxMemory := intstr.Parse("100mb")
 	return &olsv1alpha1.OLSConfig{
@@ -55,6 +59,7 @@ func generateOLSConfig() (*olsv1alpha1.OLSConfig, error) { // nolint:unused
 						CredentialsSecretRef: corev1.LocalObjectReference{
 							Name: LLMTokenFirstSecretName,
 						},
+						Type: llmType,
 					},
 				},
 			},
