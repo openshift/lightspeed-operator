@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-17T19:52:24Z"
+    createdAt: "2024-04-18T16:59:07Z"
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
@@ -89,7 +89,8 @@ spec:
       - description: Watsonx Project ID
         displayName: Watsonx Project ID
         path: llm.providers[0].projectID
-      - displayName: Provider Type
+      - description: Provider type
+        displayName: Provider Type
         path: llm.providers[0].type
       - displayName: OLS Settings
         path: ols
