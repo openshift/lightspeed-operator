@@ -112,4 +112,7 @@ const (
 	// ConsoleProxyAlias is the alias of the console proxy
 	// The console backend exposes following proxy endpoint: /api/proxy/plugin/<plugin-name>/<proxy-alias>/<request-path>?<optional-query-parameters>
 	ConsoleProxyAlias = "ols"
+
+	/*** watchers ***/
+	WatcherAnnotationKey = "ols.openshift.io/watcher"
 )
