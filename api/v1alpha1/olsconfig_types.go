@@ -201,11 +201,12 @@ type ProviderSpec struct {
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Models"
 	Models []ModelSpec `json:"models,omitempty"`
+	// Provider type
 	// +kubebuilder:validation:Required
 	// +required
 	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Provider Type"
-	Type string `json:"type,omitempty"`
+	Type string `json:"type"`
 	// Azure OpenAI deployment name
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Azure OpenAI deployment name"
 	AzureDeploymentName string `json:"deploymentName,omitempty"`

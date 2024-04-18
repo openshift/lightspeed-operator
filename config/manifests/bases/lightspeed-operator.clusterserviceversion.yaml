@@ -53,7 +53,8 @@ spec:
       - description: Watsonx Project ID
         displayName: Watsonx Project ID
         path: llm.providers[0].projectID
-      - displayName: Provider Type
+      - description: Provider type
+        displayName: Provider Type
         path: llm.providers[0].type
       - displayName: OLS Settings
         path: ols

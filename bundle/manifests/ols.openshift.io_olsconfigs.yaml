@@ -86,6 +86,7 @@ spec:
                           description: Watsonx Project ID
                           type: string
                         type:
+                          description: Provider type
                           enum:
                           - azure_openai
                           - bam
@@ -96,6 +97,8 @@ spec:
                           description: Provider API URL
                           pattern: ^https?://.*$
                           type: string
+                      required:
+                      - type
                       type: object
                       x-kubernetes-validations:
                       - message: '''deploymentName'' must be specified for ''azure_openai''
