@@ -189,6 +189,24 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 								PeriodSeconds:       10,
 							},
 						},
+						{
+							Name:            "lightspeed-service-user-data-collector",
+							Image:           r.Options.LightspeedServiceImage,
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							VolumeMounts:    []corev1.VolumeMount{olsUserDataVolumeMount},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "OLS_USER_DATA_PATH",
+									Value: OLSUserDataMountPath,
+								},
+								{
+									Name:  "INGRESS_ENV",
+									Value: "prod",
+								},
+							},
+							Command:   []string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"},
+							Resources: *resources,
+						},
 					},
 					Volumes:            volumes,
 					ServiceAccountName: OLSAppServerServiceAccountName,
