@@ -32,6 +32,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -200,6 +201,7 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(secretWatcherFilter)).
 		Owns(&monv1.ServiceMonitor{}).
 		Complete(r)
 }
