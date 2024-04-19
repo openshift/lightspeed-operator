@@ -48,7 +48,9 @@ const (
 	ErrGetConsolePluginService         = "failed to get Console Plugin service"
 	ErrGetSARClusterRole               = "failed to get SAR cluster role"
 	ErrGetSARClusterRoleBinding        = "failed to get SAR cluster role binding"
+	// #nosec G101
 	ErrGetPostgresSecret               = "failed to get OLS Postgres secret"
+	// #nosec G101
 	ErrGetPostgresBootstrapSecret      = "failed to get OLS Postgres bootstrap secret"
 	ErrGetPostgresConfigMap            = "failed to get OLS Postgres configmap"
 	ErrGetPostgresService              = "failed to get OLS Postgres service"

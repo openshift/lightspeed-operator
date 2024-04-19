@@ -68,6 +68,7 @@ const (
 	// PostgresCertsSecretName is the name of the postgres certs secret
 	PostgresCertsSecretName = "lightspeed-postgres-certs"
 	// PostgresBootstrapSecretName is the name of the postgres bootstrap secret
+	// #nosec G101
 	PostgresBootstrapSecretName = "postgres-bootstrap"
 	// PostgresBootstrapVolumeMount is the name of bootstrap volume mount
 	PostgresBootstrapVolumeMount = "/usr/share/container-scripts/postgresql/start/create-extensions.sh"
