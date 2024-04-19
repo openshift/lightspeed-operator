@@ -47,4 +47,6 @@ const (
 	AppServerConfigMapKey = "olsconfig.yaml"
 	// AppServerTLSSecretName is the name of the OLS application server TLS secret
 	AppServerTLSSecretName = "lightspeed-tls" // #nosec G101
+	// ConditionTimeoutEnvVar is the environment variable containing the condition check timeout in seconds
+	ConditionTimeoutEnvVar = "CONDITION_TIMEOUT"
 )

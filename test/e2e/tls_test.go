@@ -21,7 +21,7 @@ var _ = Describe("TLS activation", Ordered, func() {
 	var forwardHost string
 
 	BeforeAll(func() {
-		client, err = GetClient()
+		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
 		By("Creating a OLSConfig CR")
 		cr, err = generateOLSConfig()
@@ -52,7 +52,7 @@ var _ = Describe("TLS activation", Ordered, func() {
 			cleanUp()
 		}
 
-		client, err = GetClient()
+		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR")
 		Expect(cr).NotTo(BeNil())
