@@ -147,7 +147,7 @@ endif
 ifndef LLM_TOKEN
 	$(error LLM_TOKEN  environment variable is not set)
 endif
-	go test ./test/e2e  -ginkgo.v -ginkgo.progress -test.v
+	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events
 
 .PHONY: lint
 lint: ## Run golangci-lint against code.
