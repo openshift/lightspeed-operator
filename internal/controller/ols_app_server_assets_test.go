@@ -9,8 +9,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -18,6 +20,8 @@ import (
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
+
+var testURL = "https://testURL"
 
 var _ = Describe("App server assets", func() {
 	var cr *olsv1alpha1.OLSConfig
@@ -112,12 +116,13 @@ var _ = Describe("App server assets", func() {
 				LLMProviders: []ProviderConfig{
 					{
 						Name:            "testProvider",
-						URL:             "testURL",
+						URL:             testURL,
 						CredentialsPath: "/etc/apikeys/test-secret/apitoken",
+						Type:            "bam",
 						Models: []ModelConfig{
 							{
 								Name: "testModel",
-								URL:  "testURL",
+								URL:  testURL,
 							},
 						},
 					},
@@ -148,6 +153,36 @@ var _ = Describe("App server assets", func() {
 				"pattern":      Equal("testPattern"),
 				"replace_with": Equal("testReplace"),
 			})))))
+		})
+
+		It("should generate configmap with Azure OpenAI provider", func() {
+			azureOpenAI := addAzureOpenAIProvider(cr)
+			cm, err := r.generateOLSConfigMap(azureOpenAI)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
+				"name":            Equal("openai"),
+				"type":            Equal("azure_openai"),
+				"deployment_name": Equal("testDeployment"),
+			}))))
+		})
+
+		It("should generate configmap with IBM watsonx provider", func() {
+			watsonx := addWatsonxProvider(cr)
+			cm, err := r.generateOLSConfigMap(watsonx)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
+				"name":       Equal("watsonx"),
+				"type":       Equal("watsonx"),
+				"project_id": Equal("testProjectID"),
+			}))))
 		})
 
 		It("should generate the OLS deployment", func() {
@@ -450,6 +485,50 @@ ols_config:
 			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet.Port).To(Equal(intstr.FromString("https")))
 			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet.Path).To(Equal("/readiness"))
 		})
+
+		It("should generate the OLS service monitor", func() {
+			serviceMonitor, err := r.generateServiceMonitor(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(serviceMonitor.Name).To(Equal(AppServerServiceMonitorName))
+			Expect(serviceMonitor.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(serviceMonitor.Spec.Endpoints).To(ConsistOf(
+				monv1.Endpoint{
+					Port:     "https",
+					Path:     AppServerMetricsPath,
+					Interval: "30s",
+					Scheme:   "https",
+					TLSConfig: &monv1.TLSConfig{
+						SafeTLSConfig: monv1.SafeTLSConfig{
+							InsecureSkipVerify: false,
+							ServerName:         "lightspeed-app-server.openshift-lightspeed.svc",
+						},
+						CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
+						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
+						KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
+					},
+					BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
+				},
+			))
+			Expect(serviceMonitor.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
+		})
+
+		It("should generate the SAR cluster role", func() {
+			clusterRole, err := r.generateSARClusterRole(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(clusterRole.Name).To(Equal(OLSAppServerSARRoleName))
+			Expect(clusterRole.Rules).To(ConsistOf(
+				rbacv1.PolicyRule{
+					APIGroups: []string{"authorization.k8s.io"},
+					Resources: []string{"subjectaccessreviews"},
+					Verbs:     []string{"create"},
+				},
+				rbacv1.PolicyRule{
+					APIGroups: []string{"authentication.k8s.io"},
+					Resources: []string{"tokenreviews"},
+					Verbs:     []string{"create"},
+				},
+			))
+		})
 	})
 })
 
@@ -486,14 +565,15 @@ func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 				Providers: []olsv1alpha1.ProviderSpec{
 					{
 						Name: "testProvider",
-						URL:  "testURL",
+						URL:  testURL,
 						CredentialsSecretRef: corev1.LocalObjectReference{
 							Name: "test-secret",
 						},
+						Type: "bam",
 						Models: []olsv1alpha1.ModelSpec{
 							{
 								Name: "testModel",
-								URL:  "testURL",
+								URL:  testURL,
 							},
 						},
 					},
@@ -532,5 +612,19 @@ func addQueryFiltersToCR(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 			ReplaceWith: "testReplace",
 		},
 	}
+	return cr
+}
+
+func addAzureOpenAIProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.LLMConfig.Providers[0].Name = "openai"
+	cr.Spec.LLMConfig.Providers[0].Type = "azure_openai"
+	cr.Spec.LLMConfig.Providers[0].AzureDeploymentName = "testDeployment"
+	return cr
+}
+
+func addWatsonxProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.LLMConfig.Providers[0].Name = "watsonx"
+	cr.Spec.LLMConfig.Providers[0].Type = "watsonx"
+	cr.Spec.LLMConfig.Providers[0].WatsonProjectID = "testProjectID"
 	return cr
 }

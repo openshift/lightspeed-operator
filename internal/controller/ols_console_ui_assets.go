@@ -109,7 +109,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 					Containers: []corev1.Container{
 						{
 							Name:  "lightspeed-console-plugin",
-							Image: ConsoleUIImageDefault,
+							Image: r.Options.ConsoleUIImage,
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: ConsoleUIHTTPSPort,
@@ -117,7 +117,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: corev1.PullAlways,
 							Env:             getProxyEnvVars(),
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{

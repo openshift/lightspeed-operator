@@ -1,0 +1,10 @@
+# See https://source.redhat.com/departments/it/it-information-security/wiki/pattern_distribution_server for how to use this file
+[allowlist]
+  description = "Global Allowlist"
+
+        
+  # Ignore based on any subset of the line
+  regexes = [
+    # Ignore lines containing pickles
+    '''dummy-secret-''',
+  ]

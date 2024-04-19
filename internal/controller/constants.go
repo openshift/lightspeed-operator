@@ -43,6 +43,10 @@ const (
 	OLSAppServerImageDefault = "quay.io/openshift/lightspeed-service-api:latest"
 	// Image of the OLS application postgres server
 	PostgresServerImageDefault = "quay.io/openshift/lightspeed-service-postgres:latest"
+	// AppServerServiceMonitorName is the name of the service monitor for the OLS application server
+	AppServerServiceMonitorName = "lightspeed-app-server-monitor"
+	// AppServerMetricsPath is the path of the metrics endpoint of the OLS application server
+	AppServerMetricsPath = "/metrics"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
 	// LLMProviderHashKey is the key of the hash value of OLS LLM provider credentials consolidated
@@ -150,4 +154,7 @@ const (
 	// ConsoleProxyAlias is the alias of the console proxy
 	// The console backend exposes following proxy endpoint: /api/proxy/plugin/<plugin-name>/<proxy-alias>/<request-path>?<optional-query-parameters>
 	ConsoleProxyAlias = "ols"
+
+	/*** watchers ***/
+	WatcherAnnotationKey = "ols.openshift.io/watcher"
 )

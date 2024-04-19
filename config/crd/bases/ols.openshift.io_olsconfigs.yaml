@@ -17,7 +17,8 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: OLSConfig is the Schema for the olsconfigs API
+        description: Red Hat OpenShift LightSpeed instance. OLSConfig is the Schema
+          for the olsconfigs API
         properties:
           apiVersion:
             description: |-
@@ -48,8 +49,8 @@ spec:
                       description: ProviderSpec defines the desired state of LLM provider.
                       properties:
                         credentialsSecretRef:
-                          description: Name of a Kubernetes Secret resource containing
-                            API provider credentials.
+                          description: The name of the secret object that stores API
+                            provider credentials
                           properties:
                             name:
                               description: |-
@@ -59,6 +60,9 @@ spec:
                               type: string
                           type: object
                           x-kubernetes-map-type: atomic
+                        deploymentName:
+                          description: Azure OpenAI deployment name
+                          type: string
                         models:
                           description: List of models from the provider
                           items:
@@ -69,6 +73,7 @@ spec:
                                 type: string
                               url:
                                 description: Model API URL
+                                pattern: ^https?://.*$
                                 type: string
                             required:
                             - name
@@ -77,10 +82,32 @@ spec:
                         name:
                           description: Provider name
                           type: string
+                        projectID:
+                          description: Watsonx Project ID
+                          type: string
+                        type:
+                          description: Provider type
+                          enum:
+                          - azure_openai
+                          - bam
+                          - openai
+                          - watsonx
+                          type: string
                         url:
                           description: Provider API URL
+                          pattern: ^https?://.*$
                           type: string
+                      required:
+                      - type
                       type: object
+                      x-kubernetes-validations:
+                      - message: '''deploymentName'' must be specified for ''azure_openai''
+                          provider'
+                        rule: self.type != "azure_openai" || self.deploymentName !=
+                          ""
+                      - message: '''projectID'' must be specified for ''watsonx''
+                          provider'
+                        rule: self.type != "watsonx" || self.projectID != ""
                     type: array
                 required:
                 - providers
@@ -145,10 +172,10 @@ spec:
                         description: 'Defines the number of desired OLS pods. Default:
                           "1"'
                         format: int32
+                        minimum: 0
                         type: integer
                       resources:
-                        description: ResourceRequirements describes the compute resource
-                          requirements.
+                        description: The resource requirements for OLS instance.
                         properties:
                           claims:
                             description: |-
@@ -209,8 +236,8 @@ spec:
                     type: boolean
                   logLevel:
                     default: INFO
-                    description: 'Log level. Default: "INFO". Valid options are DEBUG,
-                      INFO, WARNING, ERROR and CRITICAL.'
+                    description: 'Log level. Valid options are DEBUG, INFO, WARNING,
+                      ERROR and CRITICAL. Default: "INFO".'
                     enum:
                     - DEBUG
                     - INFO
@@ -253,9 +280,12 @@ spec:
                   yamlProvider:
                     description: YAML provider name
                     type: string
+                required:
+                - defaultModel
                 type: object
             required:
             - llm
+            - ols
             type: object
           status:
             description: OLSConfigStatus defines the observed state of OLS deployment.
@@ -335,6 +365,9 @@ spec:
         required:
         - spec
         type: object
+        x-kubernetes-validations:
+        - message: .metadata.name must be 'cluster'
+          rule: self.metadata.name == 'cluster'
     served: true
     storage: true
     subresources:

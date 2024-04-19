@@ -8,9 +8,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
@@ -41,6 +42,10 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 		{
 			Name: "reconcile App Deployment",
 			Task: r.reconcileDeployment,
+		},
+		{
+			Name: "reconcile App ServiceMonitor",
+			Task: r.reconcileServiceMonitor,
 		},
 	}
 
@@ -259,9 +264,7 @@ func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1
 			return fmt.Errorf("Secret token not found for provider: %s. error: %w", provider.Name, err)
 		}
 		providerCredentials += providerApiToken
-		if err = controllerutil.SetControllerReference(cr, foundSecret, r.Scheme); err != nil {
-			return fmt.Errorf("failed to set controller reference to secret: %s. error: %w", foundSecret.Name, err)
-		}
+		annotateSecretWatcher(foundSecret)
 		err = r.Update(ctx, foundSecret)
 		if err != nil {
 			return fmt.Errorf("%s: %s error: %w", ErrUpdateProviderSecret, foundSecret.Name, err)
@@ -277,5 +280,36 @@ func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1
 	}
 	r.stateCache[LLMProviderHashStateCacheKey] = foundProviderCredentialsHash
 	r.logger.Info("OLS llm secrets reconciled", "hash", foundProviderCredentialsHash)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileServiceMonitor(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	sm, err := r.generateServiceMonitor(cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGenerateServiceMonitor, err)
+	}
+
+	foundSm := &monv1.ServiceMonitor{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: AppServerServiceMonitorName, Namespace: r.Options.Namespace}, foundSm)
+	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("creating a new service monitor", "serviceMonitor", sm.Name)
+		err = r.Create(ctx, sm)
+		if err != nil {
+			return fmt.Errorf("%s: %w", ErrCreateServiceMonitor, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetServiceMonitor, err)
+	}
+	if serviceMonitorEqual(foundSm, sm) {
+		r.logger.Info("OLS service monitor unchanged, reconciliation skipped", "serviceMonitor", sm.Name)
+		return nil
+	}
+	foundSm.Spec = sm.Spec
+	err = r.Update(ctx, foundSm)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)
+	}
+	r.logger.Info("OLS service monitor reconciled", "serviceMonitor", sm.Name)
 	return nil
 }

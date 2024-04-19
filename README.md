@@ -181,6 +181,78 @@ If you have updated the API definitions, you must update the CRD manifests with 
 make manifests
 ```
 
+## Tests
+
+### Unit Tests
+
+To run the unit tests, we can run the following command
+
+```shell
+make test
+```
+
+When using Visual Studio Code, we can use the debugger settings below to execute the test in debug mode
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Integration test ",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/internal/controller",
+            "args": [
+                // "--ginkgo.v", # verbose output from Ginkgo test framework
+            ],
+            "env": {
+                "KUBEBUILDER_ASSETS": "${workspaceFolder}/bin/k8s/1.27.1-linux-amd64"
+            },
+        },
+    ]
+}
+```
+
+### End to End tests
+
+To run the end to end tests with a Openshift cluster, we need to have a running operator in the namespace `openshift-lightspeed`.
+Please refer to the section [Running on the cluster](#running-on-the-cluster).
+Then we should set 2 environment variables:
+
+1. $KUBECONFIG - the path to the config file of kubenetes client
+2. $LLM_TOKEN - the access token given by the LLM provider, here we use OpenAI for testing.
+
+Then we can launch the end to end test by
+
+```shell
+make  test-e2e
+```
+
+When using Visual Studio Code, we can use the debugger settings below to execute the test in debug mode
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch E2E test ",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/test/e2e",
+            "args": [
+                // "--ginkgo.v", # verbose output from Ginkgo test framework
+            ],
+            "env": {
+                "KUBECONFIG": "/path/to/kubeconfig",
+                "LLM_TOKEN": "sk-xxxxxxxx"
+            },
+        },
+    ]
+}
+```
+
 **NOTE:** Run `make --help` for more information on all potential `make` targets
 
 ## Prerequisites
