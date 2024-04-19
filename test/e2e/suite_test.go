@@ -1,7 +1,10 @@
 package e2e
 
 import (
+	"os"
+	"strconv"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +30,18 @@ var _ = BeforeSuite(func() {
 	err := olsv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	client, err := GetClient()
+	conditionTimeout := DefaultPollTimeout
+	conditionTimeoutSecondsStr := os.Getenv(ConditionTimeoutEnvVar)
+	if conditionTimeoutSecondsStr != "" {
+		conditionTimeoutSeconds, err := strconv.Atoi(conditionTimeoutSecondsStr)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(conditionTimeoutSeconds).To(BeNumerically(">", 0))
+		conditionTimeout = time.Duration(conditionTimeoutSeconds) * time.Second
+	}
+
+	client, err := GetClient(&ClientOptions{
+		conditionCheckTimeout: conditionTimeout,
+	})
 	if err != nil {
 		Fail("Failed to create client")
 	}
@@ -66,7 +80,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	client, err := GetClient()
+	client, err := GetClient(nil)
 	if err != nil {
 		Fail("Failed to create client")
 	}

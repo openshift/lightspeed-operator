@@ -19,7 +19,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 	var client *Client
 
 	BeforeAll(func() {
-		client, err = GetClient()
+		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
 		By("Creating a OLSConfig CR")
 		cr, err = generateOLSConfig()
@@ -29,7 +29,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		client, err = GetClient()
+		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR")
 		Expect(cr).NotTo(BeNil())

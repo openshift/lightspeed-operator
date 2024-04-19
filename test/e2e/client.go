@@ -26,20 +26,25 @@ const (
 	// DefaultPollInterval is the default interval for polling
 	DefaultPollInterval = 5 * time.Second
 	// DefaultPollTimeout is the default timeout for polling
-	DefaultPollTimeout = 5 * time.Minute
+	DefaultPollTimeout = 10 * time.Minute
 )
 
+type ClientOptions struct {
+	conditionCheckTimeout time.Duration
+}
+
 type Client struct {
-	kClient        client.Client
-	timeout        time.Duration
-	ctx            context.Context
-	kubeconfigPath string
+	kClient               client.Client
+	timeout               time.Duration
+	ctx                   context.Context
+	kubeconfigPath        string
+	conditionCheckTimeout time.Duration
 }
 
 var singletonClient *Client
 
-func GetClient() (*Client, error) {
-	if singletonClient != nil {
+func GetClient(options *ClientOptions) (*Client, error) {
+	if singletonClient != nil && options == nil {
 		return singletonClient, nil
 	}
 
@@ -62,10 +67,15 @@ func GetClient() (*Client, error) {
 		return nil, err
 	}
 	singletonClient = &Client{
-		kClient:        k8sClient,
-		timeout:        DefaultClientTimeout,
-		ctx:            context.Background(),
-		kubeconfigPath: kubeconfigPath,
+		kClient:               k8sClient,
+		timeout:               DefaultClientTimeout,
+		ctx:                   context.Background(),
+		kubeconfigPath:        kubeconfigPath,
+		conditionCheckTimeout: DefaultPollTimeout,
+	}
+
+	if options != nil {
+		singletonClient.conditionCheckTimeout = options.conditionCheckTimeout
 	}
 
 	return singletonClient, nil
@@ -106,7 +116,7 @@ func (c *Client) List(o client.ObjectList, opts ...client.ListOption) (err error
 
 func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
 	var lastErr error
-	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, DefaultPollTimeout, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, c.conditionCheckTimeout, true, func(ctx context.Context) (bool, error) {
 		err := c.Get(dep)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get Deployment: %w", err)
@@ -139,7 +149,7 @@ func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
 
 func (c *Client) WaitForConfigMapContainString(cm *corev1.ConfigMap, key, substr string) error {
 	var lastErr error
-	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, DefaultPollTimeout, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, c.conditionCheckTimeout, true, func(ctx context.Context) (bool, error) {
 		err := c.Get(cm)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get ConfigMap: %w", err)
@@ -165,7 +175,7 @@ func (c *Client) WaitForConfigMapContainString(cm *corev1.ConfigMap, key, substr
 
 func (c *Client) WaitForServiceCreated(service *corev1.Service) error {
 	var lastErr error
-	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, DefaultPollTimeout, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, c.conditionCheckTimeout, true, func(ctx context.Context) (bool, error) {
 		err := c.Get(service)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get Service: %w", err)
@@ -182,7 +192,7 @@ func (c *Client) WaitForServiceCreated(service *corev1.Service) error {
 
 func (c *Client) WaitForSecretCreated(secret *corev1.Secret) error {
 	var lastErr error
-	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, DefaultPollTimeout, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, c.conditionCheckTimeout, true, func(ctx context.Context) (bool, error) {
 		err := c.Get(secret)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get Secret: %w", err)
