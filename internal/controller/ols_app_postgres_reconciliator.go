@@ -47,7 +47,7 @@ func (r *OLSConfigReconciler) reconcilePostgresServer(ctx context.Context, olsco
 		}
 	}
 
-	r.logger.Info("reconcilePostgresServer completes")
+	r.logger.Info("reconcilePostgresServer completed")
 
 	return nil
 }

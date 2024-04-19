@@ -128,6 +128,7 @@ const (
 type ConversationCacheSpec struct {
 	// Conversation cache type. Default: "postgres"
 	// +kubebuilder:default=postgres
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Cache Type"
 	Type CacheType `json:"type,omitempty"`
 	// +optional
 	Postgres PostgresSpec `json:"postgres,omitempty"`

@@ -57,7 +57,6 @@ type OLSConfigReconciler struct {
 
 type OLSConfigReconcilerOptions struct {
 	LightspeedServiceImage         string
-	LightspeedServiceRedisImage    string
 	LightspeedServicePostgresImage string
 	ConsoleUIImage                 string
 	Namespace                      string

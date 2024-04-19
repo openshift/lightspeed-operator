@@ -64,9 +64,6 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 	if postgresConfig.SharedBuffers == nil || postgresConfig.SharedBuffers.String() == "" {
 		cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers = &postgresSharedBuffers
 	}
-	if postgresConfig.MaxConnections == 0 {
-		cr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections = PostgresMaxConnections
-	}
 	defaultPermission := int32(0600)
 	tlsCertsVolume := corev1.Volume{
 		Name: "secret-" + PostgresCertsSecretName,
