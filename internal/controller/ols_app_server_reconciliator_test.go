@@ -208,6 +208,13 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: AppServerServiceMonitorName, Namespace: OLSNamespaceDefault}, sm)
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		It("should create a prometheus rule", func() {
+			By("Get the prometheus rule")
+			pr := &monv1.PrometheusRule{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: AppServerPrometheusRuleName, Namespace: OLSNamespaceDefault}, pr)
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
 
 	Context("Creation logic", Ordered, func() {

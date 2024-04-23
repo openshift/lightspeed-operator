@@ -43,6 +43,8 @@ const (
 	OLSAppServerImageDefault = "quay.io/openshift/lightspeed-service-api:latest"
 	// AppServerServiceMonitorName is the name of the service monitor for the OLS application server
 	AppServerServiceMonitorName = "lightspeed-app-server-monitor"
+	// AppServerPrometheusRuleName is the name of the prometheus rules for the OLS application server
+	AppServerPrometheusRuleName = "lightspeed-app-server-prometheus-rule"
 	// AppServerMetricsPath is the path of the metrics endpoint of the OLS application server
 	AppServerMetricsPath = "/metrics"
 
