@@ -2,8 +2,6 @@
 # for given tag of the operator and operands.
 # Example , 
 # Pre-requisites: opm, podman, make
-# Dry-run Usage: ./hack/publish_build_from_tag.sh 
-# Publish Usage: ./hack/publish_build_from_tag.sh --publish
 
 #!/bin/bash
 
@@ -19,6 +17,8 @@ usage() {
     The full pull spec of the console image (default: quay.io/openshift/lightspeed-console-plugin:internal-preview)
   --operator-image:
     The full pull spec of the operator image (default: quay.io/openshift/lightspeed-operator:internal-preview)
+  --re-generate:
+    If set, the bundle and catalog artifacts will be regenerated (default: false)  
   -p, --publish:
     If set, the bundle+catalog images will be pushed to quay (default: false)
   -v, --version:
@@ -43,6 +43,8 @@ while [ "$1" != "" ]; do
         --operator-image )      shift
                                 OPERATOR_IMAGE="$1"
                                 ;;
+        -r | --re-generate )    REGENERATE="true"
+                                ;;
         -p | --publish )        PUBLISH="true"
                                 ;;
         -v | --version )        shift
@@ -59,18 +61,32 @@ backup() {
   echo "Backing up files"
   mkdir -p backup
   cp "${CSV_FILE}" backup/lightspeed-operator.clusterserviceversion.yaml.bak
-  cp "${CATALOG_FILE}" backup/operator.yaml.bak
+  cp "${CATALOG_FILE}" backup/index.yaml.bak
+  if [[ $1 == "true" ]]; then
+    cp "${KUSTOMIZATION_FILE}" backup/kustomization.yaml.bak
+    cp "${OLS_CONFIG_FILE}" backup/ols.openshift.io_olsconfigs.yaml.bak
+  fi
 }
 
 # Reverse backup files
 restore() {
   echo "Restoring files"
   cp backup/lightspeed-operator.clusterserviceversion.yaml.bak "${CSV_FILE}"
-  cp backup/operator.yaml.bak "${CATALOG_FILE}"
+  cp backup/index.yaml.bak "${CATALOG_FILE}"
+    if [[ $1 == "true" ]]; then
+        cp backup/kustomization.yaml.bak "${KUSTOMIZATION_FILE}"
+        cp backup/ols.openshift.io_olsconfigs.yaml.bak "${OLS_CONFIG_FILE}"
+    fi
   rm -rf backup
 }
 
 set -euo pipefail
+
+# check if opm version is v1.39.0 or exit
+if ! opm version | grep -q "v1.39.0"; then
+  echo "opm version v1.39.0 is required"
+  exit 1
+fi
 
 # Begin configuration
 VERSION=${VERSION:-"0.0.1"}    # Set the bundle version - currently 0.0.1
@@ -82,6 +98,7 @@ OLS_IMAGE=${OLS_IMAGE:-"quay.io/openshift/lightspeed-service-api:internal-previe
 CONSOLE_IMAGE=${CONSOLE_IMAGE:-"quay.io/openshift/lightspeed-console-plugin:internal-preview"}
 OPERATOR_IMAGE=${OPERATOR_IMAGE:-"quay.io/openshift/lightspeed-operator:internal-preview"}
 PUBLISH=${PUBLISH:-"false"}
+REGENERATE=${REGENERATE:-"false"}
 
 echo "====== inputs ======="
 echo "OLS_IMAGE=${OLS_IMAGE}"
@@ -93,6 +110,8 @@ echo "VERSION=${VERSION}"
 echo "QUAY_ORG=${QUAY_ORG}"
 echo "TARGET_TAG=${TARGET_TAG}"
 echo "PUBLISH=${PUBLISH}"
+echo "REGENERATE=${REGENERATE}"
+
 
 # End configuration
 
@@ -106,12 +125,17 @@ TARGET_BUNDLE_IMAGE="${BUNDLE_BASE}:${TARGET_TAG}"
 TARGET_CATALOG_IMAGE="${CATALOG_BASE}:${TARGET_TAG}"
 
 CSV_FILE="bundle/manifests/lightspeed-operator.clusterserviceversion.yaml"
-CATALOG_FILE="lightspeed-catalog/operator.yaml"
+CATALOG_FILE="lightspeed-catalog/index.yaml"
 CATALOG_DOCKER_FILE="lightspeed-catalog.Dockerfile"
+CATALOG_INTIAL_FILE="hack/operator.yaml"
+KUSTOMIZATION_FILE="config/manager/kustomization.yaml"
+OLS_CONFIG_FILE="bundle/manifests/ols.openshift.io_olsconfigs.yaml"
 
 echo "Backup files before running the script"
-backup
-trap restore EXIT
+
+backup "${REGENERATE}"
+trap 'restore "${REGENERATE}"' EXIT
+
 
 
 OPERANDS="lightspeed-service=${OLS_IMAGE},console-plugin=${CONSOLE_IMAGE}"
@@ -123,6 +147,11 @@ sed -i "s|image: quay.io/openshift/lightspeed-operator:latest|image: ${OPERATOR_
 
 #Replace version in CSV file
 sed -i "s|0.0.1|${VERSION}|g" "${CSV_FILE}"
+
+if [[ ${REGENERATE} == "true" ]]; then
+  rm -rf ./bundle
+  make bundle VERSION="${VERSION}" BUNDLE_IMG="${TARGET_BUNDLE_IMAGE}"
+fi
 
 make bundle-build VERSION="${VERSION}" BUNDLE_IMG="${TARGET_BUNDLE_IMAGE}"
 
@@ -138,12 +167,8 @@ fi
 
 echo "Building catalog image with  ${TARGET_BUNDLE_IMAGE}"
 
-cat << EOF > "${CATALOG_FILE}"
----
-defaultChannel: preview
-name: lightspeed-operator
-schema: olm.package
-EOF
+#Append ./hack/operator.yaml to lightspeed-catalog/index.yaml
+cat "${CATALOG_INTIAL_FILE}" > "${CATALOG_FILE}"
 
 opm render "${TARGET_BUNDLE_IMAGE}" --output=yaml >> "${CATALOG_FILE}"
 cat << EOF >> "${CATALOG_FILE}"

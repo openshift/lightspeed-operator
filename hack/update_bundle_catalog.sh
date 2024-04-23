@@ -7,12 +7,19 @@
 
 set -euo pipefail
 
+# check if opm version is v1.39.0 or exit
+if ! opm version | grep -q "v1.39.0"; then
+  echo "opm version v1.39.0 is required"
+  exit 1
+fi
+
 TAG="latest"  # Set the operator version
 BUNDLE_TAG="0.0.1"    # Set the bundle version
 
 OPERATOR_IMAGE="quay.io/openshift/lightspeed-operator:${TAG}"
 BUNDLE_IMAGE="quay.io/openshift/lightspeed-operator-bundle:v${BUNDLE_TAG}"
-CATALOG_FILE="lightspeed-catalog/operator.yaml"
+CATALOG_FILE="lightspeed-catalog/index.yaml"
+CATALOG_INTIAL_FILE="hack/operator.yaml"
 
 # Build the bundle image
 echo "Updating bundle artifcts for image ${OPERATOR_IMAGE}"
@@ -20,12 +27,8 @@ make bundle VERSION="${BUNDLE_TAG}" IMG="${OPERATOR_IMAGE}"
 
 echo "Adding bundle image to FBC using image ${BUNDLE_IMAGE}" 
 
-cat << EOF > "${CATALOG_FILE}"
----
-defaultChannel: preview
-name: lightspeed-operator
-schema: olm.package
-EOF
+#Append ./hack/operator.yaml to lightspeed-catalog/index.yaml
+cat "${CATALOG_INTIAL_FILE}" > "${CATALOG_FILE}"
 
 opm render "${BUNDLE_IMAGE}" --output=yaml >> "${CATALOG_FILE}"
 cat << EOF >> "${CATALOG_FILE}"
