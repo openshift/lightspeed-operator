@@ -17,8 +17,8 @@ usage() {
     The full pull spec of the console image (default: quay.io/openshift/lightspeed-console-plugin:internal-preview)
   --operator-image:
     The full pull spec of the operator image (default: quay.io/openshift/lightspeed-operator:internal-preview)
-  --re-generate:
-    If set, the bundle and catalog artifacts will be regenerated (default: false)  
+  --rebuild-all:
+    If set, --operator-image and --publish options are required. The bundle and catalog images are built and pushed to quay (default: false)
   -p, --publish:
     If set, the bundle+catalog images will be pushed to quay (default: false)
   -v, --version:
@@ -43,7 +43,7 @@ while [ "$1" != "" ]; do
         --operator-image )      shift
                                 OPERATOR_IMAGE="$1"
                                 ;;
-        -r | --re-generate )    REGENERATE="true"
+        -r | --rebuild-all )    REGENERATE="true"
                                 ;;
         -p | --publish )        PUBLISH="true"
                                 ;;
@@ -137,6 +137,11 @@ backup "${REGENERATE}"
 trap 'restore "${REGENERATE}"' EXIT
 
 
+if [[ ${REGENERATE} == "true" ]]; then
+  make docker-build docker-push VERSION="${VERSION}" IMG="${OPERATOR_IMAGE}"
+  rm -rf ./bundle
+  make bundle VERSION="${VERSION}" BUNDLE_IMG="${TARGET_BUNDLE_IMAGE}"
+fi
 
 OPERANDS="lightspeed-service=${OLS_IMAGE},console-plugin=${CONSOLE_IMAGE}"
 #replace the operand images in the CSV file
@@ -147,11 +152,6 @@ sed -i "s|image: quay.io/openshift/lightspeed-operator:latest|image: ${OPERATOR_
 
 #Replace version in CSV file
 sed -i "s|0.0.1|${VERSION}|g" "${CSV_FILE}"
-
-if [[ ${REGENERATE} == "true" ]]; then
-  rm -rf ./bundle
-  make bundle VERSION="${VERSION}" BUNDLE_IMG="${TARGET_BUNDLE_IMAGE}"
-fi
 
 make bundle-build VERSION="${VERSION}" BUNDLE_IMG="${TARGET_BUNDLE_IMAGE}"
 
