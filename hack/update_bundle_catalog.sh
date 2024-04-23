@@ -27,7 +27,7 @@ make bundle VERSION="${BUNDLE_TAG}" IMG="${OPERATOR_IMAGE}"
 
 echo "Adding bundle image to FBC using image ${BUNDLE_IMAGE}" 
 
-#Append ./hack/operator.yaml to lightspeed-catalog/index.yaml
+#Initialize lightspeed-catalog/index.yaml from hack/operator.yaml
 cat "${CATALOG_INTIAL_FILE}" > "${CATALOG_FILE}"
 
 opm render "${BUNDLE_IMAGE}" --output=yaml >> "${CATALOG_FILE}"

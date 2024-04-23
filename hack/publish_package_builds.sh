@@ -140,7 +140,6 @@ trap 'restore "${REGENERATE}"' EXIT
 if [[ ${REGENERATE} == "true" ]]; then
   make docker-build docker-push VERSION="${VERSION}" IMG="${OPERATOR_IMAGE}"
   rm -rf ./bundle
-  make bundle VERSION="${VERSION}" BUNDLE_IMG="${TARGET_BUNDLE_IMAGE}"
 fi
 
 OPERANDS="lightspeed-service=${OLS_IMAGE},console-plugin=${CONSOLE_IMAGE}"
@@ -167,7 +166,7 @@ fi
 
 echo "Building catalog image with  ${TARGET_BUNDLE_IMAGE}"
 
-#Append ./hack/operator.yaml to lightspeed-catalog/index.yaml
+#Initialize lightspeed-catalog/index.yaml from /hack/operator.yaml
 cat "${CATALOG_INTIAL_FILE}" > "${CATALOG_FILE}"
 
 opm render "${TARGET_BUNDLE_IMAGE}" --output=yaml >> "${CATALOG_FILE}"
