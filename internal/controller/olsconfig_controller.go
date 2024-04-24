@@ -95,6 +95,9 @@ type OLSConfigReconcilerOptions struct {
 // PrometheusRule for aggregating OLS metrics for telemetry
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
 
+// clusterversion for checking the openshift cluster version
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get
+
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
 func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

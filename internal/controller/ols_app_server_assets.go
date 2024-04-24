@@ -56,6 +56,11 @@ func (r *OLSConfigReconciler) generateSARClusterRole(cr *olsv1alpha1.OLSConfig) 
 				Resources: []string{"tokenreviews"},
 				Verbs:     []string{"create"},
 			},
+			{
+				APIGroups: []string{"config.openshift.io"},
+				Resources: []string{"clusterversions"},
+				Verbs:     []string{"get"},
+			},
 		},
 	}
 
