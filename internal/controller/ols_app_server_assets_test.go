@@ -237,6 +237,26 @@ var _ = Describe("App server assets", func() {
 					MountPath: "/app-root/ols-user-data",
 				},
 			}))
+			Expect(dep.Spec.Template.Spec.Containers[1].Image).To(Equal(rOptions.LightspeedServiceImage))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Command).To(Equal([]string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"}))
+			Expect(dep.Spec.Template.Spec.Containers[1].Env).To(Equal([]corev1.EnvVar{
+				{
+					Name:  "OLS_USER_DATA_PATH",
+					Value: "/app-root/ols-user-data",
+				},
+				{
+					Name:  "INGRESS_ENV",
+					Value: "prod",
+				},
+			}))
+			Expect(dep.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
+				{
+					Name:      "ols-user-data",
+					ReadOnly:  false,
+					MountPath: "/app-root/ols-user-data",
+				},
+			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
 				{
 					Name: "secret-test-secret",
