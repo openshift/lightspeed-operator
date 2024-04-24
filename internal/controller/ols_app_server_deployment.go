@@ -37,6 +37,20 @@ func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 	return defaultResources
 }
 
+func getOLSDataCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+	if cr.Spec.OLSConfig.DeploymentConfig.Resources != nil {
+		return cr.Spec.OLSConfig.DeploymentConfig.Resources
+	}
+	// default resources.
+	defaultResources := &corev1.ResourceRequirements{
+		Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("256Mi")},
+		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("128Mi")},
+		Claims:   []corev1.ResourceClaim{},
+	}
+
+	return defaultResources
+}
+
 func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	// mount points of API key secret
 	const OLSConfigMountPath = "/etc/ols"
@@ -133,7 +147,8 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	//volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount, getRedisCAVolumeMount(path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume)))
 	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount)
 	replicas := getOLSServerReplicas(cr)
-	resources := getOLSServerResources(cr)
+	ols_server_resources := getOLSServerResources(cr)
+	data_collector_resources := getOLSDataCollectorResources(cr)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -165,7 +180,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 								Name:  "OLS_CONFIG_FILE",
 								Value: path.Join(OLSConfigMountPath, OLSConfigFilename),
 							}),
-							Resources: *resources,
+							Resources: *ols_server_resources,
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -205,7 +220,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 								},
 							},
 							Command:   []string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"},
-							Resources: *resources,
+							Resources: *data_collector_resources,
 						},
 					},
 					Volumes:            volumes,
