@@ -208,7 +208,10 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 							Name:            "lightspeed-service-user-data-collector",
 							Image:           r.Options.LightspeedServiceImage,
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							VolumeMounts:    []corev1.VolumeMount{olsUserDataVolumeMount},
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: &[]bool{false}[0],
+							},
+							VolumeMounts: []corev1.VolumeMount{olsUserDataVolumeMount},
 							Env: []corev1.EnvVar{
 								{
 									Name:  "OLS_USER_DATA_PATH",
