@@ -168,6 +168,12 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 			ProductDocsIndexId:   "ocp-product-docs-4_15",
 			EmbeddingsModelPath:  "/app-root/embeddings_model",
 		},
+		UserDataCollection: UserDataCollectionConfig{
+			FeedbackDisabled:    false,
+			FeedbackStorage:     "/app-root/ols-user-data/feedback",
+			TranscriptsDisabled: false,
+			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
+		},
 	}
 
 	if queryFilters := getQueryFilters(cr); queryFilters != nil {

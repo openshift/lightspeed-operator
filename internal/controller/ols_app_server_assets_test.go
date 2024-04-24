@@ -116,6 +116,12 @@ var _ = Describe("App server assets", func() {
 						ProductDocsIndexId:   "ocp-product-docs-4_15",
 						ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/4.15",
 					},
+					UserDataCollection: UserDataCollectionConfig{
+						FeedbackDisabled:    false,
+						FeedbackStorage:     "/app-root/ols-user-data/feedback",
+						TranscriptsDisabled: false,
+						TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
+					},
 				},
 				LLMProviders: []ProviderConfig{
 					{
@@ -335,8 +341,22 @@ ols_config:
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
+  user_data_collection:
+    feedback_disabled: false
+    feedback_storage: /app-root/ols-user-data/feedback
+    transcripts_disabled: false
+    transcripts_storage: /app-root/ols-user-data/transcripts
 `
-			Expect(cm.Data[OLSConfigFilename]).To(Equal(expectedConfigStr))
+			// unmarshal to ensure the key order
+			var actualConfig map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &actualConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			var expectedConfig map[string]interface{}
+			err = yaml.Unmarshal([]byte(expectedConfigStr), &expectedConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(actualConfig).To(Equal(expectedConfig))
 		})
 
 		It("should generate the OLS service", func() {
