@@ -29,6 +29,12 @@ rules:
   verbs:
   - create
 - apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  verbs:
+  - get
+- apiGroups:
   - console.openshift.io
   resources:
   - consoleexternalloglinks

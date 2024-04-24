@@ -518,6 +518,11 @@ ols_config:
 					Resources: []string{"tokenreviews"},
 					Verbs:     []string{"create"},
 				},
+				rbacv1.PolicyRule{
+					APIGroups: []string{"config.openshift.io"},
+					Resources: []string{"clusterversions"},
+					Verbs:     []string{"get"},
+				},
 			))
 		})
 	})
