@@ -6,7 +6,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
@@ -41,7 +40,6 @@ func generateOLSConfig() (*olsv1alpha1.OLSConfig, error) { // nolint:unused
 		llmType = LLMDefaultType
 	}
 	replicas := int32(1)
-	sharedBuffers := intstr.Parse("256MB")
 	return &olsv1alpha1.OLSConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: OLSCRName,
@@ -67,7 +65,7 @@ func generateOLSConfig() (*olsv1alpha1.OLSConfig, error) { // nolint:unused
 				ConversationCache: olsv1alpha1.ConversationCacheSpec{
 					Type: olsv1alpha1.Postgres,
 					Postgres: olsv1alpha1.PostgresSpec{
-						SharedBuffers:  &sharedBuffers,
+						SharedBuffers:  "256MB",
 						MaxConnections: 2000,
 					},
 				},

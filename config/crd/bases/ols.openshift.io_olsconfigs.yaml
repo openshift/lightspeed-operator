@@ -140,11 +140,9 @@ spec:
                             description: 'Postgres maxconnections. Default: "2000"'
                             type: integer
                           sharedBuffers:
-                            anyOf:
-                            - type: integer
-                            - type: string
                             default: 256MB
                             description: Postgres sharedbuffers
+                            type: string
                             x-kubernetes-int-or-string: true
                           user:
                             default: postgres

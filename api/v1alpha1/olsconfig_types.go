@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -148,7 +147,7 @@ type PostgresSpec struct {
 	// Postgres sharedbuffers
 	// +kubebuilder:validation:XIntOrString
 	// +kubebuilder:default="256MB"
-	SharedBuffers *intstr.IntOrString `json:"sharedBuffers,omitempty"`
+	SharedBuffers string `json:"sharedBuffers,omitempty"`
 	// Postgres maxconnections. Default: "2000"
 	// +kubebuilder:default=2000
 	MaxConnections int `json:"maxConnections,omitempty"`

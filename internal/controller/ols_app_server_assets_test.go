@@ -72,7 +72,6 @@ var _ = Describe("App server assets", func() {
 
 		It("should generate the olsconfig config map", func() {
 			cm, err := r.generateOLSConfigMap(cr)
-			postgresSharedBuffers := intstr.FromString(PostgresSharedBuffers)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
@@ -92,15 +91,13 @@ var _ = Describe("App server assets", func() {
 					ConversationCache: ConversationCacheConfig{
 						Type: "postgres",
 						Postgres: PostgresCacheConfig{
-							Host:           strings.Join([]string{PostgresServiceName, OLSNamespaceDefault, "svc"}, "."),
-							Port:           PostgresServicePort,
-							User:           PostgresDefaultUser,
-							DbName:         PostgresDefaultDbName,
-							SharedBuffers:  &postgresSharedBuffers,
-							MaxConnections: PostgresMaxConnections,
-							PasswordPath:   path.Join(CredentialsMountRoot, PostgresSecretName, OLSComponentPasswordFileName),
-							SSLMode:        PostgresDefaultSSLMode,
-							CACertPath:     path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
+							Host:         strings.Join([]string{PostgresServiceName, OLSNamespaceDefault, "svc"}, "."),
+							Port:         PostgresServicePort,
+							User:         PostgresDefaultUser,
+							DbName:       PostgresDefaultDbName,
+							PasswordPath: path.Join(CredentialsMountRoot, PostgresSecretName, OLSComponentPasswordFileName),
+							SSLMode:      PostgresDefaultSSLMode,
+							CACertPath:   path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
 						},
 					},
 					TLSConfig: TLSConfig{
@@ -376,7 +373,6 @@ ols_config:
       host: lightspeed-postgres-server.openshift-lightspeed.svc
       password_path: /etc/credentials/lightspeed-postgres-secret/password
       port: 5432
-      shared_buffers: 256MB
       ssl_mode: require
       user: postgres
     type: postgres

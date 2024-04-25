@@ -114,19 +114,19 @@ const (
 	// PostgresBootstrapSecretName is the name of the postgres bootstrap secret
 	// #nosec G101
 	PostgresBootstrapSecretName = "lightspeed-postgres-bootstrap"
-	// PostgresBootstrapVolumeMount is the path of bootstrap volume mount
+	// PostgresBootstrapVolumeMountPath is the path of bootstrap volume mount
 	PostgresBootstrapVolumeMountPath = "/usr/share/container-scripts/postgresql/start/create-extensions.sh"
 	// PostgresExtensionScript is the name of the postgres extensions script
 	PostgresExtensionScript = "create-extensions.sh"
 	// PostgresConfigMap is the name of the postgres config map
 	PostgresConfigMap = "lightspeed-postgres-conf"
-	// PostgresConfigVolumeMount is the path of postgres configuration volume mount
-	PostgresConfigVolumeMountPath = "/usr/share/pgsql/postgresql.conf"
+	// PostgresConfigVolumeMountPath is the path of postgres configuration volume mount
+	PostgresConfigVolumeMountPath = "/usr/share/pgsql/postgresql.conf.sample"
 	// PostgresConfig is the name of postgres configuration used to start the server
-	PostgresConfig = "postgresql.conf"
+	PostgresConfig = "postgresql.conf.sample"
 	// PostgresDataVolume is the name of postgres data volume
 	PostgresDataVolume = "postgres-data"
-	// PostgresDataVolumeMount is the path of postgres data volume mount
+	// PostgresDataVolumeMountPath is the path of postgres data volume mount
 	PostgresDataVolumeMountPath = "/var/lib/pgsql/data"
 	// PostgresServicePort is the port number of the OLS postgres server service
 	PostgresServicePort = 5432

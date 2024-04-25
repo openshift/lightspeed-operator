@@ -59,10 +59,11 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 	if err != nil {
 		return nil, fmt.Errorf("Password is a must to start postgres deployment : %w", err)
 	}
-	postgresSharedBuffers := intstr.FromString(PostgresSharedBuffers)
-	postgresConfig := cr.Spec.OLSConfig.ConversationCache.Postgres
-	if postgresConfig.SharedBuffers == nil || postgresConfig.SharedBuffers.String() == "" {
-		cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers = &postgresSharedBuffers
+	if cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers == "" {
+		cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers = PostgresSharedBuffers
+	}
+	if cr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections == 0 {
+		cr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections = PostgresMaxConnections
 	}
 	defaultPermission := int32(0600)
 	tlsCertsVolume := corev1.Volume{
@@ -149,12 +150,8 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 							VolumeMounts: volumeMounts,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("500m"),
-									corev1.ResourceMemory: resource.MustParse("512Mi"),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("1000m"),
-									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("30m"),
+									corev1.ResourceMemory: resource.MustParse("300Mi"),
 								},
 							},
 							Env: []corev1.EnvVar{
@@ -176,7 +173,7 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 								},
 								{
 									Name:  "POSTGRESQL_SHARED_BUFFERS",
-									Value: cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers.StrVal,
+									Value: cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers,
 								},
 								{
 									Name:  "POSTGRESQL_MAX_CONNECTIONS",
@@ -304,7 +301,7 @@ func (r *OLSConfigReconciler) generatePostgresSecret(cr *olsv1alpha1.OLSConfig) 
 	return &secret, nil
 }
 
-func (r *OLSConfigReconciler) generatePgBootstrapSecret(cr *olsv1alpha1.OLSConfig) (*corev1.Secret, error) {
+func (r *OLSConfigReconciler) generatePostgresBootstrapSecret(cr *olsv1alpha1.OLSConfig) (*corev1.Secret, error) {
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      PostgresBootstrapSecretName,
@@ -323,7 +320,7 @@ func (r *OLSConfigReconciler) generatePgBootstrapSecret(cr *olsv1alpha1.OLSConfi
 	return &secret, nil
 }
 
-func (r *OLSConfigReconciler) generatePgConfigMap(cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+func (r *OLSConfigReconciler) generatePostgresConfigMap(cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      PostgresConfigMap,

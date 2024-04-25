@@ -30,7 +30,7 @@ var _ = Describe("App postgres server assets", func() {
 		Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
 		Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(rOptions.LightspeedServicePostgresImage))
 		Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-postgres-server"))
-		Expect(dep.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+		Expect(dep.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
 		Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
 			{
 				ContainerPort: PostgresServicePort,
@@ -40,12 +40,8 @@ var _ = Describe("App postgres server assets", func() {
 		}))
 		Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("500m"),
-				corev1.ResourceMemory: resource.MustParse("512Mi"),
-			},
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("1000m"),
-				corev1.ResourceMemory: resource.MustParse("1Gi"),
+				corev1.ResourceCPU:    resource.MustParse("30m"),
+				corev1.ResourceMemory: resource.MustParse("300Mi"),
 			},
 		}))
 		Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
@@ -309,7 +305,7 @@ var _ = Describe("App postgres server assets", func() {
 		})
 
 		It("should generate the OLS postgres configmap", func() {
-			configMap, err := r.generatePgConfigMap(cr)
+			configMap, err := r.generatePostgresConfigMap(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap.Name).To(Equal(PostgresConfigMap))
 			validatePostgresConfigMap(configMap)
@@ -323,7 +319,7 @@ var _ = Describe("App postgres server assets", func() {
 		})
 
 		It("should generate the OLS postgres bootstrap secret", func() {
-			secret, err := r.generatePgBootstrapSecret(cr)
+			secret, err := r.generatePostgresBootstrapSecret(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Name).To(Equal(PostgresBootstrapSecretName))
 			validatePostgresBootstrapSecret(secret)
@@ -348,10 +344,9 @@ var _ = Describe("App postgres server assets", func() {
 
 		It("should generate the OLS postgres deployment", func() {
 			cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-4"
-			OLSPostgresSharedBuffers := intstr.FromString(PostgresSharedBuffers)
 			cr.Spec.OLSConfig.ConversationCache.Postgres.User = PostgresDefaultUser
 			cr.Spec.OLSConfig.ConversationCache.Postgres.DbName = PostgresDefaultDbName
-			cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers = &OLSPostgresSharedBuffers
+			cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers = PostgresSharedBuffers
 			cr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections = PostgresMaxConnections
 			secret, _ := r.generatePostgresSecret(cr)
 			secret.SetOwnerReferences([]metav1.OwnerReference{
@@ -377,14 +372,14 @@ var _ = Describe("App postgres server assets", func() {
 		})
 
 		It("should generate the OLS postgres configmap", func() {
-			configMap, err := r.generatePgConfigMap(cr)
+			configMap, err := r.generatePostgresConfigMap(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap.Name).To(Equal(PostgresConfigMap))
 			validatePostgresConfigMap(configMap)
 		})
 
 		It("should generate the OLS postgres bootstrap secret", func() {
-			secret, err := r.generatePgBootstrapSecret(cr)
+			secret, err := r.generatePostgresBootstrapSecret(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Name).To(Equal(PostgresBootstrapSecretName))
 			validatePostgresBootstrapSecret(secret)
@@ -402,7 +397,6 @@ var _ = Describe("App postgres server assets", func() {
 })
 
 func getOLSConfigWithCacheCR() *olsv1alpha1.OLSConfig {
-	OLSPostgresSharedBuffers := intstr.FromString(PostgresSharedBuffers)
 	return &olsv1alpha1.OLSConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cluster",
@@ -415,7 +409,7 @@ func getOLSConfigWithCacheCR() *olsv1alpha1.OLSConfig {
 					Postgres: olsv1alpha1.PostgresSpec{
 						User:              PostgresDefaultUser,
 						DbName:            PostgresDefaultDbName,
-						SharedBuffers:     &OLSPostgresSharedBuffers,
+						SharedBuffers:     PostgresSharedBuffers,
 						MaxConnections:    PostgresMaxConnections,
 						CredentialsSecret: PostgresSecretName,
 					},

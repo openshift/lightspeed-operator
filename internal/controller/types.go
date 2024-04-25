@@ -3,8 +3,6 @@ package controller
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
@@ -104,10 +102,6 @@ type PostgresCacheConfig struct {
 	User string `json:"user,omitempty" default:"postgres"`
 	// Postgres dbname
 	DbName string `json:"dbname,omitempty" default:"postgres"`
-	// Postgres sharedbuffers
-	SharedBuffers *intstr.IntOrString `json:"shared_buffers,omitempty" default:"256MB"`
-	// Postgres maxmemory policy
-	MaxConnections int `json:"max_connections,omitempty" default:"2000"`
 	// Path to the file containing postgres credentials in the app server container
 	PasswordPath string `json:"password_path,omitempty"`
 	// SSLMode is the preferred ssl mode to connect with postgres

@@ -19,11 +19,11 @@ func (r *OLSConfigReconciler) reconcilePostgresServer(ctx context.Context, olsco
 	tasks := []ReconcileTask{
 		{
 			Name: "reconcile Postgres ConfigMap",
-			Task: r.reconcilePgConfigMap,
+			Task: r.reconcilePostgresConfigMap,
 		},
 		{
 			Name: "reconcile Postgres Bootstrap Secret",
-			Task: r.reconcilePgBootstrapSecret,
+			Task: r.reconcilePostgresBootstrapSecret,
 		},
 		{
 			Name: "reconcile Postgres Secret",
@@ -109,8 +109,8 @@ func (r *OLSConfigReconciler) reconcilePostgresService(ctx context.Context, cr *
 	return nil
 }
 
-func (r *OLSConfigReconciler) reconcilePgConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	configMap, err := r.generatePgConfigMap(cr)
+func (r *OLSConfigReconciler) reconcilePostgresConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	configMap, err := r.generatePostgresConfigMap(cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrGeneratePostgresConfigMap, err)
 	}
@@ -129,8 +129,8 @@ func (r *OLSConfigReconciler) reconcilePgConfigMap(ctx context.Context, cr *olsv
 	return nil
 }
 
-func (r *OLSConfigReconciler) reconcilePgBootstrapSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	secret, err := r.generatePgBootstrapSecret(cr)
+func (r *OLSConfigReconciler) reconcilePostgresBootstrapSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	secret, err := r.generatePostgresBootstrapSecret(cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrGeneratePostgresBootstrapSecret, err)
 	}
@@ -157,18 +157,11 @@ func (r *OLSConfigReconciler) reconcilePostgresSecret(ctx context.Context, cr *o
 	foundSecret := &corev1.Secret{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: secret.Name, Namespace: r.Options.Namespace}, foundSecret)
 	if err != nil && errors.IsNotFound(err) {
-		labelSelector := labels.Set{"app.kubernetes.io/name": "lightspeed-service-postgres"}.AsSelector()
-		oldSecrets := &corev1.SecretList{}
-		err = r.Client.List(ctx, oldSecrets, &client.ListOptions{Namespace: r.Options.Namespace, LabelSelector: labelSelector})
+		err = r.deleteOldPostgresSecrets(ctx)
 		if err != nil {
-			return fmt.Errorf("%s: %w", ErrListOldPostgresSecrets, err)
+			return err
 		}
-		for _, oldSecret := range oldSecrets.Items {
-			oldSecretCopy := oldSecret // Create a local copy of the loop variable to fix G601
-			if err := r.Client.Delete(ctx, &oldSecretCopy); err != nil {
-				return fmt.Errorf("%s: %w", ErrDeleteOldPostgresSecrets, err)
-			}
-		}
+		r.logger.Info("creating a new Postgres secret", "secret", secret.Name)
 		err = r.Create(ctx, secret)
 		if err != nil {
 			return fmt.Errorf("%s: %w", ErrCreatePostgresSecret, err)
@@ -194,5 +187,27 @@ func (r *OLSConfigReconciler) reconcilePostgresSecret(ctx context.Context, cr *o
 		return fmt.Errorf("%s: %w", ErrUpdatePostgresSecret, err)
 	}
 	r.logger.Info("OLS postgres reconciled", "secret", secret.Name, "hash", secret.Annotations[PostgresSecretHashKey])
+	return nil
+}
+
+func (r *OLSConfigReconciler) deleteOldPostgresSecrets(ctx context.Context) error {
+	labelSelector := labels.Set{"app.kubernetes.io/name": "lightspeed-service-postgres"}.AsSelector()
+	matchingLabels := client.MatchingLabelsSelector{Selector: labelSelector}
+	oldSecrets := &corev1.SecretList{}
+	err := r.Client.List(ctx, oldSecrets, &client.ListOptions{Namespace: r.Options.Namespace, LabelSelector: labelSelector})
+	if err != nil {
+		return fmt.Errorf("failed to list old Postgres secrets: %w", err)
+	}
+	r.logger.Info("deleting old Postgres secrets", "count", len(oldSecrets.Items))
+
+	deleteOptions := &client.DeleteAllOfOptions{
+		ListOptions: client.ListOptions{
+			Namespace:     r.Options.Namespace,
+			LabelSelector: matchingLabels,
+		},
+	}
+	if err := r.Client.DeleteAllOf(ctx, &corev1.Secret{}, deleteOptions); err != nil {
+		return fmt.Errorf("failed to delete old Postgres secrets: %w", err)
+	}
 	return nil
 }

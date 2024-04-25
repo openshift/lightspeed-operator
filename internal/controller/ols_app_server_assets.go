@@ -122,16 +122,8 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
 
-	postgresSharedBuffers := intstr.FromString(PostgresSharedBuffers)
-	postgresMaxConnections := PostgresMaxConnections
 	postgresSecretName := PostgresSecretName
 	postgresConfig := cr.Spec.OLSConfig.ConversationCache.Postgres
-	if postgresConfig.SharedBuffers != nil && postgresConfig.SharedBuffers.String() != "" {
-		postgresSharedBuffers = *cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers
-	}
-	if postgresConfig.MaxConnections != (-1) {
-		postgresMaxConnections = cr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections
-	}
 	if postgresConfig.CredentialsSecret != "" {
 		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
 	}
@@ -139,15 +131,13 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 	conversationCache := ConversationCacheConfig{
 		Type: string(OLSDefaultCacheType),
 		Postgres: PostgresCacheConfig{
-			Host:           strings.Join([]string{PostgresServiceName, r.Options.Namespace, "svc"}, "."),
-			Port:           PostgresServicePort,
-			User:           PostgresDefaultUser,
-			DbName:         PostgresDefaultDbName,
-			SharedBuffers:  &postgresSharedBuffers,
-			MaxConnections: postgresMaxConnections,
-			PasswordPath:   postgresPasswordPath,
-			SSLMode:        PostgresDefaultSSLMode,
-			CACertPath:     path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
+			Host:         strings.Join([]string{PostgresServiceName, r.Options.Namespace, "svc"}, "."),
+			Port:         PostgresServicePort,
+			User:         PostgresDefaultUser,
+			DbName:       PostgresDefaultDbName,
+			PasswordPath: postgresPasswordPath,
+			SSLMode:      PostgresDefaultSSLMode,
+			CACertPath:   path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
 		},
 	}
 
