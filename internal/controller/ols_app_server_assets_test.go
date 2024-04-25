@@ -524,9 +524,10 @@ ols_config:
 					Verbs:     []string{"get"},
 				},
 				rbacv1.PolicyRule{
-					APIGroups: []string{""},
-					Resources: []string{"secrets"},
-					Verbs:     []string{"get"},
+					APIGroups:     []string{""},
+					Resources:     []string{"secrets"},
+					ResourceNames: []string{"pull-secret"},
+					Verbs:         []string{"get"},
 				},
 			))
 		})

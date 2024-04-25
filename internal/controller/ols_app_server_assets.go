@@ -62,9 +62,10 @@ func (r *OLSConfigReconciler) generateSARClusterRole(cr *olsv1alpha1.OLSConfig) 
 				Verbs:     []string{"get"},
 			},
 			{
-				APIGroups: []string{""},
-				Resources: []string{"secrets"},
-				Verbs:     []string{"get"},
+				APIGroups:     []string{""},
+				Resources:     []string{"secrets"},
+				ResourceNames: []string{"pull-secret"},
+				Verbs:         []string{"get"},
 			},
 		},
 	}
