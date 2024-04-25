@@ -61,6 +61,11 @@ func (r *OLSConfigReconciler) generateSARClusterRole(cr *olsv1alpha1.OLSConfig) 
 				Resources: []string{"clusterversions"},
 				Verbs:     []string{"get"},
 			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"secrets"},
+				Verbs:     []string{"get"},
+			},
 		},
 	}
 
