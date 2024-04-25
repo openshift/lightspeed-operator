@@ -523,6 +523,12 @@ ols_config:
 					Resources: []string{"clusterversions"},
 					Verbs:     []string{"get"},
 				},
+				rbacv1.PolicyRule{
+					APIGroups:     []string{""},
+					Resources:     []string{"secrets"},
+					ResourceNames: []string{"pull-secret"},
+					Verbs:         []string{"get"},
+				},
 			))
 		})
 	})
