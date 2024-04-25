@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-25T02:29:46Z"
+    createdAt: "2024-04-25T11:45:13Z"
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
@@ -436,7 +436,7 @@ spec:
                     memory: 256Mi
                   requests:
                     cpu: 10m
-                    memory: 128Mi
+                    memory: 64Mi
                 securityContext:
                   allowPrivilegeEscalation: false
                   capabilities:
