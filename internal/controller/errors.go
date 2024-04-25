@@ -17,6 +17,7 @@ const (
 	ErrCreatePostgresService           = "failed to create OLS Postgres service"
 	ErrCreatePostgresDeployment        = "failed to create OLS Postgres deployment"
 	ErrCreateServiceMonitor            = "failed to create ServiceMonitor"
+	ErrCreatePrometheusRule            = "failed to create PrometheusRule"
 	ErrDeleteConsolePlugin             = "failed to delete Console Plugin"
 	ErrGenerateAPIConfigmap            = "failed to generate OLS configmap"
 	ErrGenerateAPIDeployment           = "failed to generate OLS deployment"
@@ -37,6 +38,7 @@ const (
 	ErrGeneratePostgresSecretHash      = "failed to generate hash for the existing OLS postgres secret"
 	ErrGeneratePostgresDeployment      = "failed to generate OLS Postgres deployment"
 	ErrGenerateServiceMonitor          = "failed to generate ServiceMonitor"
+	ErrGeneratePrometheusRule          = "failed to generate PrometheusRule"
 	ErrGetAPIConfigmap                 = "failed to get OLS configmap"
 	ErrGetAPIDeployment                = "failed to get OLS deployment"
 	ErrGetAPIService                   = "failed to get OLS service"
@@ -71,4 +73,6 @@ const (
 	ErrListOldPostgresSecrets        = "failed to list old OLS Postgres secrets"
 	ErrDeleteOldPostgresSecrets      = "failed to delete old OLS Postgres secret"
 	ErrUpdateServiceMonitor          = "failed to update ServiceMonitor"
+	ErrGetPrometheusRule             = "failed to get PrometheusRule"
+	ErrUpdatePrometheusRule          = "failed to update PrometheusRule"
 )

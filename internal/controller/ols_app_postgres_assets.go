@@ -104,18 +104,18 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 	}
 	bootstrapVolumeMount := corev1.VolumeMount{
 		Name:      "secret-" + PostgresBootstrapSecretName,
-		MountPath: PostgresBootstrapVolumeMount,
+		MountPath: PostgresBootstrapVolumeMountPath,
 		SubPath:   PostgresExtensionScript,
 		ReadOnly:  true,
 	}
 	configVolumeMount := corev1.VolumeMount{
 		Name:      PostgresConfigMap,
-		MountPath: PostgresConfigVolumeMount,
+		MountPath: PostgresConfigVolumeMountPath,
 		SubPath:   PostgresConfig,
 	}
 	dataVolumeMount := corev1.VolumeMount{
 		Name:      PostgresDataVolume,
-		MountPath: PostgresDataVolumeMount,
+		MountPath: PostgresDataVolumeMountPath,
 	}
 	volumeMounts := []corev1.VolumeMount{postgresTLSVolumeMount, bootstrapVolumeMount, configVolumeMount, dataVolumeMount, getPostgresCAVolumeMount(path.Join(OLSAppCertsMountRoot, PostgresCAVolume))}
 	deployment := appsv1.Deployment{
@@ -138,7 +138,7 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 						{
 							Name:            PostgresDeploymentName,
 							Image:           r.Options.LightspeedServicePostgresImage,
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: corev1.PullAlways,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "server",

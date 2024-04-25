@@ -47,6 +47,10 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Name: "reconcile App ServiceMonitor",
 			Task: r.reconcileServiceMonitor,
 		},
+		{
+			Name: "reconcile App PrometheusRule",
+			Task: r.reconcilePrometheusRule,
+		},
 	}
 
 	for _, task := range tasks {
@@ -311,5 +315,36 @@ func (r *OLSConfigReconciler) reconcileServiceMonitor(ctx context.Context, cr *o
 		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)
 	}
 	r.logger.Info("OLS service monitor reconciled", "serviceMonitor", sm.Name)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcilePrometheusRule(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	rule, err := r.generatePrometheusRule(cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGeneratePrometheusRule, err)
+	}
+
+	foundRule := &monv1.PrometheusRule{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: AppServerPrometheusRuleName, Namespace: r.Options.Namespace}, foundRule)
+	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("creating a new prometheus rule", "prometheusRule", rule.Name)
+		err = r.Create(ctx, rule)
+		if err != nil {
+			return fmt.Errorf("%s: %w", ErrCreatePrometheusRule, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetPrometheusRule, err)
+	}
+	if prometheusRuleEqual(foundRule, rule) {
+		r.logger.Info("OLS prometheus rule unchanged, reconciliation skipped", "prometheusRule", rule.Name)
+		return nil
+	}
+	foundRule.Spec = rule.Spec
+	err = r.Update(ctx, foundRule)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)
+	}
+	r.logger.Info("OLS prometheus rule reconciled", "prometheusRule", rule.Name)
 	return nil
 }

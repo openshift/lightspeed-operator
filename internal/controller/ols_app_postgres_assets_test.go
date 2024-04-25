@@ -85,18 +85,18 @@ var _ = Describe("App postgres server assets", func() {
 			},
 			{
 				Name:      "secret-" + PostgresBootstrapSecretName,
-				MountPath: PostgresBootstrapVolumeMount,
+				MountPath: PostgresBootstrapVolumeMountPath,
 				SubPath:   PostgresExtensionScript,
 				ReadOnly:  true,
 			},
 			{
 				Name:      PostgresConfigMap,
-				MountPath: PostgresConfigVolumeMount,
+				MountPath: PostgresConfigVolumeMountPath,
 				SubPath:   PostgresConfig,
 			},
 			{
 				Name:      PostgresDataVolume,
-				MountPath: PostgresDataVolumeMount,
+				MountPath: PostgresDataVolumeMountPath,
 			},
 			{
 				Name:      PostgresCAVolume,

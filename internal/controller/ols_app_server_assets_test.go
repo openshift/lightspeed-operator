@@ -112,6 +112,12 @@ var _ = Describe("App server assets", func() {
 						ProductDocsIndexId:   "ocp-product-docs-4_15",
 						ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/4.15",
 					},
+					UserDataCollection: UserDataCollectionConfig{
+						FeedbackDisabled:    false,
+						FeedbackStorage:     "/app-root/ols-user-data/feedback",
+						TranscriptsDisabled: false,
+						TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
+					},
 				},
 				LLMProviders: []ProviderConfig{
 					{
@@ -235,6 +241,26 @@ var _ = Describe("App server assets", func() {
 					Name:      "cm-olspostgresca",
 					ReadOnly:  true,
 					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
+				},
+			}))
+			Expect(dep.Spec.Template.Spec.Containers[1].Image).To(Equal(rOptions.LightspeedServiceImage))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Command).To(Equal([]string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"}))
+			Expect(dep.Spec.Template.Spec.Containers[1].Env).To(Equal([]corev1.EnvVar{
+				{
+					Name:  "OLS_USER_DATA_PATH",
+					Value: "/app-root/ols-user-data",
+				},
+				{
+					Name:  "INGRESS_ENV",
+					Value: "prod",
+				},
+			}))
+			Expect(dep.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
+				{
+					Name:      "ols-user-data",
+					ReadOnly:  false,
+					MountPath: "/app-root/ols-user-data",
 				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
@@ -365,8 +391,22 @@ ols_config:
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
+  user_data_collection:
+    feedback_disabled: false
+    feedback_storage: /app-root/ols-user-data/feedback
+    transcripts_disabled: false
+    transcripts_storage: /app-root/ols-user-data/transcripts
 `
-			Expect(cm.Data[OLSConfigFilename]).To(Equal(expectedConfigStr))
+			// unmarshal to ensure the key order
+			var actualConfig map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &actualConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			var expectedConfig map[string]interface{}
+			err = yaml.Unmarshal([]byte(expectedConfigStr), &expectedConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(actualConfig).To(Equal(expectedConfig))
 		})
 
 		It("should generate the OLS service", func() {
@@ -512,6 +552,14 @@ ols_config:
 			Expect(serviceMonitor.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
 		})
 
+		It("should generate the OLS prometheus rules", func() {
+			prometheusRule, err := r.generatePrometheusRule(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(prometheusRule.Name).To(Equal(AppServerPrometheusRuleName))
+			Expect(prometheusRule.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(len(prometheusRule.Spec.Groups[0].Rules)).To(Equal(4))
+		})
+
 		It("should generate the SAR cluster role", func() {
 			clusterRole, err := r.generateSARClusterRole(cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -526,6 +574,11 @@ ols_config:
 					APIGroups: []string{"authentication.k8s.io"},
 					Resources: []string{"tokenreviews"},
 					Verbs:     []string{"create"},
+				},
+				rbacv1.PolicyRule{
+					APIGroups: []string{"config.openshift.io"},
+					Resources: []string{"clusterversions"},
+					Verbs:     []string{"get"},
 				},
 			))
 		})

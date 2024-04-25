@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-18T16:59:07Z"
+    createdAt: "2024-04-24T20:47:05Z"
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
@@ -228,6 +228,12 @@ spec:
           verbs:
           - create
         - apiGroups:
+          - config.openshift.io
+          resources:
+          - clusterversions
+          verbs:
+          - get
+        - apiGroups:
           - console.openshift.io
           resources:
           - consoleexternalloglinks
@@ -279,6 +285,18 @@ spec:
           - ""
           resources:
           - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - prometheusrules
           verbs:
           - create
           - delete

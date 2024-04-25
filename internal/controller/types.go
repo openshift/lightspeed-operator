@@ -70,6 +70,8 @@ type OLSConfig struct {
 	QueryFilters []QueryFilters `json:"query_filters,omitempty"`
 	// Reference content for RAG
 	ReferenceContent ReferenceContent `json:"reference_content,omitempty"`
+	// User data collection configuration
+	UserDataCollection UserDataCollectionConfig `json:"user_data_collection,omitempty"`
 }
 
 type LoggingConfig struct {
@@ -140,4 +142,11 @@ type ReferenceContent struct {
 	ProductDocsIndexId string `json:"product_docs_index_id,omitempty"`
 	// Path to the file containing the product docs embeddings model in the app server container.
 	EmbeddingsModelPath string `json:"embeddings_model_path,omitempty"`
+}
+
+type UserDataCollectionConfig struct {
+	FeedbackDisabled    bool   `json:"feedback_disabled" default:"false"`
+	FeedbackStorage     string `json:"feedback_storage,omitempty"`
+	TranscriptsDisabled bool   `json:"transcripts_disabled" default:"false"`
+	TranscriptsStorage  string `json:"transcripts_storage,omitempty"`
 }

@@ -37,6 +37,8 @@ const (
 	OLSAppServerImageDefault = "quay.io/openshift/lightspeed-service-api:latest"
 	// AppServerServiceMonitorName is the name of the service monitor for the OLS application server
 	AppServerServiceMonitorName = "lightspeed-app-server-monitor"
+	// AppServerPrometheusRuleName is the name of the prometheus rules for the OLS application server
+	AppServerPrometheusRuleName = "lightspeed-app-server-prometheus-rule"
 	// AppServerMetricsPath is the path of the metrics endpoint of the OLS application server
 	AppServerMetricsPath = "/metrics"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
@@ -112,20 +114,20 @@ const (
 	// PostgresBootstrapSecretName is the name of the postgres bootstrap secret
 	// #nosec G101
 	PostgresBootstrapSecretName = "lightspeed-postgres-bootstrap"
-	// PostgresBootstrapVolumeMount is the name of bootstrap volume mount
-	PostgresBootstrapVolumeMount = "/usr/share/container-scripts/postgresql/start/create-extensions.sh"
+	// PostgresBootstrapVolumeMount is the path of bootstrap volume mount
+	PostgresBootstrapVolumeMountPath = "/usr/share/container-scripts/postgresql/start/create-extensions.sh"
 	// PostgresExtensionScript is the name of the postgres extensions script
 	PostgresExtensionScript = "create-extensions.sh"
 	// PostgresConfigMap is the name of the postgres config map
 	PostgresConfigMap = "lightspeed-postgres-conf"
-	// PostgresConfigVolumeMount is the name of postgres configuration volume mount
-	PostgresConfigVolumeMount = "/usr/share/pgsql/postgresql.conf"
+	// PostgresConfigVolumeMount is the path of postgres configuration volume mount
+	PostgresConfigVolumeMountPath = "/usr/share/pgsql/postgresql.conf"
 	// PostgresConfig is the name of postgres configuration used to start the server
 	PostgresConfig = "postgresql.conf"
 	// PostgresDataVolume is the name of postgres data volume
 	PostgresDataVolume = "postgres-data"
-	// PostgresDataVolumeMount is the name of postgres data volume mount
-	PostgresDataVolumeMount = "/var/lib/pgsql/data"
+	// PostgresDataVolumeMount is the path of postgres data volume mount
+	PostgresDataVolumeMountPath = "/var/lib/pgsql/data"
 	// PostgresServicePort is the port number of the OLS postgres server service
 	PostgresServicePort = 5432
 	// PostgresSharedBuffers is the share buffers value for postgres cache
