@@ -26,6 +26,16 @@ usage() {
 
 "
 }
+
+# Returns the SHA of the image tag passed as $1
+get_image_sha() {
+  # Make sure we have the latest version of the image locally because inspect operators on the local images
+  ${CONTAINER_TOOL} pull $1
+  SHARED_SHA=$(${CONTAINER_TOOL} inspect ${1} | jq -r .[0].RepoDigests[-1])
+}
+CONTAINER_TOOL="$(shell which podman >/dev/null 2>&1 && echo podman || echo docker)"
+
+
 while [ "$1" != "" ]; do
     case $1 in
         -o | --org )            shift
@@ -142,12 +152,21 @@ if [[ ${REGENERATE} == "true" ]]; then
   rm -rf ./bundle
 fi
 
-OPERANDS="lightspeed-service=${OLS_IMAGE},console-plugin=${CONSOLE_IMAGE}"
+get_image_sha $OLS_IMAGE
+OLS_IMAGE_SHA=$SHARED_SHA
+
+get_image_sha $CONSOLE_IMAGE
+CONSOLE_IMAGE_SHA=$SHARED_SHA
+
+get_image_sha $OPERATOR_IMAGE
+OPERATOR_IMAGE_SHA=$SHARED_SHA
+
+OPERANDS="lightspeed-service=${OLS_IMAGE_SHA},console-plugin=${CONSOLE_IMAGE_SHA}"
 #replace the operand images in the CSV file
 sed -i "s|--images=.*|--images=${OPERANDS}|g" "${CSV_FILE}"
 
 #Replace operator in CSV file
-sed -i "s|image: quay.io/openshift/lightspeed-operator:latest|image: ${OPERATOR_IMAGE}|g" "${CSV_FILE}"
+sed -i "s|image: quay.io/openshift/lightspeed-operator:latest|image: ${OPERATOR_IMAGE_SHA}|g" "${CSV_FILE}"
 
 #Replace version in CSV file
 sed -i "s|0.0.1|${VERSION}|g" "${CSV_FILE}"
@@ -163,13 +182,23 @@ else
   echo "Pushed image ${TARGET_BUNDLE_IMAGE} pushed successfully"
 fi
 
+# Get the bundle image sha.  Requires podman as docker doesn't use the same args/formatting
 
-echo "Building catalog image with  ${TARGET_BUNDLE_IMAGE}"
+#CONTAINER_TOOL="$(shell which podman >/dev/null 2>&1 && echo podman || echo docker)"
+#TARGET_BUNDLE_SHA=$(${CONTAINER_TOOL} inspect ${TARGET_BUNDLE_IMAGE} | jq -r .[0].RepoDigests[-1])
+get_image_sha $TARGET_BUNDLE_IMAGE
+TARGET_BUNDLE_IMAGE_SHA=$SHARED_SHA
+if [ -z $TARGET_BUNDLE_IMAGE_SHA ]; then
+  echo "Error getting bundle sha for bundle image ${TARGET_BUNDLE_IMAGE}"
+  exit 1
+fi
+
+echo "Building catalog image with  ${TARGET_BUNDLE_IMAGE_SHA}"
 
 #Initialize lightspeed-catalog/index.yaml from /hack/operator.yaml
 cat "${CATALOG_INTIAL_FILE}" > "${CATALOG_FILE}"
 
-opm render "${TARGET_BUNDLE_IMAGE}" --output=yaml >> "${CATALOG_FILE}"
+opm render "${TARGET_BUNDLE_IMAGE_SHA}" --output=yaml >> "${CATALOG_FILE}"
 cat << EOF >> "${CATALOG_FILE}"
 ---
 schema: olm.channel
@@ -187,4 +216,14 @@ if [[ ${PUBLISH} == "false" ]] ; then
 fi
 echo "Pushing catalog image ${TARGET_CATALOG_IMAGE}"
 podman push "${TARGET_CATALOG_IMAGE}"
+
+echo
+echo
 echo "Catalog image ${TARGET_CATALOG_IMAGE} pushed successfully"
+
+echo "Catalog image: ${TARGET_CATALOG_IMAGE}"
+echo "Bundle image: ${TARGET_BUNDLE_IMAGE} / ${TARGET_BUNDLE_IMAGE_SHA}"
+echo "Operator image: ${OPERATOR_IMAGE} / ${OPERATOR_IMAGE_SHA}"
+echo "OLS image: ${OLS_IMAGE} / ${OLS_IMAGE_SHA}"
+echo "Console image: ${CONSOLE_IMAGE} / ${CONSOLE_IMAGE_SHA}"
+echo "Ensure all image SHAs have an associated tag other than \"latest\" so they are not GCed by quay!"
