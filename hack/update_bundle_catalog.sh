@@ -20,11 +20,24 @@ OPERATOR_IMAGE="quay.io/openshift/lightspeed-operator:${TAG}"
 BUNDLE_IMAGE="quay.io/openshift/lightspeed-operator-bundle:v${BUNDLE_TAG}"
 CATALOG_FILE="lightspeed-catalog/index.yaml"
 CATALOG_INTIAL_FILE="hack/operator.yaml"
+CSV_FILE="bundle/manifests/lightspeed-operator.clusterserviceversion.yaml"
 
 # Build the bundle image
 echo "Updating bundle artifcts for image ${OPERATOR_IMAGE}"
+rm -rf ./bundle
 make bundle VERSION="${BUNDLE_TAG}" IMG="${OPERATOR_IMAGE}"
-
+# Add related images to the CSV file
+cat << EOF >> "${CSV_FILE}"
+  relatedImages:
+    - name: lightspeed-service-api
+      image: quay.io/openshift/lightspeed-service-api:latest
+    - name: lightspeed-console-plugin
+      image: quay.io/openshift/lightspeed-console-plugin:latest
+    - name: lightspeed-operator
+      image: quay.io/openshift/lightspeed-operator:latest
+    - name: ose-kube-rbac-proxy
+      image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
+EOF
 echo "Adding bundle image to FBC using image ${BUNDLE_IMAGE}" 
 
 #Initialize lightspeed-catalog/index.yaml from hack/operator.yaml

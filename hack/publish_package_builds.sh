@@ -17,8 +17,8 @@ usage() {
     The full pull spec of the console image (default: quay.io/openshift/lightspeed-console-plugin:internal-preview)
   --operator-image:
     The full pull spec of the operator image (default: quay.io/openshift/lightspeed-operator:internal-preview)
-  --rebuild-all:
-    If set, --operator-image and --publish options are required. The bundle and catalog images are built and pushed to quay (default: false)
+  --build-operator:
+    If set, an operator build is built from source (default: false)
   -p, --publish:
     If set, the bundle+catalog images will be pushed to quay (default: false)
   -v, --version:
@@ -53,7 +53,7 @@ while [ "$1" != "" ]; do
         --operator-image )      shift
                                 OPERATOR_IMAGE="$1"
                                 ;;
-        -r | --rebuild-all )    REGENERATE="true"
+        -b | --build-operator ) REBUILD="true"
                                 ;;
         -p | --publish )        PUBLISH="true"
                                 ;;
@@ -72,10 +72,6 @@ backup() {
   mkdir -p backup
   cp "${CSV_FILE}" backup/lightspeed-operator.clusterserviceversion.yaml.bak
   cp "${CATALOG_FILE}" backup/index.yaml.bak
-  if [[ $1 == "true" ]]; then
-    cp "${KUSTOMIZATION_FILE}" backup/kustomization.yaml.bak
-    cp "${OLS_CONFIG_FILE}" backup/ols.openshift.io_olsconfigs.yaml.bak
-  fi
 }
 
 # Reverse backup files
@@ -83,10 +79,6 @@ restore() {
   echo "Restoring files"
   cp backup/lightspeed-operator.clusterserviceversion.yaml.bak "${CSV_FILE}"
   cp backup/index.yaml.bak "${CATALOG_FILE}"
-    if [[ $1 == "true" ]]; then
-        cp backup/kustomization.yaml.bak "${KUSTOMIZATION_FILE}"
-        cp backup/ols.openshift.io_olsconfigs.yaml.bak "${OLS_CONFIG_FILE}"
-    fi
   rm -rf backup
 }
 
@@ -107,20 +99,21 @@ TARGET_TAG=${TARGET_TAG:-"internal-preview"}  # Set the target tag for the bundl
 OLS_IMAGE=${OLS_IMAGE:-"quay.io/openshift/lightspeed-service-api:internal-preview"}
 CONSOLE_IMAGE=${CONSOLE_IMAGE:-"quay.io/openshift/lightspeed-console-plugin:internal-preview"}
 OPERATOR_IMAGE=${OPERATOR_IMAGE:-"quay.io/openshift/lightspeed-operator:internal-preview"}
+RBAC_PROXY_IMAGE=${RBAC_PROXY_IMAGE:-"registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest"}
 PUBLISH=${PUBLISH:-"false"}
-REGENERATE=${REGENERATE:-"false"}
+REBUILD=${REBUILD:-"false"}
 
 echo "====== inputs ======="
 echo "OLS_IMAGE=${OLS_IMAGE}"
-echo "CONSOLE_IMAGE=${OLS_IMAGE}"
-echo "OPERATOR_IMAGE=${OLS_IMAGE}"
+echo "CONSOLE_IMAGE=${CONSOLE_IMAGE}"
+echo "OPERATOR_IMAGE=${OPERATOR_IMAGE}"
 echo ""
 echo "====== outputs ======="
 echo "VERSION=${VERSION}"
 echo "QUAY_ORG=${QUAY_ORG}"
 echo "TARGET_TAG=${TARGET_TAG}"
 echo "PUBLISH=${PUBLISH}"
-echo "REGENERATE=${REGENERATE}"
+echo "REBUILD=${REBUILD}"
 
 
 # End configuration
@@ -143,13 +136,15 @@ OLS_CONFIG_FILE="bundle/manifests/ols.openshift.io_olsconfigs.yaml"
 
 echo "Backup files before running the script"
 
-backup "${REGENERATE}"
-trap 'restore "${REGENERATE}"' EXIT
+backup
+trap restore EXIT
 
 
-if [[ ${REGENERATE} == "true" ]]; then
-  make docker-build docker-push VERSION="${VERSION}" IMG="${OPERATOR_IMAGE}"
-  rm -rf ./bundle
+if [[ ${REBUILD} == "true" ]]; then
+  make docker-build VERSION="${VERSION}" IMG="${OPERATOR_IMAGE}"
+  if [[ ${PUBLISH} == "true" ]] ; then
+  make docker-push VERSION="${VERSION}" IMG="${OPERATOR_IMAGE}"
+  fi
 fi
 
 get_image_sha $OLS_IMAGE
@@ -161,12 +156,25 @@ CONSOLE_IMAGE_SHA=$SHARED_SHA
 get_image_sha $OPERATOR_IMAGE
 OPERATOR_IMAGE_SHA=$SHARED_SHA
 
+get_image_sha $RBAC_PROXY_IMAGE
+RBAC_PROXY_IMAGE_SHA=$SHARED_SHA
+
+
 OPERANDS="lightspeed-service=${OLS_IMAGE_SHA},console-plugin=${CONSOLE_IMAGE_SHA}"
 #replace the operand images in the CSV file
 sed -i "s|--images=.*|--images=${OPERANDS}|g" "${CSV_FILE}"
 
 #Replace operator in CSV file
 sed -i "s|image: quay.io/openshift/lightspeed-operator:latest|image: ${OPERATOR_IMAGE_SHA}|g" "${CSV_FILE}"
+
+#Replace kune-rbac-proxy in CSV file
+sed -i "s|image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest|image: ${RBAC_PROXY_IMAGE_SHA}|g" "${CSV_FILE}"
+
+#Replace related images in CSV file
+sed -i "s|quay.io/openshift/lightspeed-service-api:latest|${OLS_IMAGE_SHA}|g" "${CSV_FILE}"
+sed -i "s|quay.io/openshift/lightspeed-console-plugin:latest|${CONSOLE_IMAGE_SHA}|g" "${CSV_FILE}"
+sed -i "s|quay.io/openshift/lightspeed-operator:latest|${OPERATOR_IMAGE_SHA}|g" "${CSV_FILE}"
+sed -i "s|registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest|${RBAC_PROXY_IMAGE_SHA}|g" "${CSV_FILE}"
 
 #Replace version in CSV file
 sed -i "s|0.0.1|${VERSION}|g" "${CSV_FILE}"

@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-25T11:45:13Z"
+    createdAt: "2024-04-28T22:18:32Z"
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
@@ -537,3 +537,12 @@ spec:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
   version: 0.0.1
+  relatedImages:
+    - name: lightspeed-service-api
+      image: quay.io/openshift/lightspeed-service-api:latest
+    - name: lightspeed-console-plugin
+      image: quay.io/openshift/lightspeed-console-plugin:latest
+    - name: lightspeed-operator
+      image: quay.io/openshift/lightspeed-operator:latest
+    - name: ose-kube-rbac-proxy
+      image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
