@@ -19,8 +19,10 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
+	consolev1 "github.com/openshift/api/console/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -49,10 +51,11 @@ const (
 // OLSConfigReconciler reconciles a OLSConfig object
 type OLSConfigReconciler struct {
 	client.Client
-	Scheme     *runtime.Scheme
-	logger     logr.Logger
-	stateCache map[string]string
-	Options    OLSConfigReconcilerOptions
+	Scheme            *runtime.Scheme
+	logger            logr.Logger
+	stateCache        map[string]string
+	Options           OLSConfigReconcilerOptions
+	NextReconcileTime time.Time
 }
 
 type OLSConfigReconcilerOptions struct {
@@ -60,6 +63,7 @@ type OLSConfigReconcilerOptions struct {
 	LightspeedServiceRedisImage string
 	ConsoleUIImage              string
 	Namespace                   string
+	ReconcileInterval           time.Duration
 }
 
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -121,7 +125,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		// Error reading the object - requeue the request.
 		r.logger.Error(err, "Failed to get olsconfig")
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	r.logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
 	// TODO: Update DB
@@ -134,7 +138,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile console UI")
 		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", nil)
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	// Update status condition for Console Plugin
 	r.updateStatusCondition(ctx, olsconfig, typeConsolePluginReady, true, "All components are successfully deployed", nil)
@@ -142,14 +146,14 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	err = r.reconcileLLMSecrets(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile LLM Provider Secrets")
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 
 	err = r.reconcileAppServer(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile application server")
 		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", nil)
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	// Update status condition for API server
 	r.updateStatusCondition(ctx, olsconfig, typeApiReady, true, "All components are successfully deployed", nil)
@@ -159,7 +163,13 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Update status condition for Custom Resource
 	r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, true, "Custom resource successfully reconciled", nil)
 
-	return ctrl.Result{}, nil
+	// Requeue if no reconciliation is scheduled in future.
+	if r.NextReconcileTime.After(time.Now()) {
+		return ctrl.Result{}, nil
+	}
+	r.NextReconcileTime = time.Now().Add(r.Options.ReconcileInterval)
+	r.logger.Info("Next automatic reconciliation scheduled at", "nextReconcileTime", r.NextReconcileTime)
+	return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
 }
 
 // updateStatusCondition updates the status condition of the OLSConfig Custom Resource instance.
@@ -196,6 +206,7 @@ func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconf
 func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.logger = ctrl.Log.WithName("Reconciler")
 	r.stateCache = make(map[string]string)
+	r.NextReconcileTime = time.Now()
 
 	generationChanged := builder.WithPredicates(predicate.GenerationChangedPredicate{})
 	return ctrl.NewControllerManagedBy(mgr).
@@ -208,6 +219,7 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(secretWatcherFilter)).
+		Owns(&consolev1.ConsolePlugin{}).
 		Owns(&monv1.ServiceMonitor{}).
 		Owns(&monv1.PrometheusRule{}).
 		Complete(r)
