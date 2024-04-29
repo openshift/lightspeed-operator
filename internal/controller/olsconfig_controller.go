@@ -168,6 +168,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 	r.NextReconcileTime = time.Now().Add(r.Options.ReconcileInterval)
+	r.logger.Info("Next automatic reconciliation scheduled at", "nextReconcileTime", r.NextReconcileTime)
 	return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
 }
 

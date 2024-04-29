@@ -5,7 +5,7 @@ const (
 	// OLSConfigName is the name of the OLSConfig Custom Resource
 	OLSConfigName = "cluster"
 	// DefaultReconcileInterval is the default interval for reconciliation
-	DefaultReconcileInterval = 300
+	DefaultReconcileInterval = 120
 
 	/*** application server configuration file ***/
 	// OLSConfigName is the name of the OLSConfig configmap

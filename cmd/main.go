@@ -102,7 +102,7 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
-	var reconcilerIntervalSeconds uint
+	var reconcilerIntervalMinutes uint
 	images := k8sflag.NewMapStringString(ptr.To(make(map[string]string)))
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -110,7 +110,7 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Var(images, "images", fmt.Sprintf("Full images refs to use for containers managed by the operator. E.g lightspeed-service=quay.io/openshift/lightspeed-service-api:latest. Images used are %v", listImages()))
-	flag.UintVar(&reconcilerIntervalSeconds, "reconcile-interval", controller.DefaultReconcileInterval, "The interval in seconds to reconcile the OLSConfig CR")
+	flag.UintVar(&reconcilerIntervalMinutes, "reconcile-interval", controller.DefaultReconcileInterval, "The interval in minutes to reconcile the OLSConfig CR")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -160,7 +160,7 @@ func main() {
 			// TODO: Update DB
 			//LightspeedServiceRedisImage: imagesMap["lightspeed-service-redis"],
 			Namespace:         controller.OLSNamespaceDefault,
-			ReconcileInterval: time.Duration(reconcilerIntervalSeconds) * time.Second,
+			ReconcileInterval: time.Duration(reconcilerIntervalMinutes) * time.Minute,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")
