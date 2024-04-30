@@ -38,7 +38,13 @@ type ProviderConfig struct {
 	// default to "bam_api_key.txt"
 	CredentialsPath string `json:"credentials_path" default:"bam_api_key.txt"`
 	// List of models from the provider
-	Models []ModelConfig `json:"models,omitempty" `
+	Models []ModelConfig `json:"models,omitempty"`
+	// Provider type
+	Type string `json:"type,omitempty"`
+	// Azure deployment name
+	AzureDeploymentName string `json:"deployment_name,omitempty"`
+	// Watsonx Project ID
+	WatsonProjectID string `json:"project_id,omitempty"`
 }
 
 // ModelSpec defines the desired state of in-memory cache.
@@ -64,6 +70,8 @@ type OLSConfig struct {
 	QueryFilters []QueryFilters `json:"query_filters,omitempty"`
 	// Reference content for RAG
 	ReferenceContent ReferenceContent `json:"reference_content,omitempty"`
+	// User data collection configuration
+	UserDataCollection UserDataCollectionConfig `json:"user_data_collection,omitempty"`
 }
 
 type LoggingConfig struct {
@@ -131,4 +139,11 @@ type ReferenceContent struct {
 	ProductDocsIndexId string `json:"product_docs_index_id,omitempty"`
 	// Path to the file containing the product docs embeddings model in the app server container.
 	EmbeddingsModelPath string `json:"embeddings_model_path,omitempty"`
+}
+
+type UserDataCollectionConfig struct {
+	FeedbackDisabled    bool   `json:"feedback_disabled" default:"false"`
+	FeedbackStorage     string `json:"feedback_storage,omitempty"`
+	TranscriptsDisabled bool   `json:"transcripts_disabled" default:"false"`
+	TranscriptsStorage  string `json:"transcripts_storage,omitempty"`
 }

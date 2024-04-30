@@ -1,4 +1,0 @@
----
-defaultChannel: preview
-name: lightspeed-operator
-schema: olm.package

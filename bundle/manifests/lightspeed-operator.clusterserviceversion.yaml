@@ -15,7 +15,7 @@ metadata:
               "app.kubernetes.io/name": "olsconfig",
               "app.kubernetes.io/part-of": "lightspeed-operator"
             },
-            "name": "olsconfig-sample"
+            "name": "cluster"
           },
           "spec": {
             "llm": {
@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-05T08:25:31Z"
+    createdAt: "2024-04-28T22:18:32Z"
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
@@ -49,10 +49,146 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: OLSConfig is the Schema for the olsconfigs API
+    - description: Red Hat OpenShift LightSpeed instance. OLSConfig is the Schema
+        for the olsconfigs API
       displayName: OLSConfig
       kind: OLSConfig
       name: olsconfigs.ols.openshift.io
+      specDescriptors:
+      - description: Provider name
+        displayName: Name
+        path: llm.providers[0].name
+      - description: OLS deployment settings
+        displayName: Deployment
+        path: ols.deployment
+      - description: Provider API URL
+        displayName: URL
+        path: llm.providers[0].url
+      - description: Conversation cache settings
+        displayName: Conversation Cache
+        path: ols.conversationCache
+      - description: The name of the secret object that stores API provider credentials
+        displayName: Credential Secret
+        path: llm.providers[0].credentialsSecretRef
+      - displayName: LLM Settings
+        path: llm
+      - displayName: Providers
+        path: llm.providers
+      - description: Azure OpenAI deployment name
+        displayName: Azure OpenAI deployment name
+        path: llm.providers[0].deploymentName
+      - description: List of models from the provider
+        displayName: Models
+        path: llm.providers[0].models
+      - description: Model name
+        displayName: Name
+        path: llm.providers[0].models[0].name
+      - description: Model API URL
+        displayName: URL
+        path: llm.providers[0].models[0].url
+      - description: Watsonx Project ID
+        displayName: Watsonx Project ID
+        path: llm.providers[0].projectID
+      - description: Provider type
+        displayName: Provider Type
+        path: llm.providers[0].type
+      - displayName: OLS Settings
+        path: ols
+      - description: Classifier model name
+        displayName: Classifier Model
+        path: ols.classifierModel
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Classifier provider name
+        displayName: Classifier Provider
+        path: ols.classifierProvider
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - displayName: Redis
+        path: ols.conversationCache.redis
+      - description: Secret that holds redis credentials
+        displayName: Credentials secret
+        path: ols.conversationCache.redis.credentialsSecret
+      - description: Redis maxmemory
+        displayName: Max Memory
+        path: ols.conversationCache.redis.maxMemory
+      - description: 'Redis maxmemory policy. Default: "allkeys-lru"'
+        displayName: Max Memory Policy
+        path: ols.conversationCache.redis.maxMemoryPolicy
+      - description: 'Conversation cache type. Default: "redis"'
+        displayName: Cache Type
+        path: ols.conversationCache.type
+      - description: Default model for usage
+        displayName: Default Model
+        path: ols.defaultModel
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Default provider for usage
+        displayName: Default Provider
+        path: ols.defaultProvider
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'Defines the number of desired OLS pods. Default: "1"'
+        displayName: Number of replicas
+        path: ols.deployment.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: The resource requirements for OLS instance.
+        displayName: Resource Requirements
+        path: ols.deployment.resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: 'Disable Authorization for OLS server. Default: "false"'
+        displayName: Disable Authorization
+        path: ols.disableAuth
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and
+          CRITICAL. Default: "INFO".'
+        displayName: Log level
+        path: ols.logLevel
+      - description: Query filters
+        displayName: Query Filters
+        path: ols.queryFilters
+      - description: Filter name.
+        displayName: Filter Name
+        path: ols.queryFilters[0].name
+      - description: Filter pattern.
+        displayName: The pattern to replace
+        path: ols.queryFilters[0].pattern
+      - description: Replacement for the matched pattern.
+        displayName: Replace With
+        path: ols.queryFilters[0].replaceWith
+      - description: Summarizer model name
+        displayName: Summarizer Model
+        path: ols.summarizerModel
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Summarizer provider name
+        displayName: Summarizer Provider
+        path: ols.summarizerProvider
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Validator model name
+        displayName: Validator Model
+        path: ols.validatorModel
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Validator provider name
+        displayName: Validator Provider
+        path: ols.validatorProvider
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: YAML model name
+        displayName: YAML Model
+        path: ols.yamlModel
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: YAML provider name
+        displayName: YAML Provider
+        path: ols.yamlProvider
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       statusDescriptors:
       - displayName: Conditions
         path: conditions
@@ -79,6 +215,24 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - clusterversions
+          verbs:
+          - get
         - apiGroups:
           - console.openshift.io
           resources:
@@ -131,6 +285,30 @@ spec:
           - ""
           resources:
           - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - prometheusrules
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
           verbs:
           - create
           - delete
@@ -238,6 +416,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 image: quay.io/openshift/lightspeed-operator:latest
+                imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -254,7 +433,7 @@ spec:
                 resources:
                   limits:
                     cpu: 500m
-                    memory: 128Mi
+                    memory: 256Mi
                   requests:
                     cpu: 10m
                     memory: 64Mi
@@ -267,8 +446,10 @@ spec:
                 - --secure-listen-address=0.0.0.0:8443
                 - --upstream=http://127.0.0.1:8080/
                 - --logtostderr=true
+                - --tls-cert-file=/etc/tls/private/tls.crt
+                - --tls-private-key-file=/etc/tls/private/tls.key
                 - --v=0
-                image: gcr.io/kubebuilder/kube-rbac-proxy:v0.14.1
+                image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
                 name: kube-rbac-proxy
                 ports:
                 - containerPort: 8443
@@ -286,10 +467,18 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                volumeMounts:
+                - mountPath: /etc/tls/private
+                  name: controller-manager-tls
+                  readOnly: true
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: lightspeed-operator-controller-manager
               terminationGracePeriodSeconds: 10
+              volumes:
+              - name: controller-manager-tls
+                secret:
+                  secretName: controller-manager-tls
       permissions:
       - rules:
         - apiGroups:
@@ -343,7 +532,17 @@ spec:
   - name: Lightspeed Operator
     url: https://github.com/openshift/lightspeed-operator
   maturity: alpha
+  minKubeVersion: 1.28.0
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
   version: 0.0.1
+  relatedImages:
+    - name: lightspeed-service-api
+      image: quay.io/openshift/lightspeed-service-api:latest
+    - name: lightspeed-console-plugin
+      image: quay.io/openshift/lightspeed-console-plugin:latest
+    - name: lightspeed-operator
+      image: quay.io/openshift/lightspeed-operator:latest
+    - name: ose-kube-rbac-proxy
+      image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest

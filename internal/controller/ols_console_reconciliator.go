@@ -11,7 +11,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -310,9 +309,7 @@ func (r *OLSConfigReconciler) reconcileConsoleTLSSecret(ctx context.Context, cr 
 	if err != nil {
 		return fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", ConsoleUIServiceCertSecretName, err)
 	}
-	if err = controllerutil.SetControllerReference(cr, foundSecret, r.Scheme); err != nil {
-		return fmt.Errorf("failed to set controller reference to secret: %s. error: %w", foundSecret.Name, err)
-	}
+	annotateSecretWatcher(foundSecret)
 	err = r.Update(ctx, foundSecret)
 	if err != nil {
 		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)

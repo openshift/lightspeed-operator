@@ -10,6 +10,7 @@ VERSION ?= latest
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
 # - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
 # - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
+CHANNELS=preview
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
@@ -19,6 +20,7 @@ endif
 # To re-generate a bundle for any other default channel without changing the default setup, you can:
 # - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
 # - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
+DEFAULT_CHANNEL = "preview"
 ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
@@ -112,17 +114,19 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: manifests generate fmt vet envtest test-crds ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
+test: manifests generate fmt vet envtest test-crds ## Run local tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./internal/... -coverprofile cover.out
 
 OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/operator/v1/zz_generated.crd-manifests/0000_50_console_01_consoles.crd.yaml
 OS_CONSOLE_PLUGIN_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/console/v1/zz_generated.crd-manifests/90_consoleplugins.crd.yaml
+MONITORING_CRD_URL = https://raw.githubusercontent.com/openshift/prometheus-operator/master/bundle.yaml
 TEST_CRD_DIR = .testcrds
 OS_CONSOLE_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-crd.yaml
 OS_CONSOLE_PLUGIN_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-plugin-crd.yaml
+MONITORING_CRD_FILE = $(TEST_CRD_DIR)/monitoring-crd.yaml
 
 .PHONY: test-crds
-test-crds: $(TEST_CRD_DIR) $(OS_CONSOLE_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_FILE)  ## Test Dependencies CRDs
+test-crds: $(TEST_CRD_DIR) $(OS_CONSOLE_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_FILE) $(MONITORING_CRD_FILE) ## Test Dependencies CRDs
 
 $(TEST_CRD_DIR):
 	mkdir -p $(TEST_CRD_DIR)
@@ -133,6 +137,19 @@ $(OS_CONSOLE_CRD_FILE): $(TEST_CRD_DIR)
 $(OS_CONSOLE_PLUGIN_CRD_FILE): $(TEST_CRD_DIR)
 	wget -O $(OS_CONSOLE_PLUGIN_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_URL)
 
+$(MONITORING_CRD_FILE): $(TEST_CRD_DIR)
+	wget -O $(MONITORING_CRD_FILE) $(MONITORING_CRD_URL)
+
+
+.PHONY: test-e2e
+test-e2e: ## Run e2e tests with an Openshift cluster. Requires KUBECONFIG and LLM_TOKEN environment variables.
+ifndef KUBECONFIG
+	$(error KUBECONFIG environment variable is not set)
+endif
+ifndef LLM_TOKEN
+	$(error LLM_TOKEN  environment variable is not set)
+endif
+	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events
 
 .PHONY: lint
 lint: ## Run golangci-lint against code.
@@ -160,7 +177,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+	$(CONTAINER_TOOL) build --platform linux/amd64 -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -284,7 +301,7 @@ ifeq (,$(shell which opm 2>/dev/null))
 	set -e ;\
 	mkdir -p $(dir $(OPM)) ;\
 	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v1.23.0/$${OS}-$${ARCH}-opm ;\
+	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v1.39.0/$${OS}-$${ARCH}-opm ;\
 	chmod +x $(OPM) ;\
 	}
 else
@@ -315,3 +332,8 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+# Update bundle and catalog artifacts.
+update-bundle-catalog:
+	hack/update_bundle_catalog.sh
+

@@ -26,6 +26,7 @@ import (
 
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,6 +88,9 @@ var _ = BeforeSuite(func() {
 	err = openshiftv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = monv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
 	//+kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
@@ -108,6 +112,7 @@ var _ = BeforeSuite(func() {
 		Options: OLSConfigReconcilerOptions{
 			LightspeedServiceImage:      "lightspeed-service-api:latest",
 			LightspeedServiceRedisImage: "lightspeed-service-redis:latest",
+			ConsoleUIImage:              ConsoleUIImageDefault,
 			Namespace:                   OLSNamespaceDefault,
 		},
 		logger:     logf.Log.WithName("olsconfig.reconciler"),

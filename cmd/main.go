@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -37,6 +38,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 
@@ -60,6 +64,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(consolev1.AddToScheme(scheme))
 	utilruntime.Must(openshiftv1.AddToScheme(scheme))
+	utilruntime.Must(monv1.AddToScheme(scheme))
 
 	utilruntime.Must(olsv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
@@ -97,6 +102,7 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var reconcilerIntervalMinutes uint
 	images := k8sflag.NewMapStringString(ptr.To(make(map[string]string)))
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -104,6 +110,7 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Var(images, "images", fmt.Sprintf("Full images refs to use for containers managed by the operator. E.g lightspeed-service=quay.io/openshift/lightspeed-service-api:latest. Images used are %v", listImages()))
+	flag.UintVar(&reconcilerIntervalMinutes, "reconcile-interval", controller.DefaultReconcileInterval, "The interval in minutes to reconcile the OLSConfig CR")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -120,9 +127,10 @@ func main() {
 	setupLog.Info("Images setting loaded", "images", listImages())
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: metricsAddr,
+		},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "0ca034e3.openshift.io",
@@ -148,9 +156,11 @@ func main() {
 		Scheme: mgr.GetScheme(),
 		Options: controller.OLSConfigReconcilerOptions{
 			LightspeedServiceImage: imagesMap["lightspeed-service"],
+			ConsoleUIImage:         imagesMap["console-plugin"],
 			// TODO: Update DB
 			//LightspeedServiceRedisImage: imagesMap["lightspeed-service-redis"],
-			Namespace: controller.OLSNamespaceDefault,
+			Namespace:         controller.OLSNamespaceDefault,
+			ReconcileInterval: time.Duration(reconcilerIntervalMinutes) * time.Minute,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")

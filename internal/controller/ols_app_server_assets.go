@@ -3,7 +3,9 @@ package controller
 import (
 	"fmt"
 	"path"
+	"strings"
 
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +50,22 @@ func (r *OLSConfigReconciler) generateSARClusterRole(cr *olsv1alpha1.OLSConfig) 
 				APIGroups: []string{"authorization.k8s.io"},
 				Resources: []string{"subjectaccessreviews"},
 				Verbs:     []string{"create"},
+			},
+			{
+				APIGroups: []string{"authentication.k8s.io"},
+				Resources: []string{"tokenreviews"},
+				Verbs:     []string{"create"},
+			},
+			{
+				APIGroups: []string{"config.openshift.io"},
+				Resources: []string{"clusterversions"},
+				Verbs:     []string{"get"},
+			},
+			{
+				APIGroups:     []string{""},
+				Resources:     []string{"secrets"},
+				ResourceNames: []string{"pull-secret"},
+				Verbs:         []string{"get"},
 			},
 		},
 	}
@@ -99,10 +117,13 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		}
 
 		providerConfig := ProviderConfig{
-			Name:            provider.Name,
-			URL:             provider.URL,
-			CredentialsPath: credentialPath,
-			Models:          modelConfigs,
+			Name:                provider.Name,
+			Type:                provider.Type,
+			URL:                 provider.URL,
+			CredentialsPath:     credentialPath,
+			Models:              modelConfigs,
+			AzureDeploymentName: provider.AzureDeploymentName,
+			WatsonProjectID:     provider.WatsonProjectID,
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
@@ -157,6 +178,12 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/4.15",
 			ProductDocsIndexId:   "ocp-product-docs-4_15",
 			EmbeddingsModelPath:  "/app-root/embeddings_model",
+		},
+		UserDataCollection: UserDataCollectionConfig{
+			FeedbackDisabled:    false,
+			FeedbackStorage:     "/app-root/ols-user-data/feedback",
+			TranscriptsDisabled: false,
+			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 		},
 	}
 
@@ -245,6 +272,96 @@ func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev
 	return &service, nil
 }
 
+func (r *OLSConfigReconciler) generateServiceMonitor(cr *olsv1alpha1.OLSConfig) (*monv1.ServiceMonitor, error) {
+	metaLabels := generateAppServerSelectorLabels()
+	metaLabels["monitoring.openshift.io/collection-profile"] = "full"
+	metaLabels["app.kubernetes.io/component"] = "metrics"
+
+	serviceMonitor := monv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      AppServerServiceMonitorName,
+			Namespace: r.Options.Namespace,
+			Labels:    metaLabels,
+		},
+		Spec: monv1.ServiceMonitorSpec{
+			Endpoints: []monv1.Endpoint{
+				{
+					Port:     "https",
+					Path:     AppServerMetricsPath,
+					Interval: "30s",
+					Scheme:   "https",
+					TLSConfig: &monv1.TLSConfig{
+						CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
+						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
+						KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
+						SafeTLSConfig: monv1.SafeTLSConfig{
+							InsecureSkipVerify: false,
+							ServerName:         strings.Join([]string{OLSAppServerServiceName, r.Options.Namespace, "svc"}, "."),
+						},
+					},
+					BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
+				},
+			},
+			JobLabel: "app.kubernetes.io/name",
+			Selector: metav1.LabelSelector{
+				MatchLabels: generateAppServerSelectorLabels(),
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &serviceMonitor, r.Scheme); err != nil {
+		return nil, err
+	}
+
+	return &serviceMonitor, nil
+}
+
+func (r *OLSConfigReconciler) generatePrometheusRule(cr *olsv1alpha1.OLSConfig) (*monv1.PrometheusRule, error) {
+	metaLabels := generateAppServerSelectorLabels()
+	metaLabels["app.kubernetes.io/component"] = "metrics"
+
+	rule := monv1.PrometheusRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      AppServerPrometheusRuleName,
+			Namespace: r.Options.Namespace,
+			Labels:    metaLabels,
+		},
+		Spec: monv1.PrometheusRuleSpec{
+			Groups: []monv1.RuleGroup{
+				{
+					Name: "ols.operations.rules",
+					Rules: []monv1.Rule{
+						{
+							Record: "ols:rest_api_query_calls_total:2xx",
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"2..\"})"),
+							Labels: map[string]string{"status_code": "2xx"},
+						},
+						{
+							Record: "ols:rest_api_query_calls_total:4xx",
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"4..\"})"),
+							Labels: map[string]string{"status_code": "4xx"},
+						},
+						{
+							Record: "ols:rest_api_query_calls_total:5xx",
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"5..\"})"),
+							Labels: map[string]string{"status_code": "5xx"},
+						},
+						{
+							Record: "ols:provider_model_configuration",
+							Expr:   intstr.FromString("max by (provider,model) (ols_provider_model_configuration)"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &rule, r.Scheme); err != nil {
+		return nil, err
+	}
+
+	return &rule, nil
+}
 func getQueryFilters(cr *olsv1alpha1.OLSConfig) []QueryFilters {
 	if cr.Spec.OLSConfig.QueryFilters == nil {
 		return nil
