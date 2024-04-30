@@ -21,7 +21,7 @@ var _ = Describe("Automatic correction against modifications on managed resource
 
 	BeforeAll(func() {
 		var err error
-		client, err = GetClient()
+		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
 		By("Creating a OLSConfig CR")
 		cr, err = generateOLSConfig()
@@ -32,7 +32,7 @@ var _ = Describe("Automatic correction against modifications on managed resource
 
 	AfterAll(func() {
 		var err error
-		client, err = GetClient()
+		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR")
 		Expect(cr).NotTo(BeNil())
