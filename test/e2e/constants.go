@@ -41,6 +41,8 @@ const (
 	ConsolePluginServiceName = "lightspeed-console-plugin"
 	// ConsoleUIPluginName is the name of the OLS console plugin
 	ConsoleUIPluginName = "lightspeed-console-plugin"
+	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
+	ConsoleUIConfigMapName = "lightspeed-console-plugin"
 
 	// OLSConsolePluginServiceHTTPSPort is the port number of the OLS console plugin service
 	OLSConsolePluginServiceHTTPSPort = 9443

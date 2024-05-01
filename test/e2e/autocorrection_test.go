@@ -46,7 +46,7 @@ var _ = Describe("Automatic correction against modifications on managed resource
 		By("wait for all resources created")
 		deployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      ConsolePluginServiceName,
+				Name:      ConsolePluginDeploymentName,
 				Namespace: OLSNameSpace,
 			},
 		}
@@ -65,6 +65,15 @@ var _ = Describe("Automatic correction against modifications on managed resource
 			},
 		}
 		err = client.WaitForObjectCreated(consoleplugin)
+		Expect(err).NotTo(HaveOccurred())
+
+		configmap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      ConsoleUIConfigMapName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.WaitForObjectCreated(configmap)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("restoring console plugin deployment")
@@ -89,7 +98,7 @@ var _ = Describe("Automatic correction against modifications on managed resource
 			return true, nil
 		})
 		if err != nil {
-			Fail(fmt.Sprintf("failed to restore console plugin service: %v LastErr: %v", err, lastErr))
+			Fail(fmt.Sprintf("failed to restore console plugin deployment: %v LastErr: %v", err, lastErr))
 		}
 
 		By("restoring console plugin service")
@@ -143,6 +152,29 @@ var _ = Describe("Automatic correction against modifications on managed resource
 			Fail(fmt.Sprintf("failed to restore console plugin CR: %v LastErr: %v", err, lastErr))
 		}
 
+		By("restoring console configmap")
+		err = client.Get(configmap)
+		Expect(err).NotTo(HaveOccurred())
+		originConfigMap := configmap.DeepCopy()
+		configmap.Data["nginx.conf"] = "new-config"
+		err = client.Update(configmap)
+		Expect(err).NotTo(HaveOccurred())
+		err = wait.PollUntilContextTimeout(client.ctx, DefaultPollInterval, DefaultPollTimeout, true, func(ctx context.Context) (bool, error) {
+			err := client.Get(configmap)
+			if err != nil {
+				lastErr = fmt.Errorf("failed to get ConfigMap: %w", err)
+				return false, nil
+			}
+			if !apiequality.Semantic.DeepEqual(configmap.Data, originConfigMap.Data) {
+				lastErr = fmt.Errorf("the actual configmap (%v) does not match the original (%v)",
+					configmap.Data, originConfigMap.Data)
+				return false, nil
+			}
+			return true, nil
+		})
+		if err != nil {
+			Fail(fmt.Sprintf("failed to restore console configmap: %v LastErr: %v", err, lastErr))
+		}
 	})
 
 })
