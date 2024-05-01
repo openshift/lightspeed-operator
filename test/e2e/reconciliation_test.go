@@ -73,7 +73,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		By("make console plugin deployment running")
 		deployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      OLSConsolePluginDeploymentName,
+				Name:      ConsolePluginDeploymentName,
 				Namespace: OLSNameSpace,
 			},
 		}
@@ -83,7 +83,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		By("exposing its HTTPS port in a service")
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      OLSConsolePluginServiceName,
+				Name:      ConsolePluginServiceName,
 				Namespace: OLSNameSpace,
 			},
 		}
