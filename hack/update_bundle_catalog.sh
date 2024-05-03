@@ -16,8 +16,8 @@ fi
 TAG="latest"  # Set the operator version
 BUNDLE_TAG="0.0.1"    # Set the bundle version
 
-OPERATOR_IMAGE="quay.io/openshift/lightspeed-operator:${TAG}"
-BUNDLE_IMAGE="quay.io/openshift/lightspeed-operator-bundle:v${BUNDLE_TAG}"
+OPERATOR_IMAGE="quay.io/openshift-lightspeed/lightspeed-operator:${TAG}"
+BUNDLE_IMAGE="quay.io/openshift-lightspeed/lightspeed-operator-bundle:v${BUNDLE_TAG}"
 CATALOG_FILE="lightspeed-catalog/index.yaml"
 CATALOG_INTIAL_FILE="hack/operator.yaml"
 CSV_FILE="bundle/manifests/lightspeed-operator.clusterserviceversion.yaml"
@@ -30,11 +30,11 @@ make bundle VERSION="${BUNDLE_TAG}" IMG="${OPERATOR_IMAGE}"
 cat << EOF >> "${CSV_FILE}"
   relatedImages:
     - name: lightspeed-service-api
-      image: quay.io/openshift/lightspeed-service-api:latest
+      image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
     - name: lightspeed-console-plugin
-      image: quay.io/openshift/lightspeed-console-plugin:latest
+      image: quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
     - name: lightspeed-operator
-      image: quay.io/openshift/lightspeed-operator:latest
+      image: quay.io/openshift-lightspeed/lightspeed-operator:latest
     - name: ose-kube-rbac-proxy
       image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
 EOF

@@ -8,15 +8,15 @@
 usage() {
   echo "Usage:
   -o, --org:
-    Specify the quay org the bundle+catalog images will be pushed to (default: openshift)
+    Specify the quay org the bundle+catalog images will be pushed to (default: openshift-lightspeed)
   -t, --target-tag:
     Specify the image tag for the bundle+catalog images (default: internal-preview) 
   --ols-image: 
-    The full pull spec of the ols api server image (default: quay.io/openshift/lightspeed-service-api:internal-preview)
+    The full pull spec of the ols api server image (default: quay.io/openshift-lightspeed/lightspeed-service-api:internal-preview)
   --console-image:
-    The full pull spec of the console image (default: quay.io/openshift/lightspeed-console-plugin:internal-preview)
+    The full pull spec of the console image (default: quay.io/openshift-lightspeed/lightspeed-console-plugin:internal-preview)
   --operator-image:
-    The full pull spec of the operator image (default: quay.io/openshift/lightspeed-operator:internal-preview)
+    The full pull spec of the operator image (default: quay.io/openshift-lightspeed/lightspeed-operator:internal-preview)
   --build-operator:
     If set, an operator build is built from source (default: false)
   -p, --publish:
@@ -92,13 +92,13 @@ fi
 
 # Begin configuration
 VERSION=${VERSION:-"0.0.1"}    # Set the bundle version - currently 0.0.1
-QUAY_ORG=${QUAY_ORG:-"openshift"}
+QUAY_ORG=${QUAY_ORG:-"openshift-lightspeed"}
 TARGET_TAG=${TARGET_TAG:-"internal-preview"}  # Set the target tag for the bundle and catalog image
 
 # Set the images for the operator and operands
-OLS_IMAGE=${OLS_IMAGE:-"quay.io/openshift/lightspeed-service-api:internal-preview"}
-CONSOLE_IMAGE=${CONSOLE_IMAGE:-"quay.io/openshift/lightspeed-console-plugin:internal-preview"}
-OPERATOR_IMAGE=${OPERATOR_IMAGE:-"quay.io/openshift/lightspeed-operator:internal-preview"}
+OLS_IMAGE=${OLS_IMAGE:-"quay.io/openshift-lightspeed/lightspeed-service-api:internal-preview"}
+CONSOLE_IMAGE=${CONSOLE_IMAGE:-"quay.io/openshift-lightspeed/lightspeed-console-plugin:internal-preview"}
+OPERATOR_IMAGE=${OPERATOR_IMAGE:-"quay.io/openshift-lightspeed/lightspeed-operator:internal-preview"}
 RBAC_PROXY_IMAGE=${RBAC_PROXY_IMAGE:-"registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest"}
 PUBLISH=${PUBLISH:-"false"}
 REBUILD=${REBUILD:-"false"}
@@ -165,15 +165,15 @@ OPERANDS="lightspeed-service=${OLS_IMAGE_SHA},console-plugin=${CONSOLE_IMAGE_SHA
 sed -i "s|--images=.*|--images=${OPERANDS}|g" "${CSV_FILE}"
 
 #Replace operator in CSV file
-sed -i "s|image: quay.io/openshift/lightspeed-operator:latest|image: ${OPERATOR_IMAGE_SHA}|g" "${CSV_FILE}"
+sed -i "s|image: quay.io/openshift-lightspeed/lightspeed-operator:latest|image: ${OPERATOR_IMAGE_SHA}|g" "${CSV_FILE}"
 
 #Replace kune-rbac-proxy in CSV file
 sed -i "s|image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest|image: ${RBAC_PROXY_IMAGE_SHA}|g" "${CSV_FILE}"
 
 #Replace related images in CSV file
-sed -i "s|quay.io/openshift/lightspeed-service-api:latest|${OLS_IMAGE_SHA}|g" "${CSV_FILE}"
-sed -i "s|quay.io/openshift/lightspeed-console-plugin:latest|${CONSOLE_IMAGE_SHA}|g" "${CSV_FILE}"
-sed -i "s|quay.io/openshift/lightspeed-operator:latest|${OPERATOR_IMAGE_SHA}|g" "${CSV_FILE}"
+sed -i "s|quay.io/openshift-lightspeed/lightspeed-service-api:latest|${OLS_IMAGE_SHA}|g" "${CSV_FILE}"
+sed -i "s|quay.io/openshift-lightspeed/lightspeed-console-plugin:latest|${CONSOLE_IMAGE_SHA}|g" "${CSV_FILE}"
+sed -i "s|quay.io/openshift-lightspeed/lightspeed-operator:latest|${OPERATOR_IMAGE_SHA}|g" "${CSV_FILE}"
 sed -i "s|registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest|${RBAC_PROXY_IMAGE_SHA}|g" "${CSV_FILE}"
 
 #Replace version in CSV file

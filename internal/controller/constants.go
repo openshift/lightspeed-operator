@@ -42,7 +42,7 @@ const (
 	RedisSecretKeyName = "password"
 	// Image of the OLS application server
 	// todo: image vesion should synchronize with the release version of the lightspeed-service-api image.
-	OLSAppServerImageDefault = "quay.io/openshift/lightspeed-service-api:latest"
+	OLSAppServerImageDefault = "quay.io/openshift-lightspeed/lightspeed-service-api:latest"
 	// AppServerServiceMonitorName is the name of the service monitor for the OLS application server
 	AppServerServiceMonitorName = "lightspeed-app-server-monitor"
 	// AppServerPrometheusRuleName is the name of the prometheus rules for the OLS application server
@@ -104,7 +104,7 @@ const (
 	// ConsoleUIDeploymentName is the name of the console UI deployment
 	ConsoleUIDeploymentName = "lightspeed-console-plugin"
 	// ConsoleUIImage is the image of the console UI plugin
-	ConsoleUIImageDefault = "quay.io/openshift/lightspeed-console-plugin:latest"
+	ConsoleUIImageDefault = "quay.io/openshift-lightspeed/lightspeed-console-plugin:latest"
 	// ConsoleUIHTTPSPort is the port number of the console UI service
 	ConsoleUIHTTPSPort = 9443
 	// ConsoleUIPluginName is the name of the console UI plugin
