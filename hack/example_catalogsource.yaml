@@ -6,7 +6,7 @@ metadata:
 spec:
   displayName: LightSpeed Operator
   sourceType: grpc
-  image: quay.io/openshift/lightspeed-catalog:internal-preview
+  image: quay.io/openshift-lightspeed/lightspeed-catalog:internal-preview
   updateStrategy:
     registryPoll:
       interval: 10m

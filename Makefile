@@ -30,8 +30,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# quay.io/openshift/lightspeed-operator-bundle:$VERSION and quay.io/openshift/lightspeed-operator-catalog:$VERSION.
-IMAGE_TAG_BASE ?= quay.io/openshift/lightspeed-operator
+# quay.io/openshift-lightspeed/lightspeed-operator-bundle:$VERSION and quay.io/openshift-lightspeed/lightspeed-operator-catalog:$VERSION.
+IMAGE_TAG_BASE ?= quay.io/openshift-lightspeed/lightspeed-operator
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -165,8 +165,8 @@ lint-fix: ## Fix found issues (if it's supported by the linter).
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
-LIGHTSPEED_SERVICE_IMG ?= quay.io/openshift/lightspeed-service-api:latest
-CONSOLE_PLUGIN_IMG ?= quay.io/openshift/lightspeed-console-plugin:latest
+LIGHTSPEED_SERVICE_IMG ?= quay.io/openshift-lightspeed/lightspeed-service-api:latest
+CONSOLE_PLUGIN_IMG ?= quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
     #TODO: Update DB

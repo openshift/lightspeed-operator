@@ -6,7 +6,7 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: quay.io/openshift/lightspeed-operator-bundle:v0.0.1
+image: quay.io/openshift-lightspeed/lightspeed-operator-bundle:v0.0.1
 name: lightspeed-operator.v0.0.1
 package: lightspeed-operator
 properties:
@@ -236,13 +236,13 @@ properties:
       name: Red Hat, Inc
       url: https://github.com/openshift/lightspeed-service
 relatedImages:
-- image: quay.io/openshift/lightspeed-console-plugin:latest
+- image: quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
   name: lightspeed-console-plugin
-- image: quay.io/openshift/lightspeed-operator-bundle:v0.0.1
+- image: quay.io/openshift-lightspeed/lightspeed-operator-bundle:v0.0.1
   name: ""
-- image: quay.io/openshift/lightspeed-operator:latest
+- image: quay.io/openshift-lightspeed/lightspeed-operator:latest
   name: lightspeed-operator
-- image: quay.io/openshift/lightspeed-service-api:latest
+- image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
   name: lightspeed-service-api
 - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
   name: ose-kube-rbac-proxy

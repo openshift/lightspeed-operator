@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-28T22:18:32Z"
+    createdAt: "2024-05-03T12:33:20Z"
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
@@ -407,7 +407,7 @@ spec:
                 - --health-probe-bind-address=:8081
                 - --metrics-bind-address=127.0.0.1:8080
                 - --leader-elect
-                - --images=lightspeed-service=quay.io/openshift/lightspeed-service-api:latest
+                - --images=lightspeed-service=quay.io/openshift-lightspeed/lightspeed-service-api:latest
                 command:
                 - /manager
                 env:
@@ -415,7 +415,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/openshift/lightspeed-operator:latest
+                image: quay.io/openshift-lightspeed/lightspeed-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
@@ -539,10 +539,10 @@ spec:
   version: 0.0.1
   relatedImages:
     - name: lightspeed-service-api
-      image: quay.io/openshift/lightspeed-service-api:latest
+      image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
     - name: lightspeed-console-plugin
-      image: quay.io/openshift/lightspeed-console-plugin:latest
+      image: quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
     - name: lightspeed-operator
-      image: quay.io/openshift/lightspeed-operator:latest
+      image: quay.io/openshift-lightspeed/lightspeed-operator:latest
     - name: ose-kube-rbac-proxy
       image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
