@@ -40,6 +40,10 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Task: r.reconcileService,
 		},
 		{
+			Name: "reconcile App TLS Certs",
+			Task: r.reconcileTLSSecret,
+		},
+		{
 			Name: "reconcile App Deployment",
 			Task: r.reconcileDeployment,
 		},
@@ -195,12 +199,14 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
 			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			OLSAppTLSHashKey:   r.stateCache[OLSAppTLSHashStateCacheKey],
 			LLMProviderHashKey: r.stateCache[LLMProviderHashStateCacheKey],
 			// TODO: Update DB
 			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
 			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
+			OLSAppTLSHashKey:   r.stateCache[OLSAppTLSHashStateCacheKey],
 			LLMProviderHashKey: r.stateCache[LLMProviderHashStateCacheKey],
 			// TODO: Update DB
 			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
@@ -267,11 +273,11 @@ func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1
 	providerCredentials := ""
 	for _, provider := range cr.Spec.LLMConfig.Providers {
 		foundSecret := &corev1.Secret{}
-		providerApiToken, err := getSecretContent(r.Client, provider.CredentialsSecretRef.Name, r.Options.Namespace, LLMApiTokenFileName, foundSecret)
+		secretValues, err := getSecretContent(r.Client, provider.CredentialsSecretRef.Name, r.Options.Namespace, []string{LLMApiTokenFileName}, foundSecret)
 		if err != nil {
 			return fmt.Errorf("Secret token not found for provider: %s. error: %w", provider.Name, err)
 		}
-		providerCredentials += providerApiToken
+		providerCredentials += secretValues[LLMApiTokenFileName]
 		annotateSecretWatcher(foundSecret)
 		err = r.Update(ctx, foundSecret)
 		if err != nil {
@@ -350,5 +356,29 @@ func (r *OLSConfigReconciler) reconcilePrometheusRule(ctx context.Context, cr *o
 		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)
 	}
 	r.logger.Info("OLS prometheus rule reconciled", "prometheusRule", rule.Name)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileTLSSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	foundSecret := &corev1.Secret{}
+	secretValues, err := getSecretContent(r.Client, OLSCertsSecretName, r.Options.Namespace, []string{"tls.key", "tls.crt"}, foundSecret)
+	if err != nil {
+		return fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", OLSCertsSecretName, err)
+	}
+	annotateSecretWatcher(foundSecret)
+	err = r.Update(ctx, foundSecret)
+	if err != nil {
+		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
+	}
+	foundTLSSecretHash, err := hashBytes([]byte(secretValues["tls.key"] + secretValues["tls.crt"]))
+	if err != nil {
+		return fmt.Errorf("failed to generate OLS app TLS certs hash %w", err)
+	}
+	if foundTLSSecretHash == r.stateCache[OLSAppTLSHashStateCacheKey] {
+		r.logger.Info("OLS app TLS secret reconciliation skipped", "hash", foundTLSSecretHash)
+		return nil
+	}
+	r.stateCache[OLSAppTLSHashStateCacheKey] = foundTLSSecretHash
+	r.logger.Info("OLS app TLS secret reconciled", "hash", foundTLSSecretHash)
 	return nil
 }

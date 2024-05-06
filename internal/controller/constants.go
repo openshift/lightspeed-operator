@@ -10,10 +10,6 @@ const (
 	/*** application server configuration file ***/
 	// OLSConfigName is the name of the OLSConfig configmap
 	OLSConfigCmName = "olsconfig"
-	// RedisCAConfigMap is the name of the OLS redis server TLS ca certificate configmap
-	RedisCAConfigMap = "openshift-service-ca.crt"
-	// RedisCAVolume is the name of the OLS redis TLS ca certificate volume name
-	RedisCAVolume = "cm-olsredisca"
 	// OLSNamespaceDefault is the default namespace for OLS
 	OLSNamespaceDefault = "openshift-lightspeed"
 	// OLSAppServerServiceAccountName is the name of service account running the application server
@@ -24,8 +20,6 @@ const (
 	OLSAppServerSARRoleBindingName = OLSAppServerSARRoleName + "-binding"
 	// OLSAppServerDeploymentName is the name of the OLS application server deployment
 	OLSAppServerDeploymentName = "lightspeed-app-server"
-	// RedisDeploymentName is the name of OLS application redis deployment
-	RedisDeploymentName = "lightspeed-redis-server"
 	// APIKeyMountRoot is the directory hosting the API key file in the container
 	APIKeyMountRoot = "/etc/apikeys" // #nosec G101
 	// CredentialsMountRoot is the directory hosting the credential files in the container
@@ -38,8 +32,6 @@ const (
 	OLSComponentPasswordFileName = "password"
 	// OLSConfigFilename is the name of the application server configuration file
 	OLSConfigFilename = "olsconfig.yaml"
-	// RedisSecretKeyName is the name of the key holding redis server secret
-	RedisSecretKeyName = "password"
 	// Image of the OLS application server
 	// todo: image vesion should synchronize with the release version of the lightspeed-service-api image.
 	OLSAppServerImageDefault = "quay.io/openshift-lightspeed/lightspeed-service-api:latest"
@@ -51,23 +43,15 @@ const (
 	AppServerMetricsPath = "/metrics"
 
 	// Image of the OLS application redis server
-	//RedisServerImageDefault = "quay.io/openshift/lightspeed-service-redis:latest"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
 	// LLMProviderHashKey is the key of the hash value of OLS LLM provider credentials consolidated
 	// #nosec G101
 	LLMProviderHashKey = "hash/llmprovider"
-	// RedisConfigHashKey is the key of the hash value of the OLS's redis config
-	RedisConfigHashKey = "hash/olsredisconfig"
-	// RedisSecretHashKey is the key of the hash value of OLS Redis secret
-	// #nosec G101
-	RedisSecretHashKey = "hash/redis-secret"
-	// RedisServiceName is the name of OLS application redis server service
-	RedisServiceName = "lightspeed-redis-server"
-	// RedisSecretName is the name of OLS application redis secret
-	RedisSecretName = "lightspeed-redis-secret"
-	// OLSAppRedisCertsName is the name of the OLS application redis certs secret
-	RedisCertsSecretName = "lightspeed-redis-certs"
+	// OLSAppTLSHashKey is the key of the hash value of the OLS App TLS certificates
+	OLSAppTLSHashKey = "hash/olstls"
+	// OLSConsoleTLSHashKey is the key of the hash value of the OLS Console TLS certificates
+	OLSConsoleTLSHashKey = "hash/olsconsoletls"
 	// OLSAppServerContainerPort is the port number of the lightspeed-service-api container exposes
 	OLSAppServerContainerPort = 8443
 	// OLSAppServerServicePort is the port number for OLS application server service.
@@ -76,23 +60,18 @@ const (
 	OLSAppServerServiceName = "lightspeed-app-server"
 	// OLSCertsSecretName is the name of the TLS secret for OLS.
 	OLSCertsSecretName = "lightspeed-tls" // #nosec G101
-	// RedisServicePort is the port number of the OLS redis server service
-	RedisServicePort = 6379
-	// RedisMaxMemory is the max memory of the OLS redis cache
-	RedisMaxMemory = "1024mb"
-	// RedisMaxMemoryPolicy is the max memory policy of the OLS redis cache
-	RedisMaxMemoryPolicy = "allkeys-lru"
-	// OLSDefaultCacheType is the default cache type for OLS
-	OLSDefaultCacheType = "redis"
 	// Annotation key for serving certificate secret name
 	// #nosec G101
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
 	/*** state cache keys ***/
-	OLSConfigHashStateCacheKey   = "olsconfigmap-hash"
+	// OLSAppTLSHashStateCacheKey is the key of the hash value of the OLS App TLS certificates
+	OLSAppTLSHashStateCacheKey = "olsapptls-hash"
+	// OLSConfigHashStateCacheKey is the key of the hash value of the OLSConfig configmap
+	OLSConfigHashStateCacheKey = "olsconfigmap-hash"
+	// OLSConsoleTLSHashStateCacheKey is the key of the hash value of the OLS Console TLS certificates
+	OLSConsoleTLSHashStateCacheKey = "olsconsoletls-hash"
+	// LLMProviderHashStateCacheKey is the key of the hash value of OLS LLM provider credentials consolidated
 	LLMProviderHashStateCacheKey = "llmprovider-hash"
-	RedisConfigHashStateCacheKey = "olsredisconfig-hash"
-	// #nosec G101
-	RedisSecretHashStateCacheKey = "olsredissecret-hash"
 
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
