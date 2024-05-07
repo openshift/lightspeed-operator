@@ -130,6 +130,25 @@ func (c *Client) List(o client.ObjectList, opts ...client.ListOption) (err error
 }
 
 func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
+
+	return c.WaitForDeploymentCondition(dep, func(dep *appsv1.Deployment) (bool, error) {
+		if dep.Generation > dep.Status.ObservedGeneration {
+			return false, fmt.Errorf("current generation %d, observed generation %d",
+				dep.Generation, dep.Status.ObservedGeneration)
+		}
+		if dep.Status.UpdatedReplicas != dep.Status.Replicas {
+			return false, fmt.Errorf("the number of replicas (%d) does not match the number of updated replicas (%d)",
+				dep.Status.Replicas, dep.Status.UpdatedReplicas)
+		}
+		if dep.Status.UnavailableReplicas != 0 {
+			return false, fmt.Errorf("got %d unavailable replicas",
+				dep.Status.UnavailableReplicas)
+		}
+		return true, nil
+	})
+}
+
+func (c *Client) WaitForDeploymentCondition(dep *appsv1.Deployment, condition func(*appsv1.Deployment) (bool, error)) error {
 	var lastErr error
 	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, c.conditionCheckTimeout, true, func(ctx context.Context) (bool, error) {
 		err := c.Get(dep)
@@ -137,26 +156,15 @@ func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
 			lastErr = fmt.Errorf("failed to get Deployment: %w", err)
 			return false, nil
 		}
-		if dep.Generation > dep.Status.ObservedGeneration {
-			lastErr = fmt.Errorf("current generation %d, observed generation %d",
-				dep.Generation, dep.Status.ObservedGeneration)
+		var conditionMet bool
+		conditionMet, lastErr = condition(dep)
+		if !conditionMet {
 			return false, nil
 		}
-		if dep.Status.UpdatedReplicas != dep.Status.Replicas {
-			lastErr = fmt.Errorf("the number of replicas (%d) does not match the number of updated replicas (%d)",
-				dep.Status.Replicas, dep.Status.UpdatedReplicas)
-			return false, nil
-		}
-		if dep.Status.UnavailableReplicas != 0 {
-			lastErr = fmt.Errorf("got %d unavailable replicas",
-				dep.Status.UnavailableReplicas)
-			return false, nil
-		}
-
 		return true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("WaitForDeploymentRollout - waiting for rollout of the deployment %s/%s: %w ; last error: %w", dep.GetNamespace(), dep.GetName(), err, lastErr)
+		return fmt.Errorf("WaitForDeploymentCondition - waiting for condition of the deployment %s/%s: %w ; last error: %w", dep.GetNamespace(), dep.GetName(), err, lastErr)
 	}
 
 	return nil
