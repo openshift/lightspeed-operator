@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"path"
 	"slices"
 
@@ -57,7 +58,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.Get(service)
+		err = client.WaitForServiceCreated(service)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(service.Spec.Ports).To(ContainElement(corev1.ServicePort{
 			Name:       "https",
@@ -87,7 +88,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.Get(service)
+		err = client.WaitForServiceCreated(service)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(service.Spec.Ports).To(ContainElement(corev1.ServicePort{
 			Name:       "https",
@@ -117,10 +118,13 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.WaitForDeploymentRollout(deployment)
+		err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
+			if *dep.Spec.Replicas != *cr.Spec.OLSConfig.DeploymentConfig.Replicas {
+				return false, nil
+			}
+			return true, nil
+		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(*deployment.Spec.Replicas).To(Equal(*cr.Spec.OLSConfig.DeploymentConfig.Replicas))
-
 	})
 
 	It("should reconcile app configmap after changing application settings", func() {
@@ -157,9 +161,13 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("check the app deployment generation that should be inscreased")
-		err = client.WaitForDeploymentRollout(deployment)
+		err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
+			if dep.Generation <= generation {
+				return false, fmt.Errorf("current generation %d is inferior to observed generation %d", dep.Generation, generation)
+			}
+			return true, nil
+		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(deployment.Generation).To(BeNumerically(">", generation))
 		generation = deployment.Generation
 
 		By("update models in the OLSConfig CR")
@@ -181,9 +189,13 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("check the app deployment generation that should be inscreased")
-		err = client.WaitForDeploymentRollout(deployment)
+		err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
+			if dep.Generation <= generation {
+				return false, fmt.Errorf("current generation %d is inferior to observed generation %d", dep.Generation, generation)
+			}
+			return true, nil
+		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(deployment.Generation).To(BeNumerically(">", generation))
 		generation = deployment.Generation
 
 		By("change LLM token secret reference")
@@ -192,9 +204,13 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("check the app deployment generation that should be inscreased")
-		err = client.WaitForDeploymentRollout(deployment)
+		err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
+			if dep.Generation <= generation {
+				return false, fmt.Errorf("current generation %d is inferior to observed generation %d", dep.Generation, generation)
+			}
+			return true, nil
+		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(deployment.Generation).To(BeNumerically(">", generation))
 
 		By("check the app configmap to contain the new secret volume")
 		err = client.WaitForConfigMapContainString(configMap, AppServerConfigMapKey, path.Join("/etc/apikeys", LLMTokenSecondSecretName))
