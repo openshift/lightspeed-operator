@@ -92,16 +92,32 @@ spec:
         path: ols.defaultProvider
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: API container settings.
+        displayName: API Container
+        path: ols.deployment.api
+      - displayName: Resource Requirements
+        path: ols.deployment.api.resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Console container settings.
+        displayName: Console Container
+        path: ols.deployment.console
+      - displayName: Resource Requirements
+        path: ols.deployment.console.resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Data Collector container settings.
+        displayName: Data Collector Container
+        path: ols.deployment.dataCollector
+      - displayName: Resource Requirements
+        path: ols.deployment.dataCollector.resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: 'Defines the number of desired OLS pods. Default: "1"'
         displayName: Number of replicas
         path: ols.deployment.replicas
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podCount
-      - description: The resource requirements for OLS instance.
-        displayName: Resource Requirements
-        path: ols.deployment.resources
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: 'Disable Authorization for OLS server. Default: "false"'
         displayName: Disable Authorization
         path: ols.disableAuth

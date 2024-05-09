@@ -24,8 +24,8 @@ func getOLSServerReplicas(cr *olsv1alpha1.OLSConfig) *int32 {
 }
 
 func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
-	if cr.Spec.OLSConfig.DeploymentConfig.Resources != nil {
-		return cr.Spec.OLSConfig.DeploymentConfig.Resources
+	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Resources != nil {
+		return cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Resources
 	}
 	// default resources.
 	defaultResources := &corev1.ResourceRequirements{
@@ -38,8 +38,8 @@ func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 }
 
 func getOLSDataCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
-	if cr.Spec.OLSConfig.DeploymentConfig.Resources != nil {
-		return cr.Spec.OLSConfig.DeploymentConfig.Resources
+	if cr.Spec.OLSConfig.DeploymentConfig.DataCollectorContainer.Resources != nil {
+		return cr.Spec.OLSConfig.DeploymentConfig.DataCollectorContainer.Resources
 	}
 	// default resources.
 	defaultResources := &corev1.ResourceRequirements{
