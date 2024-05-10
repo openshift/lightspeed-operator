@@ -17,7 +17,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Red Hat OpenShift LightSpeed instance. OLSConfig is the Schema
+        description: Red Hat OpenShift Lightspeed instance. OLSConfig is the Schema
           for the olsconfigs API
         properties:
           apiVersion:
