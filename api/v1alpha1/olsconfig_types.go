@@ -219,7 +219,7 @@ type ProviderSpec struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:validation:XValidation:rule="self.metadata.name == 'cluster'",message=".metadata.name must be 'cluster'"
-// Red Hat OpenShift LightSpeed instance. OLSConfig is the Schema for the olsconfigs API
+// Red Hat OpenShift Lightspeed instance. OLSConfig is the Schema for the olsconfigs API
 type OLSConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

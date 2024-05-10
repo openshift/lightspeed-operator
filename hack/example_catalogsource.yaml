@@ -4,7 +4,7 @@ metadata:
   name: lightspeed-operator-catalog
   namespace: openshift-marketplace
 spec:
-  displayName: LightSpeed Operator
+  displayName: OpenShift Lightspeed Operator
   sourceType: grpc
   image: quay.io/openshift-lightspeed/lightspeed-catalog:internal-preview
   updateStrategy:
