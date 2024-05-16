@@ -70,40 +70,37 @@ type OLSConfigReconcilerOptions struct {
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/finalizers,verbs=update
 // RBAC for managing deployments of OLS application server
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,namespace=openshift-lightspeed,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // Service for exposing lightspeed service API endpoints
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=services,verbs=get;list;watch;create;update;patch;delete
 // ServiceAccount to run OLS application server
-// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 // ConfigMap for OLS application server configuration
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // Secret access for redis server configuration
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // ConsolePlugin for install console plugin
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks;consoleplugins;consoleplugins/finalizers,verbs=get;create;update;delete
 // Modify console CR to activate console plugin
 // +kubebuilder:rbac:groups=operator.openshift.io,resources=consoles,verbs=watch;list;get;update
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=*
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=*
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=openshift-lightspeed,resources=roles;rolebindings,verbs=*
 
 // RBAC for application server to authorize user for API access
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 
 // ServiceMonitor for monitoring OLS application server
-// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
-// RBAC for application server to authorize user for API access
-// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
-// +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups=monitoring.coreos.com,namespace=openshift-lightspeed,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 
 // PrometheusRule for aggregating OLS metrics for telemetry
-// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,namespace=openshift-lightspeed,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
 
 // clusterversion for checking the openshift cluster version
 // +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get
 
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// The operator reconciles only for OLSConfig CR with a specific name
 	if req.NamespacedName.Name != OLSConfigName {

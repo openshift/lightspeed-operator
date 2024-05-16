@@ -57,7 +57,7 @@ properties:
           }
         ]
       capabilities: Basic Install
-      createdAt: "2024-04-28T22:18:32Z"
+      createdAt: "2024-05-03T12:33:20Z"
       operatorframework.io/cluster-monitoring: "true"
       operatorframework.io/suggested-namespace: openshift-lightspeed
       operators.operatorframework.io/builder: operator-sdk-v1.33.0
@@ -66,7 +66,7 @@ properties:
     apiServiceDefinitions: {}
     crdDescriptions:
       owned:
-      - description: Red Hat OpenShift LightSpeed instance. OLSConfig is the Schema
+      - description: Red Hat OpenShift Lightspeed instance. OLSConfig is the Schema
           for the olsconfigs API
         displayName: OLSConfig
         kind: OLSConfig
@@ -210,9 +210,9 @@ properties:
         - displayName: Conditions
           path: conditions
         version: v1alpha1
-    description: OpenShift LightSpeed (OLS) is an AI powered assistant that runs on
-      OpenShift and provides answers to product questions using backend LLM services.
-    displayName: OpenShift LightSpeed Operator
+    description: OpenShift Lightspeed is an AI-powered assistant that runs on OpenShift
+      and answers questions about OpenShift using backend LLM services.
+    displayName: OpenShift Lightspeed Operator
     installModes:
     - supported: false
       type: OwnNamespace
