@@ -66,12 +66,14 @@ spec:
       - name: gpt-3.5-turbo
       name: openai
       url: https://api.openai.com/v1
+      type: openai
     - credentialsSecretRef:
         name: bam-api-keys
       models:
       - name: ibm/granite-13b-chat-v2
       name: bam
       url: https://bam-api.res.ibm.com
+      type: bam
   ols:
     conversationCache:
       redis:
