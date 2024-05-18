@@ -200,7 +200,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 										Scheme: corev1.URISchemeHTTPS,
 									},
 								},
-								InitialDelaySeconds: 60,
+								InitialDelaySeconds: 120,
 								PeriodSeconds:       10,
 							},
 						},
