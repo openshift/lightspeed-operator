@@ -26,7 +26,6 @@ type DeleteTask struct {
 type AppSrvConfigFile struct {
 	LLMProviders []ProviderConfig `json:"llm_providers"`
 	OLSConfig    OLSConfig        `json:"ols_config,omitempty"`
-	DevConfig    DevConfig        `json:"dev_config,omitempty"`
 }
 
 type ProviderConfig struct {
@@ -111,11 +110,6 @@ type RedisCacheConfig struct {
 	PasswordPath string `json:"password_path,omitempty"`
 	// Redis CA certificate path
 	CACertPath string `json:"ca_cert_path,omitempty"`
-}
-
-type DevConfig struct {
-	// User Authorization enable/disable
-	DisableAuth bool `json:"disable_auth" default:"false"`
 }
 
 type TLSConfig struct {

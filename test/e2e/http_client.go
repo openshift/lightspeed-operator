@@ -30,7 +30,7 @@ func NewHTTPSClient(host, serverName string, certificate []byte) *HTTPSClient {
 	}
 }
 
-func (c *HTTPSClient) Get(queryUrl string) (*http.Response, error) {
+func (c *HTTPSClient) Get(queryUrl string, headers ...map[string]string) (*http.Response, error) {
 	var rt http.RoundTripper = &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs:    c.caCertPool,
@@ -51,6 +51,11 @@ func (c *HTTPSClient) Get(queryUrl string) (*http.Response, error) {
 		return nil, err
 	}
 	req.Host = c.host
+	if len(headers) > 0 {
+		for key, value := range headers[0] {
+			req.Header.Set(key, value)
+		}
+	}
 	resp, err = (&http.Client{Transport: rt}).Do(req)
 	if err != nil {
 		return nil, err
@@ -58,7 +63,7 @@ func (c *HTTPSClient) Get(queryUrl string) (*http.Response, error) {
 	return resp, nil
 }
 
-func (c *HTTPSClient) PostJson(queryUrl string, body []byte) (*http.Response, error) {
+func (c *HTTPSClient) PostJson(queryUrl string, body []byte, headers ...map[string]string) (*http.Response, error) {
 	var rt http.RoundTripper = &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs:    c.caCertPool,
@@ -80,6 +85,11 @@ func (c *HTTPSClient) PostJson(queryUrl string, body []byte) (*http.Response, er
 	req.Host = c.host
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
+	if len(headers) > 0 {
+		for key, value := range headers[0] {
+			req.Header.Set(key, value)
+		}
+	}
 	resp, err = (&http.Client{Transport: rt}).Do(req)
 	if err != nil {
 		return nil, err
@@ -87,11 +97,11 @@ func (c *HTTPSClient) PostJson(queryUrl string, body []byte) (*http.Response, er
 	return resp, nil
 }
 
-func (c *HTTPSClient) waitForHTTPSGetStatus(queryUrl string, statusCode int) error { // nolint:unused
+func (c *HTTPSClient) waitForHTTPSGetStatus(queryUrl string, statusCode int, headers ...map[string]string) error { // nolint:unused
 	var lastErr error
 	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, DefaultPollTimeout, true, func(ctx context.Context) (bool, error) {
 		var resp *http.Response
-		resp, lastErr = c.Get(queryUrl)
+		resp, lastErr = c.Get(queryUrl, headers...)
 		if lastErr != nil {
 			return false, nil
 		}
@@ -102,7 +112,6 @@ func (c *HTTPSClient) waitForHTTPSGetStatus(queryUrl string, statusCode int) err
 		}
 		return true, nil
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to wait for HTTPS response status: %w, lastErr: %w", err, lastErr)
 	}

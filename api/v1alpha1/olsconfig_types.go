@@ -64,10 +64,6 @@ type OLSSpec struct {
 	// +kubebuilder:default=INFO
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Log level"
 	LogLevel string `json:"logLevel,omitempty"`
-	// Disable Authorization for OLS server. Default: "false"
-	// +kubebuilder:default=false
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Authorization",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
-	DisableAuth bool `json:"disableAuth,omitempty"`
 	// Default model for usage
 	// +kubebuilder:validation:Required
 	// +required

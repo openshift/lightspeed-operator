@@ -350,10 +350,6 @@ spec:
                         minimum: 0
                         type: integer
                     type: object
-                  disableAuth:
-                    default: false
-                    description: 'Disable Authorization for OLS server. Default: "false"'
-                    type: boolean
                   logLevel:
                     default: INFO
                     description: 'Log level. Valid options are DEBUG, INFO, WARNING,
