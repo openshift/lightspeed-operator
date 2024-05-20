@@ -112,7 +112,27 @@ type DeploymentConfig struct {
 	// +kubebuilder:validation:Minimum=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
 	Replicas *int32 `json:"replicas,omitempty"`
-	// The resource requirements for OLS instance.
+	// API container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="API Container"
+	APIContainer APIContainerConfig `json:"api,omitempty"`
+	// Data Collector container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Data Collector Container"
+	DataCollectorContainer DataCollectorContainerConfig `json:"dataCollector,omitempty"`
+	// Console container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Console Container"
+	ConsoleContainer ConsoleContainerConfig `json:"console,omitempty"`
+}
+
+type APIContainerConfig struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+type DataCollectorContainerConfig struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+type ConsoleContainerConfig struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }

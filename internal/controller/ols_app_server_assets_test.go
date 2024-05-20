@@ -202,6 +202,7 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(rOptions.LightspeedServiceImage))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
+			Expect(dep.Spec.Template.Spec.Containers[0].Resources).ToNot(BeNil())
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
 				{
 					ContainerPort: OLSAppServerContainerPort,
@@ -239,6 +240,7 @@ var _ = Describe("App server assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[1].Image).To(Equal(rOptions.LightspeedServiceImage))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
+			Expect(dep.Spec.Template.Spec.Containers[0].Resources).ToNot(BeNil())
 			Expect(dep.Spec.Template.Spec.Containers[1].Command).To(Equal([]string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"}))
 			Expect(dep.Spec.Template.Spec.Containers[1].Env).To(Equal([]corev1.EnvVar{
 				{

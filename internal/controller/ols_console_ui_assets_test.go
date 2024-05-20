@@ -71,6 +71,7 @@ var _ = Describe("Console UI assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].ContainerPort).To(Equal(int32(ConsoleUIHTTPSPort)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].Name).To(Equal("https"))
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].Protocol).To(Equal(corev1.ProtocolTCP))
+			Expect(dep.Spec.Template.Spec.Containers[0].Resources).ToNot(BeNil())
 		})
 
 		It("should generate the console UI plugin", func() {

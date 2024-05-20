@@ -21,6 +21,20 @@ func generateConsoleUILabels() map[string]string {
 	}
 }
 
+func getConsoleUIResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Resources != nil {
+		return cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Resources
+	}
+	// default resources.
+	defaultResources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("50Mi")},
+		Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("100Mi")},
+		Claims:   []corev1.ResourceClaim{},
+	}
+
+	return defaultResources
+}
+
 func (r *OLSConfigReconciler) generateConsoleUIConfigMap(cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
 	nginxConfig := `
 			error_log /dev/stdout info;
@@ -90,6 +104,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 	replicas := int32(2)
 	val_true := true
 	volumeDefaultMode := int32(420)
+	resources := getConsoleUIResources(cr)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ConsoleUIDeploymentName,
@@ -119,16 +134,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 							},
 							ImagePullPolicy: corev1.PullAlways,
 							Env:             getProxyEnvVars(),
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("50Mi"),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("100m"),
-									corev1.ResourceMemory: resource.MustParse("100Mi"),
-								},
-							},
+							Resources:       *resources,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "lightspeed-console-plugin-cert",
