@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM registry.redhat.io/ubi9/go-toolset:latest AS builder
+FROM registry.redhat.io/ubi9/go-toolset@sha256:f001ad1001a22fe5f6fc7d876fc172b01c1b7dcd6c498f83a07b425e24275a79 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -26,10 +26,19 @@ USER 0
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager cmd/main.go
 
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal
-USER 1000
+FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:2636170dc55a0931d013014a72ae26c0c2521d4b61a28354b3e2e5369fa335a3
+
 WORKDIR /
 COPY --from=builder /workspace/manager .
+RUN mkdir /licenses
+COPY LICENSE /licenses/.
+LABEL name="openshift-lightspeed/lightspeed-rhel9-operator" \
+      com.redhat.component="openshift-lightspeed" \
+      io.k8s.display-name="OpenShift Lightspeed Operator" \
+      summary="OpenShift Lightspeed Operator manages the AI-powered OpenShift Assistant Service." \
+      description="OpenShift Lightspeed Operator manages the AI-powered OpenShift Assistant Service and Openshift Console plugin extention." \
+      io.k8s.description="OpenShift Lightspeed Operator is a component of OpenShift Lightspeed, that  manages the AI-powered OpenShift Assistant Service and Openshift Console plugin extention." \
+      io.openshift.tags="openshift-lightspeed,ols"
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]
