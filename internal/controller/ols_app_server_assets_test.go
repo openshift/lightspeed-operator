@@ -137,9 +137,6 @@ var _ = Describe("App server assets", func() {
 						},
 					},
 				},
-				DevConfig: DevConfig{
-					DisableAuth: false,
-				},
 			}
 
 			Expect(olsconfigGenerated).To(Equal(olsConfigExpected))
@@ -344,9 +341,7 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
-			const expectedConfigStr = `dev_config:
-  disable_auth: false
-llm_providers: []
+			const expectedConfigStr = `llm_providers: []
 ols_config:
   conversation_cache:
     memory:
@@ -600,7 +595,6 @@ func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 				DefaultModel:    "testModel",
 				DefaultProvider: "testProvider",
 				LogLevel:        "INFO",
-				DisableAuth:     false,
 			},
 		},
 	}

@@ -44,7 +44,6 @@ var _ = Describe("TLS activation", Ordered, func() {
 		forwardHost, cleanUp, err = client.ForwardPort(AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort)
 		Expect(err).NotTo(HaveOccurred())
 		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
-
 	})
 
 	AfterAll(func() {
@@ -58,11 +57,9 @@ var _ = Describe("TLS activation", Ordered, func() {
 		Expect(cr).NotTo(BeNil())
 		err = client.Delete(cr)
 		Expect(err).NotTo(HaveOccurred())
-
 	})
 
 	It("should activate TLS on service HTTPS port", func() {
-
 		By("Wait for the application service created")
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -73,7 +70,7 @@ var _ = Describe("TLS activation", Ordered, func() {
 		err = client.WaitForServiceCreated(service)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("check the secret holding TLS ceritificates is created")
+		By("check the secret holding TLS certificates is created")
 		secretName, ok := service.ObjectMeta.Annotations[serviceAnnotationKeyTLSSecret]
 		Expect(ok).To(BeTrue())
 		secret := &corev1.Secret{
@@ -94,7 +91,7 @@ var _ = Describe("TLS activation", Ordered, func() {
 		}
 		err = client.Get(deployment)
 		Expect(err).NotTo(HaveOccurred())
-		var secretVolumeDefaultMode = int32(420)
+		secretVolumeDefaultMode := int32(420)
 		Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
 			Name: "secret-" + AppServerTLSSecretName,
 			VolumeSource: corev1.VolumeSource{
@@ -106,25 +103,26 @@ var _ = Describe("TLS activation", Ordered, func() {
 		}))
 
 		By("check HTTPS Get on /metrics endpoint")
+		token, err := client.getAuthToken()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(token).NotTo(BeEmpty())
 		const inClusterHost = "lightspeed-app-server.openshift-lightspeed.svc.cluster.local"
 		certificate, ok := secret.Data["tls.crt"]
 		Expect(ok).To(BeTrue())
-
 		httpsClient := NewHTTPSClient(forwardHost, inClusterHost, certificate)
-
-		err = httpsClient.waitForHTTPSGetStatus("/metrics", http.StatusOK)
+		authHeader := map[string]string{"Authorization": "Bearer " + token}
+		err = httpsClient.waitForHTTPSGetStatus("/metrics", http.StatusOK, authHeader)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("check HTTPS Post on /v1/query endpoint")
 		reqBody := []byte(`{"query": "write a deployment yaml for the mongodb image"}`)
 		var resp *http.Response
-		resp, err = httpsClient.PostJson("/v1/query", reqBody)
+		resp, err = httpsClient.PostJson("/v1/query", reqBody, authHeader)
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		body, err := io.ReadAll(resp.Body)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(body).NotTo(BeEmpty())
-
 	})
 })

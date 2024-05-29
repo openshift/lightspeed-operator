@@ -74,7 +74,6 @@ func generateOLSConfig() (*olsv1alpha1.OLSConfig, error) { // nolint:unused
 				DefaultModel:    llmModel,
 				DefaultProvider: llmProvider,
 				LogLevel:        "INFO",
-				DisableAuth:     true,
 				DeploymentConfig: olsv1alpha1.DeploymentConfig{
 					Replicas: &replicas,
 				},

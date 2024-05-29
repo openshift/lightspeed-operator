@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -20,6 +21,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -46,6 +48,7 @@ type Client struct {
 	ctx                   context.Context
 	kubeconfigPath        string
 	conditionCheckTimeout time.Duration
+	config                *rest.Config
 }
 
 var singletonClient *Client
@@ -87,14 +90,13 @@ func GetClient(options *ClientOptions) (*Client, error) {
 		ctx:                   context.Background(),
 		kubeconfigPath:        kubeconfigPath,
 		conditionCheckTimeout: DefaultPollTimeout,
+		config:                cfg,
 	}
-
 	if options != nil {
 		singletonClient.conditionCheckTimeout = options.conditionCheckTimeout
 	}
 
 	return singletonClient, nil
-
 }
 
 func (c *Client) Create(o client.Object) (err error) {
@@ -130,7 +132,6 @@ func (c *Client) List(o client.ObjectList, opts ...client.ListOption) (err error
 }
 
 func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
-
 	return c.WaitForDeploymentCondition(dep, func(dep *appsv1.Deployment) (bool, error) {
 		if dep.Generation > dep.Status.ObservedGeneration {
 			return false, fmt.Errorf("current generation %d, observed generation %d",
@@ -249,7 +250,6 @@ func (c *Client) WaitForObjectCreated(obj client.Object) error {
 }
 
 func (c *Client) ForwardPort(serviceName, namespaceName string, port int) (string, func(), error) {
-
 	ctx, cancel := context.WithCancel(c.ctx)
 	// #nosec G204
 	cmd := exec.CommandContext(ctx, "oc", "port-forward", fmt.Sprintf("service/%s", serviceName), fmt.Sprintf(":%d", port), "-n", namespaceName, "--kubeconfig", c.kubeconfigPath)
@@ -310,4 +310,61 @@ func (c *Client) ForwardPort(serviceName, namespaceName string, port int) (strin
 	}
 
 	return fmt.Sprintf("127.0.0.1:%s", matches[1]), cleanUp, nil
+}
+
+func (c *Client) getAuthToken() (string, error) { // nolint:unused
+	ctx, cancel := context.WithCancel(c.ctx)
+	defer cancel()
+	// https://docs.ci.openshift.org/docs/architecture/step-registry/#available-environment-variables
+	isCIEnvironment := os.Getenv("OPENSHIFT_CI") != ""
+	if isCIEnvironment {
+		return c.getTokenFromCI(ctx)
+	}
+	return c.getTokenFromLocal()
+}
+
+func (c *Client) getTokenFromCI(ctx context.Context) (string, error) { // nolint:unused
+	fmt.Println("CI environment detected")
+	// https://docs.ci.openshift.org/docs/architecture/step-registry/#available-environment-variables
+	filePath := os.Getenv("KUBEADMIN_PASSWORD_FILE")
+	if filePath == "" {
+		return "", fmt.Errorf("KUBEADMIN_PASSWORD_FILE environment variable is not set")
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	kubeadminPass, err := io.ReadAll(file)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file content: %w", err)
+	}
+
+	apiServer := c.config.Host
+	if err := c.loginToCluster(ctx, apiServer, strings.TrimSpace(string(kubeadminPass))); err != nil {
+		return "", fmt.Errorf("failed to login to cluster: %w", err)
+	}
+	cmd := exec.CommandContext(ctx, "oc", "whoami", "-t")
+	token, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve token in CI environment: %w", err)
+	}
+	return strings.TrimSpace(string(token)), nil
+}
+
+func (c *Client) loginToCluster(ctx context.Context, apiServer, kubeadminPass string) error { // nolint:unused
+	cmd := exec.CommandContext(ctx, "oc", "login", apiServer, "-u", "kubeadmin", "-p", kubeadminPass)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to login to API server: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) getTokenFromLocal() (string, error) { // nolint:unused
+	if c.config == nil || c.config.BearerToken == "" {
+		return "", fmt.Errorf("Bearer token not found in client configuration")
+	}
+	return c.config.BearerToken, nil
 }

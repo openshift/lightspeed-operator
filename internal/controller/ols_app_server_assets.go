@@ -191,14 +191,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		olsConfig.QueryFilters = queryFilters
 	}
 
-	devConfig := DevConfig{
-		DisableAuth: cr.Spec.OLSConfig.DisableAuth,
-	}
-
 	appSrvConfigFile := AppSrvConfigFile{
 		LLMProviders: providerConfigs,
 		OLSConfig:    olsConfig,
-		DevConfig:    devConfig,
 	}
 	configFileBytes, err := yaml.Marshal(appSrvConfigFile)
 	if err != nil {
