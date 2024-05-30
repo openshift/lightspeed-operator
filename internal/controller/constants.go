@@ -6,6 +6,20 @@ const (
 	OLSConfigName = "cluster"
 	// DefaultReconcileInterval is the default interval for reconciliation
 	DefaultReconcileInterval = 120
+	// OperatorCertDirDefault is the default directory for storing the operator certificate
+	OperatorCertDirDefault = "/etc/tls/private"
+	// OperatorCertNameDefault is the default name of the operator certificate
+	OperatorCertNameDefault = "tls.crt"
+	// OperatorKeyNameDefault is the default name of the operator key
+	OperatorKeyNameDefault = "tls.key"
+	// OperatorCACertPathDefault is the default path to the CA certificate
+	OperatorCACertPathDefault = "/etc/tls/private/ca.crt"
+	// ClientCACmName is the name of the client CA configmap
+	ClientCACmName = "extension-apiserver-authentication"
+	// ClientCACmNamespace is the namespace of the client CA configmap
+	ClientCACmNamespace = "kube-system"
+	// ClientCACertKey is the key of the client CA certificate in the configmap
+	ClientCACertKey = "client-ca-file"
 
 	/*** application server configuration file ***/
 	// OLSConfigName is the name of the OLSConfig configmap

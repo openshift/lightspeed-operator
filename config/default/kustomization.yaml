@@ -1,6 +1,3 @@
-# Adds namespace to all resources.
-namespace: openshift-lightspeed
-
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
@@ -28,21 +25,6 @@ resources:
 - ../prometheus
 
 patches:
-  # Protect the /metrics endpoint by putting it behind auth.
-  # If you want your controller-manager to expose the /metrics
-  # endpoint w/o any authn/z, please comment the following line.
-  - path: manager_auth_proxy_patch.yaml
-    target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: controller-manager
-  - path: manager_config_patch.yaml
-    target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: controller-manager
   # set image of lightspeed-service-api
   # todo: sync with the release version of openshift/lightspeed-service-api
   - patch: |-

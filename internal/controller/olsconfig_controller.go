@@ -77,6 +77,8 @@ type OLSConfigReconcilerOptions struct {
 // +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 // ConfigMap for OLS application server configuration
 // +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// ConfigMap for client CA certificate from kube-system namespace
+// +kubebuilder:rbac:groups=core,namespace=kube-system,resources=configmaps,verbs=get;list;watch
 // Secret access for redis server configuration
 // +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // ConsolePlugin for install console plugin

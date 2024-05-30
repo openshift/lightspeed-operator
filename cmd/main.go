@@ -17,6 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"os"
@@ -32,11 +35,14 @@ import (
 
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -44,6 +50,8 @@ import (
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/lightspeed-operator/internal/controller"
 	//+kubebuilder:scaffold:imports
@@ -104,6 +112,10 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var reconcilerIntervalMinutes uint
+	var certDir string
+	var certName string
+	var keyName string
+	var caCertPath string
 	images := k8sflag.NewMapStringString(ptr.To(make(map[string]string)))
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -112,6 +124,10 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Var(images, "images", fmt.Sprintf("Full images refs to use for containers managed by the operator. E.g lightspeed-service=quay.io/openshift-lightspeed/lightspeed-service-api:latest. Images used are %v", listImages()))
 	flag.UintVar(&reconcilerIntervalMinutes, "reconcile-interval", controller.DefaultReconcileInterval, "The interval in minutes to reconcile the OLSConfig CR")
+	flag.StringVar(&certDir, "cert-dir", controller.OperatorCertDirDefault, "The directory where the TLS certificates are stored.")
+	flag.StringVar(&certName, "cert-name", controller.OperatorCertNameDefault, "The name of the TLS certificate file.")
+	flag.StringVar(&keyName, "key-name", controller.OperatorKeyNameDefault, "The name of the TLS key file.")
+	flag.StringVar(&caCertPath, "ca-cert", controller.OperatorCACertPathDefault, "The path to the CA certificate file.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -126,11 +142,45 @@ func main() {
 		os.Exit(1)
 	}
 	setupLog.Info("Images setting loaded", "images", listImages())
+	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "reconcilerIntervalMinutes", reconcilerIntervalMinutes, "certDir", certDir, "certName", certName, "keyName", keyName)
+
+	metricsTLSSetup := func(tlsConf *tls.Config) {
+		cfg, err := config.GetConfig()
+		if err != nil {
+			setupLog.Error(err, "unable to get Kubernetes config")
+			return
+		}
+
+		k8sClient, err := client.New(cfg, client.Options{})
+		if err != nil {
+			setupLog.Error(err, "unable to create Kubernetes client")
+			return
+		}
+
+		ctx := context.Background()
+		apiAuthConfigmap := &corev1.ConfigMap{}
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: controller.ClientCACmName, Namespace: controller.ClientCACmNamespace}, apiAuthConfigmap)
+		if err != nil {
+			setupLog.Error(err, fmt.Sprintf("failed to load %s/%s configmap.", controller.ClientCACmNamespace, controller.ClientCACmName))
+		}
+		clientCA, exists := apiAuthConfigmap.Data[controller.ClientCACertKey]
+		if !exists {
+			setupLog.Error(err, fmt.Sprintf("the key %s is not found in %s/%s configmap.", controller.ClientCACertKey, controller.ClientCACmNamespace, controller.ClientCACmName))
+		}
+		tlsConf.ClientCAs = x509.NewCertPool()
+		tlsConf.ClientCAs.AppendCertsFromPEM([]byte(clientCA))
+		tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
-			BindAddress: metricsAddr,
+			SecureServing: true,
+			BindAddress:   metricsAddr,
+			CertDir:       certDir,
+			CertName:      certName,
+			KeyName:       keyName,
+			TLSOpts:       []func(*tls.Config){metricsTLSSetup},
 		},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
