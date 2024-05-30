@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-06-16T21:54:06Z"
+    createdAt: "2024-06-19T11:24:23Z"
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
@@ -246,6 +246,14 @@ spec:
           - get
           - update
         - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - ols.openshift.io
           resources:
           - olsconfigs
@@ -287,18 +295,6 @@ spec:
           - clusterroles
           verbs:
           - '*'
-        - apiGroups:
-          - authentication.k8s.io
-          resources:
-          - tokenreviews
-          verbs:
-          - create
-        - apiGroups:
-          - authorization.k8s.io
-          resources:
-          - subjectaccessreviews
-          verbs:
-          - create
         serviceAccountName: lightspeed-operator-controller-manager
       deployments:
       - label:
@@ -325,9 +321,11 @@ spec:
             spec:
               containers:
               - args:
-                - --health-probe-bind-address=:8081
-                - --metrics-bind-address=127.0.0.1:8080
                 - --leader-elect
+                - --health-probe-bind-address=:8081
+                - --metrics-bind-address=:8443
+                - --secure-metrics-server
+                - --cert-dir=/etc/tls/private
                 - --images=lightspeed-service=quay.io/openshift-lightspeed/lightspeed-service-api:latest
                 command:
                 - /manager
@@ -345,6 +343,10 @@ spec:
                   initialDelaySeconds: 15
                   periodSeconds: 20
                 name: manager
+                ports:
+                - containerPort: 8443
+                  name: metrics
+                  protocol: TCP
                 readinessProbe:
                   httpGet:
                     path: /readyz
@@ -357,31 +359,6 @@ spec:
                     memory: 256Mi
                   requests:
                     cpu: 10m
-                    memory: 64Mi
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  capabilities:
-                    drop:
-                    - ALL
-              - args:
-                - --secure-listen-address=0.0.0.0:8443
-                - --upstream=http://127.0.0.1:8080/
-                - --logtostderr=true
-                - --tls-cert-file=/etc/tls/private/tls.crt
-                - --tls-private-key-file=/etc/tls/private/tls.key
-                - --v=0
-                image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
-                name: kube-rbac-proxy
-                ports:
-                - containerPort: 8443
-                  name: https
-                  protocol: TCP
-                resources:
-                  limits:
-                    cpu: 500m
-                    memory: 128Mi
-                  requests:
-                    cpu: 5m
                     memory: 64Mi
                 securityContext:
                   allowPrivilegeEscalation: false
@@ -556,5 +533,3 @@ spec:
       image: quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
     - name: lightspeed-operator
       image: quay.io/openshift-lightspeed/lightspeed-operator:latest
-    - name: ose-kube-rbac-proxy
-      image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest

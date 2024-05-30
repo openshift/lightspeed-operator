@@ -16,8 +16,10 @@ require (
 )
 
 require (
+	github.com/Jeffail/gabs v1.4.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
+	github.com/openshift/client-go v0.0.0-20231218140158-47f6d749b9d9 // indirect
 )
 
 require (

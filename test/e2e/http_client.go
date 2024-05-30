@@ -17,17 +17,28 @@ type HTTPSClient struct {
 	serverName string
 	caCertPool *x509.CertPool
 	ctx        context.Context
+	clientCert *tls.Certificate
 }
 
-func NewHTTPSClient(host, serverName string, certificate []byte) *HTTPSClient {
+func NewHTTPSClient(host, serverName string, caCertificate, clientCert, clientKey []byte) *HTTPSClient {
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(certificate)
-	return &HTTPSClient{
+	caCertPool.AppendCertsFromPEM(caCertificate)
+	httpsClient := &HTTPSClient{
 		host:       host,
 		serverName: serverName,
 		caCertPool: caCertPool,
 		ctx:        context.Background(),
 	}
+
+	if len(clientCert) > 0 && len(clientKey) > 0 {
+		cert, err := tls.X509KeyPair(clientCert, clientKey)
+		if err != nil {
+			panic(err)
+		}
+		httpsClient.clientCert = &cert
+	}
+	return httpsClient
+
 }
 
 func (c *HTTPSClient) Get(queryUrl string, headers ...map[string]string) (*http.Response, error) {
@@ -37,6 +48,9 @@ func (c *HTTPSClient) Get(queryUrl string, headers ...map[string]string) (*http.
 			ServerName: c.serverName,
 			MinVersion: tls.VersionTLS12,
 		},
+	}
+	if c.clientCert != nil {
+		rt.(*http.Transport).TLSClientConfig.Certificates = []tls.Certificate{*c.clientCert}
 	}
 	var resp *http.Response
 	u, err := url.Parse(queryUrl)
@@ -70,6 +84,9 @@ func (c *HTTPSClient) PostJson(queryUrl string, body []byte, headers ...map[stri
 			ServerName: c.serverName,
 			MinVersion: tls.VersionTLS12,
 		},
+	}
+	if c.clientCert != nil {
+		rt.(*http.Transport).TLSClientConfig.Certificates = []tls.Certificate{*c.clientCert}
 	}
 	var resp *http.Response
 	u, err := url.Parse(queryUrl)

@@ -67,6 +67,10 @@ spec:
         - /manager
         args:
         - --leader-elect
+        - "--health-probe-bind-address=:8081"
+        - "--metrics-bind-address=:8443"
+        - --secure-metrics-server
+        - "--cert-dir=/etc/tls/private"
         image: controller:latest
         imagePullPolicy: Always
         name: manager
@@ -87,6 +91,14 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
+        ports:
+          - containerPort: 8443
+            protocol: TCP
+            name: metrics
+        volumeMounts:
+          - mountPath: /etc/tls/private
+            name: controller-manager-tls
+            readOnly: true
         # TODO(user): Configure the resources accordingly based on the project requirements.
         # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         env:
@@ -105,3 +117,31 @@ spec:
             memory: 64Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+        - name: controller-manager-tls
+          secret:
+            secretName: controller-manager-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: controller-manager-tls
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: service
+    app.kubernetes.io/instance: controller-manager-service
+    app.kubernetes.io/component: manager
+    app.kubernetes.io/created-by: lightspeed-operator
+    app.kubernetes.io/part-of: lightspeed-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: controller-manager-service
+  namespace: system
+spec:
+  ports:
+  - name: metrics
+    port: 8443
+    protocol: TCP
+    targetPort: metrics
+  selector:
+    control-plane: controller-manager
