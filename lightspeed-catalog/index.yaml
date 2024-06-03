@@ -251,7 +251,7 @@ relatedImages:
   name: lightspeed-console-plugin
 - image: quay.io/openshift-lightspeed/lightspeed-operator-bundle:v0.0.1
   name: ""
-- image: quay.io/openshift-lightspeed/lightspeed-operator:latest
+- image: docker.io/raptorsun/ols-operator:0.09
   name: lightspeed-operator
 - image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
   name: lightspeed-service-api

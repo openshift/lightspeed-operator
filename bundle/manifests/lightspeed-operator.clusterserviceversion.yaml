@@ -324,7 +324,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/openshift-lightspeed/lightspeed-operator:latest
+                image: docker.io/raptorsun/ols-operator:0.09
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
@@ -522,4 +522,4 @@ spec:
     - name: lightspeed-console-plugin
       image: quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
     - name: lightspeed-operator
-      image: quay.io/openshift-lightspeed/lightspeed-operator:latest
+      image: docker.io/raptorsun/ols-operator:0.09
