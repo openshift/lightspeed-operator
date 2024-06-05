@@ -29,6 +29,7 @@ var _ = Describe("App server assets", func() {
 	var rOptions *OLSConfigReconcilerOptions
 	var secret *corev1.Secret
 	defaultVolumeMode := int32(420)
+
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
@@ -201,10 +202,14 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate the OLS deployment", func() {
+			By("generate full deployment when telemetry pull secret exists")
+			createTelemetryPullSecret()
+
 			dep, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(OLSAppServerDeploymentName))
 			Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
+			// application container
 			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(rOptions.LightspeedServiceImage))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
 			Expect(dep.Spec.Template.Spec.Containers[0].Resources).ToNot(BeNil())
@@ -243,6 +248,7 @@ var _ = Describe("App server assets", func() {
 					MountPath: "/app-root/ols-user-data",
 				},
 			}))
+			// telemetry container
 			Expect(dep.Spec.Template.Spec.Containers[1].Image).To(Equal(rOptions.LightspeedServiceImage))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
 			Expect(dep.Spec.Template.Spec.Containers[1].Resources).ToNot(BeNil())
@@ -300,6 +306,151 @@ var _ = Describe("App server assets", func() {
 				},
 			}))
 			Expect(dep.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
+
+			By("generate deployment without data collector when telemetry pull secret does not exist")
+			deleteTelemetryPullSecret()
+			dep, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Name).To(Equal(OLSAppServerDeploymentName))
+			Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
+			// application container
+			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(rOptions.LightspeedServiceImage))
+			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
+			Expect(dep.Spec.Template.Spec.Containers[0].Resources).ToNot(BeNil())
+			Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
+				{
+					ContainerPort: OLSAppServerContainerPort,
+					Name:          "https",
+					Protocol:      corev1.ProtocolTCP,
+				},
+			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
+				{
+					Name:  "OLS_CONFIG_FILE",
+					Value: path.Join("/etc/ols", OLSConfigFilename),
+				},
+			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
+				{
+					Name:      "secret-test-secret",
+					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
+					ReadOnly:  true,
+				},
+				{
+					Name:      "secret-lightspeed-tls",
+					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
+					ReadOnly:  true,
+				},
+				{
+					Name:      "cm-olsconfig",
+					MountPath: "/etc/ols",
+					ReadOnly:  true,
+				},
+			}))
+			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
+				{
+					Name: "secret-test-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  "test-secret",
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: "secret-lightspeed-tls",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  OLSCertsSecretName,
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: "cm-olsconfig",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
+							DefaultMode:          &defaultVolumeMode,
+						},
+					},
+				},
+			}))
+
+			By("generate deployment without data collector when telemetry pull secret does not contain telemetry token")
+			createTelemetryPullSecretWithoutTelemetryToken()
+			dep, err = r.generateOLSDeployment(cr)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Name).To(Equal(OLSAppServerDeploymentName))
+			Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
+			// application container
+			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(rOptions.LightspeedServiceImage))
+			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
+			Expect(dep.Spec.Template.Spec.Containers[0].Resources).ToNot(BeNil())
+			Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
+				{
+					ContainerPort: OLSAppServerContainerPort,
+					Name:          "https",
+					Protocol:      corev1.ProtocolTCP,
+				},
+			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
+				{
+					Name:  "OLS_CONFIG_FILE",
+					Value: path.Join("/etc/ols", OLSConfigFilename),
+				},
+			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
+				{
+					Name:      "secret-test-secret",
+					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
+					ReadOnly:  true,
+				},
+				{
+					Name:      "secret-lightspeed-tls",
+					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
+					ReadOnly:  true,
+				},
+				{
+					Name:      "cm-olsconfig",
+					MountPath: "/etc/ols",
+					ReadOnly:  true,
+				},
+			}))
+			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
+				{
+					Name: "secret-test-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  "test-secret",
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: "secret-lightspeed-tls",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  OLSCertsSecretName,
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: "cm-olsconfig",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
+							DefaultMode:          &defaultVolumeMode,
+						},
+					},
+				},
+			}))
+
+			deleteTelemetryPullSecret()
 		})
 
 		It("should generate the OLS service", func() {
@@ -319,6 +470,8 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should switch data collection on and off as CR defines in .spec.ols_config.user_data_collection", func() {
+			createTelemetryPullSecret()
+			defer deleteTelemetryPullSecret()
 			By("Switching data collection off")
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
@@ -477,6 +630,8 @@ ols_config:
 
 		It("should generate the OLS deployment", func() {
 			// todo: update this test after updating the test for generateOLSConfigMap
+			createTelemetryPullSecret()
+			defer deleteTelemetryPullSecret()
 			dep, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(OLSAppServerDeploymentName))
@@ -714,4 +869,65 @@ func addWatsonxProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	cr.Spec.LLMConfig.Providers[0].Type = "watsonx"
 	cr.Spec.LLMConfig.Providers[0].WatsonProjectID = "testProjectID"
 	return cr
+}
+
+func createTelemetryPullSecret() {
+	const telemetryToken = `
+		{
+			"auths": {
+				"cloud.openshift.com": {
+					"auth": "testkey",
+					"email": "testm@test.test"
+				}
+			}
+		}
+		`
+	pullSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pull-secret",
+			Namespace: "openshift-config",
+		},
+		Data: map[string][]byte{
+			".dockerconfigjson": []byte(telemetryToken),
+		},
+	}
+
+	err := k8sClient.Create(ctx, pullSecret)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func createTelemetryPullSecretWithoutTelemetryToken() {
+	const telemetryToken = `
+		{
+			"auths": {
+				"other.token": {
+					"auth": "testkey",
+					"email": "testm@test.test"
+				}
+			}
+		}
+		`
+	pullSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pull-secret",
+			Namespace: "openshift-config",
+		},
+		Data: map[string][]byte{
+			".dockerconfigjson": []byte(telemetryToken),
+		},
+	}
+
+	err := k8sClient.Create(ctx, pullSecret)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func deleteTelemetryPullSecret() {
+	pullSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pull-secret",
+			Namespace: "openshift-config",
+		},
+	}
+	err := k8sClient.Delete(ctx, pullSecret)
+	Expect(err).NotTo(HaveOccurred())
 }

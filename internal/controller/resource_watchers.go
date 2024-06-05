@@ -33,3 +33,14 @@ func annotateSecretWatcher(secret *corev1.Secret) {
 	annotations[WatcherAnnotationKey] = OLSConfigName
 	secret.SetAnnotations(annotations)
 }
+
+func telemetryPullSecretWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Request {
+	if obj.GetNamespace() != TelemetryPullSecretNamespace || obj.GetName() != TelemetryPullSecretName {
+		return nil
+	}
+	return []reconcile.Request{
+		{NamespacedName: types.NamespacedName{
+			Name: OLSConfigName,
+		}},
+	}
+}

@@ -111,4 +111,9 @@ const (
 
 	/*** watchers ***/
 	WatcherAnnotationKey = "ols.openshift.io/watcher"
+	// TelemetryPullSecretNamespace "openshift-config" contains the telemetry pull secret to determine the enablement of telemetry
+	// #nosec G101
+	TelemetryPullSecretNamespace = "openshift-config"
+	// TelemetryPullSecretName is the name of the secret containing the telemetry pull secret
+	TelemetryPullSecretName = "pull-secret"
 )

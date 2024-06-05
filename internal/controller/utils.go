@@ -234,16 +234,20 @@ func deploymentSpecEqual(a, b *appsv1.DeploymentSpec) bool {
 		return false
 	}
 
+	return containersEqual(a.Template.Spec.Containers, b.Template.Spec.Containers)
+}
+
+// containerEqual compares two container arrays and returns true if they are equal.
+func containersEqual(a, b []corev1.Container) bool {
 	// check containers
-	if len(a.Template.Spec.Containers) != len(b.Template.Spec.Containers) {
+	if len(a) != len(b) {
 		return false
 	}
-	for i := range a.Template.Spec.Containers {
-		if !containerSpecEqual(&a.Template.Spec.Containers[i], &b.Template.Spec.Containers[i]) {
+	for i := range a {
+		if !containerSpecEqual(&a[i], &b[i]) {
 			return false
 		}
 	}
-
 	return true
 }
 
