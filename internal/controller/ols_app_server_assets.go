@@ -1,15 +1,18 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strings"
 
+	configv1 "github.com/openshift/api/config/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/yaml"
 
@@ -59,7 +62,7 @@ func (r *OLSConfigReconciler) generateSARClusterRole(cr *olsv1alpha1.OLSConfig) 
 			{
 				APIGroups: []string{"config.openshift.io"},
 				Resources: []string{"clusterversions"},
-				Verbs:     []string{"get"},
+				Verbs:     []string{"get", "list"},
 			},
 			{
 				APIGroups:     []string{""},
@@ -103,7 +106,7 @@ func (r *OLSConfigReconciler) generateSARClusterRoleBinding(cr *olsv1alpha1.OLSC
 	return &rb, nil
 }
 
-func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
 	providerConfigs := []ProviderConfig{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
 		credentialPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name, LLMApiTokenFileName)
@@ -161,6 +164,11 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		},
 	}
 
+	major, minor, err := r.getClusterVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	olsConfig := OLSConfig{
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
 		DefaultProvider: cr.Spec.OLSConfig.DefaultProvider,
@@ -175,8 +183,8 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 			TLSKeyPath:         path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.key"),
 		},
 		ReferenceContent: ReferenceContent{
-			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/4.15",
-			ProductDocsIndexId:   "ocp-product-docs-4_15",
+			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+			ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
 			EmbeddingsModelPath:  "/app-root/embeddings_model",
 		},
 		UserDataCollection: UserDataCollectionConfig{
@@ -357,6 +365,20 @@ func (r *OLSConfigReconciler) generatePrometheusRule(cr *olsv1alpha1.OLSConfig) 
 
 	return &rule, nil
 }
+
+func (r *OLSConfigReconciler) getClusterVersion(ctx context.Context) (string, string, error) {
+	key := client.ObjectKey{Name: "version"}
+	clusterVersion := &configv1.ClusterVersion{}
+	if err := r.Get(ctx, key, clusterVersion); err != nil {
+		return "", "", err
+	}
+	versions := strings.Split(clusterVersion.Status.Desired.Version, ".")
+	if len(versions) < 2 {
+		return "", "", fmt.Errorf("failed to parse cluster version: %s", clusterVersion.Status.Desired.Version)
+	}
+	return versions[0], versions[1], nil
+}
+
 func getQueryFilters(cr *olsv1alpha1.OLSConfig) []QueryFilters {
 	if cr.Spec.OLSConfig.QueryFilters == nil {
 		return nil

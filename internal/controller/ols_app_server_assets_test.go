@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"path"
@@ -70,7 +71,10 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate the olsconfig config map", func() {
-			cm, err := r.generateOLSConfigMap(cr)
+			major, minor, err := r.getClusterVersion(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
 			// TODO: Update DB
 			//OLSRedisMaxMemory := intstr.FromString(RedisMaxMemory)
 			Expect(err).NotTo(HaveOccurred())
@@ -113,8 +117,8 @@ var _ = Describe("App server assets", func() {
 					},
 					ReferenceContent: ReferenceContent{
 						EmbeddingsModelPath:  "/app-root/embeddings_model",
-						ProductDocsIndexId:   "ocp-product-docs-4_15",
-						ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/4.15",
+						ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
+						ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
 					},
 					UserDataCollection: UserDataCollectionConfig{
 						FeedbackDisabled:    false,
@@ -148,7 +152,7 @@ var _ = Describe("App server assets", func() {
 
 		It("should generate configmap with queryFilters", func() {
 			crWithFilters := addQueryFiltersToCR(cr)
-			cm, err := r.generateOLSConfigMap(crWithFilters)
+			cm, err := r.generateOLSConfigMap(context.TODO(), crWithFilters)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
@@ -164,7 +168,7 @@ var _ = Describe("App server assets", func() {
 
 		It("should generate configmap with Azure OpenAI provider", func() {
 			azureOpenAI := addAzureOpenAIProvider(cr)
-			cm, err := r.generateOLSConfigMap(azureOpenAI)
+			cm, err := r.generateOLSConfigMap(context.TODO(), azureOpenAI)
 			Expect(err).NotTo(HaveOccurred())
 
 			var olsConfigMap map[string]interface{}
@@ -179,7 +183,7 @@ var _ = Describe("App server assets", func() {
 
 		It("should generate configmap with IBM watsonx provider", func() {
 			watsonx := addWatsonxProvider(cr)
-			cm, err := r.generateOLSConfigMap(watsonx)
+			cm, err := r.generateOLSConfigMap(context.TODO(), watsonx)
 			Expect(err).NotTo(HaveOccurred())
 
 			var olsConfigMap map[string]interface{}
@@ -337,11 +341,13 @@ var _ = Describe("App server assets", func() {
 		It("should generate the olsconfig config map", func() {
 			// todo: this test is not complete
 			// generateOLSConfigMap should return an error if the CR is missing required fields
-			cm, err := r.generateOLSConfigMap(cr)
+			major, minor, err := r.getClusterVersion(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
-			const expectedConfigStr = `llm_providers: []
+			expectedConfigStr := `llm_providers: []
 ols_config:
   conversation_cache:
     memory:
@@ -353,8 +359,8 @@ ols_config:
     uvicorn_log_level: ""
   reference_content:
     embeddings_model_path: /app-root/embeddings_model
-    product_docs_index_id: ocp-product-docs-4_15
-    product_docs_index_path: /app-root/vector_db/ocp_product_docs/4.15
+    product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
+    product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
@@ -518,7 +524,7 @@ ols_config:
 				rbacv1.PolicyRule{
 					APIGroups: []string{"config.openshift.io"},
 					Resources: []string{"clusterversions"},
-					Verbs:     []string{"get"},
+					Verbs:     []string{"get", "list"},
 				},
 				rbacv1.PolicyRule{
 					APIGroups:     []string{""},

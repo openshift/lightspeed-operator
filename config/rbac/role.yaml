@@ -22,6 +22,7 @@ rules:
   - clusterversions
   verbs:
   - get
+  - list
 - apiGroups:
   - console.openshift.io
   resources:

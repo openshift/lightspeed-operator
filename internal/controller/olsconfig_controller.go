@@ -97,7 +97,7 @@ type OLSConfigReconcilerOptions struct {
 // +kubebuilder:rbac:groups=monitoring.coreos.com,namespace=openshift-lightspeed,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
 
 // clusterversion for checking the openshift cluster version
-// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list
 
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
