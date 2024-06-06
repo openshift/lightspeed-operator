@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -17,6 +16,8 @@ import (
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -312,59 +313,91 @@ func (c *Client) ForwardPort(serviceName, namespaceName string, port int) (strin
 	return fmt.Sprintf("127.0.0.1:%s", matches[1]), cleanUp, nil
 }
 
-func (c *Client) getAuthToken() (string, error) { // nolint:unused
-	ctx, cancel := context.WithCancel(c.ctx)
-	defer cancel()
-	// https://docs.ci.openshift.org/docs/architecture/step-registry/#available-environment-variables
-	isCIEnvironment := os.Getenv("OPENSHIFT_CI") != ""
-	if isCIEnvironment {
-		return c.getTokenFromCI(ctx)
+func (c *Client) CreateServiceAccount(namespace, serviceAccount string) (func(), error) {
+
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceAccount,
+			Namespace: namespace,
+		},
 	}
-	return c.getTokenFromLocal()
+
+	err := c.Create(sa)
+	if err != nil {
+		return nil, err
+	}
+
+	return func() {
+		err := c.Delete(sa)
+		if err != nil {
+			logf.Log.Error(err, "Error deleting ServiceAccount")
+		}
+	}, nil
 }
 
-func (c *Client) getTokenFromCI(ctx context.Context) (string, error) { // nolint:unused
-	fmt.Println("CI environment detected")
-	// https://docs.ci.openshift.org/docs/architecture/step-registry/#available-environment-variables
-	filePath := os.Getenv("KUBEADMIN_PASSWORD_FILE")
-	if filePath == "" {
-		return "", fmt.Errorf("KUBEADMIN_PASSWORD_FILE environment variable is not set")
+func (c *Client) GetServiceAccountToken(namespace, name string) (string, error) {
+	// from kubernetes 1.24+ the token secret should be explicitly created.
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      "token-serviceaccount-" + name,
+			Annotations: map[string]string{
+				"kubernetes.io/service-account.name": name,
+			},
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}
+	err := c.Create(secret)
+	if err != nil {
+		return "", err
 	}
 
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
+	var token string
+	err = wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, c.conditionCheckTimeout, true, func(ctx context.Context) (bool, error) {
+		err := c.Get(secret)
+		if err != nil {
+			return false, nil
+		}
+		tokenBytes, ok := secret.Data[corev1.ServiceAccountTokenKey]
+		if !ok {
+			return false, nil
+		}
+		token = string(tokenBytes)
+		return true, nil
 
-	kubeadminPass, err := io.ReadAll(file)
-	if err != nil {
-		return "", fmt.Errorf("failed to read file content: %w", err)
-	}
-
-	apiServer := c.config.Host
-	if err := c.loginToCluster(ctx, apiServer, strings.TrimSpace(string(kubeadminPass))); err != nil {
-		return "", fmt.Errorf("failed to login to cluster: %w", err)
-	}
-	cmd := exec.CommandContext(ctx, "oc", "whoami", "-t")
-	token, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to retrieve token in CI environment: %w", err)
-	}
-	return strings.TrimSpace(string(token)), nil
+	})
+	return token, err
 }
 
-func (c *Client) loginToCluster(ctx context.Context, apiServer, kubeadminPass string) error { // nolint:unused
-	cmd := exec.CommandContext(ctx, "oc", "login", apiServer, "-u", "kubeadmin", "-p", kubeadminPass)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to login to API server: %w", err)
+func (c *Client) CreateClusterRoleBinding(namespace, serviceAccount, clusterRole string) (func(), error) {
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("%s-%s", serviceAccount, clusterRole),
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      serviceAccount,
+				Namespace: namespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     clusterRole,
+			APIGroup: "rbac.authorization.k8s.io",
+		},
 	}
-	return nil
-}
 
-func (c *Client) getTokenFromLocal() (string, error) { // nolint:unused
-	if c.config == nil || c.config.BearerToken == "" {
-		return "", fmt.Errorf("Bearer token not found in client configuration")
+	err := c.Create(clusterRoleBinding)
+	if err != nil {
+		return nil, err
 	}
-	return c.config.BearerToken, nil
+
+	return func() {
+		err := c.Delete(clusterRoleBinding)
+		if err != nil {
+			logf.Log.Error(err, "Error deleting ClusterRoleBinding")
+		}
+
+	}, nil
 }

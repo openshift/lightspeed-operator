@@ -14,11 +14,15 @@ import (
 
 var _ = Describe("TLS activation", Ordered, func() {
 	const serviceAnnotationKeyTLSSecret = "service.beta.openshift.io/serving-cert-secret-name"
+	const testSAName = "test-sa"
+	const queryAccessClusterRole = "lightspeed-operator-query-access"
+	const appMetricsAccessClusterRole = "lightspeed-operator-ols-metrics-reader"
 	var cr *olsv1alpha1.OLSConfig
 	var err error
 	var client *Client
 	var cleanUpFuncs []func()
 	var forwardHost string
+	var saToken string
 
 	BeforeAll(func() {
 		client, err = GetClient(nil)
@@ -27,6 +31,27 @@ var _ = Describe("TLS activation", Ordered, func() {
 		cr, err = generateOLSConfig()
 		Expect(err).NotTo(HaveOccurred())
 		err = client.Create(cr)
+		Expect(err).NotTo(HaveOccurred())
+
+		var cleanUp func()
+
+		By("create a service account")
+		cleanUp, err := client.CreateServiceAccount(OLSNameSpace, testSAName)
+		Expect(err).NotTo(HaveOccurred())
+		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
+
+		By("create a role binding for application access")
+		cleanUp, err = client.CreateClusterRoleBinding(OLSNameSpace, testSAName, queryAccessClusterRole)
+		Expect(err).NotTo(HaveOccurred())
+		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
+
+		By("create a role binding for application metrics access")
+		cleanUp, err = client.CreateClusterRoleBinding(OLSNameSpace, testSAName, appMetricsAccessClusterRole)
+		Expect(err).NotTo(HaveOccurred())
+		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
+
+		By("fetch the service account token")
+		saToken, err = client.GetServiceAccountToken(OLSNameSpace, testSAName)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("wait for application server deployment rollout")
@@ -40,7 +65,7 @@ var _ = Describe("TLS activation", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("forwarding the HTTPS port to a local port")
-		var cleanUp func()
+
 		forwardHost, cleanUp, err = client.ForwardPort(AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort)
 		Expect(err).NotTo(HaveOccurred())
 		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
@@ -103,14 +128,11 @@ var _ = Describe("TLS activation", Ordered, func() {
 		}))
 
 		By("check HTTPS Get on /metrics endpoint")
-		token, err := client.getAuthToken()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(token).NotTo(BeEmpty())
 		const inClusterHost = "lightspeed-app-server.openshift-lightspeed.svc.cluster.local"
 		certificate, ok := secret.Data["tls.crt"]
 		Expect(ok).To(BeTrue())
 		httpsClient := NewHTTPSClient(forwardHost, inClusterHost, certificate)
-		authHeader := map[string]string{"Authorization": "Bearer " + token}
+		authHeader := map[string]string{"Authorization": "Bearer " + saToken}
 		err = httpsClient.waitForHTTPSGetStatus("/metrics", http.StatusOK, authHeader)
 		Expect(err).NotTo(HaveOccurred())
 
