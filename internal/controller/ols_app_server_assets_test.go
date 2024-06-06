@@ -127,7 +127,7 @@ var _ = Describe("App server assets", func() {
 					{
 						Name:            "testProvider",
 						URL:             testURL,
-						CredentialsPath: "/etc/apikeys/test-secret/apitoken",
+						CredentialsPath: "/etc/apikeys/test-secret",
 						Type:            "bam",
 						Models: []ModelConfig{
 							{
@@ -545,9 +545,9 @@ func generateRandomSecret() (*corev1.Secret, error) {
 			Annotations: map[string]string{},
 		},
 		Data: map[string][]byte{
-			LLMApiTokenFileName: []byte(passwordHash),
-			"tls.key":           []byte("test tls key"),
-			"tls.crt":           []byte("test tls crt"),
+			"client_secret": []byte(passwordHash),
+			"tls.key":       []byte("test tls key"),
+			"tls.crt":       []byte("test tls crt"),
 		},
 	}
 	return &secret, nil

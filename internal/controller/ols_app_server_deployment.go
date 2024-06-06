@@ -63,10 +63,6 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	// map from secret name to secret mount path
 	secretMounts := map[string]string{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
-		_, err := getSecretContent(r.Client, provider.CredentialsSecretRef.Name, r.Options.Namespace, []string{LLMApiTokenFileName}, &corev1.Secret{})
-		if err != nil {
-			return nil, err
-		}
 		credentialMountPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name)
 		secretMounts[provider.CredentialsSecretRef.Name] = credentialMountPath
 	}

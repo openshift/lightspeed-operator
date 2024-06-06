@@ -230,7 +230,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
 			oldHash := dep.Spec.Template.Annotations[LLMProviderHashKey]
 			By("Update the provider secret content")
-			secret.Data[LLMApiTokenFileName] = []byte("new-value")
+			secret.Data["apitoken2"] = []byte("new-value")
 			err = k8sClient.Update(ctx, secret)
 			Expect(err).NotTo(HaveOccurred())
 
