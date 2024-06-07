@@ -106,7 +106,7 @@ func (r *OLSConfigReconciler) generateSARClusterRoleBinding(cr *olsv1alpha1.OLSC
 func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
 	providerConfigs := []ProviderConfig{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
-		credentialPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name, LLMApiTokenFileName)
+		credentialPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name)
 		modelConfigs := []ModelConfig{}
 		for _, model := range provider.Models {
 			modelConfig := ModelConfig{
