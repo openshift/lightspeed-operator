@@ -115,7 +115,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 			}
 			modelConfigs = append(modelConfigs, modelConfig)
 		}
-		providerConfig := ProviderConfig{}
+		var providerConfig ProviderConfig
 		if provider.Type == AzureOpenAIType {
 			providerConfig = ProviderConfig{
 				Name: provider.Name,

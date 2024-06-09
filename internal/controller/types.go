@@ -49,7 +49,7 @@ type ProviderConfig struct {
 type AzureOpenAIConfig struct {
 	// Azure OpenAI API URL
 	URL string `json:"url,omitempty"`
-	// Azure OpenAI API Key
+	// Path where Azure OpenAI accesstoken or credentials are stored
 	CredentialsPath string `json:"credentials_path"`
 	// Azure deployment name
 	AzureDeploymentName string `json:"deployment_name,omitempty"`
