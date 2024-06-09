@@ -70,7 +70,8 @@ const (
 	OLSConsoleTLSHashStateCacheKey = "olsconsoletls-hash"
 	// LLMProviderHashStateCacheKey is the key of the hash value of OLS LLM provider credentials consolidated
 	LLMProviderHashStateCacheKey = "llmprovider-hash"
-
+	// AzureOpenAIType is the name of the Azure OpenAI provider type
+	AzureOpenAIType = "azure_openai"
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
 	ConsoleUIConfigMapName = "lightspeed-console-plugin"

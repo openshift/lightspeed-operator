@@ -115,15 +115,26 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 			}
 			modelConfigs = append(modelConfigs, modelConfig)
 		}
-
-		providerConfig := ProviderConfig{
-			Name:                provider.Name,
-			Type:                provider.Type,
-			URL:                 provider.URL,
-			CredentialsPath:     credentialPath,
-			Models:              modelConfigs,
-			AzureDeploymentName: provider.AzureDeploymentName,
-			WatsonProjectID:     provider.WatsonProjectID,
+		providerConfig := ProviderConfig{}
+		if provider.Type == AzureOpenAIType {
+			providerConfig = ProviderConfig{
+				Name: provider.Name,
+				Type: provider.Type,
+				AzureOpenAIConfig: &AzureOpenAIConfig{
+					URL:                 provider.URL,
+					CredentialsPath:     credentialPath,
+					AzureDeploymentName: provider.AzureDeploymentName,
+				},
+			}
+		} else {
+			providerConfig = ProviderConfig{
+				Name:            provider.Name,
+				Type:            provider.Type,
+				URL:             provider.URL,
+				CredentialsPath: credentialPath,
+				Models:          modelConfigs,
+				WatsonProjectID: provider.WatsonProjectID,
+			}
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
