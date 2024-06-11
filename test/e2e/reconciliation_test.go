@@ -171,6 +171,9 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		generation = deployment.Generation
 
 		By("update models in the OLSConfig CR")
+		err = client.Get(cr)
+		Expect(err).NotTo(HaveOccurred())
+
 		cr.Spec.OLSConfig.DefaultModel = OpenAIAlternativeModel
 		if !slices.Contains(cr.Spec.LLMConfig.Providers[0].Models, olsv1alpha1.ModelSpec{Name: OpenAIAlternativeModel}) {
 			cr.Spec.LLMConfig.Providers[0].Models = append(cr.Spec.LLMConfig.Providers[0].Models, olsv1alpha1.ModelSpec{Name: OpenAIAlternativeModel})
@@ -199,6 +202,9 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		generation = deployment.Generation
 
 		By("change LLM token secret reference")
+		err = client.Get(cr)
+		Expect(err).NotTo(HaveOccurred())
+
 		cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = LLMTokenSecondSecretName
 		err = client.Update(cr)
 		Expect(err).NotTo(HaveOccurred())
