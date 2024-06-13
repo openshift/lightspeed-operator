@@ -118,8 +118,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(cr *olsv1alpha1.OLSConfig) (*
 		var providerConfig ProviderConfig
 		if provider.Type == AzureOpenAIType {
 			providerConfig = ProviderConfig{
-				Name: provider.Name,
-				Type: provider.Type,
+				Name:   provider.Name,
+				Type:   provider.Type,
+				Models: modelConfigs,
 				AzureOpenAIConfig: &AzureOpenAIConfig{
 					URL:                 provider.URL,
 					CredentialsPath:     credentialPath,
