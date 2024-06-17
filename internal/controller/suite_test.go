@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -98,6 +99,26 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 
 	ctx = context.Background()
+
+	By("Create the ClusterVersion object")
+	clusterVersion := &configv1.ClusterVersion{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "version",
+		},
+		Spec: configv1.ClusterVersionSpec{
+			ClusterID: "foobar",
+		},
+	}
+	err = k8sClient.Create(context.TODO(), clusterVersion)
+	Expect(err).NotTo(HaveOccurred())
+
+	clusterVersion.Status = configv1.ClusterVersionStatus{
+		Desired: configv1.Release{
+			Version: "123.456.789",
+		},
+	}
+	err = k8sClient.Status().Update(context.TODO(), clusterVersion)
+	Expect(err).NotTo(HaveOccurred())
 
 	By("Create the namespace openshift-lightspeed")
 	ns := &corev1.Namespace{
