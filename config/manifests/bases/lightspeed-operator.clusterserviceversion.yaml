@@ -144,6 +144,13 @@ spec:
         path: ols.summarizerProvider
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: User data collection switches
+        displayName: User Data Collection
+        path: ols.userDataCollection
+      - displayName: Do Not Collect User Feedback
+        path: ols.userDataCollection.feedbackDisabled
+      - displayName: Do Not Collect Transcripts
+        path: ols.userDataCollection.transcriptsDisabled
       - description: Validator model name
         displayName: Validator Model
         path: ols.validatorModel

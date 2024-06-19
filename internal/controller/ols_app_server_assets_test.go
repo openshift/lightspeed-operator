@@ -245,7 +245,7 @@ var _ = Describe("App server assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[1].Image).To(Equal(rOptions.LightspeedServiceImage))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
-			Expect(dep.Spec.Template.Spec.Containers[0].Resources).ToNot(BeNil())
+			Expect(dep.Spec.Template.Spec.Containers[1].Resources).ToNot(BeNil())
 			Expect(dep.Spec.Template.Spec.Containers[1].Command).To(Equal([]string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"}))
 			Expect(dep.Spec.Template.Spec.Containers[1].Env).To(Equal([]corev1.EnvVar{
 				{
@@ -316,6 +316,78 @@ var _ = Describe("App server assets", func() {
 					TargetPort: intstr.Parse("https"),
 				},
 			}))
+		})
+
+		It("should switch data collection on and off as CR defines in .spec.ols_config.user_data_collection", func() {
+			By("Switching data collection off")
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			olsconfigGenerated := AppSrvConfigFile{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeTrue())
+			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeTrue())
+
+			deployment, err := r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+			Expect(deployment.Spec.Template.Spec.Volumes).To(Not(ContainElement(
+				corev1.Volume{
+					Name: "ols-user-data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			)))
+
+			By("Switching data collection on")
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    false,
+				TranscriptsDisabled: false,
+			}
+			cm, err = r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeFalse())
+			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeFalse())
+
+			deployment, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(deployment.Spec.Template.Spec.Containers[1].Image).To(Equal(rOptions.LightspeedServiceImage))
+			Expect(deployment.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
+			Expect(deployment.Spec.Template.Spec.Containers[1].Resources).ToNot(BeNil())
+			Expect(deployment.Spec.Template.Spec.Containers[1].Command).To(Equal([]string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"}))
+			Expect(deployment.Spec.Template.Spec.Containers[1].Env).To(Equal([]corev1.EnvVar{
+				{
+					Name:  "OLS_USER_DATA_PATH",
+					Value: "/app-root/ols-user-data",
+				},
+				{
+					Name:  "INGRESS_ENV",
+					Value: "prod",
+				},
+			}))
+			Expect(deployment.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
+				{
+					Name:      "ols-user-data",
+					ReadOnly:  false,
+					MountPath: "/app-root/ols-user-data",
+				},
+			}))
+			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
+				corev1.Volume{
+					Name: "ols-user-data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			))
 		})
 	})
 

@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-06-19T11:24:23Z"
+    createdAt: "2024-06-19T16:13:18Z"
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
@@ -180,6 +180,13 @@ spec:
         path: ols.summarizerProvider
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: User data collection switches
+        displayName: User Data Collection
+        path: ols.userDataCollection
+      - displayName: Do Not Collect User Feedback
+        path: ols.userDataCollection.feedbackDisabled
+      - displayName: Do Not Collect Transcripts
+        path: ols.userDataCollection.transcriptsDisabled
       - description: Validator model name
         displayName: Validator Model
         path: ols.validatorModel
