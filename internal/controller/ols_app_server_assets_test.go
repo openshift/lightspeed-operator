@@ -131,7 +131,7 @@ var _ = Describe("App server assets", func() {
 					{
 						Name:            "testProvider",
 						URL:             testURL,
-						CredentialsPath: "/etc/apikeys/test-secret/apitoken",
+						CredentialsPath: "/etc/apikeys/test-secret",
 						Type:            "bam",
 						Models: []ModelConfig{
 							{
@@ -175,9 +175,13 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
-				"name":            Equal("openai"),
-				"type":            Equal("azure_openai"),
-				"deployment_name": Equal("testDeployment"),
+				"name": Equal("openai"),
+				"type": Equal("azure_openai"),
+				"azure_openai_config": MatchKeys(Options(IgnoreExtras), Keys{
+					"url":              Equal(testURL),
+					"credentials_path": Equal("/etc/apikeys/test-secret"),
+					"deployment_name":  Equal("testDeployment"),
+				}),
 			}))))
 		})
 
@@ -551,9 +555,9 @@ func generateRandomSecret() (*corev1.Secret, error) {
 			Annotations: map[string]string{},
 		},
 		Data: map[string][]byte{
-			LLMApiTokenFileName: []byte(passwordHash),
-			"tls.key":           []byte("test tls key"),
-			"tls.crt":           []byte("test tls crt"),
+			"client_secret": []byte(passwordHash),
+			"tls.key":       []byte("test tls key"),
+			"tls.crt":       []byte("test tls crt"),
 		},
 	}
 	return &secret, nil

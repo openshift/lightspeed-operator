@@ -166,6 +166,21 @@ func getSecretContent(rclient client.Client, secretName string, namespace string
 	return secretValues, nil
 }
 
+func getAllSecretContent(rclient client.Client, secretName string, namespace string, foundSecret *corev1.Secret) (map[string]string, error) {
+	ctx := context.Background()
+	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
+	if err != nil {
+		return nil, fmt.Errorf("secret not found: %s. error: %w", secretName, err)
+	}
+
+	secretValues := make(map[string]string)
+	for key, value := range foundSecret.Data {
+		secretValues[key] = string(value)
+	}
+
+	return secretValues, nil
+}
+
 // podVolumEqual compares two slices of corev1.Volume and returns true if they are equal.
 // covers 3 volume types: Secret, ConfigMap, EmptyDir
 func podVolumeEqual(a, b []corev1.Volume) bool {

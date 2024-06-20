@@ -109,7 +109,7 @@ func (r *OLSConfigReconciler) generateSARClusterRoleBinding(cr *olsv1alpha1.OLSC
 func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
 	providerConfigs := []ProviderConfig{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
-		credentialPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name, LLMApiTokenFileName)
+		credentialPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name)
 		modelConfigs := []ModelConfig{}
 		for _, model := range provider.Models {
 			modelConfig := ModelConfig{
@@ -118,15 +118,27 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			}
 			modelConfigs = append(modelConfigs, modelConfig)
 		}
-
-		providerConfig := ProviderConfig{
-			Name:                provider.Name,
-			Type:                provider.Type,
-			URL:                 provider.URL,
-			CredentialsPath:     credentialPath,
-			Models:              modelConfigs,
-			AzureDeploymentName: provider.AzureDeploymentName,
-			WatsonProjectID:     provider.WatsonProjectID,
+		var providerConfig ProviderConfig
+		if provider.Type == AzureOpenAIType {
+			providerConfig = ProviderConfig{
+				Name:   provider.Name,
+				Type:   provider.Type,
+				Models: modelConfigs,
+				AzureOpenAIConfig: &AzureOpenAIConfig{
+					URL:                 provider.URL,
+					CredentialsPath:     credentialPath,
+					AzureDeploymentName: provider.AzureDeploymentName,
+				},
+			}
+		} else {
+			providerConfig = ProviderConfig{
+				Name:            provider.Name,
+				Type:            provider.Type,
+				URL:             provider.URL,
+				CredentialsPath: credentialPath,
+				Models:          modelConfigs,
+				WatsonProjectID: provider.WatsonProjectID,
+			}
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}

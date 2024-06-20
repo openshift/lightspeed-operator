@@ -26,8 +26,6 @@ const (
 	CredentialsMountRoot = "/etc/credentials"
 	// OLSAppCertsMountRoot is the directory hosting the cert files in the container
 	OLSAppCertsMountRoot = "/etc/certs"
-	// LLMApiTokenFileName is the name of the file containing the API token to access LLM in the secret referenced by the OLSConfig
-	LLMApiTokenFileName = "apitoken"
 	// OLSComponentPasswordFileName is the generic name of the password file for each of its components
 	OLSComponentPasswordFileName = "password"
 	// OLSConfigFilename is the name of the application server configuration file
@@ -72,7 +70,8 @@ const (
 	OLSConsoleTLSHashStateCacheKey = "olsconsoletls-hash"
 	// LLMProviderHashStateCacheKey is the key of the hash value of OLS LLM provider credentials consolidated
 	LLMProviderHashStateCacheKey = "llmprovider-hash"
-
+	// AzureOpenAIType is the name of the Azure OpenAI provider type
+	AzureOpenAIType = "azure_openai"
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
 	ConsoleUIConfigMapName = "lightspeed-console-plugin"
