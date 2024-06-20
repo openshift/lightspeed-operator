@@ -12,16 +12,15 @@ metadata:
   name: lightspeed-operator-controller-manager-metrics-monitor
 spec:
   endpoints:
-  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
-    path: /metrics
-    port: https
+  - path: /metrics
+    port: metrics
     scheme: https
     tlsConfig:
       caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
       certFile: /etc/prometheus/secrets/metrics-client-certs/tls.crt
       insecureSkipVerify: false
       keyFile: /etc/prometheus/secrets/metrics-client-certs/tls.key
-      serverName: lightspeed-operator-controller-manager-metrics-service.openshift-lightspeed.svc
+      serverName: lightspeed-operator-controller-manager-service.openshift-lightspeed.svc
   selector:
     matchLabels:
       control-plane: controller-manager

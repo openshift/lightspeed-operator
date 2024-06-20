@@ -35,8 +35,6 @@ cat << EOF >> "${CSV_FILE}"
       image: quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
     - name: lightspeed-operator
       image: quay.io/openshift-lightspeed/lightspeed-operator:latest
-    - name: ose-kube-rbac-proxy
-      image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
 EOF
 echo "Adding bundle image to FBC using image ${BUNDLE_IMAGE}" 
 

@@ -36,6 +36,14 @@ rules:
   - get
   - update
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ols.openshift.io
   resources:
   - olsconfigs

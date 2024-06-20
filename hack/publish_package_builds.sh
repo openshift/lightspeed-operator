@@ -99,7 +99,6 @@ TARGET_TAG=${TARGET_TAG:-"internal-preview"}  # Set the target tag for the bundl
 OLS_IMAGE=${OLS_IMAGE:-"quay.io/openshift-lightspeed/lightspeed-service-api:internal-preview"}
 CONSOLE_IMAGE=${CONSOLE_IMAGE:-"quay.io/openshift-lightspeed/lightspeed-console-plugin:internal-preview"}
 OPERATOR_IMAGE=${OPERATOR_IMAGE:-"quay.io/openshift-lightspeed/lightspeed-operator:internal-preview"}
-RBAC_PROXY_IMAGE=${RBAC_PROXY_IMAGE:-"registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest"}
 PUBLISH=${PUBLISH:-"false"}
 REBUILD=${REBUILD:-"false"}
 
@@ -156,10 +155,6 @@ CONSOLE_IMAGE_SHA=$SHARED_SHA
 get_image_sha $OPERATOR_IMAGE
 OPERATOR_IMAGE_SHA=$SHARED_SHA
 
-get_image_sha $RBAC_PROXY_IMAGE
-RBAC_PROXY_IMAGE_SHA=$SHARED_SHA
-
-
 OPERANDS="lightspeed-service=${OLS_IMAGE_SHA},console-plugin=${CONSOLE_IMAGE_SHA}"
 #replace the operand images in the CSV file
 sed -i "s|--images=.*|--images=${OPERANDS}|g" "${CSV_FILE}"
@@ -167,14 +162,10 @@ sed -i "s|--images=.*|--images=${OPERANDS}|g" "${CSV_FILE}"
 #Replace operator in CSV file
 sed -i "s|image: quay.io/openshift-lightspeed/lightspeed-operator:latest|image: ${OPERATOR_IMAGE_SHA}|g" "${CSV_FILE}"
 
-#Replace kune-rbac-proxy in CSV file
-sed -i "s|image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest|image: ${RBAC_PROXY_IMAGE_SHA}|g" "${CSV_FILE}"
-
 #Replace related images in CSV file
 sed -i "s|quay.io/openshift-lightspeed/lightspeed-service-api:latest|${OLS_IMAGE_SHA}|g" "${CSV_FILE}"
 sed -i "s|quay.io/openshift-lightspeed/lightspeed-console-plugin:latest|${CONSOLE_IMAGE_SHA}|g" "${CSV_FILE}"
 sed -i "s|quay.io/openshift-lightspeed/lightspeed-operator:latest|${OPERATOR_IMAGE_SHA}|g" "${CSV_FILE}"
-sed -i "s|registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest|${RBAC_PROXY_IMAGE_SHA}|g" "${CSV_FILE}"
 
 #Replace version in CSV file
 sed -i "s|0.0.1|${VERSION}|g" "${CSV_FILE}"
