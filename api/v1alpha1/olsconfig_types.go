@@ -220,7 +220,7 @@ type ProviderSpec struct {
 	// Provider type
 	// +kubebuilder:validation:Required
 	// +required
-	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx
+	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx;fake_provider
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Provider Type"
 	Type string `json:"type"`
 	// Azure OpenAI deployment name
