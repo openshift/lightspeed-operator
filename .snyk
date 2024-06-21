@@ -1,0 +1,6 @@
+# Snyk guide: https://docs.snyk.io/snyk-cli/commands/ignore
+exclude:
+  global:
+    # ignore tests
+    - "**/*_test.go"
+    - "test/**"
