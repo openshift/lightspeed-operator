@@ -385,6 +385,14 @@ spec:
                   summarizerProvider:
                     description: Summarizer provider name
                     type: string
+                  userDataCollection:
+                    description: User data collection switches
+                    properties:
+                      feedbackDisabled:
+                        type: boolean
+                      transcriptsDisabled:
+                        type: boolean
+                    type: object
                   validatorModel:
                     description: Validator model name
                     type: string

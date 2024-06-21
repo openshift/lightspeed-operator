@@ -200,9 +200,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			EmbeddingsModelPath:  "/app-root/embeddings_model",
 		},
 		UserDataCollection: UserDataCollectionConfig{
-			FeedbackDisabled:    false,
+			FeedbackDisabled:    cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled,
 			FeedbackStorage:     "/app-root/ols-user-data/feedback",
-			TranscriptsDisabled: false,
+			TranscriptsDisabled: cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled,
 			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 		},
 	}

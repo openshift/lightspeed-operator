@@ -99,6 +99,9 @@ type OLSSpec struct {
 	// Query filters
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Query Filters"
 	QueryFilters []QueryFiltersSpec `json:"queryFilters,omitempty"`
+	// User data collection switches
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="User Data Collection"
+	UserDataCollection UserDataCollectionSpec `json:"userDataCollection,omitempty"`
 }
 
 // DeploymentConfig defines the schema for overriding deployment of OLS instance.
@@ -229,6 +232,14 @@ type ProviderSpec struct {
 	// Watsonx Project ID
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Watsonx Project ID"
 	WatsonProjectID string `json:"projectID,omitempty"`
+}
+
+// UserDataCollectionSpec defines how we collect user data.
+type UserDataCollectionSpec struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Do Not Collect User Feedback"
+	FeedbackDisabled bool `json:"feedbackDisabled,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Do Not Collect Transcripts"
+	TranscriptsDisabled bool `json:"transcriptsDisabled,omitempty"`
 }
 
 // +kubebuilder:object:root=true

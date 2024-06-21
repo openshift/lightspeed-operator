@@ -60,6 +60,11 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := int32(420)
 
+	dataCollectorEnabled, err := r.dataCollectorEnabled(cr)
+	if err != nil {
+		return nil, err
+	}
+
 	// map from secret name to secret mount path
 	secretMounts := map[string]string{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
@@ -110,15 +115,18 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			},
 		},
 	}
+	volumes = append(volumes, olsConfigVolume)
 	olsUserDataVolume := corev1.Volume{
 		Name: OLSUserDataVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
+	if dataCollectorEnabled {
+		volumes = append(volumes, olsUserDataVolume)
+	}
 	// TODO: Update DB
 	//volumes = append(volumes, olsConfigVolume, olsUserDataVolume, getRedisCAConfigVolume())
-	volumes = append(volumes, olsConfigVolume, olsUserDataVolume)
 
 	// mount the volumes of api keys secrets and OLS config map to the container
 	volumeMounts := []corev1.VolumeMount{}
@@ -135,13 +143,18 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		MountPath: OLSConfigMountPath,
 		ReadOnly:  true,
 	}
+	volumeMounts = append(volumeMounts, olsConfigVolumeMount)
+
 	olsUserDataVolumeMount := corev1.VolumeMount{
 		Name:      OLSUserDataVolumeName,
 		MountPath: OLSUserDataMountPath,
 	}
+	if dataCollectorEnabled {
+		volumeMounts = append(volumeMounts, olsUserDataVolumeMount)
+	}
 	// TODO: Update DB
 	//volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount, getRedisCAVolumeMount(path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume)))
-	volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount)
+
 	replicas := getOLSServerReplicas(cr)
 	ols_server_resources := getOLSServerResources(cr)
 	data_collector_resources := getOLSDataCollectorResources(cr)
@@ -200,27 +213,6 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 								PeriodSeconds:       10,
 							},
 						},
-						{
-							Name:            "lightspeed-service-user-data-collector",
-							Image:           r.Options.LightspeedServiceImage,
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: &[]bool{false}[0],
-							},
-							VolumeMounts: []corev1.VolumeMount{olsUserDataVolumeMount},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "OLS_USER_DATA_PATH",
-									Value: OLSUserDataMountPath,
-								},
-								{
-									Name:  "INGRESS_ENV",
-									Value: "prod",
-								},
-							},
-							Command:   []string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"},
-							Resources: *data_collector_resources,
-						},
 					},
 					Volumes:            volumes,
 					ServiceAccountName: OLSAppServerServiceAccountName,
@@ -233,6 +225,34 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.Scheme); err != nil {
 		return nil, err
 	}
+
+	if !dataCollectorEnabled {
+		return &deployment, nil
+	}
+
+	// Add telemetry container
+	telemetryContainer := corev1.Container{
+		Name:            "lightspeed-service-user-data-collector",
+		Image:           r.Options.LightspeedServiceImage,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &[]bool{false}[0],
+		},
+		VolumeMounts: []corev1.VolumeMount{olsUserDataVolumeMount},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "OLS_USER_DATA_PATH",
+				Value: OLSUserDataMountPath,
+			},
+			{
+				Name:  "INGRESS_ENV",
+				Value: "prod",
+			},
+		},
+		Command:   []string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"},
+		Resources: *data_collector_resources,
+	}
+	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, telemetryContainer)
 
 	return &deployment, nil
 }
@@ -309,4 +329,9 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 	}
 
 	return nil
+}
+
+func (r *OLSConfigReconciler) dataCollectorEnabled(cr *olsv1alpha1.OLSConfig) (bool, error) {
+	enabled := !(cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled && cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled)
+	return enabled, nil
 }
