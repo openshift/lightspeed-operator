@@ -44,6 +44,16 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resourceNames:
+  - pull-secret
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ols.openshift.io
   resources:
   - olsconfigs

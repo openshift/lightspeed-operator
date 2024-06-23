@@ -2,13 +2,17 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"path"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -319,6 +323,12 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 		}
 	}
 
+	// validate container specs
+	if !containersEqual(existingDeployment.Spec.Template.Spec.Containers, desiredDeployment.Spec.Template.Spec.Containers) {
+		changed = true
+		existingDeployment.Spec.Template.Spec.Containers = desiredDeployment.Spec.Template.Spec.Containers
+	}
+
 	if changed {
 		r.logger.Info("updating OLS deployment", "name", existingDeployment.Name)
 		if err := r.Update(ctx, existingDeployment); err != nil {
@@ -331,7 +341,48 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 	return nil
 }
 
+func (r *OLSConfigReconciler) telemetryEnabled() (bool, error) {
+	// Telemetry enablement is determined by the presence of the telemetry pull secret
+	// the presence of the field '.auths."cloud.openshift.com"' indicates that telemetry is enabled
+	// use this command to check in an Openshift cluster
+	// oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' | jq '.auths."cloud.openshift.com"'
+	// #nosec G101
+	const pullSecretName = "pull-secret"
+	// #nosec G101
+	const pullSecretNamespace = "openshift-config"
+
+	pullSecret := &corev1.Secret{}
+	err := r.Get(context.Background(), client.ObjectKey{Namespace: pullSecretNamespace, Name: pullSecretName}, pullSecret)
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	dockerconfigjson, ok := pullSecret.Data[".dockerconfigjson"]
+	if !ok {
+		return false, fmt.Errorf("pull secret does not contain .dockerconfigjson")
+	}
+
+	dockerconfigjsonDecoded := map[string]interface{}{}
+	err = json.Unmarshal(dockerconfigjson, &dockerconfigjsonDecoded)
+	if err != nil {
+		return false, err
+	}
+
+	_, ok = dockerconfigjsonDecoded["auths"].(map[string]interface{})["cloud.openshift.com"]
+	return ok, nil
+
+}
+
 func (r *OLSConfigReconciler) dataCollectorEnabled(cr *olsv1alpha1.OLSConfig) (bool, error) {
-	enabled := !(cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled && cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled)
-	return enabled, nil
+	// data collector is enabled in OLS configuration
+	configEnabled := !(cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled && cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled)
+	telemetryEnabled, err := r.telemetryEnabled()
+	if err != nil {
+		return false, err
+	}
+	return configEnabled && telemetryEnabled, nil
 }

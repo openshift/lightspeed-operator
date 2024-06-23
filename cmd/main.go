@@ -198,7 +198,17 @@ func main() {
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "0ca034e3.openshift.io",
 		Cache: cache.Options{
-			DefaultNamespaces: map[string]cache.Config{controller.OLSNamespaceDefault: {}},
+			DefaultNamespaces: map[string]cache.Config{
+				controller.OLSNamespaceDefault: {},
+			},
+			ByObject: map[client.Object]cache.ByObject{
+				&corev1.Secret{}: {
+					Namespaces: map[string]cache.Config{
+						controller.OLSNamespaceDefault:          {},
+						controller.TelemetryPullSecretNamespace: {},
+					},
+				},
+			},
 		},
 	})
 	if err != nil {

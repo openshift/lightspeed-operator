@@ -84,6 +84,8 @@ type OLSConfigReconcilerOptions struct {
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 // Secret access for redis server configuration
 // +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// Secret access for telemetry pull secret, must be a cluster role due to OLM limitations in managing roles in operator namespace
+// +kubebuilder:rbac:groups=core,resources=secrets,resourceNames=pull-secret,verbs=get;list;watch
 // ConsolePlugin for install console plugin
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks;consoleplugins;consoleplugins/finalizers,verbs=get;create;update;delete
 // Modify console CR to activate console plugin
@@ -221,6 +223,7 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(secretWatcherFilter)).
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(telemetryPullSecretWatcherFilter)).
 		Owns(&consolev1.ConsolePlugin{}).
 		Owns(&monv1.ServiceMonitor{}).
 		Owns(&monv1.PrometheusRule{}).

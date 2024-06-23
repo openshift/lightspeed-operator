@@ -9,10 +9,11 @@ metadata:
     app.kubernetes.io/part-of: lightspeed-operator
     app.kubernetes.io/managed-by: kustomize
   name: leader-election-rolebinding
+  namespace: system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: leader-election-role
 subjects:
-  - kind: ServiceAccount
-    name: controller-manager
+- kind: ServiceAccount
+  name: controller-manager

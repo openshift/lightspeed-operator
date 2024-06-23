@@ -129,6 +129,15 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Create(ctx, ns)
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Create the namespace openshift-config")
+	ns = &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "openshift-config",
+		},
+	}
+	err = k8sClient.Create(ctx, ns)
+	Expect(err).NotTo(HaveOccurred())
+
 	reconciler = &OLSConfigReconciler{
 		Options: OLSConfigReconcilerOptions{
 			LightspeedServiceImage:      "lightspeed-service-api:latest",
