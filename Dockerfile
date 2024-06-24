@@ -16,6 +16,9 @@ COPY cmd/main.go cmd/main.go
 COPY api/ api/
 COPY internal/controller/ internal/controller/
 
+# this directory is checked by ecosystem-cert-preflight-checks task in Konflux
+COPY LICENSE /licenses/
+
 USER 0
 
 # Build
