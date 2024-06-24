@@ -3,9 +3,11 @@ module github.com/openshift/lightspeed-operator
 go 1.21
 
 require (
-	github.com/go-logr/logr v1.4.1
+	github.com/Jeffail/gabs v1.4.0
+	github.com/go-logr/logr v1.4.2
 	github.com/onsi/ginkgo/v2 v2.17.3
 	github.com/onsi/gomega v1.33.1
+	github.com/openshift/client-go v0.0.0-20231218140158-47f6d749b9d9
 	k8s.io/api v0.29.3
 	k8s.io/apimachinery v0.29.3
 	k8s.io/client-go v0.29.3
@@ -16,10 +18,8 @@ require (
 )
 
 require (
-	github.com/Jeffail/gabs v1.4.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
-	github.com/openshift/client-go v0.0.0-20231218140158-47f6d749b9d9 // indirect
 )
 
 require (
