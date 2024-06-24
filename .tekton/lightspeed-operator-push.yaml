@@ -10,11 +10,11 @@ metadata:
       == "main"
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: ols
+    appstudio.openshift.io/application: popo
     appstudio.openshift.io/component: lightspeed-operator
     pipelines.appstudio.openshift.io/type: build
   name: lightspeed-operator-on-push
-  namespace: crt-nshift-lightspeed-tenant
+  namespace: hasun-tenant
 spec:
   params:
   - name: git-url
@@ -22,7 +22,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator:{{revision}}
+    value: quay.io/redhat-user-workloads/hasun-tenant/popo/lightspeed-operator:{{revision}}
   - name: dockerfile
     value: Dockerfile
   pipelineSpec:
