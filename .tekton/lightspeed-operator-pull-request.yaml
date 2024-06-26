@@ -28,6 +28,8 @@ spec:
     value: 5d
   - name: dockerfile
     value: Dockerfile
+  - name: prefetch-input
+    value: '{"type": "gomod", "path": "."}'
   pipelineSpec:
     finally:
     - name: show-sbom
