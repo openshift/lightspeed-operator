@@ -7,7 +7,7 @@ A Kubernetes operator for managing [Red Hat OpenShift Lightspeed](https://github
 You'll need an OpenShift cluster to run against.
 
 > [!IMPORTANT]
-> The Operator only supports OpenAI and BAM as large language model (LLM) providers.
+> Officially, the Operator only supports OpenAI, Azure OpenAI and WatsonX as large language model (LLM) providers, but technically, if you have an OpenAI API compatible model server (Ollama, VLLM, MLX), it should work.
 
 ### Running on the cluster
 
