@@ -80,7 +80,7 @@ var _ = Describe("Automatic correction against modifications on managed resource
 		err = client.Get(deployment)
 		Expect(err).NotTo(HaveOccurred())
 		originDeployment := deployment.DeepCopy()
-		deployment.Spec.Replicas = int32Ptr(1 + *deployment.Spec.Replicas)
+		deployment.Spec.Replicas = Ptr(1 + *deployment.Spec.Replicas)
 		err = client.Update(deployment)
 		Expect(err).NotTo(HaveOccurred())
 		var lastErr error
