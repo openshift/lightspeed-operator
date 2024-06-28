@@ -39,6 +39,18 @@ spec:
             echo -e "Example test task for the Snapshot:\n ${SNAPSHOT}"
             echo ${SNAPSHOT} | jq .
             env
+
+            LIGHTSPEED_CONSOLE_IMAGE=$(echo ${SNAPSHOT} | jq -r '.components[] | select(.name=="lightspeed-console") | .containerImage')
+            LIGHTSPEED_OPERATOR_IMAGE=$(echo ${SNAPSHOT} | jq -r '.components[] | select(.name=="lightspeed-operator") | .containerImage')
+            LIGHTSPEED_SERVICE_IMAGE=$(echo ${SNAPSHOT} | jq -r '.components[] | select(.name=="lightspeed-service") | .containerImage')
+
+            echo "----------------------------"
+            echo "Images to be tested:"
+            echo "Lightspeed console:  ${LIGHTSPEED_CONSOLE_IMAGE}"
+            echo "Lightspeed operator: ${LIGHTSPEED_OPERATOR_IMAGE}"
+            echo "Lightspeed service:  ${LIGHTSPEED_SERVICE_IMAGE}"
+            echo "----------------------------"
+
             RESULT="SUCCESS"
 
             TEST_OUTPUT=$(jq -rc --arg date $(date +%s) --arg RESULT "${RESULT}" --null-input \
