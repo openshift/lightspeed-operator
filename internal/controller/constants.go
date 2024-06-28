@@ -1,5 +1,7 @@
 package controller
 
+import "time"
+
 const (
 	/*** Operator Settings ***/
 	// OLSConfigName is the name of the OLSConfig Custom Resource
@@ -20,6 +22,8 @@ const (
 	ClientCACmNamespace = "openshift-monitoring"
 	// ClientCACertKey is the key of the client CA certificate in the configmap
 	ClientCACertKey = "client-ca.crt"
+	// ResourceCreationTimeout is the maximum time in seconds operator waiting for creating resources
+	ResourceCreationTimeout = 60 * time.Second
 
 	/*** application server configuration file ***/
 	// OLSConfigName is the name of the OLSConfig configmap
