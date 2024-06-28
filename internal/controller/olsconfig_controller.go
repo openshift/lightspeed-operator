@@ -85,7 +85,7 @@ type OLSConfigReconcilerOptions struct {
 // Secret access for redis server configuration
 // +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // Secret access for telemetry pull secret, must be a cluster role due to OLM limitations in managing roles in operator namespace
-// +kubebuilder:rbac:groups=core,resources=secrets,resourceNames=pull-secret,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 // ConsolePlugin for install console plugin
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks;consoleplugins;consoleplugins/finalizers,verbs=get;create;update;delete
 // Modify console CR to activate console plugin
@@ -104,7 +104,7 @@ type OLSConfigReconcilerOptions struct {
 // +kubebuilder:rbac:groups=monitoring.coreos.com,namespace=openshift-lightspeed,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
 
 // clusterversion for checking the openshift cluster version
-// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
 
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile

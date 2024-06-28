@@ -23,6 +23,7 @@ rules:
   verbs:
   - get
   - list
+  - watch
 - apiGroups:
   - console.openshift.io
   resources:
@@ -45,8 +46,6 @@ rules:
   - watch
 - apiGroups:
   - ""
-  resourceNames:
-  - pull-secret
   resources:
   - secrets
   verbs:
