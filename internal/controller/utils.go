@@ -263,9 +263,35 @@ func containerSpecEqual(a, b *corev1.Container) bool {
 		apiequality.Semantic.DeepEqual(a.Resources, b.Resources) && // check resources
 		apiequality.Semantic.DeepEqual(a.SecurityContext, b.SecurityContext) && // check security context
 		a.ImagePullPolicy == b.ImagePullPolicy && // check image pull policy
-		apiequality.Semantic.DeepEqual(a.LivenessProbe, b.LivenessProbe) && // check liveness probe
-		apiequality.Semantic.DeepEqual(a.ReadinessProbe, b.ReadinessProbe) && // check readiness probe
-		apiequality.Semantic.DeepEqual(a.StartupProbe, b.StartupProbe)) // check startup probe
+		probeEqual(a.LivenessProbe, b.LivenessProbe) && // check liveness probe
+		probeEqual(a.ReadinessProbe, b.ReadinessProbe) && // check readiness probe
+		probeEqual(a.StartupProbe, b.StartupProbe)) // check startup probe
+}
+
+func probeEqual(a, b *corev1.Probe) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	if !apiequality.Semantic.DeepEqual(a.ProbeHandler, b.ProbeHandler) {
+		return false
+	}
+
+	arrA := []int32{a.InitialDelaySeconds, a.TimeoutSeconds, a.PeriodSeconds, a.SuccessThreshold, a.FailureThreshold}
+	arrB := []int32{b.InitialDelaySeconds, b.TimeoutSeconds, b.PeriodSeconds, b.SuccessThreshold, b.FailureThreshold}
+	for i := range arrA {
+		// unset values are considered equal
+		if arrA[i] == 0 || arrB[i] == 0 {
+			continue
+		}
+		if arrA[i] != arrB[i] {
+			return false
+		}
+	}
+
+	return apiequality.Semantic.DeepEqual(a.TerminationGracePeriodSeconds, b.TerminationGracePeriodSeconds)
 }
 
 // serviceEqual compares two v1.Service and returns true if they are equal.
