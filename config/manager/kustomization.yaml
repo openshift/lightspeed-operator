@@ -3,6 +3,6 @@ resources:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-- name: controller
-  newName: quay.io/openshift-lightspeed/lightspeed-operator
-  newTag: latest
+- digest: sha256:e7c4661a256560de864a7076f66ec5729aa7d4617b93cb8804a5f4831ad31e6c
+  name: controller
+  newName: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator
