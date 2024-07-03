@@ -108,9 +108,9 @@ spec:
         resolver: git
         params:
           - name: url
-            value: https://github.com/openshift/lightspeed-operator
+            value: https://github.com/JoaoFula/lightspeed-operator
           - name: revision
-            value: main
+            value: konflux-integration-tests-introduction
           - name: pathInRepo
             value: konflux-integration/tasks/ols-installer.yaml
       params:
@@ -129,9 +129,9 @@ spec:
         resolver: git
         params:
           - name: url
-            value: https://github.com/openshift/lightspeed-operator
+            value: https://github.com/JoaoFula/lightspeed-operator
           - name: revision
-            value: main
+            value: konflux-integration-tests-introduction
           - name: pathInRepo
             value: konflux-integration/tasks/ols-e2e.yaml
       params:
