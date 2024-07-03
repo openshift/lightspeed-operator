@@ -1,0 +1,36 @@
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: ols-e2e-runner
+spec:
+  params:
+    - name: test-name
+      type: string
+      description: The name of the test being executed.
+    - name: ocp-login-command
+      type: string
+      description: Command to log in to the OpenShift cluster where the tests will be executed.
+    - name: git-repo
+      type: string
+      default: "lightspeed-service"
+      description: The name of the Git repository containing the E2E tests.
+    - name: git-url
+      type: string
+      default: "https://github.com/openshift/ligthspeed-service.git"
+      description: The URL of the Git repository containing the E2E tests.
+    - name: git-revision
+      type: string
+      default: "main"
+      description: The revision (branch or tag) of the Git repository to checkout.
+    - name: oras-container
+      type: string
+      description: The URI of the OCI container registry to store test artifacts.
+      default: "quay.io/flacatus/rhtap-e2e-artifacts"
+  steps:
+    - name: e2e-test
+      image: quay.io/flacatus/yarn-qe-tools:latest
+      workingDir: /workspace
+      script: |
+        #!/bin/sh
+        echo "Testing OLS!"
