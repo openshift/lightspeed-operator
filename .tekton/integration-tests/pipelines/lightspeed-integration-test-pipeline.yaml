@@ -3,6 +3,8 @@ apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
   name: ols-e2e
+  annotations:
+    pipelinesascode.tekton.dev/task: "[.tekton/integration-tests/tasks/ols-installer.yaml, .tekton/integration-tests/tasks/ols-e2e.yaml] "
 spec:
   description: |
     This pipeline automates the process of running end-to-end tests for Openshift Lightspeed
@@ -105,14 +107,7 @@ spec:
       runAfter:
         - provision-rosa
       taskRef:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/JoaoFula/lightspeed-operator
-          - name: revision
-            value: konflux-integration-tests-introduction
-          - name: pathInRepo
-            value: konflux-integration/tasks/ols-installer.yaml
+        name: ols-install
       params:
         - name: test-name
           value: $(context.pipelineRun.name)
@@ -126,14 +121,7 @@ spec:
       runAfter:
         - ols-install
       taskRef:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/JoaoFula/lightspeed-operator
-          - name: revision
-            value: konflux-integration-tests-introduction
-          - name: pathInRepo
-            value: konflux-integration/tasks/ols-e2e.yaml
+        name: ols-e2e
       params:
         - name: test-name
           value: $(context.pipelineRun.name)
