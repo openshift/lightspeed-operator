@@ -2,9 +2,9 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: ols-e2e
+  name: ols-integration-tests-pipeline
   annotations:
-    pipelinesascode.tekton.dev/task: "[.tekton/integration-tests/tasks/ols-installer.yaml, .tekton/integration-tests/tasks/ols-e2e.yaml] "
+    pipelinesascode.tekton.dev/task: "[.tekton/integration-tests/tasks/ols-installer.yaml, .tekton/integration-tests/tasks/ols-e2e.yaml]"
 spec:
   description: |
     This pipeline automates the process of running end-to-end tests for Openshift Lightspeed
