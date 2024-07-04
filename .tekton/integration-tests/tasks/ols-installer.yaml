@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1
 kind: Task
 metadata:
-  name: ols-installer
+  name: ols-install
 spec:
   params:
     - name: test-name
