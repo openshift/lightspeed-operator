@@ -112,7 +112,7 @@ spec:
           - name: revision
             value: main
           - name: pathInRepo
-            value: integration-test/tasks/ols-installer.yaml
+            value: .tekton/integration-tests/tasks/ols-installer.yaml
       params:
         - name: test-name
           value: $(context.pipelineRun.name)
