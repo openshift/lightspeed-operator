@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	consolev1 "github.com/openshift/api/console/v1"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -71,7 +72,12 @@ var _ = Describe("Console UI assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].ContainerPort).To(Equal(int32(ConsoleUIHTTPSPort)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].Name).To(Equal("https"))
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].Protocol).To(Equal(corev1.ProtocolTCP))
-			Expect(dep.Spec.Template.Spec.Containers[0].Resources).ToNot(BeNil())
+			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("50Mi")},
+				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("100Mi")},
+				Claims:   []corev1.ResourceClaim{},
+			}))
+
 		})
 
 		It("should generate the console UI plugin", func() {
