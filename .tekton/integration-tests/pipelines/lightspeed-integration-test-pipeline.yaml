@@ -3,7 +3,7 @@ apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
   name: ols-integration-tests-pipeline
-  spec:
+spec:
   description: |
     This pipeline automates the process of running end-to-end tests for Openshift Lightspeed
     using a ROSA (Red Hat OpenShift Service on AWS) cluster. The pipeline provisions
