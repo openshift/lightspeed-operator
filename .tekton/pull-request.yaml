@@ -1,0 +1,29 @@
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: integration-tests-with-rosa-pipelinerun-
+  annotations:
+    pipelinesascode.tekton.dev/task: "[.tekton/integration-tests/tasks/ols-installer.yaml, .tekton/integration-tests/tasks/ols-e2e.yaml]"
+spec:
+  pipelineRef:
+    name: ols-integration-tests-pipeline
+  params:
+    - name: SNAPSHOT
+      value: '{"components": [{"name":"test-app", "containerImage": "quay.io/example/repo:latest"}]}'
+    - name: test-name
+      value: 'ols-e2e'
+    - name: ocp-version
+      value: '4.15.9'
+    - name: test-event-type
+      value: 'none'
+    - name: region
+      value: 'us-east-2'
+    - name: aws-secrets
+      value: 'aws-secrets'
+    - name: replicas
+      value: '3'
+    - name: machine-type
+      value: 'm5.xlarge'
+    - name: oras-container
+      value: 'quay.io/konflux-qe-incubator/konflux-qe-oci-storage'
