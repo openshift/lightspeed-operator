@@ -33,7 +33,7 @@ func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 	}
 	// default resources.
 	defaultResources := &corev1.ResourceRequirements{
-		Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("2Gi")},
+		Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2Gi")},
 		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("1Gi")},
 		Claims:   []corev1.ResourceClaim{},
 	}
@@ -47,7 +47,7 @@ func getOLSDataCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceReq
 	}
 	// default resources.
 	defaultResources := &corev1.ResourceRequirements{
-		Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("128Mi")},
+		Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("128Mi")},
 		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
 		Claims:   []corev1.ResourceClaim{},
 	}

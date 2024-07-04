@@ -28,7 +28,7 @@ func getConsoleUIResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 	// default resources.
 	defaultResources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("50Mi")},
-		Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("100Mi")},
+		Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("100Mi")},
 		Claims:   []corev1.ResourceClaim{},
 	}
 
