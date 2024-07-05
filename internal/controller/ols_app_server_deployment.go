@@ -34,7 +34,7 @@ func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 	// default resources.
 	defaultResources := &corev1.ResourceRequirements{
 		Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2Gi")},
-		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("1Gi")},
+		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("1Gi")},
 		Claims:   []corev1.ResourceClaim{},
 	}
 
