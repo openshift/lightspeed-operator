@@ -54,4 +54,7 @@ const (
 	AppServerTLSSecretName = "lightspeed-tls" // #nosec G101
 	// ConditionTimeoutEnvVar is the environment variable containing the condition check timeout in seconds
 	ConditionTimeoutEnvVar = "CONDITION_TIMEOUT"
+
+	// Test no Konflux build is triggered
+	NoKonfluxBuild = "no-konflux-build"
 )
