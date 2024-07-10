@@ -80,6 +80,8 @@ type OLSConfig struct {
 	ReferenceContent ReferenceContent `json:"reference_content,omitempty"`
 	// User data collection configuration
 	UserDataCollection UserDataCollectionConfig `json:"user_data_collection,omitempty"`
+	// extra certs
+	ExtraCerts []string `json:"extra_certs,omitempty"`
 }
 
 type LoggingConfig struct {

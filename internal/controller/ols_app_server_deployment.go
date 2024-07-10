@@ -61,10 +61,17 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	const OLSConfigVolumeName = "cm-olsconfig"
 	const OLSUserDataVolumeName = "ols-user-data"
 	const OLSUserDataMountPath = "/app-root/ols-user-data"
+	const OLSExtraCertsVolumeName = "ols-extra-certs"
+	const OLSExtraCertsMountPath = "/etc/ols/extra-certs"
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := int32(420)
 
 	dataCollectorEnabled, err := r.dataCollectorEnabled(cr)
+	if err != nil {
+		return nil, err
+	}
+
+	extraCertsDefined, extraCertsCM, err := r.extraCertsDefined(cr.ObjectMeta.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +136,31 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	if dataCollectorEnabled {
 		volumes = append(volumes, olsUserDataVolume)
 	}
+
+	if extraCertsDefined {
+		configMapName := extraCertsCM.Name
+		for key:= range extraCertsCM.Data {
+			volumeName := OLSExtraCertsVolumeName + "-" + key
+			volume := corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: configMapName,
+						},
+						Items: []corev1.KeyToPath{
+							{
+								Key:  key,
+								Path: key,
+							},
+						},
+					},
+				},
+			}
+			volumes = append(volumes, volume)
+		}
+	}
+
 	// TODO: Update DB
 	//volumes = append(volumes, olsConfigVolume, olsUserDataVolume, getRedisCAConfigVolume())
 
@@ -156,6 +188,26 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	if dataCollectorEnabled {
 		volumeMounts = append(volumeMounts, olsUserDataVolumeMount)
 	}
+
+	if extraCertsDefined {
+		for key := range extraCertsCM.Data {
+			volumeName := OLSExtraCertsVolumeName + key // Assuming OLSExtraCertsVolumeName is defined and is a base name for the volumes
+			certMountPath := path.Join(OLSExtraCertsMountPath, key)
+			mountPath := certMountPath // Construct the mount path dynamically
+
+			// Append the cert to the OLSConfig.ExtraCerts slice
+			cr.Spec.OLSConfig.ExtraCerts = append(cr.Spec.OLSConfig.ExtraCerts, certMountPath)
+
+			volumeMount := corev1.VolumeMount{
+				Name:      volumeName, // Use the unique volume name created earlier
+				MountPath: mountPath,  // Use the dynamically constructed mount path
+				ReadOnly:  true,       // Assuming the certs are only needed for reading
+			}
+
+			volumeMounts = append(volumeMounts, volumeMount)
+		}
+	}
+
 	// TODO: Update DB
 	//volumeMounts = append(volumeMounts, olsConfigVolumeMount, olsUserDataVolumeMount, getRedisCAVolumeMount(path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume)))
 
@@ -385,4 +437,19 @@ func (r *OLSConfigReconciler) dataCollectorEnabled(cr *olsv1alpha1.OLSConfig) (b
 		return false, err
 	}
 	return configEnabled && telemetryEnabled, nil
+}
+
+// extraCertsDefined checks if the ConfigMap named ols-extra-ca exists and returns it if so
+func (r *OLSConfigReconciler) extraCertsDefined(namespace string) (bool, *corev1.ConfigMap, error) {
+	configMap := &corev1.ConfigMap{}
+	err := r.Client.Get(context.TODO(), client.ObjectKey{
+		Name:      "ols-extra-ca",
+		Namespace: namespace,
+	}, configMap)
+	if err != nil {
+		// If there's an error retrieving the ConfigMap, return nil and the error
+		return false, nil, err
+	}
+	// If the ConfigMap is found, return it and nil for the error
+	return true, configMap, nil
 }

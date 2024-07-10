@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ols-extra-ca
+  namespace: openshift-lightspeed
+data:
+  certificate1.crt: |
+    -----BEGIN CERTIFICATE-----
+    cert content
+    -----END CERTIFICATE-----

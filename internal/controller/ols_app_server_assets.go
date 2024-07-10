@@ -205,6 +205,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			TranscriptsDisabled: cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled,
 			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 		},
+		ExtraCerts: cr.Spec.OLSConfig.ExtraCerts,
 	}
 
 	if queryFilters := getQueryFilters(cr); queryFilters != nil {

@@ -351,6 +351,11 @@ spec:
                         minimum: 0
                         type: integer
                     type: object
+                  extraCerts:
+                    description: extra certs - list of paths
+                    items:
+                      type: string
+                    type: array
                   logLevel:
                     default: INFO
                     description: 'Log level. Valid options are DEBUG, INFO, WARNING,

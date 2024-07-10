@@ -115,8 +115,9 @@ spec:
     deployment:
       replicas: 1
 ```
+4. (Optional) If you require additional certificates (eg. for self-hosted LLM connection), please, follow [this](hack/example_extra_ca.yaml) template.
 
-4. The Operator will reconcile the CustomResource (CR) and create all the necessary resources for launching the `Red Hat OpenShift Lightspeed` application server.
+5. The Operator will reconcile the CustomResource (CR) and create all the necessary resources for launching the `Red Hat OpenShift Lightspeed` application server.
 
 ### Uninstall CRDs
 

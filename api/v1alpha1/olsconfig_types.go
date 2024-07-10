@@ -102,6 +102,9 @@ type OLSSpec struct {
 	// User data collection switches
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="User Data Collection"
 	UserDataCollection UserDataCollectionSpec `json:"userDataCollection,omitempty"`
+	// extra certs - list of paths
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Extra Certs"
+	ExtraCerts []string `json:"extraCerts,omitempty"`
 }
 
 // DeploymentConfig defines the schema for overriding deployment of OLS instance.
