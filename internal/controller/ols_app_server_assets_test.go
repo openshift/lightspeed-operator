@@ -166,6 +166,7 @@ var _ = Describe("App server assets", func() {
 				"pattern":      Equal("testPattern"),
 				"replace_with": Equal("testReplace"),
 			})))))
+			By("trigger operator build")
 		})
 
 		It("should generate configmap with Azure OpenAI provider", func() {
