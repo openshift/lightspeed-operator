@@ -54,4 +54,6 @@ const (
 	AppServerTLSSecretName = "lightspeed-tls" // #nosec G101
 	// ConditionTimeoutEnvVar is the environment variable containing the condition check timeout in seconds
 	ConditionTimeoutEnvVar = "CONDITION_TIMEOUT"
+
+	NotTriggerOperatorBuild = "NOT_TRIGGER_OPERATOR_BUILD"
 )
