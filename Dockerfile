@@ -41,7 +41,8 @@ LABEL name="openshift-lightspeed/lightspeed-rhel9-operator" \
       summary="OpenShift Lightspeed Operator manages the AI-powered OpenShift Assistant Service." \
       description="OpenShift Lightspeed Operator manages the AI-powered OpenShift Assistant Service and Openshift Console plugin extention." \
       io.k8s.description="OpenShift Lightspeed Operator is a component of OpenShift Lightspeed, that  manages the AI-powered OpenShift Assistant Service and Openshift Console plugin extention." \
-      io.openshift.tags="openshift-lightspeed,ols"
+      io.openshift.tags="openshift-lightspeed,ols" \
+      trigger.operator="build"
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]
