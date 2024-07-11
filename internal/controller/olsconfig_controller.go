@@ -132,6 +132,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	r.logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
+	r.logger.Info("tigger operator build")
 	// TODO: Update DB
 	// err = r.reconcileRedisServer(ctx, olsconfig)
 	// if err != nil {
