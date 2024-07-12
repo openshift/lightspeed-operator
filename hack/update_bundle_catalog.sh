@@ -22,6 +22,8 @@ CATALOG_FILE="lightspeed-catalog/index.yaml"
 CATALOG_INTIAL_FILE="hack/operator.yaml"
 CSV_FILE="bundle/manifests/lightspeed-operator.clusterserviceversion.yaml"
 
+BUNDLE_DOCKERFILE="bundle.Dockerfile"
+
 # Build the bundle image
 echo "Updating bundle artifcts for image ${OPERATOR_IMAGE}"
 rm -rf ./bundle
@@ -36,7 +38,22 @@ cat << EOF >> "${CSV_FILE}"
     - name: lightspeed-operator
       image: quay.io/openshift-lightspeed/lightspeed-operator:latest
 EOF
-echo "Adding bundle image to FBC using image ${BUNDLE_IMAGE}" 
+
+cat << EOF >> ${BUNDLE_DOCKERFILE}
+
+# Labels for enterprise contract
+LABEL com.redhat.component=openshift-lightspeed
+LABEL description="Red Hat OpenShift Lightspeed"
+LABEL distribution-scope=public
+LABEL io.k8s.description="Red Hat OpenShift Lightspeed"
+LABEL name=openshift-lightspeed
+LABEL release=0.0.1
+LABEL url="https://github.com/openshift/lightspeed-operator"
+LABEL vendor="Red Hat"
+LABEL version=0.0.1
+EOF
+
+echo "Adding bundle image to FBC using image ${BUNDLE_IMAGE}"
 
 #Initialize lightspeed-catalog/index.yaml from hack/operator.yaml
 cat "${CATALOG_INTIAL_FILE}" > "${CATALOG_FILE}"

@@ -19,3 +19,14 @@ LABEL operators.operatorframework.io.test.config.v1=tests/scorecard/
 COPY bundle/manifests /manifests/
 COPY bundle/metadata /metadata/
 COPY bundle/tests/scorecard /tests/scorecard/
+
+# Labels for enterprise contract
+LABEL com.redhat.component=openshift-lightspeed
+LABEL description="Red Hat OpenShift Lightspeed"
+LABEL distribution-scope=public
+LABEL io.k8s.description="Red Hat OpenShift Lightspeed"
+LABEL name=openshift-lightspeed
+LABEL release=0.0.1
+LABEL url="https://github.com/openshift/lightspeed-operator"
+LABEL vendor="Red Hat"
+LABEL version=0.0.1
