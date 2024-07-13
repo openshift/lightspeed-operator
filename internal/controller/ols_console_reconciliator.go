@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
@@ -11,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -307,9 +309,18 @@ func (r *OLSConfigReconciler) deactivateConsoleUI(ctx context.Context) error {
 
 func (r *OLSConfigReconciler) reconcileConsoleTLSSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	foundSecret := &corev1.Secret{}
-	secretValues, err := getSecretContent(r.Client, ConsoleUIServiceCertSecretName, r.Options.Namespace, []string{"tls.key", "tls.crt"}, foundSecret)
+	var err, lastErr error
+	var secretValues map[string]string
+	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
+		secretValues, err = getSecretContent(r.Client, ConsoleUIServiceCertSecretName, r.Options.Namespace, []string{"tls.key", "tls.crt"}, foundSecret)
+		if err != nil {
+			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", ConsoleUIServiceCertSecretName, err)
+			return false, nil
+		}
+		return true, nil
+	})
 	if err != nil {
-		return fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", ConsoleUIServiceCertSecretName, err)
+		return fmt.Errorf("failed to get TLS key and cert - wait err %w; last error: %w", err, lastErr)
 	}
 	annotateSecretWatcher(foundSecret)
 	err = r.Update(ctx, foundSecret)
