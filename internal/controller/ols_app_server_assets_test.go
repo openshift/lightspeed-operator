@@ -715,6 +715,8 @@ ols_config:
 			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe).ToNot(BeNil())
 			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet.Port).To(Equal(intstr.FromString("https")))
 			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet.Path).To(Equal("/readiness"))
+			Expect(dep.Spec.Template.Spec.Tolerations).To(BeNil())
+			Expect(dep.Spec.Template.Spec.NodeSelector).To(BeNil())
 		})
 
 		It("should generate the OLS service monitor", func() {

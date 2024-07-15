@@ -199,6 +199,59 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 
 	})
 
+	It("should trigger rolling update of the deployment when updating the tolerations", func() {
+		By("Get the deployment")
+		dep := &appsv1.Deployment{}
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Update the OLSConfig custom resource")
+		olsConfig := &olsv1alpha1.OLSConfig{}
+		err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+		Expect(err).NotTo(HaveOccurred())
+		olsConfig.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Tolerations = []corev1.Toleration{
+			{
+				Key:      "key",
+				Operator: corev1.TolerationOpEqual,
+				Value:    "value",
+				Effect:   corev1.TaintEffectNoSchedule,
+			},
+		}
+
+		By("Reconcile the app server")
+		err = reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Get the deployment")
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dep.Spec.Template.Spec.Tolerations).To(Equal(olsConfig.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Tolerations))
+	})
+
+	It("should trigger rolling update of the deployment when updating the nodeselector", func() {
+		By("Get the deployment")
+		dep := &appsv1.Deployment{}
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Update the OLSConfig custom resource")
+		olsConfig := &olsv1alpha1.OLSConfig{}
+		err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+		Expect(err).NotTo(HaveOccurred())
+		olsConfig.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.NodeSelector = map[string]string{
+			"key": "value",
+		}
+
+		By("Reconcile the app server")
+		err = reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Get the deployment")
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dep.Spec.Template.Spec.NodeSelector).To(Equal(olsConfig.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.NodeSelector))
+	})
+
 	Context("Deleting logic", Ordered, func() {
 		var tlsSecret *corev1.Secret
 		BeforeAll(func() {

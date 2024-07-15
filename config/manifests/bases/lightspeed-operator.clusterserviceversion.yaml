@@ -113,17 +113,33 @@ spec:
       - description: API container settings.
         displayName: API Container
         path: ols.deployment.api
+      - displayName: Node Selector
+        path: ols.deployment.api.nodeSelector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeSelector
       - displayName: Resource Requirements
         path: ols.deployment.api.resources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - displayName: Tolerations
+        path: ols.deployment.api.tolerations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:tolerations
       - description: Console container settings.
         displayName: Console Container
         path: ols.deployment.console
+      - displayName: Node Selector
+        path: ols.deployment.console.nodeSelector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeSelector
       - displayName: Resource Requirements
         path: ols.deployment.console.resources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - displayName: Tolerations
+        path: ols.deployment.console.tolerations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:tolerations
       - description: Data Collector container settings.
         displayName: Data Collector Container
         path: ols.deployment.dataCollector

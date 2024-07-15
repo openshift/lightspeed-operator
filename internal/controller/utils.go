@@ -45,6 +45,22 @@ func setDeploymentReplicas(deployment *appsv1.Deployment, replicas int32) bool {
 	return false
 }
 
+func setTolerations(deployment *appsv1.Deployment, tolerations []corev1.Toleration) bool {
+	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Tolerations, tolerations) {
+		deployment.Spec.Template.Spec.Tolerations = tolerations
+		return true
+	}
+	return false
+}
+
+func setNodeSelector(deployment *appsv1.Deployment, nodeSelector map[string]string) bool {
+	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.NodeSelector, nodeSelector) {
+		deployment.Spec.Template.Spec.NodeSelector = nodeSelector
+		return true
+	}
+	return false
+}
+
 // setVolumes sets the volumes for a given deployment.
 func setVolumes(deployment *appsv1.Deployment, desiredVolumes []corev1.Volume) bool {
 	existingVolumes := deployment.Spec.Template.Spec.Volumes

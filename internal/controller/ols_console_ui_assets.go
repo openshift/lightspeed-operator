@@ -183,6 +183,13 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 		},
 	}
 
+	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.NodeSelector != nil {
+		deployment.Spec.Template.Spec.NodeSelector = cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.NodeSelector
+	}
+	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Tolerations != nil {
+		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Tolerations
+	}
+
 	if err := controllerutil.SetControllerReference(cr, deployment, r.Scheme); err != nil {
 		return nil, err
 	}
