@@ -55,12 +55,20 @@ type AzureOpenAIConfig struct {
 	AzureDeploymentName string `json:"deployment_name,omitempty"`
 }
 
+// ModelParameters defines the parameters for a model.
+type ModelParameters struct {
+	// Maximum number of tokens for the input text. Default: 1024
+	MaxTokensForResponse int `json:"max_tokens_for_response,omitempty"`
+}
+
 // ModelSpec defines the desired state of in-memory cache.
 type ModelConfig struct {
 	// Model name
 	Name string `json:"name"`
 	// Model API URL
 	URL string `json:"url,omitempty"`
+	// Model parameters
+	Parameters ModelParameters `json:"parameters,omitempty"`
 }
 
 type OLSConfig struct {

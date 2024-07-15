@@ -71,6 +71,13 @@ spec:
                               name:
                                 description: Model name
                                 type: string
+                              parameters:
+                                description: Model API parameters
+                                properties:
+                                  maxTokensForResponse:
+                                    description: Max tokens for response
+                                    type: integer
+                                type: object
                               url:
                                 description: Model API URL
                                 pattern: ^https?://.*$

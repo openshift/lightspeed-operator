@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-07-12T14:24:56Z"
+    createdAt: "2024-07-15T07:55:51Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -95,6 +95,12 @@ spec:
       - description: Model name
         displayName: Name
         path: llm.providers[0].models[0].name
+      - description: Model API parameters
+        displayName: Parameters
+        path: llm.providers[0].models[0].parameters
+      - description: Max tokens for response
+        displayName: Max Tokens For Response
+        path: llm.providers[0].models[0].parameters.maxTokensForResponse
       - description: Model API URL
         displayName: URL
         path: llm.providers[0].models[0].url

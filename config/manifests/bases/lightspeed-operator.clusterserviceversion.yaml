@@ -59,6 +59,12 @@ spec:
       - description: Model name
         displayName: Name
         path: llm.providers[0].models[0].name
+      - description: Model API parameters
+        displayName: Parameters
+        path: llm.providers[0].models[0].parameters
+      - description: Max tokens for response
+        displayName: Max Tokens For Response
+        path: llm.providers[0].models[0].parameters.maxTokensForResponse
       - description: Model API URL
         displayName: URL
         path: llm.providers[0].models[0].url

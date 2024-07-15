@@ -57,9 +57,21 @@ properties:
           }
         ]
       capabilities: Basic Install
-      createdAt: "2024-06-21T10:00:37Z"
+      createdAt: "2024-07-12T14:24:56Z"
+      features.operators.openshift.io/cnf: "false"
+      features.operators.openshift.io/cni: "false"
+      features.operators.openshift.io/csi: "false"
+      features.operators.openshift.io/disconnected: "true"
+      features.operators.openshift.io/fips-compliant: "true"
+      features.operators.openshift.io/proxy-aware: "true"
+      features.operators.openshift.io/tls-profiles: "false"
+      features.operators.openshift.io/token-auth-aws: "false"
+      features.operators.openshift.io/token-auth-azure: "false"
+      features.operators.openshift.io/token-auth-gcp: "false"
       operatorframework.io/cluster-monitoring: "true"
       operatorframework.io/suggested-namespace: openshift-lightspeed
+      operators.openshift.io/valid-subscription: '["OpenShift Kubernetes Engine",
+        "OpenShift Container Platform", "OpenShift Platform Plus"]'
       operators.operatorframework.io/builder: operator-sdk-v1.33.0
       operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
       repository: https://github.com/openshift/lightspeed-operator
@@ -254,13 +266,13 @@ properties:
       name: Red Hat, Inc
       url: https://github.com/openshift/lightspeed-service
 relatedImages:
-- image: quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
-  name: lightspeed-console-plugin
 - image: quay.io/openshift-lightspeed/lightspeed-operator-bundle:v0.0.1
   name: ""
-- image: quay.io/openshift-lightspeed/lightspeed-operator:latest
+- image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:578ff950761cce1bf5baab046446317139efb65532f934623a171bf043be3775
+  name: lightspeed-console-plugin
+- image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:28884d235cc309f24a5f1e8ebb811ebfb900e55cdba8928a16c3f2f994a015d6
   name: lightspeed-operator
-- image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
+- image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:de93445e0fa4c41df23e372ebed021277092f9dbbf6f88178447ccf69b9a6df6
   name: lightspeed-service-api
 schema: olm.bundle
 ---

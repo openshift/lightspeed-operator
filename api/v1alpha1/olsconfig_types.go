@@ -184,6 +184,13 @@ type QueryFiltersSpec struct {
 	ReplaceWith string `json:"replaceWith,omitempty"`
 }
 
+// ModelParametersSpec
+type ModelParametersSpec struct {
+	// Max tokens for response
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max Tokens For Response"
+	MaxTokensForResponse int `json:"maxTokensForResponse,omitempty"`
+}
+
 // ModelSpec defines the desired state of cache.
 type ModelSpec struct {
 	// Model name
@@ -195,6 +202,9 @@ type ModelSpec struct {
 	// +kubebuilder:validation:Pattern=`^https?://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="URL"
 	URL string `json:"url,omitempty"`
+	// Model API parameters
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Parameters"
+	Parameters ModelParametersSpec `json:"parameters,omitempty"`
 }
 
 // ProviderSpec defines the desired state of LLM provider.
