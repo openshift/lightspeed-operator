@@ -33,7 +33,7 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/args/-
-        value: --images=lightspeed-service=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:de93445e0fa4c41df23e372ebed021277092f9dbbf6f88178447ccf69b9a6df6,console-plugin=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:578ff950761cce1bf5baab046446317139efb65532f934623a171bf043be3775
+        value: --images=lightspeed-service=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:474ec183def753fbdbbc4ff6601a16d8dd96fffb9f1bd5f0d761957cf8f5bd71,console-plugin=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:578ff950761cce1bf5baab046446317139efb65532f934623a171bf043be3775
 
     target:
       group: apps
