@@ -16,7 +16,7 @@ spec:
       type: string
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
-      default: ''
+      default: 'ols-e2e-tests'
     - name: ocp-version
       description: 'The OpenShift version to use for the ephemeral cluster deployment.'
       default: '4.15.9'
