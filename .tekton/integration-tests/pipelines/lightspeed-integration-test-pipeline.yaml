@@ -105,7 +105,7 @@ spec:
       runAfter:
         - provision-rosa
       taskRef:
-        name: ols-installer
+        name: ols-install
       params:
         - name: test-name
           value: $(context.pipelineRun.name)
