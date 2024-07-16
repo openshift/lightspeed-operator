@@ -20,9 +20,7 @@ spec:
     - name: region
       value: 'us-east-1'
     - name: aws-secrets
-      valueFrom:
-        secretKeyRef:
-          name: "aws-secrets"
+      value: 'aws-secrets'
     - name: replicas
       value: '3'
     - name: machine-type
