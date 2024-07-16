@@ -97,7 +97,7 @@ spec:
           value: "$(params.machine-type)"
         - name: aws-secrets
           value: "$(params.aws-secrets)"
-    - name: ols-install
+    - name: ols-install-for-test
       when:
         - input: "$(tasks.test-metadata.results.test-event-type)"
           operator: in
