@@ -18,9 +18,11 @@ spec:
     - name: test-event-type
       value: 'none'
     - name: region
-      value: 'us-east-2'
+      value: 'us-east-1'
     - name: aws-secrets
-      value: 'aws-secrets'
+      valueFrom:
+        secretKeyRef:
+          name: "aws-secrets"
     - name: replicas
       value: '3'
     - name: machine-type

@@ -26,7 +26,7 @@ spec:
       default: 'none'
     - name: region
       description: 'The AWS region to provision the ROSA cluster. Default is us-west-2.'
-      default: 'us-east-2'
+      default: 'us-east-1'
     - name: aws-secrets
       description: 'The AWS secrets used for provisioning the ROSA cluster.'
       default: 'aws-secrets'
