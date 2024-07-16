@@ -117,7 +117,7 @@ spec:
           operator: in
           values: ["pull_request"]
       runAfter:
-        - ols-install
+        - ols-install-for-test
       taskRef:
         name: ols-e2e
       params:
