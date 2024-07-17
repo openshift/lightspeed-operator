@@ -97,20 +97,6 @@ spec:
           value: "$(params.machine-type)"
         - name: aws-secrets
           value: "$(params.aws-secrets)"
-    - name: ols-install
-      when:
-        - input: "$(tasks.test-metadata.results.test-event-type)"
-          operator: in
-          values: ["pull_request"]
-      runAfter:
-        - provision-rosa
-      taskRef:
-        name: ols-install
-      params:
-        - name: test-name
-          value: $(context.pipelineRun.name)
-        - name: ocp-login-command
-          value: "$(tasks.provision-rosa.results.ocp-login-command)"
     - name: ols-e2e
       when:
         - input: "$(tasks.test-metadata.results.test-event-type)"
