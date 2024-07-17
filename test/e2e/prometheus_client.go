@@ -204,8 +204,7 @@ func (c *PrometheusClient) PrometheusLabel(label string) ([]byte, error) {
 }
 
 // GetFirstValueFromPromQuery takes a query api response body and returns the
-// value of the first timeseries. If body contains multiple timeseries
-// GetFirstValueFromPromQuery errors.
+// value of the first timeseries.
 func GetFirstValueFromPromQuery(body []byte) (float64, error) {
 	res, err := gabs.ParseJSON(body)
 	if err != nil {
