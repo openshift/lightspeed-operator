@@ -90,11 +90,11 @@ var _ = Describe("Prometheus Metrics", Ordered, func() {
 
 	It("should have operator metrics in Prometheus", func() {
 		By("verify Prometheus is working correctly by querying prometheus' own metrics")
-		err = prometheusClient.WaitForQueryReturnGreaterEqualOne("prometheus_build_info", DefaultClientTimeout)
+		err = prometheusClient.WaitForQueryReturnGreaterEqualOne("topk(1,prometheus_build_info)", DefaultClientTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("verify prometheus scrapes metrics from operator, this should happen every 60 seconds")
-		err = prometheusClient.WaitForQueryReturn("scrape_duration_seconds{job=\"lightspeed-operator-controller-manager-service\"}",
+		err = prometheusClient.WaitForQueryReturn("avg(scrape_duration_seconds{job=\"lightspeed-operator-controller-manager-service\"})",
 			60*time.Second,
 			func(val float64) error {
 				if val > 0.0 {
