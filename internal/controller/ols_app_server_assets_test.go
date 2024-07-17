@@ -139,6 +139,9 @@ var _ = Describe("App server assets", func() {
 							{
 								Name: "testModel",
 								URL:  testURL,
+								Parameters: ModelParameters{
+									MaxTokensForResponse: 20,
+								},
 							},
 						},
 					},
@@ -834,6 +837,9 @@ func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 							{
 								Name: "testModel",
 								URL:  testURL,
+								Parameters: olsv1alpha1.ModelParametersSpec{
+									MaxTokensForResponse: 20,
+								},
 							},
 						},
 					},

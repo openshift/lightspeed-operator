@@ -115,6 +115,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			modelConfig := ModelConfig{
 				Name: model.Name,
 				URL:  model.URL,
+				Parameters: ModelParameters{
+					MaxTokensForResponse: model.Parameters.MaxTokensForResponse,
+				},
 			}
 			modelConfigs = append(modelConfigs, modelConfig)
 		}
