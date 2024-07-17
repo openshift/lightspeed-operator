@@ -212,15 +212,6 @@ func GetFirstValueFromPromQuery(body []byte) (float64, error) {
 		return 0, err
 	}
 
-	count, err := res.ArrayCountP("data.result")
-	if err != nil {
-		return 0, err
-	}
-
-	if count != 1 {
-		return 0, fmt.Errorf("expected body to contain single timeseries but got %v", count)
-	}
-
 	timeseries, err := res.ArrayElementP(0, "data.result")
 	if err != nil {
 		return 0, err
