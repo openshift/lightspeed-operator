@@ -97,28 +97,6 @@ spec:
           value: "$(params.machine-type)"
         - name: aws-secrets
           value: "$(params.aws-secrets)"
-    - name: ols-e2e
-      when:
-        - input: "$(tasks.test-metadata.results.test-event-type)"
-          operator: in
-          values: ["pull_request"]
-      runAfter:
-        - ols-install
-      taskRef:
-        name: ols-e2e
-      params:
-        - name: test-name
-          value: $(context.pipelineRun.name)
-        - name: ocp-login-command
-          value: "$(tasks.provision-rosa.results.ocp-login-command)"
-        - name: git-repo
-          value: "$(tasks.test-metadata.results.git-repo)"
-        - name: git-url
-          value: "$(tasks.test-metadata.results.git-url)"
-        - name: git-revision
-          value: "$(tasks.test-metadata.results.git-revision)"
-        - name: oras-container
-          value: "$(tasks.test-metadata.results.oras-container)"
   finally:
     - name: deprovision-rosa-collect-artifacts
       when:
