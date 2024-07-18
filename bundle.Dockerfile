@@ -1,4 +1,4 @@
-FROM scratch
+FROM registry.access.redhat.com/ubi9/ubi-minimal
 
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
@@ -20,13 +20,21 @@ COPY bundle/manifests /manifests/
 COPY bundle/metadata /metadata/
 COPY bundle/tests/scorecard /tests/scorecard/
 
+# licenses required by Red Hat certification policy
+# refer to https://docs.redhat.com/en/documentation/red_hat_software_certification/2024/html-single/red_hat_openshift_software_certification_policy_guide/index#con-image-content-requirements_openshift-sw-cert-policy-container-images
+COPY LICENSE /licenses/
+
 # Labels for enterprise contract
 LABEL com.redhat.component=openshift-lightspeed
-LABEL description="Red Hat OpenShift Lightspeed"
+LABEL description="Red Hat OpenShift Lightspeed - AI assitant for managing OpenShift clusters."
 LABEL distribution-scope=public
-LABEL io.k8s.description="Red Hat OpenShift Lightspeed"
+LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assitant for managing OpenShift clusters."
 LABEL name=openshift-lightspeed
 LABEL release=0.0.1
 LABEL url="https://github.com/openshift/lightspeed-operator"
 LABEL vendor="Red Hat"
 LABEL version=0.0.1
+LABEL summary="Red Hat OpenShift Lightspeed"
+
+# Set user to non-root for security reasons.
+USER 1001
