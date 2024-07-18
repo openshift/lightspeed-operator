@@ -268,7 +268,7 @@ properties:
 relatedImages:
 - image: quay.io/openshift-lightspeed/lightspeed-operator-bundle:v0.0.1
   name: ""
-- image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:578ff950761cce1bf5baab046446317139efb65532f934623a171bf043be3775
+- image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:f939011899542db36baa4826b62671ed08d598dbc22ee5d4a62da6d78a80cda2
   name: lightspeed-console-plugin
 - image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:28884d235cc309f24a5f1e8ebb811ebfb900e55cdba8928a16c3f2f994a015d6
   name: lightspeed-operator
