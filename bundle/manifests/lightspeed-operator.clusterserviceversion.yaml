@@ -360,7 +360,7 @@ spec:
                 - --metrics-bind-address=:8443
                 - --secure-metrics-server
                 - --cert-dir=/etc/tls/private
-                - --images=lightspeed-service=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:b8e0bfe7e4a241885bcd30baa7066239276d5a6c7de8b6526d4861c6d3d4bfe7,console-plugin=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:f939011899542db36baa4826b62671ed08d598dbc22ee5d4a62da6d78a80cda2
+                - --images=lightspeed-service=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:d60104e8eef06e68107b127f1f19c6e3028bd6d7c36b263dddb89cbb7f5008ee,console-plugin=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:f939011899542db36baa4826b62671ed08d598dbc22ee5d4a62da6d78a80cda2
                 command:
                 - /manager
                 env:
@@ -562,7 +562,7 @@ spec:
   version: 0.0.1
   relatedImages:
     - name: lightspeed-service-api
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:b8e0bfe7e4a241885bcd30baa7066239276d5a6c7de8b6526d4861c6d3d4bfe7
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:d60104e8eef06e68107b127f1f19c6e3028bd6d7c36b263dddb89cbb7f5008ee
     - name: lightspeed-console-plugin
       image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:f939011899542db36baa4826b62671ed08d598dbc22ee5d4a62da6d78a80cda2
     - name: lightspeed-operator
