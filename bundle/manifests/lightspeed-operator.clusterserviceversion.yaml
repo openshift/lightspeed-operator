@@ -368,7 +368,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:738dd44a8bb4b9d922c6d0290f1b12584ffe7069fc7976c4be1407c254869c91
+                image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:256e653c620a2e1ef3d9ef7024da5326af551f5fe11a5e2307e4bafd8930e381
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
@@ -566,4 +566,4 @@ spec:
     - name: lightspeed-console-plugin
       image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:f939011899542db36baa4826b62671ed08d598dbc22ee5d4a62da6d78a80cda2
     - name: lightspeed-operator
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:738dd44a8bb4b9d922c6d0290f1b12584ffe7069fc7976c4be1407c254869c91
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:256e653c620a2e1ef3d9ef7024da5326af551f5fe11a5e2307e4bafd8930e381
