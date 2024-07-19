@@ -33,6 +33,14 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # quay.io/openshift-lightspeed/lightspeed-operator-bundle:$VERSION and quay.io/openshift-lightspeed/lightspeed-operator-catalog:$VERSION.
 IMAGE_TAG_BASE ?= quay.io/openshift-lightspeed/lightspeed-operator
 
+# BUNDLE_TAG defines the version of the bundle.
+# You can use it as an arg. (E.g make update-bundle-catalog BUNDLE_TAG=0.0.1)
+BUNDLE_TAG ?= 0.0.1
+
+# set the base image for docker files
+# You can use it as an arg.  (E.g make update-bundle-catalog BASE_IMG=registry.access.redhat.com/ubi9/ubi-minimal)
+BASE_IMG ?= registry.access.redhat.com/ubi9/ubi-minimal
+
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
@@ -314,6 +322,23 @@ OPM = $(shell which opm)
 endif
 endif
 
+.PHONY: yq
+YQ = ./bin/yq
+yq: ## Download yq locally if necessary.
+ifeq (,$(wildcard $(YQ)))
+ifeq (,$(shell which yq 2>/dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p $(dir $(YQ)) ;\
+	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
+	curl -sSLo $(YQ) https://github.com/mikefarah/yq/releases/latest/download/yq_$$(OS)_$$(ARCH) ;\
+    chmod +x $(YQ) ;\
+	}
+else
+YQ = $(shell which yq)
+endif
+endif
+
 # A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
@@ -339,6 +364,6 @@ catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
 # Update bundle and catalog artifacts.
-update-bundle-catalog:
-	hack/update_bundle_catalog.sh
+update-bundle-catalog: opm yq
+	OPM=$(OPM) YQ=$(YQ) BUNDLE_TAG=$(BUNDLE_TAG) BASE_IMAGE=$(BASE_IMG) hack/update_bundle_catalog.sh
 
