@@ -26,9 +26,9 @@ COPY LICENSE /licenses/
 
 # Labels for enterprise contract
 LABEL com.redhat.component=openshift-lightspeed
-LABEL description="Red Hat OpenShift Lightspeed - AI assitant for managing OpenShift clusters."
+LABEL description="Red Hat OpenShift Lightspeed - AI assistant for managing OpenShift clusters."
 LABEL distribution-scope=public
-LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assitant for managing OpenShift clusters."
+LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assistant for managing OpenShift clusters."
 LABEL io.k8s.display-name="Openshift Lightspeed"
 LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
 LABEL name=openshift-lightspeed
