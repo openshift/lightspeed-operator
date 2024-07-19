@@ -226,6 +226,13 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		},
 	}
 
+	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector != nil {
+		deployment.Spec.Template.Spec.NodeSelector = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector
+	}
+	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations != nil {
+		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations
+	}
+
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.Scheme); err != nil {
 		return nil, err
 	}
@@ -291,6 +298,15 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 
 	// Validate deployment replicas.
 	if setDeploymentReplicas(existingDeployment, *desiredDeployment.Spec.Replicas) {
+		changed = true
+	}
+
+	//validate deployment Tolerations
+	if setTolerations(existingDeployment, desiredDeployment.Spec.Template.Spec.Tolerations) {
+		changed = true
+	}
+
+	if setNodeSelector(existingDeployment, desiredDeployment.Spec.Template.Spec.NodeSelector) {
 		changed = true
 	}
 

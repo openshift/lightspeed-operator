@@ -141,6 +141,61 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Annotations[OLSConfigHashKey]).NotTo(Equal(oldHash))
 		})
 
+		It("should trigger rolling update of the deployment when updating the tolerations", func() {
+			By("Get the deployment")
+			dep := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Update the OLSConfig custom resource")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations = []corev1.Toleration{
+				{
+					Key:      "key",
+					Operator: corev1.TolerationOpEqual,
+					Value:    "value",
+					Effect:   corev1.TaintEffectNoSchedule,
+				},
+			}
+
+			By("Reconcile the app server")
+			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get the deployment")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Tolerations).NotTo(BeNil())
+			Expect(dep.Spec.Template.Spec.Tolerations).To(Equal(olsConfig.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations))
+		})
+
+		It("should trigger rolling update of the deployment when updating the nodeselector ", func() {
+			By("Get the deployment")
+			dep := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Update the OLSConfig custom resource")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector = map[string]string{
+				"key": "value",
+			}
+
+			By("Reconcile the app server")
+			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get the deployment")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.NodeSelector).NotTo(BeNil())
+			Expect(dep.Spec.Template.Spec.NodeSelector).To(Equal(olsConfig.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector))
+		})
+
 		It("should trigger rolling update of the deployment when changing tls secret content", func() {
 
 			By("Get the deployment")

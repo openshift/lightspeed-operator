@@ -125,15 +125,24 @@ type DeploymentConfig struct {
 type APIContainerConfig struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tolerations",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:tolerations"}
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Selector",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeSelector"}
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 type DataCollectorContainerConfig struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
+
 type ConsoleContainerConfig struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tolerations",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:tolerations"}
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Selector",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeSelector"}
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=redis

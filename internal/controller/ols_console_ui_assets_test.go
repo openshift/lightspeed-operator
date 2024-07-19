@@ -77,6 +77,8 @@ var _ = Describe("Console UI assets", func() {
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("100Mi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
+			Expect(dep.Spec.Template.Spec.Tolerations).To(BeNil())
+			Expect(dep.Spec.Template.Spec.NodeSelector).To(BeNil())
 
 		})
 
