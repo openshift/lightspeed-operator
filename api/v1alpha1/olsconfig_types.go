@@ -102,6 +102,8 @@ type OLSSpec struct {
 	// User data collection switches
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="User Data Collection"
 	UserDataCollection UserDataCollectionSpec `json:"userDataCollection,omitempty"`
+
+	UseUserProvidedTLSCerts bool `json:"useUserProvidedTLSCerts,omitempty"`
 }
 
 // DeploymentConfig defines the schema for overriding deployment of OLS instance.
@@ -143,6 +145,8 @@ type ConsoleContainerConfig struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Selector",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeSelector"}
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	CAcertificate string `json:"caCertificate,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=redis
