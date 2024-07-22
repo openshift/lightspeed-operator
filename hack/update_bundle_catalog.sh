@@ -30,7 +30,7 @@ fi
 : "${BUNDLE_IMAGE:=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:84a332cd52eb53888da7916d3bc7cfad32322c714dd6e69d025b8c2df882321e}"
 
 CATALOG_FILE="lightspeed-catalog/index.yaml"
-CATALOG_INTIAL_FILE="hack/operator.yaml"
+CATALOG_INITIAL_FILE="hack/operator.yaml"
 CSV_FILE="bundle/manifests/lightspeed-operator.clusterserviceversion.yaml"
 
 BUNDLE_DOCKERFILE="bundle.Dockerfile"
@@ -38,7 +38,8 @@ BUNDLE_DOCKERFILE="bundle.Dockerfile"
 # if RELATED_IMAGES is not defined, extract related images or use default values
 :  "${RELATED_IMAGES:=$(${YQ} ' .spec.relatedImages' -ojson ${CSV_FILE})}"
 if [ -z "${RELATED_IMAGES}" ]; then
-  RELATED_IMAGES="[
+  RELATED_IMAGES=$(cat <<-EOF
+[
   {
     "name": "lightspeed-service-api",
     "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:d60104e8eef06e68107b127f1f19c6e3028bd6d7c36b263dddb89cbb7f5008ee"
@@ -52,15 +53,16 @@ if [ -z "${RELATED_IMAGES}" ]; then
     "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:256e653c620a2e1ef3d9ef7024da5326af551f5fe11a5e2307e4bafd8930e381"
   }
 ]
-"
+EOF
+)
 fi
 
 # Build the bundle image
-echo "Updating bundle artifcts for image ${OPERATOR_IMAGE}"
+echo "Updating bundle artifacts for image ${OPERATOR_IMAGE}"
 rm -rf ./bundle
 make bundle VERSION="${BUNDLE_TAG}" IMG="${OPERATOR_IMAGE}"
 # restore related images to the CSV file
-${YQ} -i '.spec.relatedImages='"${RELATED_IMAGES}" ${CSV_FILE}
+${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES}" ${CSV_FILE}
 
 # use UBI image as base image for bundle image
 : "${BASE_IMAGE:=registry.access.redhat.com/ubi9/ubi-minimal}"
@@ -75,9 +77,9 @@ COPY LICENSE /licenses/
 
 # Labels for enterprise contract
 LABEL com.redhat.component=openshift-lightspeed
-LABEL description="Red Hat OpenShift Lightspeed - AI assitant for managing OpenShift clusters."
+LABEL description="Red Hat OpenShift Lightspeed - AI assistant for managing OpenShift clusters."
 LABEL distribution-scope=public
-LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assitant for managing OpenShift clusters."
+LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assistant for managing OpenShift clusters."
 LABEL io.k8s.display-name="Openshift Lightspeed"
 LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
 LABEL name=openshift-lightspeed
@@ -94,7 +96,7 @@ EOF
 echo "Adding bundle image to FBC using image ${BUNDLE_IMAGE}"
 
 #Initialize lightspeed-catalog/index.yaml from hack/operator.yaml
-cat "${CATALOG_INTIAL_FILE}" >"${CATALOG_FILE}"
+cat "${CATALOG_INITIAL_FILE}" >"${CATALOG_FILE}"
 
 ${OPM} render "${BUNDLE_IMAGE}" --output=yaml >>"${CATALOG_FILE}"
 cat <<EOF >>"${CATALOG_FILE}"
