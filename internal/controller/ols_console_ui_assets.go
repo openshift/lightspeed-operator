@@ -233,6 +233,11 @@ func (r *OLSConfigReconciler) generateConsoleUIPlugin(cr *olsv1alpha1.OLSConfig)
 		},
 	}
 
+	// Conditionally add the CA certificate if provided in the CRD
+	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate != "" {
+		plugin.Spec.Proxy[0].CACertificate = cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate
+	}
+
 	if err := controllerutil.SetControllerReference(cr, plugin, r.Scheme); err != nil {
 		return nil, err
 	}
