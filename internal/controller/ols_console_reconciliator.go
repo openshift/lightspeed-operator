@@ -20,7 +20,7 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
-func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	r.logger.Info("reconcileConsoleUI starts")
 	tasks := []ReconcileTask{
 		{
@@ -50,7 +50,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, olsconfig 
 	}
 
 	for _, task := range tasks {
-		err := task.Task(ctx, olsconfig)
+		err := task.Task(ctx, cr)
 		if err != nil {
 			r.logger.Error(err, "reconcileConsoleUI error", "task", task.Name)
 			return fmt.Errorf("failed to %s: %w", task.Name, err)

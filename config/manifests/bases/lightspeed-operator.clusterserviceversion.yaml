@@ -137,6 +137,12 @@ spec:
       - description: Console container settings.
         displayName: Console Container
         path: ols.deployment.console
+      - description: Certificate Authority (CA) certificate used by the console proxy
+          endpoint.
+        displayName: CA Certificate
+        path: ols.deployment.console.caCertificate
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:caCertificate
       - displayName: Node Selector
         path: ols.deployment.console.nodeSelector
         x-descriptors:

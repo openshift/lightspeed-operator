@@ -81,6 +81,8 @@ type OLSSpec struct {
 	// User data collection switches
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="User Data Collection"
 	UserDataCollection UserDataCollectionSpec `json:"userDataCollection,omitempty"`
+
+	UseUserProvidedTLSCerts bool `json:"useUserProvidedTLSCerts,omitempty"`
 	// Additional CA certificates for TLS communication between OLS service and LLM Provider
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Additional CA Configmap",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	AdditionalCAConfigMapRef *corev1.LocalObjectReference `json:"additionalCAConfigMapRef,omitempty"`
@@ -135,6 +137,11 @@ type ConsoleContainerConfig struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
+	// Certificate Authority (CA) certificate used by the console proxy endpoint.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="CA Certificate",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:caCertificate"}
+	// +kubebuilder:validation:Pattern=`^-----BEGIN CERTIFICATE-----([\s\S]*)-----END CERTIFICATE-----\s?$`
+	// +optional
+	CAcertificate string `json:"caCertificate,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=redis

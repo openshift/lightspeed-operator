@@ -303,11 +303,15 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 		return fmt.Errorf("%s: %w", ErrGetAPIServiceAccount, err)
 	}
 
-	if serviceEqual(foundService, service) &&
-		foundService.ObjectMeta.Annotations != nil &&
-		foundService.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] == service.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] {
-		r.logger.Info("OLS service unchanged, reconciliation skipped", "service", service.Name)
-		return nil
+	if serviceEqual(foundService, service) && foundService.ObjectMeta.Annotations != nil {
+		if cr.Spec.OLSConfig.UseUserProvidedTLSCerts {
+			r.logger.Info("OLS service unchanged, reconciliation skipped", "service", service.Name)
+			return nil
+
+		} else if foundService.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] == service.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] {
+			r.logger.Info("OLS service unchanged, reconciliation skipped", "service", service.Name)
+			return nil
+		}
 	}
 
 	err = r.Update(ctx, service)

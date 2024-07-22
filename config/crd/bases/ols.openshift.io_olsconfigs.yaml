@@ -553,6 +553,12 @@ spec:
                       console:
                         description: Console container settings.
                         properties:
+                          caCertificate:
+                            description: Certificate Authority (CA) certificate used
+                              by the console proxy endpoint.
+                            pattern: ^-----BEGIN CERTIFICATE-----([\s\S]*)-----END
+                              CERTIFICATE-----\s?$
+                            type: string
                           nodeSelector:
                             additionalProperties:
                               type: string
@@ -1019,6 +1025,8 @@ spec:
                         - Custom
                         type: string
                     type: object
+                  useUserProvidedTLSCerts:
+                    type: boolean
                   userDataCollection:
                     description: User data collection switches
                     properties:
