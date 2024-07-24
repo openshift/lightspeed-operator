@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi-minimal
+FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:104cf11d890aeb7dd5728b7d7732e175a0e4018f1bb00d2faebcc8f6bf29bd52
 
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
@@ -26,9 +26,9 @@ COPY LICENSE /licenses/
 
 # Labels for enterprise contract
 LABEL com.redhat.component=openshift-lightspeed
-LABEL description="Red Hat OpenShift Lightspeed - AI assitant for managing OpenShift clusters."
+LABEL description="Red Hat OpenShift Lightspeed - AI assistant for managing OpenShift clusters."
 LABEL distribution-scope=public
-LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assitant for managing OpenShift clusters."
+LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assistant for managing OpenShift clusters."
 LABEL io.k8s.display-name="Openshift Lightspeed"
 LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
 LABEL name=openshift-lightspeed

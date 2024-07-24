@@ -1,8 +1,9 @@
 resources:
 - manager.yaml
+- imagedigestmirrorset.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-- digest: sha256:e7c4661a256560de864a7076f66ec5729aa7d4617b93cb8804a5f4831ad31e6c
+- digest: sha256:049a1a398ed87e4f35c99b36304055c7f75d0188a4d8c1726df59b5f400561e5
   name: controller
-  newName: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator
+  newName: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator

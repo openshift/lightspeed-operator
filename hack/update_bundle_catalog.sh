@@ -26,8 +26,9 @@ fi
 # Set the bundle version
 : "${BUNDLE_TAG:=0.0.1}"
 
-: "${OPERATOR_IMAGE:=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:256e653c620a2e1ef3d9ef7024da5326af551f5fe11a5e2307e4bafd8930e381}"
-: "${BUNDLE_IMAGE:=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:84a332cd52eb53888da7916d3bc7cfad32322c714dd6e69d025b8c2df882321e}"
+: "${OPERATOR_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:5c0fcd208cd93fe6b08f0404a0ae50165973104ebfebe6bdbe30bfa92019eea2}"
+: "${BUNDLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:e46e337502a00282473e083c16a64e6201df3677905e4b056b7f48ef0b8f6e4b}"
+: "${CONSOLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:4f45c9ba068cf92e592bb3a502764ce6bc93cd154d081fa49d05cb040885155b}"
 
 CATALOG_FILE="lightspeed-catalog/index.yaml"
 CATALOG_INITIAL_FILE="hack/operator.yaml"
@@ -36,25 +37,26 @@ CSV_FILE="bundle/manifests/lightspeed-operator.clusterserviceversion.yaml"
 BUNDLE_DOCKERFILE="bundle.Dockerfile"
 
 # if RELATED_IMAGES is not defined, extract related images or use default values
-:  "${RELATED_IMAGES:=$(${YQ} ' .spec.relatedImages' -ojson ${CSV_FILE})}"
+: "${RELATED_IMAGES:=$(${YQ} ' .spec.relatedImages' -ojson ${CSV_FILE})}"
 if [ -z "${RELATED_IMAGES}" ]; then
-  RELATED_IMAGES=$(cat <<-EOF
+  RELATED_IMAGES=$(
+    cat <<-EOF
 [
   {
     "name": "lightspeed-service-api",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:d60104e8eef06e68107b127f1f19c6e3028bd6d7c36b263dddb89cbb7f5008ee"
+    "image": "${SERVICE_IMAGE}"
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:f939011899542db36baa4826b62671ed08d598dbc22ee5d4a62da6d78a80cda2"
+    "image": "${CONSOLE_IMAGE}"
   },
   {
     "name": "lightspeed-operator",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:256e653c620a2e1ef3d9ef7024da5326af551f5fe11a5e2307e4bafd8930e381"
+    "image": "${OPERATOR_IMAGE}"
   }
 ]
 EOF
-)
+  )
 fi
 
 # Build the bundle image
