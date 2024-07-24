@@ -41,7 +41,7 @@ fi
 : "${BUNDLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:e46e337502a00282473e083c16a64e6201df3677905e4b056b7f48ef0b8f6e4b}"
 : "${CONSOLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:4f45c9ba068cf92e592bb3a502764ce6bc93cd154d081fa49d05cb040885155b}"
 
-CATALOG_FILE="lightspeed-catalog/index.yaml"
+: "${CATALOG_FILE:=lightspeed-catalog/index.yaml}"
 CATALOG_INITIAL_FILE="hack/operator.yaml"
 CSV_FILE="bundle/manifests/lightspeed-operator.clusterserviceversion.yaml"
 
@@ -139,4 +139,13 @@ name: preview
 entries:
   - name: lightspeed-operator.v$BUNDLE_TAG
 EOF
+
+${OPM} validate $(dirname "${CATALOG_FILE}")
+if [ $? -ne 0 ]; then
+  echo "Validation failed for ${CATALOG_FILE}"
+  exit 1
+else
+  echo "Validation passed for ${CATALOG_FILE}"
+fi
+
 echo "Finished running $(basename "$0")"
