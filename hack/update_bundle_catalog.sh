@@ -7,6 +7,17 @@
 
 set -euo pipefail
 
+TEMP_BUNDLE_FILE=""
+cleanup() {
+  # remove temporary bundle file
+  if [ -n "${TEMP_BUNDLE_FILE}" ]; then
+    rm -f "${TEMP_BUNDLE_FILE}"
+  fi
+
+}
+
+trap cleanup EXIT
+
 : ${OPM:=$(command -v opm)}
 echo "using opm from ${OPM}"
 # check if opm version is v1.39.0 or exit
@@ -30,7 +41,7 @@ fi
 : "${BUNDLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:e46e337502a00282473e083c16a64e6201df3677905e4b056b7f48ef0b8f6e4b}"
 : "${CONSOLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:4f45c9ba068cf92e592bb3a502764ce6bc93cd154d081fa49d05cb040885155b}"
 
-CATALOG_FILE="lightspeed-catalog/index.yaml"
+: "${CATALOG_FILE:=lightspeed-catalog/index.yaml}"
 CATALOG_INITIAL_FILE="hack/operator.yaml"
 CSV_FILE="bundle/manifests/lightspeed-operator.clusterserviceversion.yaml"
 
@@ -67,8 +78,8 @@ make bundle VERSION="${BUNDLE_TAG}" IMG="${OPERATOR_IMAGE}"
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES}" ${CSV_FILE}
 
 # use UBI image as base image for bundle image
-: "${BASE_IMAGE:=registry.access.redhat.com/ubi9/ubi-minimal}"
-sed -i 's@^FROM scratch@FROM '"${BASE_IMAGE}"'@' ${BUNDLE_DOCKERFILE}
+: "${BASE_IMAGE:=registry.access.redhat.com/ubi9/ubi-minimal@sha256:104cf11d890aeb7dd5728b7d7732e175a0e4018f1bb00d2faebcc8f6bf29bd52}"
+sed -i 's|^FROM scratch|FROM '"${BASE_IMAGE}"'|' ${BUNDLE_DOCKERFILE}
 
 # make bundle image comply with enterprise contract requirements
 cat <<EOF >>${BUNDLE_DOCKERFILE}
@@ -96,11 +107,30 @@ USER 1001
 EOF
 
 echo "Adding bundle image to FBC using image ${BUNDLE_IMAGE}"
-
 #Initialize lightspeed-catalog/index.yaml from hack/operator.yaml
 cat "${CATALOG_INITIAL_FILE}" >"${CATALOG_FILE}"
 
-${OPM} render "${BUNDLE_IMAGE}" --output=yaml >>"${CATALOG_FILE}"
+# This bundle image is used to build the catalog image
+# Give it a reference in a writable image registry
+TEMP_BUNDLE_IMG=${TEMP_BUNDLE_IMG:-}
+if [ -z "${TEMP_BUNDLE_IMG}" ]; then
+  TEMP_BUNDLE_IMG="quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:c83533f0f96a7290886c5b651a3b5c8a6a4dd1058db24861b8f1d3ee3c86eaec"
+  echo "No TEMP_BUNDLE_IMG specified. Catalog is built using default bundle image ${TEMP_BUNDLE_IMG}"
+  echo "If you have changed the CRD, please specifiy TEMP_BUNDLE_IMG to your writable image registry and re-run the script"
+fi
+
+# create a temporary file for the bundle part of the catalog
+TEMP_BUNDLE_FILE=$(mktemp)
+
+${OPM} render "${TEMP_BUNDLE_IMG}" --output=yaml >"${TEMP_BUNDLE_FILE}"
+# restore bundle image to the catalog file
+${YQ} eval -i '.image='"\"${BUNDLE_IMAGE}\"" ${TEMP_BUNDLE_FILE}
+# restore bundle related images and the bundle itself to the catalog file
+${YQ} eval -i '.relatedImages='"${RELATED_IMAGES}" ${TEMP_BUNDLE_FILE}
+${YQ} eval -i '.relatedImages += [{"name": "lightspeed-operator-bundle", "image": "'"${BUNDLE_IMAGE}"'"}]' ${TEMP_BUNDLE_FILE}
+
+cat ${TEMP_BUNDLE_FILE} >>${CATALOG_FILE}
+
 cat <<EOF >>"${CATALOG_FILE}"
 ---
 schema: olm.channel
@@ -109,4 +139,13 @@ name: preview
 entries:
   - name: lightspeed-operator.v$BUNDLE_TAG
 EOF
+
+${OPM} validate $(dirname "${CATALOG_FILE}")
+if [ $? -ne 0 ]; then
+  echo "Validation failed for ${CATALOG_FILE}"
+  exit 1
+else
+  echo "Validation passed for ${CATALOG_FILE}"
+fi
+
 echo "Finished running $(basename "$0")"
