@@ -270,7 +270,7 @@ relatedImages:
   name: ""
 - image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:4f45c9ba068cf92e592bb3a502764ce6bc93cd154d081fa49d05cb040885155b
   name: lightspeed-console-plugin
-- image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:049a1a398ed87e4f35c99b36304055c7f75d0188a4d8c1726df59b5f400561e5
+- image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:0ebfc27123718c2806746ffcbdbed1b9f65f52268a42640a82f757bf9990b922
   name: lightspeed-operator
 - image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:7129eef4a6918b61ace72f1c946490bf74aef06e37b4fadbb879a73e68e68f3d
   name: lightspeed-service-api
