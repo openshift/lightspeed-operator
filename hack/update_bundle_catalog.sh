@@ -87,7 +87,7 @@ LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
 LABEL name=openshift-lightspeed
 LABEL release=0.0.1
 LABEL url="https://github.com/openshift/lightspeed-operator"
-LABEL vendor="Red Hat"
+LABEL vendor="Red Hat, Inc."
 LABEL version=0.0.1
 LABEL summary="Red Hat OpenShift Lightspeed"
 
