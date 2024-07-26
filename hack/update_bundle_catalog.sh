@@ -35,7 +35,7 @@ if [ -z "${YQ}" ]; then
 fi
 
 # Set the bundle version
-: "${BUNDLE_TAG:=0.0.1}"
+: "${BUNDLE_TAG:=0.1.0}"
 
 : "${OPERATOR_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:5c0fcd208cd93fe6b08f0404a0ae50165973104ebfebe6bdbe30bfa92019eea2}"
 : "${BUNDLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:e46e337502a00282473e083c16a64e6201df3677905e4b056b7f48ef0b8f6e4b}"
@@ -96,10 +96,10 @@ LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assistant for managi
 LABEL io.k8s.display-name="Openshift Lightspeed"
 LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
 LABEL name=openshift-lightspeed
-LABEL release=0.0.1
+LABEL release=${BUNDLE_TAG}
 LABEL url="https://github.com/openshift/lightspeed-operator"
 LABEL vendor="Red Hat, Inc."
-LABEL version=0.0.1
+LABEL version=${BUNDLE_TAG}
 LABEL summary="Red Hat OpenShift Lightspeed"
 
 # Set user to non-root for security reasons.
@@ -137,7 +137,7 @@ schema: olm.channel
 package: lightspeed-operator
 name: preview
 entries:
-  - name: lightspeed-operator.v$BUNDLE_TAG
+  - name: lightspeed-operator.v${BUNDLE_TAG}
 EOF
 
 ${OPM} validate $(dirname "${CATALOG_FILE}")
