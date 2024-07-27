@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-TEMP_BUNDLE_FILE=""
+TEMP_BUNDLE_FILE="quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c"
 cleanup() {
   # remove temporary bundle file
   if [ -n "${TEMP_BUNDLE_FILE}" ]; then
@@ -21,8 +21,8 @@ trap cleanup EXIT
 : ${OPM:=$(command -v opm)}
 echo "using opm from ${OPM}"
 # check if opm version is v1.39.0 or exit
-if ! ${OPM} version | grep -q "v1.39.0"; then
-  echo "opm version v1.39.0 is required"
+if ! ${OPM} version | grep -q "v1.27.1"; then
+  echo "opm version v1.27.1 is required"
   exit 1
 fi
 
@@ -37,8 +37,8 @@ fi
 # Set the bundle version
 : "${BUNDLE_TAG:=0.1.0}"
 
-: "${OPERATOR_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:5c0fcd208cd93fe6b08f0404a0ae50165973104ebfebe6bdbe30bfa92019eea2}"
-: "${BUNDLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:e46e337502a00282473e083c16a64e6201df3677905e4b056b7f48ef0b8f6e4b}"
+: "${OPERATOR_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:049a1a398ed87e4f35c99b36304055c7f75d0188a4d8c1726df59b5f400561e5}"
+: "${BUNDLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c}"
 : "${CONSOLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:4f45c9ba068cf92e592bb3a502764ce6bc93cd154d081fa49d05cb040885155b}"
 
 : "${CATALOG_FILE:=lightspeed-catalog/index.yaml}"
@@ -114,7 +114,7 @@ cat "${CATALOG_INITIAL_FILE}" >"${CATALOG_FILE}"
 # Give it a reference in a writable image registry
 TEMP_BUNDLE_IMG=${TEMP_BUNDLE_IMG:-}
 if [ -z "${TEMP_BUNDLE_IMG}" ]; then
-  TEMP_BUNDLE_IMG="quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:c83533f0f96a7290886c5b651a3b5c8a6a4dd1058db24861b8f1d3ee3c86eaec"
+  TEMP_BUNDLE_IMG="quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c"
   echo "No TEMP_BUNDLE_IMG specified. Catalog is built using default bundle image ${TEMP_BUNDLE_IMG}"
   echo "If you have changed the CRD, please specifiy TEMP_BUNDLE_IMG to your writable image registry and re-run the script"
 fi
