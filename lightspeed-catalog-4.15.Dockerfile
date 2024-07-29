@@ -7,7 +7,7 @@ CMD ["serve", "/configs", "--cache-dir=/tmp/cache"]
 # Copy licenses required by Red Hat certification policy
 ADD LICENSE /licenses/
 # Copy declarative config root into image at /configs and pre-populate serve cache
-ADD lightspeed-catalog-4.15 /configs
+ADD lightspeed-catalog-4.15 /configs/lightspeed-operator
 RUN ["/bin/opm", "serve", "/configs", "--cache-dir=/tmp/cache", "--cache-only"]
 
 # Set DC-specific label for the location of the DC root directory
