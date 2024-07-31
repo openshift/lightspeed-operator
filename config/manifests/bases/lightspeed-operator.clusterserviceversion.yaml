@@ -68,6 +68,9 @@ spec:
       - description: Model API URL
         displayName: URL
         path: llm.providers[0].models[0].url
+      - description: Model context window size
+        displayName: Context Window Size
+        path: llm.providers[0].models[0].contextWindowSize
       - description: Watsonx Project ID
         displayName: Watsonx Project ID
         path: llm.providers[0].projectID

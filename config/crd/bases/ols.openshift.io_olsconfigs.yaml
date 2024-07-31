@@ -68,6 +68,11 @@ spec:
                           items:
                             description: ModelSpec defines the desired state of cache.
                             properties:
+                              contextWindowSize:
+                                description: Defines the model's context window size.
+                                  Default is specific to provider/model.
+                                minimum: 1024
+                                type: integer
                               name:
                                 description: Model name
                                 type: string

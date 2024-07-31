@@ -211,6 +211,10 @@ type ModelSpec struct {
 	// +kubebuilder:validation:Pattern=`^https?://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="URL"
 	URL string `json:"url,omitempty"`
+	// Defines the model's context window size. Default is specific to provider/model.
+	// +kubebuilder:validation:Minimum=1024
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Context Window Size"
+	ContextWindowSize uint `json:"contextWindowSize,omitempty"`
 	// Model API parameters
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Parameters"
 	Parameters ModelParametersSpec `json:"parameters,omitempty"`

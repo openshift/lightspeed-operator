@@ -82,6 +82,10 @@ spec:
                                 description: Model API URL
                                 pattern: ^https?://.*$
                                 type: string
+                              contextWindowSize:
+                                description: Model context window size
+                                minimum: 1024
+                                type: integer
                             required:
                             - name
                             type: object

@@ -67,6 +67,8 @@ type ModelConfig struct {
 	Name string `json:"name"`
 	// Model API URL
 	URL string `json:"url,omitempty"`
+	// Model context window size
+	ContextWindowSize uint `json:"context_window_size,omitempty"`
 	// Model parameters
 	Parameters ModelParameters `json:"parameters,omitempty"`
 }
