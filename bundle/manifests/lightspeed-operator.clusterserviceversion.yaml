@@ -114,6 +114,11 @@ spec:
             path: llm.providers[0].type
           - displayName: OLS Settings
             path: ols
+          - description: Additional CA certificates for TLS communication between OLS service and LLM Provider
+            displayName: Additional CA Configmap
+            path: ols.additionalCAConfigMapRef
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:advanced
           - displayName: Redis
             path: ols.conversationCache.redis
           - description: Secret that holds redis credentials

@@ -192,7 +192,7 @@ func (c *Client) WaitForConfigMapContainString(cm *corev1.ConfigMap, key, substr
 		return true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("WaitForConfigMapContainString - waiting for the ConfigMap %s/%s containing the string \"\": %w ; last error: %w", cm.GetNamespace(), cm.GetName(), err, lastErr)
+		return fmt.Errorf("WaitForConfigMapContainString - waiting for the ConfigMap %s/%s containing the string \"%s\": %w ; last error: %w", cm.GetNamespace(), cm.GetName(), substr, err, lastErr)
 	}
 
 	return nil

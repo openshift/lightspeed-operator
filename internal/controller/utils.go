@@ -3,6 +3,8 @@ package controller
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"sort"
@@ -396,4 +398,25 @@ func getProxyEnvVars() []corev1.EnvVar {
 		}
 	}
 	return envVars
+}
+
+// validate the x509 certificate syntax
+func validateCertificateFormat(cert []byte) error {
+	if len(cert) == 0 {
+		return fmt.Errorf("certificate is empty")
+	}
+	block, _ := pem.Decode(cert)
+	if block == nil {
+		return fmt.Errorf("failed to decode PEM certificate")
+	}
+	if block.Type != "CERTIFICATE" {
+		return fmt.Errorf("block type is not certificate but %s", block.Type)
+	}
+	// check the CA is correctly formatted
+	_, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse certificate: %v", err)
+	}
+
+	return nil
 }

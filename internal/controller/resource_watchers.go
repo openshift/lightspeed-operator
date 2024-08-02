@@ -44,3 +44,28 @@ func telemetryPullSecretWatcherFilter(ctx context.Context, obj client.Object) []
 		}},
 	}
 }
+
+func configMapWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Request {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		return nil
+	}
+	crName, exist := annotations[WatcherAnnotationKey]
+	if !exist {
+		return nil
+	}
+	return []reconcile.Request{
+		{NamespacedName: types.NamespacedName{
+			Name: crName,
+		}},
+	}
+}
+
+func annotateConfigMapWatcher(cm *corev1.ConfigMap) {
+	annotations := cm.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[WatcherAnnotationKey] = OLSConfigName
+	cm.SetAnnotations(annotations)
+}
