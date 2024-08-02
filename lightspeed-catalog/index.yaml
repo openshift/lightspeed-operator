@@ -52,7 +52,7 @@ relatedImages:
   - name: lightspeed-console-plugin
     image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:d61a19dce10ed2edb74092cce9189d3076c585ebde047a9e7841c8a32435aab4
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:4bb81dfec6cce853543c7c0e7f2898ece23105fe3a5c5b17d845b1ff58fdc92a
+    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:84bec5efd2b6aed6dd097cd856be8a4d886b588213f774b7ed0446deb255e99b
   - name: lightspeed-operator-bundle
     image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c
 schema: olm.bundle
