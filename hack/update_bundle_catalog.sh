@@ -35,7 +35,7 @@ if [ -z "${YQ}" ]; then
 fi
 
 # Set the bundle version
-: "${BUNDLE_TAG:=0.1.0}"
+: "${BUNDLE_TAG:=0.1.1}"
 
 : "${OPERATOR_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:049a1a398ed87e4f35c99b36304055c7f75d0188a4d8c1726df59b5f400561e5}"
 : "${BUNDLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c}"
