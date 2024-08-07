@@ -58,7 +58,7 @@ type: Opaque
 ```
 
 > [!TIP]
-> Azure OpenAI example
+> Azure OpenAI apitoken example
 
 ```yaml
 apiVersion: v1
@@ -70,7 +70,24 @@ metadata:
   namespace: openshift-lightspeed
 type: Opaque
 ```
-These `apitoken` values can be updated if the user wishes to change them later. The same applies to all the TLS and CA certs related to individual components. They get reflected automatically across the system.
+
+> [!TIP]
+> Azure OpenAI user-assigned identity
+
+```yaml
+apiVersion: v1
+data:
+  client_id: <base64 encoded client id>
+  client_secret: <base64 encoded client secret>
+  tenant_id: <base64 encoded tenant id>
+kind: Secret
+metadata:
+  name: azure-api-keys
+  namespace: openshift-lightspeed
+type: Opaque
+```
+
+These `apitoken` or `client_secret` values can be updated if the user wishes to change them later. The same applies to all the TLS and CA certs related to individual components. They get reflected automatically across the system.
 
 3. Create an `OLSConfig` custom resource
 
