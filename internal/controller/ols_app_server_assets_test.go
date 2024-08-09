@@ -271,12 +271,21 @@ var _ = Describe("App server assets", func() {
 					Name:  "INGRESS_ENV",
 					Value: "prod",
 				},
+				{
+					Name:  "OLS_CONFIG_FILE",
+					Value: path.Join("/etc/ols", OLSConfigFilename),
+				},
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
 				{
 					Name:      "ols-user-data",
 					ReadOnly:  false,
 					MountPath: "/app-root/ols-user-data",
+				},
+				{
+					Name:      "cm-olsconfig",
+					MountPath: "/etc/ols",
+					ReadOnly:  true,
 				},
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[1].Resources).To(Equal(corev1.ResourceRequirements{
@@ -539,12 +548,21 @@ var _ = Describe("App server assets", func() {
 					Name:  "INGRESS_ENV",
 					Value: "prod",
 				},
+				{
+					Name:  "OLS_CONFIG_FILE",
+					Value: path.Join("/etc/ols", OLSConfigFilename),
+				},
 			}))
 			Expect(deployment.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
 				{
 					Name:      "ols-user-data",
 					ReadOnly:  false,
 					MountPath: "/app-root/ols-user-data",
+				},
+				{
+					Name:      "cm-olsconfig",
+					MountPath: "/etc/ols",
+					ReadOnly:  true,
 				},
 			}))
 			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(

@@ -249,7 +249,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		SecurityContext: &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &[]bool{false}[0],
 		},
-		VolumeMounts: []corev1.VolumeMount{olsUserDataVolumeMount},
+		VolumeMounts: []corev1.VolumeMount{olsUserDataVolumeMount, olsConfigVolumeMount},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "OLS_USER_DATA_PATH",
@@ -258,6 +258,10 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			{
 				Name:  "INGRESS_ENV",
 				Value: "prod",
+			},
+			{
+				Name:  "OLS_CONFIG_FILE",
+				Value: path.Join(OLSConfigMountPath, OLSConfigFilename),
 			},
 		},
 		Command:   []string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"},
