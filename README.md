@@ -294,6 +294,35 @@ When using Visual Studio Code, we can use the debugger settings below to execute
 
 **NOTE:** Run `make --help` for more information on all potential `make` targets
 
+### Update Catalog From Konflux Snapshot
+
+To update the catalog index from a Konflux snapshot, we need to connect to Konflux using `oc login`  command:
+1. Go to the Developer Sandbox web portal https://registration-service-toolchain-host-operator.apps.stone-prd-host1.wdlc.p1.openshiftapps.com/
+2. Copy the proxy login command on the top right corner. It should look like this `oc login --token=$TOKEN --server=https://api-toolchain-host-operator.apps.stone-prd-host1.wdlc.p1.openshiftapps.com`
+3. Append our workspace to the server URL `oc login --token=$TOKEN --server=https://api-toolchain-host-operator.apps.stone-prd-host1.wdlc.p1.openshiftapps.com/workspaces/crt-nshift-lightspeed/`
+4. Login using that command
+
+Now we can use the script `hack/snapshot_to_catalog.sh` to update the catalog index. It takes 3 parameters `snapshot_to_catalog.sh -s <snapshot-ref> -c <catalog-file>`:
+- snapshot-ref: required, the snapshot reference to use, example: ols-bnxm2
+- catalog-file: optional, the catalog index file to update, default: lightspeed-catalog-4.16/index.yaml
+
+To generate catalog index file `lightspeed-catalog-4.16/index.yaml` from the snapshot `ols-bnxm2`
+```
+➜  lightspeed-operator ✗ ./hack/snapshot_to_catalog.sh -s ols-bnxm2 -c lightspeed-catalog-4.16/index.yaml
+
+Update catalog lightspeed-catalog-4.16/index.yaml from snapshot ols-bnxm2
+using opm from /home/hasun/GitRepo/lightspeed-operator/bin/opm
+using yq from /usr/bin/yq
+Catalog will use the following images:
+BUNDLE_IMAGE=registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c
+OPERATOR_IMAGE=registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:4bb81dfec6cce853543c7c0e7f2898ece23105fe3a5c5b17d845b1ff58fdc92a
+CONSOLE_IMAGE=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:4f45c9ba068cf92e592bb3a502764ce6bc93cd154d081fa49d05cb040885155b
+SERVICE_IMAGE=registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:794017379e28cfbbd17c8a8343f3326f2c99b8f9da5e593fa5afd52258d0c563
+BUNDLE_IMAGE_ORIGIN=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c
+Bundle version is 0.1.0
+Validation passed for lightspeed-catalog-4.16/index.yaml
+```
+
 ## Prerequisites
 
 You'll need the following tools to develop the Operator:
