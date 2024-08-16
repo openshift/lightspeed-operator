@@ -33,7 +33,7 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/args/-
-        value: --images=lightspeed-service=registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:129b32dcb111836ef082675a39bc9cb4058f686837682a46f1f1642bd95a2b2a,console-plugin=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:5538f2b63951e4eca4e57284165be6b1c1ae5c522c624380512081ac999214be
+        value: --images=lightspeed-service=registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:0a53308b64905ac444c224f4b5ad744b891bdd790a49367336ebe72e513dfdef,console-plugin=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:5538f2b63951e4eca4e57284165be6b1c1ae5c522c624380512081ac999214be
 
     target:
       group: apps
