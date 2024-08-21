@@ -51,6 +51,6 @@ spec:
         - name: ownerKind
           value: $(params.ownerKind)
         - name: ownerName
-          value: $(context.pipelineRun.name)
+          value: $(params.ownerName)
         - name: ownerUid
-          value: $(context.pipelineRun.uid)
+          value: $(params.ownerUid)
