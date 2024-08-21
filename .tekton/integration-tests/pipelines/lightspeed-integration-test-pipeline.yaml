@@ -17,121 +17,40 @@ spec:
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
       default: 'ols-e2e-tests'
-    - name: ocp-version
-      description: 'The OpenShift version to use for the ephemeral cluster deployment.'
-      default: '4.15.9'
+    - name: ownerKind
       type: string
-    - name: test-event-type
-      description: 'Indicates if the test is triggered by a Pull Request or Push event.'
-      default: 'none'
-    - name: region
-      description: 'The AWS region to provision the ROSA cluster. Default is us-west-2.'
-      default: 'us-east-1'
-    - name: aws-secrets
-      description: 'The AWS secrets used for provisioning the ROSA cluster.'
-      default: 'aws-secrets'
-    - name: replicas
-      description: 'The number of replicas for the cluster nodes.'
-      default: '3'
-    - name: machine-type
-      description: 'The type of machine to use for the cluster nodes.'
-      default: 'm5.xlarge'
-    - name: oras-container
-      default: 'quay.io/konflux-qe-incubator/konflux-qe-oci-storage'
-      description: The ORAS container used to store all test artifacts.
+      default: PipelineRun
+      description: >-
+        The type of resource that should own the generated SpaceRequest.
+        Deletion of this resource will trigger deletion of the SpaceRequest.
+        Supported values: `PipelineRun`, `TaskRun`.
+    - name: ownerName
+      type: string
+      description: >-
+        The name of the resource that should own the generated SpaceRequest.
+        This should either be passed the value of `$(context.pipelineRun.name)`
+        or `$(context.taskRun.name)` depending on the value of `ownerKind`.
+    - name: ownerUid
+      type: string
+      description: >-
+        The uid of the resource that should own the generated SpaceRequest.
+        This should either be passed the value of `$(context.pipelineRun.uid)`
+        or `$(context.taskRun.uid)` depending on the value of `ownerKind`.
   tasks:
-    - name: rosa-hcp-metadata
+    - name: eaas-provision-space
       taskRef:
         resolver: git
         params:
           - name: url
-            value: https://github.com/konflux-qe-incubator/konflux-qe-definitions.git
+            value: https://github.com/konflux-ci/build-definitions.git
           - name: revision
             value: main
           - name: pathInRepo
-            value: common/tasks/rosa/hosted-cp/rosa-hcp-metadata/rosa-hcp-metadata.yaml
-    - name: test-metadata
-      taskRef:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/konflux-qe-incubator/konflux-qe-definitions
-          - name: revision
-            value: main
-          - name: pathInRepo
-            value: common/tasks/test-metadata/test-metadata.yaml
+            value: task/eaas-provision-space/0.1/eaas-provision-space.yaml
       params:
-        - name: SNAPSHOT
-          value: $(params.SNAPSHOT)
-        - name: oras-container
-          value: $(params.oras-container)
-        - name: test-name
+        - name: ownerKind
+          value: $(params.ownerKind)
+        - name: ownerName
           value: $(context.pipelineRun.name)
-    - name: provision-rosa
-      when:
-        - input: "$(tasks.test-metadata.results.test-event-type)"
-          operator: in
-          values: ["pull_request"]
-      runAfter:
-        - rosa-hcp-metadata
-        - test-metadata
-      taskRef:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/konflux-qe-incubator/konflux-qe-definitions.git
-          - name: revision
-            value: main
-          - name: pathInRepo
-            value: common/tasks/rosa/hosted-cp/rosa-hcp-provision/rosa-hcp-provision.yaml
-      params:
-        - name: cluster-name
-          value: "$(tasks.rosa-hcp-metadata.results.cluster-name)"
-        - name: ocp-version
-          value: "$(params.ocp-version)"
-        - name: region
-          value: "$(params.region)"
-        - name: replicas
-          value: "$(params.replicas)"
-        - name: machine-type
-          value: "$(params.machine-type)"
-        - name: aws-secrets
-          value: "$(params.aws-secrets)"
-  finally:
-    - name: deprovision-rosa-collect-artifacts
-      when:
-        - input: "$(tasks.test-metadata.results.test-event-type)"
-          operator: in
-          values: ["pull_request"]
-      taskRef:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/konflux-qe-incubator/konflux-qe-definitions.git
-          - name: revision
-            value: main
-          - name: pathInRepo
-            value: common/tasks/rosa/hosted-cp/rosa-hcp-deprovision/rosa-hcp-deprovision.yaml
-      params:
-        - name: test-name
-          value: $(context.pipelineRun.name)
-        - name: ocp-login-command
-          value: "$(tasks.provision-rosa.results.ocp-login-command)"
-        - name: oras-container
-          value: "$(tasks.test-metadata.results.oras-container)"
-        - name: pull-request-author
-          value: "$(tasks.test-metadata.results.pull-request-author)"
-        - name: git-revision
-          value: "$(tasks.test-metadata.results.git-revision)"
-        - name: pull-request-number
-          value: "$(tasks.test-metadata.results.pull-request-number)"
-        - name: git-repo
-          value: "$(tasks.test-metadata.results.git-repo)"
-        - name: git-org
-          value: "$(tasks.test-metadata.results.git-org)"
-        - name: cluster-name
-          value: "$(tasks.rosa-hcp-metadata.results.cluster-name)"
-        - name: region
-          value: "$(params.region)"
-        - name: aws-secrets
-          value: "$(params.aws-secrets)"
+        - name: ownerUid
+          value: $(context.pipelineRun.uid)

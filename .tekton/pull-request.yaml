@@ -13,17 +13,9 @@ spec:
       value: '{"components": [{"name":"test-app", "containerImage": "quay.io/example/repo:latest"}]}'
     - name: test-name
       value: 'ols-e2e'
-    - name: ocp-version
-      value: '4.15.9'
-    - name: test-event-type
-      value: 'none'
-    - name: region
-      value: 'us-east-1'
-    - name: aws-secrets
-      value: 'aws-secrets'
-    - name: replicas
-      value: '3'
-    - name: machine-type
-      value: 'm5.xlarge'
-    - name: oras-container
-      value: 'quay.io/konflux-qe-incubator/konflux-qe-oci-storage'
+    - name: ownerKind
+      value: PipelineRun
+    - name: ownerName
+      value: $(context.pipelineRun.name)
+    - name: ownerUid
+      value: $(context.pipelineRun.uid)
