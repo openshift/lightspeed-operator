@@ -1,0 +1,15 @@
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: integration-tests-with-rosa-pipelinerun-
+  annotations:
+    pipelinesascode.tekton.dev/task: "[.tekton/integration-tests/tasks/ols-installer.yaml, .tekton/integration-tests/tasks/ols-e2e-task.yaml]"
+spec:
+  pipelineRef:
+    name: ols-integration-tests-pipeline
+  params:
+    - name: SNAPSHOT
+      value: '{"components": [{"name":"test-app", "containerImage": "quay.io/example/repo:latest"}]}'
+    - name: test-name
+      value: 'ols-e2e'

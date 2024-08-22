@@ -1,7 +1,8 @@
+---
 apiVersion: tekton.dev/v1
 kind: Task
 metadata:
-  name: ols-install
+  name: ols-installer
 spec:
   params:
     - name: test-name
@@ -10,7 +11,7 @@ spec:
       type: string
       description: ""
   steps:
-    - name: install
+    - name: ols-installer
       image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
       env:
         - name: TEST_NAME
@@ -18,7 +19,6 @@ spec:
       script: |
         #!/bin/sh
         echo $(params.ocp-login-command)
-        $(params.ocp-login-command)
 
         echo "ols is installing"
         #operator-sdk run bundle quay.io/lightspeed/lightspeed-operator:latest --namespace openshift-operators --skpit-tls --timeout 5m0s
