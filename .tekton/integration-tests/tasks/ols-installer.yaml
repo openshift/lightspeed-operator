@@ -19,7 +19,6 @@ spec:
       script: |
         #!/bin/sh
         echo $(params.ocp-login-command)
-        $(params.ocp-login-command)
 
         echo "ols is installing"
         #operator-sdk run bundle quay.io/lightspeed/lightspeed-operator:latest --namespace openshift-operators --skpit-tls --timeout 5m0s

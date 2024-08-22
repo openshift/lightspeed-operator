@@ -37,3 +37,11 @@ spec:
           value: $(context.pipelineRun.name)
         - name: ownerUid
           value: $(context.pipelineRun.uid)
+    - name: ols-install
+      taskRef:
+        name: ols-installer
+      params:
+        - name: test-name
+          value: "ols-test"
+        - name: ocp-login-command
+          value: "hello world"
