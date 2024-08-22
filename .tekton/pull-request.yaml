@@ -13,9 +13,3 @@ spec:
       value: '{"components": [{"name":"test-app", "containerImage": "quay.io/example/repo:latest"}]}'
     - name: test-name
       value: 'ols-e2e'
-    - name: ownerKind
-      value: PipelineRun
-    - name: ownerName
-      value: $(context.pipelineRun.name)
-    - name: ownerUid
-      value: $(context.pipelineRun.uid)

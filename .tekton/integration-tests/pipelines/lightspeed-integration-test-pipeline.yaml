@@ -17,25 +17,6 @@ spec:
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
       default: 'ols-e2e-tests'
-    - name: ownerKind
-      type: string
-      default: PipelineRun
-      description: >-
-        The type of resource that should own the generated SpaceRequest.
-        Deletion of this resource will trigger deletion of the SpaceRequest.
-        Supported values: `PipelineRun`, `TaskRun`.
-    - name: ownerName
-      type: string
-      description: >-
-        The name of the resource that should own the generated SpaceRequest.
-        This should either be passed the value of `$(context.pipelineRun.name)`
-        or `$(context.taskRun.name)` depending on the value of `ownerKind`.
-    - name: ownerUid
-      type: string
-      description: >-
-        The uid of the resource that should own the generated SpaceRequest.
-        This should either be passed the value of `$(context.pipelineRun.uid)`
-        or `$(context.taskRun.uid)` depending on the value of `ownerKind`.
   tasks:
     - name: eaas-provision-space
       taskRef:
@@ -49,8 +30,8 @@ spec:
             value: task/eaas-provision-space/0.1/eaas-provision-space.yaml
       params:
         - name: ownerKind
-          value: $(params.ownerKind)
+          value: PipelineRun
         - name: ownerName
-          value: $(params.ownerName)
+          value: $(context.pipelineRun.name)
         - name: ownerUid
-          value: $(params.ownerUid)
+          value: $(context.pipelineRun.uid)
