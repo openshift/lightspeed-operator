@@ -161,6 +161,7 @@ package: lightspeed-operator
 name: preview
 entries:
   - name: lightspeed-operator.v${BUNDLE_VERSION}
+    skipRange: ">=0.1.0 <${BUNDLE_VERSION}"
 EOF
 
 ${OPM} validate "$(dirname "${CATALOG_FILE}")"
