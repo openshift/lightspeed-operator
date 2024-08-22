@@ -11,7 +11,7 @@ spec:
       type: string
       description: ""
   steps:
-    - name: install
+    - name: ols-installer
       image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
       env:
         - name: TEST_NAME
