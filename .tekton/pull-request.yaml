@@ -4,7 +4,7 @@ kind: PipelineRun
 metadata:
   generateName: integration-tests-with-rosa-pipelinerun-
   annotations:
-    pipelinesascode.tekton.dev/task: "[/.tekton/integration-tests/tasks/ols-installer.yaml, /.tekton/integration-tests/tasks/ols-e2e-task.yaml]"
+    pipelinesascode.tekton.dev/task: "[.tekton/integration-tests/tasks/ols-installer.yaml, .tekton/integration-tests/tasks/ols-e2e-task.yaml]"
 spec:
   pipelineRef:
     name: ols-integration-tests-pipeline

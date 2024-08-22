@@ -2,7 +2,7 @@
 apiVersion: tekton.dev/v1
 kind: Task
 metadata:
-  name: ols-e2e
+  name: ols-e2e-task
 spec:
   params:
     - name: test-name
