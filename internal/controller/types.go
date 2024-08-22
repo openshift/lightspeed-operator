@@ -24,8 +24,9 @@ type DeleteTask struct {
 /*** application server configuration file ***/
 // root of the app server configuration file
 type AppSrvConfigFile struct {
-	LLMProviders []ProviderConfig `json:"llm_providers"`
-	OLSConfig    OLSConfig        `json:"ols_config,omitempty"`
+	LLMProviders            []ProviderConfig        `json:"llm_providers"`
+	OLSConfig               OLSConfig               `json:"ols_config,omitempty"`
+	UserDataCollectorConfig UserDataCollectorConfig `json:"user_data_collector_config,omitempty"`
 }
 
 type ProviderConfig struct {
@@ -157,4 +158,11 @@ type UserDataCollectionConfig struct {
 	FeedbackStorage     string `json:"feedback_storage,omitempty"`
 	TranscriptsDisabled bool   `json:"transcripts_disabled" default:"false"`
 	TranscriptsStorage  string `json:"transcripts_storage,omitempty"`
+}
+
+type UserDataCollectorConfig struct {
+	// Path to dir where ols user data (feedback and transcripts) are stored
+	DataStorage string `json:"data_storage,omitempty"`
+	// Collector logging level
+	LogLevel string `json:"log_level,omitempty"`
 }

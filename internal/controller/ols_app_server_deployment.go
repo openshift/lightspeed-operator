@@ -252,14 +252,6 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		VolumeMounts: []corev1.VolumeMount{olsUserDataVolumeMount, olsConfigVolumeMount},
 		Env: []corev1.EnvVar{
 			{
-				Name:  "OLS_USER_DATA_PATH",
-				Value: OLSUserDataMountPath,
-			},
-			{
-				Name:  "INGRESS_ENV",
-				Value: "prod",
-			},
-			{
 				Name:  "OLS_CONFIG_FILE",
 				Value: path.Join(OLSConfigMountPath, OLSConfigFilename),
 			},

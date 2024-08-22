@@ -146,6 +146,10 @@ var _ = Describe("App server assets", func() {
 						},
 					},
 				},
+				UserDataCollectorConfig: UserDataCollectorConfig{
+					DataStorage: "/app-root/ols-user-data",
+					LogLevel:    "",
+				},
 			}
 
 			Expect(olsconfigGenerated).To(Equal(olsConfigExpected))
@@ -263,14 +267,6 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers[1].Resources).ToNot(BeNil())
 			Expect(dep.Spec.Template.Spec.Containers[1].Command).To(Equal([]string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"}))
 			Expect(dep.Spec.Template.Spec.Containers[1].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_USER_DATA_PATH",
-					Value: "/app-root/ols-user-data",
-				},
-				{
-					Name:  "INGRESS_ENV",
-					Value: "prod",
-				},
 				{
 					Name:  "OLS_CONFIG_FILE",
 					Value: path.Join("/etc/ols", OLSConfigFilename),
@@ -541,14 +537,6 @@ var _ = Describe("App server assets", func() {
 			Expect(deployment.Spec.Template.Spec.Containers[1].Command).To(Equal([]string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"}))
 			Expect(deployment.Spec.Template.Spec.Containers[1].Env).To(Equal([]corev1.EnvVar{
 				{
-					Name:  "OLS_USER_DATA_PATH",
-					Value: "/app-root/ols-user-data",
-				},
-				{
-					Name:  "INGRESS_ENV",
-					Value: "prod",
-				},
-				{
 					Name:  "OLS_CONFIG_FILE",
 					Value: path.Join("/etc/ols", OLSConfigFilename),
 				},
@@ -630,6 +618,8 @@ ols_config:
     feedback_storage: /app-root/ols-user-data/feedback
     transcripts_disabled: false
     transcripts_storage: /app-root/ols-user-data/transcripts
+user_data_collector_config:
+  data_storage: /app-root/ols-user-data
 `
 			// unmarshal to ensure the key order
 			var actualConfig map[string]interface{}
