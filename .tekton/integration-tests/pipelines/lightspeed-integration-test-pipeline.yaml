@@ -3,7 +3,7 @@ apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
   annotations:
-    pipelinesascode.tekton.dev/task: "[ols-installer", "ols-e2e-task]"
+    pipelinesascode.tekton.dev/task: "[ols-installer, ols-e2e-task]"
   name: ols-integration-tests-pipeline
 spec:
   description: |
