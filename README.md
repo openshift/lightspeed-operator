@@ -44,7 +44,7 @@ type: Opaque
 ```
 
 > [!TIP]
-> OpenAPI example
+> OpenAI example
 
 ```yaml
 apiVersion: v1
@@ -100,21 +100,21 @@ spec:
   llm:
     providers:
     - type: openai
-    - credentialsSecretRef:
+      credentialsSecretRef:
         name: openai-api-keys
       models:
       - name: gpt-3.5-turbo
       name: openai
       url: https://api.openai.com/v1
     - type: watsonx
-    - credentialsSecretRef:
+      credentialsSecretRef:
         name: watson-api-keys
       models:
       - name: ibm/granite-13b-chat-v2
       name: watsonx
       url: https://us-south.ml.cloud.ibm.com
     - type: azure_openai
-    - credentialsSecretRef:
+      credentialsSecretRef:
         name: azure-openai-api-keys
       models:
       - name: gpt-3.5-turbo
@@ -240,7 +240,7 @@ When using Visual Studio Code, we can use the debugger settings below to execute
             "name": "Launch Integration test ",
             "type": "go",
             "request": "launch",
-            "mode": "test",
+            "mode": "debug",
             "program": "${workspaceFolder}/internal/controller",
             "args": [
                 // "--ginkgo.v", # verbose output from Ginkgo test framework
@@ -278,7 +278,7 @@ When using Visual Studio Code, we can use the debugger settings below to execute
             "name": "Launch E2E test ",
             "type": "go",
             "request": "launch",
-            "mode": "test",
+            "mode": "debug",
             "program": "${workspaceFolder}/test/e2e",
             "args": [
                 // "--ginkgo.v", # verbose output from Ginkgo test framework
