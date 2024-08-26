@@ -499,6 +499,22 @@ spec:
                 required:
                 - defaultModel
                 type: object
+              olsDataCollector:
+                description: OLSDataCollectorSpec defines allowed OLS data collector
+                  configuration.
+                properties:
+                  logLevel:
+                    default: INFO
+                    description: 'Log level. Valid options are DEBUG, INFO, WARNING,
+                      ERROR and CRITICAL. Default: "INFO".'
+                    enum:
+                    - DEBUG
+                    - INFO
+                    - WARNING
+                    - ERROR
+                    - CRITICAL
+                    type: string
+                type: object
             required:
             - llm
             - ols

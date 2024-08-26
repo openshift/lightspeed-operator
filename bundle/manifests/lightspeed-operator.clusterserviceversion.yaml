@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-07-27T05:27:04Z"
+    createdAt: "2024-08-22T09:58:45Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -238,6 +238,11 @@ spec:
             path: ols.yamlProvider
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
+          - displayName: OLS Data Collector Settings
+            path: olsDataCollector
+          - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".'
+            displayName: Log level
+            path: olsDataCollector.logLevel
         statusDescriptors:
           - displayName: Conditions
             path: conditions

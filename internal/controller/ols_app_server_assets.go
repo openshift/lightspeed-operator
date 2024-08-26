@@ -214,9 +214,15 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		olsConfig.QueryFilters = queryFilters
 	}
 
+	userDataCollectorConfig := UserDataCollectorConfig{
+		DataStorage: "/app-root/ols-user-data",
+		LogLevel:    cr.Spec.OLSDataCollectorConfig.LogLevel,
+	}
+
 	appSrvConfigFile := AppSrvConfigFile{
-		LLMProviders: providerConfigs,
-		OLSConfig:    olsConfig,
+		LLMProviders:            providerConfigs,
+		OLSConfig:               olsConfig,
+		UserDataCollectorConfig: userDataCollectorConfig,
 	}
 	configFileBytes, err := yaml.Marshal(appSrvConfigFile)
 	if err != nil {

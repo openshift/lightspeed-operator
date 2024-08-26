@@ -35,6 +35,8 @@ type OLSConfigSpec struct {
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="OLS Settings"
 	OLSConfig OLSSpec `json:"ols"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="OLS Data Collector Settings"
+	OLSDataCollectorConfig OLSDataCollectorSpec `json:"olsDataCollector,omitempty"`
 }
 
 // OLSConfigStatus defines the observed state of OLS deployment.
@@ -259,6 +261,15 @@ type UserDataCollectionSpec struct {
 	FeedbackDisabled bool `json:"feedbackDisabled,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Do Not Collect Transcripts"
 	TranscriptsDisabled bool `json:"transcriptsDisabled,omitempty"`
+}
+
+// OLSDataCollectorSpec defines allowed OLS data collector configuration.
+type OLSDataCollectorSpec struct {
+	// Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".
+	// +kubebuilder:validation:Enum=DEBUG;INFO;WARNING;ERROR;CRITICAL
+	// +kubebuilder:default=INFO
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Log level"
+	LogLevel string `json:"logLevel,omitempty"`
 }
 
 // +kubebuilder:object:root=true
