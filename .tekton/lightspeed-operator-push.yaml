@@ -31,6 +31,8 @@ spec:
     value: '{"type": "gomod", "path": "."}'
   - name: build-source-image
     value: "true"
+  - name: hermetic
+    value: "true"
   pipelineSpec:
     finally:
     - name: show-sbom
