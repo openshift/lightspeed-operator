@@ -37,3 +37,39 @@ spec:
           value: $(context.pipelineRun.name)
         - name: ownerUid
           value: $(context.pipelineRun.uid)
+    - name: ols-install
+      description: Task to install bundle onto ephemeral namespace
+      runAfter:
+        - eaas-provision-space
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+        - name: SecretRef
+          value: $(task.eaas-provision-space.results.SecretRef)
+        - name: revision
+          value: "{{revision}}"
+      taskSpec:
+        params:
+          - name: SNAPSHOT
+          - name: SecretRef
+        steps:
+          - name: install-operator
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+              - name: KONFLUX_COMPONENT_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['appstudio.openshift.io/component']
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            script: |
+              dnf -y install jq python3-pip
+
+              echo "---------------------------------------------"
+              echo ${SNAPSHOT} | jq .
+              echo "---------------------------------------------"
+              echo ${KONFLUX_COMPONENT_NAME}
+              echo $(jq -r --arg component_name "$KONFLUX_COMPONENT_NAME" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")
+              echo "---------------------------------------------"
+              echo -e "The install command will come here"
+
