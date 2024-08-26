@@ -27,6 +27,12 @@ spec:
       value: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle:{{revision}}
     - name: dockerfile
       value: bundle.Dockerfile
+    - name: hermetic
+      value: "false"
+    - name: build-source-image
+      value: "true"
+    - name: prefetch-input
+      value: '{"type": "gomod", "path": "."}'
   pipelineSpec:
     finally:
       - name: show-sbom
