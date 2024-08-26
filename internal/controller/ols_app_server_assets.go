@@ -118,6 +118,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 				Parameters: ModelParameters{
 					MaxTokensForResponse: model.Parameters.MaxTokensForResponse,
 				},
+				ContextWindowSize: model.ContextWindowSize,
 			}
 			modelConfigs = append(modelConfigs, modelConfig)
 		}

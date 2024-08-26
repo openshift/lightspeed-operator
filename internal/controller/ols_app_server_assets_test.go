@@ -142,6 +142,7 @@ var _ = Describe("App server assets", func() {
 								Parameters: ModelParameters{
 									MaxTokensForResponse: 20,
 								},
+								ContextWindowSize: 32768,
 							},
 						},
 					},
@@ -850,6 +851,7 @@ func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 								Parameters: olsv1alpha1.ModelParametersSpec{
 									MaxTokensForResponse: 20,
 								},
+								ContextWindowSize: 32768,
 							},
 						},
 					},
