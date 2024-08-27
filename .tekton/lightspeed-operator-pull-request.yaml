@@ -20,6 +20,10 @@ metadata:
   namespace: crt-nshift-lightspeed-tenant
 spec:
   params:
+  - name: build-source-image
+    value: "true"
+  - name: prefetch-input
+    value: '{"type": "gomod", "path": "."}'
   - name: git-url
     value: '{{source_url}}'
   - name: revision
