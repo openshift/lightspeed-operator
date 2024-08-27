@@ -28,7 +28,7 @@ spec:
     - name: dockerfile
       value: bundle.Dockerfile
     - name: hermetic
-      value: "false"
+      value: "true"
     - name: build-source-image
       value: "true"
     - name: prefetch-input

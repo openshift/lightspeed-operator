@@ -35,6 +35,8 @@ spec:
       value: 5d
     - name: dockerfile
       value: bundle.Dockerfile
+    - name: hermetic
+      value: "true"
   pipelineSpec:
     finally:
       - name: show-sbom
