@@ -37,11 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-<<<<<<< HEAD
-    createdAt: "2024-08-22T09:58:45Z"
-=======
     createdAt: "2024-08-24T20:35:53Z"
->>>>>>> 63634b5 (make image override by each image)
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
