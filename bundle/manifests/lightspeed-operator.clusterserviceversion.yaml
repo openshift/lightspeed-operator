@@ -37,7 +37,11 @@ metadata:
         }
       ]
     capabilities: Basic Install
+<<<<<<< HEAD
     createdAt: "2024-08-22T09:58:45Z"
+=======
+    createdAt: "2024-08-24T20:35:53Z"
+>>>>>>> 63634b5 (make image override by each image)
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -380,7 +384,8 @@ spec:
                       - --metrics-bind-address=:8443
                       - --secure-metrics-server
                       - --cert-dir=/etc/tls/private
-                      - --images=lightspeed-service=registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:9f4b71d0bfd0cdda5f872adf38a792eb7a0f0cba9097496cb1843b05f6f3e890,console-plugin=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:ebe5b5bbe3af1d6089667a001686ad152084a684f021abc52ec2884b7bae790b
+                      - --service-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:0a53308b64905ac444c224f4b5ad744b891bdd790a49367336ebe72e513dfdef
+                      - --console-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:5538f2b63951e4eca4e57284165be6b1c1ae5c522c624380512081ac999214be
                     command:
                       - /manager
                     env:
@@ -388,7 +393,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:af95acfcb1e685a8023cad68707e60cb81de2e117ce0d438e6481dbee3b60841
+                    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:049a1a398ed87e4f35c99b36304055c7f75d0188a4d8c1726df59b5f400561e5
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:

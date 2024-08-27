@@ -183,7 +183,7 @@ CONSOLE_PLUGIN_IMG ?= quay.io/openshift-lightspeed/lightspeed-console-plugin:lat
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
     #TODO: Update DB
-	go run ./cmd/main.go --images="lightspeed-service=$(LIGHTSPEED_SERVICE_IMG),console-plugin=$(CONSOLE_PLUGIN_IMG)"
+	go run ./cmd/main.go --service-image="$(LIGHTSPEED_SERVICE_IMG)" --console-image="$(CONSOLE_PLUGIN_IMG)"
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.

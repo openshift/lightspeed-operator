@@ -30,9 +30,6 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	k8sflag "k8s.io/component-base/cli/flag"
-	"k8s.io/utils/ptr"
-
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -79,19 +76,18 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-// validateImages overides the default images with the images provided by the user
+// validateImages overides the default images with the serviceImage and consoleImage provided by the user
 // if the images are not provided, the default images are used.
-func validateImages(images *k8sflag.MapStringString) (map[string]string, error) {
+func validateImages(serviceImage string, consoleImage string) (map[string]string, error) {
 	res := defaultImages
-	if images.Empty() {
+	if serviceImage == "" && consoleImage == "" {
 		return res, nil
 	}
-	imgs := *images.Map
-	for k, v := range imgs {
-		if _, ok := res[k]; !ok {
-			return nil, fmt.Errorf("image %v is unknown", k)
-		}
-		res[k] = v
+	if serviceImage != "" {
+		res["lightspeed-service"] = serviceImage
+	}
+	if consoleImage != "" {
+		res["console-plugin"] = consoleImage
 	}
 	return res, nil
 }
@@ -118,19 +114,21 @@ func main() {
 	var keyName string
 	var caCertPath string
 	var metricsClientCA string
-	images := k8sflag.NewMapStringString(ptr.To(make(map[string]string)))
+	var serviceImage string
+	var consoleImage string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.Var(images, "images", fmt.Sprintf("Full images refs to use for containers managed by the operator. E.g lightspeed-service=quay.io/openshift-lightspeed/lightspeed-service-api:latest. Images used are %v", listImages()))
 	flag.UintVar(&reconcilerIntervalMinutes, "reconcile-interval", controller.DefaultReconcileInterval, "The interval in minutes to reconcile the OLSConfig CR")
 	flag.BoolVar(&secureMetricsServer, "secure-metrics-server", false, "Enable secure serving of the metrics server using mTLS.")
 	flag.StringVar(&certDir, "cert-dir", controller.OperatorCertDirDefault, "The directory where the TLS certificates are stored.")
 	flag.StringVar(&certName, "cert-name", controller.OperatorCertNameDefault, "The name of the TLS certificate file.")
 	flag.StringVar(&keyName, "key-name", controller.OperatorKeyNameDefault, "The name of the TLS key file.")
 	flag.StringVar(&caCertPath, "ca-cert", controller.OperatorCACertPathDefault, "The path to the CA certificate file.")
+	flag.StringVar(&serviceImage, "service-image", controller.OLSAppServerImageDefault, "The image of the lightspeed-service container.")
+	flag.StringVar(&consoleImage, "console-image", controller.ConsoleUIImageDefault, "The image of the console-plugin container.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -139,7 +137,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	imagesMap, err := validateImages(images)
+	imagesMap, err := validateImages(serviceImage, consoleImage)
 	if err != nil {
 		setupLog.Error(err, "invalid images")
 		os.Exit(1)
