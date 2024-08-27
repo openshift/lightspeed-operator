@@ -128,12 +128,6 @@ spec:
               ols:
                 description: OLSSpec defines the desired state of OLS deployment.
                 properties:
-                  classifierModel:
-                    description: Classifier model name
-                    type: string
-                  classifierProvider:
-                    description: Classifier provider name
-                    type: string
                   conversationCache:
                     description: Conversation cache settings
                     properties:
@@ -475,12 +469,6 @@ spec:
                           type: string
                       type: object
                     type: array
-                  summarizerModel:
-                    description: Summarizer model name
-                    type: string
-                  summarizerProvider:
-                    description: Summarizer provider name
-                    type: string
                   userDataCollection:
                     description: User data collection switches
                     properties:
@@ -489,18 +477,6 @@ spec:
                       transcriptsDisabled:
                         type: boolean
                     type: object
-                  validatorModel:
-                    description: Validator model name
-                    type: string
-                  validatorProvider:
-                    description: Validator provider name
-                    type: string
-                  yamlModel:
-                    description: YAML model name
-                    type: string
-                  yamlProvider:
-                    description: YAML provider name
-                    type: string
                 required:
                 - defaultModel
                 type: object
