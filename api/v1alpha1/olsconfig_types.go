@@ -74,30 +74,6 @@ type OLSSpec struct {
 	// Default provider for usage
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	DefaultProvider string `json:"defaultProvider,omitempty"`
-	// Classifier provider name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Classifier Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	ClassifierProvider string `json:"classifierProvider,omitempty"`
-	// Classifier model name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Classifier Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	ClassifierModel string `json:"classifierModel,omitempty"`
-	// Summarizer provider name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Summarizer Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	SummarizerProvider string `json:"summarizerProvider,omitempty"`
-	// Summarizer model name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Summarizer Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	SummarizerModel string `json:"summarizerModel,omitempty"`
-	// Validator provider name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Validator Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	ValidatorProvider string `json:"validatorProvider,omitempty"`
-	// Validator model name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Validator Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	ValidatorModel string `json:"validatorModel,omitempty"`
-	// YAML provider name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="YAML Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	YamlProvider string `json:"yamlProvider,omitempty"`
-	// YAML model name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="YAML Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	YamlModel string `json:"yamlModel,omitempty"`
 	// Query filters
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Query Filters"
 	QueryFilters []QueryFiltersSpec `json:"queryFilters,omitempty"`
