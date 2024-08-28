@@ -38,7 +38,7 @@ fi
 : "${BUNDLE_TAG:=0.1.4}"
 
 : "${OPERATOR_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:049a1a398ed87e4f35c99b36304055c7f75d0188a4d8c1726df59b5f400561e5}"
-: "${BUNDLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c}"
+: "${BUNDLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:c8ba8d8b4774fdaa6037fdba8cfeff0a7ee962ebe384eabe45995c8949f76eed}"
 : "${CONSOLE_IMAGE:=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:4f45c9ba068cf92e592bb3a502764ce6bc93cd154d081fa49d05cb040885155b}"
 
 : "${CATALOG_FILE:=lightspeed-catalog/index.yaml}"
@@ -114,7 +114,7 @@ cat "${CATALOG_INITIAL_FILE}" >"${CATALOG_FILE}"
 # Give it a reference in a writable image registry
 TEMP_BUNDLE_IMG=${TEMP_BUNDLE_IMG:-}
 if [ -z "${TEMP_BUNDLE_IMG}" ]; then
-  TEMP_BUNDLE_IMG="quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c"
+  TEMP_BUNDLE_IMG="quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:fd3849cb65fee7586b261c8c67336d1d0e5d98e89ae10f87f7ca7945d585b0ff"
   echo "No TEMP_BUNDLE_IMG specified. Catalog is built using default bundle image ${TEMP_BUNDLE_IMG}"
   echo "If you have changed the CRD, please specifiy TEMP_BUNDLE_IMG to your writable image registry and re-run the script"
 fi
