@@ -1,0 +1,22 @@
+---
+apiVersion: appstudio.redhat.com/v1beta1
+kind: IntegrationTestScenario
+metadata:
+  name: ols-e2e-tests-rosa
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: bundle testing
+      name: component_bundle
+  resolverRef:
+    resolver: git
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: /.tekton/integration-tests/pipelines/lightspeed-integration-test-pipeline.yaml
