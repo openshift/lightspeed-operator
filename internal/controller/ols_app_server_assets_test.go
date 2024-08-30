@@ -210,6 +210,34 @@ var _ = Describe("App server assets", func() {
 			}))))
 		})
 
+		It("should generate configmap with rhoai_vllm provider", func() {
+			provider := addRHOAIProvider(cr)
+			cm, err := r.generateOLSConfigMap(context.TODO(), provider)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
+				"name": Equal("rhoai_vllm"),
+				"type": Equal("rhoai_vllm"),
+			}))))
+		})
+
+		It("should generate configmap with rhelia_vllm provider", func() {
+			provider := addRHELAIProvider(cr)
+			cm, err := r.generateOLSConfigMap(context.TODO(), provider)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
+				"name": Equal("rhelai_vllm"),
+				"type": Equal("rhelai_vllm"),
+			}))))
+		})
+
 		It("should generate the OLS deployment", func() {
 			By("generate full deployment when telemetry pull secret exists")
 			createTelemetryPullSecret()
@@ -897,6 +925,18 @@ func addWatsonxProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	cr.Spec.LLMConfig.Providers[0].Name = "watsonx"
 	cr.Spec.LLMConfig.Providers[0].Type = "watsonx"
 	cr.Spec.LLMConfig.Providers[0].WatsonProjectID = "testProjectID"
+	return cr
+}
+
+func addRHOAIProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.LLMConfig.Providers[0].Name = "rhoai_vllm"
+	cr.Spec.LLMConfig.Providers[0].Type = "rhoai_vllm"
+	return cr
+}
+
+func addRHELAIProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.LLMConfig.Providers[0].Name = "rhelai_vllm"
+	cr.Spec.LLMConfig.Providers[0].Type = "rhelai_vllm"
 	return cr
 }
 

@@ -103,6 +103,8 @@ spec:
                           - bam
                           - openai
                           - watsonx
+                          - rhoai_vllm
+                          - rhelai_vllm
                           - fake_provider
                           type: string
                         url:
