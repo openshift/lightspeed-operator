@@ -37,7 +37,8 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-09-02T14:20:51Z"
+    console.openshift.io/operator-monitoring-default: "true"
+    createdAt: "2024-08-30T09:59:16Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
