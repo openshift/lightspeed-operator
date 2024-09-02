@@ -68,6 +68,11 @@ spec:
                           items:
                             description: ModelSpec defines the desired state of cache.
                             properties:
+                              contextWindowSize:
+                                description: Defines the model's context window size.
+                                  Default is specific to provider/model.
+                                minimum: 1024
+                                type: integer
                               name:
                                 description: Model name
                                 type: string
@@ -82,10 +87,6 @@ spec:
                                 description: Model API URL
                                 pattern: ^https?://.*$
                                 type: string
-                              contextWindowSize:
-                                description: Model context window size
-                                minimum: 1024
-                                type: integer
                             required:
                             - name
                             type: object
@@ -478,6 +479,22 @@ spec:
                     type: object
                 required:
                 - defaultModel
+                type: object
+              olsDataCollector:
+                description: OLSDataCollectorSpec defines allowed OLS data collector
+                  configuration.
+                properties:
+                  logLevel:
+                    default: INFO
+                    description: 'Log level. Valid options are DEBUG, INFO, WARNING,
+                      ERROR and CRITICAL. Default: "INFO".'
+                    enum:
+                    - DEBUG
+                    - INFO
+                    - WARNING
+                    - ERROR
+                    - CRITICAL
+                    type: string
                 type: object
             required:
             - llm
