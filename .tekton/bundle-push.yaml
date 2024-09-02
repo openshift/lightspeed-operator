@@ -10,6 +10,8 @@ metadata:
       event == "push" &&
       target_branch == "main" &&
       (".tekton/bundle-push.yaml".pathChanged() || "bundle/***".pathChanged() || "bundle.Dockerfile".pathChanged())
+    build.appstudio.openshift.io/build-nudge-files: |
+      .*Dockerfile.*, ^(?!lightspeed-catalog.*\/).*\.yaml$, .*Containerfile.*
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ols

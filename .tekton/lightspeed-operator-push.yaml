@@ -10,6 +10,8 @@ metadata:
       event == "push" &&
       target_branch == "main" &&
       (".tekton/lightspeed-operator-push.yaml".pathChanged() || "Dockerfile".pathChanged() || "LICENSE".pathChanged() || "go.*".pathChanged() || "cmd/***".pathChanged() || "api/***".pathChanged() || "internal/***".pathChanged() || "test/***".pathChanged())
+    build.appstudio.openshift.io/build-nudge-files: |
+      .*Dockerfile.*, bundle/manifests/lightspeed-operator.clusterserviceversion.yaml, config/default/kustomization.yaml, lightspeed-catalog-4.15/index.yaml, lightspeed-catalog-4.16/index.yaml
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ols
