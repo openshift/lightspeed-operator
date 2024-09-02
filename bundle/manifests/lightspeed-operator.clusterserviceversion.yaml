@@ -37,7 +37,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-08-24T20:35:53Z"
+    createdAt: "2024-09-02T14:20:51Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -90,6 +90,9 @@ spec:
           - description: List of models from the provider
             displayName: Models
             path: llm.providers[0].models
+          - description: Defines the model's context window size. Default is specific to provider/model.
+            displayName: Context Window Size
+            path: llm.providers[0].models[0].contextWindowSize
           - description: Model name
             displayName: Name
             path: llm.providers[0].models[0].name
@@ -102,9 +105,6 @@ spec:
           - description: Model API URL
             displayName: URL
             path: llm.providers[0].models[0].url
-          - description: Model context window size
-            displayName: Context Window Size
-            path: llm.providers[0].models[0].contextWindowSize
           - description: Watsonx Project ID
             displayName: Watsonx Project ID
             path: llm.providers[0].projectID
