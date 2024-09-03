@@ -529,8 +529,8 @@ spec:
       type: AllNamespaces
   keywords:
     - ai
-    - assistant
     - openshift
+    - assistant
     - llm
   links:
     - name: Lightspeed Operator
