@@ -1,0 +1,69 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: ols-ui-tests-pipeline
+spec:
+  description: |
+    This pipeline automates the process of running end-to-end tests for Openshift Lightspeed
+    using an ephemeral namespace created with the eaas-provision-space task. The pipeline provisions
+    an ephemeral environment, which results in the path to a kubeconfig secret. Then we run the tests, collects artifacts,
+    and finally deprovisions the environment.
+  params:
+    - name: SNAPSHOT
+      description: 'The JSON string representing the snapshot of the application under test.'
+      default: '{"components": [{"name":"test-app", "containerImage": "quay.io/example/repo:latest"}]}'
+      type: string
+    - name: test-name
+      description: 'The name of the test corresponding to a defined Konflux integration test.'
+      default: 'lightspeed'
+  tasks:
+    - name: eaas-provision-space
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/build-definitions.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: task/eaas-provision-space/0.1/eaas-provision-space.yaml
+      params:
+        - name: ownerKind
+          value: PipelineRun
+        - name: ownerName
+          value: $(context.pipelineRun.name)
+        - name: ownerUid
+          value: $(context.pipelineRun.uid)
+    - name: tests-private-ui-build
+      description: Task to build the image of the openshift-tests-private repository frontend tests
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+        - name: revision
+          value: "{{revision}}"
+      taskSpec:
+        params:
+          - name: SNAPSHOT
+          - name: SecretRef
+        steps:
+          - name: install-operator
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+              - name: KONFLUX_COMPONENT_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['appstudio.openshift.io/component']
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            script: |
+              dnf -y install jq python3-pip
+
+              echo "---------------------------------------------"
+              echo ${SNAPSHOT} | jq .
+              echo "---------------------------------------------"
+              echo ${KONFLUX_COMPONENT_NAME}
+              echo $(jq -r --arg component_name "$KONFLUX_COMPONENT_NAME" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")
+              echo "---------------------------------------------"
+              echo -e "The install command will come here"
+
