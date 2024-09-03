@@ -56,6 +56,10 @@ spec:
       - description: List of models from the provider
         displayName: Models
         path: llm.providers[0].models
+      - description: Defines the model's context window size. Default is specific
+          to provider/model.
+        displayName: Context Window Size
+        path: llm.providers[0].models[0].contextWindowSize
       - description: Model name
         displayName: Name
         path: llm.providers[0].models[0].name
@@ -68,9 +72,6 @@ spec:
       - description: Model API URL
         displayName: URL
         path: llm.providers[0].models[0].url
-      - description: Model context window size
-        displayName: Context Window Size
-        path: llm.providers[0].models[0].contextWindowSize
       - description: Watsonx Project ID
         displayName: Watsonx Project ID
         path: llm.providers[0].projectID
@@ -168,6 +169,12 @@ spec:
         path: ols.userDataCollection.feedbackDisabled
       - displayName: Do Not Collect Transcripts
         path: ols.userDataCollection.transcriptsDisabled
+      - displayName: OLS Data Collector Settings
+        path: olsDataCollector
+      - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and
+          CRITICAL. Default: "INFO".'
+        displayName: Log level
+        path: olsDataCollector.logLevel
       statusDescriptors:
       - displayName: Conditions
         path: conditions
