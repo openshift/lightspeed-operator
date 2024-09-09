@@ -184,6 +184,10 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 	if err != nil {
 		return nil, err
 	}
+	// We want to disable the data collector if the user has explicitly disabled it
+	// or if the data collector is not enabled in the cluster with pull secret
+
+	dataCollectorEnabled, _ := r.dataCollectorEnabled(cr)
 
 	olsConfig := OLSConfig{
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
@@ -204,9 +208,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			EmbeddingsModelPath:  "/app-root/embeddings_model",
 		},
 		UserDataCollection: UserDataCollectionConfig{
-			FeedbackDisabled:    cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled,
+			FeedbackDisabled:    cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled || !dataCollectorEnabled,
 			FeedbackStorage:     "/app-root/ols-user-data/feedback",
-			TranscriptsDisabled: cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled,
+			TranscriptsDisabled: cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled || !dataCollectorEnabled,
 			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 		},
 	}
@@ -219,12 +223,20 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		DataStorage: "/app-root/ols-user-data",
 		LogLevel:    cr.Spec.OLSDataCollectorConfig.LogLevel,
 	}
-
-	appSrvConfigFile := AppSrvConfigFile{
-		LLMProviders:            providerConfigs,
-		OLSConfig:               olsConfig,
-		UserDataCollectorConfig: userDataCollectorConfig,
+	var appSrvConfigFile AppSrvConfigFile
+	if dataCollectorEnabled {
+		appSrvConfigFile = AppSrvConfigFile{
+			LLMProviders:            providerConfigs,
+			OLSConfig:               olsConfig,
+			UserDataCollectorConfig: userDataCollectorConfig,
+		}
+	} else {
+		appSrvConfigFile = AppSrvConfigFile{
+			LLMProviders: providerConfigs,
+			OLSConfig:    olsConfig,
+		}
 	}
+
 	configFileBytes, err := yaml.Marshal(appSrvConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OLS config file %w", err)
