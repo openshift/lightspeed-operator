@@ -277,6 +277,7 @@ func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1
 		foundSecret := &corev1.Secret{}
 		secretValues, err := getAllSecretContent(r.Client, provider.CredentialsSecretRef.Name, r.Options.Namespace, foundSecret)
 		if err != nil {
+			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrGetLLMSecret, err)
 			return fmt.Errorf("Secret token not found for provider: %s. error: %w", provider.Name, err)
 		}
 		for key, value := range secretValues {
@@ -376,7 +377,8 @@ func (r *OLSConfigReconciler) reconcileTLSSecret(ctx context.Context, cr *olsv1a
 		return true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get TLS key and cert - wait err %w; last error: %w", err, lastErr)
+		r.updateStatusCondition(ctx, cr, typeApiReady, false, fmt.Sprintf("%s - %s", ErrGetTLSSecret, OLSCertsSecretName), err)
+		return fmt.Errorf("%s -%s - wait err %w; last error: %w", ErrGetTLSSecret, OLSCertsSecretName, err, lastErr)
 	}
 
 	annotateSecretWatcher(foundSecret)

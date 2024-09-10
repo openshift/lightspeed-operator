@@ -10,6 +10,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -364,7 +365,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 	})
 
-	Context("Creation logic", Ordered, func() {
+	Context("Referred Secrets", Ordered, func() {
 		var secret *corev1.Secret
 		var tlsSecret *corev1.Secret
 		BeforeEach(func() {
@@ -401,7 +402,11 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 			By("Delete the tls secret")
 			secretDeletionErr = reconciler.Delete(ctx, tlsSecret)
-			Expect(secretDeletionErr).NotTo(HaveOccurred())
+			if secretDeletionErr != nil {
+				Expect(errors.IsNotFound(secretDeletionErr)).To(BeTrue())
+			} else {
+				Expect(secretDeletionErr).NotTo(HaveOccurred())
+			}
 		})
 
 		It("should reconcile from OLSConfig custom resource", func() {
@@ -449,5 +454,41 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			secretDeletionErr := reconciler.Delete(ctx, secret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
+
+		It("should return error when the LLM provider token secret is not found", func() {
+			By("Reconcile after modifying the token secret")
+			originalSecretName := cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name
+			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: "non-existing-secret"}
+			err := reconciler.reconcileLLMSecrets(ctx, cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("secret not found: non-existing-secret"))
+			Expect(statusHasCondition(cr.Status, metav1.Condition{
+				Type:    typeApiReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Reconciling",
+				Message: "failed to get LLM provider secret: secret not found: non-existing-secret. error: secrets \"non-existing-secret\" not found",
+			})).To(BeTrue())
+			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: originalSecretName}
+		})
+
+		It("should return error when the TLS secret is not found", func() {
+			By("reconcile TLS secret")
+			err := reconciler.reconcileTLSSecret(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Delete the tls secret and reconcile again")
+			err = reconciler.Delete(ctx, tlsSecret)
+			Expect(err).NotTo(HaveOccurred())
+			err = reconciler.reconcileTLSSecret(ctx, cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to get TLS secret"))
+			Expect(statusHasCondition(cr.Status, metav1.Condition{
+				Type:    typeApiReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Reconciling",
+				Message: "failed to get TLS secret - lightspeed-tls: context deadline exceeded",
+			})).To(BeTrue())
+		})
+
 	})
 })
