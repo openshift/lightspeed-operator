@@ -36,7 +36,7 @@ patches:
         value: --service-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:022dea373483190e919beaae23add18ef513e94271b8698667883a765d71fdc3
       - op: add
         path: /spec/template/spec/containers/0/args/-
-        value: --console-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:73b3a02dc46ca1dbcf32d2c5f8152447d3dc78ecf8da3f94e12daeccfcf1b363
+        value: --console-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:06af0b8def681d9414cdf08168e143c5f8ccec554b0ae999e0b2eef93e42922d
     target:
       group: apps
       version: v1
