@@ -73,6 +73,7 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate the olsconfig config map", func() {
+			createTelemetryPullSecret()
 			major, minor, err := r.getClusterVersion(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -158,6 +159,7 @@ var _ = Describe("App server assets", func() {
 			cmHash, err := hashBytes([]byte(cm.Data[OLSConfigFilename]))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.ObjectMeta.Annotations[OLSConfigHashKey]).To(Equal(cmHash))
+			deleteTelemetryPullSecret()
 		})
 
 		It("should generate configmap with queryFilters", func() {
@@ -469,7 +471,6 @@ var _ = Describe("App server assets", func() {
 					},
 				},
 			}))
-
 			deleteTelemetryPullSecret()
 		})
 
@@ -591,6 +592,7 @@ var _ = Describe("App server assets", func() {
 		It("should generate the olsconfig config map", func() {
 			// todo: this test is not complete
 			// generateOLSConfigMap should return an error if the CR is missing required fields
+			createTelemetryPullSecret()
 			major, minor, err := r.getClusterVersion(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
@@ -621,6 +623,7 @@ ols_config:
     transcripts_storage: /app-root/ols-user-data/transcripts
 user_data_collector_config:
   data_storage: /app-root/ols-user-data
+
 `
 			// unmarshal to ensure the key order
 			var actualConfig map[string]interface{}
@@ -632,6 +635,55 @@ user_data_collector_config:
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(actualConfig).To(Equal(expectedConfig))
+			deleteTelemetryPullSecret()
+		})
+
+		It("should generate the olsconfig config map without user_data_collector_config", func() {
+			// pull-secret with out telemetry token should make the datacollection disabled
+			// and user_data_collector_config should not be present in the config
+			createTelemetryPullSecretWithoutTelemetryToken()
+			major, minor, err := r.getClusterVersion(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Name).To(Equal(OLSConfigCmName))
+			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
+			expectedConfigStr := `llm_providers: []
+ols_config:
+  conversation_cache:
+    memory:
+      max_entries: 1000
+    type: memory
+  logging_config:
+    app_log_level: ""
+    lib_log_level: ""
+    uvicorn_log_level: ""
+  reference_content:
+    embeddings_model_path: /app-root/embeddings_model
+    product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
+    product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
+  tls_config:
+    tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
+    tls_key_path: /etc/certs/lightspeed-tls/tls.key
+  user_data_collection:
+    feedback_disabled: true
+    feedback_storage: /app-root/ols-user-data/feedback
+    transcripts_disabled: true
+    transcripts_storage: /app-root/ols-user-data/transcripts
+user_data_collector_config: {}
+
+`
+			// unmarshal to ensure the key order
+			var actualConfig map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &actualConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			var expectedConfig map[string]interface{}
+			err = yaml.Unmarshal([]byte(expectedConfigStr), &expectedConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(actualConfig).To(Equal(expectedConfig))
+			deleteTelemetryPullSecret()
 		})
 
 		It("should generate the OLS service", func() {
