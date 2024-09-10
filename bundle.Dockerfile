@@ -35,10 +35,10 @@ LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assistant for managi
 LABEL io.k8s.display-name="Openshift Lightspeed"
 LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
 LABEL name=openshift-lightspeed
-LABEL release=0.1.4
+LABEL release=0.1.5
 LABEL url="https://github.com/openshift/lightspeed-operator"
 LABEL vendor="Red Hat, Inc."
-LABEL version=0.1.4
+LABEL version=0.1.5
 LABEL summary="Red Hat OpenShift Lightspeed"
 
 # Set user to non-root for security reasons.
