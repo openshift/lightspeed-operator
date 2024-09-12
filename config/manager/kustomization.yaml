@@ -4,6 +4,6 @@ resources:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-- digest: sha256:049a1a398ed87e4f35c99b36304055c7f75d0188a4d8c1726df59b5f400561e5
+- digest: sha256:e62a1e3e618b7bf6a9ca8b1e7b6ae500d6b0e47c9e5f3e4a8eeb259082c9199e
   name: controller
   newName: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator
