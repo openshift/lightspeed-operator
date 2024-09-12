@@ -25,6 +25,8 @@ COPY bundle/tests/scorecard /tests/scorecard/
 
 # replace registry.redhat.io string instances with quay.io
 RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-beta\/lightspeed-rhel9-operator/quay.io\/redhat-user-workloads\/crt-nshift-lightspeed-tenant\/ols\/lightspeed-operator/g' /manifests/lightspeed-operator.clusterserviceversion.yaml
+RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-beta\/lightspeed-service-api-rhel9/quay.io\/redhat-user-workloads\/crt-nshift-lightspeed-tenant\/ols\/lightspeed-service/g' /manifests/lightspeed-operator.clusterserviceversion.yaml
+RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-beta\/lightspeed-console-plugin-rhel9/quay.io\/redhat-user-workloads\/crt-nshift-lightspeed-tenant\/ols\/lightspeed-console/g' /manifests/lightspeed-operator.clusterserviceversion.yaml
 
 # licenses required by Red Hat certification policy
 # refer to https://docs.redhat.com/en/documentation/red_hat_software_certification/2024/html-single/red_hat_openshift_software_certification_policy_guide/index#con-image-content-requirements_openshift-sw-cert-policy-container-images
