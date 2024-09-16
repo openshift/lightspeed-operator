@@ -36,6 +36,8 @@ const (
 	ErrGetConsolePluginConfigMap       = "failed to get Console Plugin configmap"
 	ErrGetConsolePluginDeployment      = "failed to get Console Plugin deployment"
 	ErrGetConsolePluginService         = "failed to get Console Plugin service"
+	ErrGetLLMSecret                    = "failed to get LLM provider secret" // #nosec G101
+	ErrGetTLSSecret                    = "failed to get TLS secret"          // #nosec G101
 	ErrGetSARClusterRole               = "failed to get SAR cluster role"
 	ErrGetSARClusterRoleBinding        = "failed to get SAR cluster role binding"
 	ErrGetServiceMonitor               = "failed to get ServiceMonitor"
