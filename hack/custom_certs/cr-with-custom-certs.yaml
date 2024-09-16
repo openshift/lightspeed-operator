@@ -22,7 +22,6 @@ spec:
     defaultModel: ibm/granite-13b-chat-v2
     defaultProvider: bam
     logLevel: INFO
-    useUserProvidedTLSCerts: true
     deployment:
       replicas: 1
       console:

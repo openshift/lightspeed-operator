@@ -190,6 +190,16 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 
 	dataCollectorEnabled, _ := r.dataCollectorEnabled(cr)
 
+	tlsConfig := TLSConfig{
+		TLSCertificatePath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.crt"),
+		TLSKeyPath:         path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.key"),
+	}
+
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		tlsConfig.TLSCertificatePath = path.Join(OLSAppCertsMountRoot, cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name, "tls.crt")
+		tlsConfig.TLSKeyPath = path.Join(OLSAppCertsMountRoot, cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name, "tls.key")
+	}
+
 	olsConfig := OLSConfig{
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
 		DefaultProvider: cr.Spec.OLSConfig.DefaultProvider,
@@ -199,10 +209,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			UvicornLogLevel: cr.Spec.OLSConfig.LogLevel,
 		},
 		ConversationCache: conversationCache,
-		TLSConfig: TLSConfig{
-			TLSCertificatePath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.crt"),
-			TLSKeyPath:         path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.key"),
-		},
+		TLSConfig:         tlsConfig,
 		ReferenceContent: ReferenceContent{
 			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
 			ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
@@ -323,10 +330,11 @@ func (r *OLSConfigReconciler) getAdditionalCAFileNames(cr *olsv1alpha1.OLSConfig
 func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
 	annotations := map[string]string{}
 
-	// Check if the flag for user-provided TLS certs is set
-	if !cr.Spec.OLSConfig.UseUserProvidedTLSCerts {
-		// Add the service-served certs annotations only if the flag is not set
+	// Let service-ca operator generate a TLS certificate if the user does not provide one
+	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate == "" {
 		annotations[ServingCertSecretAnnotationKey] = OLSCertsSecretName
+	} else {
+		delete(annotations, ServingCertSecretAnnotationKey)
 	}
 
 	service := corev1.Service{
