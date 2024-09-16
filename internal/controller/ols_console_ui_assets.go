@@ -101,6 +101,7 @@ func (r *OLSConfigReconciler) generateConsoleUIService(cr *olsv1alpha1.OLSConfig
 }
 
 func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
+	const certVolumeName = "lightspeed-console-plugin-cert"
 	val_true := true
 	volumeDefaultMode := int32(420)
 	resources := getConsoleUIResources(cr)
@@ -136,7 +137,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 							Resources:       *resources,
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      "lightspeed-console-plugin-cert",
+									Name:      certVolumeName,
 									MountPath: "/var/cert",
 									ReadOnly:  true,
 								},
@@ -151,7 +152,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 					},
 					Volumes: []corev1.Volume{
 						{
-							Name: "lightspeed-console-plugin-cert",
+							Name: certVolumeName,
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  ConsoleUIServiceCertSecretName,
@@ -233,7 +234,7 @@ func (r *OLSConfigReconciler) generateConsoleUIPlugin(cr *olsv1alpha1.OLSConfig)
 		},
 	}
 
-	// Conditionally add the CA certificate if provided in the CRD
+	// Conditionally add the CA certificate if provided in the CR
 	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate != "" {
 		plugin.Spec.Proxy[0].CACertificate = cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate
 	}

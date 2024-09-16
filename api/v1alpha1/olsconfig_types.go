@@ -81,8 +81,9 @@ type OLSSpec struct {
 	// User data collection switches
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="User Data Collection"
 	UserDataCollection UserDataCollectionSpec `json:"userDataCollection,omitempty"`
-
-	UseUserProvidedTLSCerts bool `json:"useUserProvidedTLSCerts,omitempty"`
+	// TLS configuration of the Lightspeed backend's HTTPS endpoint
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Configuration"
+	TLSConfig *TLSConfig `json:"tlsConfig,omitempty"`
 	// Additional CA certificates for TLS communication between OLS service and LLM Provider
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Additional CA Configmap",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	AdditionalCAConfigMapRef *corev1.LocalObjectReference `json:"additionalCAConfigMapRef,omitempty"`
@@ -278,6 +279,12 @@ type OLSDataCollectorSpec struct {
 	// +kubebuilder:default=INFO
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Log level"
 	LogLevel string `json:"logLevel,omitempty"`
+}
+
+type TLSConfig struct {
+	// KeySecretRef is the secret that holds the TLS key.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Key Secret"
+	KeyCertSecretRef corev1.LocalObjectReference `json:"keyCertSecretRef,omitempty"`
 }
 
 // +kubebuilder:object:root=true

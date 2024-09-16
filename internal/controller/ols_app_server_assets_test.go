@@ -3,8 +3,14 @@ package controller
 import (
 	"context"
 	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/pem"
+	"math/big"
 	"path"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -593,6 +599,43 @@ var _ = Describe("App server assets", func() {
 			))
 		})
 
+		It("should use user provided TLS settings if user provided one", func() {
+			const tlsSecretName = "test-tls-secret"
+			cr.Spec.OLSConfig.TLSConfig = &olsv1alpha1.TLSConfig{
+				KeyCertSecretRef: corev1.LocalObjectReference{
+					Name: tlsSecretName,
+				},
+			}
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			olsconfigGenerated := AppSrvConfigFile{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSCertificatePath).To(Equal(path.Join(OLSAppCertsMountRoot, tlsSecretName, "tls.crt")))
+			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSKeyPath).To(Equal(path.Join(OLSAppCertsMountRoot, tlsSecretName, "tls.key")))
+
+			deployment, err := r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(
+				corev1.VolumeMount{
+					Name:      "secret-" + tlsSecretName,
+					MountPath: path.Join(OLSAppCertsMountRoot, tlsSecretName),
+					ReadOnly:  true,
+				},
+			))
+			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
+				corev1.Volume{
+					Name: "secret-" + tlsSecretName,
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  tlsSecretName,
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				},
+			))
+		})
+
 	})
 
 	Context("empty custom resource", func() {
@@ -1013,6 +1056,38 @@ func generateRandomSecret() (*corev1.Secret, error) {
 	// Encode the password to base64
 	encodedPassword := base64.StdEncoding.EncodeToString(randomPassword)
 	passwordHash, _ := hashBytes([]byte(encodedPassword))
+
+	// Generate RSA key
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	})
+
+	// Generate self-signed certificate
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{"Test Org"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return nil, err
+	}
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
+	})
+
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "test-secret",
@@ -1022,10 +1097,11 @@ func generateRandomSecret() (*corev1.Secret, error) {
 		},
 		Data: map[string][]byte{
 			"client_secret": []byte(passwordHash),
-			"tls.key":       []byte("test tls key"),
-			"tls.crt":       []byte("test tls crt"),
+			"tls.key":       privateKeyPEM,
+			"tls.crt":       certPEM,
 		},
 	}
+
 	return &secret, nil
 }
 

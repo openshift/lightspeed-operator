@@ -83,8 +83,11 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	//secretMounts[redisSecretName] = redisCredentialsMountPath
 
 	// TLS volume
-	tlsSecretNameMountPath := path.Join(OLSAppCertsMountRoot, OLSCertsSecretName)
-	secretMounts[OLSCertsSecretName] = tlsSecretNameMountPath
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		secretMounts[cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name] = path.Join(OLSAppCertsMountRoot, cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name)
+	} else {
+		secretMounts[OLSCertsSecretName] = path.Join(OLSAppCertsMountRoot, OLSCertsSecretName)
+	}
 	AdditionalCAMountPath := path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir)
 
 	// Container ports

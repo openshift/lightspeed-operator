@@ -763,6 +763,23 @@ spec:
                           type: string
                       type: object
                     type: array
+                  tlsConfig:
+                    description: TLS configuration of the Lightspeed backend's HTTPS
+                      endpoint
+                    properties:
+                      keyCertSecretRef:
+                        description: KeySecretRef is the secret that holds the TLS
+                          key.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
                   tlsSecurityProfile:
                     description: TLS Security Profile used by API endpoints
                     properties:
@@ -1025,8 +1042,6 @@ spec:
                         - Custom
                         type: string
                     type: object
-                  useUserProvidedTLSCerts:
-                    type: boolean
                   userDataCollection:
                     description: User data collection switches
                     properties:
