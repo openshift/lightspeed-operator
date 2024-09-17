@@ -1,0 +1,119 @@
+# aws cloudformation create-stack --stack-name $USERNAME-stack --template-body file://rhelai_cloud_formation.yaml --parameters ParameterKey=username,ParameterValue=$USERNAME
+# aws cloudformation delete-stack --stack-name $USERNAME-stack
+
+Parameters:
+  username:
+    Type: String
+    Description: "The username used to prefix AWS resource names."
+
+Resources:
+  # Create a VPC
+  VPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-vpc"
+
+  # Create a Public Subnet in the VPC
+  PublicSubnet:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: "10.0.1.0/24"
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs ""]  # Selects the first availability zone in the region
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-subnet"
+
+  # Create an Internet Gateway
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-internet-gateway"
+
+  # Attach the Internet Gateway to the VPC
+  VPCGatewayAttachment:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Create a Route Table
+  RouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-route-table"
+
+  # Create a Route for the Internet Gateway
+  Route:
+    Type: "AWS::EC2::Route"
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  # Associate the Route Table with the Public Subnet
+  SubnetRouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref RouteTable
+
+  # Security Group for EC2 Instance
+  SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "Enable SSH, HTTP, and HTTPS access for ${username}"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 22  # SSH
+          ToPort: 22
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: "tcp"
+          FromPort: 80  # HTTP
+          ToPort: 80
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: "tcp"
+          FromPort: 8000  # HTTP
+          ToPort: 8000
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: "tcp"
+          FromPort: 443  # HTTPS
+          ToPort: 443
+          CidrIp: "0.0.0.0/0"
+      SecurityGroupEgress:
+        - IpProtocol: "-1"  # All traffic
+          CidrIp: "0.0.0.0/0"
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-security-group"
+
+  # EC2 Instance
+  EC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: "g6.2xlarge"
+      ImageId: "ami-0aa8fc2422063977a"
+      KeyName: !Sub "${username}-keys"
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"  # Primary volume (root device)
+          Ebs:
+            VolumeSize: 200  # Size in GB
+            VolumeType: "gp3"
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-rhel-ai"
