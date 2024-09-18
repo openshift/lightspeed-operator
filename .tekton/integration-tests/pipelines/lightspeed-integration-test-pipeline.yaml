@@ -166,9 +166,14 @@ spec:
               echo -e "The install command will come here"
     - name: ols-e2e-tests
       description: Task to run tests from service repository
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
       runAfter:
         - ols-install
       taskSpec:
+        params:
+          - name: SNAPSHOT
         volumes:
           - name: azure-openai-token
             secret:
@@ -189,6 +194,19 @@ spec:
             secret:
               secretName: insights-stage-upload-offline-token
         steps:
+          - name: get-service-image
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+            results:
+              - name: service-image
+                type: string
+                description: service-image-from-snapshot
+            script: |
+              dnf -y install jq
+              echo -n "$(jq -r --arg component_name "lightspeed-service" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")"
+              echo -n "$(jq -r --arg component_name "lightspeed-service" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.service-image.path)
           - name: run-e2e-tests
             volumeMounts:
               - name: azure-openai-token
