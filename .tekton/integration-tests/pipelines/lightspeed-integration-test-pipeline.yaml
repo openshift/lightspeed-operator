@@ -164,4 +164,69 @@ spec:
               operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
               echo "---------------------------------------------"
               echo -e "The install command will come here"
-
+    - name: ols-e2e-tests
+      description: Task to run tests from service repository
+      runAfter:
+        - ols-install
+      taskSpec:
+        volumes:
+          - name: azure-openai-token
+            secret:
+              secretName: azureopenai-apitoken
+          - name: azureopenai-entra-id
+            secret:
+              secretName: azureopenai-entra-id
+          - name: bam-token
+            secret:
+              secretName: bam-apitoken
+          - name: openai-token
+            secret:
+              secretName: openai
+          - name: watsonx-token
+            secret:
+              secretName: watsonx-apitoken
+          - name: insights-stage-upload-offline-token
+            secret:
+              secretName: insights-stage-upload-offline-token
+        steps:
+          - name: run-e2e-tests
+            volumeMounts:
+              - name: azure-openai-token
+                mountPath: /var/run/azure_openai
+              - name: azureopenai-entra-id
+                mountPath: /var/run/azureopenai-entra-id
+              - name: bam-token
+                mountPath: /var/run/bam
+              - name: openai-token
+                mountPath: /var/run/openai
+              - name: watsonx-token
+                mountPath: /var/run/watsonx
+              - name: insights-stage-upload-offline-token
+                mountPath: /var/run/insights-stage-upload-offline-token
+            env:
+              - name: BAM_PROVIDER_KEY_PATH
+                value: "/var/run/bam/token"
+              - name: AZUREOPENAI_PROVIDER_KEY_PATH
+                value: "/var/run/azure_openai/token"
+              - name: AZUREOPENAI_ENTRA_ID_TENANT_ID
+                value: $(cat /var/run/azureopenai-entra-id/tenant_id)
+              - name: AZUREOPENAI_ENTRA_ID_CLIENT_ID
+                value: $(cat /var/run/azureopenai-entra-id/client_id)
+              - name: AZUREOPENAI_ENTRA_ID_CLIENT_SECRET
+                value: $(cat /var/run/azureopenai-entra-id/client_secret)
+              - name: OPENAI_PROVIDER_KEY_PATH
+                value: "/var/run/openai/token"
+              - name: WATSONX_PROVIDER_KEY_PATH
+                value: "/var/run/watsonx/token"
+              - name: PROVIDER_KEY_PATH
+                value: "/var/run/openai/token"
+              - name: PROVIDER
+                value: "openai"
+              - name: MODEL
+                value: "gpt-3.5-turbo-1106"
+              - name: CP_OFFLINE_TOKEN
+                value: $(cat /var/run/insights-stage-upload-offline-token/token)
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            script: |
+              echo "---------------------------------------------"
+              ls /var/run/azureopenai-entra-id
