@@ -101,6 +101,9 @@ spec:
         - name: namespace
           value: "$(params.namespace)"
       taskSpec:
+        results:
+          - name: kubeconfig
+            value: "$(steps.get-kubeconfig.results.kubeconfig)"
         params:
           - name: SNAPSHOT
           - name: namespace
@@ -193,6 +196,8 @@ spec:
           - name: insights-stage-upload-offline-token
             secret:
               secretName: insights-stage-upload-offline-token
+          - name: credentials
+            emptyDir: {}
         steps:
           - name: get-service-image
             image: registry.redhat.io/openshift4/ose-cli:latest
@@ -202,12 +207,14 @@ spec:
             results:
               - name: service-image
                 type: string
-                description: service-image-from-snapshot
+                description: "service image from snapshot"
             script: |
               dnf -y install jq
-              echo -n "$(jq -r --arg component_name "lightspeed-service" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")"
               echo -n "$(jq -r --arg component_name "lightspeed-service" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.service-image.path)
           - name: run-e2e-tests
+            params:
+              - name: lightspeed-service-image
+                value: "$(steps.get-service-image.results.service-image)"
             volumeMounts:
               - name: azure-openai-token
                 mountPath: /var/run/azure_openai
@@ -221,6 +228,8 @@ spec:
                 mountPath: /var/run/watsonx
               - name: insights-stage-upload-offline-token
                 mountPath: /var/run/insights-stage-upload-offline-token
+              - name: credentials
+                mountPath: /credentials
             env:
               - name: BAM_PROVIDER_KEY_PATH
                 value: "/var/run/bam/token"
@@ -244,7 +253,10 @@ spec:
                 value: "gpt-3.5-turbo-1106"
               - name: CP_OFFLINE_TOKEN
                 value: $(cat /var/run/insights-stage-upload-offline-token/token)
-            image: registry.redhat.io/openshift4/ose-cli:latest
+              - name: KUBECONFIG
+                value: "/credentials/$(tasks.ols-install.results.kubeconfig)"
+            image: $(params.lightspeed-service-image)
             script: |
               echo "---------------------------------------------"
               ls /var/run/azureopenai-entra-id
+              cat $KUBECONFIG
