@@ -135,3 +135,25 @@ func (c *HTTPSClient) waitForHTTPSGetStatus(queryUrl string, statusCode int, hea
 
 	return nil
 }
+
+func (c *HTTPSClient) waitForHTTPSPostStatus(queryUrl string, body []byte, statusCode int, headers ...map[string]string) error { // nolint:unused
+	var lastErr error
+	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, DefaultPollTimeout, true, func(ctx context.Context) (bool, error) {
+		var resp *http.Response
+		resp, lastErr = c.PostJson(queryUrl, body, headers...)
+		if lastErr != nil {
+			return false, nil
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != statusCode {
+			lastErr = fmt.Errorf("unexpected status code %d", resp.StatusCode)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to wait for HTTPS response status: %w, lastErr: %w", err, lastErr)
+	}
+
+	return nil
+}
