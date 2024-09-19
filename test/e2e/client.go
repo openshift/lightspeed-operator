@@ -36,7 +36,7 @@ const (
 	// DefaultPollInterval is the default interval for polling
 	DefaultPollInterval = 5 * time.Second
 	// DefaultPollTimeout is the default timeout for polling
-	DefaultPollTimeout = 10 * time.Minute
+	DefaultPollTimeout = 20 * time.Minute
 )
 
 type ClientOptions struct {

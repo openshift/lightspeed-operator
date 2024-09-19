@@ -59,11 +59,11 @@ type OLSConfigReconciler struct {
 }
 
 type OLSConfigReconcilerOptions struct {
-	LightspeedServiceImage      string
-	LightspeedServiceRedisImage string
-	ConsoleUIImage              string
-	Namespace                   string
-	ReconcileInterval           time.Duration
+	LightspeedServiceImage         string
+	LightspeedServicePostgresImage string
+	ConsoleUIImage                 string
+	Namespace                      string
+	ReconcileInterval              time.Duration
 }
 
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -82,7 +82,7 @@ type OLSConfigReconcilerOptions struct {
 // OLM cannot create a role and rolebinding for a specific single namespace that is not the namespace the operator is installed in and/or watching
 // This has to be a cluster role
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
-// Secret access for redis server configuration
+// Secret access for conversation cache server configuration
 // +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // Secret access for telemetry pull secret, must be a cluster role due to OLM limitations in managing roles in operator namespace
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
@@ -132,12 +132,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	r.logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
-	// TODO: Update DB
-	// err = r.reconcileRedisServer(ctx, olsconfig)
-	// if err != nil {
-	// 	r.logger.Error(err, "Failed to reconcile ols redis")
-	// 	return ctrl.Result{}, err
-	// }
+
 	err = r.reconcileConsoleUI(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile console UI")
@@ -146,6 +141,15 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	// Update status condition for Console Plugin
 	r.updateStatusCondition(ctx, olsconfig, typeConsolePluginReady, true, "All components are successfully deployed", nil)
+
+	err = r.reconcilePostgresServer(ctx, olsconfig)
+	if err != nil {
+		r.logger.Error(err, "Failed to reconcile ols postgres")
+		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", nil)
+		return ctrl.Result{}, err
+	}
+	// Update status condition for Postgres cache
+	r.updateStatusCondition(ctx, olsconfig, typeCacheReady, true, "All components are successfully deployed", nil)
 
 	err = r.reconcileLLMSecrets(ctx, olsconfig)
 	if err != nil {

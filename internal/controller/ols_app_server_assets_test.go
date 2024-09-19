@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"path"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -78,8 +79,6 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
-			// TODO: Update DB
-			//OLSRedisMaxMemory := intstr.FromString(RedisMaxMemory)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
@@ -96,22 +95,16 @@ var _ = Describe("App server assets", func() {
 						LibLogLevel:     "INFO",
 						UvicornLogLevel: "INFO",
 					},
-					// TODO: Update DB
-					// ConversationCache: ConversationCacheConfig{
-					// 	Type: "redis",
-					// 	Redis: RedisCacheConfig{
-					// 		Host:            strings.Join([]string{RedisServiceName, OLSNamespaceDefault, "svc"}, "."),
-					// 		Port:            RedisServicePort,
-					// 		MaxMemory:       &OLSRedisMaxMemory,
-					// 		MaxMemoryPolicy: RedisMaxMemoryPolicy,
-					// 		PasswordPath:    path.Join(CredentialsMountRoot, RedisSecretName, OLSComponentPasswordFileName),
-					// 		CACertPath:      path.Join(OLSAppCertsMountRoot, RedisCertsSecretName, RedisCAVolume, "service-ca.crt"),
-					// 	},
-					// },
 					ConversationCache: ConversationCacheConfig{
-						Type: "memory",
-						Memory: MemoryCacheConfig{
-							MaxEntries: 1000,
+						Type: "postgres",
+						Postgres: PostgresCacheConfig{
+							Host:         strings.Join([]string{PostgresServiceName, OLSNamespaceDefault, "svc"}, "."),
+							Port:         PostgresServicePort,
+							User:         PostgresDefaultUser,
+							DbName:       PostgresDefaultDbName,
+							PasswordPath: path.Join(CredentialsMountRoot, PostgresSecretName, OLSComponentPasswordFileName),
+							SSLMode:      PostgresDefaultSSLMode,
+							CACertPath:   path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
 						},
 					},
 					TLSConfig: TLSConfig{
@@ -286,6 +279,16 @@ var _ = Describe("App server assets", func() {
 					ReadOnly:  false,
 					MountPath: "/app-root/ols-user-data",
 				},
+				{
+					Name:      "secret-lightspeed-postgres-secret",
+					ReadOnly:  true,
+					MountPath: "/etc/credentials/lightspeed-postgres-secret",
+				},
+				{
+					Name:      "cm-olspostgresca",
+					ReadOnly:  true,
+					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
+				},
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2Gi")},
@@ -305,14 +308,34 @@ var _ = Describe("App server assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
 				{
-					Name:      "ols-user-data",
-					ReadOnly:  false,
-					MountPath: "/app-root/ols-user-data",
+					Name:      "secret-test-secret",
+					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
+					ReadOnly:  true,
+				},
+				{
+					Name:      "secret-lightspeed-tls",
+					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
+					ReadOnly:  true,
 				},
 				{
 					Name:      "cm-olsconfig",
 					MountPath: "/etc/ols",
 					ReadOnly:  true,
+				},
+				{
+					Name:      "ols-user-data",
+					ReadOnly:  false,
+					MountPath: "/app-root/ols-user-data",
+				},
+				{
+					Name:      "secret-lightspeed-postgres-secret",
+					ReadOnly:  true,
+					MountPath: "/etc/credentials/lightspeed-postgres-secret",
+				},
+				{
+					Name:      "cm-olspostgresca",
+					ReadOnly:  true,
+					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
 				},
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[1].Resources).To(Equal(corev1.ResourceRequirements{
@@ -336,6 +359,23 @@ var _ = Describe("App server assets", func() {
 						Secret: &corev1.SecretVolumeSource{
 							SecretName:  OLSCertsSecretName,
 							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: "secret-lightspeed-postgres-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  PostgresSecretName,
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: "cm-olspostgresca",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
 						},
 					},
 				},
@@ -397,6 +437,16 @@ var _ = Describe("App server assets", func() {
 					MountPath: "/etc/ols",
 					ReadOnly:  true,
 				},
+				{
+					Name:      "secret-lightspeed-postgres-secret",
+					ReadOnly:  true,
+					MountPath: "/etc/credentials/lightspeed-postgres-secret",
+				},
+				{
+					Name:      PostgresCAVolume,
+					ReadOnly:  true,
+					MountPath: "/etc/certs/lightspeed-postgres-certs/cm-olspostgresca",
+				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
 				{
@@ -423,6 +473,23 @@ var _ = Describe("App server assets", func() {
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
 							DefaultMode:          &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: "secret-lightspeed-postgres-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  "lightspeed-postgres-secret",
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: PostgresCAVolume,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
 						},
 					},
 				},
@@ -469,6 +536,16 @@ var _ = Describe("App server assets", func() {
 					MountPath: "/etc/ols",
 					ReadOnly:  true,
 				},
+				{
+					Name:      "secret-lightspeed-postgres-secret",
+					MountPath: "/etc/credentials/lightspeed-postgres-secret",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "cm-olspostgresca",
+					MountPath: "/etc/certs/lightspeed-postgres-certs/cm-olspostgresca",
+					ReadOnly:  true,
+				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
 				{
@@ -495,6 +572,23 @@ var _ = Describe("App server assets", func() {
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
 							DefaultMode:          &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: "secret-lightspeed-postgres-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  "lightspeed-postgres-secret",
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: PostgresCAVolume,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
 						},
 					},
 				},
@@ -573,14 +667,34 @@ var _ = Describe("App server assets", func() {
 			}))
 			Expect(deployment.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
 				{
-					Name:      "ols-user-data",
-					ReadOnly:  false,
-					MountPath: "/app-root/ols-user-data",
+					Name:      "secret-test-secret",
+					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
+					ReadOnly:  true,
+				},
+				{
+					Name:      "secret-lightspeed-tls",
+					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
+					ReadOnly:  true,
 				},
 				{
 					Name:      "cm-olsconfig",
 					MountPath: "/etc/ols",
 					ReadOnly:  true,
+				},
+				{
+					Name:      "ols-user-data",
+					ReadOnly:  false,
+					MountPath: "/app-root/ols-user-data",
+				},
+				{
+					Name:      "secret-lightspeed-postgres-secret",
+					ReadOnly:  true,
+					MountPath: "/etc/credentials/lightspeed-postgres-secret",
+				},
+				{
+					Name:      "cm-olspostgresca",
+					ReadOnly:  true,
+					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
 				},
 			}))
 			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
@@ -630,9 +744,15 @@ var _ = Describe("App server assets", func() {
 			expectedConfigStr := `llm_providers: []
 ols_config:
   conversation_cache:
-    memory:
-      max_entries: 1000
-    type: memory
+    postgres:
+      ca_cert_path: /etc/certs/lightspeed-postgres-certs/cm-olspostgresca/service-ca.crt
+      dbname: postgres
+      host: lightspeed-postgres-server.openshift-lightspeed.svc
+      password_path: /etc/credentials/lightspeed-postgres-secret/password
+      port: 5432
+      ssl_mode: require
+      user: postgres
+    type: postgres
   logging_config:
     app_log_level: ""
     lib_log_level: ""
@@ -667,7 +787,7 @@ user_data_collector_config:
 		})
 
 		It("should generate the olsconfig config map without user_data_collector_config", func() {
-			// pull-secret with out telemetry token should make the datacollection disabled
+			// pull-secret without telemetry token should disable data collection
 			// and user_data_collector_config should not be present in the config
 			createTelemetryPullSecretWithoutTelemetryToken()
 			major, minor, err := r.getClusterVersion(ctx)
@@ -679,9 +799,15 @@ user_data_collector_config:
 			expectedConfigStr := `llm_providers: []
 ols_config:
   conversation_cache:
-    memory:
-      max_entries: 1000
-    type: memory
+    postgres:
+      ca_cert_path: /etc/certs/lightspeed-postgres-certs/cm-olspostgresca/service-ca.crt
+      dbname: postgres
+      host: lightspeed-postgres-server.openshift-lightspeed.svc
+      password_path: /etc/credentials/lightspeed-postgres-secret/password
+      port: 5432
+      ssl_mode: require
+      user: postgres
+    type: postgres
   logging_config:
     app_log_level: ""
     lib_log_level: ""
@@ -770,6 +896,16 @@ user_data_collector_config: {}
 					ReadOnly:  false,
 					MountPath: "/app-root/ols-user-data",
 				},
+				{
+					Name:      "secret-lightspeed-postgres-secret",
+					ReadOnly:  true,
+					MountPath: "/etc/credentials/lightspeed-postgres-secret",
+				},
+				{
+					Name:      "cm-olspostgresca",
+					ReadOnly:  true,
+					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
+				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
 				{
@@ -787,6 +923,23 @@ user_data_collector_config: {}
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
 							DefaultMode:          &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: "secret-lightspeed-postgres-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  PostgresSecretName,
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				},
+				{
+					Name: "cm-olspostgresca",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
 						},
 					},
 				},
@@ -881,10 +1034,12 @@ func generateRandomSecret() (*corev1.Secret, error) {
 	passwordHash, _ := hashBytes([]byte(encodedPassword))
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "test-secret",
-			Namespace:   "openshift-lightspeed",
-			Labels:      generateAppServerSelectorLabels(),
-			Annotations: map[string]string{},
+			Name:      "test-secret",
+			Namespace: "openshift-lightspeed",
+			Labels:    generateAppServerSelectorLabels(),
+			Annotations: map[string]string{
+				PostgresSecretHashKey: "test-hash",
+			},
 		},
 		Data: map[string][]byte{
 			"client_secret": []byte(passwordHash),
@@ -941,6 +1096,12 @@ func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 				DefaultModel:    "testModel",
 				DefaultProvider: "testProvider",
 				LogLevel:        "INFO",
+				ConversationCache: olsv1alpha1.ConversationCacheSpec{
+					Type: "postgres",
+					Postgres: olsv1alpha1.PostgresSpec{
+						MaxConnections: 2000,
+					},
+				},
 			},
 		},
 	}
