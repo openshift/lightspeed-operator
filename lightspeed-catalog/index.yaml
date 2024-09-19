@@ -50,7 +50,7 @@ relatedImages:
   - name: lightspeed-service-api
     image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:de68394b42683acb7aab18fd4b95265b927bc8898a94e1ebf810832e3d895568
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:ee29784d6904526d49d6fb810e024cdc20f25f86e24c8ac1a334391950c2cb77
+    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:1839d107367b7eb9e8a9b61996866405d50229570b6feade791e49acc0eee165
   - name: lightspeed-operator
     image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:e62a1e3e618b7bf6a9ca8b1e7b6ae500d6b0e47c9e5f3e4a8eeb259082c9199e
   - name: lightspeed-operator-bundle
