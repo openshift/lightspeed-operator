@@ -342,7 +342,7 @@ spec:
                       - --secure-metrics-server
                       - --cert-dir=/etc/tls/private
                       - --service-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:597cf45c67c7f58023a185470d497a1b90296f10385e39c994bc58f333638dbb
-                      - --console-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:ee29784d6904526d49d6fb810e024cdc20f25f86e24c8ac1a334391950c2cb77
+                      - --console-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:1839d107367b7eb9e8a9b61996866405d50229570b6feade791e49acc0eee165
                     command:
                       - /manager
                     env:
@@ -350,7 +350,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:87a951e0f907afbf430c9594df3df15ed4e2883931872a8a9f4797dab5debd60
+                    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:b2b8a3da0dddb7776aa90bb2d77e26ac7956b364a4f3c098f0a42d85ea663447
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -546,6 +546,6 @@ spec:
     - name: lightspeed-service-api
       image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:597cf45c67c7f58023a185470d497a1b90296f10385e39c994bc58f333638dbb
     - name: lightspeed-console-plugin
-      image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:ee29784d6904526d49d6fb810e024cdc20f25f86e24c8ac1a334391950c2cb77
+      image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:1839d107367b7eb9e8a9b61996866405d50229570b6feade791e49acc0eee165
     - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:87a951e0f907afbf430c9594df3df15ed4e2883931872a8a9f4797dab5debd60
+      image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:b2b8a3da0dddb7776aa90bb2d77e26ac7956b364a4f3c098f0a42d85ea663447
