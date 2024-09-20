@@ -38,8 +38,8 @@ IMAGE_TAG_BASE ?= quay.io/openshift-lightspeed/lightspeed-operator
 BUNDLE_TAG ?= 0.0.1
 
 # set the base image for docker files
-# You can use it as an arg.  (E.g make update-bundle-catalog BASE_IMG=registry.access.redhat.com/ubi9/ubi-minimal)
-BASE_IMG ?= registry.access.redhat.com/ubi9/ubi-minimal
+# You can use it as an arg.  (E.g make update-bundle-catalog BASE_IMG=registry.redhat.io/ubi9/ubi-minimal)
+BASE_IMG ?= registry.redhat.io/ubi9/ubi-minimal
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
