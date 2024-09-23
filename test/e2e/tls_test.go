@@ -15,6 +15,7 @@ import (
 var _ = Describe("TLS activation - application", Ordered, func() {
 	const serviceAnnotationKeyTLSSecret = "service.beta.openshift.io/serving-cert-secret-name"
 	const testSAName = "test-sa"
+	const testSAOutsiderName = "test-sa-outsider"
 	const queryAccessClusterRole = "lightspeed-operator-query-access"
 	const appMetricsAccessClusterRole = "lightspeed-operator-ols-metrics-reader"
 	var cr *olsv1alpha1.OLSConfig
@@ -23,6 +24,7 @@ var _ = Describe("TLS activation - application", Ordered, func() {
 	var cleanUpFuncs []func()
 	var forwardHost string
 	var saToken string
+	var saOutsiderToken string
 
 	BeforeAll(func() {
 		client, err = GetClient(nil)
@@ -35,23 +37,30 @@ var _ = Describe("TLS activation - application", Ordered, func() {
 
 		var cleanUp func()
 
-		By("create a service account")
+		By("create a service account for OLS user")
 		cleanUp, err := client.CreateServiceAccount(OLSNameSpace, testSAName)
 		Expect(err).NotTo(HaveOccurred())
 		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
 
-		By("create a role binding for application access")
+		By("Create a service account for an outsider")
+		cleanUp, err = client.CreateServiceAccount(OLSNameSpace, testSAOutsiderName)
+		Expect(err).NotTo(HaveOccurred())
+		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
+
+		By("create a role binding for OLS user accessing query API")
 		cleanUp, err = client.CreateClusterRoleBinding(OLSNameSpace, testSAName, queryAccessClusterRole)
 		Expect(err).NotTo(HaveOccurred())
 		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
 
-		By("create a role binding for application metrics access")
+		By("create a role binding for OLS user accessing application metrics")
 		cleanUp, err = client.CreateClusterRoleBinding(OLSNameSpace, testSAName, appMetricsAccessClusterRole)
 		Expect(err).NotTo(HaveOccurred())
 		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
 
-		By("fetch the service account token")
+		By("fetch the service account tokens")
 		saToken, err = client.GetServiceAccountToken(OLSNameSpace, testSAName)
+		Expect(err).NotTo(HaveOccurred())
+		saOutsiderToken, err = client.GetServiceAccountToken(OLSNameSpace, testSAOutsiderName)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("wait for application server deployment rollout")
@@ -127,7 +136,7 @@ var _ = Describe("TLS activation - application", Ordered, func() {
 			},
 		}))
 
-		By("check HTTPS Get on /metrics endpoint")
+		By("check HTTPS Get on /metrics endpoint by OLS user")
 		const inClusterHost = "lightspeed-app-server.openshift-lightspeed.svc.cluster.local"
 		certificate, ok := secret.Data["tls.crt"]
 		Expect(ok).To(BeTrue())
@@ -136,7 +145,7 @@ var _ = Describe("TLS activation - application", Ordered, func() {
 		err = httpsClient.waitForHTTPSGetStatus("/metrics", http.StatusOK, authHeader)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("check HTTPS Post on /v1/query endpoint")
+		By("check HTTPS Post on /v1/query endpoint by OLS user")
 		reqBody := []byte(`{"query": "write a deployment yaml for the mongodb image"}`)
 		var resp *http.Response
 		resp, err = httpsClient.PostJson("/v1/query", reqBody, authHeader)
@@ -146,6 +155,16 @@ var _ = Describe("TLS activation - application", Ordered, func() {
 		body, err := io.ReadAll(resp.Body)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(body).NotTo(BeEmpty())
+
+		By("check HTTPS Get on /metrics endpoint by an outsider")
+		authHeader = map[string]string{"Authorization": "Bearer " + saOutsiderToken}
+		err = httpsClient.waitForHTTPSGetStatus("/metrics", http.StatusForbidden, authHeader)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("check HTTPS Post on /v1/query endpoint by an outsider")
+		err = httpsClient.waitForHTTPSPostStatus("/v1/query", reqBody, http.StatusForbidden, authHeader)
+		Expect(err).NotTo(HaveOccurred())
+
 	})
 })
 

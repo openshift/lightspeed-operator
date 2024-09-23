@@ -78,7 +78,7 @@ make bundle VERSION="${BUNDLE_TAG}" IMG="${OPERATOR_IMAGE}"
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES}" ${CSV_FILE}
 
 # use UBI image as base image for bundle image
-: "${BASE_IMAGE:=registry.access.redhat.com/ubi9/ubi-minimal@sha256:104cf11d890aeb7dd5728b7d7732e175a0e4018f1bb00d2faebcc8f6bf29bd52}"
+: "${BASE_IMAGE:=registry.redhat.io/ubi9/ubi-minimal@sha256:104cf11d890aeb7dd5728b7d7732e175a0e4018f1bb00d2faebcc8f6bf29bd52}"
 sed -i 's|^FROM scratch|FROM '"${BASE_IMAGE}"'|' ${BUNDLE_DOCKERFILE}
 
 # make bundle image comply with enterprise contract requirements
