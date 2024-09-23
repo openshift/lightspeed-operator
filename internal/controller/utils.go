@@ -397,3 +397,5 @@ func getProxyEnvVars() []corev1.EnvVar {
 	}
 	return envVars
 }
+
+func Ptr[T any](v T) *T { return &v }

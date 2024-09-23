@@ -821,8 +821,8 @@ user_data_collector_config: {}
 					Scheme:   "https",
 					TLSConfig: &monv1.TLSConfig{
 						SafeTLSConfig: monv1.SafeTLSConfig{
-							InsecureSkipVerify: false,
-							ServerName:         "lightspeed-app-server.openshift-lightspeed.svc",
+							InsecureSkipVerify: Ptr(false),
+							ServerName:         Ptr("lightspeed-app-server.openshift-lightspeed.svc"),
 						},
 						CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
 						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",

@@ -332,8 +332,8 @@ func (r *OLSConfigReconciler) generateServiceMonitor(cr *olsv1alpha1.OLSConfig) 
 						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
 						KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
 						SafeTLSConfig: monv1.SafeTLSConfig{
-							InsecureSkipVerify: false,
-							ServerName:         strings.Join([]string{OLSAppServerServiceName, r.Options.Namespace, "svc"}, "."),
+							InsecureSkipVerify: Ptr(false),
+							ServerName:         Ptr(strings.Join([]string{OLSAppServerServiceName, r.Options.Namespace, "svc"}, ".")),
 						},
 					},
 					BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
