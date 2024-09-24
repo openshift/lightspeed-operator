@@ -7,7 +7,8 @@
 
 set -euo pipefail
 
-TEMP_BUNDLE_FILE="quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c"
+# create a temporary file for the bundle part of the catalog
+TEMP_BUNDLE_FILE=$(mktemp)
 cleanup() {
   # remove temporary bundle file
   if [ -n "${TEMP_BUNDLE_FILE}" ]; then
@@ -44,6 +45,7 @@ fi
 : "${CATALOG_FILE:=lightspeed-catalog/index.yaml}"
 CATALOG_INITIAL_FILE="hack/operator.yaml"
 CSV_FILE="bundle/manifests/lightspeed-operator.clusterserviceversion.yaml"
+ANNOTATION_FILE="bundle/metadata/annotations.yaml"
 
 BUNDLE_DOCKERFILE="bundle.Dockerfile"
 
@@ -76,9 +78,12 @@ rm -rf ./bundle
 make bundle VERSION="${BUNDLE_TAG}" IMG="${OPERATOR_IMAGE}"
 # restore related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES}" ${CSV_FILE}
+# add compatibility labels to the annotations file
+${YQ} eval -i '.annotations."com.redhat.openshift.versions"="v4.15-v4.17"' ${ANNOTATION_FILE}
+${YQ} eval -i '(.annotations."com.redhat.openshift.versions" | key) head_comment="OCP compatibility labels"' ${ANNOTATION_FILE}
 
 # use UBI image as base image for bundle image
-: "${BASE_IMAGE:=registry.redhat.io/ubi9/ubi-minimal@sha256:104cf11d890aeb7dd5728b7d7732e175a0e4018f1bb00d2faebcc8f6bf29bd52}"
+: "${BASE_IMAGE:=registry.redhat.io/ubi9/ubi-minimal@sha256:1b6d711648229a1c987f39cfdfccaebe2bd92d0b5d8caa5dbaa5234a9278a0b2}"
 sed -i 's|^FROM scratch|FROM '"${BASE_IMAGE}"'|' ${BUNDLE_DOCKERFILE}
 
 # make bundle image comply with enterprise contract requirements
@@ -102,6 +107,9 @@ LABEL vendor="Red Hat, Inc."
 LABEL version=${BUNDLE_TAG}
 LABEL summary="Red Hat OpenShift Lightspeed"
 
+# OCP compatibility labels
+LABEL com.redhat.openshift.versions=v4.15-v4.17
+
 # Set user to non-root for security reasons.
 USER 1001
 EOF
@@ -118,9 +126,6 @@ if [ -z "${TEMP_BUNDLE_IMG}" ]; then
   echo "No TEMP_BUNDLE_IMG specified. Catalog is built using default bundle image ${TEMP_BUNDLE_IMG}"
   echo "If you have changed the CRD, please specifiy TEMP_BUNDLE_IMG to your writable image registry and re-run the script"
 fi
-
-# create a temporary file for the bundle part of the catalog
-TEMP_BUNDLE_FILE=$(mktemp)
 
 ${OPM} render "${TEMP_BUNDLE_IMG}" --output=yaml >"${TEMP_BUNDLE_FILE}"
 # restore bundle image to the catalog file
