@@ -33,7 +33,7 @@ func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 	}
 	// default resources.
 	defaultResources := &corev1.ResourceRequirements{
-		Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2Gi")},
+		Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("4Gi")},
 		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("1Gi")},
 		Claims:   []corev1.ResourceClaim{},
 	}
@@ -47,7 +47,7 @@ func getOLSDataCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceReq
 	}
 	// default resources.
 	defaultResources := &corev1.ResourceRequirements{
-		Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("128Mi")},
+		Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
 		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
 		Claims:   []corev1.ResourceClaim{},
 	}
@@ -202,8 +202,10 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 										Scheme: corev1.URISchemeHTTPS,
 									},
 								},
-								InitialDelaySeconds: 60,
-								PeriodSeconds:       10,
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       30,
+								TimeoutSeconds:      30,
+								FailureThreshold:    15,
 							},
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
@@ -213,8 +215,10 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 										Scheme: corev1.URISchemeHTTPS,
 									},
 								},
-								InitialDelaySeconds: 60,
-								PeriodSeconds:       10,
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       30,
+								TimeoutSeconds:      30,
+								FailureThreshold:    15,
 							},
 						},
 					},
