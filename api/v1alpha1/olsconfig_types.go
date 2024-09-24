@@ -178,7 +178,7 @@ type ModelParametersSpec struct {
 	MaxTokensForResponse int `json:"maxTokensForResponse,omitempty"`
 }
 
-// ModelSpec defines the desired state of cache.
+// ModelSpec defines the LLM model to use and its parameters.
 type ModelSpec struct {
 	// Model name
 	// +kubebuilder:validation:Required
