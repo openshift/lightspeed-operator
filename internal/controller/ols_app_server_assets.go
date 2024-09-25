@@ -188,7 +188,12 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 	// or if the data collector is not enabled in the cluster with pull secret
 
 	dataCollectorEnabled, _ := r.dataCollectorEnabled(cr)
-
+	feedbackStorage := "/app-root/ols-user-data/feedback"
+	transcriptsStorage := "/app-root/ols-user-data/transcripts"
+	if !dataCollectorEnabled {
+		feedbackStorage = ""
+		transcriptsStorage = ""
+	}
 	olsConfig := OLSConfig{
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
 		DefaultProvider: cr.Spec.OLSConfig.DefaultProvider,
@@ -208,10 +213,10 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			EmbeddingsModelPath:  "/app-root/embeddings_model",
 		},
 		UserDataCollection: UserDataCollectionConfig{
-			FeedbackDisabled:    cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled || !dataCollectorEnabled,
-			FeedbackStorage:     "/app-root/ols-user-data/feedback",
-			TranscriptsDisabled: cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled || !dataCollectorEnabled,
-			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
+			FeedbackDisabled:    !dataCollectorEnabled,
+			FeedbackStorage:     feedbackStorage,
+			TranscriptsDisabled: !dataCollectorEnabled,
+			TranscriptsStorage:  transcriptsStorage,
 		},
 	}
 

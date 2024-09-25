@@ -156,9 +156,9 @@ type ReferenceContent struct {
 }
 
 type UserDataCollectionConfig struct {
-	FeedbackDisabled    bool   `json:"feedback_disabled" default:"false"`
+	FeedbackDisabled    bool   `json:"feedback_disabled" default:"true"`
 	FeedbackStorage     string `json:"feedback_storage,omitempty"`
-	TranscriptsDisabled bool   `json:"transcripts_disabled" default:"false"`
+	TranscriptsDisabled bool   `json:"transcripts_disabled" default:"true"`
 	TranscriptsStorage  string `json:"transcripts_storage,omitempty"`
 }
 

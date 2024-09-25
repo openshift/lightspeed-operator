@@ -124,10 +124,8 @@ var _ = Describe("App server assets", func() {
 						ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
 					},
 					UserDataCollection: UserDataCollectionConfig{
-						FeedbackDisabled:    false,
-						FeedbackStorage:     "/app-root/ols-user-data/feedback",
-						TranscriptsDisabled: false,
-						TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
+						FeedbackDisabled:    true,
+						TranscriptsDisabled: true,
 					},
 				},
 				LLMProviders: []ProviderConfig{
@@ -149,7 +147,7 @@ var _ = Describe("App server assets", func() {
 					},
 				},
 				UserDataCollectorConfig: UserDataCollectorConfig{
-					DataStorage: "/app-root/ols-user-data",
+					DataStorage: "",
 					LogLevel:    "",
 				},
 			}
@@ -281,43 +279,10 @@ var _ = Describe("App server assets", func() {
 					MountPath: "/etc/ols",
 					ReadOnly:  true,
 				},
-				{
-					Name:      "ols-user-data",
-					ReadOnly:  false,
-					MountPath: "/app-root/ols-user-data",
-				},
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2Gi")},
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("1Gi")},
-				Claims:   []corev1.ResourceClaim{},
-			}))
-			// telemetry container
-			Expect(dep.Spec.Template.Spec.Containers[1].Image).To(Equal(rOptions.LightspeedServiceImage))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
-			Expect(dep.Spec.Template.Spec.Containers[1].Resources).ToNot(BeNil())
-			Expect(dep.Spec.Template.Spec.Containers[1].Command).To(Equal([]string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"}))
-			Expect(dep.Spec.Template.Spec.Containers[1].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", OLSConfigFilename),
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
-				{
-					Name:      "ols-user-data",
-					ReadOnly:  false,
-					MountPath: "/app-root/ols-user-data",
-				},
-				{
-					Name:      "cm-olsconfig",
-					MountPath: "/etc/ols",
-					ReadOnly:  true,
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Containers[1].Resources).To(Equal(corev1.ResourceRequirements{
-				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("128Mi")},
-				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
@@ -346,12 +311,6 @@ var _ = Describe("App server assets", func() {
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
 							DefaultMode:          &defaultVolumeMode,
 						},
-					},
-				},
-				{
-					Name: "ols-user-data",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 			}))
@@ -522,9 +481,10 @@ var _ = Describe("App server assets", func() {
 			createTelemetryPullSecret()
 			defer deleteTelemetryPullSecret()
 			By("Switching data collection off")
+			trueUserDataFlag := true
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
-				FeedbackDisabled:    true,
-				TranscriptsDisabled: true,
+				FeedbackDisabled:    &trueUserDataFlag,
+				TranscriptsDisabled: &trueUserDataFlag,
 			}
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -547,9 +507,10 @@ var _ = Describe("App server assets", func() {
 			)))
 
 			By("Switching data collection on")
+			falseUserDataFlag := false
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
-				FeedbackDisabled:    false,
-				TranscriptsDisabled: false,
+				FeedbackDisabled:    &falseUserDataFlag,
+				TranscriptsDisabled: &falseUserDataFlag,
 			}
 			cm, err = r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -645,12 +606,9 @@ ols_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
   user_data_collection:
-    feedback_disabled: false
-    feedback_storage: /app-root/ols-user-data/feedback
-    transcripts_disabled: false
-    transcripts_storage: /app-root/ols-user-data/transcripts
-user_data_collector_config:
-  data_storage: /app-root/ols-user-data
+    feedback_disabled: true
+    transcripts_disabled: true
+user_data_collector_config: {}
 
 `
 			// unmarshal to ensure the key order
@@ -695,9 +653,7 @@ ols_config:
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
   user_data_collection:
     feedback_disabled: true
-    feedback_storage: /app-root/ols-user-data/feedback
     transcripts_disabled: true
-    transcripts_storage: /app-root/ols-user-data/transcripts
 user_data_collector_config: {}
 
 `
@@ -765,11 +721,6 @@ user_data_collector_config: {}
 					MountPath: "/etc/ols",
 					ReadOnly:  true,
 				},
-				{
-					Name:      "ols-user-data",
-					ReadOnly:  false,
-					MountPath: "/app-root/ols-user-data",
-				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
 				{
@@ -788,12 +739,6 @@ user_data_collector_config: {}
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
 							DefaultMode:          &defaultVolumeMode,
 						},
-					},
-				},
-				{
-					Name: "ols-user-data",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 			}))

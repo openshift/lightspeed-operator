@@ -475,8 +475,10 @@ spec:
                     description: User data collection switches
                     properties:
                       feedbackDisabled:
+                        default: true
                         type: boolean
                       transcriptsDisabled:
+                        default: true
                         type: boolean
                     type: object
                 required:

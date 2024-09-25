@@ -237,10 +237,12 @@ type ProviderSpec struct {
 
 // UserDataCollectionSpec defines how we collect user data.
 type UserDataCollectionSpec struct {
+	// +kubebuilder:default=true
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Do Not Collect User Feedback"
-	FeedbackDisabled bool `json:"feedbackDisabled,omitempty"`
+	FeedbackDisabled *bool `json:"feedbackDisabled,omitempty"`
+	// +kubebuilder:default=true
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Do Not Collect Transcripts"
-	TranscriptsDisabled bool `json:"transcriptsDisabled,omitempty"`
+	TranscriptsDisabled *bool `json:"transcriptsDisabled,omitempty"`
 }
 
 // OLSDataCollectorSpec defines allowed OLS data collector configuration.
