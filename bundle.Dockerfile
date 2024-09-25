@@ -11,9 +11,6 @@ LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.33.0
 LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v4
 
-# OCP compatibility labels
-LABEL com.redhat.openshift.versions=v4.15-v4.16
-
 # Labels for testing.
 LABEL operators.operatorframework.io.test.mediatype.v1=scorecard+v1
 LABEL operators.operatorframework.io.test.config.v1=tests/scorecard/
@@ -40,6 +37,9 @@ LABEL url="https://github.com/openshift/lightspeed-operator"
 LABEL vendor="Red Hat, Inc."
 LABEL version=0.1.6
 LABEL summary="Red Hat OpenShift Lightspeed"
+
+# OCP compatibility labels
+LABEL com.redhat.openshift.versions=v4.15-v4.17
 
 # Set user to non-root for security reasons.
 USER 1001
