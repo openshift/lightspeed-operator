@@ -215,6 +215,20 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		},
 	}
 
+	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
+		caFileNames, err := r.getAdditionalCAFileNames(cr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate OLS config file, additional CA error: %w", err)
+		}
+
+		olsConfig.ExtraCAs = make([]string, len(caFileNames))
+		for i, caFileName := range caFileNames {
+			olsConfig.ExtraCAs[i] = path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir, caFileName)
+		}
+
+		olsConfig.CertificateDirectory = path.Join(OLSAppCertsMountRoot, CertBundleDir)
+	}
+
 	if queryFilters := getQueryFilters(cr); queryFilters != nil {
 		olsConfig.QueryFilters = queryFilters
 	}
@@ -278,6 +292,31 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 	}
 
 	return &cm, nil
+}
+
+func (r *OLSConfigReconciler) getAdditionalCAFileNames(cr *olsv1alpha1.OLSConfig) ([]string, error) {
+	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef == nil {
+		return nil, nil
+	}
+	// get data from the referenced configmap
+	cm := &corev1.ConfigMap{}
+	err := r.Get(context.TODO(), client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.Options.Namespace}, cm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get additional CA configmap %s/%s: %v", r.Options.Namespace, cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, err)
+	}
+
+	filenames := []string{}
+
+	for key, caStr := range cm.Data {
+		err = validateCertificateFormat([]byte(caStr))
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate additional CA certificate %s: %v", key, err)
+		}
+		filenames = append(filenames, key)
+	}
+
+	return filenames, nil
+
 }
 
 func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
