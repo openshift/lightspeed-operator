@@ -80,6 +80,9 @@ type OLSSpec struct {
 	// User data collection switches
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="User Data Collection"
 	UserDataCollection UserDataCollectionSpec `json:"userDataCollection,omitempty"`
+	// Additional CA certificates for TLS communication between OLS service and LLM Provider
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Additional CA Configmap",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	AdditionalCAConfigMapRef *corev1.LocalObjectReference `json:"additionalCAConfigMapRef,omitempty"`
 }
 
 // DeploymentConfig defines the schema for overriding deployment of OLS instance.
@@ -178,7 +181,7 @@ type ModelParametersSpec struct {
 	MaxTokensForResponse int `json:"maxTokensForResponse,omitempty"`
 }
 
-// ModelSpec defines the desired state of cache.
+// ModelSpec defines the LLM model to use and its parameters.
 type ModelSpec struct {
 	// Model name
 	// +kubebuilder:validation:Required

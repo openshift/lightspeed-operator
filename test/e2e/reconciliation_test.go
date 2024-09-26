@@ -10,6 +10,7 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -233,6 +234,121 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 				},
 			},
 		}))
+
+	})
+
+	It("should setup CA cert volumes and app configs after setting additional CA", func() {
+		const (
+			cmCACert1Name   = "ca-cert-1"
+			caCert1FileName = "ca-cert-1.crt"
+			caCert2FileName = "ca-cert-2.crt"
+		)
+		By("create additional CA configmap")
+		caCertConfigMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cmCACert1Name,
+				Namespace: OLSNameSpace,
+			},
+			Data: map[string]string{
+				caCert1FileName: TestCACert,
+			},
+		}
+		err = client.Create(caCertConfigMap)
+		Expect(err).NotTo(HaveOccurred())
+		defer func() {
+			err = client.Delete(caCertConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+		}()
+
+		By("update additional CA in the OLSConfig CR")
+		err = client.Get(cr)
+		Expect(err).NotTo(HaveOccurred())
+		cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
+			Name: cmCACert1Name,
+		}
+		err = client.Update(cr)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("check the OLS configmap to contain the additional CA cert")
+		olsConfigMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AppServerConfigMapName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-additional-ca/"+caCert1FileName)
+		Expect(err).NotTo(HaveOccurred())
+		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "certificate_directory: /etc/certs/cert-bundle")
+		Expect(err).NotTo(HaveOccurred())
+
+		By("check the app deployment to mount the additional CA cert configmap")
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AppServerDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		volumeDefaultMode := int32(420)
+		err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
+			var certVolumeExist, certBundleVolumeExist, certVolumeMountExist, certBundleVolumeMountExist bool
+			for _, volume := range dep.Spec.Template.Spec.Volumes {
+				if apiequality.Semantic.DeepEqual(volume, corev1.Volume{
+					Name: AdditionalCAVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: cmCACert1Name,
+							},
+							DefaultMode: &volumeDefaultMode,
+						},
+					},
+				}) {
+					certVolumeExist = true
+				}
+				if apiequality.Semantic.DeepEqual(volume, corev1.Volume{
+					Name: CertBundleVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				}) {
+					certBundleVolumeExist = true
+				}
+
+			}
+			for _, volumeMount := range dep.Spec.Template.Spec.Containers[0].VolumeMounts {
+				if apiequality.Semantic.DeepEqual(volumeMount, corev1.VolumeMount{
+					Name:      AdditionalCAVolumeName,
+					MountPath: path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir),
+					ReadOnly:  true,
+				}) {
+					certVolumeMountExist = true
+				}
+				if apiequality.Semantic.DeepEqual(volumeMount, corev1.VolumeMount{
+					Name:      CertBundleVolumeName,
+					MountPath: path.Join(OLSAppCertsMountRoot, CertBundleDir),
+					ReadOnly:  false,
+				}) {
+					certBundleVolumeMountExist = true
+				}
+			}
+
+			return certVolumeExist && certBundleVolumeExist && certVolumeMountExist && certBundleVolumeMountExist, nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		firstCmHash := deployment.Spec.Template.Annotations[AdditionalCAHashKey]
+
+		By("check the app deployment and OLS config adapted to modified CA cert configmap")
+		err = client.Get(caCertConfigMap)
+		Expect(err).NotTo(HaveOccurred())
+		caCertConfigMap.Data[caCert2FileName] = TestCACert
+		err = client.Update(caCertConfigMap)
+		Expect(err).NotTo(HaveOccurred())
+		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-additional-ca/"+caCert2FileName)
+		Expect(err).NotTo(HaveOccurred())
+		err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
+			newCmHash := dep.Spec.Template.Annotations[AdditionalCAHashKey]
+			return newCmHash != firstCmHash, nil
+		})
 
 	})
 

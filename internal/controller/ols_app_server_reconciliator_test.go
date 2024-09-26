@@ -1,8 +1,12 @@
 package controller
 
 import (
+	"fmt"
+	"path"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -48,6 +52,12 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			})
 			secretCreationErr = reconciler.Create(ctx, tlsSecret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			By("Set OLSConfig CR to default")
+			err := k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			crDefault := getDefaultOLSConfigCR()
+			cr.Spec = crDefault.Spec
 		})
 
 		AfterEach(func() {
@@ -491,4 +501,184 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		})
 
 	})
+
+	Context("User CA Certs", Ordered, func() {
+		var secret *corev1.Secret
+		var volumeDefaultMode = int32(420)
+		var cmCACert1 *corev1.ConfigMap
+		var cmCACert2 *corev1.ConfigMap
+		const cmCACert1Name = "ca-cert-1"
+		const cmCACert2Name = "ca-cert-2"
+		const caCert1FileName = "ca-cert-1.crt"
+		const caCert2FileName = "ca-cert-2.crt"
+		BeforeEach(func() {
+			By("create the provider secret")
+			secret, _ = generateRandomSecret()
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "test-secret",
+				},
+			})
+			secretCreationErr := reconciler.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			By("create the tls secret")
+			tlsSecret, _ = generateRandomSecret()
+			tlsSecret.Name = OLSCertsSecretName
+			tlsSecret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       OLSCertsSecretName,
+				},
+			})
+			secretCreationErr = reconciler.Create(ctx, tlsSecret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			By("create the config map for CA cert 1")
+			cmCACert1 = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cmCACert1Name,
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string]string{
+					caCert1FileName: testCACert,
+				},
+			}
+			err := reconciler.Create(ctx, cmCACert1)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("create the config map for CA cert 2")
+			cmCACert2 = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cmCACert2Name,
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string]string{
+					caCert2FileName: testCACert,
+				},
+			}
+			err = reconciler.Create(ctx, cmCACert2)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Generate default CR")
+			cr = getDefaultOLSConfigCR()
+		})
+
+		AfterEach(func() {
+			By("Delete the provider secret")
+			secretDeletionErr := reconciler.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+
+			By("Delete the tls secret")
+			secretDeletionErr = reconciler.Delete(ctx, tlsSecret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+
+			By("Delete the config map for CA cert 1")
+			err := reconciler.Delete(ctx, cmCACert1)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Delete the config map for CA cert 2")
+			err = reconciler.Delete(ctx, cmCACert2)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should update the configmap and deployment when changing the additional CA cert", func() {
+			By("Set up an additional CA cert")
+			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
+				Name: cmCACert1Name,
+			}
+			err := reconciler.reconcileAppServer(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("check OLS configmap has extra_ca section")
+			cm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSConfigCmName, Namespace: OLSNamespaceDefault}, cm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Data).To(HaveKey(OLSConfigFilename))
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring(fmt.Sprintf("extra_ca:\n  - %s", path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir, caCert1FileName))))
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
+
+			By("check the additional CA configmap has watcher annotation")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: cmCACert1Name, Namespace: OLSNamespaceDefault}, cm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Annotations).To(HaveKeyWithValue(WatcherAnnotationKey, OLSConfigName))
+
+			By("Get app deployment and check the volume mount")
+			deployment := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, deployment)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElements(
+				corev1.Volume{
+					Name: AdditionalCAVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: cmCACert1Name,
+							},
+							DefaultMode: &volumeDefaultMode,
+						},
+					},
+				},
+				corev1.Volume{
+					Name: CertBundleVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			))
+			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
+				Name:      AdditionalCAVolumeName,
+				MountPath: path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir),
+				ReadOnly:  true,
+			}))
+			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
+				Name:      CertBundleVolumeName,
+				MountPath: path.Join(OLSAppCertsMountRoot, CertBundleDir),
+			}))
+		})
+
+		It("should not generate additional CA related settings if additional CA is not defined", func() {
+			By("Set no additional CA cert")
+			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = nil
+			err := reconciler.reconcileAppServer(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Check app deployment does not have additional CA volumes and volume mounts")
+			deployment := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, deployment)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Spec.Volumes).NotTo(ContainElement(corev1.Volume{
+				Name: AdditionalCAVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: cmCACert1Name,
+						},
+						DefaultMode: &volumeDefaultMode,
+					},
+				},
+			}))
+
+			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).NotTo(ContainElement(corev1.VolumeMount{
+				Name:      AdditionalCAVolumeName,
+				MountPath: path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir),
+				ReadOnly:  true,
+			}))
+
+			By("Check OLS configmap does not have extra_ca section")
+			cm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSConfigCmName, Namespace: OLSNamespaceDefault}, cm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Data).To(HaveKey(OLSConfigFilename))
+			Expect(cm.Data[OLSConfigFilename]).NotTo(ContainSubstring("extra_ca:"))
+
+		})
+
+	})
+
 })

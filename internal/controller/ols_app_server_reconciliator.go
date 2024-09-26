@@ -38,6 +38,10 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Task: r.reconcileOLSConfigMap,
 		},
 		{
+			Name: "reconcile Additional CA ConfigMap",
+			Task: r.reconcileOLSAdditionalCAConfigMap,
+		},
+		{
 			Name: "reconcile App Service",
 			Task: r.reconcileService,
 		},
@@ -121,6 +125,49 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	return nil
 }
 
+func (r *OLSConfigReconciler) reconcileOLSAdditionalCAConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef == nil {
+		// no additional CA certs, skip
+		r.logger.Info("Additional CA not configured, reconciliation skipped")
+		return nil
+	}
+
+	// annotate the configmap for watcher
+	cm := &corev1.ConfigMap{}
+
+	err := r.Client.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.Options.Namespace}, cm)
+
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetAdditionalCACM, err)
+	}
+
+	annotateConfigMapWatcher(cm)
+
+	err = r.Update(ctx, cm)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrUpdateAdditionalCACM, err)
+	}
+
+	certBytes := []byte{}
+	for key, value := range cm.Data {
+		certBytes = append(certBytes, []byte(key)...)
+		certBytes = append(certBytes, []byte(value)...)
+	}
+
+	foundCmHash, err := hashBytes(certBytes)
+	if err != nil {
+		return fmt.Errorf("failed to generate additional CA certs hash %w", err)
+	}
+	if foundCmHash == r.stateCache[AdditionalCAHashStateCacheKey] {
+		r.logger.Info("Additional CA reconciliation skipped", "hash", foundCmHash)
+		return nil
+	}
+	r.stateCache[AdditionalCAHashStateCacheKey] = foundCmHash
+
+	r.logger.Info("additional CA configmap reconciled", "configmap", cm.Name, "hash", foundCmHash)
+	return nil
+}
+
 func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	sa, err := r.generateServiceAccount(cr)
 	if err != nil {
@@ -200,16 +247,18 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
-			OLSAppTLSHashKey:   r.stateCache[OLSAppTLSHashStateCacheKey],
-			LLMProviderHashKey: r.stateCache[LLMProviderHashStateCacheKey],
+			OLSConfigHashKey:    r.stateCache[OLSConfigHashStateCacheKey],
+			OLSAppTLSHashKey:    r.stateCache[OLSAppTLSHashStateCacheKey],
+			LLMProviderHashKey:  r.stateCache[LLMProviderHashStateCacheKey],
+			AdditionalCAHashKey: r.stateCache[AdditionalCAHashStateCacheKey],
 			// TODO: Update DB
 			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})
 		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey:   r.stateCache[OLSConfigHashStateCacheKey],
-			OLSAppTLSHashKey:   r.stateCache[OLSAppTLSHashStateCacheKey],
-			LLMProviderHashKey: r.stateCache[LLMProviderHashStateCacheKey],
+			OLSConfigHashKey:    r.stateCache[OLSConfigHashStateCacheKey],
+			OLSAppTLSHashKey:    r.stateCache[OLSAppTLSHashStateCacheKey],
+			LLMProviderHashKey:  r.stateCache[LLMProviderHashStateCacheKey],
+			AdditionalCAHashKey: r.stateCache[AdditionalCAHashStateCacheKey],
 			// TODO: Update DB
 			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
 		})

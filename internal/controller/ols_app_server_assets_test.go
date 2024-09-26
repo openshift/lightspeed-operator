@@ -86,7 +86,6 @@ var _ = Describe("App server assets", func() {
 			olsconfigGenerated := AppSrvConfigFile{}
 			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
-
 			olsConfigExpected := AppSrvConfigFile{
 				OLSConfig: OLSConfig{
 					DefaultModel:    "testModel",
@@ -553,6 +552,7 @@ var _ = Describe("App server assets", func() {
 				},
 			))
 		})
+
 	})
 
 	Context("empty custom resource", func() {
@@ -815,6 +815,138 @@ user_data_collector_config: {}
 				},
 			))
 		})
+	})
+
+	Context("Additional CA", func() {
+
+		const caConfigMapName = "test-ca-configmap"
+		const certFilename = "additional-ca.crt"
+		var additionalCACm *corev1.ConfigMap
+
+		BeforeEach(func() {
+			rOptions = &OLSConfigReconcilerOptions{
+				LightspeedServiceImage: "lightspeed-service:latest",
+				Namespace:              OLSNamespaceDefault,
+			}
+			cr = getDefaultOLSConfigCR()
+			r = &OLSConfigReconciler{
+				Options:    *rOptions,
+				logger:     logf.Log.WithName("olsconfig.reconciler"),
+				Client:     k8sClient,
+				Scheme:     k8sClient.Scheme(),
+				stateCache: make(map[string]string),
+			}
+			By("create the provider secret")
+			secret, _ = generateRandomSecret()
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "test-secret",
+				},
+			})
+			err := r.Create(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+			By("create the additional CA configmap")
+			additionalCACm = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      caConfigMapName,
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string]string{
+					certFilename: testCACert,
+				},
+			}
+			err = r.Create(ctx, additionalCACm)
+			Expect(err).NotTo(HaveOccurred())
+
+		})
+
+		AfterEach(func() {
+			By("Delete the provider secret")
+			err := r.Delete(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+			By("Delete the additional CA configmap")
+			err = r.Delete(ctx, additionalCACm)
+			Expect(err).NotTo(HaveOccurred())
+
+		})
+
+		It("should update OLS config and mount volumes for additional CA", func() {
+			olsCm, err := r.generateOLSConfigMap(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsCm.Data[OLSConfigFilename]).NotTo(ContainSubstring("extra_ca:"))
+
+			dep, err := r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(
+				corev1.Volume{
+					Name: AdditionalCAVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: caConfigMapName,
+							},
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				}))
+			Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(
+				corev1.Volume{
+					Name: CertBundleVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				}))
+
+			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
+				Name: caConfigMapName,
+			}
+
+			olsCm, err = r.generateOLSConfigMap(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsCm.Data[OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/additional-ca.crt"))
+			Expect(olsCm.Data[OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
+
+			dep, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElements(
+				corev1.Volume{
+					Name: AdditionalCAVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: caConfigMapName,
+							},
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				},
+				corev1.Volume{
+					Name: CertBundleVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			))
+
+		})
+
+		It("should return error if the CA text is malformed", func() {
+			additionalCACm.Data[certFilename] = "malformed certificate"
+			err := r.Update(ctx, additionalCACm)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
+				Name: caConfigMapName,
+			}
+			_, err = r.generateOLSConfigMap(ctx, cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to validate additional CA certificate"))
+
+		})
+
 	})
 })
 

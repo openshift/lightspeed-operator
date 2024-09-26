@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi9/ubi-minimal@sha256:1b6d711648229a1c987f39cfdfccaebe2bd92d0b5d8caa5dbaa5234a9278a0b2
+FROM registry.redhat.io/ubi9/ubi-minimal@sha256:c0e70387664f30cd9cf2795b547e4a9a51002c44a4a86aa9335ab030134bf392
 
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
@@ -10,9 +10,6 @@ LABEL operators.operatorframework.io.bundle.channel.default.v1=preview
 LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.33.0
 LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v4
-
-# OCP compatibility labels
-LABEL com.redhat.openshift.versions=v4.15-v4.16
 
 # Labels for testing.
 LABEL operators.operatorframework.io.test.mediatype.v1=scorecard+v1
@@ -40,6 +37,9 @@ LABEL url="https://github.com/openshift/lightspeed-operator"
 LABEL vendor="Red Hat, Inc."
 LABEL version=0.1.6
 LABEL summary="Red Hat OpenShift Lightspeed"
+
+# OCP compatibility labels
+LABEL com.redhat.openshift.versions=v4.15-v4.17
 
 # Set user to non-root for security reasons.
 USER 1001

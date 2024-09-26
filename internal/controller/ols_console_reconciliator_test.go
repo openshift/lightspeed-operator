@@ -44,6 +44,12 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			})
 			secretCreationErr := reconciler.Create(ctx, tlsSecret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			By("set the OLSConfig custom resource to default")
+			err = k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			crDefault := getDefaultOLSConfigCR()
+			cr.Spec = crDefault.Spec
 		})
 
 		AfterAll(func() {
