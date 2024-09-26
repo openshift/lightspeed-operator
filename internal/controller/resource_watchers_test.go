@@ -27,4 +27,20 @@ var _ = Describe("Watchers", func() {
 		})
 	})
 
+	Context("configmap", Ordered, func() {
+		ctx := context.Background()
+		It("should identify watched configmap by annotations", func() {
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "test-configmap"},
+			}
+			requests := configMapWatcherFilter(ctx, configMap)
+			Expect(requests).To(BeEmpty())
+
+			annotateConfigMapWatcher(configMap)
+			requests = configMapWatcherFilter(ctx, configMap)
+			Expect(requests).To(HaveLen(1))
+			Expect(requests[0].Name).To(Equal(OLSConfigName))
+		})
+	})
+
 })

@@ -57,6 +57,14 @@ const (
 	AppServerPrometheusRuleName = "lightspeed-app-server-prometheus-rule"
 	// AppServerMetricsPath is the path of the metrics endpoint of the OLS application server
 	AppServerMetricsPath = "/metrics"
+	// AppAdditionalCACertDir is the directory for storing additional CA certificates in the app server container under OLSAppCertsMountRoot
+	AppAdditionalCACertDir = "ols-additional-ca"
+	// AdditionalCAVolumeName is the name of the volume for additional CA certificates provided by the user
+	AdditionalCAVolumeName = "additional-ca"
+	// CertBundleVolumeName is the name of the volume for the certificate bundle
+	CertBundleVolumeName = "cert-bundle"
+	// CertBundleDir is the path of the volume for the certificate bundle
+	CertBundleDir = "cert-bundle"
 
 	// Image of the OLS application redis server
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
@@ -68,6 +76,8 @@ const (
 	OLSAppTLSHashKey = "hash/olstls"
 	// OLSConsoleTLSHashKey is the key of the hash value of the OLS Console TLS certificates
 	OLSConsoleTLSHashKey = "hash/olsconsoletls"
+	// AdditionalCAHashKey is the key of the hash value of the additional CA certificates in the deployment annotations
+	AdditionalCAHashKey = "hash/additionalca"
 	// OLSAppServerContainerPort is the port number of the lightspeed-service-api container exposes
 	OLSAppServerContainerPort = 8443
 	// OLSAppServerServicePort is the port number for OLS application server service.
@@ -90,6 +100,8 @@ const (
 	LLMProviderHashStateCacheKey = "llmprovider-hash"
 	// AzureOpenAIType is the name of the Azure OpenAI provider type
 	AzureOpenAIType = "azure_openai"
+	// AdditionalCAHashStateCacheKey is the key of the hash value of the additional CA certificates in the state cache
+	AdditionalCAHashStateCacheKey = "additionalca-hash"
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
 	ConsoleUIConfigMapName = "lightspeed-console-plugin"

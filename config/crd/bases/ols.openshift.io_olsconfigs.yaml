@@ -130,6 +130,18 @@ spec:
               ols:
                 description: OLSSpec defines the desired state of OLS deployment.
                 properties:
+                  additionalCAConfigMapRef:
+                    description: Additional CA certificates for TLS communication
+                      between OLS service and LLM Provider
+                    properties:
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
                   conversationCache:
                     description: Conversation cache settings
                     properties:

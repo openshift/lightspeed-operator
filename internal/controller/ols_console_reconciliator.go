@@ -279,6 +279,10 @@ func (r *OLSConfigReconciler) deleteConsoleUIPlugin(ctx context.Context) error {
 	}
 	err = r.Delete(ctx, plugin)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			r.logger.Info("Console Plugin not found, consider deletion successful")
+			return nil
+		}
 		return fmt.Errorf("%s: %w", ErrDeleteConsolePlugin, err)
 	}
 	r.logger.Info("Console Plugin deleted")
