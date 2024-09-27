@@ -101,7 +101,6 @@ func (r *OLSConfigReconciler) generateConsoleUIService(cr *olsv1alpha1.OLSConfig
 }
 
 func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
-	replicas := int32(2)
 	val_true := true
 	volumeDefaultMode := int32(420)
 	resources := getConsoleUIResources(cr)
@@ -112,7 +111,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 			Labels:    generateConsoleUILabels(),
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: generateConsoleUILabels(),
 			},

@@ -133,6 +133,11 @@ spec:
         path: ols.deployment.console.nodeSelector
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:nodeSelector
+      - description: 'Defines the number of desired Console pods. Default: "1"'
+        displayName: Number of replicas
+        path: ols.deployment.console.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
       - displayName: Resource Requirements
         path: ols.deployment.console.resources
         x-descriptors:

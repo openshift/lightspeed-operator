@@ -61,6 +61,8 @@ var _ = Describe("Console UI assets", func() {
 		})
 
 		It("should generate the console UI deployment", func() {
+			var replicas int32 = 2
+			cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Replicas = &replicas
 			dep, err := r.generateConsoleUIDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(ConsoleUIDeploymentName))
@@ -79,7 +81,7 @@ var _ = Describe("Console UI assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Tolerations).To(BeNil())
 			Expect(dep.Spec.Template.Spec.NodeSelector).To(BeNil())
-
+			Expect(dep.Spec.Replicas).To(Equal(cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Replicas))
 		})
 
 		It("should generate the console UI plugin", func() {
