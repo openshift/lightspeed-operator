@@ -2,13 +2,15 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
+  annotations:
+    pipelinesascode.tekton.dev/task: "[ols-installer, ols-e2e-task]"
   name: ols-ui-tests-pipeline
 spec:
   description: |
     This pipeline automates the process of running end-to-end tests for Openshift Lightspeed
-    using an ephemeral namespace created with the eaas-provision-space task. The pipeline provisions
-    an ephemeral environment, which results in the path to a kubeconfig secret. Then we run the tests, collects artifacts,
-    and finally deprovisions the environment.
+    using a ROSA (Red Hat OpenShift Service on AWS) cluster. The pipeline provisions
+    the ROSA cluster, installs the openshift lightspeed operator using the installer, runs the tests, collects artifacts,
+    and finally deprovisions the ROSA cluster.
   params:
     - name: SNAPSHOT
       description: 'The JSON string representing the snapshot of the application under test.'
@@ -16,7 +18,7 @@ spec:
       type: string
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
-      default: 'lightspeed'
+      default: 'ols-ui-e2e-tests'
   tasks:
     - name: eaas-provision-space
       taskRef:
@@ -35,19 +37,133 @@ spec:
           value: $(context.pipelineRun.name)
         - name: ownerUid
           value: $(context.pipelineRun.uid)
-    - name: tests-private-ui-build
-      description: Task to build the image of the openshift-tests-private repository frontend tests
+    - name: provision-cluster
+      description: Task to install bundle onto ephemeral namespace
+      runAfter:
+        - eaas-provision-space
       params:
         - name: SNAPSHOT
           value: $(params.SNAPSHOT)
-        - name: revision
-          value: "{{revision}}"
+      taskSpec:
+        results:
+          - name: clusterName
+            value: "$(steps.create-cluster.results.clusterName)"
+          - name: bundle-image
+            value: "$(steps.get-bundle-image.results.bundle-image)"
+          - name: ui-tests-image
+            value: "$(steps.get-ui-tests-image.results.ui-tests-image)"
+        params:
+          - name: SNAPSHOT
+        steps:
+          - name: get-supported-versions
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/build-definitions.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/eaas-get-supported-ephemeral-cluster-versions/0.1/eaas-get-supported-ephemeral-cluster-versions.yaml
+            params:
+              - name: eaasSpaceSecretRef
+                value: $(tasks.eaas-provision-space.results.secretRef)
+          - name: pick-version
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/build-definitions.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/eaas-get-latest-openshift-version-by-prefix/0.1/eaas-get-latest-openshift-version-by-prefix.yaml
+            params:
+              - name: prefix
+                value: "$(steps.get-supported-versions.results.versions[0])."
+          - name: create-cluster
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/build-definitions.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/eaas-create-ephemeral-cluster-hypershift-aws/0.1/eaas-create-ephemeral-cluster-hypershift-aws.yaml
+            params:
+              - name: eaasSpaceSecretRef
+                value: $(tasks.eaas-provision-space.results.secretRef)
+              - name: version
+                value: "$(steps.pick-version.results.version)"
+              - name: instanceType
+                value: "m5.large"
+          - name: get-bundle-image
+            results:
+              - name: bundle-image
+                type: string
+                description: "bundle image from snapshot"
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            script: |
+              echo "---------------------------------------------"
+              dnf -y install jq
+              echo -n "$(jq -r --arg component_name "test-bundle" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
+          - name: get-ui-tests-image
+            results:
+              - name: ui-tests-image
+                type: string
+                description: "ui tests image from snapshot"
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            script: |
+              echo "---------------------------------------------"
+              dnf -y install jq
+              echo -n "$(jq -r --arg component_name "openshift-tests-private-416-lightspeed" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.ui-tests-image.path)
+    - name: ols-ui-tests
+      description: Task to install bundle onto ephemeral namespace
+      runAfter:
+        - provision-cluster
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+        - name: bundle-image
+          value: "$(tasks.provision-cluster.results.bundle-image)"
+        - name: ui-tests-image
+          value: "$(tasks.provision-cluster.results.ui-tests-image)"
       taskSpec:
         params:
           - name: SNAPSHOT
-          - name: SecretRef
+          - name: bundle-image
+            type: string
+          - name: ui-tests-image
+            type: string
+        volumes:
+          - name: credentials
+            emptyDir: { }
         steps:
-          - name: install-operator
+          - name: get-kubeconfig
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/build-definitions.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/eaas-get-ephemeral-cluster-credentials/0.1/eaas-get-ephemeral-cluster-credentials.yaml
+            params:
+              - name: eaasSpaceSecretRef
+                value: $(tasks.eaas-provision-space.results.secretRef)
+              - name: clusterName
+                value: "$(tasks.provision-cluster.results.clusterName)"
+              - name: credentials
+                value: credentials
+          - name: run-ui-tests
             env:
               - name: SNAPSHOT
                 value: $(params.SNAPSHOT)
@@ -55,15 +171,39 @@ spec:
                 valueFrom:
                   fieldRef:
                     fieldPath: metadata.labels['appstudio.openshift.io/component']
-            image: registry.redhat.io/openshift4/ose-cli:latest
+              - name: CYPRESS_BUNDLE_IMAGE
+                value: "$(params.bundle-image)"
+              - name: CYPRESS_KUBECONFIG
+                value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
+            volumeMounts:
+              - name: credentials
+                mountPath: /credentials
+            image: "$(params.ui-tests-image)"
             script: |
-              dnf -y install jq python3-pip
+              echo "---------------------------------------------"
+              for i in $(seq 1 5); do
+                  username="uiauto-test-${i}"
+                  password=$(tr </dev/urandom -dc 'a-z0-9' | fold -w 12 | head -n 1 || true)
+                  users+="${username}:${password},"
+                  if [ -f "${htpass_file}" ]; then
+                      htpasswd -B -b ${htpass_file} "${username}" "${password}"
+                  else
+                      htpasswd -c -B -b ${htpass_file} "${username}" "${password}"
+                  fi
+              done
+              users=${users%?}
 
               echo "---------------------------------------------"
-              echo ${SNAPSHOT} | jq .
+              set -x
+              git clone -b master --depth=1 https://github.com/openshift/console.git upstream_console && cd upstream_console/frontend && yarn install
+              cd ../../
+              ln -s ./upstream_console/frontend/packages/integration-tests-cypress upstream
               echo "---------------------------------------------"
-              echo ${KONFLUX_COMPONENT_NAME}
-              echo $(jq -r --arg component_name "$KONFLUX_COMPONENT_NAME" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")
-              echo "---------------------------------------------"
-              echo -e "The install command will come here"
-
+              console_route=$(oc get route console -n openshift-console -o jsonpath='{.spec.host}')
+              export CYPRESS_BASE_URL=https://$console_route
+              export CYPRESS_LOGIN_IDP=uiauto-htpasswd-idp
+              export CYPRESS_LOGIN_USERS=$users
+              export NO_COLOR=1
+              ls -ltr
+              echo "triggering tests"
+              node --max-old-space-size=4096 ./node_modules/.bin/cypress run --env grep="Lightspeed" openshift=true --browser chrome
