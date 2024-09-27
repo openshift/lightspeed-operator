@@ -355,7 +355,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:f15592008e3540ddd678d7232cf98172bf00baef9682a43ff9b125929be386c5
+                    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:e8dece969ada9fddafe89985d0efa063827c889b7d0ffb05ce5b28628c299c7e
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -553,4 +553,4 @@ spec:
     - name: lightspeed-console-plugin
       image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:5f578942903c9051e049db6c67f79ebc067fe15d4f9c9f13197774a7e8f7e46b
     - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:f15592008e3540ddd678d7232cf98172bf00baef9682a43ff9b125929be386c5
+      image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:e8dece969ada9fddafe89985d0efa063827c889b7d0ffb05ce5b28628c299c7e
