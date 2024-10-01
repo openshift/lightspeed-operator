@@ -832,6 +832,7 @@ user_data_collector_config: {}
 				},
 			))
 			Expect(serviceMonitor.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
+			Expect(serviceMonitor.ObjectMeta.Labels).To(HaveKeyWithValue("openshift.io/user-monitoring", "false"))
 		})
 
 		It("should generate the OLS prometheus rules", func() {

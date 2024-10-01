@@ -9,6 +9,7 @@ metadata:
     app.kubernetes.io/name: servicemonitor
     app.kubernetes.io/part-of: lightspeed-operator
     control-plane: controller-manager
+    openshift.io/user-monitoring: "false"
   name: lightspeed-operator-controller-manager-metrics-monitor
 spec:
   endpoints:

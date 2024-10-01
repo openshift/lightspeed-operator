@@ -10,6 +10,7 @@ metadata:
     app.kubernetes.io/created-by: lightspeed-operator
     app.kubernetes.io/part-of: lightspeed-operator
     app.kubernetes.io/managed-by: kustomize
+    openshift.io/user-monitoring: "false"
   name: controller-manager-metrics-monitor
   namespace: system
 spec:
