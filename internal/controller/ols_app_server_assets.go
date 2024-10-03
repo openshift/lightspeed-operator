@@ -352,6 +352,7 @@ func (r *OLSConfigReconciler) generateServiceMonitor(cr *olsv1alpha1.OLSConfig) 
 	metaLabels := generateAppServerSelectorLabels()
 	metaLabels["monitoring.openshift.io/collection-profile"] = "full"
 	metaLabels["app.kubernetes.io/component"] = "metrics"
+	metaLabels["openshift.io/user-monitoring"] = "false"
 
 	serviceMonitor := monv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
