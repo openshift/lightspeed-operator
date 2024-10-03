@@ -4,7 +4,7 @@ kind: Pipeline
 metadata:
   annotations:
     pipelinesascode.tekton.dev/task: "[ols-installer, ols-e2e-task]"
-  name: ols-integration-tests-pipeline
+  name: ols-operator-e2e-tests-pipeline
 spec:
   description: |
     This pipeline automates the process of running end-to-end tests for Openshift Lightspeed
@@ -18,10 +18,10 @@ spec:
       type: string
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
-      default: 'ols-e2e-tests'
+      default: 'ols-operator-e2e-tests'
     - name: namespace
       description: 'Namespace to run tests in'
-      default: 'lightspeed-tests'
+      default: 'openshift-lightspeed'
   tasks:
     - name: eaas-provision-space
       taskRef:
@@ -60,7 +60,7 @@ spec:
                   value: stepactions/eaas-get-latest-openshift-version-by-prefix/0.1/eaas-get-latest-openshift-version-by-prefix.yaml
             params:
               - name: prefix
-                value: "4.16."
+                value: "4.15."
           - name: create-cluster
             ref:
               resolver: git
@@ -139,7 +139,8 @@ spec:
               chmod +x /usr/local/bin/operator-sdk
               operator-sdk version
               echo "---------------------------------------------"
-              oc new-project $(params.namespace)
+              oc create namespace $(params.namespace)
+              oc label namespaces $(params.namespace) openshift.io/cluster-monitoring=true --overwrite=true
               export IMAGE_DIGEST_MIRROR_SET=https://raw.githubusercontent.com/openshift/lightspeed-operator/main/config/manager/imagedigestmirrorset.yaml
               curl -Lo /usr/tmp/imagedigestmirrorset "$IMAGE_DIGEST_MIRROR_SET"
               oc apply -f /usr/tmp/imagedigestmirrorset
@@ -150,70 +151,53 @@ spec:
               echo "---------------------------------------------"
               operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
               echo "---------------------------------------------"
-              echo -e "The install command will come here"
+              oc get deployment lightspeed-operator-controller-manager -n "$(params.namespace)"
     - name: ols-e2e-tests
       description: Task to run tests from service repository
       runAfter:
         - ols-install
       taskSpec:
         volumes:
-          - name: azure-openai-token
-            secret:
-              secretName: azureopenai-apitoken
-          - name: azureopenai-entra-id
-            secret:
-              secretName: azureopenai-entra-id
-          - name: bam-token
-            secret:
-              secretName: bam-apitoken
           - name: openai-token
             secret:
               secretName: openai
-          - name: watsonx-token
-            secret:
-              secretName: watsonx-apitoken
-          - name: insights-stage-upload-offline-token
-            secret:
-              secretName: insights-stage-upload-offline-token
+          - name: credentials
+            emptyDir: {}
         steps:
+          - name: get-kubeconfig
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/build-definitions.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/eaas-get-ephemeral-cluster-credentials/0.1/eaas-get-ephemeral-cluster-credentials.yaml
+            params:
+              - name: eaasSpaceSecretRef
+                value: $(tasks.eaas-provision-space.results.secretRef)
+              - name: clusterName
+                value: "$(tasks.provision-cluster.results.clusterName)"
+              - name: credentials
+                value: credentials
           - name: run-e2e-tests
             volumeMounts:
-              - name: azure-openai-token
-                mountPath: /var/run/azure_openai
-              - name: azureopenai-entra-id
-                mountPath: /var/run/azureopenai-entra-id
-              - name: bam-token
-                mountPath: /var/run/bam
               - name: openai-token
                 mountPath: /var/run/openai
-              - name: watsonx-token
-                mountPath: /var/run/watsonx
-              - name: insights-stage-upload-offline-token
-                mountPath: /var/run/insights-stage-upload-offline-token
+              - name: credentials
+                mountPath: /credentials
             env:
-              - name: BAM_PROVIDER_KEY_PATH
-                value: "/var/run/bam/token"
-              - name: AZUREOPENAI_PROVIDER_KEY_PATH
-                value: "/var/run/azure_openai/token"
-              - name: AZUREOPENAI_ENTRA_ID_TENANT_ID
-                value: $(cat /var/run/azureopenai-entra-id/tenant_id)
-              - name: AZUREOPENAI_ENTRA_ID_CLIENT_ID
-                value: $(cat /var/run/azureopenai-entra-id/client_id)
-              - name: AZUREOPENAI_ENTRA_ID_CLIENT_SECRET
-                value: $(cat /var/run/azureopenai-entra-id/client_secret)
-              - name: OPENAI_PROVIDER_KEY_PATH
+              - name: KUBECONFIG
+                value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
+              - name: LLM_TOKEN_PATH
                 value: "/var/run/openai/token"
-              - name: WATSONX_PROVIDER_KEY_PATH
-                value: "/var/run/watsonx/token"
-              - name: PROVIDER_KEY_PATH
-                value: "/var/run/openai/token"
-              - name: PROVIDER
-                value: "openai"
-              - name: MODEL
-                value: "gpt-3.5-turbo-1106"
-              - name: CP_OFFLINE_TOKEN
-                value: $(cat /var/run/insights-stage-upload-offline-token/token)
             image: registry.redhat.io/openshift4/ose-cli:latest
             script: |
               echo "---------------------------------------------"
-              ls /var/run/azureopenai-entra-id
+              export LLM_TOKEN=$(cat ${LLM_TOKEN_PATH})
+              dnf -y install git make golang
+              git clone https://github.com/openshift/lightspeed-operator.git
+              cd lightspeed-operator
+              echo "---------------------------------------------"
+              make test-e2e
