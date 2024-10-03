@@ -13,6 +13,7 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -221,20 +222,22 @@ func (r *OLSConfigReconciler) reconcileConsoleUIPlugin(ctx context.Context, cr *
 }
 
 func (r *OLSConfigReconciler) activateConsoleUI(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	console := &openshiftv1.Console{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: ConsoleCRName}, console)
-	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetConsole, err)
-	}
-	if console.Spec.Plugins == nil {
-		console.Spec.Plugins = []string{ConsoleUIPluginName}
-	} else if !slices.Contains(console.Spec.Plugins, ConsoleUIPluginName) {
-		console.Spec.Plugins = append(console.Spec.Plugins, ConsoleUIPluginName)
-	} else {
-		return nil
-	}
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		console := &openshiftv1.Console{}
+		err := r.Client.Get(ctx, client.ObjectKey{Name: ConsoleCRName}, console)
+		if err != nil {
+			return fmt.Errorf("%s: %w", ErrGetConsole, err)
+		}
+		if console.Spec.Plugins == nil {
+			console.Spec.Plugins = []string{ConsoleUIPluginName}
+		} else if !slices.Contains(console.Spec.Plugins, ConsoleUIPluginName) {
+			console.Spec.Plugins = append(console.Spec.Plugins, ConsoleUIPluginName)
+		} else {
+			return nil
+		}
 
-	err = r.Update(ctx, console)
+		return r.Update(ctx, console)
+	})
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrUpdateConsole, err)
 	}
@@ -290,20 +293,22 @@ func (r *OLSConfigReconciler) deleteConsoleUIPlugin(ctx context.Context) error {
 }
 
 func (r *OLSConfigReconciler) deactivateConsoleUI(ctx context.Context) error {
-	console := &openshiftv1.Console{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: ConsoleCRName}, console)
-	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetConsole, err)
-	}
-	if console.Spec.Plugins == nil {
-		return nil
-	}
-	if slices.Contains(console.Spec.Plugins, ConsoleUIPluginName) {
-		console.Spec.Plugins = slices.DeleteFunc(console.Spec.Plugins, func(name string) bool { return name == ConsoleUIPluginName })
-	} else {
-		return nil
-	}
-	err = r.Update(ctx, console)
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		console := &openshiftv1.Console{}
+		err := r.Client.Get(ctx, client.ObjectKey{Name: ConsoleCRName}, console)
+		if err != nil {
+			return fmt.Errorf("%s: %w", ErrGetConsole, err)
+		}
+		if console.Spec.Plugins == nil {
+			return nil
+		}
+		if slices.Contains(console.Spec.Plugins, ConsoleUIPluginName) {
+			console.Spec.Plugins = slices.DeleteFunc(console.Spec.Plugins, func(name string) bool { return name == ConsoleUIPluginName })
+		} else {
+			return nil
+		}
+		return r.Update(ctx, console)
+	})
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrUpdateConsole, err)
 	}
