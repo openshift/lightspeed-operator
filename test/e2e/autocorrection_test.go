@@ -77,7 +77,7 @@ var _ = Describe("Automatic correction against modifications on managed resource
 		Expect(err).NotTo(HaveOccurred())
 
 		By("restoring console plugin deployment")
-		err = client.Get(deployment)
+		err = client.WaitForObjectCreated(deployment)
 		Expect(err).NotTo(HaveOccurred())
 		originDeployment := deployment.DeepCopy()
 		deployment.Spec.Replicas = Ptr(1 + *deployment.Spec.Replicas)
