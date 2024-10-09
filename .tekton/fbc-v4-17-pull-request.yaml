@@ -8,7 +8,7 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: |
-      event == "push" && 
+      event == "pull_request" &&
       target_branch == "main" &&
       (".tekton/fbc-v4-17-pull-request.yaml".pathChanged() || "lightspeed-catalog-4.17/***".pathChanged() || "lightspeed-catalog-4.17.Dockerfile".pathChanged())
   creationTimestamp: null
