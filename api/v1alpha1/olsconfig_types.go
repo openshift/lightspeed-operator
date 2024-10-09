@@ -124,6 +124,12 @@ type ConsoleContainerConfig struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Selector",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeSelector"}
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// Defines the number of desired Console pods. Default: "1"
+	// +kubebuilder:default=1
+	// +kubebuilder:validation:Minimum=0
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=redis

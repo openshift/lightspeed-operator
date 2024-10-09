@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2024-08-30T09:59:16Z"
+    createdAt: "2024-10-03T09:25:52Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -165,6 +165,11 @@ spec:
             path: ols.deployment.console.nodeSelector
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:nodeSelector
+          - description: 'Defines the number of desired Console pods. Default: "1"'
+            displayName: Number of replicas
+            path: ols.deployment.console.replicas
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:podCount
           - displayName: Resource Requirements
             path: ols.deployment.console.resources
             x-descriptors:

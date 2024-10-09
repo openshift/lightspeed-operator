@@ -291,6 +291,13 @@ spec:
                             additionalProperties:
                               type: string
                             type: object
+                          replicas:
+                            default: 1
+                            description: 'Defines the number of desired Console pods.
+                              Default: "1"'
+                            format: int32
+                            minimum: 0
+                            type: integer
                           resources:
                             description: ResourceRequirements describes the compute
                               resource requirements.
