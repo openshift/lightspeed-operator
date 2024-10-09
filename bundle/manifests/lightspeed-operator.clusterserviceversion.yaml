@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2024-10-03T09:25:52Z"
+    createdAt: "2024-10-09T13:05:58Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -161,6 +161,11 @@ spec:
           - description: Console container settings.
             displayName: Console Container
             path: ols.deployment.console
+          - description: Certificate Authority (CA) certificate used by the console proxy endpoint.
+            displayName: CA Certificate
+            path: ols.deployment.console.caCertificate
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:caCertificate
           - displayName: Node Selector
             path: ols.deployment.console.nodeSelector
             x-descriptors:
@@ -205,6 +210,12 @@ spec:
           - description: Replacement for the matched pattern.
             displayName: Replace With
             path: ols.queryFilters[0].replaceWith
+          - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
+            displayName: TLS Configuration
+            path: ols.tlsConfig
+          - description: KeySecretRef is the secret that holds the TLS key.
+            displayName: Key Secret
+            path: ols.tlsConfig.keyCertSecretRef
           - description: User data collection switches
             displayName: User Data Collection
             path: ols.userDataCollection
@@ -351,8 +362,8 @@ spec:
                       - --metrics-bind-address=:8443
                       - --secure-metrics-server
                       - --cert-dir=/etc/tls/private
+                      - --service-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:30a415728724d6cdac7836fe6f142544a01124633837e958c700c757fa0d82dd
                       - --console-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:144af406ea4202b5d72a7630cc286881fe155b7f4600d498593ff65d67a2fbd0
-                      - --service-image=registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:f2ae050ceb35a10cba0f1c056975314ea33f320e3a08cffde8b939274aebff0d
                     command:
                       - /manager
                     env:
@@ -540,8 +551,8 @@ spec:
       type: AllNamespaces
   keywords:
     - ai
-    - openshift
     - assistant
+    - openshift
     - llm
   links:
     - name: Lightspeed Operator
