@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	configv1 "github.com/openshift/api/config/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -51,6 +52,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/lightspeed-operator/internal/controller"
+	utiltls "github.com/openshift/lightspeed-operator/internal/tls"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -71,6 +73,7 @@ func init() {
 	utilruntime.Must(consolev1.AddToScheme(scheme))
 	utilruntime.Must(openshiftv1.AddToScheme(scheme))
 	utilruntime.Must(monv1.AddToScheme(scheme))
+	utilruntime.Must(configv1.AddToScheme(scheme))
 
 	utilruntime.Must(olsv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
@@ -145,6 +148,7 @@ func main() {
 	setupLog.Info("Images setting loaded", "images", listImages())
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "reconcilerIntervalMinutes", reconcilerIntervalMinutes, "certDir", certDir, "certName", certName, "keyName", keyName)
 
+	var tlsSecurityProfileSpec configv1.TLSProfileSpec
 	if secureMetricsServer {
 		cfg, err := config.GetConfig()
 		if err != nil {
@@ -152,7 +156,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		k8sClient, err := client.New(cfg, client.Options{})
+		k8sClient, err := client.New(cfg, client.Options{Scheme: scheme})
 		if err != nil {
 			setupLog.Error(err, "unable to create Kubernetes client")
 			os.Exit(1)
@@ -171,6 +175,25 @@ func main() {
 			setupLog.Error(err, fmt.Sprintf("the key %s is not found in %s/%s configmap.", controller.ClientCACertKey, controller.ClientCACmNamespace, controller.ClientCACmName))
 			os.Exit(1)
 		}
+
+		olsconfig := &olsv1alpha1.OLSConfig{}
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: controller.OLSConfigName}, olsconfig)
+		if err != nil && client.IgnoreNotFound(err) != nil {
+			setupLog.Error(err, fmt.Sprintf("failed to get %s OLSConfig.", controller.OLSConfigName))
+			os.Exit(1)
+		}
+		if olsconfig.Spec.OLSConfig.TLSSecurityProfile != nil {
+			tlsSecurityProfileSpec = utiltls.GetTLSProfileSpec(olsconfig.Spec.OLSConfig.TLSSecurityProfile)
+		} else {
+			setupLog.Info("TLS profile is not defined in OLSConfig, fetch from API server")
+			profileAPIServer, err := utiltls.FetchAPIServerTlsProfile(k8sClient)
+			if err != nil {
+				setupLog.Error(err, "unable to get TLS profile from API server")
+				os.Exit(1)
+			}
+			tlsSecurityProfileSpec = utiltls.GetTLSProfileSpec(profileAPIServer)
+		}
+
 	}
 
 	metricsTLSSetup := func(tlsConf *tls.Config) {
@@ -180,6 +203,12 @@ func main() {
 		tlsConf.ClientCAs = x509.NewCertPool()
 		tlsConf.ClientCAs.AppendCertsFromPEM([]byte(metricsClientCA))
 		tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
+		tlsConf.MinVersion = utiltls.VersionCode(configv1.TLSProtocolVersion(utiltls.MinTLSVersion(tlsSecurityProfileSpec)))
+		ciphers, unsupportedCiphers := utiltls.CipherCodes(utiltls.TLSCiphers(tlsSecurityProfileSpec))
+		tlsConf.CipherSuites = ciphers
+		if len(unsupportedCiphers) > 0 {
+			setupLog.Info("TLS setup for metrics server contains unsupported ciphers", "unsupportedCiphers", unsupportedCiphers)
+		}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
