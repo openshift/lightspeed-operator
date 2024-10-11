@@ -10,10 +10,13 @@ import (
 	"sort"
 	"strings"
 
+	configv1 "github.com/openshift/api/config/v1"
+	tls "github.com/openshift/lightspeed-operator/internal/tls"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -419,4 +422,17 @@ func validateCertificateFormat(cert []byte) error {
 	}
 
 	return nil
+}
+
+func getTlsSecurityProfileSpec(profile *configv1.TLSSecurityProfile, k8sClient client.Client) (configv1.TLSProfileSpec, error) {
+	if profile != nil {
+		return tls.GetTLSProfileSpec(profile), nil
+	}
+
+	profile, err := tls.FetchAPIServerTlsProfile(k8sClient)
+	if err != nil {
+		return configv1.TLSProfileSpec{}, err
+	}
+	return tls.GetTLSProfileSpec(profile), nil
+
 }
