@@ -1,0 +1,316 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  annotations:
+    pipelinesascode.tekton.dev/task: "[ols-installer, ols-e2e-task]"
+  name: ols-integration-tests-pipeline
+spec:
+  description: |
+    This pipeline automates the process of running end-to-end tests for Openshift Lightspeed
+    using a ROSA (Red Hat OpenShift Service on AWS) cluster. The pipeline provisions
+    the ROSA cluster, installs the openshift lightspeed operator using the installer, runs the tests, collects artifacts,
+    and finally deprovisions the ROSA cluster.
+  params:
+    - name: SNAPSHOT
+      description: 'The JSON string representing the snapshot of the application under test.'
+      default: '{"components": [{"name":"test-app", "containerImage": "quay.io/example/repo:latest"}]}'
+      type: string
+    - name: test-name
+      description: 'The name of the test corresponding to a defined Konflux integration test.'
+      default: 'ols-e2e-tests-4.15'
+    - name: namespace
+      description: 'Namespace to run tests in'
+      default: 'openshift-lightspeed'
+  tasks:
+    - name: eaas-provision-space
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/build-definitions.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: task/eaas-provision-space/0.1/eaas-provision-space.yaml
+      params:
+        - name: ownerKind
+          value: PipelineRun
+        - name: ownerName
+          value: $(context.pipelineRun.name)
+        - name: ownerUid
+          value: $(context.pipelineRun.uid)
+    - name: provision-cluster
+      runAfter:
+        - eaas-provision-space
+      taskSpec:
+        results:
+          - name: clusterName
+            value: "$(steps.create-cluster.results.clusterName)"
+        steps:
+          - name: pick-version
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/build-definitions.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/eaas-get-latest-openshift-version-by-prefix/0.1/eaas-get-latest-openshift-version-by-prefix.yaml
+            params:
+              - name: prefix
+                value: "4.15."
+          - name: create-cluster
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/build-definitions.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/eaas-create-ephemeral-cluster-hypershift-aws/0.1/eaas-create-ephemeral-cluster-hypershift-aws.yaml
+            params:
+              - name: eaasSpaceSecretRef
+                value: $(tasks.eaas-provision-space.results.secretRef)
+              - name: version
+                value: "$(steps.pick-version.results.version)"
+              - name: instanceType
+                value: "m5.large"
+    - name: ols-install
+      description: Task to install bundle onto ephemeral namespace
+      runAfter:
+        - provision-cluster
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+        - name: namespace
+          value: "$(params.namespace)"
+      taskSpec:
+        results:
+          - name: service-image
+            value: "$(steps.get-service-image.results.service-image)"
+        params:
+          - name: SNAPSHOT
+          - name: namespace
+            type: string
+        volumes:
+          - name: credentials
+            emptyDir: {}
+        steps:
+          - name: get-kubeconfig
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/build-definitions.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/eaas-get-ephemeral-cluster-credentials/0.1/eaas-get-ephemeral-cluster-credentials.yaml
+            params:
+              - name: eaasSpaceSecretRef
+                value: $(tasks.eaas-provision-space.results.secretRef)
+              - name: clusterName
+                value: "$(tasks.provision-cluster.results.clusterName)"
+              - name: credentials
+                value: credentials
+          - name: install-operator
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+              - name: KONFLUX_COMPONENT_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['appstudio.openshift.io/component']
+              - name: KUBECONFIG
+                value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
+            volumeMounts:
+              - name: credentials
+                mountPath: /credentials
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            script: |
+              echo "---------------------------------------------"
+              cat $KUBECONFIG
+              echo "---------------------------------------------"
+              dnf -y install jq python3-pip
+              export OPERATOR_SDK_VERSION=1.36.1
+              export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
+              export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v${OPERATOR_SDK_VERSION}
+              curl -Lo /usr/local/bin/operator-sdk ${OPERATOR_SDK_DL_URL}/operator-sdk_linux_${ARCH}
+              chmod +x /usr/local/bin/operator-sdk
+              operator-sdk version
+              echo "---------------------------------------------"
+              oc create namespace $(params.namespace)
+              oc label namespaces $(params.namespace) openshift.io/cluster-monitoring=true --overwrite=true
+              export IMAGE_DIGEST_MIRROR_SET=https://raw.githubusercontent.com/openshift/lightspeed-operator/main/config/manager/imagedigestmirrorset.yaml
+              curl -Lo /usr/tmp/imagedigestmirrorset "$IMAGE_DIGEST_MIRROR_SET"
+              oc apply -f /usr/tmp/imagedigestmirrorset
+              echo "---------------------------------------------"
+              echo ${KONFLUX_COMPONENT_NAME}
+              export BUNDLE_IMAGE="$(jq -r --arg component_name "$KONFLUX_COMPONENT_NAME" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")"
+              echo "${BUNDLE_IMAGE}"
+              echo "---------------------------------------------"
+              operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
+              echo "---------------------------------------------"
+              oc get deployment lightspeed-operator-controller-manager -n "$(params.namespace)"
+          - name: get-service-image
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+            results:
+              - name: service-image
+                type: string
+                description: "service image from snapshot"
+            script: |
+              dnf -y install jq
+              echo -n "$(jq -r --arg component_name "lightspeed-service" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.service-image.path)
+    - name: ols-e2e-tests
+      description: Task to run tests from service repository
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+        - name: serviceimage
+          value: $(tasks.ols-install.results.service-image)
+        - name: namespace
+          value: "$(params.namespace)"
+      runAfter:
+        - ols-install
+      taskSpec:
+        params:
+          - name: SNAPSHOT
+          - name: serviceimage
+          - name: namespace
+            type: string
+        volumes:
+          - name: azure-openai-token
+            secret:
+              secretName: azureopenai-apitoken
+          - name: azureopenai-entra-id
+            secret:
+              secretName: azureopenai-entra-id
+          - name: bam-token
+            secret:
+              secretName: bam-apitoken
+          - name: openai-token
+            secret:
+              secretName: openai
+          - name: watsonx-token
+            secret:
+              secretName: watsonx-apitoken
+          - name: insights-stage-upload-offline-token
+            secret:
+              secretName: insights-stage-upload-offline-token
+          - name: credentials
+            emptyDir: {}
+        steps:
+          - name: get-kubeconfig
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/build-definitions.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/eaas-get-ephemeral-cluster-credentials/0.1/eaas-get-ephemeral-cluster-credentials.yaml
+            params:
+              - name: eaasSpaceSecretRef
+                value: $(tasks.eaas-provision-space.results.secretRef)
+              - name: clusterName
+                value: "$(tasks.provision-cluster.results.clusterName)"
+              - name: credentials
+                value: credentials
+          - name: run-e2e-tests
+            resources:
+              requests:
+                cpu: '1'
+                memory: 1Gi
+              limits:
+                memory: 10Gi
+            volumeMounts:
+              - name: azure-openai-token
+                mountPath: /var/run/azure_openai
+              - name: azureopenai-entra-id
+                mountPath: /var/run/azureopenai-entra-id
+              - name: bam-token
+                mountPath: /var/run/bam
+              - name: openai-token
+                mountPath: /var/run/openai
+              - name: watsonx-token
+                mountPath: /var/run/watsonx
+              - name: insights-stage-upload-offline-token
+                mountPath: /var/run/insights-stage-upload-offline-token
+              - name: credentials
+                mountPath: /credentials
+            env:
+              - name: BAM_PROVIDER_KEY_PATH
+                value: "/var/run/bam/token"
+              - name: AZUREOPENAI_PROVIDER_KEY_PATH
+                value: "/var/run/azure_openai/token"
+              - name: OPENAI_PROVIDER_KEY_PATH
+                value: "/var/run/openai/token"
+              - name: WATSONX_PROVIDER_KEY_PATH
+                value: "/var/run/watsonx/token"
+              - name: KUBECONFIG
+                value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
+              - name: OLS_IMAGE
+                value: $(params.serviceimage)
+              - name: ARTIFACT_DIR
+                value: "tests/test_results"
+              - name: SUITE_ID
+                value: "nosuite"
+              - name: KONFLUX_OLS_SERVICE_IMAGE
+                value: $(params.serviceimage)
+            image: registry.access.redhat.com/ubi9/ubi-minimal
+            script: |
+              echo "---------------------------------------------"
+              microdnf -y install git make python3.11 python3.11-devel python3.11-pip shadow-utils tar
+              curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.15/openshift-client-linux-amd64-rhel9.tar.gz \
+                  && tar -xvzf oc.tar.gz \
+                  && chmod +x kubectl oc \
+                  && mv oc kubectl /usr/local/bin/
+              git clone https://github.com/openshift/lightspeed-service.git
+              cd lightspeed-service
+              pip3.11 install --no-cache-dir --upgrade pip pdm mypy black ruff pydocstyle
+              pdm config python.use_venv false
+              make install-deps
+              make install-deps-test
+              oc project $(params.namespace)
+
+              export CP_OFFLINE_TOKEN=$(cat /var/run/insights-stage-upload-offline-token/token)
+              export AZUREOPENAI_ENTRA_ID_TENANT_ID="$(cat /var/run/azureopenai-entra-id/tenant_id)"
+              export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/client_id)"
+              export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
+
+              export SUITE_ID="azure_openai"
+              export PROVIDER="azure_openai"
+              export PROVIDER_KEY_PATH=${AZUREOPENAI_PROVIDER_KEY_PATH}
+              export TEST_TAGS="not model_evaluation"
+              export MODEL="gpt-3.5-turbo"
+              echo "-----------------------------------------------"
+              echo "starting ${PROVIDER} tests"
+              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
+              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
+
+              export SUITE_ID="openai"
+              export PROVIDER="openai"
+              export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
+              export TEST_TAGS="not model_evaluation and not azure_entra_id"
+              export MODEL="gpt-3.5-turbo"
+              echo "-----------------------------------------------"
+              echo "starting ${PROVIDER} tests"
+              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
+              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
+
+              export SUITE_ID="watsonx"
+              export PROVIDER="watsonx"
+              export PROVIDER_KEY_PATH=${WATSONX_PROVIDER_KEY_PATH}
+              export TEST_TAGS="not azure_entra_id"
+              export MODEL="ibm/granite-13b-chat-v2"
+              echo "-----------------------------------------------"
+              echo "starting ${PROVIDER} tests"
+              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
+              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
