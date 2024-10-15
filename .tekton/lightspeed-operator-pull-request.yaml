@@ -7,8 +7,10 @@ metadata:
     build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
-      == "main"
+    pipelinesascode.tekton.dev/on-cel-expression: |
+      event == "pull_request" &&
+      target_branch == "main" &&
+      (".tekton/lightspeed-operator-pull-request.yaml".pathChanged() || "Dockerfile".pathChanged() || "LICENSE".pathChanged() || "go.*".pathChanged() || "cmd/***".pathChanged() || "api/***".pathChanged() || "internal/***".pathChanged() || "test/***".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ols
@@ -18,6 +20,10 @@ metadata:
   namespace: crt-nshift-lightspeed-tenant
 spec:
   params:
+  - name: build-source-image
+    value: "true"
+  - name: prefetch-input
+    value: '{"type": "gomod", "path": "."}'
   - name: git-url
     value: '{{source_url}}'
   - name: revision
@@ -28,6 +34,8 @@ spec:
     value: 5d
   - name: dockerfile
     value: Dockerfile
+  - name: hermetic
+    value: "true"
   pipelineSpec:
     description: |
       This pipeline is ideal for building container images from a Containerfile while reducing network traffic.
