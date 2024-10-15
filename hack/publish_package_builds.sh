@@ -202,7 +202,7 @@ cat << EOF >> "${CATALOG_FILE}"
 ---
 schema: olm.channel
 package: lightspeed-operator
-name: preview
+name: alpha
 entries:
   - name: lightspeed-operator.v${VERSION}
 EOF

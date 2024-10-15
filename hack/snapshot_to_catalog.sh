@@ -103,7 +103,7 @@ trap cleanup EXIT
 
 #Initialize catalog file from hack/operator.yaml
 DEFAULT_CHANNEL_NAME=$(cut -d ',' -f 1 <<<${CHANNEL_NAMES})
-sed "s/defaultChannel: preview/defaultChannel: ${DEFAULT_CHANNEL_NAME}/" ${CATALOG_INITIAL_FILE} >"${CATALOG_FILE}"
+sed "s/defaultChannel: alpha/defaultChannel: ${DEFAULT_CHANNEL_NAME}/" ${CATALOG_INITIAL_FILE} >"${CATALOG_FILE}"
 
 # array to store the bundle versions
 BUNDLE_VERSIONS=()
