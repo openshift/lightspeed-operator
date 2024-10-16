@@ -314,10 +314,10 @@ Update catalog lightspeed-catalog-4.16/index.yaml from snapshot ols-bnxm2
 using opm from /home/hasun/GitRepo/lightspeed-operator/bin/opm
 using yq from /usr/bin/yq
 Catalog will use the following images:
-BUNDLE_IMAGE=registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c
-OPERATOR_IMAGE=registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:4bb81dfec6cce853543c7c0e7f2898ece23105fe3a5c5b17d845b1ff58fdc92a
-CONSOLE_IMAGE=registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:4f45c9ba068cf92e592bb3a502764ce6bc93cd154d081fa49d05cb040885155b
-SERVICE_IMAGE=registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:794017379e28cfbbd17c8a8343f3326f2c99b8f9da5e593fa5afd52258d0c563
+BUNDLE_IMAGE=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c
+OPERATOR_IMAGE=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:4bb81dfec6cce853543c7c0e7f2898ece23105fe3a5c5b17d845b1ff58fdc92a
+CONSOLE_IMAGE=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:4f45c9ba068cf92e592bb3a502764ce6bc93cd154d081fa49d05cb040885155b
+SERVICE_IMAGE=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:794017379e28cfbbd17c8a8343f3326f2c99b8f9da5e593fa5afd52258d0c563
 BUNDLE_IMAGE_ORIGIN=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:b9387e5900e700db47d2b4d7f106b43d0958a3b0d3d4f4b68495141675b66a1c
 Bundle version is 0.1.0
 Validation passed for lightspeed-catalog-4.16/index.yaml

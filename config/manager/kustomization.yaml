@@ -6,4 +6,4 @@ kind: Kustomization
 images:
 - digest: sha256:e62a1e3e618b7bf6a9ca8b1e7b6ae500d6b0e47c9e5f3e4a8eeb259082c9199e
   name: controller
-  newName: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator
+  newName: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator
