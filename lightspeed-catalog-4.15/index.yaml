@@ -6,7 +6,7 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:ed8b0283b9dca2e0a156c09f52f2c56ee09ebc2463c6ddfaefbc5e79186ab4dc
+image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:ed8b0283b9dca2e0a156c09f52f2c56ee09ebc2463c6ddfaefbc5e79186ab4dc
 name: lightspeed-operator.v0.2.0
 package: lightspeed-operator
 properties:
@@ -48,13 +48,13 @@ properties:
       data: eyJhcGlWZXJzaW9uIjoidjEiLCJraW5kIjoiU2VydmljZSIsIm1ldGFkYXRhIjp7ImFubm90YXRpb25zIjp7InNlcnZpY2UuYmV0YS5vcGVuc2hpZnQuaW8vc2VydmluZy1jZXJ0LXNlY3JldC1uYW1lIjoiY29udHJvbGxlci1tYW5hZ2VyLXRscyJ9LCJjcmVhdGlvblRpbWVzdGFtcCI6bnVsbCwibGFiZWxzIjp7ImFwcC5rdWJlcm5ldGVzLmlvL2NvbXBvbmVudCI6Im1hbmFnZXIiLCJhcHAua3ViZXJuZXRlcy5pby9jcmVhdGVkLWJ5IjoibGlnaHRzcGVlZC1vcGVyYXRvciIsImFwcC5rdWJlcm5ldGVzLmlvL2luc3RhbmNlIjoiY29udHJvbGxlci1tYW5hZ2VyLXNlcnZpY2UiLCJhcHAua3ViZXJuZXRlcy5pby9tYW5hZ2VkLWJ5Ijoia3VzdG9taXplIiwiYXBwLmt1YmVybmV0ZXMuaW8vbmFtZSI6InNlcnZpY2UiLCJhcHAua3ViZXJuZXRlcy5pby9wYXJ0LW9mIjoibGlnaHRzcGVlZC1vcGVyYXRvciIsImNvbnRyb2wtcGxhbmUiOiJjb250cm9sbGVyLW1hbmFnZXIifSwibmFtZSI6ImxpZ2h0c3BlZWQtb3BlcmF0b3ItY29udHJvbGxlci1tYW5hZ2VyLXNlcnZpY2UifSwic3BlYyI6eyJwb3J0cyI6W3sibmFtZSI6Im1ldHJpY3MiLCJwb3J0Ijo4NDQzLCJwcm90b2NvbCI6IlRDUCIsInRhcmdldFBvcnQiOiJtZXRyaWNzIn1dLCJzZWxlY3RvciI6eyJjb250cm9sLXBsYW5lIjoiY29udHJvbGxlci1tYW5hZ2VyIn19LCJzdGF0dXMiOnsibG9hZEJhbGFuY2VyIjp7fX19
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9@sha256:e8d38020c1ae2606590b451dcdf9ac6c8040f8d693e36f66c79d323209134fce
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:e8d38020c1ae2606590b451dcdf9ac6c8040f8d693e36f66c79d323209134fce
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9@sha256:3f9a74b92642bc5461fc30a55e4335479d440708bdfb1572b345d56966acdc75
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:3f9a74b92642bc5461fc30a55e4335479d440708bdfb1572b345d56966acdc75
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator@sha256:8e1ac8d57b38b92969d6c5e177a849c249ee69057427cbb70d6243f7c613eb1b
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:8e1ac8d57b38b92969d6c5e177a849c249ee69057427cbb70d6243f7c613eb1b
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle@sha256:ed8b0283b9dca2e0a156c09f52f2c56ee09ebc2463c6ddfaefbc5e79186ab4dc
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:ed8b0283b9dca2e0a156c09f52f2c56ee09ebc2463c6ddfaefbc5e79186ab4dc
 schema: olm.bundle
 ---
 schema: olm.channel

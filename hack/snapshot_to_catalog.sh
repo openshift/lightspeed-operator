@@ -118,10 +118,10 @@ for SNAPSHOT_REF in $(echo ${SNAPSHOT_REFS} | tr "," "\n"); do
     echo "Need to login Konflux through oc login, proxy command to be found here: https://registration-service-toolchain-host-operator.apps.stone-prd-host1.wdlc.p1.openshiftapps.com/"
     exit 1
   fi
-  BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle"
-  OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator"
-  CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9"
-  SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9"
+  BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle"
+  OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator"
+  CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9"
+  SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9"
 
   BUNDLE_IMAGE_ORIGIN=$(jq -r '.spec.components[]| select(.name=="bundle") | .containerImage' "${TMP_SNAPSHOT_JSON}")
   BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle|'"${BUNDLE_IMAGE_BASE}"'|g' <<<${BUNDLE_IMAGE_ORIGIN})

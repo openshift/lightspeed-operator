@@ -5,19 +5,19 @@ metadata:
   name: openshift-lightspeed-prod-to-ci
 spec:
   imageDigestMirrors:
-    - source: registry.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator
+    - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator
       mirrors:
-        - registry.staging.redhat.io/openshift-lightspeed-beta/lightspeed-rhel9-operator
+        - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator
         - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator
-    - source: registry.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle
+    - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle
       mirrors:
-        - registry.staging.redhat.io/openshift-lightspeed-beta/lightspeed-operator-bundle
+        - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle
         - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle
-    - source: registry.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9
+    - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9
       mirrors:
-        - registry.staging.redhat.io/openshift-lightspeed-beta/lightspeed-service-api-rhel9
+        - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9
         - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service
-    - source: registry.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9
+    - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9
       mirrors:
-        - registry.staging.redhat.io/openshift-lightspeed-beta/lightspeed-console-plugin-rhel9
+        - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9
         - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
