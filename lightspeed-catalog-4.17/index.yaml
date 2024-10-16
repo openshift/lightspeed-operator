@@ -6,7 +6,7 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:ed8b0283b9dca2e0a156c09f52f2c56ee09ebc2463c6ddfaefbc5e79186ab4dc
+image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:a109f61c4b9f09d3f992b0a265ce278c43ee2b10e1bc5ba6ed6b0e5ac72fda4a
 name: lightspeed-operator.v0.2.0
 package: lightspeed-operator
 properties:
@@ -62,9 +62,9 @@ properties:
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
-        features.operators.openshift.io/disconnected: "false"
+        features.operators.openshift.io/disconnected: "true"
         features.operators.openshift.io/fips-compliant: "false"
-        features.operators.openshift.io/proxy-aware: "true"
+        features.operators.openshift.io/proxy-aware: "false"
         features.operators.openshift.io/tls-profiles: "false"
         features.operators.openshift.io/token-auth-aws: "false"
         features.operators.openshift.io/token-auth-azure: "false"
@@ -238,7 +238,16 @@ properties:
               - displayName: Conditions
                 path: conditions
             version: v1alpha1
-      description: OpenShift Lightspeed is an AI-powered assistant that runs on OpenShift and answers questions about OpenShift using backend LLM services.
+      description: |-
+        OpenShift Lightspeed Operator provides generative AI-based virtual assistant which integrates into the OpenShift web console. OpenShift Lightspeed can answer natural language questions related to OpenShift Container Platform.
+
+        To configure the OpenShift Lightspeed Operator, you need a Large Language Model (LLM) . You can host the LLM using RHELAI or RHOAI or use one of the models from the following Software-as-a-Service providers:
+
+        OpenAI
+        Microsoft Azure OpenAI
+        IBM WatsonX
+
+        For more information, see [About OpenShift Lightspeed](https://docs.openshift.com/lightspeed/1.0tp1/about/ols-about-openshift-lightspeed.html) in the official product documentation.
       displayName: OpenShift Lightspeed Operator
       installModes:
         - supported: false
@@ -270,7 +279,7 @@ relatedImages:
   - name: lightspeed-operator
     image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:8e1ac8d57b38b92969d6c5e177a849c249ee69057427cbb70d6243f7c613eb1b
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:ed8b0283b9dca2e0a156c09f52f2c56ee09ebc2463c6ddfaefbc5e79186ab4dc
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:a109f61c4b9f09d3f992b0a265ce278c43ee2b10e1bc5ba6ed6b0e5ac72fda4a
 schema: olm.bundle
 ---
 schema: olm.channel
