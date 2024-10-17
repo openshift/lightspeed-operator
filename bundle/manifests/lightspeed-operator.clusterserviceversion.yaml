@@ -55,7 +55,7 @@ metadata:
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
-  name: lightspeed-operator.v0.2.0
+  name: lightspeed-operator.v0.2.1
   namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
@@ -560,7 +560,7 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
-  version: 0.2.0
+  version: 0.2.1
   relatedImages:
     - name: lightspeed-service-api
       image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:e8d38020c1ae2606590b451dcdf9ac6c8040f8d693e36f66c79d323209134fce
