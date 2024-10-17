@@ -361,7 +361,7 @@ spec:
                       - --secure-metrics-server
                       - --cert-dir=/etc/tls/private
                       - --console-image=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:bac615c4ad13d824eac52d47852325413594d584d41867c3a8a2afe5ebef238b
-                      - --service-image=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:e8d38020c1ae2606590b451dcdf9ac6c8040f8d693e36f66c79d323209134fce
+                      - --service-image=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:723f92fc4d52217b32a91e27245d73249d6e62083e50bc3df9d688e0c0cfc425
                     command:
                       - /manager
                     env:
@@ -563,7 +563,7 @@ spec:
   version: 0.2.1
   relatedImages:
     - name: lightspeed-service-api
-      image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:e8d38020c1ae2606590b451dcdf9ac6c8040f8d693e36f66c79d323209134fce
+      image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:723f92fc4d52217b32a91e27245d73249d6e62083e50bc3df9d688e0c0cfc425
     - name: lightspeed-console-plugin
       image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:bac615c4ad13d824eac52d47852325413594d584d41867c3a8a2afe5ebef238b
     - name: lightspeed-operator
