@@ -7,7 +7,7 @@ name: lightspeed-operator
 schema: olm.package
 ---
 image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:6942cb5ba612570f9bd0b2157ac366afb2df759cdf11ef16820a02b8ae4073ee
-name: lightspeed-operator.v0.2.0
+name: lightspeed-operator.v0.2.1
 package: lightspeed-operator
 properties:
   - type: olm.gvk
@@ -18,7 +18,7 @@ properties:
   - type: olm.package
     value:
       packageName: lightspeed-operator
-      version: 0.2.0
+      version: 0.2.1
   - type: olm.bundle.object
     value:
       data: eyJhcGlWZXJzaW9uIjoibW9uaXRvcmluZy5jb3Jlb3MuY29tL3YxIiwia2luZCI6IlNlcnZpY2VNb25pdG9yIiwibWV0YWRhdGEiOnsibGFiZWxzIjp7ImFwcC5rdWJlcm5ldGVzLmlvL2NvbXBvbmVudCI6Im1ldHJpY3MiLCJhcHAua3ViZXJuZXRlcy5pby9jcmVhdGVkLWJ5IjoibGlnaHRzcGVlZC1vcGVyYXRvciIsImFwcC5rdWJlcm5ldGVzLmlvL2luc3RhbmNlIjoiY29udHJvbGxlci1tYW5hZ2VyLW1ldHJpY3MtbW9uaXRvciIsImFwcC5rdWJlcm5ldGVzLmlvL21hbmFnZWQtYnkiOiJrdXN0b21pemUiLCJhcHAua3ViZXJuZXRlcy5pby9uYW1lIjoic2VydmljZW1vbml0b3IiLCJhcHAua3ViZXJuZXRlcy5pby9wYXJ0LW9mIjoibGlnaHRzcGVlZC1vcGVyYXRvciIsImNvbnRyb2wtcGxhbmUiOiJjb250cm9sbGVyLW1hbmFnZXIifSwibmFtZSI6ImxpZ2h0c3BlZWQtb3BlcmF0b3ItY29udHJvbGxlci1tYW5hZ2VyLW1ldHJpY3MtbW9uaXRvciJ9LCJzcGVjIjp7ImVuZHBvaW50cyI6W3sicGF0aCI6Ii9tZXRyaWNzIiwicG9ydCI6Im1ldHJpY3MiLCJzY2hlbWUiOiJodHRwcyIsInRsc0NvbmZpZyI6eyJjYUZpbGUiOiIvZXRjL3Byb21ldGhldXMvY29uZmlnbWFwcy9zZXJ2aW5nLWNlcnRzLWNhLWJ1bmRsZS9zZXJ2aWNlLWNhLmNydCIsImNlcnRGaWxlIjoiL2V0Yy9wcm9tZXRoZXVzL3NlY3JldHMvbWV0cmljcy1jbGllbnQtY2VydHMvdGxzLmNydCIsImluc2VjdXJlU2tpcFZlcmlmeSI6ZmFsc2UsImtleUZpbGUiOiIvZXRjL3Byb21ldGhldXMvc2VjcmV0cy9tZXRyaWNzLWNsaWVudC1jZXJ0cy90bHMua2V5Iiwic2VydmVyTmFtZSI6ImxpZ2h0c3BlZWQtb3BlcmF0b3ItY29udHJvbGxlci1tYW5hZ2VyLXNlcnZpY2Uub3BlbnNoaWZ0LWxpZ2h0c3BlZWQuc3ZjIn19XSwic2VsZWN0b3IiOnsibWF0Y2hMYWJlbHMiOnsiY29udHJvbC1wbGFuZSI6ImNvbnRyb2xsZXItbWFuYWdlciJ9fX19
@@ -61,5 +61,5 @@ schema: olm.channel
 package: lightspeed-operator
 name: alpha
 entries:
-  - name: lightspeed-operator.v0.2.0
-    skipRange: ">=0.1.0 <0.2.0"
+  - name: lightspeed-operator.v0.2.1
+    skipRange: ">=0.1.0 <0.2.1"

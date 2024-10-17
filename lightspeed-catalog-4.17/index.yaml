@@ -7,7 +7,7 @@ name: lightspeed-operator
 schema: olm.package
 ---
 image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:a109f61c4b9f09d3f992b0a265ce278c43ee2b10e1bc5ba6ed6b0e5ac72fda4a
-name: lightspeed-operator.v0.2.0
+name: lightspeed-operator.v0.2.1
 package: lightspeed-operator
 properties:
   - type: olm.gvk
@@ -18,7 +18,7 @@ properties:
   - type: olm.package
     value:
       packageName: lightspeed-operator
-      version: 0.2.0
+      version: 0.2.1
   - type: olm.csv.metadata
     value:
       annotations:
@@ -286,5 +286,5 @@ schema: olm.channel
 package: lightspeed-operator
 name: alpha
 entries:
-  - name: lightspeed-operator.v0.2.0
-    skipRange: ">=0.1.0 <0.2.0"
+  - name: lightspeed-operator.v0.2.1
+    skipRange: ">=0.1.0 <0.2.1"
