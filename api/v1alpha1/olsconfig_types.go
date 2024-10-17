@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -83,6 +84,10 @@ type OLSSpec struct {
 	// Additional CA certificates for TLS communication between OLS service and LLM Provider
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Additional CA Configmap",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	AdditionalCAConfigMapRef *corev1.LocalObjectReference `json:"additionalCAConfigMapRef,omitempty"`
+	// TLS Security Profile used by API endpoints
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Security Profile",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	TLSSecurityProfile *configv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 }
 
 // DeploymentConfig defines the schema for overriding deployment of OLS instance.
@@ -242,6 +247,10 @@ type ProviderSpec struct {
 	// Watsonx Project ID
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Watsonx Project ID"
 	WatsonProjectID string `json:"projectID,omitempty"`
+	// TLS Security Profile used by connection to provider
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Security Profile",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	TLSSecurityProfile *configv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 }
 
 // UserDataCollectionSpec defines how we collect user data.
