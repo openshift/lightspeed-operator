@@ -129,14 +129,16 @@ OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/oper
 OS_CONSOLE_PLUGIN_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/console/v1/zz_generated.crd-manifests/90_consoleplugins.crd.yaml
 OCP_CLUSTER_VERSION_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/config/v1/zz_generated.crd-manifests/0000_00_cluster-version-operator_01_clusterversions-Default.crd.yaml
 MONITORING_CRD_URL = https://raw.githubusercontent.com/openshift/prometheus-operator/master/bundle.yaml
+OCP_APISERVER_CRD_URL = https://raw.githubusercontent.com/openshift/api/refs/heads/master/config/v1/zz_generated.crd-manifests/0000_10_config-operator_01_apiservers.crd.yaml
 TEST_CRD_DIR = .testcrds
 OS_CONSOLE_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-crd.yaml
 OS_CONSOLE_PLUGIN_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-plugin-crd.yaml
 OCP_CLUSTER_VERSION_CRD_FILE = $(TEST_CRD_DIR)/openshift-config-clusterversion-crd.yaml
 MONITORING_CRD_FILE = $(TEST_CRD_DIR)/monitoring-crd.yaml
+OCP_APISERVER_CRD_FILE = $(TEST_CRD_DIR)/openshift-apiserver-crd.yaml
 
 .PHONY: test-crds
-test-crds: $(TEST_CRD_DIR) $(OS_CONSOLE_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_FILE) $(MONITORING_CRD_FILE) $(OCP_CLUSTER_VERSION_CRD_FILE) ## Test Dependencies CRDs
+test-crds: $(TEST_CRD_DIR) $(OS_CONSOLE_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_FILE) $(MONITORING_CRD_FILE) $(OCP_CLUSTER_VERSION_CRD_FILE) $(OCP_APISERVER_CRD_FILE) ## Test Dependencies CRDs
 
 $(TEST_CRD_DIR):
 	mkdir -p $(TEST_CRD_DIR)
@@ -152,6 +154,9 @@ $(MONITORING_CRD_FILE): $(TEST_CRD_DIR)
 
 $(OCP_CLUSTER_VERSION_CRD_FILE): $(TEST_CRD_DIR)
 	wget -O $(OCP_CLUSTER_VERSION_CRD_FILE) $(OCP_CLUSTER_VERSION_CRD_URL)
+
+$(OCP_APISERVER_CRD_FILE): $(TEST_CRD_DIR)
+	wget -O $(OCP_APISERVER_CRD_FILE) $(OCP_APISERVER_CRD_URL)
 
 
 .PHONY: test-e2e
