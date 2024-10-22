@@ -51,6 +51,9 @@ spec:
         path: llm
       - displayName: Providers
         path: llm.providers
+      - description: API Version for Azure OpenAI provider
+        displayName: Azure OpenAI API Version
+        path: llm.providers[0].apiVersion
       - description: Azure OpenAI deployment name
         displayName: Azure OpenAI deployment name
         path: llm.providers[0].deploymentName

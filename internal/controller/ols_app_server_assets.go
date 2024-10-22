@@ -132,6 +132,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 					URL:                 provider.URL,
 					CredentialsPath:     credentialPath,
 					AzureDeploymentName: provider.AzureDeploymentName,
+					APIVersion:          provider.APIVersion,
 				},
 			}
 		} else {

@@ -191,6 +191,7 @@ var _ = Describe("App server assets", func() {
 				"azure_openai_config": MatchKeys(Options(IgnoreExtras), Keys{
 					"url":              Equal(testURL),
 					"credentials_path": Equal("/etc/apikeys/test-secret"),
+					"api_version":      Equal("2021-09-01"),
 					"deployment_name":  Equal("testDeployment"),
 				}),
 			}))))
@@ -1103,6 +1104,7 @@ func addAzureOpenAIProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	cr.Spec.LLMConfig.Providers[0].Name = "openai"
 	cr.Spec.LLMConfig.Providers[0].Type = "azure_openai"
 	cr.Spec.LLMConfig.Providers[0].AzureDeploymentName = "testDeployment"
+	cr.Spec.LLMConfig.Providers[0].APIVersion = "2021-09-01"
 	return cr
 }
 
