@@ -71,7 +71,7 @@ spec:
         - "--metrics-bind-address=:8443"
         - --secure-metrics-server
         - "--cert-dir=/etc/tls/private"
-        image: controller:latest
+        image: quay.io/openshift-lightspeed/lightspeed-operator:latest
         imagePullPolicy: Always
         name: manager
         securityContext:
