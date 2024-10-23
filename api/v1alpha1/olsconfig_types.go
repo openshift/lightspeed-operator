@@ -244,6 +244,9 @@ type ProviderSpec struct {
 	// Azure OpenAI deployment name
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Azure OpenAI deployment name"
 	AzureDeploymentName string `json:"deploymentName,omitempty"`
+	// API Version for Azure OpenAI provider
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Azure OpenAI API Version"
+	APIVersion string `json:"apiVersion,omitempty"`
 	// Watsonx Project ID
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Watsonx Project ID"
 	WatsonProjectID string `json:"projectID,omitempty"`

@@ -54,6 +54,8 @@ type AzureOpenAIConfig struct {
 	CredentialsPath string `json:"credentials_path"`
 	// Azure deployment name
 	AzureDeploymentName string `json:"deployment_name,omitempty"`
+	// API Version for Azure OpenAI provider
+	APIVersion string `json:"api_version,omitempty"`
 }
 
 // ModelParameters defines the parameters for a model.

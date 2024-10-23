@@ -48,6 +48,9 @@ spec:
                     items:
                       description: ProviderSpec defines the desired state of LLM provider.
                       properties:
+                        apiVersion:
+                          description: API Version for Azure OpenAI provider
+                          type: string
                         credentialsSecretRef:
                           description: The name of the secret object that stores API
                             provider credentials

@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2024-10-11T16:57:11Z"
+    createdAt: "2024-10-22T02:32:35Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -85,6 +85,9 @@ spec:
             path: llm
           - displayName: Providers
             path: llm.providers
+          - description: API Version for Azure OpenAI provider
+            displayName: Azure OpenAI API Version
+            path: llm.providers[0].apiVersion
           - description: Azure OpenAI deployment name
             displayName: Azure OpenAI deployment name
             path: llm.providers[0].deploymentName
