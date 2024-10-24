@@ -46,7 +46,7 @@ BASE_IMG ?= registry.redhat.io/ubi9/ubi-minimal
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
-BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+BUNDLE_GEN_FLAGS ?= -q --overwrite $(BUNDLE_METADATA_OPTS)
 
 # USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
 # You can enable this value if you would like to use SHA Based Digests
@@ -295,8 +295,22 @@ OPERATOR_SDK = $(shell which operator-sdk)
 endif
 endif
 
+
+## Generate bundle manifests and metadata, then validate generated files.
+## to set the bundle version, use the BUNDLE_TAG variable
+## to set the bundle channels, use the CHANNELS variable
+## to set the default channel, use the DEFAULT_CHANNEL variable
+## to use image digests instead of version tag, set the USE_IMAGE_DIGESTS variable to true
+## to set the related images, use the RELATED_IMAGES_FILE variable
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
+ifdef RELATED_IMAGES_FILE
+	BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i $(RELATED_IMAGES_FILE)
+else
+	BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG)
+endif
+
+parking:
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
