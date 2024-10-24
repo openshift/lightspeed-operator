@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2024-10-22T02:32:35Z"
+    createdAt: "2024-10-23T12:00:43Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -169,6 +169,11 @@ spec:
           - description: Console container settings.
             displayName: Console Container
             path: ols.deployment.console
+          - description: Certificate Authority (CA) certificate used by the console proxy endpoint.
+            displayName: CA Certificate
+            path: ols.deployment.console.caCertificate
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:caCertificate
           - displayName: Node Selector
             path: ols.deployment.console.nodeSelector
             x-descriptors:
@@ -213,6 +218,12 @@ spec:
           - description: Replacement for the matched pattern.
             displayName: Replace With
             path: ols.queryFilters[0].replaceWith
+          - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
+            displayName: TLS Configuration
+            path: ols.tlsConfig
+          - description: KeySecretRef is the secret that holds the TLS key.
+            displayName: Key Secret
+            path: ols.tlsConfig.keyCertSecretRef
           - description: TLS Security Profile used by API endpoints
             displayName: TLS Security Profile
             path: ols.tlsSecurityProfile
