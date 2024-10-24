@@ -350,11 +350,28 @@ ifeq (,$(shell which yq 2>/dev/null))
 	set -e ;\
 	mkdir -p $(dir $(YQ)) ;\
 	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -sSLo $(YQ) https://github.com/mikefarah/yq/releases/latest/download/yq_$$(OS)_$$(ARCH) ;\
+	curl -sSLo $(YQ) https://github.com/mikefarah/yq/releases/download/v4.44.6/yq_$${OS}-$${ARCH} ;\
     chmod +x $(YQ) ;\
 	}
 else
 YQ = $(shell which yq)
+endif
+endif
+
+.PHONY: jq
+JQ = ./bin/jq
+jq: ## Download jq locally if necessary.
+ifeq (,$(wildcard $(JQ)))
+ifeq (,$(shell which jq 2>/dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p $(dir $(JQ)) ;\
+	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
+	curl -sSLo $(JQ) https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-$${OS}-$${ARCH} ;\
+    chmod +x $(JQ) ;\
+	}
+else
+JQ = $(shell which jq)
 endif
 endif
 
