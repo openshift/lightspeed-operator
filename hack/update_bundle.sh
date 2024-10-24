@@ -6,6 +6,17 @@
 
 set -euo pipefail
 
+TEMP_BUNDLE_CONTAINER_FILE=$(mktemp)
+cleanup() {
+  # remove temporary bundle container file
+  if [ -n "${TEMP_BUNDLE_CONTAINER_FILE}" ]; then
+    rm -f "${TEMP_BUNDLE_CONTAINER_FILE}"
+  fi
+
+}
+
+trap cleanup EXIT
+
 SCRIPT_DIR=$(dirname "$0")
 
 usage() {
@@ -154,32 +165,12 @@ ${YQ} eval -i '(.annotations."com.redhat.openshift.versions" | key) head_comment
 : "${BASE_IMAGE:=registry.redhat.io/ubi9/ubi-minimal@sha256:c0e70387664f30cd9cf2795b547e4a9a51002c44a4a86aa9335ab030134bf392}"
 sed -i 's|^FROM scratch|FROM '"${BASE_IMAGE}"'|' ${BUNDLE_DOCKERFILE}
 
-# make bundle image comply with enterprise contract requirements
-cat <<EOF >>${BUNDLE_DOCKERFILE}
-
-# licenses required by Red Hat certification policy
-# refer to https://docs.redhat.com/en/documentation/red_hat_software_certification/2024/html-single/red_hat_openshift_software_certification_policy_guide/index#con-image-content-requirements_openshift-sw-cert-policy-container-images
-COPY LICENSE /licenses/
-
-# Labels for enterprise contract
-LABEL com.redhat.component=openshift-lightspeed
-LABEL description="Red Hat OpenShift Lightspeed - AI assistant for managing OpenShift clusters."
-LABEL distribution-scope=public
-LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assistant for managing OpenShift clusters."
-LABEL io.k8s.display-name="Openshift Lightspeed"
-LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
-LABEL name=openshift-lightspeed
-LABEL release=${BUNDLE_VERSION}
-LABEL url="https://github.com/openshift/lightspeed-operator"
-LABEL vendor="Red Hat, Inc."
-LABEL version=${BUNDLE_VERSION}
-LABEL summary="Red Hat OpenShift Lightspeed"
-
-# OCP compatibility labels
-LABEL com.redhat.openshift.versions=v4.15-v4.17
-
-# Set user to non-root for security reasons.
-USER 1001
-EOF
+# generate bundle container file using template_bundle.Containerfile
+BUNDLE_DOCKERFILE_TEMPLATE=${SCRIPT_DIR}/template_bundle.Containerfile
+cp ${BUNDLE_DOCKERFILE} ${TEMP_BUNDLE_CONTAINER_FILE}
+sed "/##__GENERATED_CONTAINER_FILE__##/{
+s/##__GENERATED_CONTAINER_FILE__##//g
+r ${TEMP_BUNDLE_CONTAINER_FILE}
+}" ${BUNDLE_DOCKERFILE_TEMPLATE} | sed "s/{BUNDLE_VERSION}/${BUNDLE_VERSION}/" > ${BUNDLE_DOCKERFILE}
 
 echo "Finished running $(basename "$0")"
