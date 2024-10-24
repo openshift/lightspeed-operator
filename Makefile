@@ -358,6 +358,23 @@ YQ = $(shell which yq)
 endif
 endif
 
+.PHONY: jq
+JQ = ./bin/yq
+yq: ## Download jq locally if necessary.
+ifeq (,$(wildcard $(JQ)))
+ifeq (,$(shell which jq 2>/dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p $(dir $(JQ)) ;\
+	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
+	curl -sSLo $(JQ) https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-$$(OS)-$$(ARCH) ;\
+    chmod +x $(JQ) ;\
+	}
+else
+JQ = $(shell which jq)
+endif
+endif
+
 # A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
