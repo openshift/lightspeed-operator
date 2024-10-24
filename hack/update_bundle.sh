@@ -12,11 +12,13 @@ usage() {
   echo "Usage: $0 [-v bundle_version] [-h]"
   echo "  -v bundle_version: The version of the bundle"
   echo "  -i related_images_filename: The JSON file containing the related images"
+
   echo "  -h: Show this help message"
 }
 
 BUNDLE_VERSION=""
 RELATED_IMAGES_FILENAME=""
+CHANNEL_NAME="alpha"
 
 while getopts ":v:i:h" opt; do
   case "$opt" in
@@ -31,6 +33,10 @@ while getopts ":v:i:h" opt; do
       exit 1
     fi
     echo "related_images from file ${RELATED_IMAGES_FILENAME}"
+    ;;
+  "c")
+    CHANNEL_NAME=${OPTARG}
+    echo "channel_name is ${CHANNEL_NAME}"
     ;;
   "h")
     usage
@@ -54,6 +60,11 @@ if [ -z "${BUNDLE_VERSION}" ]; then
   exit 1
 fi
 
+# default flag for bundle generation
+: ${BUNDLE_GEN_FLAGS="--channels=${CHANNEL_NAME} --default-channel=${CHANNEL_NAME} -q --overwrite --version ${BUNDLE_VERSION}"}
+BUNDLE_GEN_FLAGS="${BUNDLE_GEN_FLAGS} --version ${BUNDLE_VERSION}"
+
+# Tool check
 : ${YQ:=$(command -v yq)}
 echo "using yq from ${YQ}"
 if [ -z "${YQ}" ]; then
@@ -72,6 +83,13 @@ fi
 echo "using operator-sdk from ${OPERATOR_SDK}"
 if [ -z "${OPERATOR_SDK}" ]; then
   echo "operator-sdk is required"
+  exit 1
+fi
+
+: ${KUSTOMIZE:=$(command -v kustomize)}
+echo "using kustomize from ${KUSTOMIZE}"
+if [ -z "${KUSTOMIZE}" ]; then
+  echo "kustomize is required"
   exit 1
 fi
 
@@ -118,7 +136,10 @@ CONSOLE_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-console-plugin") | .ima
 echo "Updating bundle artifacts for image ${OPERATOR_IMAGE}"
 rm -rf ./bundle
 
-make bundle VERSION="${BUNDLE_VERSION}"
+# make bundle VERSION="${BUNDLE_VERSION}"
+${OPERATOR_SDK} generate kustomize manifests -q
+${KUSTOMIZE} build config/manifests | ${OPERATOR_SDK} generate bundle ${BUNDLE_GEN_FLAGS}
+${OPERATOR_SDK} bundle validate ./bundle
 # set service and console image for the operator
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/openshift-lightspeed/lightspeed-service-api:latest\", ${SERVICE_IMAGE}))" -i ${CSV_FILE}
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/openshift-lightspeed/lightspeed-console-plugin:latest\", ${CONSOLE_IMAGE}))" -i ${CSV_FILE}
