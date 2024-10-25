@@ -12,7 +12,7 @@ metadata:
       (".tekton/test-bundle-push.yaml".pathChanged() || "bundle/***".pathChanged() || "testbundle.Containerfile".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: ols
+    appstudio.openshift.io/application: ols-bundle
     appstudio.openshift.io/component: test-bundle
     pipelines.appstudio.openshift.io/type: build
   name: test-bundle-on-push
@@ -24,10 +24,15 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/test-bundle:{{revision}}
+    value: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/test-bundle:{{revision}}
   - name: dockerfile
     value: testbundle.Containerfile
   pipelineSpec:
+    description: |
+      This pipeline is ideal for building container images from a Containerfile while reducing network traffic.
+
+      _Uses `buildah` to create a container image. It also optionally creates a source image and runs some build-time tests. EC will flag a violation for [`trusted_task.trusted`](https://enterprisecontract.dev/docs/ec-policies/release_policy.html#trusted_task__trusted) if any tasks are added to the pipeline.
+      This pipeline is pushed as a Tekton bundle to [quay.io](https://quay.io/repository/konflux-ci/tekton-catalog/pipeline-docker-build?tab=tags)_
     finally:
     - name: show-sbom
       params:
@@ -234,7 +239,7 @@ spec:
         - name: name
           value: buildah
         - name: bundle
-          value: quay.io/konflux-ci/tekton-catalog/task-buildah:0.2@sha256:504e29e807544ccce8469b66e5c2c562c1d4860f87fb7df681021fae9a39b77d
+          value: quay.io/konflux-ci/tekton-catalog/task-buildah:0.2@sha256:67f0290a8ad9a147cd28bb06af182b3e4b2b3ef17070196d476d8e2ae4302ecf
         - name: kind
           value: task
         resolver: bundles
@@ -452,6 +457,28 @@ spec:
       workspaces:
       - name: workspace
         workspace: workspace
+    - name: rpms-signature-scan
+      params:
+      - name: image-url
+        value: $(tasks.build-image-index.results.IMAGE_URL)
+      - name: image-digest
+        value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+      runAfter:
+      - build-image-index
+      taskRef:
+        params:
+        - name: name
+          value: rpms-signature-scan
+        - name: bundle
+          value: quay.io/konflux-ci/tekton-catalog/task-rpms-signature-scan:0.2@sha256:7aa4d3c95e2b963e82fdda392f7cb3d61e3dab035416cf4a3a34e43cf3c9c9b8
+        - name: kind
+          value: task
+        resolver: bundles
+      when:
+      - input: $(params.skip-checks)
+        operator: in
+        values:
+        - "false"
     workspaces:
     - name: workspace
     - name: git-auth
