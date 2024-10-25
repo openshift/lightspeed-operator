@@ -34,7 +34,7 @@ spec:
   - name: build-source-image
     value: "true"
   - name: prefetch-input
-    value: '{"type": "gomod", "path": "."}'
+    value: '[{"type": "gomod", "path": "."},{"type": "rpm", "path": "."}]'
   - name: hermetic
     value: "true"
   - name: build-platforms
@@ -194,6 +194,8 @@ spec:
         value: $(params.output-image).prefetch
       - name: ociArtifactExpiresAfter
         value: $(params.image-expires-after)
+      - name: dev-package-managers
+        value: "true"
       runAfter:
       - clone-repository
       taskRef:
