@@ -303,11 +303,15 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 		return fmt.Errorf("%s: %w", ErrGetAPIServiceAccount, err)
 	}
 
-	if serviceEqual(foundService, service) &&
-		foundService.ObjectMeta.Annotations != nil &&
-		foundService.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] == service.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] {
-		r.logger.Info("OLS service unchanged, reconciliation skipped", "service", service.Name)
-		return nil
+	if serviceEqual(foundService, service) && foundService.ObjectMeta.Annotations != nil {
+		if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate != "" {
+			r.logger.Info("OLS service unchanged, reconciliation skipped", "service", service.Name)
+			return nil
+
+		} else if foundService.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] == service.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] {
+			r.logger.Info("OLS service unchanged, reconciliation skipped", "service", service.Name)
+			return nil
+		}
 	}
 
 	err = r.Update(ctx, service)
@@ -417,10 +421,14 @@ func (r *OLSConfigReconciler) reconcileTLSSecret(ctx context.Context, cr *olsv1a
 	foundSecret := &corev1.Secret{}
 	var err, lastErr error
 	var secretValues map[string]string
+	secretName := OLSCertsSecretName
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		secretName = cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
+	}
 	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
-		secretValues, err = getSecretContent(r.Client, OLSCertsSecretName, r.Options.Namespace, []string{"tls.key", "tls.crt"}, foundSecret)
+		secretValues, err = getSecretContent(r.Client, secretName, r.Options.Namespace, []string{"tls.key", "tls.crt"}, foundSecret)
 		if err != nil {
-			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", OLSCertsSecretName, err)
+			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", secretName, err)
 			return false, nil
 		}
 		return true, nil

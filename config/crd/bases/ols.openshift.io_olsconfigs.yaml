@@ -553,6 +553,12 @@ spec:
                       console:
                         description: Console container settings.
                         properties:
+                          caCertificate:
+                            description: Certificate Authority (CA) certificate used
+                              by the console proxy endpoint.
+                            pattern: ^-----BEGIN CERTIFICATE-----([\s\S]*)-----END
+                              CERTIFICATE-----\s?$
+                            type: string
                           nodeSelector:
                             additionalProperties:
                               type: string
@@ -757,6 +763,23 @@ spec:
                           type: string
                       type: object
                     type: array
+                  tlsConfig:
+                    description: TLS configuration of the Lightspeed backend's HTTPS
+                      endpoint
+                    properties:
+                      keyCertSecretRef:
+                        description: KeySecretRef is the secret that holds the TLS
+                          key.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
                   tlsSecurityProfile:
                     description: TLS Security Profile used by API endpoints
                     properties:

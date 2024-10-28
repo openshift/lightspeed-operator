@@ -25,6 +25,8 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 	Context("Creation logic", Ordered, func() {
 		var secret *corev1.Secret
 		var tlsSecret *corev1.Secret
+		var tlsUserSecret *corev1.Secret
+		const tlsUserSecretName = "tls-user-secret"
 		BeforeEach(func() {
 			By("create the provider secret")
 			secret, _ = generateRandomSecret()
@@ -39,7 +41,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			secretCreationErr := reconciler.Create(ctx, secret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
 
-			By("create the tls secret")
+			By("create the default tls secret")
 			tlsSecret, _ = generateRandomSecret()
 			tlsSecret.Name = OLSCertsSecretName
 			tlsSecret.SetOwnerReferences([]metav1.OwnerReference{
@@ -51,6 +53,12 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 				},
 			})
 			secretCreationErr = reconciler.Create(ctx, tlsSecret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			By("create user provided tls secret")
+			tlsUserSecret, _ = generateRandomSecret()
+			tlsUserSecret.Name = tlsUserSecretName
+			secretCreationErr = reconciler.Create(ctx, tlsUserSecret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
 
 			By("Set OLSConfig CR to default")
@@ -67,6 +75,10 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 			By("Delete the tls secret")
 			secretDeletionErr = reconciler.Delete(ctx, tlsSecret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+
+			By("Delete the user provided tls secret")
+			secretDeletionErr = reconciler.Delete(ctx, tlsUserSecret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
@@ -281,6 +293,39 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
 			Expect(dep.Annotations[OLSAppTLSHashKey]).NotTo(Equal(oldHash))
+		})
+
+		It("should update the deployment when switching to user provided tls secret", func() {
+			By("Get the old hash")
+			dep := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
+			oldHash := dep.Spec.Template.Annotations[OLSAppTLSHashKey]
+			Expect(oldHash).NotTo(BeEmpty())
+
+			By("Change OLSConfig to use user provided tls secret and reconcile")
+			olsConfig := cr.DeepCopy()
+			olsConfig.Spec.OLSConfig.TLSConfig = &olsv1alpha1.TLSConfig{
+				KeyCertSecretRef: corev1.LocalObjectReference{
+					Name: tlsUserSecretName,
+				},
+			}
+			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Check new hash is updated")
+			dep = &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			bytesArr := make([]byte, len(tlsUserSecret.Data["tls.key"])+len(tlsUserSecret.Data["tls.crt"]))
+			copy(bytesArr, tlsUserSecret.Data["tls.key"])
+			copy(bytesArr[len(tlsUserSecret.Data["tls.key"]):], tlsUserSecret.Data["tls.crt"])
+			newHash, err := hashBytes(bytesArr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(newHash).NotTo(Equal(oldHash))
+			Expect(dep.Spec.Template.Annotations[OLSAppTLSHashKey]).To(Equal(newHash))
+
 		})
 
 		It("should trigger rolling update of the deployment when changing LLM secret content", func() {
