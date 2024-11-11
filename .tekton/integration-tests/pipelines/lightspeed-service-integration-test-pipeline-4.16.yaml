@@ -7,9 +7,9 @@ metadata:
   name: ols-integration-tests-pipeline
 spec:
   description: |
-    This pipeline automates the process of running end-to-end tests for Openshift Lightspeed
+    This pipeline automates the process of running end-to-end tests for OpenShift Lightspeed
     using a ROSA (Red Hat OpenShift Service on AWS) cluster. The pipeline provisions
-    the ROSA cluster, installs the openshift lightspeed operator using the installer, runs the tests, collects artifacts,
+    the ROSA cluster, installs the OpenShift Lightspeed operator using the installer, runs the tests, collects artifacts,
     and finally deprovisions the ROSA cluster.
   params:
     - name: SNAPSHOT
@@ -256,17 +256,16 @@ spec:
                 value: "/var/run/watsonx/token"
               - name: KUBECONFIG
                 value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
-              - name: OLS_IMAGE
-                value: $(params.serviceimage)
               - name: ARTIFACT_DIR
                 value: "tests/test_results"
               - name: SUITE_ID
                 value: "nosuite"
-              - name: KONFLUX_OLS_SERVICE_IMAGE
-                value: $(params.serviceimage)
+              - name: KONFLUX_BOOL
+                value: "true"
             image: registry.access.redhat.com/ubi9/ubi-minimal
             script: |
               echo "---------------------------------------------"
+              echo "$KONFLUX_BOOL"
               microdnf -y install git make python3.11 python3.11-devel python3.11-pip shadow-utils tar
               curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.16/openshift-client-linux-amd64-rhel9.tar.gz \
                   && tar -xvzf oc.tar.gz \
@@ -274,7 +273,7 @@ spec:
                   && mv oc kubectl /usr/local/bin/
               git clone https://github.com/openshift/lightspeed-service.git
               cd lightspeed-service
-              pip3.11 install --no-cache-dir --upgrade pip pdm mypy black ruff pydocstyle
+              pip3.11 install --no-cache-dir --upgrade pip pdm
               pdm config python.use_venv false
               make install-deps
               make install-deps-test
@@ -289,7 +288,7 @@ spec:
               export PROVIDER="azure_openai"
               export PROVIDER_KEY_PATH=${AZUREOPENAI_PROVIDER_KEY_PATH}
               export TEST_TAGS="not model_evaluation"
-              export MODEL="gpt-3.5-turbo"
+              export MODEL="gpt-4o-mini"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
               pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
@@ -299,7 +298,7 @@ spec:
               export PROVIDER="openai"
               export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
               export TEST_TAGS="not model_evaluation and not azure_entra_id"
-              export MODEL="gpt-3.5-turbo"
+              export MODEL="gpt-4o-mini"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
               pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
