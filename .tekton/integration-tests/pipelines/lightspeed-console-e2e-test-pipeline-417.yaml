@@ -4,12 +4,12 @@ kind: Pipeline
 metadata:
   annotations:
     pipelinesascode.tekton.dev/task: "[ols-installer, ols-e2e-task]"
-  name: ols-operator-e2e-tests-pipeline
+  name: ols-console-e2e-tests-pipeline
 spec:
   description: |
-    This pipeline automates the process of running end-to-end tests for Openshift Lightspeed
+    This pipeline automates the process of running end-to-end tests for OpenShift Lightspeed
     using a ROSA (Red Hat OpenShift Service on AWS) cluster. The pipeline provisions
-    the ROSA cluster, installs the openshift lightspeed operator using the installer, runs the tests, collects artifacts,
+    the ROSA cluster, installs the OpenShift Lightspeed operator using the installer, runs the tests, collects artifacts,
     and finally deprovisions the ROSA cluster.
   params:
     - name: SNAPSHOT
@@ -88,6 +88,9 @@ spec:
         - name: namespace
           value: "$(params.namespace)"
       taskSpec:
+        results:
+          - name: bundle-image
+            value: "$(steps.get-bundle-image.results.bundle-image)"
         params:
           - name: SNAPSHOT
           - name: namespace
@@ -152,10 +155,25 @@ spec:
               operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
               echo "---------------------------------------------"
               oc get deployment lightspeed-operator-controller-manager -n "$(params.namespace)"
+          - name: get-bundle-image
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+            results:
+              - name: bundle-image
+                type: string
+                description: "bundle image from snapshot"
+            script: |
+              dnf -y install jq
+              echo -n "$(jq -r --arg component_name "test-bundle" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
     - name: ols-e2e-tests
       description: Task to run tests from service repository
       runAfter:
         - ols-install
+      params:
+        - name: bundleimage
+          value: $(tasks.ols-install.results.bundle-image)
       taskSpec:
         volumes:
           - name: openai-token
@@ -163,6 +181,8 @@ spec:
               secretName: openai
           - name: credentials
             emptyDir: {}
+        params:
+          - name: bundleimage
         steps:
           - name: get-kubeconfig
             ref:
@@ -188,35 +208,50 @@ spec:
               - name: credentials
                 mountPath: /credentials
             env:
-              - name: CYPRESS_KUBECONFIG
+              - name: CYPRESS_KUBECONFIG_PATH
                 value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
               - name: CYPRESS_LOGIN_IDP
                 value: "kube:admin"
               - name: LLM_TOKEN_PATH
                 value: "/var/run/openai/token"
               - name: CYPRESS_BUNDLE_IMAGE
-                value: "$(params.bundle-image)"
+                value: "$(params.bundleimage)"
+              - name: PASSWORD_PATH
+                value: "/credentials/$(steps.get-kubeconfig.results.passwordPath)"
+              - name: CYPRESS_BASE_URL
+                value: "$(steps.get-kubeconfig.results.consoleURL)"
             image: registry.fedoraproject.org/fedora:latest
             script: |
               echo "---------------------------------------------"
-              export CYPRESS_BASE_URL=$(cat /credentials/$(steps.get-kubeconfig.results.apiServerURL))
-              export CYPRESS_LOGIN_PASSWORD=$(cat /credentials/$(steps.get-kubeconfig.results.passwordPath))
+              echo "${CYPRESS_BASE_URL}"
+              echo "---------------------------------------------"
+              echo "$(cat ${CYPRESS_KUBECONFIG_PATH})"
+              echo "---------------------------------------------"
+              export CYPRESS_LOGIN_PASSWORD=$(cat ${PASSWORD_PATH})
+              echo "${CYPRESS_LOGIN_PASSWORD}"
+              echo "---------------------------------------------"
               dnf -y update && \
                   dnf -y install golang wget git
+              echo "---------------------------------------------"
               dnf install -y xorg-x11-server-Xvfb
               curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest/openshift-client-linux.tar.gz \
                   && tar -xvzf oc.tar.gz \
                   && chmod +x kubectl oc \
                   && mv oc kubectl /usr/local/bin/
+              echo "---------------------------------------------"
               wget https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm && \
                   yum install -y ./google-chrome-stable_current_*.rpm && \
                   rm ./google-chrome-stable_current_*.rpm && \
                   mkdir -p /go/src/github.com/openshift
+              echo "---------------------------------------------"
               curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
               source ~/.bashrc
-              nvm install v16.14
+              nvm install v23.2.0
+              echo "---------------------------------------------"
               git clone https://github.com/openshift/lightspeed-console.git
               cd lightspeed-console
               npm install
-
+              npm -v
+              echo "---------------------------------------------"
+              echo "---------------------------------------------"
               npx cypress run
