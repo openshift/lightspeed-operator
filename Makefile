@@ -126,7 +126,7 @@ test: manifests generate fmt vet envtest test-crds ## Run local tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./internal/... -coverprofile cover.out
 
 OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/operator/v1/zz_generated.crd-manifests/0000_50_console_01_consoles.crd.yaml
-OS_CONSOLE_PLUGIN_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/console/v1/zz_generated.crd-manifests/90_consoleplugins.crd.yaml
+OS_CONSOLE_PLUGIN_CRD_URL = https://raw.githubusercontent.com/openshift/api/refs/heads/master/console/v1/zz_generated.crd-manifests/90_consoleplugins-Default.crd.yaml
 OCP_CLUSTER_VERSION_CRD_URL = https://raw.githubusercontent.com/openshift/api/master/config/v1/zz_generated.crd-manifests/0000_00_cluster-version-operator_01_clusterversions-Default.crd.yaml
 MONITORING_CRD_URL = https://raw.githubusercontent.com/openshift/prometheus-operator/master/bundle.yaml
 OCP_APISERVER_CRD_URL = https://raw.githubusercontent.com/openshift/api/refs/heads/master/config/v1/zz_generated.crd-manifests/0000_10_config-operator_01_apiservers.crd.yaml
