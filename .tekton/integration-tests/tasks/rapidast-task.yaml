@@ -1,0 +1,28 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: rapidast
+spec:
+  results:
+    - name: TEST_OUTPUT
+      description: Tekton task test output.
+    - name: CLAIR_SCAN_RESULT
+      description: Clair scan result
+  steps:
+    - name: scan
+      image: quay.io/openshift-lightspeed/rapidast:latest
+      script: |
+        #!/bin/sh
+        rapidast.py --config /home/rapidast/ols-rapidast-config.yaml
+        cat results/ols-bundle/*/zap/zap-report.json
+        # test: vulnerability result format
+        COUNT_CRITICAL=`cat results/ols-bundle/*/zap/zap-report.json | grep "riskdesc\": \"Critical" | wc -l`
+        COUNT_HIGH=`cat results/ols-bundle/*/zap/zap-report.json | grep "riskdesc\": \"High" | wc -l`
+        COUNT_MEDIUM=`cat results/ols-bundle/*/zap/zap-report.json | grep "riskdesc\": \"Medium" | wc -l`
+        COUNT_LOW=`cat results/ols-bundle/*/zap/zap-report.json | grep "riskdesc\": \"Low" | wc -l`
+        VUL_RESULT="{\"vulnerabilities\":{\"critical\":$COUNT_CRITICAL,\"high\":$COUNT_HIGH,\"medium\":$COUNT_MEDIUM,\"low\":$COUNT_LOW}}"
+        echo "${VUL_RESULT}" | tee $(results.CLAIR_SCAN_RESULT.path)
+        # test: result format
+        # TODO: need a definition of criteria what marks the test as failure
+        TEST_OUTPUT="{\"result\":\"FAILURE\",\"timestamp\":\"$(date +%s)\",\"note\":\"Test RapiDAST scan completed: Check logs for the DAST result\",\"namespace\":\"default\",\"successes\":1,\"failures\":1,\"warnings\":0}"
+        echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
