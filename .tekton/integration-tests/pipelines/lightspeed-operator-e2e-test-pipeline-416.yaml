@@ -7,9 +7,9 @@ metadata:
   name: ols-operator-e2e-tests-pipeline
 spec:
   description: |
-    This pipeline automates the process of running end-to-end tests for Openshift Lightspeed
+    This pipeline automates the process of running end-to-end tests for OpenShift Lightspeed
     using a ROSA (Red Hat OpenShift Service on AWS) cluster. The pipeline provisions
-    the ROSA cluster, installs the openshift lightspeed operator using the installer, runs the tests, collects artifacts,
+    the ROSA cluster, installs the OpenShift Lightspeed operator using the installer, runs the tests, collects artifacts,
     and finally deprovisions the ROSA cluster.
   params:
     - name: SNAPSHOT
