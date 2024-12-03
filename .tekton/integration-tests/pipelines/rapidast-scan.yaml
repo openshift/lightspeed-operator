@@ -231,14 +231,6 @@ spec:
               limits:
                 memory: 10Gi
             volumeMounts:
-              - name: azure-openai-token
-                mountPath: /var/run/azure_openai
-              - name: azureopenai-entra-id
-                mountPath: /var/run/azureopenai-entra-id
-              - name: bam-token
-                mountPath: /var/run/bam
-              - name: openai-token
-                mountPath: /var/run/openai
               - name: watsonx-token
                 mountPath: /var/run/watsonx
               - name: insights-stage-upload-offline-token
@@ -246,12 +238,6 @@ spec:
               - name: credentials
                 mountPath: /credentials
             env:
-              - name: BAM_PROVIDER_KEY_PATH
-                value: "/var/run/bam/token"
-              - name: AZUREOPENAI_PROVIDER_KEY_PATH
-                value: "/var/run/azure_openai/token"
-              - name: OPENAI_PROVIDER_KEY_PATH
-                value: "/var/run/openai/token"
               - name: WATSONX_PROVIDER_KEY_PATH
                 value: "/var/run/watsonx/token"
               - name: KUBECONFIG
@@ -278,11 +264,6 @@ spec:
               make install-deps
               make install-deps-test
               oc project $(params.namespace)
-
-              export CP_OFFLINE_TOKEN=$(cat /var/run/insights-stage-upload-offline-token/token)
-              export AZUREOPENAI_ENTRA_ID_TENANT_ID="$(cat /var/run/azureopenai-entra-id/tenant_id)"
-              export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/client_id)"
-              export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
 
               echo "-----------------------------------------------"
               export SUITE_ID="watsonx"
