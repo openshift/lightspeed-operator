@@ -290,20 +290,6 @@ spec:
               export TEST_TAGS="not model_evaluation"
               export MODEL="gpt-4o-mini"
               echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
-
-              export SUITE_ID="openai"
-              export PROVIDER="openai"
-              export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not azure_entra_id"
-              export MODEL="gpt-4o-mini"
-              echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
-
               export SUITE_ID="watsonx"
               export PROVIDER="watsonx"
               export PROVIDER_KEY_PATH=${WATSONX_PROVIDER_KEY_PATH}
@@ -313,3 +299,4 @@ spec:
               echo "starting ${PROVIDER} tests"
               pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
               --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
+             
