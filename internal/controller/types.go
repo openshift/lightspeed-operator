@@ -3,8 +3,6 @@ package controller
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
@@ -109,13 +107,10 @@ type LoggingConfig struct {
 }
 
 type ConversationCacheConfig struct {
-	// Type of cache to use. Default: "redis"
-	Type string `json:"type" default:"redis"`
-	// TODO: Update DB
-	// Redis cache configuration
-	//Redis RedisCacheConfig `json:"redis,omitempty"`
-	// Memory cache configuration
-	Memory MemoryCacheConfig `json:"memory,omitempty"`
+	// Type of cache to use. Default: "postgres"
+	Type string `json:"type" default:"postgres"`
+	// Postgres cache configuration
+	Postgres PostgresCacheConfig `json:"postgres,omitempty"`
 }
 
 type MemoryCacheConfig struct {
@@ -123,18 +118,20 @@ type MemoryCacheConfig struct {
 	MaxEntries int `json:"max_entries,omitempty" default:"1000"`
 }
 
-type RedisCacheConfig struct {
-	// Redis host
-	Host string `json:"host,omitempty" default:"lightspeed-redis-server.openshift-lightspeed.svc"`
-	// Redis port
-	Port int `json:"port,omitempty" default:"6379"`
-	// Redis maxmemory
-	MaxMemory *intstr.IntOrString `json:"max_memory,omitempty" default:"1024mb"`
-	// Redis maxmemory policy
-	MaxMemoryPolicy string `json:"max_memory_policy,omitempty" default:"allkeys-lru"`
-	// Path to the file containing redis credentials in the app server container.
+type PostgresCacheConfig struct {
+	// Postgres host
+	Host string `json:"host,omitempty" default:"lightspeed-postgres-server.openshift-lightspeed.svc"`
+	// Postgres port
+	Port int `json:"port,omitempty" default:"5432"`
+	// Postgres user
+	User string `json:"user,omitempty" default:"postgres"`
+	// Postgres dbname
+	DbName string `json:"dbname,omitempty" default:"postgres"`
+	// Path to the file containing postgres credentials in the app server container
 	PasswordPath string `json:"password_path,omitempty"`
-	// Redis CA certificate path
+	// SSLMode is the preferred ssl mode to connect with postgres
+	SSLMode string `json:"ssl_mode,omitempty" default:"require"`
+	// Postgres CA certificate path
 	CACertPath string `json:"ca_cert_path,omitempty"`
 }
 
