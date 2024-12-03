@@ -185,18 +185,6 @@ spec:
           - name: namespace
             type: string
         volumes:
-          - name: azure-openai-token
-            secret:
-              secretName: azureopenai-apitoken
-          - name: azureopenai-entra-id
-            secret:
-              secretName: azureopenai-entra-id
-          - name: bam-token
-            secret:
-              secretName: bam-apitoken
-          - name: openai-token
-            secret:
-              secretName: openai
           - name: watsonx-token
             secret:
               secretName: watsonx-apitoken
