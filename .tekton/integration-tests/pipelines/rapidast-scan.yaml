@@ -185,18 +185,6 @@ spec:
           - name: namespace
             type: string
         volumes:
-          - name: azure-openai-token
-            secret:
-              secretName: azureopenai-apitoken
-          - name: azureopenai-entra-id
-            secret:
-              secretName: azureopenai-entra-id
-          - name: bam-token
-            secret:
-              secretName: bam-apitoken
-          - name: openai-token
-            secret:
-              secretName: openai
           - name: watsonx-token
             secret:
               secretName: watsonx-apitoken
@@ -231,14 +219,6 @@ spec:
               limits:
                 memory: 10Gi
             volumeMounts:
-              - name: azure-openai-token
-                mountPath: /var/run/azure_openai
-              - name: azureopenai-entra-id
-                mountPath: /var/run/azureopenai-entra-id
-              - name: bam-token
-                mountPath: /var/run/bam
-              - name: openai-token
-                mountPath: /var/run/openai
               - name: watsonx-token
                 mountPath: /var/run/watsonx
               - name: insights-stage-upload-offline-token
@@ -246,12 +226,6 @@ spec:
               - name: credentials
                 mountPath: /credentials
             env:
-              - name: BAM_PROVIDER_KEY_PATH
-                value: "/var/run/bam/token"
-              - name: AZUREOPENAI_PROVIDER_KEY_PATH
-                value: "/var/run/azure_openai/token"
-              - name: OPENAI_PROVIDER_KEY_PATH
-                value: "/var/run/openai/token"
               - name: WATSONX_PROVIDER_KEY_PATH
                 value: "/var/run/watsonx/token"
               - name: KUBECONFIG
@@ -279,31 +253,7 @@ spec:
               make install-deps-test
               oc project $(params.namespace)
 
-              export CP_OFFLINE_TOKEN=$(cat /var/run/insights-stage-upload-offline-token/token)
-              export AZUREOPENAI_ENTRA_ID_TENANT_ID="$(cat /var/run/azureopenai-entra-id/tenant_id)"
-              export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/client_id)"
-              export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
-
-              export SUITE_ID="azure_openai"
-              export PROVIDER="azure_openai"
-              export PROVIDER_KEY_PATH=${AZUREOPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation"
-              export MODEL="gpt-4o-mini"
               echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
-
-              export SUITE_ID="openai"
-              export PROVIDER="openai"
-              export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not azure_entra_id"
-              export MODEL="gpt-4o-mini"
-              echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
-
               export SUITE_ID="watsonx"
               export PROVIDER="watsonx"
               export PROVIDER_KEY_PATH=${WATSONX_PROVIDER_KEY_PATH}
@@ -313,3 +263,4 @@ spec:
               echo "starting ${PROVIDER} tests"
               pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
               --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
+             
