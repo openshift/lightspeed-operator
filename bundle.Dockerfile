@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi9/ubi-minimal@sha256:d85040b6e3ed3628a89683f51a38c709185efc3fb552db2ad1b9180f2a6c38be as builder
+FROM registry.redhat.io/ubi9/ubi-minimal:9.5 as builder
 ARG RELATED_IMAGE_FILE=related_images.json
 ARG CSV_FILE=bundle/manifests/lightspeed-operator.clusterserviceversion.yaml
 ARG OPERATOR_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-operator:latest
@@ -14,7 +14,7 @@ RUN OPERATOR_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-operator") | .imag
 RUN SERVICE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-service-api") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${SERVICE_IMAGE_ORIGINAL}|${SERVICE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN CONSOLE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-console-plugin") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${CONSOLE_IMAGE_ORIGINAL}|${CONSOLE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 
-FROM registry.redhat.io/ubi9/ubi-minimal@sha256:d85040b6e3ed3628a89683f51a38c709185efc3fb552db2ad1b9180f2a6c38be
+FROM registry.redhat.io/ubi9/ubi-minimal:9.5
 
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1

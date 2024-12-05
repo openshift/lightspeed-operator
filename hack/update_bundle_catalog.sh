@@ -83,7 +83,7 @@ ${YQ} eval -i '.annotations."com.redhat.openshift.versions"="v4.15-v4.17"' ${ANN
 ${YQ} eval -i '(.annotations."com.redhat.openshift.versions" | key) head_comment="OCP compatibility labels"' ${ANNOTATION_FILE}
 
 # use UBI image as base image for bundle image
-: "${BASE_IMAGE:=registry.redhat.io/ubi9/ubi-minimal@sha256:d85040b6e3ed3628a89683f51a38c709185efc3fb552db2ad1b9180f2a6c38be}"
+: "${BASE_IMAGE:=registry.redhat.io/ubi9/ubi-minimal:9.5}"
 sed -i 's|^FROM scratch|FROM '"${BASE_IMAGE}"'|' ${BUNDLE_DOCKERFILE}
 
 # make bundle image comply with enterprise contract requirements

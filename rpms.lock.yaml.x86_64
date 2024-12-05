@@ -2,24 +2,6 @@
 lockfileVersion: 1
 lockfileVendor: redhat
 arches:
-- arch: aarch64
-  packages:
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/j/jq-1.6-15.el9.aarch64.rpm
-    repoid: ubi-9-appstream-rpms
-    size: 187128
-    checksum: sha256:e21b572bcb332664bb342fe53d5ced4714ccd5008f2170049ef77fa2162183a0
-    name: jq
-    evr: 1.6-15.el9
-    sourcerpm: jq-1.6-15.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/o/oniguruma-6.9.6-1.el9.5.aarch64.rpm
-    repoid: ubi-9-appstream-rpms
-    size: 222582
-    checksum: sha256:bc2305dad655ddb94f966158112efd6cefa6824d5aa2e80f63881f16cee74598
-    name: oniguruma
-    evr: 6.9.6-1.el9.5
-    sourcerpm: oniguruma-6.9.6-1.el9.5.src.rpm
-  source: []
-  module_metadata: []
 - arch: x86_64
   packages:
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/j/jq-1.6-15.el9.x86_64.rpm
