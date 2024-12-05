@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi9/ubi-minimal@sha256:c0e70387664f30cd9cf2795b547e4a9a51002c44a4a86aa9335ab030134bf392 as builder
+FROM registry.redhat.io/ubi9/ubi-minimal:9.5 as builder
 ARG RELATED_IMAGE_FILE=related_images.json
 ARG CSV_FILE=bundle/manifests/lightspeed-operator.clusterserviceversion.yaml
 ARG OPERATOR_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-operator:latest

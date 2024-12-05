@@ -1,0 +1,3 @@
+packages: [jq]
+contentOrigin:
+  repofiles: ["./ubi.repo.x86_64"]
