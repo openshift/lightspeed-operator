@@ -273,11 +273,11 @@ properties:
         url: https://github.com/openshift/lightspeed-service
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:e8ad21d0d6dea4d8e716852dec3398f2ab31d620cfdf7e562d0ef8dd20a26966
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:98955b1888f2e5f4198b189db011b86fb2ef34a6f4cb987f265eed5a8e80c94a
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:715b0f953a73c0b2d3beafe398518786abf65ad35f60c0a14707a53537e14c63
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:8a329bc1fe60febaf0f72571d6aff446acb8872416ce8c1c451a0515b720501e
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:665c632e46e9d7e21d64cba4a106511306f079ecb4cf07b35423b2c1de59f27f
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:e40d521c6a3d4280cb3b3847a360729b6d0859d8c23b46d50ccb5097ea600dee
   - name: lightspeed-operator-bundle
     image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:a109f61c4b9f09d3f992b0a265ce278c43ee2b10e1bc5ba6ed6b0e5ac72fda4a
 schema: olm.bundle
