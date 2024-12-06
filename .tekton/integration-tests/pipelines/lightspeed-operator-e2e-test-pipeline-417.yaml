@@ -209,7 +209,11 @@ spec:
             script: |
               echo "---------------------------------------------"
               export LLM_TOKEN=$(cat ${LLM_TOKEN_PATH})
-              dnf -y install git make golang
+              dnf -y install git make
+              curl -Lo /go.tar.gz https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
+              tar -C /usr/local -xzf /go.tar.gz
+              export PATH=$PATH:/usr/local/go/bin
+              go version
               git clone https://github.com/openshift/lightspeed-operator.git
               cd lightspeed-operator
               echo "---------------------------------------------"
