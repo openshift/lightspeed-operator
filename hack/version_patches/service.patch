@@ -1,0 +1,43 @@
+diff --git a/docs/openapi.json b/docs/openapi.json
+index c8708c01..c737bd67 100644
+--- a/docs/openapi.json
++++ b/docs/openapi.json
+@@ -3,7 +3,7 @@
+     "info": {
+         "title": "Swagger OpenShift LightSpeed Service - OpenAPI",
+         "description": "OpenShift LightSpeed Service API specification.",
+-        "version": "<current-version>"
++        "version": "<new-version>"
+     },
+     "paths": {
+         "/v1/query": {
+@@ -848,4 +848,4 @@
+             }
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/ols/version.py b/ols/version.py
+index c4b3fa50..1f043bfe 100644
+--- a/ols/version.py
++++ b/ols/version.py
+@@ -1,4 +1,4 @@
+ """Service version that is read by project manager tools."""
+ 
+ # this should be the only version value used in all source codes!!!
+-__version__ = "<current-version>"
++__version__ = "<new-version>"
+diff --git a/scripts/build-container.sh b/scripts/build-container.sh
+index a26cd1ea..01afaa46 100755
+--- a/scripts/build-container.sh
++++ b/scripts/build-container.sh
+@@ -1,7 +1,7 @@
+ #!/bin/bash
+ 
+ # Version
+-OLS_VERSION=v<current-version>
++OLS_VERSION=v<new-version>
+ 
+ # To build container for local use
+ if [ -z "$OLS_NO_IMAGE_CACHE" ]; then
