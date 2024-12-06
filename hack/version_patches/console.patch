@@ -1,0 +1,12 @@
+diff --git a/src/components/OverviewDetail.tsx b/src/components/OverviewDetail.tsx
+index 626628c..b358cf5 100644
+--- a/src/components/OverviewDetail.tsx
++++ b/src/components/OverviewDetail.tsx
+@@ -1,6 +1,6 @@
+ import * as React from 'react';
+ 
+ // TODO: Dynamically get the current plugin version instead of hard-coding it here
+-const OverviewDetail: React.FC = () => <><current-version></>;
++const OverviewDetail: React.FC = () => <><new-version></>;
+ 
+ export default OverviewDetail;

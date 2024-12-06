@@ -1,0 +1,15 @@
+diff --git a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml
+index bb2a8cee5..6cba23669 100644
+--- a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml
++++ b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml
+@@ -26,8 +26,8 @@ spec:
+       defaults:
+         tags:
+           - "{{ git_sha }}"
+-          - "<current-version>"
+-          - "<current-version>-{{ timestamp }}"
++          - "<new-version>"
++          - "<new-version>-{{ timestamp }}"
+         pushSourceContainer: false
+     pyxis:
+       secret: pyxis-prod-secret
