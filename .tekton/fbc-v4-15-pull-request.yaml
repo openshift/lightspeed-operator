@@ -507,7 +507,7 @@ spec:
       workspaces:
       - name: source
         workspace: workspace
-    - name: fbc-validate
+    - name: validate-fbc
       params:
       - name: IMAGE_URL
         value: $(tasks.build-image-index.results.IMAGE_URL)
@@ -516,13 +516,13 @@ spec:
       - name: BASE_IMAGE
         value: $(tasks.inspect-image.results.BASE_IMAGE)
       runAfter:
-      - inspect-image
+      - build-image-index
       taskRef:
         params:
         - name: name
-          value: fbc-validation
+          value: validate-fbc
         - name: bundle
-          value: quay.io/konflux-ci/tekton-catalog/task-fbc-validation:0.2@sha256:398bab8c575a1b0f3bcc382a0a1879d0c50af1d3a4640ade453eb5e84b4cb659
+          value: quay.io/konflux-ci/tekton-catalog/task-validate-fbc:0.1
         - name: kind
           value: task
         resolver: bundles
@@ -531,9 +531,6 @@ spec:
         operator: in
         values:
         - "false"
-      workspaces:
-      - name: workspace
-        workspace: workspace
     workspaces:
     - name: workspace
     - name: git-auth
