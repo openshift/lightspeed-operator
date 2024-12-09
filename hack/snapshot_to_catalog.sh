@@ -107,62 +107,18 @@ sed "s/defaultChannel: alpha/defaultChannel: ${DEFAULT_CHANNEL_NAME}/" ${CATALOG
 
 # array to store the bundle versions
 BUNDLE_VERSIONS=()
-
+GET_RELATED_IMAGES="${SCRIPT_DIR}/snapshot_to_image_list.sh"
 for SNAPSHOT_REF in $(echo ${SNAPSHOT_REFS} | tr "," "\n"); do
   echo "Update catalog ${CATALOG_FILE} from snapshot ${SNAPSHOT_REF}"
-  # cache the snapshot from Konflux
-  oc get snapshot ${SNAPSHOT_REF} -o json >"${TMP_SNAPSHOT_JSON}"
-  if [ $? -ne 0 ]; then
-    echo "Failed to get snapshot ${SNAPSHOT_REF}"
-    echo "Please make sure the snapshot exists and the snapshot name is correct"
-    echo "Need to login Konflux through oc login, proxy command to be found here: https://registration-service-toolchain-host-operator.apps.stone-prd-host1.wdlc.p1.openshiftapps.com/"
-    exit 1
-  fi
-  BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle"
-  OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator"
-  CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9"
-  SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9"
-
-  BUNDLE_IMAGE_ORIGIN=$(jq -r '.spec.components[]| select(.name=="bundle") | .containerImage' "${TMP_SNAPSHOT_JSON}")
-  BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle|'"${BUNDLE_IMAGE_BASE}"'|g' <<<${BUNDLE_IMAGE_ORIGIN})
-
-  OPERATOR_IMAGE=$(jq -r '.spec.components[]| select(.name=="lightspeed-operator") | .containerImage' "${TMP_SNAPSHOT_JSON}")
-  OPERATOR_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator|'"${OPERATOR_IMAGE_BASE}"'|g' <<<${OPERATOR_IMAGE})
-
-  CONSOLE_IMAGE=$(jq -r '.spec.components[]| select(.name=="lightspeed-console") | .containerImage' "${TMP_SNAPSHOT_JSON}")
-  CONSOLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console|'"${CONSOLE_IMAGE_BASE}"'|g' <<<${CONSOLE_IMAGE})
-
-  SERVICE_IMAGE=$(jq -r '.spec.components[]| select(.name=="lightspeed-service") | .containerImage' "${TMP_SNAPSHOT_JSON}")
-  SERVICE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service|'"${SERVICE_IMAGE_BASE}"'|g' <<<${SERVICE_IMAGE})
-
-  RELATED_IMAGES=$(
-    cat <<-EOF
-[
-  {
-    "name": "lightspeed-service-api",
-    "image": "${SERVICE_IMAGE}"
-  },
-  {
-    "name": "lightspeed-console-plugin",
-    "image": "${CONSOLE_IMAGE}"
-  },
-  {
-    "name": "lightspeed-operator",
-    "image": "${OPERATOR_IMAGE}"
-  },
-  { "name": "lightspeed-operator-bundle",
-    "image": "${BUNDLE_IMAGE}"
-  }
-]
-EOF
-  )
+  # get bundle image on konflux workspace
+  RELATED_IMAGES=$(${GET_RELATED_IMAGES} -s ${SNAPSHOT_REF})
+  BUNDLE_IMAGE_ORIGIN=$(jq -r '.[] | select(.name=="lightspeed-operator-bundle") | .image' <<<${RELATED_IMAGES})
+  # get image list in production registry
+  RELATED_IMAGES=$(${GET_RELATED_IMAGES} -s ${SNAPSHOT_REF} -p)
+  BUNDLE_IMAGE=$(jq -r '.[] | select(.name=="lightspeed-operator-bundle") | .image' <<<${RELATED_IMAGES})
   echo "Catalog will use the following images:"
-  echo "BUNDLE_IMAGE=${BUNDLE_IMAGE}"
-  echo "OPERATOR_IMAGE=${OPERATOR_IMAGE}"
-  echo "CONSOLE_IMAGE=${CONSOLE_IMAGE}"
-  echo "SERVICE_IMAGE=${SERVICE_IMAGE}"
+  echo "${RELATED_IMAGES}"
 
-  echo BUNDLE_IMAGE_ORIGIN=${BUNDLE_IMAGE_ORIGIN}
   OPM_ARGS=""
   if [ -n "${MIGRATE}" ]; then
     OPM_ARGS="--migrate-level=bundle-object-to-csv-metadata"
