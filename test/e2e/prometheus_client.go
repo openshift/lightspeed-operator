@@ -50,8 +50,8 @@ type WrapTransporter interface {
 
 // NewPrometheusClient creates and returns a new PrometheusClient.
 func NewPrometheusClient(host, token string, wts ...WrapTransporter) *PrometheusClient {
-	// #nosec
 	var rt http.RoundTripper = &http.Transport{
+		// #nosec G402
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	rt = (&HeaderInjector{Name: "Authorization", Value: "Bearer " + token}).WrapTransport(rt)
