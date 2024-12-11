@@ -1,0 +1,43 @@
+config:
+  configVersion: 4
+  base_results_dir: "./results"
+  defectDojo:
+    url: "http://localhost"
+
+application:
+  shortName: "ols-bundle"
+  url: "localhost:8080"
+
+
+general:
+  container:
+    type: "none"
+
+scanners:
+  zap:
+  #  apiScan:
+  #    apis:
+  #      apiUrl: "http://localhost:5000/docs/openapi.json" 
+
+    spider:
+      maxDuration: 0 # in minutes, default: 0 unlimited
+      url: ""        # url to start spidering from, default: application.url set above
+
+    passiveScan:
+      disabledRules: "2,10015,10027,10096,10024"
+
+    activeScan:
+      policy:  "API-scan-minimal"
+
+    container:
+      parameters:
+        executable: "zap.sh"  # for Linux
+
+    miscOptions:
+      # enableUI (default: false), requires a compatible runtime (e.g.: flatpak or no containment)
+      enableUI: False
+      # Defaults to True, set False to prevent auto update of ZAP plugins
+      updateAddons: False
+
+    report:
+      format: ["json"]
