@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2024-10-24T09:33:47Z"
+    createdAt: "2024-12-13T16:18:42Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -566,13 +566,13 @@ spec:
           serviceAccountName: lightspeed-operator-controller-manager
     strategy: deployment
   installModes:
-    - supported: false
+    - supported: true
       type: OwnNamespace
     - supported: false
       type: SingleNamespace
     - supported: false
       type: MultiNamespace
-    - supported: true
+    - supported: false
       type: AllNamespaces
   keywords:
     - ai
