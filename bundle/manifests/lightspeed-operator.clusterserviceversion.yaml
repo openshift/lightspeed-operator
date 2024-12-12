@@ -387,8 +387,8 @@ spec:
                       - --metrics-bind-address=:8443
                       - --secure-metrics-server
                       - --cert-dir=/etc/tls/private
-                      - --console-image=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:5ebcbe920d30813fd4cd9a0c9cfae6af5a2ebb988bbe44c6b28de01c30f33e6e
-                      - --service-image=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:75b62469e86fd6e1c47f5cc1d0bfea09c2a29d8f80b7570da6df91c9648cb915
+                      - --console-image=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:07469983ea071e9877af1ab376fb9cdde73aa6164f50a0f60208647cf4d8062a
+                      - --service-image=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:39019b7e93fc061576ad86ead5425a03f4506b8de24ece93b2fe89140a8bec56
                     command:
                       - /manager
                     env:
@@ -590,8 +590,8 @@ spec:
   version: 0.2.1
   relatedImages:
     - name: lightspeed-service-api
-      image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:75b62469e86fd6e1c47f5cc1d0bfea09c2a29d8f80b7570da6df91c9648cb915
+      image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:39019b7e93fc061576ad86ead5425a03f4506b8de24ece93b2fe89140a8bec56
     - name: lightspeed-console-plugin
-      image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:5ebcbe920d30813fd4cd9a0c9cfae6af5a2ebb988bbe44c6b28de01c30f33e6e
+      image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:07469983ea071e9877af1ab376fb9cdde73aa6164f50a0f60208647cf4d8062a
     - name: lightspeed-operator
       image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:762f601facd0f87fd74b126622887ba52b66c9f0230b20635cb0960f14bcce35
