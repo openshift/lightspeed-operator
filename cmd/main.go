@@ -252,7 +252,7 @@ func main() {
 			// TODO: Update DB
 			//LightspeedServiceRedisImage: imagesMap["lightspeed-service-redis"],
 			Namespace:         controller.OLSNamespaceDefault,
-			ReconcileInterval: time.Duration(reconcilerIntervalMinutes) * time.Minute,
+			ReconcileInterval: time.Duration(reconcilerIntervalMinutes) * time.Minute, // #nosec G115
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")
