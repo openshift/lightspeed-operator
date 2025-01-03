@@ -14,3 +14,4 @@ annotations:
   operators.operatorframework.io.test.config.v1: tests/scorecard/
   # OCP compatibility labels
   com.redhat.openshift.versions: v4.15-v4.17
+  features.operators.openshift.io/fips-compliant: "true"
