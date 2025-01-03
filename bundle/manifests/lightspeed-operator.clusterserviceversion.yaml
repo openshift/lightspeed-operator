@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2024-10-24T09:33:47Z"
+    createdAt: "2025-01-03T12:57:27Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -266,6 +266,15 @@ spec:
       clusterPermissions:
         - rules:
             - apiGroups:
+                - ""
+              resources:
+                - configmaps
+                - secrets
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
                 - authentication.k8s.io
               resources:
                 - tokenreviews
@@ -298,22 +307,6 @@ spec:
                 - delete
                 - get
                 - update
-            - apiGroups:
-                - ""
-              resources:
-                - configmaps
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - ""
-              resources:
-                - secrets
-              verbs:
-                - get
-                - list
-                - watch
             - apiGroups:
                 - ols.openshift.io
               resources:
@@ -473,6 +466,21 @@ spec:
                 - create
                 - patch
             - apiGroups:
+                - ""
+              resources:
+                - configmaps
+                - secrets
+                - serviceaccounts
+                - services
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
                 - apps
               resources:
                 - deployments
@@ -485,68 +493,9 @@ spec:
                 - update
                 - watch
             - apiGroups:
-                - ""
-              resources:
-                - configmaps
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - ""
-              resources:
-                - secrets
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - ""
-              resources:
-                - serviceaccounts
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - ""
-              resources:
-                - services
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
                 - monitoring.coreos.com
               resources:
                 - prometheusrules
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - monitoring.coreos.com
-              resources:
                 - servicemonitors
               verbs:
                 - create
