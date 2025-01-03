@@ -1,5 +1,8 @@
 {
     "ignorePaths": [
-        "lightspeed-catalog**/**"
+        "lightspeed-catalog-4.15/**",
+        "lightspeed-catalog-4.16/**",
+        "lightspeed-catalog-4.17/**",
+        "lightspeed-catalog-4.18/**"
     ]
 }
