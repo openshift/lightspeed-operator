@@ -857,6 +857,8 @@ user_data_collector_config: {}
 			Expect(err).NotTo(HaveOccurred())
 			Expect(serviceMonitor.Name).To(Equal(AppServerServiceMonitorName))
 			Expect(serviceMonitor.Namespace).To(Equal(OLSNamespaceDefault))
+			valFalse := false
+			serverName := "lightspeed-app-server.openshift-lightspeed.svc"
 			Expect(serviceMonitor.Spec.Endpoints).To(ConsistOf(
 				monv1.Endpoint{
 					Port:     "https",
@@ -865,8 +867,8 @@ user_data_collector_config: {}
 					Scheme:   "https",
 					TLSConfig: &monv1.TLSConfig{
 						SafeTLSConfig: monv1.SafeTLSConfig{
-							InsecureSkipVerify: false,
-							ServerName:         "lightspeed-app-server.openshift-lightspeed.svc",
+							InsecureSkipVerify: &valFalse,
+							ServerName:         &serverName,
 						},
 						CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
 						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",

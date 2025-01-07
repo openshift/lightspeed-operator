@@ -27,7 +27,7 @@ require (
 )
 
 require (
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.73.2
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.76.2
 	golang.org/x/exp v0.0.0-20241204233417-43b7b7cde48d // indirect
 )
 
