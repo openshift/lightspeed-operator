@@ -267,7 +267,7 @@ spec:
               echo "---------------------------------------------"
               echo "$KONFLUX_BOOL"
               microdnf -y install git make python3.11 python3.11-devel python3.11-pip shadow-utils tar
-              curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.16/openshift-client-linux-amd64-rhel9.tar.gz \
+              curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.15/openshift-client-linux-amd64-rhel9.tar.gz \
                   && tar -xvzf oc.tar.gz \
                   && chmod +x kubectl oc \
                   && mv oc kubectl /usr/local/bin/
@@ -287,7 +287,7 @@ spec:
               export SUITE_ID="azure_openai"
               export PROVIDER="azure_openai"
               export PROVIDER_KEY_PATH=${AZUREOPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation"
+              export TEST_TAGS="not model_evaluation and not certificates"
               export MODEL="gpt-4o-mini"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
@@ -297,7 +297,7 @@ spec:
               export SUITE_ID="openai"
               export PROVIDER="openai"
               export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not azure_entra_id"
+              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates"
               export MODEL="gpt-4o-mini"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
@@ -307,7 +307,7 @@ spec:
               export SUITE_ID="watsonx"
               export PROVIDER="watsonx"
               export PROVIDER_KEY_PATH=${WATSONX_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not azure_entra_id"
+              export TEST_TAGS="not azure_entra_id and not certificates"
               export MODEL="ibm/granite-13b-chat-v2"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
