@@ -369,6 +369,9 @@ func (r *OLSConfigReconciler) generateServiceMonitor(cr *olsv1alpha1.OLSConfig) 
 	metaLabels["app.kubernetes.io/component"] = "metrics"
 	metaLabels["openshift.io/user-monitoring"] = "false"
 
+	valFalse := false
+	serverName := strings.Join([]string{OLSAppServerServiceName, r.Options.Namespace, "svc"}, ".")
+
 	serviceMonitor := monv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      AppServerServiceMonitorName,
@@ -387,8 +390,8 @@ func (r *OLSConfigReconciler) generateServiceMonitor(cr *olsv1alpha1.OLSConfig) 
 						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
 						KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
 						SafeTLSConfig: monv1.SafeTLSConfig{
-							InsecureSkipVerify: false,
-							ServerName:         strings.Join([]string{OLSAppServerServiceName, r.Options.Namespace, "svc"}, "."),
+							InsecureSkipVerify: &valFalse,
+							ServerName:         &serverName,
 						},
 					},
 					BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
