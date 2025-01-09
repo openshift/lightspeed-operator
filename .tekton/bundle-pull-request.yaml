@@ -10,7 +10,7 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: |
       event == "pull_request" &&
       target_branch == "main" &&
-      (".tekton/bundle-pull-request.yaml".pathChanged() || "bundle/***".pathChanged() || "bundle.Dockerfile".pathChanged() || ".tekton/integration-tests/*/*.yaml".pathChanged())
+      (".tekton/bundle-pull-request.yaml".pathChanged() || "bundle/***".pathChanged() || "bundle.Dockerfile".pathChanged() || ".tekton/integration-tests/*/*.yaml".pathChanged() || "related_images.json".pathChanged())
     build.appstudio.openshift.io/build-nudge-files: ".*Dockerfile.*, .*.yaml, .*Containerfile.*,.*.sh"
   creationTimestamp: null
   labels:
