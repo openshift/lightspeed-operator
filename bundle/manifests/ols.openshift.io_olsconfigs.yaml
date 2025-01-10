@@ -354,30 +354,36 @@ spec:
                   conversationCache:
                     description: Conversation cache settings
                     properties:
-                      redis:
-                        description: RedisSpec defines the desired state of Redis.
+                      postgres:
+                        description: PostgresSpec defines the desired state of Postgres.
                         properties:
                           credentialsSecret:
-                            default: lightspeed-redis-secret
-                            description: Secret that holds redis credentials
+                            default: lightspeed-postgres-secret
+                            description: Secret that holds postgres credentials
                             type: string
-                          maxMemory:
-                            anyOf:
-                            - type: integer
-                            - type: string
-                            default: 1024mb
-                            description: Redis maxmemory
+                          dbName:
+                            default: postgres
+                            description: Postgres database name
+                            type: string
+                          maxConnections:
+                            default: 2000
+                            description: 'Postgres maxconnections. Default: "2000"'
+                            type: integer
+                          sharedBuffers:
+                            default: 256MB
+                            description: Postgres sharedbuffers
+                            type: string
                             x-kubernetes-int-or-string: true
-                          maxMemoryPolicy:
-                            default: allkeys-lru
-                            description: 'Redis maxmemory policy. Default: "allkeys-lru"'
+                          user:
+                            default: postgres
+                            description: Postgres user name
                             type: string
                         type: object
                       type:
-                        default: redis
-                        description: 'Conversation cache type. Default: "redis"'
+                        default: postgres
+                        description: 'Conversation cache type. Default: "postgres"'
                         enum:
-                        - redis
+                        - postgres
                         type: string
                     type: object
                   defaultModel:
