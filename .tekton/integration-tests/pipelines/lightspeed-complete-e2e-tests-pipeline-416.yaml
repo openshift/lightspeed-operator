@@ -467,6 +467,7 @@ spec:
                   && chmod +x kubectl oc \
                   && mv oc kubectl /usr/local/bin/
               
+              export KUBECONFIG=$CYPRESS_KUBECONFIG_PATH
               oc delete namespace openshift-lightspeed --wait=True
               echo "---------------------------------------------"
               export OPERATOR_SDK_VERSION=1.36.1
