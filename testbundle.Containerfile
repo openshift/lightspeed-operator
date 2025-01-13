@@ -1,4 +1,25 @@
-FROM registry.redhat.io/ubi9/ubi-minimal@sha256:c0e70387664f30cd9cf2795b547e4a9a51002c44a4a86aa9335ab030134bf392
+FROM registry.redhat.io/ubi9/ubi-minimal:9.5 as builder
+ARG RELATED_IMAGE_FILE=related_images.json
+ARG CSV_FILE=bundle/manifests/lightspeed-operator.clusterserviceversion.yaml
+ARG OPERATOR_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-operator:latest
+ARG SERVICE_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-service-api:latest
+ARG CONSOLE_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
+
+RUN microdnf install -y jq
+
+COPY ${CSV_FILE} /manifests/lightspeed-operator.clusterserviceversion.yaml
+COPY ${RELATED_IMAGE_FILE} /${RELATED_IMAGE_FILE}
+
+RUN OPERATOR_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-operator") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${OPERATOR_IMAGE_ORIGINAL}|${OPERATOR_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
+RUN SERVICE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-service-api") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${SERVICE_IMAGE_ORIGINAL}|${SERVICE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
+RUN CONSOLE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-console-plugin") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${CONSOLE_IMAGE_ORIGINAL}|${CONSOLE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
+
+# replace registry.redhat.io string instances with quay.io
+RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-tech-preview\/lightspeed-rhel9-operator/quay.io\/redhat-user-workloads\/crt-nshift-lightspeed-tenant\/ols\/lightspeed-operator/g' /manifests/lightspeed-operator.clusterserviceversion.yaml
+RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-tech-preview\/lightspeed-service-api-rhel9/quay.io\/redhat-user-workloads\/crt-nshift-lightspeed-tenant\/ols\/lightspeed-service/g' /manifests/lightspeed-operator.clusterserviceversion.yaml
+RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-tech-preview\/lightspeed-console-plugin-rhel9/quay.io\/redhat-user-workloads\/crt-nshift-lightspeed-tenant\/ols\/lightspeed-console/g' /manifests/lightspeed-operator.clusterserviceversion.yaml
+
+FROM registry.redhat.io/ubi9/ubi-minimal:9.5
 
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
@@ -23,10 +44,8 @@ COPY bundle/manifests /manifests/
 COPY bundle/metadata /metadata/
 COPY bundle/tests/scorecard /tests/scorecard/
 
-# replace registry.redhat.io string instances with quay.io
-RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-tech-preview\/lightspeed-rhel9-operator/quay.io\/redhat-user-workloads\/crt-nshift-lightspeed-tenant\/ols\/lightspeed-operator/g' /manifests/lightspeed-operator.clusterserviceversion.yaml
-RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-tech-preview\/lightspeed-service-api-rhel9/quay.io\/redhat-user-workloads\/crt-nshift-lightspeed-tenant\/ols\/lightspeed-service/g' /manifests/lightspeed-operator.clusterserviceversion.yaml
-RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-tech-preview\/lightspeed-console-plugin-rhel9/quay.io\/redhat-user-workloads\/crt-nshift-lightspeed-tenant\/ols\/lightspeed-console/g' /manifests/lightspeed-operator.clusterserviceversion.yaml
+# Copy the CSVfile with replaced images references
+COPY --from=builder manifests/lightspeed-operator.clusterserviceversion.yaml /manifests/lightspeed-operator.clusterserviceversion.yaml
 
 # licenses required by Red Hat certification policy
 # refer to https://docs.redhat.com/en/documentation/red_hat_software_certification/2024/html-single/red_hat_openshift_software_certification_policy_guide/index#con-image-content-requirements_openshift-sw-cert-policy-container-images
