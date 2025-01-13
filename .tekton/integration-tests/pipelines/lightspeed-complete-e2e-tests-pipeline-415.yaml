@@ -116,6 +116,24 @@ spec:
                 value: "$(tasks.provision-cluster.results.clusterName)"
               - name: credentials
                 value: credentials
+              - name: imageContentSources
+                value: |
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator
+                    mirrors:
+                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle
+                    mirrors:
+                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9
+                    mirrors:
+                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9
+                    mirrors:
+                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
           - name: install-operator
             env:
               - name: SNAPSHOT
