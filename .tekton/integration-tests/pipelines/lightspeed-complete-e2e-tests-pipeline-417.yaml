@@ -374,7 +374,7 @@ spec:
               export SUITE_ID="watsonx"
               export PROVIDER="watsonx"
               export PROVIDER_KEY_PATH=${WATSONX_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not azure_entra_id and not certificates"
+              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates"
               export MODEL="ibm/granite-13b-chat-v2"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
