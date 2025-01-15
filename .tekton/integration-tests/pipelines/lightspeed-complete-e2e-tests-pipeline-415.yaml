@@ -18,7 +18,7 @@ spec:
       type: string
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
-      default: 'ols-e2e-tests-4.15'
+      default: 'ols-e2e-tests-4.16'
     - name: namespace
       description: 'Namespace to run tests in'
       default: 'openshift-lightspeed'
@@ -78,6 +78,24 @@ spec:
                 value: "$(steps.pick-version.results.version)"
               - name: instanceType
                 value: "m5.large"
+              - name: imageContentSources
+                value: |
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator
+                    mirrors:
+                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle
+                    mirrors:
+                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9
+                    mirrors:
+                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9
+                    mirrors:
+                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
     - name: ols-install
       description: Task to install bundle onto ephemeral namespace
       runAfter:
@@ -167,6 +185,55 @@ spec:
             script: |
               dnf -y install jq
               echo -n "$(jq -r --arg component_name "lightspeed-service" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.service-image.path)
+    - name: ols-operator-tests
+      description: Task to run tests from operator repository
+      runAfter:
+        - ols-install
+      taskSpec:
+        volumes:
+          - name: openai-token
+            secret:
+              secretName: openai
+          - name: credentials
+            emptyDir: {}
+        steps:
+          - name: get-kubeconfig
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/build-definitions.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/eaas-get-ephemeral-cluster-credentials/0.1/eaas-get-ephemeral-cluster-credentials.yaml
+            params:
+              - name: eaasSpaceSecretRef
+                value: $(tasks.eaas-provision-space.results.secretRef)
+              - name: clusterName
+                value: "$(tasks.provision-cluster.results.clusterName)"
+              - name: credentials
+                value: credentials
+          - name: run-e2e-tests
+            volumeMounts:
+              - name: openai-token
+                mountPath: /var/run/openai
+              - name: credentials
+                mountPath: /credentials
+            env:
+              - name: KUBECONFIG
+                value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
+              - name: LLM_TOKEN_PATH
+                value: "/var/run/openai/token"
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            script: |
+              echo "---------------------------------------------"
+              export LLM_TOKEN=$(cat ${LLM_TOKEN_PATH})
+              dnf -y install git make golang
+              git clone https://github.com/openshift/lightspeed-operator.git
+              cd lightspeed-operator
+              echo "---------------------------------------------"
+              make test-e2e
     - name: ols-service-tests
       description: Task to run tests from service repository
       params:
@@ -177,7 +244,7 @@ spec:
         - name: namespace
           value: "$(params.namespace)"
       runAfter:
-        - ols-install
+        - ols-operator-tests
       taskSpec:
         params:
           - name: SNAPSHOT
@@ -307,8 +374,28 @@ spec:
               export SUITE_ID="watsonx"
               export PROVIDER="watsonx"
               export PROVIDER_KEY_PATH=${WATSONX_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not azure_entra_id and not certificates"
-              export MODEL="ibm/granite-13b-chat-v2"
+              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates"
+              export MODEL="ibm/granite-3-8b-instruct"
+              echo "-----------------------------------------------"
+              echo "starting ${PROVIDER} tests"
+              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
+              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
+
+              export SUITE_ID="rhoai_vllm"
+              export PROVIDER="rhoai_vllm"
+              export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
+              export TEST_TAGS="smoketest"
+              export MODEL="gpt-3.5-turbo"
+              echo "-----------------------------------------------"
+              echo "starting ${PROVIDER} tests"
+              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
+              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
+
+              export SUITE_ID="rhelai_vllm"
+              export PROVIDER="rhelai_vllm"
+              export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
+              export TEST_TAGS="smoketest"
+              export MODEL="gpt-3.5-turbo"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
               pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
