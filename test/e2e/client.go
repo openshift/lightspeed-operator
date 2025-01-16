@@ -14,11 +14,13 @@ import (
 
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -76,6 +78,7 @@ func GetClient(options *ClientOptions) (*Client, error) {
 	utilruntime.Must(consolev1.AddToScheme(scheme))
 	utilruntime.Must(openshiftv1.AddToScheme(scheme))
 	utilruntime.Must(olsv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(routev1.AddToScheme(scheme))
 	// Create a new client
 	k8sClient, err := client.New(cfg, client.Options{
 		Scheme: scheme,
@@ -313,6 +316,40 @@ func (c *Client) ForwardPort(serviceName, namespaceName string, port int) (strin
 	return fmt.Sprintf("127.0.0.1:%s", matches[1]), cleanUp, nil
 }
 
+func (c *Client) createRoute(name, namespace, host string) (func(), error) {
+	route := &routev1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: routev1.RouteSpec{
+			Host: host,
+			To: routev1.RouteTargetReference{
+				Kind: "Service",
+				Name: AppServerServiceName,
+			},
+			Port: &routev1.RoutePort{
+				TargetPort: intstr.FromString("https"),
+			},
+			TLS: &routev1.TLSConfig{
+				Termination: routev1.TLSTerminationPassthrough,
+			},
+			WildcardPolicy: routev1.WildcardPolicyNone,
+		},
+	}
+
+	err := c.Create(route)
+	if err != nil {
+		return nil, err
+	}
+
+	return func() {
+		err := c.Delete(route)
+		if err != nil {
+			logf.Log.Error(err, "Error deleting Route")
+		}
+	}, nil
+}
 func (c *Client) CreateServiceAccount(namespace, serviceAccount string) (func(), error) {
 
 	sa := &corev1.ServiceAccount{
