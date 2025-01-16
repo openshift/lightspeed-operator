@@ -90,7 +90,7 @@ var _ = Describe("Prometheus Metrics", Ordered, func() {
 
 	It("should have operator metrics in Prometheus", func() {
 		By("verify Prometheus is working correctly by querying prometheus' own metrics")
-		err = prometheusClient.WaitForQueryReturnGreaterEqualOne("topk(1,prometheus_build_info)", DefaultClientTimeout)
+		err = prometheusClient.WaitForQueryReturnGreaterEqualOne("topk(1,prometheus_build_info)", DefaultPrometheusQueryTimeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("verify prometheus scrapes metrics from operator, this should happen every 60 seconds")
@@ -105,7 +105,7 @@ var _ = Describe("Prometheus Metrics", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("fetching the operator metrics from Prometheus")
-		err = prometheusClient.WaitForQueryReturnGreaterEqualOne("count(controller_runtime_reconcile_total{namespace=\"openshift-lightspeed\"})", DefaultClientTimeout)
+		err = prometheusClient.WaitForQueryReturnGreaterEqualOne("count(controller_runtime_reconcile_total{namespace=\"openshift-lightspeed\"})", DefaultPrometheusQueryTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
