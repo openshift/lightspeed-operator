@@ -82,19 +82,15 @@ spec:
                 value: |
                   - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator
                     mirrors:
-                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator
                       - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator
                   - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle
                     mirrors:
-                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle
                       - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle
                   - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9
                     mirrors:
-                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9
                       - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service
                   - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9
                     mirrors:
-                      - registry.staging.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9
                       - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
     - name: ols-install
       description: Task to install bundle onto ephemeral namespace
@@ -162,9 +158,6 @@ spec:
               echo "---------------------------------------------"
               oc create namespace $(params.namespace)
               oc label namespaces $(params.namespace) openshift.io/cluster-monitoring=true --overwrite=true
-              export IMAGE_DIGEST_MIRROR_SET=https://raw.githubusercontent.com/openshift/lightspeed-operator/main/config/manager/imagedigestmirrorset.yaml
-              curl -Lo /usr/tmp/imagedigestmirrorset "$IMAGE_DIGEST_MIRROR_SET"
-              oc apply -f /usr/tmp/imagedigestmirrorset
               echo "---------------------------------------------"
               echo ${KONFLUX_COMPONENT_NAME}
               export BUNDLE_IMAGE="$(jq -r --arg component_name "$KONFLUX_COMPONENT_NAME" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")"
