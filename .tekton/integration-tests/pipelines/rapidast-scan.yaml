@@ -199,6 +199,7 @@ spec:
               echo "---------------------------------------------"
               export LLM_TOKEN=$(cat ${LLM_TOKEN_PATH})
               echo $CONSOLE_URL
+              echo "---------------------------------------------"
               dnf -y install git make
               curl -Lo /go.tar.gz https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
               tar -C /usr/local -xzf /go.tar.gz
