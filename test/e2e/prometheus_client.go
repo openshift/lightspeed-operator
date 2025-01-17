@@ -28,6 +28,10 @@ type PrometheusClient struct {
 	rt http.RoundTripper
 }
 
+// DefaultPollInterval is the default interval for polling Prometheus metrics.
+// Prometheus metrics are typically scraped every 30 seconds. This is enough for 3 scrapes.
+const DefaultPrometheusQueryTimeout = 95 * time.Second
+
 // NewPrometheusClientFromRoute creates and returns a new PrometheusClient from the given OpenShift route.
 func NewPrometheusClientFromRoute(
 	ctx context.Context,
