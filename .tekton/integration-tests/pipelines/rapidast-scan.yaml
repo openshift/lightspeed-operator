@@ -191,7 +191,7 @@ spec:
               - name: KUBECONFIG
                 value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
               - name: CONSOLE_URL
-                value: "$(steps.get-kubeconfig.results.consoleUrl)"
+                value: "$(steps.get-kubeconfig.results.consoleURL)"
               - name: LLM_TOKEN_PATH
                 value: "/var/run/openai/token"
             image: registry.redhat.io/openshift4/ose-cli:latest
