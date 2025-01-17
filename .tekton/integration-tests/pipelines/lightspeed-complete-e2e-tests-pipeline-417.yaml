@@ -165,6 +165,7 @@ spec:
               echo "---------------------------------------------"
               operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
               echo "---------------------------------------------"
+              
               oc get deployment lightspeed-operator-controller-manager -n "$(params.namespace)"
           - name: get-service-image
             image: registry.redhat.io/openshift4/ose-cli:latest
