@@ -94,7 +94,7 @@ var _ = Describe("Prometheus Metrics", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("verify prometheus scrapes metrics from operator, this should happen every 60 seconds")
-		err = prometheusClient.WaitForQueryReturn("avg(scrape_duration_seconds{job=\"lightspeed-operator-controller-manager-service\"})",
+		err = prometheusClient.WaitForQueryReturn("avg(scrape_duration_seconds{service=\"lightspeed-operator-controller-manager-service\"})",
 			60*time.Second,
 			func(val float64) error {
 				if val > 0.0 {

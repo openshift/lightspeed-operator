@@ -119,6 +119,7 @@ func main() {
 	var metricsClientCA string
 	var serviceImage string
 	var consoleImage string
+	var namespace string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -132,6 +133,7 @@ func main() {
 	flag.StringVar(&caCertPath, "ca-cert", controller.OperatorCACertPathDefault, "The path to the CA certificate file.")
 	flag.StringVar(&serviceImage, "service-image", controller.OLSAppServerImageDefault, "The image of the lightspeed-service container.")
 	flag.StringVar(&consoleImage, "console-image", controller.ConsoleUIImageDefault, "The image of the console-plugin container.")
+	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -140,13 +142,17 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	if namespace == "" {
+		namespace = getWatchNamespace()
+	}
+
 	imagesMap, err := validateImages(serviceImage, consoleImage)
 	if err != nil {
 		setupLog.Error(err, "invalid images")
 		os.Exit(1)
 	}
 	setupLog.Info("Images setting loaded", "images", listImages())
-	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "reconcilerIntervalMinutes", reconcilerIntervalMinutes, "certDir", certDir, "certName", certName, "keyName", keyName)
+	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "reconcilerIntervalMinutes", reconcilerIntervalMinutes, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
 
 	var tlsSecurityProfileSpec configv1.TLSProfileSpec
 	if secureMetricsServer {
@@ -226,12 +232,12 @@ func main() {
 		LeaderElectionID:       "0ca034e3.openshift.io",
 		Cache: cache.Options{
 			DefaultNamespaces: map[string]cache.Config{
-				controller.OLSNamespaceDefault: {},
+				namespace: {},
 			},
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Secret{}: {
 					Namespaces: map[string]cache.Config{
-						controller.OLSNamespaceDefault:          {},
+						namespace:                               {},
 						controller.TelemetryPullSecretNamespace: {},
 					},
 				},
@@ -251,7 +257,7 @@ func main() {
 			ConsoleUIImage:         imagesMap["console-plugin"],
 			// TODO: Update DB
 			//LightspeedServiceRedisImage: imagesMap["lightspeed-service-redis"],
-			Namespace:         controller.OLSNamespaceDefault,
+			Namespace:         namespace,
 			ReconcileInterval: time.Duration(reconcilerIntervalMinutes) * time.Minute, // #nosec G115
 		},
 	}).SetupWithManager(mgr); err != nil {
@@ -274,4 +280,13 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// get the namespace to watch or use the default namespace
+func getWatchNamespace() string {
+	ns, found := os.LookupEnv("WATCH_NAMESPACE")
+	if !found {
+		return controller.OLSNamespaceDefault
+	}
+	return ns
 }

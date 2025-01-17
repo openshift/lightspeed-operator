@@ -16,7 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("TLS activation - application", Ordered, func() {
+var _ = Describe("TLS activation - application", Ordered, Label("Rapidast"), func() {
 	const serviceAnnotationKeyTLSSecret = "service.beta.openshift.io/serving-cert-secret-name"
 	const testSAName = "test-sa"
 	const testSAOutsiderName = "test-sa-outsider"
@@ -71,7 +71,7 @@ var _ = Describe("TLS activation - application", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
 	})
-	It("should activate TLS on service HTTPS port", Label("Rapidast"), func() {
+	It("should activate TLS on service HTTPS port", func() {
 		By("Wait for the application service created")
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{

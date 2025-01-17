@@ -132,4 +132,10 @@ const (
 	TelemetryPullSecretNamespace = "openshift-config"
 	// TelemetryPullSecretName is the name of the secret containing the telemetry pull secret
 	TelemetryPullSecretName = "pull-secret"
+
+	/*** operator resources ***/
+	// OperatorServiceMonitorName is the name of the service monitor for scraping the operator metrics
+	OperatorServiceMonitorName = "controller-manager-metrics-monitor"
+	// OperatorDeploymentName is the name of the operator deployment
+	OperatorDeploymentName = "lightspeed-operator-controller-manager"
 )

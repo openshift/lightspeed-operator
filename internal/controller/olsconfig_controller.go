@@ -109,6 +109,13 @@ type OLSConfigReconcilerOptions struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// Reconcile operator's resources first
+	err := r.reconcileServiceMonitorForOperator(ctx)
+	if err != nil {
+		r.logger.Error(err, "Failed to reconcile service monitor for operator")
+		return ctrl.Result{}, err
+	}
+
 	// The operator reconciles only for OLSConfig CR with a specific name
 	if req.NamespacedName.Name != OLSConfigName {
 		r.logger.Info(fmt.Sprintf("Ignoring OLSConfig CR other than %s", OLSConfigName), "name", req.NamespacedName.Name)
@@ -116,7 +123,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	olsconfig := &olsv1alpha1.OLSConfig{}
-	err := r.Get(ctx, req.NamespacedName, olsconfig)
+	err = r.Get(ctx, req.NamespacedName, olsconfig)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			r.logger.Info("olsconfig resource not found. Ignoring since object must be deleted")
