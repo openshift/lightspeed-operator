@@ -210,5 +210,6 @@ spec:
               echo "---------------------------------------------"
               go test ./test/e2e -timeout=120m --ginkgo.label-filter="Rapidast" -ginkgo.v -test.v -ginkgo.show-node-events
               echo "---------------------------------------------"
-              dnf -y install podman
-              podman run -v ./ols-rapidast-config-updated.yaml:/opt/rapidast/config/config.yaml:Z quay.io/redhatproductsecurity/rapidast:latest ./rapidast.py
+              dnf -y install docker
+              echo "---------insalled docker----------------------"
+              docker run -v ./ols-rapidast-config-updated.yaml:/opt/rapidast/config/config.yaml:Z quay.io/redhatproductsecurity/rapidast:latest ./rapidast.py
