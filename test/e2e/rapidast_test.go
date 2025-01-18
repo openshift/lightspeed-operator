@@ -135,8 +135,6 @@ var _ = Describe("TLS activation - application", Ordered, Label("Rapidast"), fun
 
 		// Get console url from Environment
 		consoleURL := os.Getenv("CONSOLE_URL")
-		// TODO - Update the consoleURL after testing in konflux
-		consoleURL = "https://console-openshift-console.apps.sno-416-.dev.red-chesterfield.com"
 		Expect(consoleURL).To(ContainSubstring(".apps"))
 		//create ols application host url
 		//trim everything before the first dot and append it to ols-route
