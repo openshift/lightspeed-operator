@@ -1,6 +1,7 @@
 module github.com/openshift/lightspeed-operator
 
 go 1.22.0
+toolchain go1.23.5
 
 // v0.0.0-20241014173422-cfa47c3a1cc8 requires go 1.23, we use previous version when waiting for go-toolset update to 1.23
 replace sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 => sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
@@ -12,7 +13,7 @@ require (
 	github.com/onsi/gomega v1.36.2
 	github.com/openshift/client-go v0.0.0-20231218140158-47f6d749b9d9
 	k8s.io/api v0.31.3
-	k8s.io/apimachinery v0.31.3
+	k8s.io/apimachinery v0.32.1
 	k8s.io/client-go v0.31.3
 	sigs.k8s.io/controller-runtime v0.19.4
 	sigs.k8s.io/yaml v1.4.0
