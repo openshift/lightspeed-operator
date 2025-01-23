@@ -347,7 +347,7 @@ spec:
               export SUITE_ID="azure_openai"
               export PROVIDER="azure_openai"
               export PROVIDER_KEY_PATH=${AZUREOPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not certificates"
+              export TEST_TAGS="not model_evaluation and not certificates and not not_konflux"
               export MODEL="gpt-4o-mini"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
@@ -357,7 +357,7 @@ spec:
               export SUITE_ID="openai"
               export PROVIDER="openai"
               export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates"
+              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates and not not_konflux"
               export MODEL="gpt-4o-mini"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
@@ -367,7 +367,7 @@ spec:
               export SUITE_ID="watsonx"
               export PROVIDER="watsonx"
               export PROVIDER_KEY_PATH=${WATSONX_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates"
+              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates and not not_konflux"
               export MODEL="ibm/granite-3-8b-instruct"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
