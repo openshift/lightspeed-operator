@@ -18,7 +18,7 @@ properties:
   - type: olm.package
     value:
       packageName: lightspeed-operator
-      version: 0.2.1
+      version: 0.3.0
   - type: olm.csv.metadata
     value:
       annotations:
@@ -313,4 +313,4 @@ package: lightspeed-operator
 name: alpha
 entries:
   - name: lightspeed-operator.v0.2.1
-    skipRange: ">=0.1.0 <0.2.1"
+    skipRange: ">=0.1.0 <0.3.0"
