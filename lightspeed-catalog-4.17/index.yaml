@@ -6,8 +6,8 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:3c7f7529625ae3ed6d34aa39dfe01f937af6faae6e4359832e102737c35c97ee
-name: lightspeed-operator.v0.2.1
+image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:86cd6987396c4e91b6dabd082a2ea86c9a3473119d87ef1c4b9b31f8b0f0c2e5
+name: lightspeed-operator.v0.3.0
 package: lightspeed-operator
 properties:
   - type: olm.gvk
@@ -58,7 +58,7 @@ properties:
           ]
         capabilities: Basic Install
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2024-10-23T12:00:43Z"
+        createdAt: "2025-01-07T15:40:12Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -276,13 +276,13 @@ properties:
         Questions, comments, concerns, or just want to talk to the OpenShift Lightspeed team? [Email us](mailto:openshift-lightspeed-contact-requests@redhat.com)!
       displayName: OpenShift Lightspeed Operator
       installModes:
-        - supported: false
+        - supported: true
           type: OwnNamespace
         - supported: false
           type: SingleNamespace
         - supported: false
           type: MultiNamespace
-        - supported: true
+        - supported: false
           type: AllNamespaces
       keywords:
         - ai
@@ -299,18 +299,18 @@ properties:
         url: https://github.com/openshift/lightspeed-service
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:fc7381038a5a128942821fe6f962b36ece5daa347a21753cda35c0be5d10f47a
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:a1601788305b91ad5e85cbed9ce156c4484d5996191c15006cb738ef4c074019
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:07469983ea071e9877af1ab376fb9cdde73aa6164f50a0f60208647cf4d8062a
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:15c09f6e658b1e1d5e26587edab893cbd1579d4b24c90e6e9f4c01f2291d8ba3
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:762f601facd0f87fd74b126622887ba52b66c9f0230b20635cb0960f14bcce35
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:f684057ce46e9a821e4830f9ab3e4069edb1a9fe82257fb3d9fa7abad4bb123a
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:3c7f7529625ae3ed6d34aa39dfe01f937af6faae6e4359832e102737c35c97ee
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:86cd6987396c4e91b6dabd082a2ea86c9a3473119d87ef1c4b9b31f8b0f0c2e5
 schema: olm.bundle
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: alpha
 entries:
-  - name: lightspeed-operator.v0.2.1
+  - name: lightspeed-operator.v0.3.0
     skipRange: ">=0.1.0 <0.3.0"
