@@ -272,9 +272,9 @@ spec:
 
     To configure the OpenShift Lightspeed Operator, you need a Large Language Model (LLM) . You can host the LLM using RHELAI or RHOAI or use one of the models from the following Software-as-a-Service providers:
 
-    OpenAI
-    Microsoft Azure OpenAI
-    IBM WatsonX
+    - OpenAI
+    - Microsoft Azure OpenAI
+    - IBM WatsonX
 
     For more information, see [About OpenShift Lightspeed](https://docs.openshift.com/lightspeed/1.0tp1/about/ols-about-openshift-lightspeed.html) in the official product documentation.
 
