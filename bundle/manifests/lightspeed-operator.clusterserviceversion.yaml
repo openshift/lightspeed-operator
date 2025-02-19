@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-01-07T15:40:12Z"
+    createdAt: "2025-02-19T12:34:53Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -203,6 +203,11 @@ spec:
             path: ols.deployment.replicas
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:podCount
+          - description: Enable introspection features
+            displayName: Introspection Enabled
+            path: ols.introspectionEnabled
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".'
             displayName: Log level
             path: ols.logLevel

@@ -134,6 +134,7 @@ var _ = Describe("App server assets", func() {
 						TranscriptsDisabled: false,
 						TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 					},
+					IntrospectionEnabled: false,
 				},
 				LLMProviders: []ProviderConfig{
 					{
@@ -244,6 +245,19 @@ var _ = Describe("App server assets", func() {
 				"name": Equal("rhelai_vllm"),
 				"type": Equal("rhelai_vllm"),
 			}))))
+		})
+
+		It("should generate configmap with introspectionEnabled", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", MatchKeys(Options(IgnoreExtras), Keys{
+				"introspection_enabled": Equal(true),
+			})))
 		})
 
 		It("should generate the OLS deployment", func() {
