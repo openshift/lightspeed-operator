@@ -97,6 +97,8 @@ type OLSConfig struct {
 	ExtraCAs []string `json:"extra_ca,omitempty"`
 	// Path to the directory containing the certificates bundle in the app server container.
 	CertificateDirectory string `json:"certificate_directory,omitempty"`
+	// Enable Introspection features
+	IntrospectionEnabled bool `json:"introspection_enabled,omitempty"`
 }
 
 type LoggingConfig struct {
