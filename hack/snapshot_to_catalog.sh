@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
 usage() {
-  echo "Usage: $0 -s <snapshot-refs> -c <catalog-file> -n <channel-names> -m"
-  echo "  -s snapshot-refs: required, the snapshots' references to use, ordered by versions ascending, example: ols-cq8sl,ols-mdc8x"
+  echo "Usage: $0 -s <snapshot-refs> -b <bundle-snapshot-refs> -c <catalog-file> -n <channel-names> -m"
+  echo "  -s snapshot-refs: required, the snapshot' references to use"
+  echo "  -b bundle-snapshot-refs: required, the snapshot' references to use"
   echo "  -c catalog-file: the catalog index file to update, default: lightspeed-catalog-4.16/index.yaml"
   echo "  -n channel-names: the channel names to update, default: alpha"
   echo "  -m migrate: migrate the bundle object to csv metadata, required for OCP 4.17+, default: false"
-  echo "Example: $0 -s ols-cq8sl,ols-mdc8x -c lightspeed-catalog-4.16/index.yaml"
+  echo "Example: $0 -s ols-cq8sl -b ols-bundle-2dhtr -c lightspeed-catalog-4.16/index.yaml"
 }
 
 if [ $# == 0 ]; then
@@ -23,10 +24,13 @@ CATALOG_FILE="lightspeed-catalog-4.16/index.yaml"
 CHANNEL_NAMES="alpha"
 MIGRATE=""
 
-while getopts ":s:c:n:mh" argname; do
+while getopts ":s:b:c:n:mh" argname; do
   case "$argname" in
   "s")
     SNAPSHOT_REFS=${OPTARG}
+    ;;
+  "b")
+    BUNDLE_SNAPSHOT_REFS=${OPTARG}
     ;;
   "c")
     CATALOG_FILE=${OPTARG}
@@ -57,6 +61,23 @@ echo migrate ${MIGRATE}
 
 if [ -z "${SNAPSHOT_REFS}" ]; then
   echo "snapshot-refs is required"
+  usage
+  exit 1
+fi
+
+if [ -z "${BUNDLE_SNAPSHOT_REFS}" ]; then
+  echo "bundle-snapshot-refs is required"
+  usage
+  exit 1
+fi
+
+#array from comma separated string of snapshot-refs and bundle-snapshot-refs
+SNAPSHOT_REFS=$(echo ${SNAPSHOT_REFS} | tr "," "\n")
+BUNDLE_SNAPSHOT_REFS=$(echo ${BUNDLE_SNAPSHOT_REFS} | tr "," "\n")
+
+
+if [  ${#SNAPSHOT_REFS[@]} -ne ${#BUNDLE_SNAPSHOT_REFS[@]} ]; then
+  echo "The count of snapshot-refs and bundle-snapshot-refs should be the same"
   usage
   exit 1
 fi
@@ -108,13 +129,16 @@ sed "s/defaultChannel: alpha/defaultChannel: ${DEFAULT_CHANNEL_NAME}/" ${CATALOG
 # array to store the bundle versions
 BUNDLE_VERSIONS=()
 GET_RELATED_IMAGES="${SCRIPT_DIR}/snapshot_to_image_list.sh"
-for SNAPSHOT_REF in $(echo ${SNAPSHOT_REFS} | tr "," "\n"); do
+for snapshot in "${!SNAPSHOT_REFS[@]}"; do
+  SNAPSHOT_REF=${SNAPSHOT_REFS[snapshot]}
+  BUNDLE_SNAPSHOT_REF=${BUNDLE_SNAPSHOT_REFS[snapshot]}
   echo "Update catalog ${CATALOG_FILE} from snapshot ${SNAPSHOT_REF}"
+  echo "Update catalog ${CATALOG_FILE} from bundle snapshot ${BUNDLE_SNAPSHOT_REF}"
   # get bundle image on konflux workspace
-  RELATED_IMAGES=$(${GET_RELATED_IMAGES} -s ${SNAPSHOT_REF})
+  RELATED_IMAGES=$(${GET_RELATED_IMAGES} -s ${SNAPSHOT_REF} -b ${BUNDLE_SNAPSHOT_REF})
   BUNDLE_IMAGE_ORIGIN=$(jq -r '.[] | select(.name=="lightspeed-operator-bundle") | .image' <<<${RELATED_IMAGES})
   # get image list in production registry
-  RELATED_IMAGES=$(${GET_RELATED_IMAGES} -s ${SNAPSHOT_REF} -p)
+  RELATED_IMAGES=$(${GET_RELATED_IMAGES} -s ${SNAPSHOT_REF} -b ${BUNDLE_SNAPSHOT_REF} -p)
   BUNDLE_IMAGE=$(jq -r '.[] | select(.name=="lightspeed-operator-bundle") | .image' <<<${RELATED_IMAGES})
   echo "Catalog will use the following images:"
   echo "${RELATED_IMAGES}"
