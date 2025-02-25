@@ -34,8 +34,8 @@ Specifying the RELATED_IMAGES_FILE is for previewing the final bundle build.
 The image list file contains a JSON array listing at least 3 components' images: `lightspeed-service-api`, `lightspeed-console-plugin` and `lightspeed-operator`.
 
 `snapshot_to_image_list.sh` is the tool to extract image list from a Konflux snapshot using its reference passed by argument `-s`.
-For example, this command extract image references from the snapshot `ols-9xf2f` and save the list to the file `related_images.json`.
-`/hack/snapshot_to_image_list.sh -s ols-9xf2f -o related_images.json`
+For example, this command extract image references from the snapshot `ols-9xf2f` and ols-bundle snapshot `ols-bundle-2dhtr` and save the list to the file `related_images.json`.
+`/hack/snapshot_to_image_list.sh -s ols-9xf2f -b ols-bundle-2dhtr -o related_images.json`
 
 If the `-o` argument is omitted, it will output to the stdout.
 
@@ -44,14 +44,15 @@ If the `-o` argument is omitted, it will output to the stdout.
 (Please login to Konflux before using this tool)
 
 `snapshot_to_catalog.sh` is the tool to update catalog from Konflux snapshots.
-We have to pass 3 arguments: `-s <snapshot-refs> -c <catalog-file> -n <channel-names>`
-- `-s snapshot-refs` required, the snapshots' references to use, ordered by versions ascending, example: ols-cq8sl,ols-mdc8x"
+We have to pass 4 arguments: `-s <snapshot-ref> -b <bundle-snapshot-ref> -c <catalog-file> -n <channel-names>`
+- `-s snapshot-ref` required, the snapshots' references to use"
+- `-b bundle-snapshot-ref` required, the bundle snapshots' references to use"
 - `-c catalog-file` optional, the catalog index file to update, default: lightspeed-catalog-4.16/index.yaml"
 - `-n channel-names` the channel names to update, default: alpha"
-For example, we generate the catalog to contain 2 bundles from the snapshots `ols-cq8sl,ols-mdc8x` in the `technical-preview` channel, saved to the index file `lightspeed-catalog-4.16/index.yaml`.
-`./hack/snapshot_to_catalog.sh -s ols-cq8sl,ols-mdc8x  -n technical-preview -c lightspeed-catalog-4.16/index.yaml`
+For example, we generate the catalog from the ols snapshot `ols-cq8sl` and ols-bunlde snapshot `ols-bundle-r578d` in the `technical-preview` channel, saved to the index file `lightspeed-catalog-4.16/index.yaml`.
+`./hack/snapshot_to_catalog.sh -s ols-cq8sl -b ols-bundle-r578d  -n technical-preview -c lightspeed-catalog-4.16/index.yaml`
 
 Attention that catalogs for OCP version 4.17 and later, the index file in JSON format is required. To generate the index in JSON format, we pass the `-m` argument, like this:
-`./hack/snapshot_to_catalog.sh -s ols-cq8sl -n technical-preview -c lightspeed-catalog-4.16/index.yaml -m`
+`./hack/snapshot_to_catalog.sh -s ols-cq8sl  -b ols-bundle-r578d -n technical-preview -c lightspeed-catalog-4.16/index.yaml -m`
 
 The JSON format index file works for all supported OCP version by Openshift Lightspeed. No need to refrain from using the `-m` arugment :)
