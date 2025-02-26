@@ -689,6 +689,9 @@ spec:
                         minimum: 0
                         type: integer
                     type: object
+                  introspectionEnabled:
+                    description: Enable introspection features
+                    type: boolean
                   logLevel:
                     default: INFO
                     description: 'Log level. Valid options are DEBUG, INFO, WARNING,

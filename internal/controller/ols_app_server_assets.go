@@ -221,6 +221,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			TranscriptsDisabled: cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled || !dataCollectorEnabled,
 			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 		},
+		IntrospectionEnabled: cr.Spec.OLSConfig.IntrospectionEnabled,
 	}
 
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
