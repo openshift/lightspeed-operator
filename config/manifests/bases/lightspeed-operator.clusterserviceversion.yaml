@@ -172,6 +172,11 @@ spec:
         path: ols.deployment.replicas
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: Enable introspection features
+        displayName: Introspection Enabled
+        path: ols.introspectionEnabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and
           CRITICAL. Default: "INFO".'
         displayName: Log level
