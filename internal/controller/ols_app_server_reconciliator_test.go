@@ -773,4 +773,100 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 	})
 
+	Context("RAG extension", Ordered, func() {
+		var secret *corev1.Secret
+		var tlsSecret *corev1.Secret
+		var tlsUserSecret *corev1.Secret
+		const tlsUserSecretName = "tls-user-secret"
+		BeforeEach(func() {
+			By("create the provider secret")
+			secret, _ = generateRandomSecret()
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "test-secret",
+				},
+			})
+			secretCreationErr := reconciler.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			By("create the default tls secret")
+			tlsSecret, _ = generateRandomSecret()
+			tlsSecret.Name = OLSCertsSecretName
+			tlsSecret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       OLSCertsSecretName,
+				},
+			})
+			secretCreationErr = reconciler.Create(ctx, tlsSecret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			By("create user provided tls secret")
+			tlsUserSecret, _ = generateRandomSecret()
+			tlsUserSecret.Name = tlsUserSecretName
+			secretCreationErr = reconciler.Create(ctx, tlsUserSecret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			By("Set OLSConfig CR to default")
+			err := k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			crDefault := getDefaultOLSConfigCR()
+			cr.Spec = crDefault.Spec
+		})
+
+		AfterEach(func() {
+			By("Delete the provider secret")
+			secretDeletionErr := reconciler.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+
+			By("Delete the tls secret")
+			secretDeletionErr = reconciler.Delete(ctx, tlsSecret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+
+			By("Delete the user provided tls secret")
+			secretDeletionErr = reconciler.Delete(ctx, tlsUserSecret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+		})
+
+		It("should generate RAG volumes and initContainers when RAG is defined", func() {
+			By("Reconcile with RAG defined")
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					IndexPath: "/rag/vector_db/ocp_product_docs/4.15",
+					IndexID:   "ocp-product-docs-4_15",
+					Image:     "rag-ocp-product-docs:4.15",
+				},
+				{
+					IndexPath: "/rag/vector_db/ansible_docs/2.18",
+					IndexID:   "ansible-docs-2_18",
+					Image:     "rag-ansible-docs:2.18",
+				},
+			}
+			err := reconciler.reconcileAppServer(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+			By("CHeck deployment have RAG volumes and initContainers")
+			deployment := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, deployment)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
+				Name: RAGVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			}))
+			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).NotTo(ContainElement(corev1.VolumeMount{
+				Name:      RAGVolumeName,
+				MountPath: "/rag-data",
+				ReadOnly:  true,
+			}))
+
+		})
+
+	})
+
 })
