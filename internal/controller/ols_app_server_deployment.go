@@ -155,6 +155,12 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		volumes = append(volumes, additionalCAVolume, certBundleVolume)
 	}
 
+	// RAG volume
+	if cr.Spec.OLSConfig.RAG != nil {
+		ragVolume := r.generateRAGVolume()
+		volumes = append(volumes, ragVolume)
+	}
+
 	// TODO: Update DB
 	//volumes = append(volumes, olsConfigVolume, olsUserDataVolume, getRedisCAConfigVolume())
 
@@ -193,6 +199,17 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			MountPath: path.Join(OLSAppCertsMountRoot, CertBundleDir),
 		}
 		volumeMounts = append(volumeMounts, additionalCAVolumeMount, certBundleVolumeMount)
+	}
+
+	if cr.Spec.OLSConfig.RAG != nil {
+		ragVolumeMounts := r.generateRAGVolumeMount()
+		volumeMounts = append(volumeMounts, ragVolumeMounts)
+	}
+
+	initContainers := []corev1.Container{}
+	if cr.Spec.OLSConfig.RAG != nil {
+		ragInitContainers := r.generateRAGInitContainers(cr)
+		initContainers = append(initContainers, ragInitContainers...)
 	}
 
 	// TODO: Update DB
@@ -261,6 +278,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 							},
 						},
 					},
+					InitContainers:     initContainers,
 					Volumes:            volumes,
 					ServiceAccountName: OLSAppServerServiceAccountName,
 				},
@@ -385,6 +403,10 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 	if !containersEqual(existingDeployment.Spec.Template.Spec.Containers, desiredDeployment.Spec.Template.Spec.Containers) {
 		changed = true
 		existingDeployment.Spec.Template.Spec.Containers = desiredDeployment.Spec.Template.Spec.Containers
+	}
+	if !containersEqual(existingDeployment.Spec.Template.Spec.InitContainers, desiredDeployment.Spec.Template.Spec.InitContainers) {
+		changed = true
+		existingDeployment.Spec.Template.Spec.InitContainers = desiredDeployment.Spec.Template.Spec.InitContainers
 	}
 
 	if changed {
