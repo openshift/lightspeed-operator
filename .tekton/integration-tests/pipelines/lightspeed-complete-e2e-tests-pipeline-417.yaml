@@ -340,7 +340,6 @@ spec:
               oc project $(params.namespace)
 
               export CP_OFFLINE_TOKEN=$(cat /var/run/insights-stage-upload-offline-token/token)
-              echo ${CP_OFFLINE_TOKEN}
               export AZUREOPENAI_ENTRA_ID_TENANT_ID="$(cat /var/run/azureopenai-entra-id/tenant_id)"
               export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/client_id)"
               export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
@@ -348,7 +347,7 @@ spec:
               export SUITE_ID="azure_openai"
               export PROVIDER="azure_openai"
               export PROVIDER_KEY_PATH=${AZUREOPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not certificates and not not_konflux"
+              export TEST_TAGS="not model_evaluation and not certificates"
               export MODEL="gpt-4o-mini"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
@@ -358,7 +357,7 @@ spec:
               export SUITE_ID="openai"
               export PROVIDER="openai"
               export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates and not not_konflux"
+              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates"
               export MODEL="gpt-4o-mini"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
@@ -368,7 +367,7 @@ spec:
               export SUITE_ID="watsonx"
               export PROVIDER="watsonx"
               export PROVIDER_KEY_PATH=${WATSONX_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates and not not_konflux"
+              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates"
               export MODEL="ibm/granite-3-8b-instruct"
               echo "-----------------------------------------------"
               echo "starting ${PROVIDER} tests"
