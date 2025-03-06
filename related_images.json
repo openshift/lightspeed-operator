@@ -1,15 +1,15 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:4a068e1df5c25726ef003086999737db32415189c93ce2ee8f714f9c7c72db25"
+    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:8c208e6e0d6b5e2b4056558fecc6f34bd0ce110075984abea2d82ef3446f0a4c"
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:15c09f6e658b1e1d5e26587edab893cbd1579d4b24c90e6e9f4c01f2291d8ba3"
+    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:02e76210b42d3f3a716195f992466152829c8fccac3d338378e90b65fa76896e"
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:f684057ce46e9a821e4830f9ab3e4069edb1a9fe82257fb3d9fa7abad4bb123a"
+    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:e6c4d21f07b9c62442decae7189245a3bcf72505ea638b47bf15ff7f6d62a111"
   },
   {
     "name": "lightspeed-operator-bundle",
