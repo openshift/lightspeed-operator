@@ -322,6 +322,8 @@ spec:
                 value: "nosuite"
               - name: KONFLUX_BOOL
                 value: "true"
+              - name: OLS_IMAGE
+                value: ""
             image: registry.access.redhat.com/ubi9/ubi-minimal
             script: |
               echo "---------------------------------------------"
@@ -335,61 +337,5 @@ spec:
               cd lightspeed-service
               pip3.11 install --no-cache-dir --upgrade pip pdm
               pdm config python.use_venv false
-              make install-deps
-              make install-deps-test
               oc project $(params.namespace)
-
-              export CP_OFFLINE_TOKEN=$(cat /var/run/insights-stage-upload-offline-token/token)
-              export AZUREOPENAI_ENTRA_ID_TENANT_ID="$(cat /var/run/azureopenai-entra-id/tenant_id)"
-              export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/client_id)"
-              export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
-
-              export SUITE_ID="azure_openai"
-              export PROVIDER="azure_openai"
-              export PROVIDER_KEY_PATH=${AZUREOPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not certificates and not not_konflux"
-              export MODEL="gpt-4o-mini"
-              echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
-
-              export SUITE_ID="openai"
-              export PROVIDER="openai"
-              export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates and not not_konflux"
-              export MODEL="gpt-4o-mini"
-              echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
-
-              export SUITE_ID="watsonx"
-              export PROVIDER="watsonx"
-              export PROVIDER_KEY_PATH=${WATSONX_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates and not not_konflux"
-              export MODEL="ibm/granite-3-8b-instruct"
-              echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
-
-              export SUITE_ID="rhoai_vllm"
-              export PROVIDER="rhoai_vllm"
-              export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="smoketest"
-              export MODEL="gpt-3.5-turbo"
-              echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
-
-              export SUITE_ID="rhelai_vllm"
-              export PROVIDER="rhelai_vllm"
-              export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="smoketest"
-              export MODEL="gpt-3.5-turbo"
-              echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
+              tests/scripts/test-e2e-cluster.sh
