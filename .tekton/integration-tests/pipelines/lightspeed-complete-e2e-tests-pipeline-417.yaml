@@ -103,8 +103,8 @@ spec:
           value: "$(params.namespace)"
       taskSpec:
         results:
-          - name: service-image
-            value: "$(steps.get-service-image.results.service-image)"
+          - name: bundle-image
+            value: "$(steps.get-bundle-image.results.bundle-image)"
         params:
           - name: SNAPSHOT
           - name: namespace
@@ -166,18 +166,18 @@ spec:
               operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
               echo "---------------------------------------------"
               oc get deployment lightspeed-operator-controller-manager -n "$(params.namespace)"
-          - name: get-service-image
+          - name: get-bundle-image
             image: registry.redhat.io/openshift4/ose-cli:latest
             env:
               - name: SNAPSHOT
                 value: $(params.SNAPSHOT)
             results:
-              - name: service-image
+              - name: bundle-image
                 type: string
                 description: "service image from snapshot"
             script: |
               dnf -y install jq
-              echo -n "$(jq -r --arg component_name "lightspeed-service" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.service-image.path)
+              echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
     - name: ols-operator-tests
       description: Task to run tests from operator repository
       runAfter:
@@ -232,8 +232,8 @@ spec:
       params:
         - name: SNAPSHOT
           value: $(params.SNAPSHOT)
-        - name: serviceimage
-          value: $(tasks.ols-install.results.service-image)
+        - name: bundleimage
+          value: $(tasks.ols-install.results.bundle-image)
         - name: namespace
           value: "$(params.namespace)"
       runAfter:
@@ -241,7 +241,7 @@ spec:
       taskSpec:
         params:
           - name: SNAPSHOT
-          - name: serviceimage
+          - name: bundleimage
           - name: namespace
             type: string
         volumes:
@@ -324,10 +324,15 @@ spec:
                 value: "true"
               - name: OLS_IMAGE
                 value: ""
+              - name: BUNDLE_IMAGE
+                value: "$(params.bundleimage)"
             image: registry.access.redhat.com/ubi9/ubi-minimal
             script: |
               echo "---------------------------------------------"
               echo "$KONFLUX_BOOL"
+              echo "---------------------------------------------"
+              echo "$BUNDLE_IMAGE"
+              echo "---------------------------------------------"
               microdnf -y install git make python3.11 python3.11-devel python3.11-pip shadow-utils tar
               curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.15/openshift-client-linux-amd64-rhel9.tar.gz \
                   && tar -xvzf oc.tar.gz \
@@ -337,5 +342,8 @@ spec:
               cd lightspeed-service
               pip3.11 install --no-cache-dir --upgrade pip pdm
               pdm config python.use_venv false
-              oc project $(params.namespace)
+              export CP_OFFLINE_TOKEN=$(cat /var/run/insights-stage-upload-offline-token/token)
+              export AZUREOPENAI_ENTRA_ID_TENANT_ID="$(cat /var/run/azureopenai-entra-id/tenant_id)"
+              export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/client_id)"
+              export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
               tests/scripts/test-e2e-cluster.sh
