@@ -338,6 +338,7 @@ spec:
               make install-deps
               make install-deps-test
               oc project $(params.namespace)
+              echo "DUMMY TEST"
 
               export CP_OFFLINE_TOKEN=$(cat /var/run/insights-stage-upload-offline-token/token)
               export AZUREOPENAI_ENTRA_ID_TENANT_ID="$(cat /var/run/azureopenai-entra-id/tenant_id)"
