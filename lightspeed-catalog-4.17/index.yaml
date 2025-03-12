@@ -6,8 +6,8 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:86cd6987396c4e91b6dabd082a2ea86c9a3473119d87ef1c4b9b31f8b0f0c2e5
-name: lightspeed-operator.v0.3.0
+image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:50df964a7f2e1289531dac9736d86a9ce94350c1e0ba971ab4f2012217b9a163
+name: lightspeed-operator.v0.3.1
 package: lightspeed-operator
 properties:
   - type: olm.gvk
@@ -18,7 +18,7 @@ properties:
   - type: olm.package
     value:
       packageName: lightspeed-operator
-      version: 0.3.0
+      version: 0.3.1
   - type: olm.csv.metadata
     value:
       annotations:
@@ -58,7 +58,7 @@ properties:
           ]
         capabilities: Basic Install
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2025-01-07T15:40:12Z"
+        createdAt: "2025-02-19T12:34:53Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -220,6 +220,11 @@ properties:
                 path: ols.deployment.replicas
                 x-descriptors:
                   - urn:alm:descriptor:com.tectonic.ui:podCount
+              - description: Enable introspection features
+                displayName: Introspection Enabled
+                path: ols.introspectionEnabled
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
               - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".'
                 displayName: Log level
                 path: ols.logLevel
@@ -299,18 +304,18 @@ properties:
         url: https://github.com/openshift/lightspeed-service
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:4a068e1df5c25726ef003086999737db32415189c93ce2ee8f714f9c7c72db25
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:b436a13a86c774013a541197ab040db79cf7453281b2216b9cd7d9b3e03e4219
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:15c09f6e658b1e1d5e26587edab893cbd1579d4b24c90e6e9f4c01f2291d8ba3
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:dbc291c7855a9b276227fe61ea4e6e4a8d7daad872f46c221baa4685fc199627
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:f684057ce46e9a821e4830f9ab3e4069edb1a9fe82257fb3d9fa7abad4bb123a
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:e6c4d21f07b9c62442decae7189245a3bcf72505ea638b47bf15ff7f6d62a111
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:86cd6987396c4e91b6dabd082a2ea86c9a3473119d87ef1c4b9b31f8b0f0c2e5
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:50df964a7f2e1289531dac9736d86a9ce94350c1e0ba971ab4f2012217b9a163
 schema: olm.bundle
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: alpha
 entries:
-  - name: lightspeed-operator.v0.3.0
-    skipRange: ">=0.1.0 <0.3.0"
+  - name: lightspeed-operator.v0.3.1
+    skipRange: ">=0.1.0 <0.3.1"
