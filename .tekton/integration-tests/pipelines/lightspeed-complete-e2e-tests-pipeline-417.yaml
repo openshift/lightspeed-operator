@@ -227,6 +227,25 @@ spec:
               cd lightspeed-operator
               echo "---------------------------------------------"
               make test-e2e
+          - name: gather-resources
+            ref: 
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/JoaoFula/tekton-integration-catalog
+                - name: revision
+                  value: add-gather-resources-stepaction
+                - name: pathInRepo
+                  value: stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
+            params:
+              - name: credentials
+                value: credentials
+              - name: kubeconfig
+                value: "$(steps.get-kubeconfig.results.kubeconfig)"
+              - name: gather-urls
+                value: 
+                  - "url1"
+                  - "url2"
     - name: ols-service-tests
       description: Task to run tests from service repository
       params:
