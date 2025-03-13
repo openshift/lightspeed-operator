@@ -189,6 +189,9 @@ spec:
               secretName: openai
           - name: credentials
             emptyDir: {}
+          - name: push-volume-name
+            secret:
+              secretName: jfula-artifacts-test
         steps:
           - name: get-kubeconfig
             ref:
@@ -227,6 +230,38 @@ spec:
               cd lightspeed-operator
               echo "---------------------------------------------"
               make test-e2e
+          - name: gather-resources
+            ref: 
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/JoaoFula/tekton-integration-catalog
+                - name: revision
+                  value: add-gather-resources-stepaction
+                - name: pathInRepo
+                  value: stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
+            params:
+              - name: credentials
+                value: credentials
+              - name: oc-login-command
+                value: "this command will run oc"               
+          - name: push-artifacts
+            ref: 
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
+            params:
+              - name: workdir-path
+                value: /artifacts
+              - name: oci-ref
+                value: "quay.io/jfula/test-artifacts:latest"
+              - name: credentials-volume-name
+                value: push-volume-name
     - name: ols-service-tests
       description: Task to run tests from service repository
       params:
