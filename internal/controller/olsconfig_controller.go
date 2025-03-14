@@ -148,7 +148,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	err = r.reconcileConsoleUI(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile console UI")
-		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", nil)
+		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", err)
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	// Update status condition for Console Plugin
@@ -163,7 +163,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	err = r.reconcileAppServer(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile application server")
-		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", nil)
+		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", err)
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	// Update status condition for API server
