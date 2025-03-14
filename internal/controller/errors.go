@@ -1,6 +1,7 @@
 package controller
 
 const (
+	ErrCheckLLMCredentials             = "failed to validate LLM provider credential settings"
 	ErrCreateAdditionalCACM            = "failed to create additional CA configmap"
 	ErrCreateAPIConfigmap              = "failed to create OLS configmap"
 	ErrCreateAPIDeployment             = "failed to create OLS deployment"

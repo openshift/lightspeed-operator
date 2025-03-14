@@ -418,6 +418,18 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should return error when the LLM provider token secret does not have required keys", func() {
+			By("Reconcile after modifying the token secret")
+			secret, _ := generateRandomSecret()
+			// delete the required key "apitoken"
+			delete(secret.Data, "apitoken")
+			err := k8sClient.Update(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+			err = reconciler.reconcileAppServer(ctx, cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("missing key 'apitoken'"))
+		})
+
 	})
 
 	Context("Referred Secrets", Ordered, func() {

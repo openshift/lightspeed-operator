@@ -77,6 +77,11 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 }
 
 func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	err := r.checkLLMCredentials(ctx, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrCheckLLMCredentials, err)
+	}
+
 	cm, err := r.generateOLSConfigMap(ctx, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrGenerateAPIConfigmap, err)
