@@ -1,0 +1,321 @@
+---
+defaultChannel: alpha
+icon:
+  base64data: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJ1dWlkLTQ2NzAxNDY4LTY2NDEtNDhjYi05ODdhLWFkOGFhYWE0Y2M1NyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMzggMzgiPjxkZWZzPjxzdHlsZT4udXVpZC0wNWM4ZjUzZC0zOTZhLTRhNzctYjYxMC00Y2FlMTYwN2IzN2Z7ZmlsbDojZTAwO30udXVpZC0wNThiNjM1ZC1iNjFjLTQ2ZjQtOTgyYS1hOTFkNmEyMjYzZWJ7ZmlsbDojZmZmO30udXVpZC0wMTY4MTg4Yy1kMGE2LTQ5NmUtYTJkOC01Y2Q2ZWUzMGRjYjJ7ZmlsbDojZTBlMGUwO308L3N0eWxlPjwvZGVmcz48cGF0aCBjbGFzcz0idXVpZC0wNThiNjM1ZC1iNjFjLTQ2ZjQtOTgyYS1hOTFkNmEyMjYzZWIiIGQ9Im0yOCwxSDEwQzUuMDI5NDQsMSwxLDUuMDI5NDQsMSwxMHYxOGMwLDQuOTcwNTcsNC4wMjk0NCw5LDksOWgxOGM0Ljk3MDU2LDAsOS00LjAyOTQzLDktOVYxMGMwLTQuOTcwNTYtNC4wMjk0NC05LTktOWgwWiIvPjxwYXRoIGNsYXNzPSJ1dWlkLTAxNjgxODhjLWQwYTYtNDk2ZS1hMmQ4LTVjZDZlZTMwZGNiMiIgZD0ibTI4LDIuMjVjNC4yNzMzMiwwLDcuNzUsMy40NzY2NCw3Ljc1LDcuNzV2MThjMCw0LjI3MzM2LTMuNDc2NjgsNy43NS03Ljc1LDcuNzVIMTBjLTQuMjczMzIsMC03Ljc1LTMuNDc2NjQtNy43NS03Ljc1VjEwYzAtNC4yNzMzNiwzLjQ3NjY4LTcuNzUsNy43NS03Ljc1aDE4bTAtMS4yNUgxMEM1LjAyOTQyLDEsMSw1LjAyOTQ0LDEsMTB2MThjMCw0Ljk3MDU3LDQuMDI5NDIsOSw5LDloMThjNC45NzA1OCwwLDktNC4wMjk0Myw5LTlWMTBjMC00Ljk3MDU2LTQuMDI5NDItOS05LTloMFoiLz48cGF0aCBjbGFzcz0idXVpZC0wNWM4ZjUzZC0zOTZhLTRhNzctYjYxMC00Y2FlMTYwN2IzN2YiIGQ9Im0yMCwxNS42MjVjLS4zNDQ3MywwLS42MjUtLjI4MDI3LS42MjUtLjYyNXYtN2MwLS4zNDQ3My4yODAyNy0uNjI1LjYyNS0uNjI1cy42MjUuMjgwMjcuNjI1LjYyNXY3YzAsLjM0NDczLS4yODAyNy42MjUtLjYyNS42MjVaIi8+PHBhdGggY2xhc3M9InV1aWQtMDVjOGY1M2QtMzk2YS00YTc3LWI2MTAtNGNhZTE2MDdiMzdmIiBkPSJtMTYsMTkuNjI1aC03Yy0uMzQ0NzMsMC0uNjI1LS4yODAyNy0uNjI1LS42MjVzLjI4MDI3LS42MjUuNjI1LS42MjVoN2MuMzQ0NzMsMCwuNjI1LjI4MDI3LjYyNS42MjVzLS4yODAyNy42MjUtLjYyNS42MjVaIi8+PHBhdGggY2xhc3M9InV1aWQtMDVjOGY1M2QtMzk2YS00YTc3LWI2MTAtNGNhZTE2MDdiMzdmIiBkPSJtMjAsMzAuNjI1Yy0uMzQ0NzMsMC0uNjI1LS4yODAyNy0uNjI1LS42MjV2LTdjMC0uMzQ0NzMuMjgwMjctLjYyNS42MjUtLjYyNXMuNjI1LjI4MDI3LjYyNS42MjV2N2MwLC4zNDQ3My0uMjgwMjcuNjI1LS42MjUuNjI1WiIvPjxwYXRoIGQ9Im0zMC41NzY1NCwxOS4yMzk0NGMuMDI3OTUtLjA2NzY5LjAzOTU1LS4xMzk0Ny4wNDI4NS0uMjExNDkuMDAwNDktLjAwOTgzLjAwNTYyLS4wMTgwNy4wMDU2Mi0uMDI3OTVzLS4wMDUxMy0uMDE4MTMtLjAwNTYyLS4wMjc5NWMtLjAwMzMtLjA3MjAyLS4wMTQ4OS0uMTQzOC0uMDQyODUtLjIxMTQ5LS4wMjAwMi0uMDQ3OTEtLjA1MzgzLS4wODY2Ny0uMDg0NDctLjEyNzc1LS4wMTgwNy0uMDI0NDgtLjAyNzU5LS4wNTMwNC0uMDQ5NjgtLjA3NTJsLTItMmMtLjI0NDE0LS4yNDQxNC0uNjQwNjItLjI0NDE0LS44ODQ3NywwLS4yNDMxNi4yNDQxNC0uMjQzMTYuNjQwNjIsMCwuODg0NzdsLjkzMzIzLjkzMjYyaC05LjQ5MDg0Yy0uMzQ0NzMsMC0uNjI1LjI4MDI3LS42MjUuNjI1cy4yODAyNy42MjUuNjI1LjYyNWg5LjQ5MDg0bC0uOTMzMjMuOTMyNjJjLS4yNDMxNi4yNDQxNC0uMjQzMTYuNjQwNjIsMCwuODg0NzcuMTIyMDcuMTIyMDcuMjgyMjMuMTgyNjIuNDQyMzguMTgyNjJzLjMyMDMxLS4wNjA1NS40NDIzOC0uMTgyNjJsMi0yYy4wMjIwOS0uMDIyMTYuMDMxNjItLjA1MDcyLjA0OTY4LS4wNzUyLjAzMDY0LS4wNDEwOC4wNjQ0NS0uMDc5ODMuMDg0NDctLjEyNzc1WiIvPjxwYXRoIGQ9Im0xNywxNi42MjVjLS4xNjAxNiwwLS4zMjAzMS0uMDYwNTUtLjQ0MjM4LS4xODI2MmwtNC00Yy0uMjQzMTYtLjI0NDE0LS4yNDMxNi0uNjQwNjIsMC0uODg0NzcuMjQ0MTQtLjI0NDE0LjY0MDYyLS4yNDQxNC44ODQ3NywwbDQsNGMuMjQzMTYuMjQ0MTQuMjQzMTYuNjQwNjIsMCwuODg0NzctLjEyMjA3LjEyMjA3LS4yODIyMy4xODI2Mi0uNDQyMzguMTgyNjJaIi8+PHBhdGggZD0ibTEzLDI2LjYyNWMtLjE2MDE2LDAtLjMyMDMxLS4wNjA1NS0uNDQyMzgtLjE4MjYyLS4yNDMxNi0uMjQ0MTQtLjI0MzE2LS42NDA2MiwwLS44ODQ3N2w0LTRjLjI0NDE0LS4yNDQxNC42NDA2Mi0uMjQ0MTQuODg0NzcsMCwuMjQzMTYuMjQ0MTQuMjQzMTYuNjQwNjIsMCwuODg0NzdsLTQsNGMtLjEyMjA3LjEyMjA3LS4yODIyMy4xODI2Mi0uNDQyMzguMTgyNjJaIi8+PHBhdGggY2xhc3M9InV1aWQtMDVjOGY1M2QtMzk2YS00YTc3LWI2MTAtNGNhZTE2MDdiMzdmIiBkPSJtMTcuNDIzODMsMTMuNjI1Yy0uMjg4MDksMC0uNTQ3ODUtLjIwMTE3LS42MTAzNS0uNDk1MTJsLS40MjQ4LTJjLS4wNzEyOS0uMzM3ODkuMTQzNTUtLjY2OTkyLjQ4MTQ1LS43NDEyMS4zMzg4Ny0uMDc1Mi42Njk5Mi4xNDM1NS43NDEyMS40ODE0NWwuNDI0OCwyYy4wNzEyOS4zMzc4OS0uMTQzNTUuNjY5OTItLjQ4MTQ1Ljc0MTIxLS4wNDM5NS4wMDk3Ny0uMDg3ODkuMDEzNjctLjEzMDg2LjAxMzY3WiIvPjxwYXRoIGNsYXNzPSJ1dWlkLTA1YzhmNTNkLTM5NmEtNGE3Ny1iNjEwLTRjYWUxNjA3YjM3ZiIgZD0ibTE0LjAwMDk4LDE3LjA0OThjLS4wNDI5NywwLS4wODY5MS0uMDAzOTEtLjEzMDg2LS4wMTM2N2wtMi0uNDI0OGMtLjMzNzg5LS4wNzEyOS0uNTUyNzMtLjQwMzMyLS40ODE0NS0uNzQxMjEuMDcyMjctLjMzNzg5LjQwMjM0LS41NTg1OS43NDEyMS0uNDgxNDVsMiwuNDI0OGMuMzM3ODkuMDcxMjkuNTUyNzMuNDAzMzIuNDgxNDUuNzQxMjEtLjA2MjUuMjkzOTUtLjMyMjI3LjQ5NTEyLS42MTAzNS40OTUxMloiLz48cGF0aCBjbGFzcz0idXVpZC0wNWM4ZjUzZC0zOTZhLTRhNzctYjYxMC00Y2FlMTYwN2IzN2YiIGQ9Im0xNy4wMDA5OCwyNy42MjVjLS4wNDI5NywwLS4wODY5MS0uMDAzOTEtLjEzMDg2LS4wMTM2Ny0uMzM3ODktLjA3MTI5LS41NTI3My0uNDAzMzItLjQ4MTQ1LS43NDEyMWwuNDI0OC0yYy4wNzIyNy0uMzM3ODkuNDAxMzctLjU1NTY2Ljc0MTIxLS40ODE0NS4zMzc4OS4wNzEyOS41NTI3My40MDMzMi40ODE0NS43NDEyMWwtLjQyNDgsMmMtLjA2MjUuMjkzOTUtLjMyMjI3LjQ5NTEyLS42MTAzNS40OTUxMloiLz48cGF0aCBjbGFzcz0idXVpZC0wNWM4ZjUzZC0zOTZhLTRhNzctYjYxMC00Y2FlMTYwN2IzN2YiIGQ9Im0xMS45OTkwMiwyMi42MjVjLS4yODgwOSwwLS41NDc4NS0uMjAxMTctLjYxMDM1LS40OTUxMi0uMDcxMjktLjMzNzg5LjE0MzU1LS42Njk5Mi40ODE0NS0uNzQxMjFsMi0uNDI0OGMuMzQwODItLjA3NjE3LjY2OTkyLjE0MzU1Ljc0MTIxLjQ4MTQ1cy0uMTQzNTUuNjY5OTItLjQ4MTQ1Ljc0MTIxbC0yLC40MjQ4Yy0uMDQzOTUuMDA5NzctLjA4Nzg5LjAxMzY3LS4xMzA4Ni4wMTM2N1oiLz48cGF0aCBkPSJtOSwxNS42Mjk4OGMtLjE2MDE2LDAtLjMyMDMxLS4wNzAzMS0uNDQwNDMtLjE5MDQzLS4wNTk1Ny0uMDU5NTctLjA5OTYxLS4xMjAxMi0uMTM5NjUtLjE5OTIyLS4wMzAyNy0uMDgwMDgtLjA0OTgtLjE2MDE2LS4wNDk4LS4yNDAyMywwLS4xNjAxNi4wNjkzNC0uMzIwMzEuMTg5NDUtLjQ0MDQzLjIzMDQ3LS4yMjk0OS42NTAzOS0uMjQwMjMuODc5ODgsMCwuMTIwMTIuMTIwMTIuMTkwNDMuMjgwMjcuMTkwNDMuNDQwNDMsMCwuMDgwMDgtLjAyMDUxLjE2MDE2LS4wNDk4LjI0MDIzLS4wMzAyNy4wNzkxLS4wODAwOC4xMzk2NS0uMTQwNjIuMTk5MjItLjEyMDEyLjEyMDEyLS4yNzkzLjE5MDQzLS40Mzk0NS4xOTA0M1oiLz48cGF0aCBkPSJtOSwyMy42Mjk4OGMtLjE2MDE2LDAtLjMyMDMxLS4wNzAzMS0uNDQwNDMtLjE5MDQzLS4xMjAxMi0uMTA5MzgtLjE4OTQ1LS4yNzkzLS4xODk0NS0uNDM5NDVzLjA2OTM0LS4zMjAzMS4xODk0NS0uNDQwNDNjLjIzMDQ3LS4yMjk0OS42NDA2Mi0uMjQwMjMuODc5ODgsMCwuMTIwMTIuMTIwMTIuMTkwNDMuMjgwMjcuMTkwNDMuNDQwNDNzLS4wNzAzMS4zMzAwOC0uMTkwNDMuNDM5NDVjLS4xMjAxMi4xMjAxMi0uMjc5My4xOTA0My0uNDM5NDUuMTkwNDNaIi8+PC9zdmc+
+  mediatype: image/svg+xml
+name: lightspeed-operator
+schema: olm.package
+---
+image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:50df964a7f2e1289531dac9736d86a9ce94350c1e0ba971ab4f2012217b9a163
+name: lightspeed-operator.v0.3.1
+package: lightspeed-operator
+properties:
+  - type: olm.gvk
+    value:
+      group: ols.openshift.io
+      kind: OLSConfig
+      version: v1alpha1
+  - type: olm.package
+    value:
+      packageName: lightspeed-operator
+      version: 0.3.1
+  - type: olm.csv.metadata
+    value:
+      annotations:
+        alm-examples: |-
+          [
+            {
+              "apiVersion": "ols.openshift.io/v1alpha1",
+              "kind": "OLSConfig",
+              "metadata": {
+                "labels": {
+                  "app.kubernetes.io/created-by": "lightspeed-operator",
+                  "app.kubernetes.io/instance": "olsconfig-sample",
+                  "app.kubernetes.io/managed-by": "kustomize",
+                  "app.kubernetes.io/name": "olsconfig",
+                  "app.kubernetes.io/part-of": "lightspeed-operator"
+                },
+                "name": "cluster"
+              },
+              "spec": {
+                "llm": {
+                  "providers": [
+                    {
+                      "credentialsSecretRef": {
+                        "name": "credentials"
+                      },
+                      "models": [
+                        {
+                          "name": "gpt-3.5-turbo-1106"
+                        }
+                      ],
+                      "name": "OpenAI"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        capabilities: Basic Install
+        console.openshift.io/operator-monitoring-default: "true"
+        createdAt: "2025-02-19T12:34:53Z"
+        features.operators.openshift.io/cnf: "false"
+        features.operators.openshift.io/cni: "false"
+        features.operators.openshift.io/csi: "false"
+        features.operators.openshift.io/disconnected: "true"
+        features.operators.openshift.io/fips-compliant: "false"
+        features.operators.openshift.io/proxy-aware: "false"
+        features.operators.openshift.io/tls-profiles: "false"
+        features.operators.openshift.io/token-auth-aws: "false"
+        features.operators.openshift.io/token-auth-azure: "false"
+        features.operators.openshift.io/token-auth-gcp: "false"
+        operatorframework.io/cluster-monitoring: "true"
+        operatorframework.io/suggested-namespace: openshift-lightspeed
+        operators.openshift.io/valid-subscription: '["OpenShift Kubernetes Engine", "OpenShift Container Platform", "OpenShift Platform Plus"]'
+        operators.operatorframework.io/builder: operator-sdk-v1.33.0
+        operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
+        repository: https://github.com/openshift/lightspeed-operator
+      apiServiceDefinitions: {}
+      crdDescriptions:
+        owned:
+          - description: Red Hat OpenShift Lightspeed instance. OLSConfig is the Schema for the olsconfigs API
+            displayName: OLSConfig
+            kind: OLSConfig
+            name: olsconfigs.ols.openshift.io
+            specDescriptors:
+              - description: Provider name
+                displayName: Name
+                path: llm.providers[0].name
+              - description: OLS deployment settings
+                displayName: Deployment
+                path: ols.deployment
+              - description: Provider API URL
+                displayName: URL
+                path: llm.providers[0].url
+              - description: Conversation cache settings
+                displayName: Conversation Cache
+                path: ols.conversationCache
+              - description: The name of the secret object that stores API provider credentials
+                displayName: Credential Secret
+                path: llm.providers[0].credentialsSecretRef
+              - displayName: LLM Settings
+                path: llm
+              - displayName: Providers
+                path: llm.providers
+              - description: API Version for Azure OpenAI provider
+                displayName: Azure OpenAI API Version
+                path: llm.providers[0].apiVersion
+              - description: Azure OpenAI deployment name
+                displayName: Azure OpenAI deployment name
+                path: llm.providers[0].deploymentName
+              - description: List of models from the provider
+                displayName: Models
+                path: llm.providers[0].models
+              - description: Defines the model's context window size. Default is specific to provider/model.
+                displayName: Context Window Size
+                path: llm.providers[0].models[0].contextWindowSize
+              - description: Model name
+                displayName: Name
+                path: llm.providers[0].models[0].name
+              - description: Model API parameters
+                displayName: Parameters
+                path: llm.providers[0].models[0].parameters
+              - description: Max tokens for response
+                displayName: Max Tokens For Response
+                path: llm.providers[0].models[0].parameters.maxTokensForResponse
+              - description: Model API URL
+                displayName: URL
+                path: llm.providers[0].models[0].url
+              - description: Watsonx Project ID
+                displayName: Watsonx Project ID
+                path: llm.providers[0].projectID
+              - description: TLS Security Profile used by connection to provider
+                displayName: TLS Security Profile
+                path: llm.providers[0].tlsSecurityProfile
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: Provider type
+                displayName: Provider Type
+                path: llm.providers[0].type
+              - displayName: OLS Settings
+                path: ols
+              - description: Additional CA certificates for TLS communication between OLS service and LLM Provider
+                displayName: Additional CA Configmap
+                path: ols.additionalCAConfigMapRef
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - displayName: Redis
+                path: ols.conversationCache.redis
+              - description: Secret that holds redis credentials
+                displayName: Credentials secret
+                path: ols.conversationCache.redis.credentialsSecret
+              - description: Redis maxmemory
+                displayName: Max Memory
+                path: ols.conversationCache.redis.maxMemory
+              - description: 'Redis maxmemory policy. Default: "allkeys-lru"'
+                displayName: Max Memory Policy
+                path: ols.conversationCache.redis.maxMemoryPolicy
+              - description: 'Conversation cache type. Default: "redis"'
+                displayName: Cache Type
+                path: ols.conversationCache.type
+              - description: Default model for usage
+                displayName: Default Model
+                path: ols.defaultModel
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: Default provider for usage
+                displayName: Default Provider
+                path: ols.defaultProvider
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: API container settings.
+                displayName: API Container
+                path: ols.deployment.api
+              - displayName: Node Selector
+                path: ols.deployment.api.nodeSelector
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:nodeSelector
+              - displayName: Resource Requirements
+                path: ols.deployment.api.resources
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+              - displayName: Tolerations
+                path: ols.deployment.api.tolerations
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:tolerations
+              - description: Console container settings.
+                displayName: Console Container
+                path: ols.deployment.console
+              - description: Certificate Authority (CA) certificate used by the console proxy endpoint.
+                displayName: CA Certificate
+                path: ols.deployment.console.caCertificate
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:caCertificate
+              - displayName: Node Selector
+                path: ols.deployment.console.nodeSelector
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:nodeSelector
+              - description: 'Defines the number of desired Console pods. Default: "1"'
+                displayName: Number of replicas
+                path: ols.deployment.console.replicas
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:podCount
+              - displayName: Resource Requirements
+                path: ols.deployment.console.resources
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+              - displayName: Tolerations
+                path: ols.deployment.console.tolerations
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:tolerations
+              - description: Data Collector container settings.
+                displayName: Data Collector Container
+                path: ols.deployment.dataCollector
+              - displayName: Resource Requirements
+                path: ols.deployment.dataCollector.resources
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+              - description: 'Defines the number of desired OLS pods. Default: "1"'
+                displayName: Number of replicas
+                path: ols.deployment.replicas
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:podCount
+              - description: Enable introspection features
+                displayName: Introspection Enabled
+                path: ols.introspectionEnabled
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+              - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".'
+                displayName: Log level
+                path: ols.logLevel
+              - description: Query filters
+                displayName: Query Filters
+                path: ols.queryFilters
+              - description: Filter name.
+                displayName: Filter Name
+                path: ols.queryFilters[0].name
+              - description: Filter pattern.
+                displayName: The pattern to replace
+                path: ols.queryFilters[0].pattern
+              - description: Replacement for the matched pattern.
+                displayName: Replace With
+                path: ols.queryFilters[0].replaceWith
+              - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
+                displayName: TLS Configuration
+                path: ols.tlsConfig
+              - description: KeySecretRef is the secret that holds the TLS key.
+                displayName: Key Secret
+                path: ols.tlsConfig.keyCertSecretRef
+              - description: TLS Security Profile used by API endpoints
+                displayName: TLS Security Profile
+                path: ols.tlsSecurityProfile
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: User data collection switches
+                displayName: User Data Collection
+                path: ols.userDataCollection
+              - displayName: Do Not Collect User Feedback
+                path: ols.userDataCollection.feedbackDisabled
+              - displayName: Do Not Collect Transcripts
+                path: ols.userDataCollection.transcriptsDisabled
+              - displayName: OLS Data Collector Settings
+                path: olsDataCollector
+              - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".'
+                displayName: Log level
+                path: olsDataCollector.logLevel
+            statusDescriptors:
+              - displayName: Conditions
+                path: conditions
+            version: v1alpha1
+      description: |-
+        OpenShift Lightspeed Operator provides generative AI-based virtual assistant which integrates into the OpenShift web console. OpenShift Lightspeed can answer natural language questions related to OpenShift Container Platform.
+
+        To configure the OpenShift Lightspeed Operator, you need a Large Language Model (LLM) . You can host the LLM using RHELAI or RHOAI or use one of the models from the following Software-as-a-Service providers:
+
+        OpenAI
+        Microsoft Azure OpenAI
+        IBM WatsonX
+
+        For more information, see [About OpenShift Lightspeed](https://docs.openshift.com/lightspeed/1.0tp1/about/ols-about-openshift-lightspeed.html) in the official product documentation.
+
+        Questions, comments, concerns, or just want to talk to the OpenShift Lightspeed team? [Email us](mailto:openshift-lightspeed-contact-requests@redhat.com)!
+      displayName: OpenShift Lightspeed Operator
+      installModes:
+        - supported: true
+          type: OwnNamespace
+        - supported: false
+          type: SingleNamespace
+        - supported: false
+          type: MultiNamespace
+        - supported: false
+          type: AllNamespaces
+      keywords:
+        - ai
+        - assistant
+        - openshift
+        - llm
+      links:
+        - name: Lightspeed Operator
+          url: https://github.com/openshift/lightspeed-operator
+      maturity: alpha
+      minKubeVersion: 1.28.0
+      provider:
+        name: Red Hat, Inc
+        url: https://github.com/openshift/lightspeed-service
+relatedImages:
+  - name: lightspeed-service-api
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:b436a13a86c774013a541197ab040db79cf7453281b2216b9cd7d9b3e03e4219
+  - name: lightspeed-console-plugin
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:dbc291c7855a9b276227fe61ea4e6e4a8d7daad872f46c221baa4685fc199627
+  - name: lightspeed-operator
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:e6c4d21f07b9c62442decae7189245a3bcf72505ea638b47bf15ff7f6d62a111
+  - name: lightspeed-operator-bundle
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:50df964a7f2e1289531dac9736d86a9ce94350c1e0ba971ab4f2012217b9a163
+schema: olm.bundle
+---
+schema: olm.channel
+package: lightspeed-operator
+name: alpha
+entries:
+  - name: lightspeed-operator.v0.3.1
+    skipRange: ">=0.1.0 <0.3.1"
