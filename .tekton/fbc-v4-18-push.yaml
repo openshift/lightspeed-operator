@@ -24,7 +24,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-fbc-v4-18/fbc-v4-18:{{revision}}
+    value: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/fbc-v4-18:{{revision}}
   - name: build-platforms
     value:
     - linux/x86_64
