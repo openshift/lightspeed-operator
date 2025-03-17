@@ -25,11 +25,11 @@ func (r *OLSConfigReconciler) generateRAGInitContainers(cr *olsv1alpha1.OLSConfi
 			Name:            ragName,
 			Image:           rag.Image,
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			Command:         []string{"sh", "-c", fmt.Sprintf("mkdir -p /rag-data/%s && cp -a %s /rag-data/%s", ragName, rag.IndexPath, ragName)},
+			Command:         []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/%s && cp -a %s %s/%s", RAGVolumeMountPath, ragName, rag.IndexPath, RAGVolumeMountPath, ragName)},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      RAGVolumeName,
-					MountPath: "/rag-data",
+					MountPath: RAGVolumeMountPath,
 				},
 			},
 		})
@@ -40,6 +40,6 @@ func (r *OLSConfigReconciler) generateRAGInitContainers(cr *olsv1alpha1.OLSConfi
 func (r *OLSConfigReconciler) generateRAGVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      RAGVolumeName,
-		MountPath: "/rag-data",
+		MountPath: RAGVolumeMountPath,
 	}
 }
