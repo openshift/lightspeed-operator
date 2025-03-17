@@ -8,6 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"path"
 	"strings"
@@ -117,9 +118,13 @@ var _ = Describe("App server assets", func() {
 						TLSKeyPath:         path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.key"),
 					},
 					ReferenceContent: ReferenceContent{
-						EmbeddingsModelPath:  "/app-root/embeddings_model",
-						ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
-						ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+						EmbeddingsModelPath: "/app-root/embeddings_model",
+						Indexes: []ReferenceIndex{
+							{
+								ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
+								ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+							},
+						},
 					},
 					UserDataCollection: UserDataCollectionConfig{
 						FeedbackDisabled:    false,
@@ -791,11 +796,11 @@ var _ = Describe("App server assets", func() {
 				corev1.Container{
 					Name:    "rag-0",
 					Image:   "rag-ocp-product-docs:4.15",
-					Command: []string{"sh", "-c", "mkdir -p /rag-data/rag-0 && cp -a /rag/vector_db/ocp_product_docs/4.15 /rag-data/rag-0"},
+					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-0 && cp -a /rag/vector_db/ocp_product_docs/4.15/. %s/rag-0", RAGVolumeMountPath, RAGVolumeMountPath)},
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      RAGVolumeName,
-							MountPath: "/rag-data",
+							MountPath: RAGVolumeMountPath,
 						},
 					},
 					ImagePullPolicy: corev1.PullIfNotPresent,
@@ -803,16 +808,67 @@ var _ = Describe("App server assets", func() {
 				corev1.Container{
 					Name:    "rag-1",
 					Image:   "rag-ansible-docs:2.18",
-					Command: []string{"sh", "-c", "mkdir -p /rag-data/rag-1 && cp -a /rag/vector_db/ansible_docs/2.18 /rag-data/rag-1"},
+					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-1 && cp -a /rag/vector_db/ansible_docs/2.18/. %s/rag-1", RAGVolumeMountPath, RAGVolumeMountPath)},
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      RAGVolumeName,
-							MountPath: "/rag-data",
+							MountPath: RAGVolumeMountPath,
 						},
 					},
 					ImagePullPolicy: corev1.PullIfNotPresent,
 				},
 			))
+		})
+
+		It("should fill app config with multiple RAG indexes and remove them when no additional RAG is defined", func() {
+			By("additional RAG indexes are added")
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					IndexPath: "/rag/vector_db/ocp_product_docs/4.15",
+					IndexID:   "ocp-product-docs-4_15",
+					Image:     "rag-ocp-product-docs:4.15",
+				},
+				{
+					IndexPath: "/rag/vector_db/ansible_docs/2.18",
+					IndexID:   "ansible-docs-2_18",
+					Image:     "rag-ansible-docs:2.18",
+				},
+			}
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			olsconfigGenerated := AppSrvConfigFile{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+
+			major, minor, err := r.getClusterVersion(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			// OCP document is always there
+			ocpIndex := ReferenceIndex{
+				ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
+				ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+			}
+
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(ConsistOf(
+				ocpIndex,
+				ReferenceIndex{
+					ProductDocsIndexId:   "ocp-product-docs-4_15",
+					ProductDocsIndexPath: RAGVolumeMountPath + "/rag-0",
+				},
+				ReferenceIndex{
+					ProductDocsIndexId:   "ansible-docs-2_18",
+					ProductDocsIndexPath: RAGVolumeMountPath + "/rag-1",
+				},
+			))
+
+			By("additional RAG indexes are removed")
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{}
+			cm, err = r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			olsconfigGenerated = AppSrvConfigFile{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(ConsistOf(ocpIndex))
+
 		})
 
 	})
@@ -868,8 +924,9 @@ ols_config:
     uvicorn_log_level: ""
   reference_content:
     embeddings_model_path: /app-root/embeddings_model
-    product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
-    product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
+    indexes:
+    - product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
+      product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
@@ -923,8 +980,9 @@ ols_config:
     uvicorn_log_level: ""
   reference_content:
     embeddings_model_path: /app-root/embeddings_model
-    product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
-    product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
+    indexes:
+    - product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
+      product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key

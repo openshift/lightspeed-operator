@@ -833,7 +833,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
-		It("should generate RAG volumes and initContainers when RAG is defined", func() {
+		It("should generate RAG volumes and initContainers when RAG is defined, remove them when RAG is not defined", func() {
 			By("Reconcile with RAG defined")
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
@@ -849,7 +849,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			}
 			err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			By("CHeck deployment have RAG volumes and initContainers")
+			By("Check deployment have RAG volumes and initContainers")
 			deployment := &appsv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, deployment)
 			Expect(err).NotTo(HaveOccurred())
@@ -861,10 +861,63 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			}))
 			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).NotTo(ContainElement(corev1.VolumeMount{
 				Name:      RAGVolumeName,
-				MountPath: "/rag-data",
+				MountPath: RAGVolumeMountPath,
 				ReadOnly:  true,
 			}))
 
+			By("Reconcile without RAG defined")
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{}
+			err = reconciler.reconcileAppServer(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+			By("Check deployment does not have RAG volumes and initContainers")
+			deployment = &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, deployment)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Spec.Volumes).NotTo(ContainElement(corev1.Volume{
+				Name: RAGVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			}))
+			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).NotTo(ContainElement(corev1.VolumeMount{
+				Name:      RAGVolumeName,
+				MountPath: RAGVolumeMountPath,
+				ReadOnly:  true,
+			}))
+
+		})
+
+		It("should add RAG indexes into the configmap when RAG is defined", func() {
+			By("Reconcile with RAG defined")
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					IndexPath: "/rag/vector_db/ocp_product_docs/4.15",
+					IndexID:   "ocp-product-docs-4_15",
+					Image:     "rag-ocp-product-docs:4.15",
+				},
+				{
+					IndexPath: "/rag/vector_db/ansible_docs/2.18",
+					IndexID:   "ansible-docs-2_18",
+					Image:     "rag-ansible-docs:2.18",
+				},
+			}
+			err := reconciler.reconcileAppServer(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+			By("Check configmap has RAG indexes")
+			cm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSConfigCmName, Namespace: OLSNamespaceDefault}, cm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Data).To(HaveKey(OLSConfigFilename))
+			major, minor, err := reconciler.getClusterVersion(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			// OCP document is always there
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("indexes:"))
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("  - product_docs_index_id: " + "ocp-product-docs-" + major + "_" + minor))
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("    product_docs_index_path: " + "/app-root/vector_db/ocp_product_docs/" + major + "." + minor))
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("  - product_docs_index_id: ocp-product-docs-4_15"))
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("    product_docs_index_path: " + RAGVolumeMountPath + "/rag-0"))
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("  - product_docs_index_id: ansible-docs-2_18"))
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("    product_docs_index_path: " + RAGVolumeMountPath + "/rag-1"))
 		})
 
 	})

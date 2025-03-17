@@ -54,7 +54,7 @@ var _ = Describe("App server assets", func() {
 				"Name":            Equal("rag-0"),
 				"Image":           Equal("rag-image-1"),
 				"ImagePullPolicy": Equal(corev1.PullIfNotPresent),
-				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-0 && cp -a /path/to/index-1 /rag-data/rag-0"}),
+				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-0 && cp -a /path/to/index-1/. /rag-data/rag-0"}),
 				"VolumeMounts": ConsistOf(corev1.VolumeMount{
 					Name:      RAGVolumeName,
 					MountPath: "/rag-data",
@@ -64,7 +64,7 @@ var _ = Describe("App server assets", func() {
 				"Name":            Equal("rag-1"),
 				"Image":           Equal("rag-image-2"),
 				"ImagePullPolicy": Equal(corev1.PullIfNotPresent),
-				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-1 && cp -a /path/to/index-2 /rag-data/rag-1"}),
+				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-1 && cp -a /path/to/index-2/. /rag-data/rag-1"}),
 				"VolumeMounts": ConsistOf(corev1.VolumeMount{
 					Name:      RAGVolumeName,
 					MountPath: "/rag-data",

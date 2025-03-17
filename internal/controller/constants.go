@@ -69,6 +69,8 @@ const (
 	CertBundleDir = "cert-bundle"
 	// RAGVolumeName is the name of the volume hosting customized RAG content
 	RAGVolumeName = "rag"
+	// RAGVolumeMountPath is the path of the volume hosting customized RAG content
+	RAGVolumeMountPath = "/rag-data"
 
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"

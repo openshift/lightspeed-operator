@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"path/filepath"
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -220,6 +221,21 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		tlsConfig.TLSKeyPath = path.Join(OLSAppCertsMountRoot, cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name, "tls.key")
 	}
 
+	// OCP reference document is always available
+	ocpReferenceIndex := ReferenceIndex{
+		ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+		ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
+	}
+	referenceIndexes := []ReferenceIndex{ocpReferenceIndex}
+	// Custom reference document is optional
+	for i, index := range cr.Spec.OLSConfig.RAG {
+		referenceIndex := ReferenceIndex{
+			ProductDocsIndexPath: filepath.Join(RAGVolumeMountPath, fmt.Sprintf("rag-%d", i)),
+			ProductDocsIndexId:   index.IndexID,
+		}
+		referenceIndexes = append(referenceIndexes, referenceIndex)
+	}
+
 	olsConfig := OLSConfig{
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
 		DefaultProvider: cr.Spec.OLSConfig.DefaultProvider,
@@ -231,9 +247,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		ConversationCache: conversationCache,
 		TLSConfig:         tlsConfig,
 		ReferenceContent: ReferenceContent{
-			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
-			ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
-			EmbeddingsModelPath:  "/app-root/embeddings_model",
+			Indexes: referenceIndexes,
+			// all RAGs use the same embedding model
+			EmbeddingsModelPath: "/app-root/embeddings_model",
 		},
 		UserDataCollection: UserDataCollectionConfig{
 			FeedbackDisabled:    cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled || !dataCollectorEnabled,
