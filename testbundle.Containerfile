@@ -33,7 +33,7 @@ LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v4
 
 # OCP compatibility labels
-LABEL com.redhat.openshift.versions=v4.15-v4.16
+LABEL com.redhat.openshift.versions=v4.15-v4.18
 
 # Labels for testing.
 LABEL operators.operatorframework.io.test.mediatype.v1=scorecard+v1
