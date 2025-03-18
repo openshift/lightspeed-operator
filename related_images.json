@@ -13,6 +13,6 @@
   },
   {
     "name": "lightspeed-operator-bundle",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:ff0595cc9d4470ee15a35cc2d5c12bc36dc0d35a4d3e8d0b537997561f0f66a6"
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle@sha256:50df964a7f2e1289531dac9736d86a9ce94350c1e0ba971ab4f2012217b9a163"
   }
 ]
