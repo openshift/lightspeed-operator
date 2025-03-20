@@ -113,12 +113,12 @@ spec:
         displayName: Default Model
         path: ols.defaultModel
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
       - description: Default provider for usage
         displayName: Default Provider
         path: ols.defaultProvider
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
       - description: API container settings.
         displayName: API Container
         path: ols.deployment.api
