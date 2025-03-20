@@ -70,10 +70,10 @@ type OLSSpec struct {
 	// Default model for usage
 	// +kubebuilder:validation:Required
 	// +required
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
 	DefaultModel string `json:"defaultModel"`
 	// Default provider for usage
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
 	DefaultProvider string `json:"defaultProvider,omitempty"`
 	// Query filters
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Query Filters"

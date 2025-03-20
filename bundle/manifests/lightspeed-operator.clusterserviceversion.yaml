@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-02-19T12:34:53Z"
+    createdAt: "2025-03-20T14:06:24Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -145,12 +145,12 @@ spec:
             displayName: Default Model
             path: ols.defaultModel
             x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:advanced
+              - urn:alm:descriptor:com.tectonic.ui:text
           - description: Default provider for usage
             displayName: Default Provider
             path: ols.defaultProvider
             x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:advanced
+              - urn:alm:descriptor:com.tectonic.ui:text
           - description: API container settings.
             displayName: API Container
             path: ols.deployment.api
