@@ -321,6 +321,7 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
 			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
 			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
+			AdditionalCAHashKey:   r.stateCache[AdditionalCAHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
@@ -328,6 +329,7 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
 			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
 			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
+			AdditionalCAHashKey:   r.stateCache[AdditionalCAHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
 		})
 		changed = true

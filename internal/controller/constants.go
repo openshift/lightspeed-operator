@@ -108,7 +108,7 @@ const (
 	// ConsoleUIDeploymentName is the name of the console UI deployment
 	ConsoleUIDeploymentName = "lightspeed-console-plugin"
 	// ConsoleUIImage is the image of the console UI plugin
-	ConsoleUIImageDefault = "quay.io/openshift/lightspeed-console-plugin:latest"
+	ConsoleUIImageDefault = "quay.io/openshift-lightspeed/lightspeed-console-plugin:latest"
 	// ConsoleUIHTTPSPort is the port number of the console UI service
 	ConsoleUIHTTPSPort = 9443
 	// ConsoleUIPluginName is the name of the console UI plugin
