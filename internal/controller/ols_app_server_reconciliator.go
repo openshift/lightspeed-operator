@@ -92,8 +92,7 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 			return fmt.Errorf("%s: %w", ErrCreateAPIConfigmap, err)
 		}
 		r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
-		// TODO: Update DB
-		//r.stateCache[RedisConfigHashStateCacheKey] = cm.Annotations[RedisConfigHashKey]
+		r.stateCache[PostgresConfigHashStateCacheKey] = cm.Annotations[PostgresConfigHashKey]
 
 		return nil
 
@@ -107,8 +106,7 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	// update the state cache with the hash of the existing configmap.
 	// so that we can skip the reconciling the deployment if the configmap has not changed.
 	r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
-	// TODO: Update DB
-	//r.stateCache[RedisConfigHashStateCacheKey] = cm.Annotations[RedisConfigHashKey]
+	r.stateCache[PostgresConfigHashStateCacheKey] = cm.Annotations[PostgresConfigHashKey]
 	if foundCmHash == cm.Annotations[OLSConfigHashKey] {
 		r.logger.Info("OLS configmap reconciliation skipped", "configmap", foundCm.Name, "hash", foundCm.Annotations[OLSConfigHashKey])
 		return nil
@@ -247,20 +245,16 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey:    r.stateCache[OLSConfigHashStateCacheKey],
-			OLSAppTLSHashKey:    r.stateCache[OLSAppTLSHashStateCacheKey],
-			LLMProviderHashKey:  r.stateCache[LLMProviderHashStateCacheKey],
-			AdditionalCAHashKey: r.stateCache[AdditionalCAHashStateCacheKey],
-			// TODO: Update DB
-			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
+			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
+			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
+			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
+			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
 		})
 		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			OLSConfigHashKey:    r.stateCache[OLSConfigHashStateCacheKey],
-			OLSAppTLSHashKey:    r.stateCache[OLSAppTLSHashStateCacheKey],
-			LLMProviderHashKey:  r.stateCache[LLMProviderHashStateCacheKey],
-			AdditionalCAHashKey: r.stateCache[AdditionalCAHashStateCacheKey],
-			// TODO: Update DB
-			//RedisSecretHashKey: r.stateCache[RedisSecretHashStateCacheKey],
+			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
+			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
+			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
+			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
 		})
 		r.logger.Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
@@ -339,12 +333,12 @@ func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1
 		annotateSecretWatcher(foundSecret)
 		err = r.Update(ctx, foundSecret)
 		if err != nil {
-			return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
+			return fmt.Errorf("%s: %s error: %w", ErrUpdateProviderSecret, foundSecret.Name, err)
 		}
 	}
 	foundProviderCredentialsHash, err := hashBytes([]byte(providerCredentials))
 	if err != nil {
-		return fmt.Errorf("failed to generate OLS provider credentials hash %w", err)
+		return fmt.Errorf("%s: %w", ErrGenerateProviderCredentialsHash, err)
 	}
 	if foundProviderCredentialsHash == r.stateCache[LLMProviderHashStateCacheKey] {
 		r.logger.Info("OLS llm secrets reconciliation skipped", "hash", foundProviderCredentialsHash)
