@@ -1270,6 +1270,7 @@ func generateRandomSecret() (*corev1.Secret, error) {
 			"client_secret": []byte(passwordHash),
 			"tls.key":       privateKeyPEM,
 			"tls.crt":       certPEM,
+			"apitoken":      []byte("LLM Provider Token"),
 		},
 	}
 

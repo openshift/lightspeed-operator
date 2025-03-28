@@ -10,6 +10,7 @@ import (
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -104,6 +105,27 @@ func (r *OLSConfigReconciler) generateSARClusterRoleBinding(cr *olsv1alpha1.OLSC
 	}
 
 	return &rb, nil
+}
+
+func (r *OLSConfigReconciler) checkLLMCredentials(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	for _, provider := range cr.Spec.LLMConfig.Providers {
+		if provider.CredentialsSecretRef.Name == "" {
+			return fmt.Errorf("provider %s missing credentials secret", provider.Name)
+		}
+		secret := &corev1.Secret{}
+		err := r.Get(ctx, client.ObjectKey{Name: provider.CredentialsSecretRef.Name, Namespace: r.Options.Namespace}, secret)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return fmt.Errorf("LLM provider %s credential secret %s not found", provider.Name, provider.CredentialsSecretRef.Name)
+			}
+			return fmt.Errorf("failed to get LLM provider %s credential secret %s: %w", provider.Name, provider.CredentialsSecretRef.Name, err)
+		}
+		// secret must contain a key named "apitoken"
+		if _, ok := secret.Data["apitoken"]; !ok {
+			return fmt.Errorf("LLM provider %s credential secret %s missing key 'apitoken'", provider.Name, provider.CredentialsSecretRef.Name)
+		}
+	}
+	return nil
 }
 
 func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
