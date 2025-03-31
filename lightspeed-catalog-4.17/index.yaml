@@ -6,8 +6,8 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:45be9a064b80d7b8f49bdc60df71ad63448651e85cb0454034bd1713061f63ce
-name: lightspeed-operator.v0.3.2
+image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:faf88f6e61c607c6f3914cb0b2a7d8202edfe758b224faf1a6f2f1ce7936288a
+name: lightspeed-operator.v0.3.3
 package: lightspeed-operator
 properties:
   - type: olm.gvk
@@ -18,7 +18,7 @@ properties:
   - type: olm.package
     value:
       packageName: lightspeed-operator
-      version: 0.3.2
+      version: 0.3.3
   - type: olm.csv.metadata
     value:
       annotations:
@@ -58,7 +58,7 @@ properties:
           ]
         capabilities: Basic Install
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2025-03-13T13:32:11Z"
+        createdAt: "2025-03-20T14:06:24Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -144,30 +144,39 @@ properties:
                 path: ols.additionalCAConfigMapRef
                 x-descriptors:
                   - urn:alm:descriptor:com.tectonic.ui:advanced
-              - displayName: Redis
-                path: ols.conversationCache.redis
-              - description: Secret that holds redis credentials
+              - displayName: Postgres
+                path: ols.conversationCache.postgres
+              - description: Secret that holds Postgres credentials
                 displayName: Credentials secret
-                path: ols.conversationCache.redis.credentialsSecret
-              - description: Redis maxmemory
-                displayName: Max Memory
-                path: ols.conversationCache.redis.maxMemory
-              - description: 'Redis maxmemory policy. Default: "allkeys-lru"'
-                displayName: Max Memory Policy
-                path: ols.conversationCache.redis.maxMemoryPolicy
-              - description: 'Conversation cache type. Default: "redis"'
+                path: ols.conversationCache.postgres.credentialsSecret
+              - description: Postgres database name
+                displayName: Database name
+                path: ols.conversationCache.postgres.dbName
+              - description: Postgres max connections
+                displayName: Max connections
+                path: ols.conversationCache.postgres.maxConnections
+              - description: Postgres max connections
+                displayName: Max connections
+                path: ols.conversationCache.postgres.maxConnections
+              - description: Postgres shared buffers
+                displayName: Shared buffers
+                path: ols.conversationCache.postgres.sharedBuffers
+              - description: Postgres user name
+                displayName: User name
+                path: ols.conversationCache.postgres.user
+              - description: 'Conversation cache type. Default: "postgres"'
                 displayName: Cache Type
                 path: ols.conversationCache.type
               - description: Default model for usage
                 displayName: Default Model
                 path: ols.defaultModel
                 x-descriptors:
-                  - urn:alm:descriptor:com.tectonic.ui:advanced
+                  - urn:alm:descriptor:com.tectonic.ui:text
               - description: Default provider for usage
                 displayName: Default Provider
                 path: ols.defaultProvider
                 x-descriptors:
-                  - urn:alm:descriptor:com.tectonic.ui:advanced
+                  - urn:alm:descriptor:com.tectonic.ui:text
               - description: API container settings.
                 displayName: API Container
                 path: ols.deployment.api
@@ -304,18 +313,18 @@ properties:
         url: https://github.com/openshift/lightspeed-service
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:3477d1da3f693442dfc44e0c1d6fd9dae970a7f6dfd4563f6708fd1a4a3fe37b
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:38d216399248d9370d468f4f650d487a6fdd46264925c9b3b43ba0743c22bec2
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:a7b39a48939bcf7f983ef9465cc0a6411e89a1771e76c59f9b28eadbdb336687
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:3b509319a9f26179b107f915a9bd17b2dc8c80c40b86d4a604f81a1f8a94263a
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:deb9faf2655487801c8cbb8c18baade7b82e8c126fea41a32a3a61d148ec973d
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:f98259c82408541d8a4d85831dc0b7e7fbf3cdd367e5e5915791d1a72fd15bf8
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:45be9a064b80d7b8f49bdc60df71ad63448651e85cb0454034bd1713061f63ce
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:faf88f6e61c607c6f3914cb0b2a7d8202edfe758b224faf1a6f2f1ce7936288a
 schema: olm.bundle
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: alpha
 entries:
-  - name: lightspeed-operator.v0.3.2
-    skipRange: ">=0.1.0 <0.3.2"
+  - name: lightspeed-operator.v0.3.3
+    skipRange: ">=0.1.0 <0.3.3"
