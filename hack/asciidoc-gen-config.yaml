@@ -1,0 +1,9 @@
+version: 2
+outputDir: _tmp
+apisToHide: []
+apiMap:
+- name: ols.openshift.io
+  resources:
+  - kind: OLSConfig
+    group: ols.openshift.io
+    version: v1alpha1
