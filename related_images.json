@@ -1,7 +1,7 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:38d216399248d9370d468f4f650d487a6fdd46264925c9b3b43ba0743c22bec2"
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:2bd03a394aea76cd62d1b2c858654e6fb4807332d91326a0be0197fc00b50f6b"
   },
   {
     "name": "lightspeed-console-plugin",
