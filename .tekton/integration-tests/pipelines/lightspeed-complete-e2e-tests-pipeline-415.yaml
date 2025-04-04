@@ -18,7 +18,7 @@ spec:
       type: string
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
-      default: 'ols-e2e-tests-4.16'
+      default: 'ols-e2e-tests-4.15'
     - name: namespace
       description: 'Namespace to run tests in'
       default: 'openshift-lightspeed'
@@ -105,6 +105,8 @@ spec:
         results:
           - name: bundle-image
             value: "$(steps.get-bundle-image.results.bundle-image)"
+          - name: commit
+            value: "$(steps.get-bundle-image.results.commit)"
         params:
           - name: SNAPSHOT
           - name: namespace
@@ -175,20 +177,32 @@ spec:
               - name: bundle-image
                 type: string
                 description: "service image from snapshot"
+              - name: commit
+                type: string
+                description: "commit sha to be used to store artifacts"
             script: |
               dnf -y install jq
               echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
+              echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")" > $(step.results.commit.path)
     - name: ols-operator-tests
       description: Task to run tests from operator repository
+      params:
+        - name: commit
+          value: $(tasks.ols-install.results.commit)
       runAfter:
         - ols-install
       taskSpec:
+        params:
+          - name: commit
         volumes:
           - name: openai-token
             secret:
               secretName: openai
           - name: credentials
             emptyDir: {}
+          - name: ols-konflux-artifacts-bot-creds
+            secret:
+              secretName: ols-konflux-artifacts-bot
         steps:
           - name: get-kubeconfig
             ref:
@@ -208,6 +222,7 @@ spec:
               - name: credentials
                 value: credentials
           - name: run-e2e-tests
+            onError: continue
             volumeMounts:
               - name: openai-token
                 mountPath: /var/run/openai
@@ -227,6 +242,57 @@ spec:
               cd lightspeed-operator
               echo "---------------------------------------------"
               make test-e2e
+          - name: gather-cluster-resources
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
+            params:
+              - name: credentials
+                value: "credentials"
+              - name: kubeconfig
+                value: "$(steps.get-kubeconfig.results.kubeconfig)"
+              - name: artifact-dir
+                value: "/workspace/konflux-artifacts"
+          # validate that the cluster resources are available in another tekton step
+          - name: list-artifacts
+            image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+            workingDir: "/workspace"
+            script: |
+              #!/bin/bash
+              ls -la /workspace
+          - name: push-artifacts
+            ref: 
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
+            params:
+              - name: workdir-path
+                value: /workspace
+              - name: oci-ref
+                value: "quay.io/openshift-lightspeed/ols-operator-artifacts:415$(params.commit)"
+              - name: credentials-volume-name
+                value: ols-konflux-artifacts-bot-creds
+          - name: fail-if-any-step-failed
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
     - name: ols-service-tests
       description: Task to run tests from service repository
       params:
@@ -234,6 +300,8 @@ spec:
           value: $(params.SNAPSHOT)
         - name: bundleimage
           value: $(tasks.ols-install.results.bundle-image)
+        - name: commit
+          value: $(tasks.ols-install.results.commit)
         - name: namespace
           value: "$(params.namespace)"
       runAfter:
@@ -242,6 +310,7 @@ spec:
         params:
           - name: SNAPSHOT
           - name: bundleimage
+          - name: commit
           - name: namespace
             type: string
         volumes:
@@ -263,6 +332,9 @@ spec:
           - name: insights-stage-upload-offline-token
             secret:
               secretName: insights-stage-upload-offline-token
+          - name: ols-konflux-artifacts-bot-creds
+            secret:
+              secretName: ols-konflux-artifacts-bot
           - name: credentials
             emptyDir: {}
         steps:
@@ -284,6 +356,7 @@ spec:
               - name: credentials
                 value: credentials
           - name: run-e2e-tests
+            onError: continue
             resources:
               requests:
                 cpu: '1'
@@ -317,7 +390,7 @@ spec:
               - name: KUBECONFIG
                 value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
               - name: ARTIFACT_DIR
-                value: "tests/test_results"
+                value: "/workspace/artifacts"
               - name: SUITE_ID
                 value: "nosuite"
               - name: KONFLUX_BOOL
@@ -347,3 +420,54 @@ spec:
               export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/client_id)"
               export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
               tests/scripts/test-e2e-cluster.sh
+          - name: gather-cluster-resources
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
+            params:
+              - name: credentials
+                value: "credentials"
+              - name: kubeconfig
+                value: "$(steps.get-kubeconfig.results.kubeconfig)"
+              - name: artifact-dir
+                value: "/workspace/konflux-artifacts"
+          # validate that the cluster resources are available in another tekton step
+          - name: list-artifacts
+            image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+            workingDir: "/workspace"
+            script: |
+              #!/bin/bash
+              ls -la /workspace
+          - name: push-artifacts
+            ref: 
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
+            params:
+              - name: workdir-path
+                value: /workspace
+              - name: oci-ref
+                value: "quay.io/openshift-lightspeed/ols-service-artifacts:415$(params.commit)"
+              - name: credentials-volume-name
+                value: ols-konflux-artifacts-bot-creds
+          - name: fail-if-any-step-failed
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml

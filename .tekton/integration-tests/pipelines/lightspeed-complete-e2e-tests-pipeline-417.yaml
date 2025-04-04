@@ -283,6 +283,16 @@ spec:
                 value: "quay.io/openshift-lightspeed/ols-operator-artifacts:$(params.commit)"
               - name: credentials-volume-name
                 value: ols-konflux-artifacts-bot-creds
+          - name: fail-if-any-step-failed
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
     - name: ols-service-tests
       description: Task to run tests from service repository
       params:
@@ -451,3 +461,13 @@ spec:
                 value: "quay.io/openshift-lightspeed/ols-service-artifacts:$(params.commit)"
               - name: credentials-volume-name
                 value: ols-konflux-artifacts-bot-creds
+          - name: fail-if-any-step-failed
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
