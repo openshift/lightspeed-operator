@@ -120,9 +120,21 @@ func (r *OLSConfigReconciler) checkLLMCredentials(ctx context.Context, cr *olsv1
 			}
 			return fmt.Errorf("failed to get LLM provider %s credential secret %s: %w", provider.Name, provider.CredentialsSecretRef.Name, err)
 		}
-		// secret must contain a key named "apitoken"
-		if _, ok := secret.Data["apitoken"]; !ok {
-			return fmt.Errorf("LLM provider %s credential secret %s missing key 'apitoken'", provider.Name, provider.CredentialsSecretRef.Name)
+		if provider.Type == AzureOpenAIType {
+			// Azure OpenAI secret must contain "apitoken" or 3 keys named "client_id", "tenant_id", "client_secret"
+			if _, ok := secret.Data["apitoken"]; ok {
+				continue
+			}
+			for _, key := range []string{"client_id", "tenant_id", "client_secret"} {
+				if _, ok := secret.Data[key]; !ok {
+					return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, key)
+				}
+			}
+		} else {
+			// Other providers (e.g. WatsonX, OpenAI) must contain a key named "apikey"
+			if _, ok := secret.Data["apitoken"]; !ok {
+				return fmt.Errorf("LLM provider %s credential secret %s missing key 'apitoken'", provider.Name, provider.CredentialsSecretRef.Name)
+			}
 		}
 	}
 	return nil
