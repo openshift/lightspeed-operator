@@ -6,7 +6,7 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:faf88f6e61c607c6f3914cb0b2a7d8202edfe758b224faf1a6f2f1ce7936288a
+image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:c1845c2ba81f89feb216ac01cab58743525a95e1693bfafc0552a9eca916e956
 name: lightspeed-operator.v0.3.3
 package: lightspeed-operator
 properties:
@@ -63,7 +63,7 @@ properties:
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
         features.operators.openshift.io/disconnected: "true"
-        features.operators.openshift.io/fips-compliant: "false"
+        features.operators.openshift.io/fips-compliant: "true"
         features.operators.openshift.io/proxy-aware: "false"
         features.operators.openshift.io/tls-profiles: "false"
         features.operators.openshift.io/token-auth-aws: "false"
@@ -313,13 +313,13 @@ properties:
         url: https://github.com/openshift/lightspeed-service
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:38d216399248d9370d468f4f650d487a6fdd46264925c9b3b43ba0743c22bec2
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:2bd03a394aea76cd62d1b2c858654e6fb4807332d91326a0be0197fc00b50f6b
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:3b509319a9f26179b107f915a9bd17b2dc8c80c40b86d4a604f81a1f8a94263a
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:72bba488a14a7ff59563e15051438f8449f4e16091afdab7a3713f6b323eb95e
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:f98259c82408541d8a4d85831dc0b7e7fbf3cdd367e5e5915791d1a72fd15bf8
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:fd47a397210f303ea879e5543ec60a354e7d130b124c57c0b93bfa97d5ddbbe6
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:faf88f6e61c607c6f3914cb0b2a7d8202edfe758b224faf1a6f2f1ce7936288a
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:c1845c2ba81f89feb216ac01cab58743525a95e1693bfafc0552a9eca916e956
 schema: olm.bundle
 ---
 schema: olm.channel
