@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-03-20T14:06:24Z"
+    createdAt: "2025-04-09T20:50:42Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -127,25 +127,22 @@ spec:
             path: ols.additionalCAConfigMapRef
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
-          - displayName: Postgres
+          - displayName: PostgreSQL Settings
             path: ols.conversationCache.postgres
-          - description: Secret that holds Postgres credentials
-            displayName: Credentials secret
+          - description: Secret that holds postgres credentials
+            displayName: Credentials Secret
             path: ols.conversationCache.postgres.credentialsSecret
           - description: Postgres database name
-            displayName: Database name
+            displayName: Database Name
             path: ols.conversationCache.postgres.dbName
-          - description: Postgres max connections
-            displayName: Max connections
+          - description: 'Postgres maxconnections. Default: "2000"'
+            displayName: Maximum Connections
             path: ols.conversationCache.postgres.maxConnections
-          - description: Postgres max connections
-            displayName: Max connections
-            path: ols.conversationCache.postgres.maxConnections
-          - description: Postgres shared buffers
-            displayName: Shared buffers
+          - description: Postgres sharedbuffers
+            displayName: Shared Buffer Size
             path: ols.conversationCache.postgres.sharedBuffers
           - description: Postgres user name
-            displayName: User name
+            displayName: User Name
             path: ols.conversationCache.postgres.user
           - description: 'Conversation cache type. Default: "postgres"'
             displayName: Cache Type
@@ -396,6 +393,7 @@ spec:
                       - --cert-dir=/etc/tls/private
                       - --service-image=quay.io/openshift-lightspeed/lightspeed-service-api:latest
                       - --console-image=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
+                      - --postgres-image=registry.redhat.io/rhel9/postgresql-16:9.5-1732622748
                     command:
                       - /manager
                     env:
@@ -483,9 +481,20 @@ spec:
                 - ""
               resources:
                 - configmaps
-                - secrets
                 - serviceaccounts
                 - services
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - secrets
               verbs:
                 - create
                 - delete
