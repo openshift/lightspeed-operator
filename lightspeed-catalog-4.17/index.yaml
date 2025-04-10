@@ -313,7 +313,7 @@ properties:
         url: https://github.com/openshift/lightspeed-service
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:2bd03a394aea76cd62d1b2c858654e6fb4807332d91326a0be0197fc00b50f6b
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:7ecc9d54dcfc0162eaa936b43ab50f9ecca696ccc6b3252307be2167f3a58d62
   - name: lightspeed-console-plugin
     image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:72bba488a14a7ff59563e15051438f8449f4e16091afdab7a3713f6b323eb95e
   - name: lightspeed-operator
