@@ -162,6 +162,7 @@ type ConversationCacheSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Cache Type"
 	Type CacheType `json:"type,omitempty"`
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="PostgreSQL Settings"
 	Postgres PostgresSpec `json:"postgres,omitempty"`
 }
 
@@ -169,19 +170,24 @@ type ConversationCacheSpec struct {
 type PostgresSpec struct {
 	// Postgres user name
 	// +kubebuilder:default="postgres"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="User Name"
 	User string `json:"user,omitempty"`
 	// Postgres database name
 	// +kubebuilder:default="postgres"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Name"
 	DbName string `json:"dbName,omitempty"`
 	// Secret that holds postgres credentials
 	// +kubebuilder:default="lightspeed-postgres-secret"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Credentials Secret"
 	CredentialsSecret string `json:"credentialsSecret,omitempty"`
 	// Postgres sharedbuffers
 	// +kubebuilder:validation:XIntOrString
 	// +kubebuilder:default="256MB"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Shared Buffer Size"
 	SharedBuffers string `json:"sharedBuffers,omitempty"`
 	// Postgres maxconnections. Default: "2000"
 	// +kubebuilder:default=2000
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Maximum Connections"
 	MaxConnections int `json:"maxConnections,omitempty"`
 }
 

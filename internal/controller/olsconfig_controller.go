@@ -83,7 +83,7 @@ type OLSConfigReconcilerOptions struct {
 // This has to be a cluster role
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 // Secret access for conversation cache server configuration
-// +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=secrets,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // Secret access for telemetry pull secret, must be a cluster role due to OLM limitations in managing roles in operator namespace
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 // ConsolePlugin for install console plugin
