@@ -27,6 +27,18 @@ const (
 	OpenAIAlternativeModel = "gpt-4-1106-preview"
 	// LLMModelEnvVar is the environment variable containing the LLM model
 	LLMModelEnvVar = "LLM_MODEL"
+	// AzureTenantID is the environment variable containing the tenant id for azure openai authentication
+	AzureTenantID = "AZUREOPENAI_ENTRA_ID_TENANT_ID"
+	// AzureClientID is the environment variable containing the client id for azure openai authentication
+	AzureClientID = "AZUREOPENAI_ENTRA_ID_CLIENT_ID"
+	// AzureClientSecret is the environment variable containing the client secret for azure openai authentication
+	AzureClientSecret = "AZUREOPENAI_ENTRA_ID_CLIENT_SECRET"
+	// AzureOpenaiTenantID
+	AzureOpenaiTenantID = "tenant_id"
+	// AzureOpenaiClientID
+	AzureOpenaiClientID = "client_id"
+	// AzureOpenaiClientSecret
+	AzureOpenaiClientSecret = "client_secret"
 	// OLSCRName is the name of the OLSConfig CR
 	OLSCRName = "cluster"
 	// AppServerDeploymentName is the name of the OLS application server deployment
