@@ -199,6 +199,17 @@ spec:
       - description: Replacement for the matched pattern.
         displayName: Replace With
         path: ols.queryFilters[0].replaceWith
+      - description: RAG databases
+        displayName: RAG Databases
+        path: ols.rag
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - displayName: Image
+        path: ols.rag[0].image
+      - displayName: Index ID
+        path: ols.rag[0].indexID
+      - displayName: Index Path in the Image
+        path: ols.rag[0].indexPath
       - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
         displayName: TLS Configuration
         path: ols.tlsConfig
