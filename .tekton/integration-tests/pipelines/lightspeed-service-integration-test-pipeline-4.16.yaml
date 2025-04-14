@@ -18,7 +18,7 @@ spec:
       type: string
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
-      default: 'ols-e2e-tests'
+      default: 'ols-e2e-tests-4.16'
     - name: namespace
       description: 'Namespace to run tests in'
       default: 'openshift-lightspeed'
@@ -78,6 +78,20 @@ spec:
                 value: "$(steps.pick-version.results.version)"
               - name: instanceType
                 value: "m5.large"
+              - name: imageContentSources
+                value: |
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator
+                    mirrors:
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle
+                    mirrors:
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9
+                    mirrors:
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service
+                  - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9
+                    mirrors:
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
     - name: ols-install
       description: Task to install bundle onto ephemeral namespace
       runAfter:
@@ -89,8 +103,10 @@ spec:
           value: "$(params.namespace)"
       taskSpec:
         results:
-          - name: service-image
-            value: "$(steps.get-service-image.results.service-image)"
+          - name: bundle-image
+            value: "$(steps.get-bundle-image.results.bundle-image)"
+          - name: commit
+            value: "$(steps.get-bundle-image.results.commit)"
         params:
           - name: SNAPSHOT
           - name: namespace
@@ -144,9 +160,6 @@ spec:
               echo "---------------------------------------------"
               oc create namespace $(params.namespace)
               oc label namespaces $(params.namespace) openshift.io/cluster-monitoring=true --overwrite=true
-              export IMAGE_DIGEST_MIRROR_SET=https://raw.githubusercontent.com/openshift/lightspeed-operator/main/config/manager/imagedigestmirrorset.yaml
-              curl -Lo /usr/tmp/imagedigestmirrorset "$IMAGE_DIGEST_MIRROR_SET"
-              oc apply -f /usr/tmp/imagedigestmirrorset
               echo "---------------------------------------------"
               echo ${KONFLUX_COMPONENT_NAME}
               export BUNDLE_IMAGE="$(jq -r --arg component_name "$KONFLUX_COMPONENT_NAME" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")"
@@ -155,25 +168,31 @@ spec:
               operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
               echo "---------------------------------------------"
               oc get deployment lightspeed-operator-controller-manager -n "$(params.namespace)"
-          - name: get-service-image
+          - name: get-bundle-image
             image: registry.redhat.io/openshift4/ose-cli:latest
             env:
               - name: SNAPSHOT
                 value: $(params.SNAPSHOT)
             results:
-              - name: service-image
+              - name: bundle-image
                 type: string
                 description: "service image from snapshot"
+              - name: commit
+                type: string
+                description: "commit sha to be used to store artifacts"
             script: |
               dnf -y install jq
-              echo -n "$(jq -r --arg component_name "lightspeed-service" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.service-image.path)
-    - name: ols-e2e-tests
+              echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
+              echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")" > $(step.results.commit.path)
+    - name: ols-service-tests
       description: Task to run tests from service repository
       params:
         - name: SNAPSHOT
           value: $(params.SNAPSHOT)
-        - name: serviceimage
-          value: $(tasks.ols-install.results.service-image)
+        - name: bundleimage
+          value: $(tasks.ols-install.results.bundle-image)
+        - name: commit
+          value: $(tasks.ols-install.results.commit)
         - name: namespace
           value: "$(params.namespace)"
       runAfter:
@@ -181,7 +200,8 @@ spec:
       taskSpec:
         params:
           - name: SNAPSHOT
-          - name: serviceimage
+          - name: bundleimage
+          - name: commit
           - name: namespace
             type: string
         volumes:
@@ -203,6 +223,9 @@ spec:
           - name: insights-stage-upload-offline-token
             secret:
               secretName: insights-stage-upload-offline-token
+          - name: ols-konflux-artifacts-bot-creds
+            secret:
+              secretName: ols-konflux-artifacts-bot
           - name: credentials
             emptyDir: {}
         steps:
@@ -224,6 +247,7 @@ spec:
               - name: credentials
                 value: credentials
           - name: run-e2e-tests
+            onError: continue
             resources:
               requests:
                 cpu: '1'
@@ -257,15 +281,22 @@ spec:
               - name: KUBECONFIG
                 value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
               - name: ARTIFACT_DIR
-                value: "tests/test_results"
+                value: "/workspace/artifacts"
               - name: SUITE_ID
                 value: "nosuite"
               - name: KONFLUX_BOOL
                 value: "true"
+              - name: OLS_IMAGE
+                value: ""
+              - name: BUNDLE_IMAGE
+                value: "$(params.bundleimage)"
             image: registry.access.redhat.com/ubi9/ubi-minimal
             script: |
               echo "---------------------------------------------"
               echo "$KONFLUX_BOOL"
+              echo "---------------------------------------------"
+              echo "$BUNDLE_IMAGE"
+              echo "---------------------------------------------"
               microdnf -y install git make python3.11 python3.11-devel python3.11-pip shadow-utils tar
               curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.15/openshift-client-linux-amd64-rhel9.tar.gz \
                   && tar -xvzf oc.tar.gz \
@@ -275,41 +306,59 @@ spec:
               cd lightspeed-service
               pip3.11 install --no-cache-dir --upgrade pip pdm
               pdm config python.use_venv false
-              make install-deps
-              make install-deps-test
-              oc project $(params.namespace)
-
               export CP_OFFLINE_TOKEN=$(cat /var/run/insights-stage-upload-offline-token/token)
               export AZUREOPENAI_ENTRA_ID_TENANT_ID="$(cat /var/run/azureopenai-entra-id/tenant_id)"
               export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/client_id)"
               export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
-
-              export SUITE_ID="azure_openai"
-              export PROVIDER="azure_openai"
-              export PROVIDER_KEY_PATH=${AZUREOPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not certificates"
-              export MODEL="gpt-4o-mini"
-              echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
-
-              export SUITE_ID="openai"
-              export PROVIDER="openai"
-              export PROVIDER_KEY_PATH=${OPENAI_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not model_evaluation and not azure_entra_id and not certificates"
-              export MODEL="gpt-4o-mini"
-              echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
-
-              export SUITE_ID="watsonx"
-              export PROVIDER="watsonx"
-              export PROVIDER_KEY_PATH=${WATSONX_PROVIDER_KEY_PATH}
-              export TEST_TAGS="not azure_entra_id and not certificates"
-              export MODEL="ibm/granite-13b-chat-v2"
-              echo "-----------------------------------------------"
-              echo "starting ${PROVIDER} tests"
-              pdm run pytest tests/e2e -s --durations=0 -o junit_suite_name="${SUITE_ID}" -m "${TEST_TAGS}" --junit-prefix="${SUITE_ID}" --junit-xml="${ARTIFACT_DIR}/junit_e2e_${SUITE_ID}.xml" \
-              --eval_provider ${PROVIDER} --eval_model ${MODEL} --eval_out_dir ${ARTIFACT_DIR} --rp_name=ols-e2e-tests
+              tests/scripts/test-e2e-cluster.sh
+          - name: gather-cluster-resources
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
+            params:
+              - name: credentials
+                value: "credentials"
+              - name: kubeconfig
+                value: "$(steps.get-kubeconfig.results.kubeconfig)"
+              - name: artifact-dir
+                value: "/workspace/konflux-artifacts"
+          # validate that the cluster resources are available in another tekton step
+          - name: list-artifacts
+            image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+            workingDir: "/workspace"
+            script: |
+              #!/bin/bash
+              ls -la /workspace
+          - name: push-artifacts
+            ref: 
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
+            params:
+              - name: workdir-path
+                value: /workspace
+              - name: oci-ref
+                value: "quay.io/openshift-lightspeed/ols-service-artifacts:416$(params.commit)"
+              - name: credentials-volume-name
+                value: ols-konflux-artifacts-bot-creds
+          - name: fail-if-any-step-failed
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
