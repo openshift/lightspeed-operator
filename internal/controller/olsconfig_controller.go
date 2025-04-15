@@ -107,6 +107,9 @@ type OLSConfigReconcilerOptions struct {
 // clusterversion for checking the openshift cluster version
 // +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions;apiservers,verbs=get;list;watch
 
+// NetworkPolicy for restricting access to OLS pods
+// +kubebuilder:rbac:groups=networking.k8s.io,namespace=openshift-lightspeed,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
+
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -116,7 +119,11 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.logger.Error(err, "Failed to reconcile service monitor for operator")
 		return ctrl.Result{}, err
 	}
-
+	err = r.reconcileNetworkPolicyForOperator(ctx)
+	if err != nil {
+		r.logger.Error(err, "Failed to reconcile network policy for operator")
+		return ctrl.Result{}, err
+	}
 	// The operator reconciles only for OLSConfig CR with a specific name
 	if req.NamespacedName.Name != OLSConfigName {
 		r.logger.Info(fmt.Sprintf("Ignoring OLSConfig CR other than %s", OLSConfigName), "name", req.NamespacedName.Name)
