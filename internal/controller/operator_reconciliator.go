@@ -7,8 +7,11 @@ import (
 
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -110,5 +113,97 @@ func (r *OLSConfigReconciler) reconcileServiceMonitorForOperator(ctx context.Con
 		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)
 	}
 	r.logger.Info("Lightspeed Operator service monitor reconciled", "serviceMonitor", sm.Name)
+	return nil
+}
+
+func (r *OLSConfigReconciler) generateNetworkPolicyForOperator() (networkingv1.NetworkPolicy, error) {
+	metaLabels := map[string]string{
+		"app.kubernetes.io/component":  "manager",
+		"app.kubernetes.io/managed-by": "lightspeed-operator",
+		"app.kubernetes.io/name":       "networkpolicy",
+		"app.kubernetes.io/instance":   "lightspeed-operator",
+		"app.kubernetes.io/part-of":    "lightspeed-operator",
+	}
+	np := networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      OperatorNetworkPolicyName,
+			Namespace: r.Options.Namespace,
+			Labels:    metaLabels,
+		},
+		Spec: networkingv1.NetworkPolicySpec{
+			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeIngress,
+			},
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"control-plane": "controller-manager",
+				},
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": "openshift-monitoring",
+								},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "app.kubernetes.io/name",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{"prometheus"},
+									},
+									{
+										Key:      "prometheus",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{"k8s"},
+									},
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(OperatorMetricsPort)}[0],
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return np, nil
+}
+
+func (r *OLSConfigReconciler) reconcileNetworkPolicyForOperator(ctx context.Context) error {
+	np, err := r.generateNetworkPolicyForOperator()
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGenerateOperatorNetworkPolicy, err)
+	}
+	foundNp := &networkingv1.NetworkPolicy{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: OperatorNetworkPolicyName, Namespace: r.Options.Namespace}, foundNp)
+	if err != nil && errors.IsNotFound(err) {
+		err = r.Create(ctx, &np)
+		if err != nil {
+			return fmt.Errorf("%s: %w", ErrCreateOperatorNetworkPolicy, err)
+		}
+		r.logger.Info("created a new network policy", "networkPolicy", np.Name)
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetOperatorNetworkPolicy, err)
+	}
+	if networkPolicyEqual(foundNp, &np) {
+		r.logger.Info("Operator network policy unchanged, reconciliation skipped", "networkPolicy", np.Name)
+		return nil
+	}
+	foundNp.Spec = np.Spec
+	err = r.Update(ctx, foundNp)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrUpdateOperatorNetworkPolicy, err)
+	}
+	r.logger.Info("Operator network policy reconciled", "networkPolicy", np.Name)
 	return nil
 }

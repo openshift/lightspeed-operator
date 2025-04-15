@@ -115,7 +115,11 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.logger.Error(err, "Failed to reconcile service monitor for operator")
 		return ctrl.Result{}, err
 	}
-
+	err = r.reconcileNetworkPolicyForOperator(ctx)
+	if err != nil {
+		r.logger.Error(err, "Failed to reconcile network policy for operator")
+		return ctrl.Result{}, err
+	}
 	// The operator reconciles only for OLSConfig CR with a specific name
 	if req.NamespacedName.Name != OLSConfigName {
 		r.logger.Info(fmt.Sprintf("Ignoring OLSConfig CR other than %s", OLSConfigName), "name", req.NamespacedName.Name)

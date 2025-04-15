@@ -6,6 +6,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -36,6 +37,10 @@ func (r *OLSConfigReconciler) reconcilePostgresServer(ctx context.Context, olsco
 		{
 			Name: "reconcile Postgres Deployment",
 			Task: r.reconcilePostgresDeployment,
+		},
+		{
+			Name: "generate Postgres Network Policy",
+			Task: r.reconcilePostgresNetworkPolicy,
 		},
 	}
 
@@ -209,5 +214,34 @@ func (r *OLSConfigReconciler) deleteOldPostgresSecrets(ctx context.Context) erro
 	if err := r.Client.DeleteAllOf(ctx, &corev1.Secret{}, deleteOptions); err != nil {
 		return fmt.Errorf("failed to delete old Postgres secrets: %w", err)
 	}
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcilePostgresNetworkPolicy(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	networkPolicy, err := r.generatePostgresNetworkPolicy(cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGeneratePostgresNetworkPolicy, err)
+	}
+	foundNetworkPolicy := &networkingv1.NetworkPolicy{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresNetworkPolicyName, Namespace: r.Options.Namespace}, foundNetworkPolicy)
+	if err != nil && errors.IsNotFound(err) {
+		err = r.Create(ctx, networkPolicy)
+		if err != nil {
+			return fmt.Errorf("%s: %w", ErrCreatePostgresNetworkPolicy, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetPostgresNetworkPolicy, err)
+	}
+	if networkPolicyEqual(foundNetworkPolicy, networkPolicy) {
+		r.logger.Info("OLS postgres network policy unchanged, reconciliation skipped", "network policy", networkPolicy.Name)
+		return nil
+	}
+	foundNetworkPolicy.Spec = networkPolicy.Spec
+	err = r.Update(ctx, foundNetworkPolicy)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrUpdatePostgresNetworkPolicy, err)
+	}
+	r.logger.Info("OLS postgres network policy reconciled", "network policy", networkPolicy.Name)
 	return nil
 }
