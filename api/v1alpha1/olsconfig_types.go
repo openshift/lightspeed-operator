@@ -94,6 +94,26 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Introspection Enabled",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	IntrospectionEnabled bool `json:"introspectionEnabled,omitempty"`
+	// RAG databases
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RAG Databases",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	RAG []RAGSpec `json:"rag,omitempty"`
+}
+
+// RAGSpec defines how to retrieve a RAG databases.
+type RAGSpec struct {
+	// +kubebuilder:validation:Required
+	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index Path in the Image"
+	IndexPath string `json:"indexPath,omitempty"`
+	// +kubebuilder:validation:Required
+	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index ID"
+	IndexID string `json:"indexID,omitempty"`
+	// +kubebuilder:validation:Required
+	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image"
+	Image string `json:"image,omitempty"`
 }
 
 // DeploymentConfig defines the schema for overriding deployment of OLS instance.

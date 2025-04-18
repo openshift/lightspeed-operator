@@ -726,6 +726,23 @@ spec:
                           type: string
                       type: object
                     type: array
+                  rag:
+                    description: RAG databases
+                    items:
+                      description: RAGSpec defines how to retrieve a RAG databases.
+                      properties:
+                        image:
+                          type: string
+                        indexID:
+                          type: string
+                        indexPath:
+                          type: string
+                      required:
+                      - image
+                      - indexID
+                      - indexPath
+                      type: object
+                    type: array
                   tlsConfig:
                     description: TLS configuration of the Lightspeed backend's HTTPS
                       endpoint

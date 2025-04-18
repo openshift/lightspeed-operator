@@ -151,13 +151,18 @@ type QueryFilters struct {
 	ReplaceWith string `json:"replace_with,omitempty"`
 }
 
-type ReferenceContent struct {
+type ReferenceIndex struct {
 	// Path to the file containing the product docs index in the app server container.
 	ProductDocsIndexPath string `json:"product_docs_index_path,omitempty"`
 	// Name of the index to load.
 	ProductDocsIndexId string `json:"product_docs_index_id,omitempty"`
+}
+
+type ReferenceContent struct {
 	// Path to the file containing the product docs embeddings model in the app server container.
 	EmbeddingsModelPath string `json:"embeddings_model_path,omitempty"`
+	// List of reference indexes.
+	Indexes []ReferenceIndex `json:"indexes,omitempty"`
 }
 
 type UserDataCollectionConfig struct {
