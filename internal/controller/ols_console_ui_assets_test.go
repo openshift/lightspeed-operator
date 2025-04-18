@@ -4,7 +4,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	consolev1 "github.com/openshift/api/console/v1"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -100,6 +103,42 @@ var _ = Describe("Console UI assets", func() {
 			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Port).To(Equal(int32(OLSAppServerServicePort)))
 			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Namespace).To(Equal(OLSNamespaceDefault))
 			Expect(plugin.Spec.Proxy[0].Endpoint.Type).To(Equal(consolev1.ProxyTypeService))
+		})
+
+		It("should generate the console UI plugin NetworkPolicy", func() {
+			np, err := r.generateConsoleUINetworkPolicy(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(np.Name).To(Equal(ConsoleUINetworkPolicyName))
+			Expect(np.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(np.Labels).To(Equal(labels))
+			Expect(np.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
+			Expect(np.Spec.Ingress).To(HaveLen(1))
+			Expect(np.Spec.Ingress).To(ConsistOf([]networkingv1.NetworkPolicyIngressRule{
+				{
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": "openshift-console",
+								},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "openshift-console",
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(ConsoleUIHTTPSPort)}[0],
+						},
+					},
+				},
+			}))
+			Expect(np.Spec.PodSelector.MatchLabels).To(Equal(labels))
+
 		})
 	})
 })

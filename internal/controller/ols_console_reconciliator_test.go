@@ -8,6 +8,7 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -106,6 +107,13 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			By("Get the console plugin")
 			plugin := &consolev1.ConsolePlugin{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIPluginName}, plugin)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create a network policy lightspeed-console-plugin", func() {
+			By("Get the network policy")
+			np := &networkingv1.NetworkPolicy{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUINetworkPolicyName, Namespace: OLSNamespaceDefault}, np)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
