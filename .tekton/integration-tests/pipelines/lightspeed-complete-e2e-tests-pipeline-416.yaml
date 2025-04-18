@@ -195,9 +195,21 @@ spec:
         params:
           - name: commit
         volumes:
+          - name: azure-openai-token
+            secret:
+              secretName: azureopenai-apitoken
+          - name: azureopenai-entra-id
+            secret:
+              secretName: azureopenai-entra-id
+          - name: bam-token
+            secret:
+              secretName: bam-apitoken
           - name: openai-token
             secret:
               secretName: openai
+          - name: watsonx-token
+            secret:
+              secretName: watsonx-apitoken
           - name: credentials
             emptyDir: {}
           - name: ols-konflux-artifacts-bot-creds
@@ -224,23 +236,54 @@ spec:
           - name: run-e2e-tests
             onError: continue
             volumeMounts:
+              - name: azure-openai-token
+                mountPath: /var/run/azure_openai
+              - name: azureopenai-entra-id
+                mountPath: /var/run/azureopenai-entra-id
+              - name: bam-token
+                mountPath: /var/run/bam
               - name: openai-token
                 mountPath: /var/run/openai
+              - name: watsonx-token
+                mountPath: /var/run/watsonx
               - name: credentials
                 mountPath: /credentials
             env:
               - name: KUBECONFIG
                 value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
-              - name: LLM_TOKEN_PATH
+              - name: BAM_PROVIDER_KEY_PATH
+                value: "/var/run/bam/token"
+              - name: AZUREOPENAI_PROVIDER_KEY_PATH
+                value: "/var/run/azure_openai/token"
+              - name: OPENAI_PROVIDER_KEY_PATH
                 value: "/var/run/openai/token"
+              - name: WATSONX_PROVIDER_KEY_PATH
+                value: "/var/run/watsonx/token"
             image: registry.redhat.io/openshift4/ose-cli:latest
             script: |
               echo "---------------------------------------------"
-              export LLM_TOKEN=$(cat ${LLM_TOKEN_PATH})
               dnf -y install git make golang
               git clone https://github.com/openshift/lightspeed-operator.git
               cd lightspeed-operator
               echo "---------------------------------------------"
+              echo "starting tests for openai"
+              export LLM_TOKEN=$(cat ${OPENAI_PROVIDER_KEY_PATH})
+              export LLMProviderEnvVar="openai"
+              export llmModel="gpt-4o-mini"
+              make test-e2e
+              echo "---------------------------------------------"
+              echo "starting tests for watsonx"
+              export LLM_TOKEN=$(cat ${WATSONX_PROVIDER_KEY_PATH})
+              export LLMProviderEnvVar="watsonx"
+              export llmModel="ibm/granite-3-8b-instruct"
+              echo "---------------------------------------------"
+              echo "starting tests for azure_openai"
+              export AZUREOPENAI_ENTRA_ID_TENANT_ID="$(cat /var/run/azureopenai-entra-id/tenant_id)"
+              export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/client_id)"
+              export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
+              export LLM_TOKEN=$(cat ${AZUREOPENAI_PROVIDER_KEY_PATH})
+              export LLMProviderEnvVar="azure_openai"
+              export llmModel="gpt-4o-mini"
               make test-e2e
           - name: gather-cluster-resources
             ref:
