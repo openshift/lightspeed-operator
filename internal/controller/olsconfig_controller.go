@@ -85,12 +85,13 @@ type OLSConfigReconcilerOptions struct {
 // Secret access for conversation cache server configuration
 // +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=secrets,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // Secret access for telemetry pull secret, must be a cluster role due to OLM limitations in managing roles in operator namespace
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,resourceNames=pull-secret,verbs=get;list;watch
 // ConsolePlugin for install console plugin
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks;consoleplugins;consoleplugins/finalizers,verbs=get;create;update;delete
 // Modify console CR to activate console plugin
 // +kubebuilder:rbac:groups=operator.openshift.io,resources=consoles,verbs=watch;list;get;update
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=*
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=list;create;watch
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=openshift-lightspeed,resources=roles;rolebindings,verbs=*
 
 // RBAC for application server to authorize user for API access
