@@ -66,6 +66,10 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Name: "reconcile App NetworkPolicy",
 			Task: r.reconcileAppServerNetworkPolicy,
 		},
+		{
+			Name: "reconcile Proxy CA ConfigMap",
+			Task: r.reconcileProxyCAConfigMap,
+		},
 	}
 
 	for _, task := range tasks {
@@ -173,6 +177,28 @@ func (r *OLSConfigReconciler) reconcileOLSAdditionalCAConfigMap(ctx context.Cont
 	r.stateCache[AdditionalCAHashStateCacheKey] = foundCmHash
 
 	r.logger.Info("additional CA configmap reconciled", "configmap", cm.Name, "hash", foundCmHash)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileProxyCAConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	if cr.Spec.OLSConfig.ProxyConfig == nil || cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef == nil {
+		// no proxy CA certs, skip
+		r.logger.Info("Proxy CA not configured, reconciliation skipped")
+		return nil
+	}
+
+	cm := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, Namespace: r.Options.Namespace}, cm)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetProxyCACM, err)
+	}
+	annotateConfigMapWatcher(cm)
+	err = r.Update(ctx, cm)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrUpdateProxyCACM, err)
+	}
+
+	r.logger.Info("proxy CA configmap reconciled", "configmap", cm.Name)
 	return nil
 }
 
