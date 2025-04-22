@@ -1435,6 +1435,127 @@ user_data_collector_config: {}
 		})
 
 	})
+
+	Context("Proxy settings", func() {
+		const caConfigMapName = "test-ca-configmap"
+		var proxyCACm *corev1.ConfigMap
+
+		BeforeEach(func() {
+			rOptions = &OLSConfigReconcilerOptions{
+				LightspeedServiceImage: "lightspeed-service:latest",
+				Namespace:              OLSNamespaceDefault,
+			}
+			cr = getDefaultOLSConfigCR()
+			r = &OLSConfigReconciler{
+				Options:    *rOptions,
+				logger:     logf.Log.WithName("olsconfig.reconciler"),
+				Client:     k8sClient,
+				Scheme:     k8sClient.Scheme(),
+				stateCache: make(map[string]string),
+			}
+			By("create the provider secret")
+			secret, _ = generateRandomSecret()
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "test-secret",
+				},
+			})
+			err := r.Create(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+			By("create the additional CA configmap")
+			proxyCACm = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      caConfigMapName,
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string]string{
+					ProxyCACertFileName: testCACert,
+				},
+			}
+			err = r.Create(ctx, proxyCACm)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			By("Delete the provider secret")
+			err := r.Delete(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+			By("Delete the additional CA configmap")
+			err = r.Delete(ctx, proxyCACm)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should update OLS config and mount volumes for proxy settings", func() {
+			olsCm, err := r.generateOLSConfigMap(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsCm.Data[OLSConfigFilename]).NotTo(ContainSubstring("proxy_config:"))
+
+			dep, err := r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(
+				MatchFields(IgnoreExtras, Fields{
+					"Name": Equal(ProxyCACertVolumeName),
+				}),
+			))
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).NotTo(ContainElement(
+				MatchFields(IgnoreExtras, Fields{
+					"Name": Equal(ProxyCACertVolumeName),
+				}),
+			))
+
+			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
+				ProxyURL: "https://proxy.example.com:8080",
+				ProxyCACertificateRef: &corev1.LocalObjectReference{
+					Name: caConfigMapName,
+				},
+			}
+
+			olsCm, err = r.generateOLSConfigMap(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsCm.Data[OLSConfigFilename]).To(ContainSubstring("proxy_config:\n    proxy_ca_cert_path: /etc/certs/proxy-ca/proxy-ca.crt\n    proxy_url: https://proxy.example.com:8080\n"))
+
+			dep, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(
+				corev1.Volume{
+					Name: ProxyCACertVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: caConfigMapName,
+							},
+							DefaultMode: &defaultVolumeMode,
+						},
+					},
+				}))
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(
+				corev1.VolumeMount{
+					Name:      ProxyCACertVolumeName,
+					MountPath: path.Join(OLSAppCertsMountRoot, ProxyCACertVolumeName),
+					ReadOnly:  true,
+				},
+			))
+		})
+
+		It("should return error if the CA text is malformed", func() {
+			proxyCACm.Data[ProxyCACertFileName] = "malformed certificate"
+			err := r.Update(ctx, proxyCACm)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
+				ProxyURL: "https://proxy.example.com:8080",
+				ProxyCACertificateRef: &corev1.LocalObjectReference{
+					Name: caConfigMapName,
+				},
+			}
+			_, err = r.generateOLSConfigMap(ctx, cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to validate proxy CA certificate"))
+		})
+	})
 })
 
 func generateRandomSecret() (*corev1.Secret, error) {

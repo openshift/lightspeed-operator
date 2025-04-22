@@ -96,6 +96,8 @@ type OLSConfig struct {
 	ExtraCAs []string `json:"extra_ca,omitempty"`
 	// Path to the directory containing the certificates bundle in the app server container.
 	CertificateDirectory string `json:"certificate_directory,omitempty"`
+	// Proxy settings
+	ProxyConfig *ProxyConfig `json:"proxy_config,omitempty"`
 	// LLM Token Quota Configuration
 	QuotaHandlersConfig *QuotaHandlersConfig `json:"quota_handlers,omitempty"`
 }
@@ -250,4 +252,11 @@ type SSETransportConfig struct {
 	Timeout int `json:"timeout,omitempty"`
 	// SSE read timeout for the MCP server
 	SSEReadTimeout int `json:"sse_read_timeout,omitempty"`
+}
+
+type ProxyConfig struct {
+	// Proxy URL
+	ProxyURL string `json:"proxy_url,omitempty"`
+	// ProxyCACertPath is the path to the CA certificate for the proxy server
+	ProxyCACertPath string `json:"proxy_ca_cert_path,omitempty"`
 }

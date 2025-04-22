@@ -158,6 +158,20 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		volumes = append(volumes, additionalCAVolume, certBundleVolume)
 	}
 
+	// Proxy CA certificates
+	if cr.Spec.OLSConfig.ProxyConfig != nil && cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil {
+		proxyCACertVolume := corev1.Volume{
+			Name: ProxyCACertVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: *cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef,
+					DefaultMode:          &volumeDefaultMode,
+				},
+			},
+		}
+		volumes = append(volumes, proxyCACertVolume)
+	}
+
 	// RAG volume
 	if cr.Spec.OLSConfig.RAG != nil && len(cr.Spec.OLSConfig.RAG) > 0 {
 		ragVolume := r.generateRAGVolume()
@@ -202,6 +216,15 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			MountPath: path.Join(OLSAppCertsMountRoot, CertBundleDir),
 		}
 		volumeMounts = append(volumeMounts, additionalCAVolumeMount, certBundleVolumeMount)
+	}
+
+	if cr.Spec.OLSConfig.ProxyConfig != nil && cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil {
+		proxyCACertVolumeMount := corev1.VolumeMount{
+			Name:      ProxyCACertVolumeName,
+			MountPath: path.Join(OLSAppCertsMountRoot, ProxyCACertVolumeName),
+			ReadOnly:  true,
+		}
+		volumeMounts = append(volumeMounts, proxyCACertVolumeMount)
 	}
 
 	if cr.Spec.OLSConfig.RAG != nil && len(cr.Spec.OLSConfig.RAG) > 0 {

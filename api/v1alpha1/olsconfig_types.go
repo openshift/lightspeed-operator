@@ -94,6 +94,10 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Introspection Enabled",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	IntrospectionEnabled bool `json:"introspectionEnabled,omitempty"`
+	// Proxy settings for connecting to external servers, such as LLM providers.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy Settings",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +kubebuilder:validation:Optional
+	ProxyConfig *ProxyConfig `json:"proxyConfig,omitempty"`
 	// RAG databases
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RAG Databases",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
@@ -355,6 +359,18 @@ type TLSConfig struct {
 	// KeySecretRef is the secret that holds the TLS key.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Key Secret"
 	KeyCertSecretRef corev1.LocalObjectReference `json:"keyCertSecretRef,omitempty"`
+}
+
+// ProxyConfig defines the proxy settings for connecting to external servers, such as LLM providers.
+type ProxyConfig struct {
+	// Proxy URL, e.g. https://proxy.example.com:8080
+	// If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+	// +kubebuilder:validation:Pattern=`^https?://.*$`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy URL"
+	ProxyURL string `json:"proxyURL,omitempty"`
+	// The configmap holding proxy CA certificate
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy CA Certificate"
+	ProxyCACertificateRef *corev1.LocalObjectReference `json:"proxyCACertificate,omitempty"`
 }
 
 // +kubebuilder:object:root=true
