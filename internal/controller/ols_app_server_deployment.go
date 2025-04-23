@@ -158,6 +158,13 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		volumes = append(volumes, additionalCAVolume, certBundleVolume)
 	}
 
+	// RAG volume
+	if cr.Spec.OLSConfig.RAG != nil && len(cr.Spec.OLSConfig.RAG) > 0 {
+		ragVolume := r.generateRAGVolume()
+		volumes = append(volumes, ragVolume)
+	}
+
+	// Postgres CA volume
 	volumes = append(volumes, getPostgresCAConfigVolume())
 
 	// mount the volumes of api keys secrets and OLS config map to the container
@@ -197,7 +204,19 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		volumeMounts = append(volumeMounts, additionalCAVolumeMount, certBundleVolumeMount)
 	}
 
+	if cr.Spec.OLSConfig.RAG != nil && len(cr.Spec.OLSConfig.RAG) > 0 {
+		ragVolumeMounts := r.generateRAGVolumeMount()
+		volumeMounts = append(volumeMounts, ragVolumeMounts)
+	}
+
 	volumeMounts = append(volumeMounts, getPostgresCAVolumeMount(path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume)))
+
+	initContainers := []corev1.Container{}
+	if cr.Spec.OLSConfig.RAG != nil && len(cr.Spec.OLSConfig.RAG) > 0 {
+		ragInitContainers := r.generateRAGInitContainers(cr)
+		initContainers = append(initContainers, ragInitContainers...)
+	}
+
 	replicas := getOLSServerReplicas(cr)
 	ols_server_resources := getOLSServerResources(cr)
 	data_collector_resources := getOLSDataCollectorResources(cr)
@@ -261,6 +280,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 							},
 						},
 					},
+					InitContainers:     initContainers,
 					Volumes:            volumes,
 					ServiceAccountName: OLSAppServerServiceAccountName,
 				},
@@ -382,6 +402,10 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 	if !containersEqual(existingDeployment.Spec.Template.Spec.Containers, desiredDeployment.Spec.Template.Spec.Containers) {
 		changed = true
 		existingDeployment.Spec.Template.Spec.Containers = desiredDeployment.Spec.Template.Spec.Containers
+	}
+	if !containersEqual(existingDeployment.Spec.Template.Spec.InitContainers, desiredDeployment.Spec.Template.Spec.InitContainers) {
+		changed = true
+		existingDeployment.Spec.Template.Spec.InitContainers = desiredDeployment.Spec.Template.Spec.InitContainers
 	}
 
 	if changed {
