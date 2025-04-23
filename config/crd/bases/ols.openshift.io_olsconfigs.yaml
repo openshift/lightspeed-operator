@@ -726,16 +726,60 @@ spec:
                           type: string
                       type: object
                     type: array
+                  quotaHandlersConfig:
+                    description: LLM Token Quota Configuration
+                    properties:
+                      enableTokenHistory:
+                        description: Enable token history
+                        type: boolean
+                      limitersConfig:
+                        description: Token quota limiters
+                        items:
+                          description: LimiterConfig defines settings for a token
+                            quota limiter
+                          properties:
+                            initialQuota:
+                              description: Initial value of the token quota
+                              minimum: 0
+                              type: integer
+                            name:
+                              description: Name of the limiter
+                              type: string
+                            period:
+                              description: Period of time the token quota is for
+                              pattern: ^(1\s+(day|month|year|d|m|y)|([2-9][0-9]*|[1-9][0-9]{2,})\s+(days|months|years|d|m|y))$
+                              type: string
+                            quotaIncrease:
+                              description: Token quota increase step
+                              minimum: 0
+                              type: integer
+                            type:
+                              description: Type of the limiter
+                              type: string
+                          required:
+                          - initialQuota
+                          - name
+                          - period
+                          - quotaIncrease
+                          - type
+                          type: object
+                        type: array
+                    type: object
                   rag:
                     description: RAG databases
                     items:
                       description: RAGSpec defines how to retrieve a RAG databases.
                       properties:
                         image:
+                          description: The URL of the container image to use as a
+                            RAG source
                           type: string
                         indexID:
+                          description: The Index ID of the RAG database
                           type: string
                         indexPath:
+                          description: The path to the RAG database inside of the
+                            container image
                           type: string
                       required:
                       - image

@@ -103,16 +103,8 @@ var _ = Describe("App server assets", func() {
 						UvicornLogLevel: "INFO",
 					},
 					ConversationCache: ConversationCacheConfig{
-						Type: "postgres",
-						Postgres: PostgresCacheConfig{
-							Host:         strings.Join([]string{PostgresServiceName, OLSNamespaceDefault, "svc"}, "."),
-							Port:         PostgresServicePort,
-							User:         PostgresDefaultUser,
-							DbName:       PostgresDefaultDbName,
-							PasswordPath: path.Join(CredentialsMountRoot, PostgresSecretName, OLSComponentPasswordFileName),
-							SSLMode:      PostgresDefaultSSLMode,
-							CACertPath:   path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
-						},
+						Type:     "postgres",
+						Postgres: createPostgresCacheConfig(),
 					},
 					TLSConfig: TLSConfig{
 						TLSCertificatePath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.crt"),
@@ -134,6 +126,12 @@ var _ = Describe("App server assets", func() {
 						TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 					},
 					IntrospectionEnabled: false,
+					QuotaHandlersConfig: QuotaHandlersConfig{
+						Storage:            createPostgresCacheConfig(),
+						Scheduler:          SchedulerConfig{Period: 300},
+						LimitersConfig:     nil,
+						EnableTokenHistory: false,
+					},
 				},
 				LLMProviders: []ProviderConfig{
 					{
@@ -181,6 +179,33 @@ var _ = Describe("App server assets", func() {
 				"pattern":      Equal("testPattern"),
 				"replace_with": Equal("testReplace"),
 			})))))
+		})
+
+		It("should generate configmap with token quota limiters", func() {
+			crWithFilters := addQuotaLimitersToCR(cr)
+			cm, err := r.generateOLSConfigMap(context.TODO(), crWithFilters)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Name).To(Equal(OLSConfigCmName))
+			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("quota_handlers", HaveKeyWithValue("limiters", ContainElements(
+				MatchAllKeys(Keys{
+					"name":           Equal("my_user_limiter"),
+					"type":           Equal("user_limiter"),
+					"initial_quota":  BeNumerically("==", 10000),
+					"quota_increase": BeNumerically("==", 100),
+					"period":         Equal("1d"),
+				}),
+				MatchAllKeys(Keys{
+					"name":           Equal("my_cluster_limiter"),
+					"type":           Equal("cluster_limiter"),
+					"initial_quota":  BeNumerically("==", 20000),
+					"quota_increase": BeNumerically("==", 200),
+					"period":         Equal("30d"),
+				}),
+			)))))
 		})
 
 		It("should generate configmap with Azure OpenAI provider", func() {
@@ -1007,6 +1032,17 @@ ols_config:
     app_log_level: ""
     lib_log_level: ""
     uvicorn_log_level: ""
+  quota_handlers:
+    scheduler:
+      period: 300
+    storage:
+      port: 5432
+      ssl_mode: require
+      user: postgres
+      ca_cert_path: /etc/certs/lightspeed-postgres-certs/cm-olspostgresca/service-ca.crt
+      dbname: postgres
+      host: lightspeed-postgres-server.openshift-lightspeed.svc
+      password_path: /etc/credentials/lightspeed-postgres-secret/password
   reference_content:
     embeddings_model_path: /app-root/embeddings_model
     indexes:
@@ -1063,6 +1099,17 @@ ols_config:
     app_log_level: ""
     lib_log_level: ""
     uvicorn_log_level: ""
+  quota_handlers:
+    scheduler:
+      period: 300
+    storage:
+      port: 5432
+      ssl_mode: require
+      user: postgres
+      ca_cert_path: /etc/certs/lightspeed-postgres-certs/cm-olspostgresca/service-ca.crt
+      dbname: postgres
+      host: lightspeed-postgres-server.openshift-lightspeed.svc
+      password_path: /etc/credentials/lightspeed-postgres-secret/password
   reference_content:
     embeddings_model_path: /app-root/embeddings_model
     indexes:
@@ -1549,6 +1596,26 @@ func addQueryFiltersToCR(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	return cr
 }
 
+func addQuotaLimitersToCR(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.OLSConfig.QuotaHandlersConfig.LimitersConfig = []olsv1alpha1.LimiterConfig{
+		{
+			Name:          "my_user_limiter",
+			Type:          "user_limiter",
+			InitialQuota:  10000,
+			QuotaIncrease: 100,
+			Period:        "1d",
+		},
+		{
+			Name:          "my_cluster_limiter",
+			Type:          "cluster_limiter",
+			InitialQuota:  20000,
+			QuotaIncrease: 200,
+			Period:        "30d",
+		},
+	}
+	return cr
+}
+
 func addAzureOpenAIProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	cr.Spec.LLMConfig.Providers[0].Name = "openai"
 	cr.Spec.LLMConfig.Providers[0].Type = "azure_openai"
@@ -1635,4 +1702,16 @@ func deleteTelemetryPullSecret() {
 	}
 	err := k8sClient.Delete(ctx, pullSecret)
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func createPostgresCacheConfig() PostgresCacheConfig {
+	return PostgresCacheConfig{
+		Host:         strings.Join([]string{PostgresServiceName, OLSNamespaceDefault, "svc"}, "."),
+		Port:         PostgresServicePort,
+		User:         PostgresDefaultUser,
+		DbName:       PostgresDefaultDbName,
+		PasswordPath: path.Join(CredentialsMountRoot, PostgresSecretName, OLSComponentPasswordFileName),
+		SSLMode:      PostgresDefaultSSLMode,
+		CACertPath:   path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
+	}
 }
