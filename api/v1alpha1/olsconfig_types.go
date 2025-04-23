@@ -98,22 +98,61 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RAG Databases",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	RAG []RAGSpec `json:"rag,omitempty"`
+	// LLM Token Quota Configuration
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="LLM Token Quota Configuration"
+	QuotaHandlersConfig *QuotaHandlersConfig `json:"quotaHandlersConfig,omitempty"`
 }
 
 // RAGSpec defines how to retrieve a RAG databases.
 type RAGSpec struct {
+	// The path to the RAG database inside of the container image
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index Path in the Image"
 	IndexPath string `json:"indexPath,omitempty"`
+	// The Index ID of the RAG database
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index ID"
 	IndexID string `json:"indexID,omitempty"`
+	// The URL of the container image to use as a RAG source
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image"
 	Image string `json:"image,omitempty"`
+}
+
+// QuotaHandlersConfig defines the token quota configuration
+type QuotaHandlersConfig struct {
+	// Token quota limiters
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Token Quota Limiters",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	LimitersConfig []LimiterConfig `json:"limitersConfig,omitempty"`
+	// Enable token history
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Enable Token History",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	EnableTokenHistory bool `json:"enableTokenHistory,omitempty"`
+}
+
+// LimiterConfig defines settings for a token quota limiter
+type LimiterConfig struct {
+	// Name of the limiter
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Limiter Name"
+	Name string `json:"name"`
+	// Type of the limiter
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Limiter Type"
+	Type string `json:"type"`
+	// Initial value of the token quota
+	// +kubebuilder:validation:Minimum=0
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Initial Token Quota"
+	InitialQuota int `json:"initialQuota"`
+	// Token quota increase step
+	// +kubebuilder:validation:Minimum=0
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Token Quota Increase Step"
+	QuotaIncrease int `json:"quotaIncrease"`
+	// Period of time the token quota is for
+	// +kubebuilder:validation:Pattern=`^(1\s+(day|month|year|d|m|y)|([2-9][0-9]*|[1-9][0-9]{2,})\s+(days|months|years|d|m|y))$`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Period of Time the Token Quota Is For"
+	Period string `json:"period"`
 }
 
 // DeploymentConfig defines the schema for overriding deployment of OLS instance.
