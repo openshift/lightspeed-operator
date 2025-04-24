@@ -13,6 +13,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -134,6 +135,13 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create a network policy lightspeed-app-server", func() {
+			By("Get the network policy")
+			np := &networkingv1.NetworkPolicy{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerNetworkPolicyName, Namespace: OLSNamespaceDefault}, np)
 			Expect(err).NotTo(HaveOccurred())
 		})
 

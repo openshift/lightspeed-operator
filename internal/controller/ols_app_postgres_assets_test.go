@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -182,6 +183,29 @@ var _ = Describe("App postgres server assets", func() {
 		Expect(secret.StringData).To(HaveKey(PostgresExtensionScript))
 	}
 
+	validatePostgresNetworkPolicy := func(networkPolicy *networkingv1.NetworkPolicy) {
+		Expect(networkPolicy.Name).To(Equal(PostgresNetworkPolicyName))
+		Expect(networkPolicy.Namespace).To(Equal(OLSNamespaceDefault))
+		Expect(networkPolicy.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
+		Expect(networkPolicy.Spec.Ingress).To(HaveLen(1))
+		Expect(networkPolicy.Spec.Ingress).To(ConsistOf(networkingv1.NetworkPolicyIngressRule{
+			From: []networkingv1.NetworkPolicyPeer{
+				{
+					PodSelector: &metav1.LabelSelector{
+						MatchLabels: generateAppServerSelectorLabels(),
+					},
+				},
+			},
+			Ports: []networkingv1.NetworkPolicyPort{
+				{
+					Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+					Port:     &[]intstr.IntOrString{intstr.FromInt(PostgresServicePort)}[0],
+				},
+			},
+		}))
+		Expect(networkPolicy.Spec.PodSelector.MatchLabels).To(Equal(generatePostgresSelectorLabels()))
+	}
+
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
@@ -324,6 +348,12 @@ var _ = Describe("App postgres server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Name).To(Equal(PostgresBootstrapSecretName))
 			validatePostgresBootstrapSecret(secret)
+		})
+
+		It("should generate the OLS postgres network policy", func() {
+			networkPolicy, err := r.generatePostgresNetworkPolicy(cr)
+			Expect(err).NotTo(HaveOccurred())
+			validatePostgresNetworkPolicy(networkPolicy)
 		})
 	})
 

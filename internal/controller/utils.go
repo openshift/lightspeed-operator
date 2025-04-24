@@ -13,6 +13,7 @@ import (
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -338,6 +339,12 @@ func serviceMonitorEqual(a *monv1.ServiceMonitor, b *monv1.ServiceMonitor) bool 
 
 // prometheusRuleEqual compares two monv1.PrometheusRule and returns true if they are equal.
 func prometheusRuleEqual(a *monv1.PrometheusRule, b *monv1.PrometheusRule) bool {
+	return apiequality.Semantic.DeepEqual(a.ObjectMeta.Labels, b.ObjectMeta.Labels) &&
+		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
+}
+
+// networkPolicyEqual compares two networkingv1.NetworkPolicy and returns true if they are equal.
+func networkPolicyEqual(a *networkingv1.NetworkPolicy, b *networkingv1.NetworkPolicy) bool {
 	return apiequality.Semantic.DeepEqual(a.ObjectMeta.Labels, b.ObjectMeta.Labels) &&
 		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
 }

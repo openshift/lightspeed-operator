@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -635,6 +636,90 @@ var _ = Describe("App server assets", func() {
 					TargetPort: intstr.Parse("https"),
 				},
 			}))
+		})
+
+		It("should generate the network policy", func() {
+			np, err := r.generateAppServerNetworkPolicy(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(np.Name).To(Equal(OLSAppServerNetworkPolicyName))
+			Expect(np.Namespace).To(Equal(r.Options.Namespace))
+			Expect(np.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
+			Expect(np.Spec.Ingress).To(HaveLen(3))
+			// allow prometheus to scrape metrics
+			Expect(np.Spec.Ingress).To(ContainElement(networkingv1.NetworkPolicyIngressRule{
+				From: []networkingv1.NetworkPolicyPeer{
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "app.kubernetes.io/name",
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{"prometheus"},
+								},
+								{
+									Key:      "prometheus",
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{"k8s"},
+								},
+							},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"kubernetes.io/metadata.name": "openshift-monitoring",
+							},
+						},
+					},
+				},
+				Ports: []networkingv1.NetworkPolicyPort{
+					{
+						Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+						Port:     &[]intstr.IntOrString{intstr.FromInt(OLSAppServerContainerPort)}[0],
+					},
+				},
+			}))
+			// allow the console to access the API
+			Expect(np.Spec.Ingress).To(ContainElement(networkingv1.NetworkPolicyIngressRule{
+				From: []networkingv1.NetworkPolicyPeer{
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "console",
+							},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"kubernetes.io/metadata.name": "openshift-console",
+							},
+						},
+					},
+				},
+				Ports: []networkingv1.NetworkPolicyPort{
+					{
+						Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+						Port:     &[]intstr.IntOrString{intstr.FromInt(OLSAppServerContainerPort)}[0],
+					},
+				},
+			}))
+			// allow the ingress controller to access the API
+			Expect(np.Spec.Ingress).To(ContainElement(networkingv1.NetworkPolicyIngressRule{
+				// allow ingress controller to access the API
+				From: []networkingv1.NetworkPolicyPeer{
+					{
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"network.openshift.io/policy-group": "ingress",
+							},
+						},
+					},
+				},
+				Ports: []networkingv1.NetworkPolicyPort{
+					{
+						Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+						Port:     &[]intstr.IntOrString{intstr.FromInt(OLSAppServerContainerPort)}[0],
+					},
+				},
+			}))
+
 		})
 
 		It("should switch data collection on and off as CR defines in .spec.ols_config.user_data_collection", func() {

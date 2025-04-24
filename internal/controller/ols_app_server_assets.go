@@ -10,6 +10,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -492,6 +493,107 @@ func (r *OLSConfigReconciler) generatePrometheusRule(cr *olsv1alpha1.OLSConfig) 
 	}
 
 	return &rule, nil
+}
+
+func (r *OLSConfigReconciler) generateAppServerNetworkPolicy(cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
+	np := networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      OLSAppServerNetworkPolicyName,
+			Namespace: r.Options.Namespace,
+			Labels:    generateAppServerSelectorLabels(),
+		},
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: generateAppServerSelectorLabels(),
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					// allow prometheus to scrape metrics
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "app.kubernetes.io/name",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{"prometheus"},
+									},
+									{
+										Key:      "prometheus",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{"k8s"},
+									},
+								},
+							},
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": "openshift-monitoring",
+								},
+							},
+						},
+					},
+
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(OLSAppServerContainerPort)}[0],
+						},
+					},
+				},
+				{
+					// allow the console to access the API
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "console",
+								},
+							},
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": "openshift-console",
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(OLSAppServerContainerPort)}[0],
+						},
+					},
+				},
+				{
+					// allow ingress controller to access the API
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"network.openshift.io/policy-group": "ingress",
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(OLSAppServerContainerPort)}[0],
+						},
+					},
+				},
+			},
+			Egress: []networkingv1.NetworkPolicyEgressRule{},
+			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeIngress,
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &np, r.Scheme); err != nil {
+		return nil, err
+	}
+
+	return &np, nil
 }
 
 func (r *OLSConfigReconciler) getClusterVersion(ctx context.Context) (string, string, error) {
