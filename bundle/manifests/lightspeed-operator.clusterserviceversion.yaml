@@ -291,6 +291,22 @@ spec:
                 - ""
               resources:
                 - configmaps
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - secrets
+              verbs:
+                - list
+                - watch
+            - apiGroups:
+                - ""
+              resourceNames:
+                - pull-secret
+              resources:
                 - secrets
               verbs:
                 - get
@@ -370,7 +386,9 @@ spec:
                 - clusterrolebindings
                 - clusterroles
               verbs:
-                - '*'
+                - create
+                - list
+                - watch
           serviceAccountName: lightspeed-operator-controller-manager
       deployments:
         - label:
