@@ -15,7 +15,7 @@ index 6944059e7..ab953a241 100644
        secret: pyxis-prod-secret
 @@ -32,11 +32,11 @@ spec:
      releaseNotes:
-       product_id: 950
+       product_id: [950]
        product_name: Red Hat OpenShift Lightspeed
 -      product_version: <current-version>
 +      product_version: <new-version>
@@ -44,7 +44,7 @@ index 50b535ae5..a6d63526b 100644
        secret: pyxis-prod-secret
 @@ -36,11 +36,11 @@ spec:
      releaseNotes:
-       product_id: 950
+       product_id: [950]
        product_name: Red Hat OpenShift Lightspeed
 -      product_version: <current-version>
 +      product_version: <new-version>

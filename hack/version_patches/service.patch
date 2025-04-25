@@ -4,8 +4,8 @@ index 40a42474..0d49043d 100644
 +++ b/docs/openapi.json
 @@ -3,7 +3,7 @@
      "info": {
-         "title": "Swagger OpenShift LightSpeed Service - OpenAPI",
-         "description": "OpenShift LightSpeed Service API specification.",
+         "title": "Swagger OpenShift LightSpeed service - OpenAPI",
+         "description": "OpenShift LightSpeed service API specification.",
 -        "version": "<current-version>"
 +        "version": "<new-version>"
      },
