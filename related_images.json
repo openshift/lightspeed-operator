@@ -13,6 +13,6 @@
   },
   {
     "name": "lightspeed-operator-bundle",
-    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:aa219a7121ea7a88f940b385668d43470deaf12389076eb1f9469676a7ed65fd"
+    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:fb07b03d952db63b445ad649a657ce031e22c5d71056c96cfe83fcc354f7bbf3"
   }
 ]
