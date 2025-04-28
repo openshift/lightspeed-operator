@@ -124,7 +124,7 @@ var _ = Describe("Console UI assets", func() {
 							},
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"app": "openshift-console",
+									"app": "console",
 								},
 							},
 						},
