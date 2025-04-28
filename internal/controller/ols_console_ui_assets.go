@@ -266,7 +266,7 @@ func (r *OLSConfigReconciler) generateConsoleUINetworkPolicy(cr *olsv1alpha1.OLS
 							},
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"app": "openshift-console",
+									"app": "console",
 								},
 							},
 						},
