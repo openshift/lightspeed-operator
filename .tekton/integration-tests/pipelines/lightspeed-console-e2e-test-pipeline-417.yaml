@@ -262,14 +262,14 @@ spec:
               - name: kubeconfig
                 value: "$(steps.get-kubeconfig.results.kubeconfig)"
               - name: artifact-dir
-                value: "/workspace/konflux-artifacts"
+                value: "/gui_test_screenshots/konflux-artifacts"
           # validate that the cluster resources are available in another tekton step
           - name: list-artifacts
             image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
-            workingDir: "/workspace"
+            workingDir: "/gui_test_screenshots"
             script: |
               #!/bin/bash
-              ls -la /workspace
+              ls -la /gui_test_screenshots
           - name: push-artifacts
             ref: 
               resolver: git
@@ -282,7 +282,7 @@ spec:
                   value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
             params:
               - name: workdir-path
-                value: /workspace
+                value: /gui_test_screenshots
               - name: oci-ref
                 value: "quay.io/openshift-lightspeed/ols-console-artifacts:$(params.commit)"
               - name: credentials-volume-name
