@@ -11,7 +11,8 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: |
       event == "push" &&
       target_branch == "main" &&
-      (".tekton/bundle-push.yaml".pathChanged() || "bundle/***".pathChanged() || "bundle.Dockerfile".pathChanged() || "related_images.json".pathChanged())
+      (".tekton/bundle-push.yaml".pathChanged() || "bundle/***".pathChanged() || "bundle.Dockerfile".pathChanged() ||
+      ".tekton/integration-tests/*/*.yaml".pathChanged() || "related_images.json".pathChanged() || "rpms.lock.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ols-bundle
