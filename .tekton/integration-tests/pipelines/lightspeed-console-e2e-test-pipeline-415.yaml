@@ -101,8 +101,8 @@ spec:
           value: "$(params.namespace)"
       taskSpec:
         results:
-          - name: console-image
-            value: "$(steps.get-snapshot-images.results.console-image)"
+          - name: bundle-image
+            value: "$(steps.get-snapshot-images.results.bundle-image)"
           - name: commit
             value: "$(steps.get-snapshot-images.results.commit)"
         params:
@@ -119,23 +119,23 @@ spec:
               - name: SNAPSHOT
                 value: $(params.SNAPSHOT)
             results:
-              - name: console-image
+              - name: bundle-image
                 type: string
-                description: "console image from snapshot"
+                description: "bundle image from snapshot"
               - name: commit
                 type: string
                 description: "commit sha to be used in console tests"
             script: |
               dnf -y install jq
-              echo -n "$(jq -r --arg component_name "lightspeed-console" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.console-image.path)
+              echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
               echo -n "$(jq -r --arg component_name "lightspeed-console" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")" > $(step.results.commit.path)
     - name: ols-e2e-tests
       description: Task to run tests from service repository
       runAfter:
         - ols-install
       params:
-        - name: console-image
-          value: $(tasks.ols-install.results.console-image)
+        - name: bundle-image
+          value: $(tasks.ols-install.results.bundle-image)
         - name: commit
           value: $(tasks.ols-install.results.commit)
       taskSpec:
@@ -146,7 +146,7 @@ spec:
           - name: credentials
             emptyDir: {}
         params:
-          - name: console-image
+          - name: bundle-image
           - name: commit
         steps:
           - name: get-kubeconfig
@@ -179,8 +179,8 @@ spec:
                 value: "kube:admin"
               - name: LLM_TOKEN_PATH
                 value: "/var/run/openai/token"
-              - name: CYPRESS_CONSOLE_IMAGE
-                value: "$(params.console-image)"
+              - name: CYPRESS_BUNDLE_IMAGE
+                value: "$(params.bundle-image)"
               - name: COMMIT_SHA
                 value: "$(params.commit)"
               - name: PASSWORD_PATH
@@ -194,7 +194,7 @@ spec:
               echo "---------------------------------------------"
               echo "${COMMIT_SHA}"
               echo "---------------------------------------------"
-              echo "${CYPRESS_CONSOLE_IMAGE}"
+              echo "${CYPRESS_BUNDLE_IMAGE}"
               echo "---------------------------------------------"
               echo "$(cat ${CYPRESS_KUBECONFIG_PATH})"
               echo "---------------------------------------------"
@@ -235,4 +235,4 @@ spec:
               npm -v
               echo "---------------------------------------------"
               echo "---------------------------------------------"
-              npx cypress run
+              npx cypress run -- --disable-gpu
