@@ -30,6 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 const (
@@ -427,7 +428,13 @@ func (c *Client) CreateClusterRoleBinding(namespace, serviceAccount, clusterRole
 
 	err := c.Create(clusterRoleBinding)
 	if err != nil {
-		return nil, err
+		// ROSA clusters have more restricted permissions.
+		// Deleting ClusterRoleBindings is not allowed.
+		if k8serrors.IsAlreadyExists(err) {
+			logf.Log.Error(err, "ClusterRoleBindings for test already exists (happens for ROSA clusters)")
+		} else {
+			return nil, err
+		}
 	}
 
 	return func() {

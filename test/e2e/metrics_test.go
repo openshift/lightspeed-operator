@@ -13,7 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-var _ = Describe("Prometheus Metrics", Ordered, func() {
+// Try to retry test case multipletimes when failing.
+var _ = Describe("Prometheus Metrics", FlakeAttempts(5), Ordered, func() {
 	const metricsViewerSAName = "metrics-viewer-sa"
 	const clusterMonitoringViewClusterRole = "cluster-monitoring-view"
 	var cr *olsv1alpha1.OLSConfig
@@ -36,32 +37,37 @@ var _ = Describe("Prometheus Metrics", Ordered, func() {
 
 		By("create a service account")
 		cleanUp, err := client.CreateServiceAccount(OLSNameSpace, metricsViewerSAName)
-		Expect(err).NotTo(HaveOccurred())
 		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("create a role binding for application metrics access")
 		cleanUp, err = client.CreateClusterRoleBinding(OLSNameSpace, metricsViewerSAName, clusterMonitoringViewClusterRole)
-		Expect(err).NotTo(HaveOccurred())
 		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("fetch the service account token")
 		saToken, err = client.GetServiceAccountToken(OLSNameSpace, metricsViewerSAName)
 		Expect(err).NotTo(HaveOccurred())
 
-		// Get a Kubernetes rest config
+		By("fetch a Kubernetes rest config")
 		cfg, err := config.GetConfig()
 		Expect(err).NotTo(HaveOccurred())
 
 		openshiftRouteClient, err := routev1.NewForConfig(cfg)
 		Expect(err).NotTo(HaveOccurred())
 
-		prometheusClient, err = NewPrometheusClientFromRoute(
-			context.Background(),
-			openshiftRouteClient,
-			"openshift-monitoring", "thanos-querier",
-			saToken,
-		)
-		Expect(err).NotTo(HaveOccurred())
+		By("fetch a Prometheus route")
+		// Retry multiple times to fetch route
+		// mitigates networking issues
+		Eventually(func() error {
+			prometheusClient, err = NewPrometheusClientFromRoute(
+				context.Background(),
+				openshiftRouteClient,
+				"openshift-monitoring", "thanos-querier",
+				saToken,
+			)
+			return err
+		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 
 		By("wait for application server deployment rollout")
 		deployment := &appsv1.Deployment{
