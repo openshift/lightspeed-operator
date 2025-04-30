@@ -247,7 +247,7 @@ spec:
     - Microsoft Azure OpenAI
     - IBM WatsonX
 
-    For more information, see [About OpenShift Lightspeed](https://docs.openshift.com/lightspeed/1.0tp1/about/ols-about-openshift-lightspeed.html) in the official product documentation.
+    For more information, see [About OpenShift Lightspeed](https://docs.redhat.com/en/documentation/red_hat_openshift_lightspeed/1.0tp1/html/about/ols-about-openshift-lightspeed) in the official product documentation.
 
     Questions, comments, concerns, or just want to talk to the OpenShift Lightspeed team? [Email us](mailto:openshift-lightspeed-contact-requests@redhat.com)!
   displayName: OpenShift Lightspeed Operator
