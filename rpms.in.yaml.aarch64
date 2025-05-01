@@ -1,3 +1,0 @@
-packages: [jq]
-contentOrigin:
-  repofiles: ["./ubi.repo.aarch64"]
