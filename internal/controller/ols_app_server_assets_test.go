@@ -8,6 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"path"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -117,9 +119,13 @@ var _ = Describe("App server assets", func() {
 						TLSKeyPath:         path.Join(OLSAppCertsMountRoot, OLSCertsSecretName, "tls.key"),
 					},
 					ReferenceContent: ReferenceContent{
-						EmbeddingsModelPath:  "/app-root/embeddings_model",
-						ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
-						ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+						EmbeddingsModelPath: "/app-root/embeddings_model",
+						Indexes: []ReferenceIndex{
+							{
+								ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
+								ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+							},
+						},
 					},
 					UserDataCollection: UserDataCollectionConfig{
 						FeedbackDisabled:    false,
@@ -632,6 +638,90 @@ var _ = Describe("App server assets", func() {
 			}))
 		})
 
+		It("should generate the network policy", func() {
+			np, err := r.generateAppServerNetworkPolicy(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(np.Name).To(Equal(OLSAppServerNetworkPolicyName))
+			Expect(np.Namespace).To(Equal(r.Options.Namespace))
+			Expect(np.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
+			Expect(np.Spec.Ingress).To(HaveLen(3))
+			// allow prometheus to scrape metrics
+			Expect(np.Spec.Ingress).To(ContainElement(networkingv1.NetworkPolicyIngressRule{
+				From: []networkingv1.NetworkPolicyPeer{
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "app.kubernetes.io/name",
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{"prometheus"},
+								},
+								{
+									Key:      "prometheus",
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{"k8s"},
+								},
+							},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"kubernetes.io/metadata.name": "openshift-monitoring",
+							},
+						},
+					},
+				},
+				Ports: []networkingv1.NetworkPolicyPort{
+					{
+						Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+						Port:     &[]intstr.IntOrString{intstr.FromInt(OLSAppServerContainerPort)}[0],
+					},
+				},
+			}))
+			// allow the console to access the API
+			Expect(np.Spec.Ingress).To(ContainElement(networkingv1.NetworkPolicyIngressRule{
+				From: []networkingv1.NetworkPolicyPeer{
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "console",
+							},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"kubernetes.io/metadata.name": "openshift-console",
+							},
+						},
+					},
+				},
+				Ports: []networkingv1.NetworkPolicyPort{
+					{
+						Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+						Port:     &[]intstr.IntOrString{intstr.FromInt(OLSAppServerContainerPort)}[0],
+					},
+				},
+			}))
+			// allow the ingress controller to access the API
+			Expect(np.Spec.Ingress).To(ContainElement(networkingv1.NetworkPolicyIngressRule{
+				// allow ingress controller to access the API
+				From: []networkingv1.NetworkPolicyPeer{
+					{
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"network.openshift.io/policy-group": "ingress",
+							},
+						},
+					},
+				},
+				Ports: []networkingv1.NetworkPolicyPort{
+					{
+						Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+						Port:     &[]intstr.IntOrString{intstr.FromInt(OLSAppServerContainerPort)}[0],
+					},
+				},
+			}))
+
+		})
+
 		It("should switch data collection on and off as CR defines in .spec.ols_config.user_data_collection", func() {
 			createTelemetryPullSecret()
 			defer deleteTelemetryPullSecret()
@@ -764,6 +854,108 @@ var _ = Describe("App server assets", func() {
 			))
 		})
 
+		It("should generate RAG volume and initContainers", func() {
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					IndexPath: "/rag/vector_db/ocp_product_docs/4.15",
+					IndexID:   "ocp-product-docs-4_15",
+					Image:     "rag-ocp-product-docs:4.15",
+				},
+				{
+					IndexPath: "/rag/vector_db/ansible_docs/2.18",
+					IndexID:   "ansible-docs-2_18",
+					Image:     "rag-ansible-docs:2.18",
+				},
+			}
+			deployment, err := r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
+				corev1.Volume{
+					Name: RAGVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				}))
+
+			Expect(deployment.Spec.Template.Spec.InitContainers).To(ConsistOf(
+				corev1.Container{
+					Name:    "rag-0",
+					Image:   "rag-ocp-product-docs:4.15",
+					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-0 && cp -a /rag/vector_db/ocp_product_docs/4.15/. %s/rag-0", RAGVolumeMountPath, RAGVolumeMountPath)},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      RAGVolumeName,
+							MountPath: RAGVolumeMountPath,
+						},
+					},
+					ImagePullPolicy: corev1.PullIfNotPresent,
+				},
+				corev1.Container{
+					Name:    "rag-1",
+					Image:   "rag-ansible-docs:2.18",
+					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-1 && cp -a /rag/vector_db/ansible_docs/2.18/. %s/rag-1", RAGVolumeMountPath, RAGVolumeMountPath)},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      RAGVolumeName,
+							MountPath: RAGVolumeMountPath,
+						},
+					},
+					ImagePullPolicy: corev1.PullIfNotPresent,
+				},
+			))
+		})
+
+		It("should fill app config with multiple RAG indexes and remove them when no additional RAG is defined", func() {
+			By("additional RAG indexes are added")
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					IndexPath: "/rag/vector_db/ocp_product_docs/4.15",
+					IndexID:   "ocp-product-docs-4_15",
+					Image:     "rag-ocp-product-docs:4.15",
+				},
+				{
+					IndexPath: "/rag/vector_db/ansible_docs/2.18",
+					IndexID:   "ansible-docs-2_18",
+					Image:     "rag-ansible-docs:2.18",
+				},
+			}
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			olsconfigGenerated := AppSrvConfigFile{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+
+			major, minor, err := r.getClusterVersion(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			// OCP document is always there
+			ocpIndex := ReferenceIndex{
+				ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
+				ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+			}
+
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(ConsistOf(
+				ocpIndex,
+				ReferenceIndex{
+					ProductDocsIndexId:   "ocp-product-docs-4_15",
+					ProductDocsIndexPath: RAGVolumeMountPath + "/rag-0",
+				},
+				ReferenceIndex{
+					ProductDocsIndexId:   "ansible-docs-2_18",
+					ProductDocsIndexPath: RAGVolumeMountPath + "/rag-1",
+				},
+			))
+
+			By("additional RAG indexes are removed")
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{}
+			cm, err = r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			olsconfigGenerated = AppSrvConfigFile{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(ConsistOf(ocpIndex))
+
+		})
+
 	})
 
 	Context("empty custom resource", func() {
@@ -817,8 +1009,9 @@ ols_config:
     uvicorn_log_level: ""
   reference_content:
     embeddings_model_path: /app-root/embeddings_model
-    product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
-    product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
+    indexes:
+    - product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
+      product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
@@ -872,8 +1065,9 @@ ols_config:
     uvicorn_log_level: ""
   reference_content:
     embeddings_model_path: /app-root/embeddings_model
-    product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
-    product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
+    indexes:
+    - product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
+      product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key

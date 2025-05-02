@@ -10,6 +10,7 @@ import (
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -46,6 +47,10 @@ func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, olsconfig 
 		{
 			Name: "activate Console Plugin",
 			Task: r.activateConsoleUI,
+		},
+		{
+			Name: "reconcile Console Plugin NetworkPolicy",
+			Task: r.reconcileConsoleNetworkPolicy,
 		},
 	}
 
@@ -347,4 +352,37 @@ func (r *OLSConfigReconciler) reconcileConsoleTLSSecret(ctx context.Context, cr 
 	r.stateCache[OLSConsoleTLSHashStateCacheKey] = foundTLSSecretHash
 	r.logger.Info("OLS console tls secret reconciled", "hash", foundTLSSecretHash)
 	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileConsoleNetworkPolicy(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	np, err := r.generateConsoleUINetworkPolicy(cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginNetworkPolicy, err)
+	}
+	foundNp := &networkingv1.NetworkPolicy{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUINetworkPolicyName, Namespace: r.Options.Namespace}, foundNp)
+	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("creating Console NetworkPolicy", "networkpolicy", ConsoleUINetworkPolicyName)
+		err = r.Create(ctx, np)
+		if err != nil {
+			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginNetworkPolicy, err)
+			return fmt.Errorf("%s: %w", ErrCreateConsolePluginNetworkPolicy, err)
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetConsolePluginNetworkPolicy, err)
+	}
+	if networkPolicyEqual(np, foundNp) {
+		r.logger.Info("Console NetworkPolicy unchanged, reconciliation skipped", "networkpolicy", ConsoleUINetworkPolicyName)
+		return nil
+	}
+	err = r.Update(ctx, np)
+	if err != nil {
+		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginNetworkPolicy, err)
+		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginNetworkPolicy, err)
+	}
+	r.logger.Info("Console NetworkPolicy reconciled", "networkpolicy", ConsoleUINetworkPolicyName)
+	return nil
+
 }

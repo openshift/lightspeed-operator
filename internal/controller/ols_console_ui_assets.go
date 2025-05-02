@@ -4,6 +4,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -244,4 +245,52 @@ func (r *OLSConfigReconciler) generateConsoleUIPlugin(cr *olsv1alpha1.OLSConfig)
 	}
 
 	return plugin, nil
+}
+
+func (r *OLSConfigReconciler) generateConsoleUINetworkPolicy(cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
+	np := networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ConsoleUINetworkPolicyName,
+			Namespace: r.Options.Namespace,
+			Labels:    generateConsoleUILabels(),
+		},
+		Spec: networkingv1.NetworkPolicySpec{
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": "openshift-console",
+								},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "console",
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(ConsoleUIHTTPSPort)}[0],
+						},
+					},
+				},
+			},
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: generateConsoleUILabels(),
+			},
+			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeIngress,
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &np, r.Scheme); err != nil {
+		return nil, err
+	}
+	return &np, nil
+
 }

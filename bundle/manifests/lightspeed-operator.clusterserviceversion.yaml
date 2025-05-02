@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-04-09T20:50:42Z"
+    createdAt: "2025-04-10T19:56:20Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -55,7 +55,7 @@ metadata:
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
-  name: lightspeed-operator.v0.3.3
+  name: lightspeed-operator.v0.3.4
   namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
@@ -229,6 +229,17 @@ spec:
           - description: Replacement for the matched pattern.
             displayName: Replace With
             path: ols.queryFilters[0].replaceWith
+          - description: RAG databases
+            displayName: RAG Databases
+            path: ols.rag
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:advanced
+          - displayName: Image
+            path: ols.rag[0].image
+          - displayName: Index ID
+            path: ols.rag[0].indexID
+          - displayName: Index Path in the Image
+            path: ols.rag[0].indexPath
           - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
             displayName: TLS Configuration
             path: ols.tlsConfig
@@ -261,11 +272,11 @@ spec:
 
     To configure the OpenShift Lightspeed Operator, you need a Large Language Model (LLM) . You can host the LLM using RHELAI or RHOAI or use one of the models from the following Software-as-a-Service providers:
 
-    OpenAI
-    Microsoft Azure OpenAI
-    IBM WatsonX
+    - OpenAI
+    - Microsoft Azure OpenAI
+    - IBM WatsonX
 
-    For more information, see [About OpenShift Lightspeed](https://docs.openshift.com/lightspeed/1.0tp1/about/ols-about-openshift-lightspeed.html) in the official product documentation.
+    For more information, see [About OpenShift Lightspeed](https://docs.redhat.com/en/documentation/red_hat_openshift_lightspeed/1.0tp1/html/about/ols-about-openshift-lightspeed) in the official product documentation.
 
     Questions, comments, concerns, or just want to talk to the OpenShift Lightspeed team? [Email us](mailto:openshift-lightspeed-contact-requests@redhat.com)!
   displayName: OpenShift Lightspeed Operator
@@ -280,6 +291,22 @@ spec:
                 - ""
               resources:
                 - configmaps
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - secrets
+              verbs:
+                - list
+                - watch
+            - apiGroups:
+                - ""
+              resourceNames:
+                - pull-secret
+              resources:
                 - secrets
               verbs:
                 - get
@@ -359,7 +386,9 @@ spec:
                 - clusterrolebindings
                 - clusterroles
               verbs:
-                - '*'
+                - create
+                - list
+                - watch
           serviceAccountName: lightspeed-operator-controller-manager
       deployments:
         - label:
@@ -530,6 +559,18 @@ spec:
                 - update
                 - watch
             - apiGroups:
+                - networking.k8s.io
+              resources:
+                - networkpolicies
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
                 - rbac.authorization.k8s.io
               resources:
                 - rolebindings
@@ -560,7 +601,7 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
-  version: 0.3.3
+  version: 0.3.4
   relatedImages:
     - name: lightspeed-service-api
       image: quay.io/openshift-lightspeed/lightspeed-service-api:latest

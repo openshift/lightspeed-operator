@@ -8,6 +8,22 @@ rules:
   - ""
   resources:
   - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - pull-secret
+  resources:
   - secrets
   verbs:
   - get
@@ -87,7 +103,9 @@ rules:
   - clusterrolebindings
   - clusterroles
   verbs:
-  - '*'
+  - create
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -139,6 +157,18 @@ rules:
   resources:
   - prometheusrules
   - servicemonitors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
   verbs:
   - create
   - delete

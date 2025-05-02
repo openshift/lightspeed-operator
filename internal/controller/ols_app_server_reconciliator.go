@@ -7,6 +7,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -60,6 +61,10 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 		{
 			Name: "reconcile App PrometheusRule",
 			Task: r.reconcilePrometheusRule,
+		},
+		{
+			Name: "reconcile App NetworkPolicy",
+			Task: r.reconcileAppServerNetworkPolicy,
 		},
 	}
 
@@ -452,5 +457,36 @@ func (r *OLSConfigReconciler) reconcileTLSSecret(ctx context.Context, cr *olsv1a
 	}
 	r.stateCache[OLSAppTLSHashStateCacheKey] = foundTLSSecretHash
 	r.logger.Info("OLS app TLS secret reconciled", "hash", foundTLSSecretHash)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileAppServerNetworkPolicy(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	networkPolicy, err := r.generateAppServerNetworkPolicy(cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGenerateAppServerNetworkPolicy, err)
+	}
+
+	foundNP := &networkingv1.NetworkPolicy{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerNetworkPolicyName, Namespace: r.Options.Namespace}, foundNP)
+	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("creating a new network policy", "networkPolicy", networkPolicy.Name)
+		err = r.Create(ctx, networkPolicy)
+		if err != nil {
+			return fmt.Errorf("%s: %w", ErrCreateAppServerNetworkPolicy, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetAppServerNetworkPolicy, err)
+	}
+	if networkPolicyEqual(foundNP, networkPolicy) {
+		r.logger.Info("OLS app server network policy unchanged, reconciliation skipped", "networkPolicy", networkPolicy.Name)
+		return nil
+	}
+	foundNP.Spec = networkPolicy.Spec
+	err = r.Update(ctx, foundNP)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrUpdateAppServerNetworkPolicy, err)
+	}
+	r.logger.Info("OLS app server network policy reconciled", "networkPolicy", networkPolicy.Name)
 	return nil
 }

@@ -2,9 +2,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  annotations:
-    pipelinesascode.tekton.dev/task: "[ols-installer, ols-e2e-task]"
-  name: ols-console-e2e-tests-pipeline
+  name: ols-console-pre-commits
 spec:
   description: |
     This pipeline automates the process of running end-to-end tests for OpenShift Lightspeed
@@ -18,7 +16,7 @@ spec:
       type: string
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
-      default: 'ols-console-e2e-tests'
+      default: 'ols-console-415'
     - name: namespace
       description: 'Namespace to run tests in'
       default: 'openshift-lightspeed'
@@ -104,7 +102,9 @@ spec:
       taskSpec:
         results:
           - name: bundle-image
-            value: "$(steps.get-bundle-image.results.bundle-image)"
+            value: "$(steps.get-snapshot-images.results.bundle-image)"
+          - name: commit
+            value: "$(steps.get-snapshot-images.results.commit)"
         params:
           - name: SNAPSHOT
           - name: namespace
@@ -113,7 +113,7 @@ spec:
           - name: credentials
             emptyDir: {}
         steps:
-          - name: get-bundle-image
+          - name: get-snapshot-images
             image: registry.redhat.io/openshift4/ose-cli:latest
             env:
               - name: SNAPSHOT
@@ -122,16 +122,22 @@ spec:
               - name: bundle-image
                 type: string
                 description: "bundle image from snapshot"
+              - name: commit
+                type: string
+                description: "commit sha to be used in console tests"
             script: |
               dnf -y install jq
-              echo -n "$(jq -r --arg component_name "test-bundle" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
+              echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
+              echo -n "$(jq -r --arg component_name "lightspeed-console" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")" > $(step.results.commit.path)
     - name: ols-e2e-tests
       description: Task to run tests from service repository
       runAfter:
         - ols-install
       params:
-        - name: bundleimage
+        - name: bundle-image
           value: $(tasks.ols-install.results.bundle-image)
+        - name: commit
+          value: $(tasks.ols-install.results.commit)
       taskSpec:
         volumes:
           - name: openai-token
@@ -140,7 +146,8 @@ spec:
           - name: credentials
             emptyDir: {}
         params:
-          - name: bundleimage
+          - name: bundle-image
+          - name: commit
         steps:
           - name: get-kubeconfig
             ref:
@@ -160,12 +167,6 @@ spec:
               - name: credentials
                 value: credentials
           - name: run-e2e-tests
-            resources:
-              requests:
-                cpu: '1'
-                memory: 1Gi
-              limits:
-                memory: 10Gi
             volumeMounts:
               - name: openai-token
                 mountPath: /var/run/openai
@@ -179,7 +180,9 @@ spec:
               - name: LLM_TOKEN_PATH
                 value: "/var/run/openai/token"
               - name: CYPRESS_BUNDLE_IMAGE
-                value: "$(params.bundleimage)"
+                value: "$(params.bundle-image)"
+              - name: COMMIT_SHA
+                value: "$(params.commit)"
               - name: PASSWORD_PATH
                 value: "/credentials/$(steps.get-kubeconfig.results.passwordPath)"
               - name: CYPRESS_BASE_URL
@@ -189,13 +192,17 @@ spec:
               echo "---------------------------------------------"
               echo "${CYPRESS_BASE_URL}"
               echo "---------------------------------------------"
+              echo "${COMMIT_SHA}"
+              echo "---------------------------------------------"
+              echo "${CYPRESS_BUNDLE_IMAGE}"
+              echo "---------------------------------------------"
               echo "$(cat ${CYPRESS_KUBECONFIG_PATH})"
               echo "---------------------------------------------"
               export CYPRESS_LOGIN_PASSWORD=$(cat ${PASSWORD_PATH})
               echo "${CYPRESS_LOGIN_PASSWORD}"
               echo "---------------------------------------------"
               dnf -y update && \
-                  dnf -y install golang wget git
+                  dnf -y install golang wget git awk
               echo "---------------------------------------------"
               dnf install -y xorg-x11-server-Xvfb
               curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest/openshift-client-linux.tar.gz \
@@ -221,8 +228,11 @@ spec:
               echo "---------------------------------------------"
               git clone https://github.com/openshift/lightspeed-console.git
               cd lightspeed-console
+              git config --global user.email olsci@redhat.com
+              git config --global user.name olsci
+              git pull origin ${COMMIT_SHA} --rebase
               npm install
               npm -v
               echo "---------------------------------------------"
               echo "---------------------------------------------"
-              npx cypress run
+              npx cypress run -- --disable-gpu

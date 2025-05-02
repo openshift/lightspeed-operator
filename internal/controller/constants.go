@@ -67,6 +67,12 @@ const (
 	CertBundleVolumeName = "cert-bundle"
 	// CertBundleDir is the path of the volume for the certificate bundle
 	CertBundleDir = "cert-bundle"
+	// RAGVolumeName is the name of the volume hosting customized RAG content
+	RAGVolumeName = "rag"
+	// RAGVolumeMountPath is the path of the volume hosting customized RAG content
+	RAGVolumeMountPath = "/rag-data"
+	// OLSAppServerNetworkPolicyName is the name of the network policy for the OLS application server
+	OLSAppServerNetworkPolicyName = "lightspeed-app-server"
 
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
@@ -122,6 +128,8 @@ const (
 	ConsoleProxyAlias = "ols"
 	// OLSConsoleTLSHashStateCacheKey is the key of the hash value of the OLS Console TLS certificates
 	OLSConsoleTLSHashStateCacheKey = "olsconsoletls-hash"
+	// ConsoleUINetworkPolicyName is the name of the network policy for the console UI plugin
+	ConsoleUINetworkPolicyName = "lightspeed-console-plugin"
 
 	/*** watchers ***/
 	WatcherAnnotationKey = "ols.openshift.io/watcher"
@@ -195,6 +203,9 @@ ssl_cert_file = '/etc/certs/tls.crt'
 ssl_key_file = '/etc/certs/tls.key'
 ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 `
+	// PostgresNetworkPolicyName is the name of the network policy for the OLS postgres server
+	PostgresNetworkPolicyName = "lightspeed-postgres-server"
+
 	/*** state cache keys ***/
 	// OLSAppTLSHashStateCacheKey is the key of the hash value of the OLS App TLS certificates
 	OLSAppTLSHashStateCacheKey = "olsapptls-hash"
@@ -214,4 +225,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	PostgresConfigHashStateCacheKey = "olspostgresconfig-hash"
 	// #nosec G101
 	PostgresSecretHashStateCacheKey = "olspostgressecret-hash"
+	// OperatorNetworkPolicyName is the name of the network policy for the operator
+	OperatorNetworkPolicyName = "lightspeed-operator"
+	// OperatorMetricsPort is the port number of the operator metrics endpoint
+	OperatorMetricsPort = 8443
 )
