@@ -92,7 +92,7 @@ spec:
                   - source: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9
                     mirrors:
                       - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
-    - name: ols-install
+    - name: get-bundle-images
       description: Task to install bundle onto ephemeral namespace
       runAfter:
         - provision-cluster
@@ -115,59 +115,6 @@ spec:
           - name: credentials
             emptyDir: {}
         steps:
-          - name: get-kubeconfig
-            ref:
-              resolver: git
-              params:
-                - name: url
-                  value: https://github.com/konflux-ci/build-definitions.git
-                - name: revision
-                  value: main
-                - name: pathInRepo
-                  value: stepactions/eaas-get-ephemeral-cluster-credentials/0.1/eaas-get-ephemeral-cluster-credentials.yaml
-            params:
-              - name: eaasSpaceSecretRef
-                value: $(tasks.eaas-provision-space.results.secretRef)
-              - name: clusterName
-                value: "$(tasks.provision-cluster.results.clusterName)"
-              - name: credentials
-                value: credentials
-          - name: install-operator
-            env:
-              - name: SNAPSHOT
-                value: $(params.SNAPSHOT)
-              - name: KONFLUX_COMPONENT_NAME
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.labels['appstudio.openshift.io/component']
-              - name: KUBECONFIG
-                value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
-            volumeMounts:
-              - name: credentials
-                mountPath: /credentials
-            image: registry.redhat.io/openshift4/ose-cli:latest
-            script: |
-              echo "---------------------------------------------"
-              cat $KUBECONFIG
-              echo "---------------------------------------------"
-              dnf -y install jq python3-pip
-              export OPERATOR_SDK_VERSION=1.36.1
-              export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
-              export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v${OPERATOR_SDK_VERSION}
-              curl -Lo /usr/local/bin/operator-sdk ${OPERATOR_SDK_DL_URL}/operator-sdk_linux_${ARCH}
-              chmod +x /usr/local/bin/operator-sdk
-              operator-sdk version
-              echo "---------------------------------------------"
-              oc create namespace $(params.namespace)
-              oc label namespaces $(params.namespace) openshift.io/cluster-monitoring=true --overwrite=true
-              echo "---------------------------------------------"
-              echo ${KONFLUX_COMPONENT_NAME}
-              export BUNDLE_IMAGE="$(jq -r --arg component_name "$KONFLUX_COMPONENT_NAME" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")"
-              echo "${BUNDLE_IMAGE}"
-              echo "---------------------------------------------"
-              operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
-              echo "---------------------------------------------"
-              oc get deployment lightspeed-operator-controller-manager -n "$(params.namespace)"
           - name: get-bundle-image
             image: registry.redhat.io/openshift4/ose-cli:latest
             env:
@@ -190,13 +137,13 @@ spec:
         - name: SNAPSHOT
           value: $(params.SNAPSHOT)
         - name: bundleimage
-          value: $(tasks.ols-install.results.bundle-image)
+          value: $(tasks.get-bundle-images.results.bundle-image)
         - name: commit
-          value: $(tasks.ols-install.results.commit)
+          value: $(tasks.get-bundle-images.results.commit)
         - name: namespace
           value: "$(params.namespace)"
       runAfter:
-        - ols-install
+        - get-bundle-images
       taskSpec:
         params:
           - name: SNAPSHOT
@@ -296,6 +243,13 @@ spec:
               echo "$KONFLUX_BOOL"
               echo "---------------------------------------------"
               echo "$BUNDLE_IMAGE"
+              echo "---------------------------------------------"
+              export OPERATOR_SDK_VERSION=1.36.1
+              export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
+              export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v${OPERATOR_SDK_VERSION}
+              curl -Lo /usr/local/bin/operator-sdk ${OPERATOR_SDK_DL_URL}/operator-sdk_linux_${ARCH}
+              chmod +x /usr/local/bin/operator-sdk
+              operator-sdk version
               echo "---------------------------------------------"
               microdnf -y install git make python3.11 python3.11-devel python3.11-pip shadow-utils tar
               curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.15/openshift-client-linux-amd64-rhel9.tar.gz \
