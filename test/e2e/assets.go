@@ -35,8 +35,8 @@ func generateLLMTokenSecret(name string) (*corev1.Secret, error) { // nolint:unu
 				Namespace: OLSNameSpace,
 			},
 			StringData: map[string]string{
-				AzureOpenaiClientID: clientID,
-				AzureOpenaiTenantID: tenantID,
+				AzureOpenaiClientID:     clientID,
+				AzureOpenaiTenantID:     tenantID,
 				AzureOpenaiClientSecret: clientSecret,
 			},
 		}, nil
@@ -53,6 +53,48 @@ func generateOLSConfig() (*olsv1alpha1.OLSConfig, error) { // nolint:unused
 		llmModel = OpenAIDefaultModel
 	}
 	replicas := int32(1)
+	if llmProvider == "azure_openai" {
+		return &olsv1alpha1.OLSConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: OLSCRName,
+			},
+			Spec: olsv1alpha1.OLSConfigSpec{
+				LLMConfig: olsv1alpha1.LLMSpec{
+					Providers: []olsv1alpha1.ProviderSpec{
+						{
+							Name: llmProvider,
+							Models: []olsv1alpha1.ModelSpec{
+								{
+									Name: llmModel,
+								},
+							},
+							CredentialsSecretRef: corev1.LocalObjectReference{
+								Name: LLMTokenFirstSecretName,
+							},
+							Type:                llmProvider,
+							AzureDeploymentName: llmModel,
+							URL:                 AzureURL,
+						},
+					},
+				},
+				OLSConfig: olsv1alpha1.OLSSpec{
+					ConversationCache: olsv1alpha1.ConversationCacheSpec{
+						Type: olsv1alpha1.Postgres,
+						Postgres: olsv1alpha1.PostgresSpec{
+							SharedBuffers:  "256MB",
+							MaxConnections: 2000,
+						},
+					},
+					DefaultModel:    llmModel,
+					DefaultProvider: llmProvider,
+					LogLevel:        "INFO",
+					DeploymentConfig: olsv1alpha1.DeploymentConfig{
+						Replicas: &replicas,
+					},
+				},
+			},
+		}, nil
+	}
 	return &olsv1alpha1.OLSConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: OLSCRName,
@@ -91,4 +133,5 @@ func generateOLSConfig() (*olsv1alpha1.OLSConfig, error) { // nolint:unused
 			},
 		},
 	}, nil
+
 }

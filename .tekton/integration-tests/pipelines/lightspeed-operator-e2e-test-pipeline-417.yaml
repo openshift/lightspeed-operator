@@ -262,28 +262,33 @@ spec:
             image: registry.redhat.io/openshift4/ose-cli:latest
             script: |
               echo "---------------------------------------------"
+              cat $KUBECONFIG
+              echo "---------------------------------------------"
               dnf -y install git make golang
               git clone https://github.com/openshift/lightspeed-operator.git
               cd lightspeed-operator
               echo "---------------------------------------------"
-              echo "starting tests for openai"
+              echo "---------------------------------------------"
+              echo "---------------------------------------------"
               export LLM_TOKEN=$(cat ${OPENAI_PROVIDER_KEY_PATH})
-              export LLMProviderEnvVar="openai"
-              export llmModel="gpt-4o-mini"
+              export LLM_PROVIDER="openai"
+              export LLM_MODEL="gpt-4o-mini"
+              echo "starting tests for $LLM_PROVIDER $LLM_MODEL"
               make test-e2e
               echo "---------------------------------------------"
-              echo "starting tests for watsonx"
-              export LLM_TOKEN=$(cat ${WATSONX_PROVIDER_KEY_PATH})
-              export LLMProviderEnvVar="watsonx"
-              export llmModel="ibm/granite-3-8b-instruct"
               echo "---------------------------------------------"
-              echo "starting tests for azure_openai"
+              echo "---------------------------------------------"
               export AZUREOPENAI_ENTRA_ID_TENANT_ID="$(cat /var/run/azureopenai-entra-id/tenant_id)"
               export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/client_id)"
               export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
               export LLM_TOKEN=$(cat ${AZUREOPENAI_PROVIDER_KEY_PATH})
-              export LLMProviderEnvVar="azure_openai"
-              export llmModel="gpt-4o-mini"
+              export LLM_PROVIDER="azure_openai"
+              export LLM_MODEL="gpt-4o-mini"
+              echo $AZUREOPENAI_ENTRA_ID_TENANT_ID
+              echo $AZUREOPENAI_ENTRA_ID_CLIENT_ID
+              echo $AZUREOPENAI_ENTRA_ID_CLIENT_SECRET
+              echo $LLM_TOKEN
+              echo "starting tests for $LLM_PROVIDER $LLM_MODEL"
               make test-e2e
           - name: gather-cluster-resources
             ref:
