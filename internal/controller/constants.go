@@ -206,6 +206,9 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	// PostgresNetworkPolicyName is the name of the network policy for the OLS postgres server
 	PostgresNetworkPolicyName = "lightspeed-postgres-server"
 
+	// PostgresPVCName is the name of the PVC for the OLS postgres server
+	PostgresPVCName = "lightspeed-postgres-pvc"
+
 	/*** state cache keys ***/
 	// OLSAppTLSHashStateCacheKey is the key of the hash value of the OLS App TLS certificates
 	OLSAppTLSHashStateCacheKey = "olsapptls-hash"

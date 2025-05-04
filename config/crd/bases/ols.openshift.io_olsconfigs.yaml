@@ -743,6 +743,18 @@ spec:
                       - indexPath
                       type: object
                     type: array
+                  storage:
+                    description: Persistent Storage Configuration
+                    properties:
+                      class:
+                        description: Storage Class of the Requested Volume
+                        type: string
+                      size:
+                        description: Size of the Requested Volume
+                        type: string
+                    required:
+                    - size
+                    type: object
                   tlsConfig:
                     description: TLS configuration of the Lightspeed backend's HTTPS
                       endpoint
