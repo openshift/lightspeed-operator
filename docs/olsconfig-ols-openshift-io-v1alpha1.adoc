@@ -511,6 +511,10 @@ Required::
 | `array`
 | RAG databases
 
+| `storage`
+| `object`
+| Persistent Storage Configuration
+
 | `tlsConfig`
 | `object`
 | TLS configuration of the Lightspeed backend's HTTPS endpoint
@@ -1306,6 +1310,32 @@ Required::
 | `indexPath`
 | `string`
 | The path to the RAG database inside of the container image
+
+|===
+== .spec.ols.storage
+Description::
++
+--
+Persistent Storage Configuration
+--
+
+Type::
+  `object`
+
+
+
+
+[cols="1,1,1",options="header"]
+|===
+| Property | Type | Description
+
+| `class`
+| `string`
+| Storage Class of the Requested Volume
+
+| `size`
+| `string`
+| Size of the Requested Volume
 
 |===
 == .spec.ols.tlsConfig

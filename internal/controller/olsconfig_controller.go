@@ -70,23 +70,23 @@ type OLSConfigReconcilerOptions struct {
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/finalizers,verbs=update
 // RBAC for managing deployments of OLS application server
-// +kubebuilder:rbac:groups=apps,namespace=openshift-lightspeed,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // Service for exposing lightspeed service API endpoints
-// +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // ServiceAccount to run OLS application server
-// +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 // ConfigMap for OLS application server configuration
-// +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // ConfigMap in other namespaces:
 // - client CA certificate from openshift-monitoring namespace
 // OLM cannot create a role and rolebinding for a specific single namespace that is not the namespace the operator is installed in and/or watching
 // This has to be a cluster role
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 // Secret access for conversation cache server configuration
-// +kubebuilder:rbac:groups=core,namespace=openshift-lightspeed,resources=secrets,verbs=get;list;watch;create;update;patch;delete;deletecollection
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // Secret access for telemetry pull secret, must be a cluster role due to OLM limitations in managing roles in operator namespace
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=list;watch
-// +kubebuilder:rbac:groups=core,resources=secrets,resourceNames=pull-secret,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=list;watch
+// +kubebuilder:rbac:groups="",resources=secrets,resourceNames=pull-secret,verbs=get;list;watch
 // ConsolePlugin for install console plugin
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks;consoleplugins;consoleplugins/finalizers,verbs=get;create;update;delete
 // Modify console CR to activate console plugin
@@ -99,16 +99,20 @@ type OLSConfigReconcilerOptions struct {
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 
 // ServiceMonitor for monitoring OLS application server
-// +kubebuilder:rbac:groups=monitoring.coreos.com,namespace=openshift-lightspeed,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 
 // PrometheusRule for aggregating OLS metrics for telemetry
-// +kubebuilder:rbac:groups=monitoring.coreos.com,namespace=openshift-lightspeed,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
 
 // clusterversion for checking the openshift cluster version
 // +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions;apiservers,verbs=get;list;watch
 
 // NetworkPolicy for restricting access to OLS pods
-// +kubebuilder:rbac:groups=networking.k8s.io,namespace=openshift-lightspeed,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
+
+// PVC access for the Postgres PVC
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
 
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
@@ -241,6 +245,7 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
+		Owns(&corev1.PersistentVolumeClaim{}).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(secretWatcherFilter)).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(telemetryPullSecretWatcherFilter)).
 		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(configMapWatcherFilter)).

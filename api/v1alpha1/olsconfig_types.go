@@ -22,9 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // OLSConfigSpec defines the desired state of OLSConfig
 type OLSConfigSpec struct {
 	// +kubebuilder:validation:Required
@@ -101,6 +98,20 @@ type OLSSpec struct {
 	// LLM Token Quota Configuration
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="LLM Token Quota Configuration"
 	QuotaHandlersConfig *QuotaHandlersConfig `json:"quotaHandlersConfig,omitempty"`
+	// Persistent Storage Configuration
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Persistent Storage Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	Storage *Storage `json:"storage,omitempty"`
+}
+
+// Persistent Storage Configuration
+type Storage struct {
+	// Size of the Requested Volume
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Size of the Requested Volume"
+	Size string `json:"size,omitempty"`
+	// Storage Class of the Requested Volume
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Storage Class of the Requested Volume"
+	Class string `json:"class,omitempty"`
 }
 
 // RAGSpec defines how to retrieve a RAG databases.

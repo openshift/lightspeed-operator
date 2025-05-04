@@ -10,6 +10,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -17,8 +18,8 @@ import (
 var _ = Describe("Postgres server reconciliator", Ordered, func() {
 
 	Context("Creation logic", Ordered, func() {
-		var secret *corev1.Secret
-		var bootstrapSecret *corev1.Secret
+		var secret, bootstrapSecret *corev1.Secret
+		var sc *storagev1.StorageClass
 		BeforeEach(func() {
 			By("create the provider secret")
 			secret, _ = generateRandomSecret()
@@ -61,9 +62,18 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 			})
 			bootstrapSecretCreationErr := reconciler.Create(ctx, bootstrapSecret)
 			Expect(bootstrapSecretCreationErr).NotTo(HaveOccurred())
+
+			By("Creating default StorageClass")
+			sc = buildDefaultStorageClass()
+			storageClassCreationErr := reconciler.Create(ctx, sc)
+			Expect(storageClassCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
+			By("Deleting default StorageClass")
+			storageClassDeletionErr := reconciler.Delete(ctx, sc)
+			Expect(storageClassDeletionErr).NotTo(HaveOccurred())
+
 			By("Delete the provider secret")
 			secretDeletionErr := reconciler.Delete(ctx, secret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
@@ -175,3 +185,20 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 		})
 	})
 })
+
+func buildDefaultStorageClass() *storagev1.StorageClass {
+	trueVal := true
+	immediate := storagev1.VolumeBindingImmediate
+
+	return &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "standard",
+			Annotations: map[string]string{
+				"storageclass.kubernetes.io/is-default-class": "true",
+			},
+		},
+		Provisioner:          "kubernetes.io/no-provisioner",
+		AllowVolumeExpansion: &trueVal,
+		VolumeBindingMode:    &immediate,
+	}
+}

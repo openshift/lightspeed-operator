@@ -35,6 +35,10 @@ func (r *OLSConfigReconciler) reconcilePostgresServer(ctx context.Context, olsco
 			Task: r.reconcilePostgresService,
 		},
 		{
+			Name: "reconcile Postgres PVC",
+			Task: r.reconcilePostgresPVC,
+		},
+		{
 			Name: "reconcile Postgres Deployment",
 			Task: r.reconcilePostgresDeployment,
 		},
@@ -91,6 +95,30 @@ func (r *OLSConfigReconciler) reconcilePostgresDeployment(ctx context.Context, c
 	}
 
 	r.logger.Info("OLS postgres deployment reconciled", "deployment", desiredDeployment.Name)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcilePostgresPVC(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+
+	if cr.Spec.OLSConfig.Storage == nil {
+		return nil
+	}
+	pvc, err := r.generatePostgresPVC(cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGeneratePostgresPVC, err)
+	}
+
+	foundPVC := &corev1.PersistentVolumeClaim{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresPVCName, Namespace: r.Options.Namespace}, foundPVC)
+	if err != nil && errors.IsNotFound(err) {
+		err = r.Create(ctx, pvc)
+		if err != nil {
+			return fmt.Errorf("%s: %w", ErrCreatePostgresPVC, err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetPostgresPVC, err)
+	}
+	r.logger.Info("OLS postgres PVC reconciled", "pvc", pvc.Name)
 	return nil
 }
 
