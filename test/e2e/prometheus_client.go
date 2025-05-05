@@ -16,6 +16,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // PrometheusClient provides access to the Prometheus, Thanos & Alertmanager API.
@@ -30,7 +31,7 @@ type PrometheusClient struct {
 
 // DefaultPollInterval is the default interval for polling Prometheus metrics.
 // Prometheus metrics are typically scraped every 30 seconds. This is enough for 3 scrapes.
-const DefaultPrometheusQueryTimeout = 95 * time.Second
+const DefaultPrometheusQueryTimeout = 120 * time.Second
 
 // NewPrometheusClientFromRoute creates and returns a new PrometheusClient from the given OpenShift route.
 func NewPrometheusClientFromRoute(
@@ -41,6 +42,8 @@ func NewPrometheusClientFromRoute(
 ) (*PrometheusClient, error) {
 	route, err := routeClient.Routes(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
+
+		logf.Log.Error(err, "Error fetching Prometheus route")
 		return nil, err
 	}
 
