@@ -34,6 +34,8 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 	AfterAll(func() {
 		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
+		err = mustGather()
+		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR")
 		Expect(cr).NotTo(BeNil())
 		err = client.Delete(cr)
