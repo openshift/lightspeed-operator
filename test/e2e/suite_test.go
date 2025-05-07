@@ -84,7 +84,8 @@ var _ = AfterSuite(func() {
 	if err != nil {
 		Fail("Failed to create client")
 	}
-
+	err = mustGather("suite")
+	Expect(err).NotTo(HaveOccurred())
 	By("Delete the 2 LLM token Secrets")
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

@@ -35,6 +35,8 @@ var _ = Describe("Automatic correction against modifications on managed resource
 		var err error
 		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
+		err = mustGather("autocorrection_test")
+		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR")
 		Expect(cr).NotTo(BeNil())
 		err = client.Delete(cr)

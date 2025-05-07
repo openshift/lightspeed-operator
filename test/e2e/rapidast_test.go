@@ -71,6 +71,12 @@ var _ = Describe("TLS activation - application", Ordered, Label("Rapidast"), fun
 		Expect(err).NotTo(HaveOccurred())
 		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
 	})
+
+	AfterAll(func() {
+		err = mustGather("rapidast_test")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("should activate TLS on service HTTPS port", func() {
 		By("Wait for the application service created")
 		service := &corev1.Service{
