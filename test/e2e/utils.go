@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 func Ptr[T any](v T) *T { return &v }
@@ -36,7 +37,7 @@ func WriteResourceToFile(client *Client, clusterDir string, filename string, res
 	return nil
 }
 
-func WriteLogsToFile(client *Client, clusterDir string, filename string, pod string, container string) error {
+func WriteLogsToFile(client *Client, clusterDir string) error {
 	ctx, _ := context.WithCancel(client.ctx)
 	// Create file and file handler
 
@@ -45,26 +46,27 @@ func WriteLogsToFile(client *Client, clusterDir string, filename string, pod str
 	if err != nil {
 		fmt.Printf("failed to get pods: %s \n", err)
 	}
-	fmt.Printf("Name of pods: %s", string(pod_names))
-	for i := 0; i < len(pod_names); i++ {
-
-		fmt.Printf("Name of pod: %s", string(pod_names[i]))
-		f, err := os.OpenFile(clusterDir+"/"+string(pod_names[i])+".txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return fmt.Errorf("failed to create %s: %w", string(pod_names[i]), err)
+	pods := strings.Split(string(pod_names), "\n")
+	for _, SinglePod := range pods {
+		if SinglePod != "" {
+			f, err := os.OpenFile(clusterDir+"/"+SinglePod+".txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return fmt.Errorf("failed to create %s: %w", SinglePod, err)
+			}
+			defer f.Close()
+			cmd, err := exec.CommandContext(ctx, "oc", "logs", "-n", OLSNameSpace, SinglePod, "--kubeconfig", client.kubeconfigPath).Output()
+			if err != nil {
+				fmt.Printf("failed to get logs: %s \n", err)
+			}
+			f.Write(cmd)
 		}
-		defer f.Close()
-		cmd, err := exec.CommandContext(ctx, "oc", "logs", string(pod_names[i]), "-c", ServerContainerName, "--kubeconfig", client.kubeconfigPath).Output()
-		if err != nil {
-			fmt.Printf("failed to get logs: %s \n", err)
-		}
-		f.Write(cmd)
+		//}
 	}
 
 	return nil
 }
 
-func mustGather() error {
+func mustGather(test_case string) error {
 	var client *Client
 	client, err := GetClient(nil)
 	if err != nil {
@@ -76,8 +78,12 @@ func mustGather() error {
 		artifact_dir = "/artifacts"
 	}
 	llmProvider := os.Getenv(LLMProviderEnvVar)
-	clusterDir := "." + artifact_dir + "/" + llmProvider
+	clusterDir := "." + artifact_dir + "/" + llmProvider + "/" + test_case
 	err = os.MkdirAll(clusterDir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create folder %w", err)
+	}
+	err = os.MkdirAll(clusterDir+"/pod", os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create folder %w", err)
 	}
@@ -148,16 +154,9 @@ func mustGather() error {
 		fmt.Printf("failed to write to %s: %s \n", filename, err)
 	}
 
-	filename = "operator-controller-manager-logs.txt"
-	err = WriteLogsToFile(client, clusterDir, filename, OperatorDeploymentName, "manager")
+	err = WriteLogsToFile(client, clusterDir)
 	if err != nil {
-		fmt.Printf("failed to write to %s: %s \n", filename, err)
-	}
-
-	filename = "app-server-logs.txt"
-	err = WriteLogsToFile(client, clusterDir, filename, AppServerDeploymentName, ServerContainerName)
-	if err != nil {
-		fmt.Printf("failed to write to %s: %s \n", filename, err)
+		fmt.Printf("failed to write logs: %s \n", err)
 	}
 	return nil
 }

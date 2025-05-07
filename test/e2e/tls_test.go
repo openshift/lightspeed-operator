@@ -81,6 +81,8 @@ var _ = Describe("TLS activation - application", Ordered, func() {
 	})
 
 	AfterAll(func() {
+		err = mustGather("tls_test")
+		Expect(err).NotTo(HaveOccurred())
 		for _, cleanUp := range cleanUpFuncs {
 			cleanUp()
 		}
