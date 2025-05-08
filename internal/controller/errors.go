@@ -45,6 +45,7 @@ const (
 	ErrGenerateServiceMonitor             = "failed to generate ServiceMonitor"
 	ErrGeneratePrometheusRule             = "failed to generate PrometheusRule"
 	ErrGetAdditionalCACM                  = "failed to get additional CA configmap"
+	ErrGetProxyCACM                       = "failed to get proxy CA configmap"
 	ErrGeneratePostgresSecret             = "failed to generate OLS Postgres secret"
 	ErrGeneratePostgresBootstrapSecret    = "failed to generate OLS Postgres bootstrap secret"
 	ErrGeneratePostgresConfigMap          = "failed to generate OLS Postgres configmap"
@@ -87,6 +88,7 @@ const (
 	ErrUpdatePostgresNetworkPolicy        = "failed to update OLS Postgres network policy"
 	ErrUpdateServiceMonitor               = "failed to update ServiceMonitor"
 	ErrUpdatePrometheusRule               = "failed to update PrometheusRule"
+	ErrUpdateProxyCACM                    = "failed to update proxy CA configmap"
 	// #nosec G101
 	ErrGetPostgresSecret = "failed to get OLS Postgres secret"
 	// #nosec G101

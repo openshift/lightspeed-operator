@@ -67,6 +67,10 @@ const (
 	CertBundleVolumeName = "cert-bundle"
 	// CertBundleDir is the path of the volume for the certificate bundle
 	CertBundleDir = "cert-bundle"
+	// ProxyCACertFileName is the name of the proxy CA certificate file
+	ProxyCACertFileName = "proxy-ca.crt"
+	// ProxyCACertVolumeName is the name of the volume for the proxy CA certificate
+	ProxyCACertVolumeName = "proxy-ca"
 	// RAGVolumeName is the name of the volume hosting customized RAG content
 	RAGVolumeName = "rag"
 	// RAGVolumeMountPath is the path of the volume hosting customized RAG content

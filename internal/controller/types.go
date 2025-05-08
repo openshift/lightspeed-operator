@@ -97,6 +97,8 @@ type OLSConfig struct {
 	CertificateDirectory string `json:"certificate_directory,omitempty"`
 	// Enable Introspection features
 	IntrospectionEnabled bool `json:"introspection_enabled,omitempty"`
+	// Proxy settings
+	ProxyConfig *ProxyConfig `json:"proxy_config,omitempty"`
 }
 
 type LoggingConfig struct {
@@ -177,4 +179,11 @@ type UserDataCollectorConfig struct {
 	DataStorage string `json:"data_storage,omitempty"`
 	// Collector logging level
 	LogLevel string `json:"log_level,omitempty"`
+}
+
+type ProxyConfig struct {
+	// Proxy URL
+	ProxyURL string `json:"proxy_url,omitempty"`
+	// ProxyCACertPath is the path to the CA certificate for the proxy server
+	ProxyCACertPath string `json:"proxy_ca_cert_path,omitempty"`
 }

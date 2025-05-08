@@ -709,6 +709,31 @@ spec:
                     - ERROR
                     - CRITICAL
                     type: string
+                  proxyConfig:
+                    description: Proxy settings for connecting to external servers,
+                      such as LLM providers.
+                    properties:
+                      proxyCACertificate:
+                        description: The configmap holding proxy CA certificate
+                        properties:
+                          name:
+                            default: ""
+                            description: |-
+                              Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      proxyURL:
+                        description: |-
+                          Proxy URL, e.g. https://proxy.example.com:8080
+                          If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+                        pattern: ^https?://.*$
+                        type: string
+                    type: object
                   queryFilters:
                     description: Query filters
                     items:
