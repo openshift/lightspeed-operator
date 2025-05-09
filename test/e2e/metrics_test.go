@@ -82,6 +82,8 @@ var _ = Describe("Prometheus Metrics", FlakeAttempts(5), Ordered, func() {
 	})
 
 	AfterAll(func() {
+		err = mustGather("metrics_test")
+		Expect(err).NotTo(HaveOccurred())
 		for _, cleanUp := range cleanUpFuncs {
 			cleanUp()
 		}
