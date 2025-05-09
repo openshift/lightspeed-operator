@@ -422,7 +422,7 @@ spec:
                       - --cert-dir=/etc/tls/private
                       - --service-image=quay.io/openshift-lightspeed/lightspeed-service-api:latest
                       - --console-image=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
-                      - --postgres-image=registry.redhat.io/rhel9/postgresql-16:9.5-1732622748
+                      - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:6d2cab6cb6366b26fcf4591fe22aa5e8212a3836c34c896bb65977a8e50d658b
                     command:
                       - /manager
                     env:

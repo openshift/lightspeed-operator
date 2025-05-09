@@ -39,7 +39,7 @@ patches:
         value: --console-image=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
       - op: add
         path: /spec/template/spec/containers/0/args/-
-        value: --postgres-image=registry.redhat.io/rhel9/postgresql-16:9.5-1732622748
+        value: --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:6d2cab6cb6366b26fcf4591fe22aa5e8212a3836c34c896bb65977a8e50d658b
       - op: replace
         path: /spec/template/spec/containers/0/image
         value: quay.io/openshift-lightspeed/lightspeed-operator:latest
