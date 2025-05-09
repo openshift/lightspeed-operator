@@ -130,7 +130,9 @@ var _ = Describe("App postgres server assets", func() {
 			{
 				Name: PostgresDataVolume,
 				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: PostgresPVCName,
+					},
 				},
 			},
 			{
