@@ -78,7 +78,7 @@ func mustGather(test_case string) error {
 		artifact_dir = "/artifacts"
 	}
 	llmProvider := os.Getenv(LLMProviderEnvVar)
-	clusterDir := "." + artifact_dir + "/" + llmProvider + "/" + test_case
+	clusterDir := artifact_dir + "/" + llmProvider + "/" + test_case
 	err = os.MkdirAll(clusterDir, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create folder %w", err)
