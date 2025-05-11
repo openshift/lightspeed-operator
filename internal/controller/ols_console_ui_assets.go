@@ -139,6 +139,10 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: &[]bool{false}[0],
+								ReadOnlyRootFilesystem:   &[]bool{true}[0],
+							},
 							ImagePullPolicy: corev1.PullAlways,
 							Env:             getProxyEnvVars(),
 							Resources:       *resources,

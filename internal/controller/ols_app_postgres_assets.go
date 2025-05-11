@@ -192,6 +192,10 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: &[]bool{false}[0],
+								ReadOnlyRootFilesystem:   &[]bool{true}[0],
+							},
 							VolumeMounts: volumeMounts,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
