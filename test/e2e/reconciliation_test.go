@@ -151,7 +151,9 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 				cr.Spec.OLSConfig.LogLevel = "DEBUG"
 			}
 			err = client.Update(cr)
-			Expect(err).NotTo(HaveOccurred())
+			if err != nil {
+				return err
+			}
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      AppServerConfigMapName,
@@ -183,7 +185,9 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			}
 
 			err = client.Update(cr)
-			Expect(err).NotTo(HaveOccurred())
+			if err != nil {
+				return err
+			}
 			By("wait for the app configmap to be updated")
 			configMap = &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -210,7 +214,9 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 
 			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = LLMTokenSecondSecretName
 			err = client.Update(cr)
-			Expect(err).NotTo(HaveOccurred())
+			if err != nil {
+				return err
+			}
 
 			By("check the app deployment generation that should be inscreased")
 			err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
