@@ -125,7 +125,6 @@ var _ = Describe("App server assets", func() {
 						TranscriptsDisabled: false,
 						TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 					},
-					IntrospectionEnabled: false,
 				},
 				LLMProviders: []ProviderConfig{
 					{
@@ -270,11 +269,17 @@ var _ = Describe("App server assets", func() {
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 
-			var olsConfigMap map[string]interface{}
-			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
+			var appSrvConfigFile AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &appSrvConfigFile)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", MatchKeys(Options(IgnoreExtras), Keys{
-				"introspection_enabled": Equal(true),
+			Expect(appSrvConfigFile.MCPServers).NotTo(BeEmpty())
+			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("openshift"),
+				"Transport": Equal(Stdio),
+				"Stdio": PointTo(MatchFields(IgnoreExtras, Fields{
+					"Command": Equal("python"),
+					"Args":    ContainElement("./mcp_local/openshift.py"),
+				})),
 			})))
 		})
 
