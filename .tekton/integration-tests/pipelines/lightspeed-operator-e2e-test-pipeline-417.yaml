@@ -263,6 +263,8 @@ spec:
                 value: "$(params.commit)"
               - name: ARTIFACT_DIR
                 value: "/workspace"
+              - name: COMMIT_SHA
+                value: "$(params.commit)"
             image: registry.redhat.io/openshift4/ose-cli:latest
             script: |
               echo "---------------------------------------------"
