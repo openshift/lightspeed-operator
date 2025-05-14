@@ -145,6 +145,9 @@ spec:
               secretName: openai
           - name: credentials
             emptyDir: {}
+          - name: ols-konflux-artifacts-bot-creds
+            secret:
+              secretName: ols-konflux-artifacts-bot
         params:
           - name: bundle-image
           - name: commit
@@ -167,6 +170,13 @@ spec:
               - name: credentials
                 value: credentials
           - name: run-e2e-tests
+            onError: continue
+            resources:
+              requests:
+                cpu: '1'
+                memory: 1Gi
+              limits:
+                memory: 10Gi
             volumeMounts:
               - name: openai-token
                 mountPath: /var/run/openai
@@ -236,3 +246,54 @@ spec:
               echo "---------------------------------------------"
               echo "---------------------------------------------"
               npx cypress run -- --disable-gpu
+          - name: gather-cluster-resources
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
+            params:
+              - name: credentials
+                value: "credentials"
+              - name: kubeconfig
+                value: "$(steps.get-kubeconfig.results.kubeconfig)"
+              - name: artifact-dir
+                value: "/workspace/konflux-artifacts"
+          # validate that the cluster resources are available in another tekton step
+          - name: list-artifacts
+            image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+            workingDir: "/workspace"
+            script: |
+              #!/bin/bash
+              ls -la /workspace
+          - name: push-artifacts
+            ref: 
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
+            params:
+              - name: workdir-path
+                value: /workspace
+              - name: oci-ref
+                value: "quay.io/openshift-lightspeed/ols-console-artifacts:415$(params.commit)"
+              - name: credentials-volume-name
+                value: ols-konflux-artifacts-bot-creds
+          - name: fail-if-any-step-failed
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
