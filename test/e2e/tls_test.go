@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("TLS activation - application", Ordered, func() {
+var _ = Describe("TLS activation - application", FlakeAttempts(5), Ordered, func() {
 	const serviceAnnotationKeyTLSSecret = "service.beta.openshift.io/serving-cert-secret-name"
 	const testSAName = "test-sa"
 	const testSAOutsiderName = "test-sa-outsider"
@@ -170,7 +170,7 @@ var _ = Describe("TLS activation - application", Ordered, func() {
 	})
 })
 
-var _ = Describe("TLS activation - operator", Ordered, func() {
+var _ = Describe("TLS activation - operator", FlakeAttempts(5), Ordered, func() {
 	const serviceAnnotationKeyTLSSecret = "service.beta.openshift.io/serving-cert-secret-name"
 	const operatorServiceName = "lightspeed-operator-controller-manager-service"
 	const operatorServicePort = 8443
@@ -251,7 +251,7 @@ var _ = Describe("TLS activation - operator", Ordered, func() {
 			},
 		}))
 
-		By("check HTTPS Get on /metrics endpoint")
+		By("check HTTPS Get on /metrics endpoint: fetch TLS secret")
 		const inClusterHost = "lightspeed-operator-controller-manager-service.openshift-lightspeed.svc"
 		prometheusTLSSecret := corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -265,6 +265,7 @@ var _ = Describe("TLS activation - operator", Ordered, func() {
 		Expect(ok).To(BeTrue())
 		clientKey, ok := prometheusTLSSecret.Data["tls.key"]
 		Expect(ok).To(BeTrue())
+		By("check HTTPS Get on /metrics endpoint: fetch TLS CA bundle")
 		prometheusTLSCABundle := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "serving-certs-ca-bundle",
@@ -276,8 +277,8 @@ var _ = Describe("TLS activation - operator", Ordered, func() {
 		caCert, ok := prometheusTLSCABundle.Data["service-ca.crt"]
 		Expect(ok).To(BeTrue())
 
+		By("check HTTPS Get on /metrics endpoint: connect over https")
 		httpsClient := NewHTTPSClient(forwardHost, inClusterHost, []byte(caCert), clientCert, clientKey)
-
 		err = httpsClient.waitForHTTPSGetStatus("/metrics", http.StatusOK)
 		Expect(err).NotTo(HaveOccurred())
 

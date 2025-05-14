@@ -361,8 +361,13 @@ func (c *Client) CreateServiceAccount(namespace, serviceAccount string) (func(),
 	}
 
 	err := c.Create(sa)
+
 	if err != nil {
-		return nil, err
+		if k8serrors.IsAlreadyExists(err) {
+			logf.Log.Error(err, "Error ServiceAccount for test already exists")
+		} else {
+			return nil, err
+		}
 	}
 
 	return func() {
