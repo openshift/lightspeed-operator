@@ -21,7 +21,8 @@ func hashBytes(sourceStr []byte) (string, error) { // nolint:unused
 }
 
 func WriteResourceToFile(client *Client, clusterDir string, filename string, resource string) error {
-	ctx, _ := context.WithCancel(client.ctx)
+	ctx, cancel := context.WithCancel(client.ctx)
+	defer cancel()
 	// Create file and file handler
 	f, err := os.OpenFile(clusterDir+"/"+filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -38,7 +39,8 @@ func WriteResourceToFile(client *Client, clusterDir string, filename string, res
 }
 
 func WriteLogsToFile(client *Client, clusterDir string) error {
-	ctx, _ := context.WithCancel(client.ctx)
+	ctx, cancel := context.WithCancel(client.ctx)
+	defer cancel()
 	// Create file and file handler
 
 	// Execute command and write output to file
