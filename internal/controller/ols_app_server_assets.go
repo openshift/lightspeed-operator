@@ -142,6 +142,24 @@ func (r *OLSConfigReconciler) checkLLMCredentials(ctx context.Context, cr *olsv1
 	return nil
 }
 
+func (r *OLSConfigReconciler) postgresCacheConfig(cr *olsv1alpha1.OLSConfig) PostgresCacheConfig {
+	postgresSecretName := PostgresSecretName
+	postgresConfig := cr.Spec.OLSConfig.ConversationCache.Postgres
+	if postgresConfig.CredentialsSecret != "" {
+		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
+	}
+	postgresPasswordPath := path.Join(CredentialsMountRoot, postgresSecretName, OLSComponentPasswordFileName)
+	return PostgresCacheConfig{
+		Host:         strings.Join([]string{PostgresServiceName, r.Options.Namespace, "svc"}, "."),
+		Port:         PostgresServicePort,
+		User:         PostgresDefaultUser,
+		DbName:       PostgresDefaultDbName,
+		PasswordPath: postgresPasswordPath,
+		SSLMode:      PostgresDefaultSSLMode,
+		CACertPath:   path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
+	}
+}
+
 func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
 	providerConfigs := []ProviderConfig{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
@@ -184,23 +202,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
 
-	postgresSecretName := PostgresSecretName
-	postgresConfig := cr.Spec.OLSConfig.ConversationCache.Postgres
-	if postgresConfig.CredentialsSecret != "" {
-		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
-	}
-	postgresPasswordPath := path.Join(CredentialsMountRoot, postgresSecretName, OLSComponentPasswordFileName)
 	conversationCache := ConversationCacheConfig{
-		Type: string(OLSDefaultCacheType),
-		Postgres: PostgresCacheConfig{
-			Host:         strings.Join([]string{PostgresServiceName, r.Options.Namespace, "svc"}, "."),
-			Port:         PostgresServicePort,
-			User:         PostgresDefaultUser,
-			DbName:       PostgresDefaultDbName,
-			PasswordPath: postgresPasswordPath,
-			SSLMode:      PostgresDefaultSSLMode,
-			CACertPath:   path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
-		},
+		Type:     string(OLSDefaultCacheType),
+		Postgres: r.postgresCacheConfig(cr),
 	}
 
 	major, minor, err := r.getClusterVersion(ctx)
@@ -259,6 +263,29 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 		},
 		IntrospectionEnabled: cr.Spec.OLSConfig.IntrospectionEnabled,
+	}
+
+	if cr.Spec.OLSConfig.QuotaHandlersConfig != nil {
+		olsConfig.QuotaHandlersConfig = &QuotaHandlersConfig{
+			Storage: r.postgresCacheConfig(cr),
+			Scheduler: SchedulerConfig{
+				Period: 300,
+			},
+			LimitersConfig:     []LimiterConfig{},
+			EnableTokenHistory: cr.Spec.OLSConfig.QuotaHandlersConfig.EnableTokenHistory,
+		}
+		for _, lc := range cr.Spec.OLSConfig.QuotaHandlersConfig.LimitersConfig {
+			olsConfig.QuotaHandlersConfig.LimitersConfig = append(
+				olsConfig.QuotaHandlersConfig.LimitersConfig,
+				LimiterConfig{
+					Name:          lc.Name,
+					Type:          lc.Type,
+					InitialQuota:  lc.InitialQuota,
+					QuotaIncrease: lc.QuotaIncrease,
+					Period:        lc.Period,
+				},
+			)
+		}
 	}
 
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {

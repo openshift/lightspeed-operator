@@ -97,6 +97,40 @@ type OLSConfig struct {
 	CertificateDirectory string `json:"certificate_directory,omitempty"`
 	// Enable Introspection features
 	IntrospectionEnabled bool `json:"introspection_enabled,omitempty"`
+	// LLM Token Quota Configuration
+	QuotaHandlersConfig *QuotaHandlersConfig `json:"quota_handlers,omitempty"`
+}
+
+// QuotaHandlersConfig defines the token quota configuration
+type QuotaHandlersConfig struct {
+	// Postgres connection details
+	Storage PostgresCacheConfig `json:"storage,omitempty"`
+	// Quota scheduler settings
+	Scheduler SchedulerConfig `json:"scheduler,omitempty"`
+	// Token quota limiters
+	LimitersConfig []LimiterConfig `json:"limiters,omitempty"`
+	// Enable token history
+	EnableTokenHistory bool `json:"enable_token_history,omitempty"`
+}
+
+// LimiterConfig defines settings for a token quota limiter
+type LimiterConfig struct {
+	// Name of the limiter
+	Name string `json:"name"`
+	// Type of the limiter
+	Type string `json:"type"`
+	// Initial value of the token quota
+	InitialQuota int `json:"initial_quota"`
+	// Token quota increase step
+	QuotaIncrease int `json:"quota_increase"`
+	// Period of time the token quota is for
+	Period string `json:"period"`
+}
+
+// Scheduler configuration
+type SchedulerConfig struct {
+	// How often token quota is checked, sec
+	Period int `json:"period,omitempty"`
 }
 
 type LoggingConfig struct {

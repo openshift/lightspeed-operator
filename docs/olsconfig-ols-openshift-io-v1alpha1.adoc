@@ -503,6 +503,14 @@ Required::
 | `array`
 | Query filters
 
+| `quotaHandlersConfig`
+| `object`
+| LLM Token Quota Configuration
+
+| `rag`
+| `array`
+| RAG databases
+
 | `tlsConfig`
 | `object`
 | TLS configuration of the Lightspeed backend's HTTPS endpoint
@@ -1168,6 +1176,136 @@ Type::
 | `replaceWith`
 | `string`
 | Replacement for the matched pattern.
+
+|===
+== .spec.ols.quotaHandlersConfig
+Description::
++
+--
+LLM Token Quota Configuration
+--
+
+Type::
+  `object`
+
+
+
+
+[cols="1,1,1",options="header"]
+|===
+| Property | Type | Description
+
+| `enableTokenHistory`
+| `boolean`
+| Enable token history
+
+| `limitersConfig`
+| `array`
+| Token quota limiters
+
+|===
+== .spec.ols.quotaHandlersConfig.limitersConfig
+Description::
++
+--
+Token quota limiters
+--
+
+Type::
+  `array`
+
+
+
+
+== .spec.ols.quotaHandlersConfig.limitersConfig[]
+Description::
++
+--
+LimiterConfig defines settings for a token quota limiter
+--
+
+Type::
+  `object`
+
+Required::
+  - `initialQuota`
+  - `name`
+  - `period`
+  - `quotaIncrease`
+  - `type`
+
+
+
+[cols="1,1,1",options="header"]
+|===
+| Property | Type | Description
+
+| `initialQuota`
+| `integer`
+| Initial value of the token quota
+
+| `name`
+| `string`
+| Name of the limiter
+
+| `period`
+| `string`
+| Period of time the token quota is for
+
+| `quotaIncrease`
+| `integer`
+| Token quota increase step
+
+| `type`
+| `string`
+| Type of the limiter
+
+|===
+== .spec.ols.rag
+Description::
++
+--
+RAG databases
+--
+
+Type::
+  `array`
+
+
+
+
+== .spec.ols.rag[]
+Description::
++
+--
+RAGSpec defines how to retrieve a RAG databases.
+--
+
+Type::
+  `object`
+
+Required::
+  - `image`
+  - `indexID`
+  - `indexPath`
+
+
+
+[cols="1,1,1",options="header"]
+|===
+| Property | Type | Description
+
+| `image`
+| `string`
+| The URL of the container image to use as a RAG source
+
+| `indexID`
+| `string`
+| The Index ID of the RAG database
+
+| `indexPath`
+| `string`
+| The path to the RAG database inside of the container image
 
 |===
 == .spec.ols.tlsConfig
