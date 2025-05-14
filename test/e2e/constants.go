@@ -57,7 +57,10 @@ const (
 	ConsoleUIPluginName = "lightspeed-console-plugin"
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
 	ConsoleUIConfigMapName = "lightspeed-console-plugin"
-
+	// ArtifactDir is the relative path to where the artifacts will be exported to
+	ArtifactDir = "ARTIFACT_DIR"
+	// serverContainerName is the name of the app-server container
+	ServerContainerName = "lightspeed-service-api"
 	// OLSConsolePluginServiceHTTPSPort is the port number of the OLS console plugin service
 	OLSConsolePluginServiceHTTPSPort = 9443
 	// AppServerConfigMapName is the name of the OLS application server config map
