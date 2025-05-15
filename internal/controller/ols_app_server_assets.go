@@ -262,7 +262,6 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			TranscriptsDisabled: cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled || !dataCollectorEnabled,
 			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 		},
-		IntrospectionEnabled: cr.Spec.OLSConfig.IntrospectionEnabled,
 	}
 
 	if cr.Spec.OLSConfig.QuotaHandlersConfig != nil {
@@ -306,21 +305,29 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		olsConfig.QueryFilters = queryFilters
 	}
 
-	userDataCollectorConfig := UserDataCollectorConfig{
-		DataStorage: "/app-root/ols-user-data",
-		LogLevel:    cr.Spec.OLSDataCollectorConfig.LogLevel,
+	appSrvConfigFile := AppSrvConfigFile{
+		LLMProviders: providerConfigs,
+		OLSConfig:    olsConfig,
 	}
-	var appSrvConfigFile AppSrvConfigFile
 	if dataCollectorEnabled {
-		appSrvConfigFile = AppSrvConfigFile{
-			LLMProviders:            providerConfigs,
-			OLSConfig:               olsConfig,
-			UserDataCollectorConfig: userDataCollectorConfig,
+		appSrvConfigFile.UserDataCollectorConfig = UserDataCollectorConfig{
+			DataStorage: "/app-root/ols-user-data",
+			LogLevel:    cr.Spec.OLSDataCollectorConfig.LogLevel,
 		}
-	} else {
-		appSrvConfigFile = AppSrvConfigFile{
-			LLMProviders: providerConfigs,
-			OLSConfig:    olsConfig,
+	}
+
+	if cr.Spec.OLSConfig.IntrospectionEnabled {
+		appSrvConfigFile.MCPServers = []MCPServerConfig{
+			{
+				Name:      "openshift",
+				Transport: "stdio",
+				Stdio: &StdioTransportConfig{
+					Command: "python",
+					Args: []string{
+						"./mcp_local/openshift.py",
+					},
+				},
+			},
 		}
 	}
 

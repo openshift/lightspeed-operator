@@ -6,7 +6,7 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
-/*** controller inernal ***/
+/*** controller internal ***/
 type ReconcileFunc func(context.Context, *olsv1alpha1.OLSConfig) error
 type ReconcileTask struct {
 	Name string
@@ -25,6 +25,7 @@ type AppSrvConfigFile struct {
 	LLMProviders            []ProviderConfig        `json:"llm_providers"`
 	OLSConfig               OLSConfig               `json:"ols_config,omitempty"`
 	UserDataCollectorConfig UserDataCollectorConfig `json:"user_data_collector_config,omitempty"`
+	MCPServers              []MCPServerConfig       `json:"mcp_servers,omitempty"`
 }
 
 type ProviderConfig struct {
@@ -95,8 +96,6 @@ type OLSConfig struct {
 	ExtraCAs []string `json:"extra_ca,omitempty"`
 	// Path to the directory containing the certificates bundle in the app server container.
 	CertificateDirectory string `json:"certificate_directory,omitempty"`
-	// Enable Introspection features
-	IntrospectionEnabled bool `json:"introspection_enabled,omitempty"`
 	// LLM Token Quota Configuration
 	QuotaHandlersConfig *QuotaHandlersConfig `json:"quota_handlers,omitempty"`
 }
@@ -211,4 +210,44 @@ type UserDataCollectorConfig struct {
 	DataStorage string `json:"data_storage,omitempty"`
 	// Collector logging level
 	LogLevel string `json:"log_level,omitempty"`
+}
+
+type MCPTransport string
+
+const (
+	SSE   MCPTransport = "sse"
+	Stdio MCPTransport = "stdio"
+)
+
+type MCPServerConfig struct {
+	// MCP server name
+	Name string `json:"name"`
+	// MCP server transport - stdio or sse
+	Transport MCPTransport `json:"transport"`
+	// Transport settings if the transport is stdio
+	Stdio *StdioTransportConfig `json:"stdio,omitempty"`
+	// Transport settings if the transport is sse
+	SSE *SSETransportConfig `json:"sse,omitempty"`
+}
+
+type StdioTransportConfig struct {
+	// Command to run
+	Command string `json:"command,omitempty"`
+	// Command-line parameters for the command
+	Args []string `json:"args,omitempty"`
+	// Environment variables for the command
+	Env map[string]string `json:"env,omitempty"`
+	// The working directory for the command
+	Cwd string `json:"cwd,omitempty"`
+	// Encoding for the text exchanged with the command
+	Encoding string `json:"encoding,omitempty"`
+}
+
+type SSETransportConfig struct {
+	// URL of the MCP server
+	URL string `json:"url,omitempty"`
+	// Overall timeout for the MCP server
+	Timeout int `json:"timeout,omitempty"`
+	// SSE read timeout for the MCP server
+	SSEReadTimeout int `json:"sse_read_timeout,omitempty"`
 }
