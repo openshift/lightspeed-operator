@@ -23,7 +23,7 @@ var _ = Describe("App postgres server assets", func() {
 	var r *OLSConfigReconciler
 	var rOptions *OLSConfigReconcilerOptions
 
-	validatePostgresDeployment := func(dep *appsv1.Deployment, password string) {
+	validatePostgresDeployment := func(dep *appsv1.Deployment, password string, with_pvc bool) {
 		replicas := int32(1)
 		revisionHistoryLimit := int32(1)
 		defaultPermission := int32(0600)
@@ -101,7 +101,7 @@ var _ = Describe("App postgres server assets", func() {
 				ReadOnly:  true,
 			},
 		}))
-		Expect(dep.Spec.Template.Spec.Volumes).To(Equal([]corev1.Volume{
+		expectedVolumes := []corev1.Volume{
 			{
 				Name: "secret-" + PostgresCertsSecretName,
 				VolumeSource: corev1.VolumeSource{
@@ -127,21 +127,33 @@ var _ = Describe("App postgres server assets", func() {
 					},
 				},
 			},
-			{
+		}
+		if with_pvc {
+			expectedVolumes = append(expectedVolumes, corev1.Volume{
+				Name: PostgresDataVolume,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: PostgresPVCName,
+					},
+				},
+			})
+		} else {
+			expectedVolumes = append(expectedVolumes, corev1.Volume{
 				Name: PostgresDataVolume,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
-			},
-			{
-				Name: PostgresCAVolume,
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
-					},
+			})
+		}
+		expectedVolumes = append(expectedVolumes, corev1.Volume{
+			Name: PostgresCAVolume,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
 				},
 			},
-		}))
+		})
+		Expect(dep.Spec.Template.Spec.Volumes).To(Equal(expectedVolumes))
 	}
 
 	validatePostgresService := func(service *corev1.Service, err error) {
@@ -206,6 +218,31 @@ var _ = Describe("App postgres server assets", func() {
 		Expect(networkPolicy.Spec.PodSelector.MatchLabels).To(Equal(generatePostgresSelectorLabels()))
 	}
 
+	createAndValidatePostgresDeployment := func(with_pvc bool) {
+		if with_pvc {
+			cr.Spec.OLSConfig.Storage = &olsv1alpha1.Storage{}
+		}
+		cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-1"
+		secret, _ := r.generatePostgresSecret(cr)
+		secret.SetOwnerReferences([]metav1.OwnerReference{
+			{
+				Kind:       "Secret",
+				APIVersion: "v1",
+				UID:        "ownerUID",
+				Name:       "dummy-secret-1",
+			},
+		})
+		secretCreationErr := r.Create(ctx, secret)
+		Expect(secretCreationErr).NotTo(HaveOccurred())
+		passwordMap, _ := getSecretContent(r.Client, secret.Name, cr.Namespace, []string{OLSComponentPasswordFileName}, secret)
+		password := passwordMap[OLSComponentPasswordFileName]
+		deployment, err := r.generatePostgresDeployment(cr)
+		Expect(err).NotTo(HaveOccurred())
+		validatePostgresDeployment(deployment, password, with_pvc)
+		secretDeletionErr := r.Delete(ctx, secret)
+		Expect(secretDeletionErr).NotTo(HaveOccurred())
+	}
+
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
@@ -223,25 +260,11 @@ var _ = Describe("App postgres server assets", func() {
 		})
 
 		It("should generate the OLS postgres deployment", func() {
-			cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-1"
-			secret, _ := r.generatePostgresSecret(cr)
-			secret.SetOwnerReferences([]metav1.OwnerReference{
-				{
-					Kind:       "Secret",
-					APIVersion: "v1",
-					UID:        "ownerUID",
-					Name:       "dummy-secret-1",
-				},
-			})
-			secretCreationErr := r.Create(ctx, secret)
-			Expect(secretCreationErr).NotTo(HaveOccurred())
-			passwordMap, _ := getSecretContent(r.Client, secret.Name, cr.Namespace, []string{OLSComponentPasswordFileName}, secret)
-			password := passwordMap[OLSComponentPasswordFileName]
-			deployment, err := r.generatePostgresDeployment(cr)
-			Expect(err).NotTo(HaveOccurred())
-			validatePostgresDeployment(deployment, password)
-			secretDeletionErr := r.Delete(ctx, secret)
-			Expect(secretDeletionErr).NotTo(HaveOccurred())
+			createAndValidatePostgresDeployment(false)
+		})
+
+		It("should generate the OLS postgres deployment with a PVC data volume", func() {
+			createAndValidatePostgresDeployment(true)
 		})
 
 		It("should work when no update in the OLS postgres deployment", func() {
@@ -394,7 +417,7 @@ var _ = Describe("App postgres server assets", func() {
 			password := passwordMap[OLSComponentPasswordFileName]
 			deployment, err := r.generatePostgresDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
-			validatePostgresDeployment(deployment, password)
+			validatePostgresDeployment(deployment, password, false)
 			secretDeletionErr := r.Delete(ctx, secret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})

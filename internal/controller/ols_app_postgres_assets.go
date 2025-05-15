@@ -11,6 +11,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -59,7 +60,7 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 
 	passwordMap, err := getSecretContent(r.Client, postgresSecretName, r.Options.Namespace, []string{OLSComponentPasswordFileName}, &corev1.Secret{})
 	if err != nil {
-		return nil, fmt.Errorf("Password is a must to start postgres deployment : %w", err)
+		return nil, fmt.Errorf("password is needed to start postgres deployment : %w", err)
 	}
 	postgresPassword := passwordMap[OLSComponentPasswordFileName]
 	if cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers == "" {
@@ -94,12 +95,22 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 			},
 		},
 	}
+
 	dataVolume := corev1.Volume{
 		Name: PostgresDataVolume,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
 	}
+	if cr.Spec.OLSConfig.Storage != nil {
+		dataVolume.VolumeSource = corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: PostgresPVCName,
+			},
+		}
+	} else {
+		dataVolume.VolumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		}
+	}
+
 	volumes := []corev1.Volume{tlsCertsVolume, bootstrapVolume, configVolume, dataVolume, getPostgresCAConfigVolume()}
 	postgresTLSVolumeMount := corev1.VolumeMount{
 		Name:      "secret-" + PostgresCertsSecretName,
@@ -379,4 +390,56 @@ func (r *OLSConfigReconciler) generatePostgresNetworkPolicy(cr *olsv1alpha1.OLSC
 		return nil, err
 	}
 	return &np, nil
+}
+
+func (r *OLSConfigReconciler) storageDefaults(s *olsv1alpha1.Storage) error {
+	if s.Size == "" {
+		s.Size = PostgresDefaultPVCSize
+	}
+	if s.Class == "" {
+		var scList storagev1.StorageClassList
+		ctx := context.Background()
+		if err := r.List(ctx, &scList); err == nil {
+			for _, sc := range scList.Items {
+				if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+					s.Class = sc.Name
+				}
+			}
+		}
+		if s.Class == "" {
+			return fmt.Errorf("no storage class specified and no default storage class configured")
+		}
+	}
+	return nil
+}
+
+func (r *OLSConfigReconciler) generatePostgresPVC(cr *olsv1alpha1.OLSConfig) (*corev1.PersistentVolumeClaim, error) {
+
+	storage := cr.Spec.OLSConfig.Storage
+	if err := r.storageDefaults(storage); err != nil {
+		return nil, err
+	}
+
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      PostgresPVCName,
+			Namespace: r.Options.Namespace,
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.PersistentVolumeAccessMode("ReadWriteOnce"),
+			},
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse(storage.Size),
+				},
+			},
+			StorageClassName: &storage.Class,
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, pvc, r.Scheme); err != nil {
+		return nil, err
+	}
+	return pvc, nil
 }

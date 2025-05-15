@@ -135,51 +135,51 @@ const (
 	WatcherAnnotationKey = "ols.openshift.io/watcher"
 
 	/*** Postgres Constants ***/
-	// PostgresCAVolume is the name of the OLS postgres TLS ca certificate volume name
+	// PostgresCAVolume is the name of the OLS Postgres TLS ca certificate volume name
 	PostgresCAVolume = "cm-olspostgresca"
-	// PostgresDeploymentName is the name of OLS application postgres deployment
+	// PostgresDeploymentName is the name of OLS application Postgres deployment
 	PostgresDeploymentName = "lightspeed-postgres-server"
-	// PostgresSecretKeyName is the name of the key holding postgres server secret
+	// PostgresSecretKeyName is the name of the key holding Postgres server secret
 	PostgresSecretKeyName = "password"
 	// Image of the OLS application postgres server
 	PostgresServerImageDefault = "registry.redhat.io/rhel9/postgresql-16@sha256:6d2cab6cb6366b26fcf4591fe22aa5e8212a3836c34c896bb65977a8e50d658b"
 	// PostgresDefaultUser is the default user name for postgres
 	PostgresDefaultUser = "postgres"
-	// PostgresDefaultDbName is the default db name for postgres
+	// PostgresDefaultDbName is the default db name for Postgres
 	PostgresDefaultDbName = "postgres"
-	// PostgresConfigHashKey is the key of the hash value of the OLS's postgres config
+	// PostgresConfigHashKey is the key of the hash value of the OLS's Postgres config
 	PostgresConfigHashKey = "hash/olspostgresconfig"
 	// PostgresSecretHashKey is the key of the hash value of OLS Postgres secret
 	// #nosec G101
 	PostgresSecretHashKey = "hash/postgres-secret"
-	// PostgresServiceName is the name of OLS application postgres server service
+	// PostgresServiceName is the name of OLS application Postgres server service
 	PostgresServiceName = "lightspeed-postgres-server"
-	// PostgresSecretName is the name of OLS application postgres secret
+	// PostgresSecretName is the name of OLS application Postgres secret
 	PostgresSecretName = "lightspeed-postgres-secret"
-	// PostgresCertsSecretName is the name of the postgres certs secret
+	// PostgresCertsSecretName is the name of the Postgres certs secret
 	PostgresCertsSecretName = "lightspeed-postgres-certs"
-	// PostgresBootstrapSecretName is the name of the postgres bootstrap secret
+	// PostgresBootstrapSecretName is the name of the Postgres bootstrap secret
 	// #nosec G101
 	PostgresBootstrapSecretName = "lightspeed-postgres-bootstrap"
 	// PostgresBootstrapVolumeMountPath is the path of bootstrap volume mount
 	PostgresBootstrapVolumeMountPath = "/usr/share/container-scripts/postgresql/start/create-extensions.sh"
-	// PostgresExtensionScript is the name of the postgres extensions script
+	// PostgresExtensionScript is the name of the Postgres extensions script
 	PostgresExtensionScript = "create-extensions.sh"
-	// PostgresConfigMap is the name of the postgres config map
+	// PostgresConfigMap is the name of the Postgres config map
 	PostgresConfigMap = "lightspeed-postgres-conf"
-	// PostgresConfigVolumeMountPath is the path of postgres configuration volume mount
+	// PostgresConfigVolumeMountPath is the path of Postgres configuration volume mount
 	PostgresConfigVolumeMountPath = "/usr/share/pgsql/postgresql.conf.sample"
-	// PostgresConfig is the name of postgres configuration used to start the server
+	// PostgresConfig is the name of Postgres configuration used to start the server
 	PostgresConfig = "postgresql.conf.sample"
-	// PostgresDataVolume is the name of postgres data volume
+	// PostgresDataVolume is the name of Postgres data volume
 	PostgresDataVolume = "postgres-data"
-	// PostgresDataVolumeMountPath is the path of postgres data volume mount
+	// PostgresDataVolumeMountPath is the path of Postgres data volume mount
 	PostgresDataVolumeMountPath = "/var/lib/pgsql/data"
-	// PostgresServicePort is the port number of the OLS postgres server service
+	// PostgresServicePort is the port number of the OLS Postgres server service
 	PostgresServicePort = 5432
-	// PostgresSharedBuffers is the share buffers value for postgres cache
+	// PostgresSharedBuffers is the share buffers value for Postgres cache
 	PostgresSharedBuffers = "256MB"
-	// PostgresMaxConnections is the max connections values for postgres cache
+	// PostgresMaxConnections is the max connections values for Postgres cache
 	PostgresMaxConnections = 2000
 	// PostgresDefaultSSLMode is the default ssl mode for postgres
 	PostgresDefaultSSLMode = "require"
@@ -205,6 +205,12 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 `
 	// PostgresNetworkPolicyName is the name of the network policy for the OLS postgres server
 	PostgresNetworkPolicyName = "lightspeed-postgres-server"
+
+	// PostgresPVCName is the name of the PVC for the OLS Postgres server
+	PostgresPVCName = "lightspeed-postgres-pvc"
+
+	// PostgresDefaultPVCSize is the default size of the PVC for the OLS Postgres server
+	PostgresDefaultPVCSize = "1Gi"
 
 	/*** state cache keys ***/
 	// OLSAppTLSHashStateCacheKey is the key of the hash value of the OLS App TLS certificates

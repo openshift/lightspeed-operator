@@ -512,6 +512,7 @@ spec:
                 - configmaps
                 - serviceaccounts
                 - services
+                - persistentvolumeclaims
               verbs:
                 - create
                 - delete
