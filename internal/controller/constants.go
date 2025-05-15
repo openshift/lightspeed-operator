@@ -142,7 +142,7 @@ const (
 	// PostgresSecretKeyName is the name of the key holding postgres server secret
 	PostgresSecretKeyName = "password"
 	// Image of the OLS application postgres server
-	PostgresServerImageDefault = "registry.redhat.io/rhel9/postgresql-16:9.5-1732622748"
+	PostgresServerImageDefault = "registry.redhat.io/rhel9/postgresql-16@sha256:6d2cab6cb6366b26fcf4591fe22aa5e8212a3836c34c896bb65977a8e50d658b"
 	// PostgresDefaultUser is the default user name for postgres
 	PostgresDefaultUser = "postgres"
 	// PostgresDefaultDbName is the default db name for postgres
