@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi9/ubi-minimal:9.5 as builder
+FROM registry.redhat.io/ubi9/ubi-minimal:9.6 as builder
 ARG RELATED_IMAGE_FILE=related_images.json
 ARG CSV_FILE=bundle/manifests/lightspeed-operator.clusterserviceversion.yaml
 ARG OPERATOR_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-operator:latest
@@ -19,7 +19,7 @@ RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-tech-preview\/lightspeed-
 RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-tech-preview\/lightspeed-service-api-rhel9/quay.io\/redhat-user-workloads\/crt-nshift-lightspeed-tenant\/ols\/lightspeed-service/g' /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN sed -i 's/registry.redhat.io\/openshift-lightspeed-tech-preview\/lightspeed-console-plugin-rhel9/quay.io\/redhat-user-workloads\/crt-nshift-lightspeed-tenant\/ols\/lightspeed-console/g' /manifests/lightspeed-operator.clusterserviceversion.yaml
 
-FROM registry.redhat.io/ubi9/ubi-minimal:9.5
+FROM registry.redhat.io/ubi9/ubi-minimal:9.6
 
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
