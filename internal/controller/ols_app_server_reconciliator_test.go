@@ -930,4 +930,119 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 	})
 
+	Context("Proxy Settings", Ordered, func() {
+		var secret *corev1.Secret
+		var volumeDefaultMode = int32(420)
+		var cmCACert *corev1.ConfigMap
+		const cmCACertName = "proxy-ca-cert"
+		BeforeEach(func() {
+			By("create the provider secret")
+			secret, _ = generateRandomSecret()
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "test-secret",
+				},
+			})
+			secretCreationErr := reconciler.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			By("create the tls secret")
+			tlsSecret, _ = generateRandomSecret()
+			tlsSecret.Name = OLSCertsSecretName
+			tlsSecret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       OLSCertsSecretName,
+				},
+			})
+			secretCreationErr = reconciler.Create(ctx, tlsSecret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			By("create the config map for proxy CA cert")
+			cmCACert = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cmCACertName,
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string]string{
+					ProxyCACertFileName: testCACert,
+				},
+			}
+			err := reconciler.Create(ctx, cmCACert)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Generate default CR")
+			cr = getDefaultOLSConfigCR()
+		})
+
+		AfterEach(func() {
+			By("Delete the provider secret")
+			secretDeletionErr := reconciler.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+
+			By("Delete the tls secret")
+			secretDeletionErr = reconciler.Delete(ctx, tlsSecret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
+
+			By("Delete the config map for CA cert")
+			err := reconciler.Delete(ctx, cmCACert)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should update the configmap and deployment when changing the proxy CA cert", func() {
+
+			By("Set up a proxy CA cert")
+			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
+				ProxyURL: "https://proxy.example.com:8080",
+				ProxyCACertificateRef: &corev1.LocalObjectReference{
+					Name: cmCACertName,
+				},
+			}
+			err := reconciler.reconcileAppServer(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("check OLS configmap has proxy_ca section")
+			cm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSConfigCmName, Namespace: OLSNamespaceDefault}, cm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Data).To(HaveKey(OLSConfigFilename))
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring(fmt.Sprintf("proxy_ca_cert_path: %s", path.Join(OLSAppCertsMountRoot, ProxyCACertVolumeName, ProxyCACertFileName))))
+
+			By("check the proxy CA configmap has watcher annotation")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: cmCACertName, Namespace: OLSNamespaceDefault}, cm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Annotations).To(HaveKeyWithValue(WatcherAnnotationKey, OLSConfigName))
+
+			By("Get app deployment and check the volume mount")
+			deployment := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, deployment)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElements(
+				corev1.Volume{
+					Name: ProxyCACertVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: cmCACertName,
+							},
+							DefaultMode: &volumeDefaultMode,
+						},
+					},
+				},
+			))
+			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
+				Name:      ProxyCACertVolumeName,
+				MountPath: path.Join(OLSAppCertsMountRoot, ProxyCACertVolumeName),
+				ReadOnly:  true,
+			}))
+
+		})
+
+	})
+
 })

@@ -709,6 +709,31 @@ spec:
                     - ERROR
                     - CRITICAL
                     type: string
+                  proxyConfig:
+                    description: Proxy settings for connecting to external servers,
+                      such as LLM providers.
+                    properties:
+                      proxyCACertificate:
+                        description: The configmap holding proxy CA certificate
+                        properties:
+                          name:
+                            default: ""
+                            description: |-
+                              Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      proxyURL:
+                        description: |-
+                          Proxy URL, e.g. https://proxy.example.com:8080
+                          If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+                        pattern: ^https?://.*$
+                        type: string
+                    type: object
                   queryFilters:
                     description: Query filters
                     items:
@@ -726,16 +751,60 @@ spec:
                           type: string
                       type: object
                     type: array
+                  quotaHandlersConfig:
+                    description: LLM Token Quota Configuration
+                    properties:
+                      enableTokenHistory:
+                        description: Enable token history
+                        type: boolean
+                      limitersConfig:
+                        description: Token quota limiters
+                        items:
+                          description: LimiterConfig defines settings for a token
+                            quota limiter
+                          properties:
+                            initialQuota:
+                              description: Initial value of the token quota
+                              minimum: 0
+                              type: integer
+                            name:
+                              description: Name of the limiter
+                              type: string
+                            period:
+                              description: Period of time the token quota is for
+                              pattern: ^(1\s+(day|month|year|d|m|y)|([2-9][0-9]*|[1-9][0-9]{2,})\s+(days|months|years|d|m|y))$
+                              type: string
+                            quotaIncrease:
+                              description: Token quota increase step
+                              minimum: 0
+                              type: integer
+                            type:
+                              description: Type of the limiter
+                              type: string
+                          required:
+                          - initialQuota
+                          - name
+                          - period
+                          - quotaIncrease
+                          - type
+                          type: object
+                        type: array
+                    type: object
                   rag:
                     description: RAG databases
                     items:
                       description: RAGSpec defines how to retrieve a RAG databases.
                       properties:
                         image:
+                          description: The URL of the container image to use as a
+                            RAG source
                           type: string
                         indexID:
+                          description: The Index ID of the RAG database
                           type: string
                         indexPath:
+                          description: The path to the RAG database inside of the
+                            container image
                           type: string
                       required:
                       - image

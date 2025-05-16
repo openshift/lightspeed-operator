@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-04-10T19:56:20Z"
+    createdAt: "2025-04-22T20:52:12Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -217,6 +217,17 @@ spec:
           - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".'
             displayName: Log level
             path: ols.logLevel
+          - description: Proxy settings for connecting to external servers, such as LLM providers.
+            displayName: Proxy Settings
+            path: ols.proxyConfig
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:advanced
+          - description: The configmap holding proxy CA certificate
+            displayName: Proxy CA Certificate
+            path: ols.proxyConfig.proxyCACertificate
+          - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+            displayName: Proxy URL
+            path: ols.proxyConfig.proxyURL
           - description: Query filters
             displayName: Query Filters
             path: ols.queryFilters
@@ -229,16 +240,47 @@ spec:
           - description: Replacement for the matched pattern.
             displayName: Replace With
             path: ols.queryFilters[0].replaceWith
+          - description: LLM Token Quota Configuration
+            displayName: LLM Token Quota Configuration
+            path: ols.quotaHandlersConfig
+          - description: Enable token history
+            displayName: Enable Token History
+            path: ols.quotaHandlersConfig.enableTokenHistory
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Token quota limiters
+            displayName: Token Quota Limiters
+            path: ols.quotaHandlersConfig.limitersConfig
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:advanced
+          - description: Initial value of the token quota
+            displayName: Initial Token Quota
+            path: ols.quotaHandlersConfig.limitersConfig[0].initialQuota
+          - description: Name of the limiter
+            displayName: Limiter Name
+            path: ols.quotaHandlersConfig.limitersConfig[0].name
+          - description: Period of time the token quota is for
+            displayName: Period of Time the Token Quota Is For
+            path: ols.quotaHandlersConfig.limitersConfig[0].period
+          - description: Token quota increase step
+            displayName: Token Quota Increase Step
+            path: ols.quotaHandlersConfig.limitersConfig[0].quotaIncrease
+          - description: Type of the limiter
+            displayName: Limiter Type
+            path: ols.quotaHandlersConfig.limitersConfig[0].type
           - description: RAG databases
             displayName: RAG Databases
             path: ols.rag
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
-          - displayName: Image
+          - description: The URL of the container image to use as a RAG source
+            displayName: Image
             path: ols.rag[0].image
-          - displayName: Index ID
+          - description: The Index ID of the RAG database
+            displayName: Index ID
             path: ols.rag[0].indexID
-          - displayName: Index Path in the Image
+          - description: The path to the RAG database inside of the container image
+            displayName: Index Path in the Image
             path: ols.rag[0].indexPath
           - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
             displayName: TLS Configuration

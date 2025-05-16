@@ -226,6 +226,21 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		tlsConfig.TLSKeyPath = path.Join(OLSAppCertsMountRoot, cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name, "tls.key")
 	}
 
+	var proxyConfig *ProxyConfig
+	if cr.Spec.OLSConfig.ProxyConfig != nil {
+		proxyConfig = &ProxyConfig{
+			ProxyURL:        cr.Spec.OLSConfig.ProxyConfig.ProxyURL,
+			ProxyCACertPath: "",
+		}
+		if cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil && cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name != "" {
+			err := r.validateCertificateInConfigMap(cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, ProxyCACertFileName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to validate proxy CA certificate %s: %w", cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, err)
+			}
+			proxyConfig.ProxyCACertPath = path.Join(OLSAppCertsMountRoot, ProxyCACertVolumeName, ProxyCACertFileName)
+		}
+	}
+
 	// OCP reference document is always available
 	ocpReferenceIndex := ReferenceIndex{
 		ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
@@ -262,6 +277,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			TranscriptsDisabled: cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled || !dataCollectorEnabled,
 			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 		},
+		ProxyConfig: proxyConfig,
 	}
 
 	if cr.Spec.OLSConfig.QuotaHandlersConfig != nil {
@@ -396,6 +412,26 @@ func (r *OLSConfigReconciler) getAdditionalCAFileNames(cr *olsv1alpha1.OLSConfig
 
 	return filenames, nil
 
+}
+
+func (r *OLSConfigReconciler) validateCertificateInConfigMap(cmName, fileName string) error {
+
+	cm := &corev1.ConfigMap{}
+	err := r.Get(context.TODO(), client.ObjectKey{Name: cmName, Namespace: r.Options.Namespace}, cm)
+	if err != nil {
+		return fmt.Errorf("failed to get certificate configmap %s/%s: %v", r.Options.Namespace, cmName, err)
+	}
+
+	caStr, ok := cm.Data[fileName]
+	if !ok {
+		return fmt.Errorf("failed to find certificate %s in configmap %s", fileName, cmName)
+	}
+
+	err = validateCertificateFormat([]byte(caStr))
+	if err != nil {
+		return fmt.Errorf("failed to validate certificate %s: %v", fileName, err)
+	}
+	return nil
 }
 
 func (r *OLSConfigReconciler) generateService(cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
