@@ -38,13 +38,19 @@ func getConsoleUIResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 
 func (r *OLSConfigReconciler) generateConsoleUIConfigMap(cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
 	nginxConfig := `
+			pid       /tmp/nginx/nginx.pid;
 			error_log /dev/stdout info;
 			events {}
 			http {
-				access_log         /dev/stdout;
-				include            /etc/nginx/mime.types;
-				default_type       application/octet-stream;
-				keepalive_timeout  65;
+				client_body_temp_path /tmp/nginx/client_body;
+				proxy_temp_path       /tmp/nginx/proxy;
+				fastcgi_temp_path     /tmp/nginx/fastcgi;
+				uwsgi_temp_path       /tmp/nginx/uwsgi;
+				scgi_temp_path        /tmp/nginx/scgi;
+				access_log            /dev/stdout;
+				include               /etc/nginx/mime.types;
+				default_type          application/octet-stream;
+				keepalive_timeout     65;
 				server {
 					listen              9443 ssl;
 					listen              [::]:9443 ssl;
@@ -148,6 +154,10 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 									SubPath:   "nginx.conf",
 									ReadOnly:  true,
 								},
+								{
+									Name:      "nginx-temp",
+									MountPath: "/tmp/nginx",
+								},
 							},
 						},
 					},
@@ -170,6 +180,12 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 									},
 									DefaultMode: &volumeDefaultMode,
 								},
+							},
+						},
+						{
+							Name: "nginx-temp",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
