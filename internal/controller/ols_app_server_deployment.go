@@ -245,7 +245,6 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 							Ports:           ports,
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: &[]bool{false}[0],
-								ReadOnlyRootFilesystem:   &[]bool{true}[0],
 							},
 							VolumeMounts: volumeMounts,
 							Env: append(getProxyEnvVars(), corev1.EnvVar{
@@ -312,7 +311,6 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		SecurityContext: &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &[]bool{false}[0],
-			ReadOnlyRootFilesystem:   &[]bool{true}[0],
 		},
 		VolumeMounts: volumeMounts,
 		Env: []corev1.EnvVar{
