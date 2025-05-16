@@ -145,6 +145,9 @@ spec:
               secretName: openai
           - name: credentials
             emptyDir: {}
+          - name: ols-konflux-artifacts-bot-creds
+            secret:
+              secretName: ols-konflux-artifacts-bot
         params:
           - name: bundle-image
           - name: commit
@@ -167,6 +170,13 @@ spec:
               - name: credentials
                 value: credentials
           - name: run-e2e-tests
+            onError: continue
+            resources:
+              requests:
+                cpu: '1'
+                memory: 1Gi
+              limits:
+                memory: 10Gi
             volumeMounts:
               - name: openai-token
                 mountPath: /var/run/openai
@@ -187,7 +197,7 @@ spec:
                 value: "/credentials/$(steps.get-kubeconfig.results.passwordPath)"
               - name: CYPRESS_BASE_URL
                 value: "$(steps.get-kubeconfig.results.consoleURL)"
-            image: registry.fedoraproject.org/fedora:latest
+            image: cypress/browsers:22.15.0
             script: |
               echo "---------------------------------------------"
               echo "${CYPRESS_BASE_URL}"
@@ -201,11 +211,10 @@ spec:
               export CYPRESS_LOGIN_PASSWORD=$(cat ${PASSWORD_PATH})
               echo "${CYPRESS_LOGIN_PASSWORD}"
               echo "---------------------------------------------"
-              dnf -y update && \
-                  dnf -y install golang wget git awk
+              apt-get update \
+                  && apt-get install curl
               echo "---------------------------------------------"
-              dnf install -y xorg-x11-server-Xvfb
-              curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest/openshift-client-linux.tar.gz \
+              wget -O oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest/openshift-client-linux.tar.gz \
                   && tar -xvzf oc.tar.gz \
                   && chmod +x kubectl oc \
                   && mv oc kubectl /usr/local/bin/
@@ -213,18 +222,13 @@ spec:
               export OPERATOR_SDK_VERSION=1.36.1
               export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
               export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v${OPERATOR_SDK_VERSION}
-              curl -Lo /usr/local/bin/operator-sdk ${OPERATOR_SDK_DL_URL}/operator-sdk_linux_${ARCH}
+              wget -O /usr/local/bin/operator-sdk ${OPERATOR_SDK_DL_URL}/operator-sdk_linux_${ARCH}
               chmod +x /usr/local/bin/operator-sdk
               operator-sdk version
               echo "---------------------------------------------"
-              wget https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm && \
-                  yum install -y ./google-chrome-stable_current_*.rpm && \
-                  rm ./google-chrome-stable_current_*.rpm && \
-                  mkdir -p /go/src/github.com/openshift
               echo "---------------------------------------------"
-              curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
-              source ~/.bashrc
-              nvm install v23.2.0
+              mkdir -pv ~/.cache/xdgr
+              export XDG_RUNTIME_DIR=$PATH:~/.cache/xdgr
               echo "---------------------------------------------"
               git clone https://github.com/openshift/lightspeed-console.git
               cd lightspeed-console
@@ -236,3 +240,54 @@ spec:
               echo "---------------------------------------------"
               echo "---------------------------------------------"
               npx cypress run -- --disable-gpu
+          - name: gather-cluster-resources
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
+            params:
+              - name: credentials
+                value: "credentials"
+              - name: kubeconfig
+                value: "$(steps.get-kubeconfig.results.kubeconfig)"
+              - name: artifact-dir
+                value: "/gui_test_screenshots/konflux-artifacts"
+          # validate that the cluster resources are available in another tekton step
+          - name: list-artifacts
+            image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+            workingDir: "/gui_test_screenshots"
+            script: |
+              #!/bin/bash
+              ls -la /gui_test_screenshots
+          - name: push-artifacts
+            ref: 
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
+            params:
+              - name: workdir-path
+                value: /gui_test_screenshots
+              - name: oci-ref
+                value: "quay.io/openshift-lightspeed/ols-console-artifacts:415$(params.commit)"
+              - name: credentials-volume-name
+                value: ols-konflux-artifacts-bot-creds
+          - name: fail-if-any-step-failed
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
