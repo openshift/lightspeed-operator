@@ -111,7 +111,21 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 		}
 	}
 
-	volumes := []corev1.Volume{tlsCertsVolume, bootstrapVolume, configVolume, dataVolume, getPostgresCAConfigVolume()}
+	varRunVolume := corev1.Volume{
+		Name: PostgresVarRunVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
+	tmpVolume := corev1.Volume{
+		Name: TmpVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
+	volumes := []corev1.Volume{tlsCertsVolume, bootstrapVolume, configVolume, dataVolume, getPostgresCAConfigVolume(), varRunVolume, tmpVolume}
 	postgresTLSVolumeMount := corev1.VolumeMount{
 		Name:      "secret-" + PostgresCertsSecretName,
 		MountPath: OLSAppCertsMountRoot,
@@ -132,7 +146,24 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 		Name:      PostgresDataVolume,
 		MountPath: PostgresDataVolumeMountPath,
 	}
-	volumeMounts := []corev1.VolumeMount{postgresTLSVolumeMount, bootstrapVolumeMount, configVolumeMount, dataVolumeMount, getPostgresCAVolumeMount(path.Join(OLSAppCertsMountRoot, PostgresCAVolume))}
+	varRunVolumeMount := corev1.VolumeMount{
+		Name:      PostgresVarRunVolumeName,
+		MountPath: PostgresVarRunVolumeMountPath,
+	}
+	tmpVolumeMount := corev1.VolumeMount{
+		Name:      TmpVolumeName,
+		MountPath: TmpVolumeMountPath,
+	}
+
+	volumeMounts := []corev1.VolumeMount{
+		postgresTLSVolumeMount,
+		bootstrapVolumeMount,
+		configVolumeMount,
+		dataVolumeMount,
+		getPostgresCAVolumeMount(path.Join(OLSAppCertsMountRoot, PostgresCAVolume)),
+		varRunVolumeMount,
+		tmpVolumeMount,
+	}
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      PostgresDeploymentName,
@@ -160,6 +191,10 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 									ContainerPort: PostgresServicePort,
 									Protocol:      corev1.ProtocolTCP,
 								},
+							},
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: &[]bool{false}[0],
+								ReadOnlyRootFilesystem:   &[]bool{true}[0],
 							},
 							VolumeMounts: volumeMounts,
 							Resources: corev1.ResourceRequirements{

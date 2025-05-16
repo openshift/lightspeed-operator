@@ -75,6 +75,7 @@ spec:
         imagePullPolicy: Always
         name: manager
         securityContext:
+          readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
             drop:

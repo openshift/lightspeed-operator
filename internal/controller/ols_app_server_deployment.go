@@ -181,6 +181,15 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	// Postgres CA volume
 	volumes = append(volumes, getPostgresCAConfigVolume())
 
+	volumes = append(volumes,
+		corev1.Volume{
+			Name: TmpVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	)
+
 	// mount the volumes of api keys secrets and OLS config map to the container
 	volumeMounts := []corev1.VolumeMount{}
 	for secretName, mountPath := range secretMounts {
@@ -232,7 +241,13 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		volumeMounts = append(volumeMounts, ragVolumeMounts)
 	}
 
-	volumeMounts = append(volumeMounts, getPostgresCAVolumeMount(path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume)))
+	volumeMounts = append(volumeMounts,
+		getPostgresCAVolumeMount(path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume)),
+		corev1.VolumeMount{
+			Name:      TmpVolumeName,
+			MountPath: TmpVolumeMountPath,
+		},
+	)
 
 	initContainers := []corev1.Container{}
 	if cr.Spec.OLSConfig.RAG != nil && len(cr.Spec.OLSConfig.RAG) > 0 {
@@ -268,6 +283,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 							Ports:           ports,
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: &[]bool{false}[0],
+								ReadOnlyRootFilesystem:   &[]bool{true}[0],
 							},
 							VolumeMounts: volumeMounts,
 							Env: append(getProxyEnvVars(), corev1.EnvVar{
@@ -334,6 +350,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		SecurityContext: &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &[]bool{false}[0],
+			ReadOnlyRootFilesystem:   &[]bool{true}[0],
 		},
 		VolumeMounts: volumeMounts,
 		Env: []corev1.EnvVar{

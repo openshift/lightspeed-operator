@@ -339,6 +339,10 @@ var _ = Describe("App server assets", func() {
 					ReadOnly:  true,
 					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
 				},
+				{
+					Name:      TmpVolumeName,
+					MountPath: TmpVolumeMountPath,
+				},
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("4Gi")},
@@ -386,6 +390,10 @@ var _ = Describe("App server assets", func() {
 					Name:      "cm-olspostgresca",
 					ReadOnly:  true,
 					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
+				},
+				{
+					Name:      TmpVolumeName,
+					MountPath: TmpVolumeMountPath,
 				},
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[1].Resources).To(Equal(corev1.ResourceRequirements{
@@ -444,6 +452,12 @@ var _ = Describe("App server assets", func() {
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
+				{
+					Name: TmpVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
 			}))
 			Expect(dep.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
 
@@ -497,6 +511,10 @@ var _ = Describe("App server assets", func() {
 					ReadOnly:  true,
 					MountPath: "/etc/certs/lightspeed-postgres-certs/cm-olspostgresca",
 				},
+				{
+					Name:      TmpVolumeName,
+					MountPath: TmpVolumeMountPath,
+				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
 				{
@@ -541,6 +559,12 @@ var _ = Describe("App server assets", func() {
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
 						},
+					},
+				},
+				{
+					Name: TmpVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 			}))
@@ -596,6 +620,10 @@ var _ = Describe("App server assets", func() {
 					MountPath: "/etc/certs/lightspeed-postgres-certs/cm-olspostgresca",
 					ReadOnly:  true,
 				},
+				{
+					Name:      TmpVolumeName,
+					MountPath: TmpVolumeMountPath,
+				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
 				{
@@ -640,6 +668,12 @@ var _ = Describe("App server assets", func() {
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
 						},
+					},
+				},
+				{
+					Name: TmpVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 			}))
@@ -829,6 +863,10 @@ var _ = Describe("App server assets", func() {
 					Name:      "cm-olspostgresca",
 					ReadOnly:  true,
 					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
+				},
+				{
+					Name:      TmpVolumeName,
+					MountPath: TmpVolumeMountPath,
 				},
 			}))
 			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
@@ -1182,6 +1220,10 @@ user_data_collector_config: {}
 					ReadOnly:  true,
 					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
 				},
+				{
+					Name:      TmpVolumeName,
+					MountPath: TmpVolumeMountPath,
+				},
 			}))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
 				{
@@ -1221,6 +1263,12 @@ user_data_collector_config: {}
 				},
 				{
 					Name: "ols-user-data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+				{
+					Name: TmpVolumeName,
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
