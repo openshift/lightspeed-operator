@@ -178,7 +178,11 @@ const (
 	// PostgresDataVolume is the name of Postgres data volume
 	PostgresDataVolume = "postgres-data"
 	// PostgresDataVolumeMountPath is the path of Postgres data volume mount
-	PostgresDataVolumeMountPath = "/var/lib/pgsql/data"
+	PostgresDataVolumeMountPath = "/var/lib/pgsql"
+	// PostgreVarRunVolumeName is the data volume name for the /var/run/postgresql writable mount
+	PostgresVarRunVolumeName = "lightspeed-postgres-var-run"
+	// PostgresVarRunVolumeMountPath is the path of Postgres data volume mount
+	PostgresVarRunVolumeMountPath = "/var/run/postgresql"
 	// PostgresServicePort is the port number of the OLS Postgres server service
 	PostgresServicePort = 5432
 	// PostgresSharedBuffers is the share buffers value for Postgres cache
@@ -215,6 +219,11 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 
 	// PostgresDefaultPVCSize is the default size of the PVC for the OLS Postgres server
 	PostgresDefaultPVCSize = "1Gi"
+
+	// TmpVolume is the data volume name for the /tmp writable mount
+	TmpVolumeName = "tmp-writable-volume"
+	// TmpVolumeMountPath is the path of the /tmp writable mount
+	TmpVolumeMountPath = "/tmp"
 
 	/*** state cache keys ***/
 	// OLSAppTLSHashStateCacheKey is the key of the hash value of the OLS App TLS certificates

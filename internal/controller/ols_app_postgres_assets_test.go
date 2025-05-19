@@ -100,6 +100,14 @@ var _ = Describe("App postgres server assets", func() {
 				MountPath: path.Join(OLSAppCertsMountRoot, PostgresCAVolume),
 				ReadOnly:  true,
 			},
+			{
+				Name:      PostgresVarRunVolumeName,
+				MountPath: PostgresVarRunVolumeMountPath,
+			},
+			{
+				Name:      TmpVolumeName,
+				MountPath: TmpVolumeMountPath,
+			},
 		}))
 		expectedVolumes := []corev1.Volume{
 			{
@@ -145,14 +153,28 @@ var _ = Describe("App postgres server assets", func() {
 				},
 			})
 		}
-		expectedVolumes = append(expectedVolumes, corev1.Volume{
-			Name: PostgresCAVolume,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
+		expectedVolumes = append(expectedVolumes,
+			corev1.Volume{
+				Name: PostgresCAVolume,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
+					},
 				},
 			},
-		})
+			corev1.Volume{
+				Name: PostgresVarRunVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+			corev1.Volume{
+				Name: TmpVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
 		Expect(dep.Spec.Template.Spec.Volumes).To(Equal(expectedVolumes))
 	}
 
