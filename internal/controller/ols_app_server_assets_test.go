@@ -668,7 +668,7 @@ var _ = Describe("App server assets", func() {
 			Expect(np.Name).To(Equal(OLSAppServerNetworkPolicyName))
 			Expect(np.Namespace).To(Equal(r.Options.Namespace))
 			Expect(np.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
-			Expect(np.Spec.Ingress).To(HaveLen(3))
+			Expect(np.Spec.Ingress).To(HaveLen(4))
 			// allow prometheus to scrape metrics
 			Expect(np.Spec.Ingress).To(ContainElement(networkingv1.NetworkPolicyIngressRule{
 				From: []networkingv1.NetworkPolicyPeer{
@@ -713,6 +713,28 @@ var _ = Describe("App server assets", func() {
 						NamespaceSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"kubernetes.io/metadata.name": "openshift-console",
+							},
+						},
+					},
+				},
+				Ports: []networkingv1.NetworkPolicyPort{
+					{
+						Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+						Port:     &[]intstr.IntOrString{intstr.FromInt(OLSAppServerContainerPort)}[0],
+					},
+				},
+			}))
+			Expect(np.Spec.Ingress).To(ContainElement(networkingv1.NetworkPolicyIngressRule{
+				From: []networkingv1.NetworkPolicyPeer{
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"job-name": "ols-load-generator-orchestrator",
+							},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"kubernetes.io/metadata.name": "ols-load-test",
 							},
 						},
 					},
