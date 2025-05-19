@@ -14,6 +14,7 @@ RUN OPERATOR_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-operator") | .imag
 RUN SERVICE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-service-api") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${SERVICE_IMAGE_ORIGINAL}|${SERVICE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN CONSOLE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-console-plugin") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${CONSOLE_IMAGE_ORIGINAL}|${CONSOLE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 
+
 FROM registry.redhat.io/ubi9/ubi-minimal:9.5
 
 # Core bundle labels.
@@ -51,10 +52,10 @@ LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assistant for managi
 LABEL io.k8s.display-name="Openshift Lightspeed"
 LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
 LABEL name=openshift-lightspeed
-LABEL release=0.3.4
+LABEL release=0.3.5
 LABEL url="https://github.com/openshift/lightspeed-operator"
 LABEL vendor="Red Hat, Inc."
-LABEL version=0.3.4
+LABEL version=0.3.5
 LABEL summary="Red Hat OpenShift Lightspeed"
 
 # OCP compatibility labels
