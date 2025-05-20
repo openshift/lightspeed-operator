@@ -5,7 +5,7 @@
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:6dceea9712ac1b26b68a17f9e3a035a43eb2667494aeab96e9e59b7c84091872"
+    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:de1dcd195e6c7c7801adaea58f411f23951e48b7aab430adede6da8b1475e332"
   },
   {
     "name": "lightspeed-operator",
