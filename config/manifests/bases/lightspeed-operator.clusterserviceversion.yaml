@@ -254,6 +254,17 @@ spec:
       - description: The path to the RAG database inside of the container image
         displayName: Index Path in the Image
         path: ols.rag[0].indexPath
+      - description: Persistent Storage Configuration
+        displayName: Persistent Storage Configuration
+        path: ols.storage
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Storage Class of the Requested Volume
+        displayName: Storage Class of the Requested Volume
+        path: ols.storage.class
+      - description: Size of the Requested Volume
+        displayName: Size of the Requested Volume
+        path: ols.storage.size
       - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
         displayName: TLS Configuration
         path: ols.tlsConfig

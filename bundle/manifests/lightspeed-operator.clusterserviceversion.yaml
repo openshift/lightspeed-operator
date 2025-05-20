@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-04-22T20:52:12Z"
+    createdAt: "2025-05-19T19:39:13Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -55,7 +55,7 @@ metadata:
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
-  name: lightspeed-operator.v0.3.4
+  name: lightspeed-operator.v0.3.5
   namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
@@ -282,6 +282,17 @@ spec:
           - description: The path to the RAG database inside of the container image
             displayName: Index Path in the Image
             path: ols.rag[0].indexPath
+          - description: Persistent Storage Configuration
+            displayName: Persistent Storage Configuration
+            path: ols.storage
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:advanced
+          - description: Storage Class of the Requested Volume
+            displayName: Storage Class of the Requested Volume
+            path: ols.storage.class
+          - description: Size of the Requested Volume
+            displayName: Size of the Requested Volume
+            path: ols.storage.size
           - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
             displayName: TLS Configuration
             path: ols.tlsConfig
@@ -333,16 +344,29 @@ spec:
                 - ""
               resources:
                 - configmaps
+                - persistentvolumeclaims
+                - serviceaccounts
+                - services
               verbs:
+                - create
+                - delete
                 - get
                 - list
+                - patch
+                - update
                 - watch
             - apiGroups:
                 - ""
               resources:
                 - secrets
               verbs:
+                - create
+                - delete
+                - deletecollection
+                - get
                 - list
+                - patch
+                - update
                 - watch
             - apiGroups:
                 - ""
@@ -353,6 +377,18 @@ spec:
               verbs:
                 - get
                 - list
+                - watch
+            - apiGroups:
+                - apps
+              resources:
+                - deployments
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
                 - watch
             - apiGroups:
                 - authentication.k8s.io
@@ -387,6 +423,31 @@ spec:
                 - delete
                 - get
                 - update
+            - apiGroups:
+                - monitoring.coreos.com
+              resources:
+                - prometheusrules
+                - servicemonitors
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - networking.k8s.io
+              resources:
+                - networkpolicies
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
             - apiGroups:
                 - ols.openshift.io
               resources:
@@ -429,6 +490,14 @@ spec:
                 - clusterroles
               verbs:
                 - create
+                - list
+                - watch
+            - apiGroups:
+                - storage.k8s.io
+              resources:
+                - storageclasses
+              verbs:
+                - get
                 - list
                 - watch
           serviceAccountName: lightspeed-operator-controller-manager
@@ -499,11 +568,11 @@ spec:
                         cpu: 10m
                         memory: 64Mi
                     securityContext:
-                      readOnlyRootFilesystem: true
                       allowPrivilegeEscalation: false
                       capabilities:
                         drop:
                           - ALL
+                      readOnlyRootFilesystem: true
                     volumeMounts:
                       - mountPath: /etc/tls/private
                         name: controller-manager-tls
@@ -550,71 +619,6 @@ spec:
                 - create
                 - patch
             - apiGroups:
-                - ""
-              resources:
-                - configmaps
-                - serviceaccounts
-                - services
-                - persistentvolumeclaims
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - ""
-              resources:
-                - secrets
-              verbs:
-                - create
-                - delete
-                - deletecollection
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - apps
-              resources:
-                - deployments
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - monitoring.coreos.com
-              resources:
-                - prometheusrules
-                - servicemonitors
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - networking.k8s.io
-              resources:
-                - networkpolicies
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
                 - rbac.authorization.k8s.io
               resources:
                 - rolebindings
@@ -645,7 +649,7 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
-  version: 0.3.4
+  version: 0.3.5
   relatedImages:
     - name: lightspeed-service-api
       image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
