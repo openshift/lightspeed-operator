@@ -41,7 +41,8 @@ spec:
   - name: build-platforms
     value:
     - linux/x86_64
-    - linux/arm64
+  - name: build-image-index
+    value: "false"
   pipelineSpec:
     description: |
       This pipeline is ideal for building container images from a Containerfile while reducing network traffic.
