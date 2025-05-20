@@ -406,3 +406,7 @@ catalog-push: ## Push a catalog image.
 update-bundle-catalog: opm yq
 	OPM=$(OPM) YQ=$(YQ) BUNDLE_TAG=$(BUNDLE_TAG) BASE_IMAGE=$(BASE_IMG) hack/update_bundle_catalog.sh
 
+# Genarate release objects for Konflux builds
+.PHONY: konflux-release
+konflux-release: kustomize yq
+	$(KUSTOMIZE) build hack/release-konflux | $(YQ) -s '"release-konflux/" + .metadata.name'
