@@ -277,7 +277,7 @@ var _ = Describe("App server assets", func() {
 				"Name":      Equal("openshift"),
 				"Transport": Equal(Stdio),
 				"Stdio": PointTo(MatchFields(IgnoreExtras, Fields{
-					"Command": Equal("python"),
+					"Command": Equal("python3.11"),
 					"Args":    ContainElement("./mcp_local/openshift.py"),
 				})),
 			})))
