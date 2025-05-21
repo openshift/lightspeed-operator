@@ -11,7 +11,7 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: |
       event == "pull_request" &&
       target_branch == "main" &&
-      (".tekton/bundle-pull-request.yaml".pathChanged() || "bundle/***".pathChanged() || "bundle.Dockerfile".pathChanged() ||
+      (".tekton/ols-bundle-pull-request.yaml".pathChanged() || "bundle/***".pathChanged() || "bundle.Dockerfile".pathChanged() ||
       ".tekton/integration-tests/*/*.yaml".pathChanged() || "related_images.json".pathChanged() || "rpms.lock.yaml".pathChanged())
   creationTimestamp: null
   labels:
@@ -245,7 +245,7 @@ spec:
       - name: CACHI2_ARTIFACT
         value: $(tasks.prefetch-dependencies.results.CACHI2_ARTIFACT)
       - name: IMAGE_APPEND_PLATFORM
-        value: "true"
+        value: "false"
       runAfter:
       - prefetch-dependencies
       taskRef:
