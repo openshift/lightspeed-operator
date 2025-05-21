@@ -338,7 +338,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 				Name:      "openshift",
 				Transport: "stdio",
 				Stdio: &StdioTransportConfig{
-					Command: "python",
+					Command: "python3.11",
 					Args: []string{
 						"./mcp_local/openshift.py",
 					},
