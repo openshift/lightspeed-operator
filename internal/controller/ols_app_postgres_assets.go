@@ -202,6 +202,9 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 									corev1.ResourceCPU:    resource.MustParse("30m"),
 									corev1.ResourceMemory: resource.MustParse("300Mi"),
 								},
+								Limits: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("2Gi"),
+								},
 							},
 							Env: []corev1.EnvVar{
 								{
