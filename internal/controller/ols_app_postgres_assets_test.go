@@ -44,6 +44,9 @@ var _ = Describe("App postgres server assets", func() {
 				corev1.ResourceCPU:    resource.MustParse("30m"),
 				corev1.ResourceMemory: resource.MustParse("300Mi"),
 			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
+			},
 		}))
 		Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
 			{
