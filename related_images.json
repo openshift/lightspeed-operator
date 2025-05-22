@@ -9,7 +9,7 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:761e22b6034ba3ff43b8d9ce43f194f6c2ec1a90e9c02bf39081d55c59790b6f"
+    "image": "registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:54dc3aaba5aaa378b350eb78c8d3571e8b0a5cd3ef00c8fb72b70e9d904007db"
   },
   {
     "name": "lightspeed-operator-bundle",
