@@ -651,6 +651,29 @@ func (r *OLSConfigReconciler) generateAppServerNetworkPolicy(cr *olsv1alpha1.OLS
 						},
 					},
 				},
+				{
+					// allow load test to access the API
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"job-name": "ols-load-generator-orchestrator",
+								},
+							},
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": "ols-load-test",
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(OLSAppServerContainerPort)}[0],
+						},
+					},
+				},
 			},
 			Egress: []networkingv1.NetworkPolicyEgressRule{},
 			PolicyTypes: []networkingv1.PolicyType{
