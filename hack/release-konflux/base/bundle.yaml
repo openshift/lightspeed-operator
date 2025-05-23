@@ -1,0 +1,9 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Release
+metadata:
+  name: ols-bundle
+  namespace: crt-nshift-lightspeed-tenant
+spec:
+  gracePeriodDays: 30
+  releasePlan: ols-bundle-releaseplan
+  snapshot: snapshot-value

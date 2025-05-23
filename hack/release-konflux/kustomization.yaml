@@ -1,0 +1,59 @@
+kind: Kustomization
+
+# channel
+namePrefix: tech-preview-
+# version
+nameSuffix: -0.3.5-1
+
+resources:
+  - base/components.yaml
+  - base/bundle.yaml
+  - base/fbc-prod-v4-15.yaml
+  - base/fbc-prod-v4-16.yaml
+  - base/fbc-prod-v4-17.yaml
+  - base/fbc-prod-v4-18.yaml
+  - base/fbc-staging.yaml
+
+patches:
+  - target:
+      kind: Release
+      name: ols
+    patch: |-
+      - op: replace
+        path: /spec/snapshot
+        value: ols-9djnn
+  - target:
+      kind: Release
+      name: ols-bundle
+    patch: |-
+      - op: replace
+        path: /spec/snapshot
+        value: ols-bundle-6t5fd
+  - target:
+      kind: Release
+      name: fbc-prod-415
+    patch: |-
+      - op: replace
+        path: /spec/snapshot
+        value: version
+  - target:
+      kind: Release
+      name: fbc-prod-416
+    patch: |-
+      - op: replace
+        path: /spec/snapshot
+        value: version
+  - target:
+      kind: Release
+      name: fbc-prod-417
+    patch: |-
+      - op: replace
+        path: /spec/snapshot
+        value: version
+  - target:
+      kind: Release
+      name: fbc-prod-418
+    patch: |-
+      - op: replace
+        path: /spec/snapshot
+        value: version
