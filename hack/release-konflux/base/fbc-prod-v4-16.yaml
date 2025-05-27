@@ -1,0 +1,8 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Release
+metadata:
+  name: fbc-prod-416
+  namespace: crt-nshift-lightspeed-tenant
+spec:
+  releasePlan: ols-fbc-releaseplan-prod-v4-16
+  snapshot: snapshot-value
