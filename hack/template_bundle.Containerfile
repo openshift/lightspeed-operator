@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi9/ubi-minimal:9.5 as builder
+FROM registry.redhat.io/ubi9/ubi-minimal:9.6 as builder
 ARG RELATED_IMAGE_FILE=related_images.json
 ARG CSV_FILE=bundle/manifests/lightspeed-operator.clusterserviceversion.yaml
 ARG OPERATOR_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-operator:latest
