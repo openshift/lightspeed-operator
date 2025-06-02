@@ -12,6 +12,7 @@ resources:
   - base/fbc-prod-v4-16.yaml
   - base/fbc-prod-v4-17.yaml
   - base/fbc-prod-v4-18.yaml
+  - base/fbc-prod-v4-19.yaml
   - base/fbc-staging.yaml
 
 patches:
