@@ -816,11 +816,15 @@ spec:
                     description: Persistent Storage Configuration
                     properties:
                       class:
-                        description: Storage Class of the Requested Volume
+                        description: Storage class of the requested volume
                         type: string
                       size:
-                        description: Size of the Requested Volume
-                        type: string
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: Size of the requested volume
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                     type: object
                   tlsConfig:
                     description: TLS configuration of the Lightspeed backend's HTTPS
