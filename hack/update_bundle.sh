@@ -162,7 +162,7 @@ ${YQ} eval -i '.annotations."com.redhat.openshift.versions"="v4.15-v4.17"' ${ANN
 ${YQ} eval -i '(.annotations."com.redhat.openshift.versions" | key) head_comment="OCP compatibility labels"' ${ANNOTATION_FILE}
 ${YQ} eval -i '.annotations."features.operators.openshift.io/fips-compliant"="true"' ${ANNOTATION_FILE}
 # use UBI image as base image for bundle image
-: "${BASE_IMAGE:=registry.redhat.io/ubi9/ubi-minimal:9.5}"
+: "${BASE_IMAGE:=registry.redhat.io/ubi9/ubi-minimal:9.6}"
 sed -i 's|^FROM scratch|FROM '"${BASE_IMAGE}"'|' ${BUNDLE_DOCKERFILE}
 
 # generate bundle container file using template_bundle.Containerfile
