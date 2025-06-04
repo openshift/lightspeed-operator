@@ -6,8 +6,8 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:a2522f874fd4a31c261897c4bf729d8505d4c9adc6aacca7efe244d986c48816
-name: lightspeed-operator.v0.3.5
+image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:0ca39b042941949b8c62b8a1ead1e398a368447e7cdae121f7f6a282113135b1
+name: lightspeed-operator.v0.3.6
 package: lightspeed-operator
 properties:
   - type: olm.gvk
@@ -18,7 +18,7 @@ properties:
   - type: olm.package
     value:
       packageName: lightspeed-operator
-      version: 0.3.5
+      version: 0.3.6
   - type: olm.csv.metadata
     value:
       annotations:
@@ -374,18 +374,18 @@ properties:
         url: https://github.com/openshift/lightspeed-service
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:273ddd50b516092738eb5cf2ee69d87681e5a8dbfa8bb0a766f47ef3b1df3ffd
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9@sha256:21cd7da3674c55e76caf60122a19419b4eda097388f148f8163712b81b4af1d8
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:07b3e4062afa2159afa5a43be22f62a7137ad793327f4c27da9ba3c44e75a1af
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:77dbdaeaf49ac970d7a470960b75d4078efcedc1dd1182414b078bd790ee53ea
   - name: lightspeed-operator
     image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:ff6c11d247307e4c70a6fd2a0b86ed2396c272520cd2fe3a0afb0f2c15dcc795
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:a2522f874fd4a31c261897c4bf729d8505d4c9adc6aacca7efe244d986c48816
+    image: registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:0ca39b042941949b8c62b8a1ead1e398a368447e7cdae121f7f6a282113135b1
 schema: olm.bundle
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: alpha
 entries:
-  - name: lightspeed-operator.v0.3.5
-    skipRange: ">=0.1.0 <0.3.5"
+  - name: lightspeed-operator.v0.3.6
+    skipRange: ">=0.1.0 <0.3.6"
