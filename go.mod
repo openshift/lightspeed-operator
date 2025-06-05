@@ -7,7 +7,7 @@ replace sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 => sigs.k8s.io/json 
 
 require (
 	github.com/Jeffail/gabs/v2 v2.7.0
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
 	github.com/openshift/client-go v0.0.0-20231218140158-47f6d749b9d9
