@@ -4,5 +4,8 @@ metadata:
   name: fbc-staging
   namespace: crt-nshift-lightspeed-tenant
 spec:
-  releasePlan: ols-fbc-releaseplan-staging
+  releasePlan: ols-fbc-releaseplan-staging-v4-18
   snapshot: snapshot-value
+  data:
+    releaseNotes:
+      type: "RHEA"

@@ -7,3 +7,6 @@ spec:
   gracePeriodDays: 30
   releasePlan: ols-bundle-releaseplan
   snapshot: snapshot-value
+  data:
+    releaseNotes:
+      type: "RHEA"
