@@ -6,3 +6,6 @@ metadata:
 spec:
   releasePlan: ols-fbc-releaseplan-prod-v4-15
   snapshot: snapshot-value
+  data:
+    releaseNotes:
+      type: "RHEA"
