@@ -241,12 +241,8 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		}
 	}
 
-	// OCP reference document is always available
-	ocpReferenceIndex := ReferenceIndex{
-		ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
-		ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
-	}
-	referenceIndexes := []ReferenceIndex{ocpReferenceIndex}
+	referenceIndexes := []ReferenceIndex{}
+	// OLS-1823: prioritize BYOK content by listing it ahead of the OCP docs
 	// Custom reference document is optional
 	for i, index := range cr.Spec.OLSConfig.RAG {
 		referenceIndex := ReferenceIndex{
@@ -255,6 +251,12 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		}
 		referenceIndexes = append(referenceIndexes, referenceIndex)
 	}
+	// OCP documentation is always available
+	ocpReferenceIndex := ReferenceIndex{
+		ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+		ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
+	}
+	referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 
 	olsConfig := OLSConfig{
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
