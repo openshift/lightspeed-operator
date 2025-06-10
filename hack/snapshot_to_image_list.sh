@@ -5,7 +5,7 @@ usage() {
     echo "  -s snapshot-ref: required, the snapshot's references, example: ols-cq8sl"
     echo "  -b bundle-snapshot-ref: required, the ols-bundle snapshot's references, example: ols-bundle-wf8st"
     echo "  -o output-file: optional, the catalog index file to update, default is empty (output to stdout)"
-    echo "  -p: optional, transform URIs to production registry"
+    echo "  -r: optional, use which registry: stable, preview, ci"
     echo "  -h: Show this help message"
     echo "Example: $0 -s ols-cq8sl -b ols-bundle-wf8st -o related_images.json"
 }
@@ -17,9 +17,9 @@ fi
 
 SNAPSHOT_REF=""
 OUTPUT_FILE=""
-USE_PRODUCTION_REGISTRY="false"
+USE_REGISTRY="ci"
 
-while getopts ":s:b:o:ph" argname; do
+while getopts ":s:b:o:r:h" argname; do
     case "$argname" in
     "s")
         SNAPSHOT_REF=${OPTARG}
@@ -30,8 +30,13 @@ while getopts ":s:b:o:ph" argname; do
     "o")
         OUTPUT_FILE=${OPTARG}
         ;;
-    "p")
-        USE_PRODUCTION_REGISTRY="true"
+    "r")
+        USE_REGISTRY=${OPTARG}
+        if [[ "${USE_REGISTRY}" != "stable" && "${USE_REGISTRY}" != "preview" && "${USE_REGISTRY}" != "ci" ]]; then
+            echo "Invalid registry option: ${USE_REGISTRY}. Use 'stable', 'preview', or 'ci'."
+            usage
+            exit 1
+        fi
         ;;
     "h")
         usage
@@ -110,7 +115,7 @@ BUNDLE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .cont
 OPERATOR_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-operator") | .containerImage' "${TMP_SNAPSHOT_JSON}")
 CONSOLE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-console") | .containerImage' "${TMP_SNAPSHOT_JSON}")
 SERVICE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service") | .containerImage' "${TMP_SNAPSHOT_JSON}")
-if [ "${USE_PRODUCTION_REGISTRY}" = "true" ]; then
+if [ "${USE_REGISTRY}" = "preview" ]; then
     BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle"
     OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator"
     CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9"
@@ -120,7 +125,18 @@ if [ "${USE_PRODUCTION_REGISTRY}" = "true" ]; then
     OPERATOR_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator|'"${OPERATOR_IMAGE_BASE}"'|g' <<<${OPERATOR_IMAGE})
     CONSOLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console|'"${CONSOLE_IMAGE_BASE}"'|g' <<<${CONSOLE_IMAGE})
     SERVICE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service|'"${SERVICE_IMAGE_BASE}"'|g' <<<${SERVICE_IMAGE})
+fi
 
+if [ "${USE_REGISTRY}" = "stable" ]; then
+    BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle"
+    OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator"
+    CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9"
+    SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9"
+
+    BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle|'"${BUNDLE_IMAGE_BASE}"'|g' <<<${BUNDLE_IMAGE})
+    OPERATOR_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator|'"${OPERATOR_IMAGE_BASE}"'|g' <<<${OPERATOR_IMAGE})
+    CONSOLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console|'"${CONSOLE_IMAGE_BASE}"'|g' <<<${CONSOLE_IMAGE})
+    SERVICE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service|'"${SERVICE_IMAGE_BASE}"'|g' <<<${SERVICE_IMAGE})
 fi
 
 RELATED_IMAGES=$(
