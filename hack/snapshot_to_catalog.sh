@@ -129,6 +129,8 @@ sed "s/defaultChannel: alpha/defaultChannel: ${DEFAULT_CHANNEL_NAME}/" ${CATALOG
 # array to store the bundle versions
 BUNDLE_VERSIONS=()
 GET_RELATED_IMAGES="${SCRIPT_DIR}/snapshot_to_image_list.sh"
+# todo: allow different registry for different snapshots
+REGISTRY="stable"
 for snapshot in "${!SNAPSHOT_REFS[@]}"; do
   SNAPSHOT_REF=${SNAPSHOT_REFS[snapshot]}
   BUNDLE_SNAPSHOT_REF=${BUNDLE_SNAPSHOT_REFS[snapshot]}
@@ -138,7 +140,7 @@ for snapshot in "${!SNAPSHOT_REFS[@]}"; do
   RELATED_IMAGES=$(${GET_RELATED_IMAGES} -s ${SNAPSHOT_REF} -b ${BUNDLE_SNAPSHOT_REF})
   BUNDLE_IMAGE_ORIGIN=$(jq -r '.[] | select(.name=="lightspeed-operator-bundle") | .image' <<<${RELATED_IMAGES})
   # get image list in production registry
-  RELATED_IMAGES=$(${GET_RELATED_IMAGES} -s ${SNAPSHOT_REF} -b ${BUNDLE_SNAPSHOT_REF} -p)
+  RELATED_IMAGES=$(${GET_RELATED_IMAGES} -s ${SNAPSHOT_REF} -b ${BUNDLE_SNAPSHOT_REF} -r ${REGISTRY})
   BUNDLE_IMAGE=$(jq -r '.[] | select(.name=="lightspeed-operator-bundle") | .image' <<<${RELATED_IMAGES})
   echo "Catalog will use the following images:"
   echo "${RELATED_IMAGES}"
