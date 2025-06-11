@@ -995,8 +995,8 @@ var _ = Describe("App server assets", func() {
 				ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
 			}
 
-			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(ConsistOf(
-				ocpIndex,
+			// OLS-1823: prioritize BYOK content over OCP docs
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]ReferenceIndex{
 				ReferenceIndex{
 					ProductDocsIndexId:   "ocp-product-docs-4_15",
 					ProductDocsIndexPath: RAGVolumeMountPath + "/rag-0",
@@ -1005,7 +1005,8 @@ var _ = Describe("App server assets", func() {
 					ProductDocsIndexId:   "ansible-docs-2_18",
 					ProductDocsIndexPath: RAGVolumeMountPath + "/rag-1",
 				},
-			))
+				ocpIndex,
+			}))
 
 			By("additional RAG indexes are removed")
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{}
