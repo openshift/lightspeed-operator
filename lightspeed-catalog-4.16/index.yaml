@@ -56,14 +56,14 @@ schema: olm.bundle
 ---
 schema: olm.channel
 package: lightspeed-operator
-name: stable
+name: alpha
 entries:
   - name: lightspeed-operator.v1.0.0
     skipRange: ">=0.1.0 <1.0.0"
 ---
 schema: olm.channel
 package: lightspeed-operator
-name: alpha
+name: stable
 entries:
   - name: lightspeed-operator.v1.0.0
     skipRange: ">=0.1.0 <1.0.0"
