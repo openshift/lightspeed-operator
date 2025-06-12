@@ -6,8 +6,8 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:42f81e4d51c88224baefe81b377d40603f0dbe7402c0399937804dd14b1db785
-name: lightspeed-operator.v0.3.6
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:ad10cdce09322f5a2da43fb1b45d7952808b822a744c9c5a47f42ddd95fe9916
+name: lightspeed-operator.v1.0.0
 package: lightspeed-operator
 properties:
   - type: olm.gvk
@@ -18,7 +18,7 @@ properties:
   - type: olm.package
     value:
       packageName: lightspeed-operator
-      version: 0.3.6
+      version: 1.0.0
   - type: olm.csv.metadata
     value:
       annotations:
@@ -58,7 +58,7 @@ properties:
           ]
         capabilities: Basic Install
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2025-05-20T17:26:43Z"
+        createdAt: "2025-06-12T13:57:35Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -380,19 +380,19 @@ relatedImages:
   - name: lightspeed-operator
     image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ff6c11d247307e4c70a6fd2a0b86ed2396c272520cd2fe3a0afb0f2c15dcc795
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:42f81e4d51c88224baefe81b377d40603f0dbe7402c0399937804dd14b1db785
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:ad10cdce09322f5a2da43fb1b45d7952808b822a744c9c5a47f42ddd95fe9916
 schema: olm.bundle
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: stable
 entries:
-  - name: lightspeed-operator.v0.3.6
-    skipRange: ">=0.1.0 <0.3.6"
+  - name: lightspeed-operator.v1.0.0
+    skipRange: ">=0.1.0 <1.0.0"
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: alpha
 entries:
-  - name: lightspeed-operator.v0.3.6
-    skipRange: ">=0.1.0 <0.3.6"
+  - name: lightspeed-operator.v1.0.0
+    skipRange: ">=0.1.0 <1.0.0"
