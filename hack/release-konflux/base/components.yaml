@@ -5,7 +5,7 @@ metadata:
   namespace: crt-nshift-lightspeed-tenant
 spec:
   gracePeriodDays: 30
-  releasePlan: ols-releaseplan
+  releasePlan: ols-stable-releaseplan
   snapshot: snapshot-value
   data:
     releaseNotes:
