@@ -3,11 +3,10 @@ kind: Kustomization
 # run `make konflux-release` to generate the Konflux resources in release-konflux/
 # Release notes should be updated in the release objects, refer to https://konflux.pages.redhat.com/docs/users/releasing/releasing-with-an-advisory.html
 
-
 # channel
-namePrefix: tech-preview-
+namePrefix: stable-
 # version
-nameSuffix: -0.3.6-1
+nameSuffix: -1.0.0-3
 
 resources:
   - base/components.yaml
@@ -16,7 +15,10 @@ resources:
   - base/fbc-prod-v4-16.yaml
   - base/fbc-prod-v4-17.yaml
   - base/fbc-prod-v4-18.yaml
-  - base/fbc-staging.yaml
+  - base/fbc-staging-v4-15.yaml
+  - base/fbc-staging-v4-16.yaml
+  - base/fbc-staging-v4-17.yaml
+  - base/fbc-staging-v4-18.yaml
 
 patches:
   - target:
@@ -32,39 +34,62 @@ patches:
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-bundle-4fsfb
+        value: ols-bundle-z8tgw
+  # production FBC
   - target:
       kind: Release
       name: fbc-prod-415
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-15-vmvfr
+        value: ols-fbc-v4-15-96shq
   - target:
       kind: Release
       name: fbc-prod-416
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-16-98q76
+        value: ols-fbc-v4-16-j24mx
   - target:
       kind: Release
       name: fbc-prod-417
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-17-hs4ws
+        value: ols-fbc-v4-17-h4tsn
   - target:
       kind: Release
       name: fbc-prod-418
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-18-9xkj5
+        value: ols-fbc-v4-18-sjbj7
+  # staging FBC
   - target:
       kind: Release
-      name: fbc-staging
+      name: fbc-staging-v4-18
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-18-9xkj5
+        value: ols-fbc-v4-18-sjbj7
+  - target:
+      kind: Release
+      name: fbc-staging-v4-17
+    patch: |-
+      - op: replace
+        path: /spec/snapshot
+        value: ols-fbc-v4-17-h4tsn
+  - target:
+      kind: Release
+      name: fbc-staging-v4-16
+    patch: |-
+      - op: replace
+        path: /spec/snapshot
+        value: ols-fbc-v4-16-j24mx
+  - target:
+      kind: Release
+      name: fbc-staging-v4-15
+    patch: |-
+      - op: replace
+        path: /spec/snapshot
+        value: ols-fbc-v4-15-96shq
