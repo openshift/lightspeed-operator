@@ -1047,6 +1047,7 @@ spec:
                     type: object
                 required:
                 - defaultModel
+                - defaultProvider
                 type: object
               olsDataCollector:
                 description: OLSDataCollectorSpec defines allowed OLS data collector
