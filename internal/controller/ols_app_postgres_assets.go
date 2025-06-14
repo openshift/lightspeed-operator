@@ -431,8 +431,8 @@ func (r *OLSConfigReconciler) generatePostgresNetworkPolicy(cr *olsv1alpha1.OLSC
 }
 
 func (r *OLSConfigReconciler) storageDefaults(s *olsv1alpha1.Storage) error {
-	if s.Size == "" {
-		s.Size = PostgresDefaultPVCSize
+	if s.Size.IsZero() {
+		s.Size = resource.MustParse(PostgresDefaultPVCSize)
 	}
 	if s.Class == "" {
 		var scList storagev1.StorageClassList
@@ -469,7 +469,7 @@ func (r *OLSConfigReconciler) generatePostgresPVC(cr *olsv1alpha1.OLSConfig) (*c
 			},
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse(storage.Size),
+					corev1.ResourceStorage: storage.Size,
 				},
 			},
 			StorageClassName: &storage.Class,
