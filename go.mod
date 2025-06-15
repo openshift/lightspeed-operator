@@ -1,6 +1,8 @@
 module github.com/openshift/lightspeed-operator
 
-go 1.22.0
+go 1.23
+
+toolchain go1.23.9
 
 // v0.0.0-20241014173422-cfa47c3a1cc8 requires go 1.23, we use previous version when waiting for go-toolset update to 1.23
 replace sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 => sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
@@ -25,6 +27,7 @@ require (
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 )
 
 require (
@@ -81,5 +84,4 @@ require (
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241127205056-99599406b04f // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.3 // indirect
 )
