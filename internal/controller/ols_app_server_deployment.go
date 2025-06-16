@@ -173,7 +173,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	}
 
 	// RAG volume
-	if cr.Spec.OLSConfig.RAG != nil && len(cr.Spec.OLSConfig.RAG) > 0 {
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
 		ragVolume := r.generateRAGVolume()
 		volumes = append(volumes, ragVolume)
 	}
@@ -236,7 +236,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		volumeMounts = append(volumeMounts, proxyCACertVolumeMount)
 	}
 
-	if cr.Spec.OLSConfig.RAG != nil && len(cr.Spec.OLSConfig.RAG) > 0 {
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
 		ragVolumeMounts := r.generateRAGVolumeMount()
 		volumeMounts = append(volumeMounts, ragVolumeMounts)
 	}
@@ -250,7 +250,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	)
 
 	initContainers := []corev1.Container{}
-	if cr.Spec.OLSConfig.RAG != nil && len(cr.Spec.OLSConfig.RAG) > 0 {
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
 		ragInitContainers := r.generateRAGInitContainers(cr)
 		initContainers = append(initContainers, ragInitContainers...)
 	}
