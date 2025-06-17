@@ -120,7 +120,6 @@ var _ = Describe("App server assets", func() {
 									ServerName:         &serverName,
 								},
 							},
-							BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
 						},
 					},
 					JobLabel: "app.kubernetes.io/name",
