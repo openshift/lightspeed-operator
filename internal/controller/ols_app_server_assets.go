@@ -503,7 +503,15 @@ func (r *OLSConfigReconciler) generateServiceMonitor(cr *olsv1alpha1.OLSConfig) 
 							ServerName:         &serverName,
 						},
 					},
-					BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
+					Authorization: &monv1.SafeAuthorization{
+						Type: "Bearer",
+						Credentials: &corev1.SecretKeySelector{
+							Key: "token",
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: MetricsReaderServiceAccountTokenSecretName,
+							},
+						},
+					},
 				},
 			},
 			JobLabel: "app.kubernetes.io/name",
