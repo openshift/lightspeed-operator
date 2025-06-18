@@ -112,9 +112,13 @@ cp ${TMP_SNAPSHOT_JSON} snapshot.json
 cp ${TMP_BUNDLE_SNAPSHOT_JSON} bundle_snapshot.json
 
 BUNDLE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .containerImage' "${TMP_BUNDLE_SNAPSHOT_JSON}")
+BUNDLE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .source.git.revision' "${TMP_BUNDLE_SNAPSHOT_JSON}")
 OPERATOR_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-operator") | .containerImage' "${TMP_SNAPSHOT_JSON}")
+OPERATOR_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-operator") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
 CONSOLE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-console") | .containerImage' "${TMP_SNAPSHOT_JSON}")
+CONSOLE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-console") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
 SERVICE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service") | .containerImage' "${TMP_SNAPSHOT_JSON}")
+SERVICE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
 if [ "${USE_REGISTRY}" = "preview" ]; then
     BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle"
     OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator"
@@ -144,18 +148,22 @@ RELATED_IMAGES=$(
 [
   {
     "name": "lightspeed-service-api",
-    "image": "${SERVICE_IMAGE}"
+    "image": "${SERVICE_IMAGE}",
+    "revision": "${SERVICE_REVISION}"
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "${CONSOLE_IMAGE}"
+    "image": "${CONSOLE_IMAGE}",
+    "revision": "${CONSOLE_REVISION}"
   },
   {
     "name": "lightspeed-operator",
-    "image": "${OPERATOR_IMAGE}"
+    "image": "${OPERATOR_IMAGE}",
+    "revision": "${OPERATOR_REVISION}"
   },
   { "name": "lightspeed-operator-bundle",
-    "image": "${BUNDLE_IMAGE}"
+    "image": "${BUNDLE_IMAGE}",
+    "revision": "${BUNDLE_REVISION}"
   }
 ]
 EOF
