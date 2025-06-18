@@ -1,0 +1,21 @@
+[ req ]
+default_bits        = 2048
+distinguished_name  = req_distinguished_name
+x509_extensions     = v3_req
+prompt              = no
+
+[ req_distinguished_name ]
+C  = US
+ST = California
+L  = San Francisco
+O  = My Company
+OU = My Division
+CN = 18.191.144.20
+
+[ v3_req ]
+subjectAltName = @alt_names
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+
+[ alt_names ]
+IP.1 = 18.191.144.20
