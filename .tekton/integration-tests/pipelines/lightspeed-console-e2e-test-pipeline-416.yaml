@@ -186,7 +186,7 @@ spec:
                 value: "/credentials/$(steps.get-kubeconfig.results.passwordPath)"
               - name: CYPRESS_BASE_URL
                 value: "$(steps.get-kubeconfig.results.consoleURL)"
-            image: cypress/browsers:22.15.0
+            image: cypress/browsers:24.0.0
             script: |
               echo "---------------------------------------------"
               echo "${CYPRESS_BASE_URL}"
