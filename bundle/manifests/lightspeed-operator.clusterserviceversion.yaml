@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-07-01T09:17:54Z"
+    createdAt: "2025-07-09T07:45:59Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -204,6 +204,21 @@ spec:
             path: ols.deployment.dataCollector.resources
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+          - description: Database container settings.
+            displayName: Database Container
+            path: ols.deployment.database
+          - displayName: Node Selector
+            path: ols.deployment.database.nodeSelector
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:nodeSelector
+          - displayName: Resource Requirements
+            path: ols.deployment.database.resources
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+          - displayName: Tolerations
+            path: ols.deployment.database.tolerations
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:tolerations
           - description: 'Defines the number of desired OLS pods. Default: "1"'
             displayName: Number of replicas
             path: ols.deployment.replicas
@@ -287,10 +302,10 @@ spec:
             path: ols.storage
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
-          - description: Storage Class of the Requested Volume
+          - description: Storage class of the requested volume
             displayName: Storage Class of the Requested Volume
             path: ols.storage.class
-          - description: Size of the Requested Volume
+          - description: Size of the requested volume
             displayName: Size of the Requested Volume
             path: ols.storage.size
           - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
