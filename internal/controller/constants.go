@@ -147,6 +147,7 @@ const (
 	PostgresSecretKeyName = "password"
 	// Image of the OLS application postgres server
 	PostgresServerImageDefault = "registry.redhat.io/rhel9/postgresql-16@sha256:6d2cab6cb6366b26fcf4591fe22aa5e8212a3836c34c896bb65977a8e50d658b"
+	MCPServerImageDefault      = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/kubernetes-mcp-server-f302c@sha256:999fba7764298dda42b5c086b5a7209491e91bf4d19f0c5912ad50573d3eed5c"
 	// PostgresDefaultUser is the default user name for postgres
 	PostgresDefaultUser = "postgres"
 	// PostgresDefaultDbName is the default db name for Postgres
