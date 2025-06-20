@@ -217,8 +217,9 @@ type UserDataCollectorConfig struct {
 type MCPTransport string
 
 const (
-	SSE   MCPTransport = "sse"
-	Stdio MCPTransport = "stdio"
+	SSE            MCPTransport = "sse"
+	Stdio          MCPTransport = "stdio"
+	StreamableHTTP MCPTransport = "streamable_http"
 )
 
 type MCPServerConfig struct {
@@ -228,8 +229,10 @@ type MCPServerConfig struct {
 	Transport MCPTransport `json:"transport"`
 	// Transport settings if the transport is stdio
 	Stdio *StdioTransportConfig `json:"stdio,omitempty"`
-	// Transport settings if the transport is sse
+	// Transport settings if the transport is SSE
 	SSE *SSETransportConfig `json:"sse,omitempty"`
+	// Transport settings if the transport is Streamable HTTP
+	StreamableHTTP *StreamableHTTPTransportConfig `json:"streamable_http,omitempty"`
 }
 
 type StdioTransportConfig struct {
@@ -252,6 +255,15 @@ type SSETransportConfig struct {
 	Timeout int `json:"timeout,omitempty"`
 	// SSE read timeout for the MCP server
 	SSEReadTimeout int `json:"sse_read_timeout,omitempty"`
+}
+
+type StreamableHTTPTransportConfig struct {
+	// URL of the MCP server
+	URL string `json:"url,omitempty"`
+	// Overall timeout for the MCP server
+	Timeout int `json:"timeout,omitempty"`
+	// HTTP read timeout for the MCP server
+	HTTPReadTimeout int `json:"http_read_timeout,omitempty"`
 }
 
 type ProxyConfig struct {
