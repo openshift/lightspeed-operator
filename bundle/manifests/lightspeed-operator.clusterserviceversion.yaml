@@ -534,6 +534,7 @@ spec:
                       - --service-image=quay.io/openshift-lightspeed/lightspeed-service-api:latest
                       - --console-image=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:6d2cab6cb6366b26fcf4591fe22aa5e8212a3836c34c896bb65977a8e50d658b
+                      - --mcp-server-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/kubernetes-mcp-server-f302c@sha256:999fba7764298dda42b5c086b5a7209491e91bf4d19f0c5912ad50573d3eed5c
                     command:
                       - /manager
                     env:
@@ -657,3 +658,5 @@ spec:
       image: quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
     - name: lightspeed-operator
       image: quay.io/openshift-lightspeed/lightspeed-operator:latest
+    - name: mcp-server
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/kubernetes-mcp-server-f302c@sha256:999fba7764298dda42b5c086b5a7209491e91bf4d19f0c5912ad50573d3eed5c
