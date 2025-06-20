@@ -292,6 +292,54 @@ var _ = Describe("App postgres server assets", func() {
 			createAndValidatePostgresDeployment(true)
 		})
 
+		It("should customize container settings in the OLS postgres deployment", func() {
+			resources := &corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("500Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("3Gi"),
+				},
+			}
+			tolerations := []corev1.Toleration{
+				{
+					Key:      "test-key",
+					Operator: corev1.TolerationOpEqual,
+					Value:    "test-value",
+					Effect:   corev1.TaintEffectNoSchedule,
+				},
+			}
+			nodeSelector := map[string]string{
+				"test-node-selector-key": "test-node-selector-value",
+			}
+			cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer = olsv1alpha1.DatabaseContainerConfig{
+				Resources:    resources,
+				Tolerations:  tolerations,
+				NodeSelector: nodeSelector,
+			}
+
+			cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-1"
+			secret, _ := r.generatePostgresSecret(cr)
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Secret",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       "dummy-secret-1",
+				},
+			})
+			secretCreationErr := r.Create(ctx, secret)
+			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			deployment, err := r.generatePostgresDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(deployment.Spec.Template.Spec.Containers[0].Resources).To(Equal(*resources))
+			Expect(deployment.Spec.Template.Spec.Tolerations).To(Equal(tolerations))
+			Expect(deployment.Spec.Template.Spec.NodeSelector).To(Equal(nodeSelector))
+		})
+
 		It("should work when no update in the OLS postgres deployment", func() {
 			cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-2"
 			secret, _ := r.generatePostgresSecret(cr)
