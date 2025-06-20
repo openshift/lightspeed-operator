@@ -334,21 +334,6 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		}
 	}
 
-	if cr.Spec.OLSConfig.IntrospectionEnabled {
-		appSrvConfigFile.MCPServers = []MCPServerConfig{
-			{
-				Name:      "openshift",
-				Transport: "stdio",
-				Stdio: &StdioTransportConfig{
-					Command: "python3.11",
-					Args: []string{
-						"./mcp_local/openshift.py",
-					},
-				},
-			},
-		}
-	}
-
 	configFileBytes, err := yaml.Marshal(appSrvConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OLS config file %w", err)
