@@ -9,7 +9,7 @@ toolchain go1.23.9
 
 require (
 	github.com/Jeffail/gabs/v2 v2.7.0
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.36.3
 	github.com/openshift/client-go v0.0.0-20231218140158-47f6d749b9d9
