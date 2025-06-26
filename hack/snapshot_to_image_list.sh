@@ -3,7 +3,7 @@
 usage() {
     echo "Usage: $0 -s <snapshot-ref> -b <bundle-snapshot-ref> -o <output-file> -p"
     echo "  -s snapshot-ref: required, the snapshot's references, example: ols-cq8sl"
-    echo "  -b bundle-snapshot-ref: required, the ols-bundle snapshot's references, example: ols-bundle-wf8st"
+    echo "  -b bundle-snapshot-ref: optional, the ols-bundle snapshot's references, example: ols-bundle-wf8st"
     echo "  -o output-file: optional, the catalog index file to update, default is empty (output to stdout)"
     echo "  -r: optional, use which registry: stable, preview, ci"
     echo "  -h: Show this help message"
@@ -18,6 +18,7 @@ fi
 SNAPSHOT_REF=""
 OUTPUT_FILE=""
 USE_REGISTRY="ci"
+KONFLUX_NAMESPACE="crt-nshift-lightspeed-tenant"
 
 while getopts ":s:b:o:r:h" argname; do
     case "$argname" in
@@ -61,9 +62,7 @@ if [ -z "${SNAPSHOT_REF}" ]; then
 fi
 
 if [ -z "${BUNDLE_SNAPSHOT_REF}" ]; then
-    echo "bundle-snapshot-ref is required"
-    usage
-    exit 1
+    echo "bundle-snapshot-ref is not specified, will not update bundle image"
 fi
 
 : ${JQ:=$(command -v jq)}
@@ -92,7 +91,7 @@ cleanup() {
 trap cleanup EXIT
 
 # cache the snapshot from Konflux
-oc get snapshot ${SNAPSHOT_REF} -o json >"${TMP_SNAPSHOT_JSON}"
+oc get -n ${KONFLUX_NAMESPACE} snapshot ${SNAPSHOT_REF} -o json >"${TMP_SNAPSHOT_JSON}"
 
 if [ $? -ne 0 ]; then
     echo "Failed to get snapshot ${SNAPSHOT_REF}"
@@ -101,18 +100,22 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-oc get snapshot ${BUNDLE_SNAPSHOT_REF} -o json >"${TMP_BUNDLE_SNAPSHOT_JSON}"
-if [ $? -ne 0 ]; then
-    echo "Failed to get snapshot ${BUNDLE_SNAPSHOT_REF}"
-    echo "Please make sure the bundle snapshot exists and the snapshot name is correct"
-    exit 1
+if [ -n "${BUNDLE_SNAPSHOT_REF}" ]; then
+    oc get -n ${KONFLUX_NAMESPACE} snapshot ${BUNDLE_SNAPSHOT_REF} -o json >"${TMP_BUNDLE_SNAPSHOT_JSON}"
+    if [ $? -ne 0 ]; then
+        echo "Failed to get snapshot ${BUNDLE_SNAPSHOT_REF}"
+        echo "Please make sure the bundle snapshot exists and the snapshot name is correct"
+        exit 1
+    fi
 fi
 
 cp ${TMP_SNAPSHOT_JSON} snapshot.json
 cp ${TMP_BUNDLE_SNAPSHOT_JSON} bundle_snapshot.json
 
-BUNDLE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .containerImage' "${TMP_BUNDLE_SNAPSHOT_JSON}")
-BUNDLE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .source.git.revision' "${TMP_BUNDLE_SNAPSHOT_JSON}")
+if [ -n "${BUNDLE_SNAPSHOT_REF}" ]; then
+    BUNDLE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .containerImage' "${TMP_BUNDLE_SNAPSHOT_JSON}")
+    BUNDLE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .source.git.revision' "${TMP_BUNDLE_SNAPSHOT_JSON}")
+fi
 OPERATOR_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-operator") | .containerImage' "${TMP_SNAPSHOT_JSON}")
 OPERATOR_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-operator") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
 CONSOLE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-console") | .containerImage' "${TMP_SNAPSHOT_JSON}")
@@ -120,27 +123,33 @@ CONSOLE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-conso
 SERVICE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service") | .containerImage' "${TMP_SNAPSHOT_JSON}")
 SERVICE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
 if [ "${USE_REGISTRY}" = "preview" ]; then
-    BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle"
     OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator"
     CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9"
     SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9"
 
-    BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle|'"${BUNDLE_IMAGE_BASE}"'|g' <<<${BUNDLE_IMAGE})
     OPERATOR_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator|'"${OPERATOR_IMAGE_BASE}"'|g' <<<${OPERATOR_IMAGE})
     CONSOLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console|'"${CONSOLE_IMAGE_BASE}"'|g' <<<${CONSOLE_IMAGE})
     SERVICE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service|'"${SERVICE_IMAGE_BASE}"'|g' <<<${SERVICE_IMAGE})
+
+    if [ -n "${BUNDLE_SNAPSHOT_REF}" ]; then
+        BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle"
+        BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle|'"${BUNDLE_IMAGE_BASE}"'|g' <<<${BUNDLE_IMAGE})
+    fi
 fi
 
 if [ "${USE_REGISTRY}" = "stable" ]; then
-    BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle"
     OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator"
     CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9"
     SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9"
 
-    BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle|'"${BUNDLE_IMAGE_BASE}"'|g' <<<${BUNDLE_IMAGE})
     OPERATOR_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator|'"${OPERATOR_IMAGE_BASE}"'|g' <<<${OPERATOR_IMAGE})
     CONSOLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console|'"${CONSOLE_IMAGE_BASE}"'|g' <<<${CONSOLE_IMAGE})
     SERVICE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service|'"${SERVICE_IMAGE_BASE}"'|g' <<<${SERVICE_IMAGE})
+
+    if [ -n "${BUNDLE_SNAPSHOT_REF}" ]; then
+        BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle"
+        BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle|'"${BUNDLE_IMAGE_BASE}"'|g' <<<${BUNDLE_IMAGE})
+    fi
 fi
 
 RELATED_IMAGES=$(
@@ -160,14 +169,17 @@ RELATED_IMAGES=$(
     "name": "lightspeed-operator",
     "image": "${OPERATOR_IMAGE}",
     "revision": "${OPERATOR_REVISION}"
-  },
-  { "name": "lightspeed-operator-bundle",
-    "image": "${BUNDLE_IMAGE}",
-    "revision": "${BUNDLE_REVISION}"
   }
 ]
 EOF
 )
+
+if [ -n "${BUNDLE_IMAGE}" ]; then
+    RELATED_IMAGES=$(echo "${RELATED_IMAGES}" | ${JQ} \
+        --arg img "${BUNDLE_IMAGE}" \
+        --arg rev "${BUNDLE_REVISION}" \
+        '. += [{"name":"lightspeed-operator-bundle","image":$img,"revision":$rev}]')
+fi
 
 if [ -n "${OUTPUT_FILE}" ]; then
     ${JQ} <<<$RELATED_IMAGES >${OUTPUT_FILE}
