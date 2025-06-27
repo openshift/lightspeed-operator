@@ -1308,7 +1308,15 @@ user_data_collector_config: {}
 						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
 						KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
 					},
-					BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
+					Authorization: &monv1.SafeAuthorization{
+						Type: "Bearer",
+						Credentials: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: MetricsReaderServiceAccountTokenSecretName,
+							},
+							Key: "token",
+						},
+					},
 				},
 			))
 			Expect(serviceMonitor.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))

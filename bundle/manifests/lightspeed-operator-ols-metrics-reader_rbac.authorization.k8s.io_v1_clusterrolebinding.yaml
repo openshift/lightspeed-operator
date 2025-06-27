@@ -13,5 +13,5 @@ roleRef:
   name: lightspeed-operator-ols-metrics-reader
 subjects:
 - kind: ServiceAccount
-  name: prometheus-k8s
-  namespace: openshift-monitoring
+  name: lightspeed-operator-metrics-reader
+  namespace: openshift-lightspeed
