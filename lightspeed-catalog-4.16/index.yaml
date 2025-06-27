@@ -46,10 +46,10 @@ properties:
 relatedImages:
   - name: lightspeed-service-api
     image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:21cd7da3674c55e76caf60122a19419b4eda097388f148f8163712b81b4af1d8
-  - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ff6c11d247307e4c70a6fd2a0b86ed2396c272520cd2fe3a0afb0f2c15dcc795
   - name: lightspeed-console-plugin
     image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:77dbdaeaf49ac970d7a470960b75d4078efcedc1dd1182414b078bd790ee53ea
+  - name: lightspeed-operator
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ff6c11d247307e4c70a6fd2a0b86ed2396c272520cd2fe3a0afb0f2c15dcc795
   - name: lightspeed-operator-bundle
     image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:ad10cdce09322f5a2da43fb1b45d7952808b822a744c9c5a47f42ddd95fe9916
 schema: olm.bundle
