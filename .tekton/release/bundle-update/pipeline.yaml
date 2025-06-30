@@ -1,0 +1,163 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: update-bundle-related-images
+spec:
+  params:
+    - name: snapshot
+      type: string
+      description: The component snapshot to update the bundle with. Provided by Konflux.
+    - name: release
+      type: string
+      description: The release name and namespace in the format of <namespace>/<release-name>. Provided by Konflux.
+    - name: releasePlan
+      type: string
+      description: The release plan name, which is not used in this pipeline. Provided by Konflux.
+    - name: forkGitUrl
+      type: string
+      description: The git repository URL where the updated code is committed to.
+      default: "https://github.com/raptorsun/lightspeed-operator.git"
+    - name: forkBranch
+      type: string
+      description: The branch of the git repository where the updated code is committed to.
+      default: "bundle-update"
+    - name: forkUser
+      type: string
+      description: The Github user of the fork git repository.
+      default: "raptorsun"
+    - name: sourceGitUrl
+      type: string
+      description: The source git repository URL to clone as starting point for the bundle update.
+      default: "https://github.com/openshift/lightspeed-operator.git"
+    - name: sourceBranch
+      type: string
+      description: The branch of the source git repository to clone as starting point for the bundle update.
+      default: "main"
+  tasks:
+    - name: update-related-images
+      taskSpec:
+        params:
+          - name: snapshot
+            type: string
+            description: The bundle snapshot to update the catalog with. Provided by Konflux.
+          - name: release
+            type: string
+            description: The release name and namespace in the format of <namespace>/<release-name>. Provided by Konflux.
+          - name: forkGitUrl
+            type: string
+            description: The git repository URL where the updated catalog is committed to
+            default: "https://github.com/raptorsun/lightspeed-operator.git"
+          - name: forkBranch
+            type: string
+            description: The branch of the git repository where the updated catalog is committed to
+            default: "bundle-update"
+          - name: forkUser
+            type: string
+            description: The Github user of the fork git repository
+            default: "raptorsun"
+          - name: sourceGitUrl
+            type: string
+            description: The source git repository URL to clone as starting point for the catalog update
+            default: "https://github.com/openshift/lightspeed-operator.git"
+          - name: sourceBranch
+            type: string
+            description: The branch of the source git repository to clone as starting point for the catalog update
+            default: "main"
+        steps:
+          - name: git-clone
+            image: quay.io/hasun/bundle-update:0.0.1
+            script: |
+              git clone --single-branch --branch $(params.sourceBranch) $(params.sourceGitUrl) repo
+              cd repo
+              git checkout -b $(params.forkBranch)
+            workingDir: /workspace
+          - name: update-file
+            image: quay.io/hasun/bundle-update:0.0.1
+            script: |
+              set -e
+              oc login --token=${KONFLUX_TOKEN} --server=https://api.stone-prd-rh01.pg1f.p1.openshiftapps.com:6443
+              IFS='/' read -r RELEASE_NAMESPACE RELEASE_NAME <<< "$(params.release)"
+              SNAPSHOT_IMAGES=$(oc get snapshot "$(params.snapshot)" -n "$RELEASE_NAMESPACE" \
+              -o jsonpath='{.spec.components}')
+              echo "Snapshot images: $SNAPSHOT_IMAGES"
+              cd repo
+              # back up the bundle element
+              jq '.[] | select(.name == "lightspeed-operator-bundle")' related_images.json > bundle.json
+              ./hack/snapshot_to_image_list.sh -s "$(params.snapshot)" -r stable -o related_images.json
+              # restore the bundle element
+              jq 'map(select(.name != "lightspeed-operator-bundle"))' related_images.json > tmp.json && mv tmp.json related_images.json
+              jq -s '.[0] + [.[1]]' related_images.json bundle.json > tmp.json && mv tmp.json related_images.json
+            workingDir: /workspace
+            env:
+              - name: KONFLUX_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: release-bot-konflux-token
+                    key: konflux-token
+              - name: HOME
+                value: /workspace
+          - name: git-config
+            image: quay.io/hasun/bundle-update:0.0.1
+            script: |
+              cd repo
+              # todo: replace the email and name with the bot's email and name
+              git config user.email "hasun@redhat.com"
+              git config user.name "Haoyu Sun's Bot"
+              git remote add fork $(params.forkGitUrl)
+            workingDir: /workspace
+            env:
+              - name: HOME
+                value: /workspace
+          - name: git-commit-push
+            image: quay.io/hasun/bundle-update:0.0.1
+            workingDir: /workspace
+            env:
+              - name: GITHUB_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: release-bot-github-token
+                    key: github-token
+            script: |
+              cd repo
+              git add related_images.json
+              git commit -m "Update related_images with snapshot $(params.snapshot)"
+              git rev-parse HEAD | tee $(results.commit-id.path)
+              git config credential.helper '!f() { sleep 1; echo "username=git"; echo "password=$GITHUB_TOKEN"; }; f'
+              git push --force fork $(params.forkBranch)
+              # todo: replace the PR title, body
+              RESPONSE=$(curl -L \
+                -X POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                https://api.github.com/repos/openshift/lightspeed-operator/pulls \
+                -d '{"title":"Bundle Update from Snapshot $(params.snapshot)","body":"This PR is triggered by the release $(params.release).","head":"$(params.forkUser):$(params.forkBranch)","base":"$(params.sourceBranch)"}' )
+              echo "Github response: \n $RESPONSE"
+              jq -r '.html_url' <<< $RESPONSE | tee $(results.pull-request-url.path)
+        results:
+          - name: commit-id
+            description: The commit ID where bundle is updated
+          - name: pull-request-url
+            description: The URL of the created pull request
+      params:
+        - name: release
+          value: $(params.release)
+        - name: snapshot
+          value: $(params.snapshot)
+        - name: forkGitUrl
+          value: $(params.forkGitUrl)
+        - name: forkBranch
+          value: $(params.forkBranch)
+        - name: forkUser
+          value: $(params.forkUser)
+        - name: sourceGitUrl
+          value: $(params.sourceGitUrl)
+        - name: sourceBranch
+          value: $(params.sourceBranch)
+  results:
+    - name: commit-id
+      description: The commit ID where bundle is updated.
+      value: "$(tasks.update-related-images.results.commit-id)"
+    - name: pull-request-url
+      description: The URL of the created pull request.
+      value: "$(tasks.update-related-images.results.pull-request-url)"
