@@ -1,0 +1,27 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: update-catalog-run-3
+  namespace: crt-nshift-lightspeed-tenant
+  description: |
+    This pipeline run simulates a pipeline run triggered by Konflux.
+    These 3 parameters are passed by Konflux: snapshot, release and releasePlan Update the catalog with the released bundle. 
+    Other parameters are set by the release plan.
+spec:
+  serviceAccountName: release-bot
+  pipelineRef:
+    params:
+      - name: url
+        value: git@github.com:openshift/lightspeed-operator.git
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/release/catalog-update/pipeline.yaml
+    resolver: git
+  params:
+    - name: snapshot
+      value: "ols-bundle-z8tgw"
+    - name: release
+      value: "crt-nshift-lightspeed-tenant/stable-ols-bundle-1.0.0-2"
+    - name: releasePlan
+      value: "ols-bundle-release-plan"
