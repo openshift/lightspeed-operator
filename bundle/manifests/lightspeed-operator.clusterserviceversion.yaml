@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-06-12T13:57:35Z"
+    createdAt: "2025-07-01T09:17:54Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -55,7 +55,7 @@ metadata:
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
-  name: lightspeed-operator.v1.0.0
+  name: lightspeed-operator.v1.0.1
   namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
@@ -649,7 +649,7 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
-  version: 1.0.0
+  version: 1.0.1
   relatedImages:
     - name: lightspeed-service-api
       image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
