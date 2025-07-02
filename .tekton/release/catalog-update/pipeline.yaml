@@ -77,14 +77,14 @@ spec:
             script: |
               set -e
               oc login --token=${KONFLUX_TOKEN} --server=https://api.stone-prd-rh01.pg1f.p1.openshiftapps.com:6443
-              IFS='/' read -r RELEASE_NAMESPACE RELEASE_NAME <<< "$(params.release)"
+              IFS='/' read -r SNAPSHOT_NAMESPACE SNAPSHOT_NAME <<< "$(params.snapshot)"
 
               cd repo
-              ./hack/bundle_to_catalog.sh -b $(params.snapshot) -n stable,alpha -c lightspeed-catalog-4.15/index.yaml
-              ./hack/bundle_to_catalog.sh -b $(params.snapshot) -n stable,alpha -c lightspeed-catalog-4.16/index.yaml
-              ./hack/bundle_to_catalog.sh -b $(params.snapshot) -n stable,alpha -c lightspeed-catalog-4.17/index.yaml -m
-              ./hack/bundle_to_catalog.sh -b $(params.snapshot) -n stable,alpha -c lightspeed-catalog-4.18/index.yaml -m
-              ./hack/bundle_to_catalog.sh -b $(params.snapshot) -n stable,alpha -c lightspeed-catalog-4.19/index.yaml -m
+              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.15/index.yaml
+              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.16/index.yaml
+              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.17/index.yaml -m
+              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.18/index.yaml -m
+              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.19/index.yaml -m
 
             workingDir: /workspace
             env:
