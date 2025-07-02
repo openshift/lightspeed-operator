@@ -167,6 +167,12 @@ spec:
               - name: credentials
                 value: credentials
           - name: run-e2e-tests
+            resources:
+              requests:
+                cpu: '1'
+                memory: 1Gi
+              limits:
+                memory: 10Gi
             onError: continue
             volumeMounts:
               - name: openai-token
