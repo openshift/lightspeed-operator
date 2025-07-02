@@ -12,7 +12,7 @@ spec:
   pipelineRef:
     params:
       - name: url
-        value: git@github.com:openshift/lightspeed-operator.git
+        value: https://github.com:openshift/lightspeed-operator.git
       - name: revision
         value: main
       - name: pathInRepo
@@ -20,8 +20,8 @@ spec:
     resolver: git
   params:
     - name: snapshot
-      value: "ols-dsz4g"
+      value: "crt-nshift-lightspeed-tenant/ols-dsz4g"
     - name: release
       value: "crt-nshift-lightspeed-tenant/ga-1.0.0-1"
     - name: releasePlan
-      value: "ols-release-plan"
+      value: "crt-nshift-lightspeed-tenant/ols-release-plan"

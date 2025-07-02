@@ -76,8 +76,8 @@ spec:
             script: |
               set -e
               oc login --token=${KONFLUX_TOKEN} --server=https://api.stone-prd-rh01.pg1f.p1.openshiftapps.com:6443
-              IFS='/' read -r RELEASE_NAMESPACE RELEASE_NAME <<< "$(params.release)"
-              SNAPSHOT_IMAGES=$(oc get snapshot "$(params.snapshot)" -n "$RELEASE_NAMESPACE" \
+              IFS='/' read -r SNAPSHOT_NAMESPACE SNAPSHOT_NAME <<< "$(params.snapshot)"
+              SNAPSHOT_IMAGES=$(oc get snapshot "${SNAPSHOT_NAME}" -n "${SNAPSHOT_NAMESPACE}" \
               -o jsonpath='{.spec.components}')
               echo "Snapshot images: $SNAPSHOT_IMAGES"
               cd repo
