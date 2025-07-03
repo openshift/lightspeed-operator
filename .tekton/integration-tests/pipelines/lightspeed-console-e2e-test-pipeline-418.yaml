@@ -192,6 +192,8 @@ spec:
                 value: "/credentials/$(steps.get-kubeconfig.results.passwordPath)"
               - name: CYPRESS_BASE_URL
                 value: "$(steps.get-kubeconfig.results.consoleURL)"
+              - name: BUNDLE_COMMIT_SHA
+                value: "$(params.commit)"
             image: cypress/browsers:24.0.0
             script: |
               echo "---------------------------------------------"
@@ -224,8 +226,19 @@ spec:
               echo "---------------------------------------------"
               cd /home
               rm -rf lightspeed-console
+              wget -O /usr/local/bin/jq https://github.com/jqlang/jq/releases/download/jq-1.8.0/jq-linux-amd64
+              chmod +x /usr/local/bin/jq
+              git clone https://github.com/openshift/lightspeed-operator.git
+              cd lightspeed-operator
+              git config --global user.email olsci@redhat.com
+              git config --global user.name olsci
+              git pull origin ${BUNDLE_COMMIT_SHA} --rebase
+              export CONSOLE_IMAGE=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-console-plugin")' | jq '.revision' | tr -d '"' )
               git clone https://github.com/openshift/lightspeed-console.git
               cd lightspeed-console
+              git config --global user.email olsci@redhat.com
+              git config --global user.name olsci
+              git pull origin ${CONSOLE_IMAGE} --rebase
               npm install
               npm -v
               echo "---------------------------------------------"
