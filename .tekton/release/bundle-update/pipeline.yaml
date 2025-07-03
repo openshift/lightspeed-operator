@@ -83,7 +83,7 @@ spec:
               cd repo
               # back up the bundle element
               jq '.[] | select(.name == "lightspeed-operator-bundle")' related_images.json > bundle.json
-              ./hack/snapshot_to_image_list.sh -s "$(params.snapshot)" -r stable -o related_images.json
+              ./hack/snapshot_to_image_list.sh -s "${SNAPSHOT_NAME}" -r stable -o related_images.json
               # restore the bundle element
               jq 'map(select(.name != "lightspeed-operator-bundle"))' related_images.json > tmp.json && mv tmp.json related_images.json
               jq -s '.[0] + [.[1]]' related_images.json bundle.json > tmp.json && mv tmp.json related_images.json
