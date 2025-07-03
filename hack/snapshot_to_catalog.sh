@@ -72,8 +72,8 @@ if [ -z "${BUNDLE_SNAPSHOT_REFS}" ]; then
 fi
 
 #array from comma separated string of snapshot-refs and bundle-snapshot-refs
-SNAPSHOT_REFS=$(echo ${SNAPSHOT_REFS} | tr "," "\n")
-BUNDLE_SNAPSHOT_REFS=$(echo ${BUNDLE_SNAPSHOT_REFS} | tr "," "\n")
+IFS=',' read -ra SNAPSHOT_REFS <<< "$SNAPSHOT_REFS"
+IFS=',' read -ra BUNDLE_SNAPSHOT_REFS <<< "$BUNDLE_SNAPSHOT_REFS"
 
 
 if [  ${#SNAPSHOT_REFS[@]} -ne ${#BUNDLE_SNAPSHOT_REFS[@]} ]; then
