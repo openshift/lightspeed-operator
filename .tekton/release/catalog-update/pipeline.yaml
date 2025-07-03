@@ -120,7 +120,7 @@ spec:
                 lightspeed-catalog-4.18/index.yaml lightspeed-catalog-4.19/index.yaml
               git add related_images.json
               git commit -m "Update catalog with bundle snapshot $(params.snapshot)"
-              git config --global credential.helper '!f() { sleep 1; echo "username=git"; echo "password=$GITHUB_TOKEN"; }; f'
+              git config credential.helper '!f() { sleep 1; echo "username=git"; echo "password=$GITHUB_TOKEN"; }; f'
               git rev-parse HEAD | tee $(results.commit-id.path)
               git push --force fork $(params.forkBranch)
               # todo: change the PR title and body
