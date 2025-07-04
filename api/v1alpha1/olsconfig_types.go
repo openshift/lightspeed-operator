@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
+	resource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -112,10 +113,11 @@ type OLSSpec struct {
 
 // Persistent Storage Configuration
 type Storage struct {
-	// Size of the Requested Volume
+	// Size of the requested volume
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Size of the Requested Volume"
-	Size string `json:"size,omitempty"`
-	// Storage Class of the Requested Volume
+	// +kubebuilder:validation:Optional
+	Size resource.Quantity `json:"size,omitempty"`
+	// Storage class of the requested volume
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Storage Class of the Requested Volume"
 	Class string `json:"class,omitempty"`
 }
