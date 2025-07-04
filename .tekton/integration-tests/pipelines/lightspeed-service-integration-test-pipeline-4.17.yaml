@@ -237,6 +237,8 @@ spec:
                 value: ""
               - name: BUNDLE_IMAGE
                 value: "$(params.bundleimage)"
+              - name: BUNDLE_COMMIT_SHA
+                value: "$(params.commit)"
             image: registry.access.redhat.com/ubi9/ubi-minimal
             script: |
               echo "---------------------------------------------"
@@ -251,13 +253,22 @@ spec:
               chmod +x /usr/local/bin/operator-sdk
               operator-sdk version
               echo "---------------------------------------------"
-              microdnf -y install git make python3.11 python3.11-devel python3.11-pip shadow-utils tar
+              microdnf -y install git make python3.11 python3.11-devel python3.11-pip shadow-utils tar jq
               curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.15/openshift-client-linux-amd64-rhel9.tar.gz \
                   && tar -xvzf oc.tar.gz \
                   && chmod +x kubectl oc \
                   && mv oc kubectl /usr/local/bin/
+              git clone https://github.com/openshift/lightspeed-operator.git
+              cd lightspeed-operator
+              git config --global user.email olsci@redhat.com
+              git config --global user.name olsci
+              git pull origin ${BUNDLE_COMMIT_SHA} --rebase
+              export SERVICE_IMAGE=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-service-api")' | jq '.revision' | tr -d '"' )
               git clone https://github.com/openshift/lightspeed-service.git
               cd lightspeed-service
+              git config --global user.email olsci@redhat.com
+              git config --global user.name olsci
+              git pull origin ${SERVICE_IMAGE} --rebase
               pip3.11 install --no-cache-dir --upgrade pip pdm
               pdm config python.use_venv false
               export CP_OFFLINE_TOKEN=$(cat /var/run/insights-stage-upload-offline-token/token)
