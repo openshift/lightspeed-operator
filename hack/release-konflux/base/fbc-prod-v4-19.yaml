@@ -1,11 +1,10 @@
 apiVersion: appstudio.redhat.com/v1alpha1
 kind: Release
 metadata:
-  name: ols-bundle
+  name: fbc-prod-419
   namespace: crt-nshift-lightspeed-tenant
 spec:
-  gracePeriodDays: 30
-  releasePlan: ols-bundle-stable-automation-releaseplan
+  releasePlan: ols-fbc-releaseplan-prod-v4-19
   snapshot: snapshot-value
   data:
     releaseNotes:
