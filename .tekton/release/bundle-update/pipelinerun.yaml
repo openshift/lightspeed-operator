@@ -19,9 +19,22 @@ spec:
         value: .tekton/release/bundle-update/pipeline.yaml
     resolver: git
   params:
-    - name: snapshot
-      value: "crt-nshift-lightspeed-tenant/ols-dsz4g"
     - name: release
-      value: "crt-nshift-lightspeed-tenant/ga-1.0.0-1"
+      value: crt-nshift-lightspeed-tenant/stable-ols-1.0.1-auto-3
     - name: releasePlan
-      value: "crt-nshift-lightspeed-tenant/ols-release-plan"
+      value: crt-nshift-lightspeed-tenant/ols-stable-automation-releaseplan
+    - name: snapshot
+      value: crt-nshift-lightspeed-tenant/ols-9697k
+    - name: taskGitUrl
+      value: https://github.com/openshift/lightspeed-operator.git
+    - name: taskGitRevision
+      value: main
+  workspaces:
+    - name: release-workspace
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
