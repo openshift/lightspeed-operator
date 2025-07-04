@@ -26,46 +26,53 @@ patches:
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-vd4zh
+        value: ols-9697k
   - target:
       kind: Release
       name: ols-bundle
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-bundle-4fsfb
+        value: ols-bundle-tmnbr
   - target:
       kind: Release
       name: fbc-prod-415
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-15-vmvfr
+        value: ols-fbc-v4-15-dxjf4
   - target:
       kind: Release
       name: fbc-prod-416
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-16-98q76
+        value: ols-fbc-v4-16-hgw7p
   - target:
       kind: Release
       name: fbc-prod-417
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-17-hs4ws
+        value: ols-fbc-v4-17-rmls2
   - target:
       kind: Release
       name: fbc-prod-418
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-18-9xkj5
+        value: ols-fbc-v4-18-6qd6z
+  - target:
+      kind: Release
+      name: fbc-prod-419
+    patch: |-
+      - op: replace
+        path: /spec/snapshot
+        value: ols-fbc-v4-19-tprz2
   - target:
       kind: Release
       name: fbc-staging
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-18-9xkj5
+        value: ols-fbc-v4-19-tprz2
