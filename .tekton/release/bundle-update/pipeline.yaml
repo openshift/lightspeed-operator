@@ -64,6 +64,27 @@ spec:
             description: The branch of the source git repository to clone as starting point for the catalog update
             default: "main"
         steps:
+          - name: check-release-status
+            image: quay.io/hasun/bundle-update:0.0.1
+            script: |
+              set -e
+              oc login --token=${KONFLUX_TOKEN} --server=https://api.stone-prd-rh01.pg1f.p1.openshiftapps.com:6443
+              IFS='/' read -r RELEASE_NAMESPACE RELEASE_NAME <<< "$(params.release)"
+              RELEASECONDITIONS=$(kubectl get release "$RELEASE_NAME" -n "$RELEASE_NAMESPACE" \
+              -o jsonpath='{.status.conditions}' | jq '.[] | select(.type == "ManagedPipelineProcessed")')
+              RELEASESTATUS=$(jq -r '.reason' <<< "$RELEASECONDITIONS")
+              if [[ "$RELEASESTATUS" == *"Failed"* ]]; then
+                echo "Release failed, skipping bundle update"
+                exit 1
+              fi
+            env:
+              - name: KONFLUX_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: release-bot-konflux-token
+                    key: konflux-token
+              - name: HOME
+                value: /workspace
           - name: git-clone
             image: quay.io/hasun/bundle-update:0.0.1
             script: |
@@ -99,6 +120,7 @@ spec:
           - name: git-config
             image: quay.io/hasun/bundle-update:0.0.1
             script: |
+              set -e
               cd repo
               # todo: replace the email and name with the bot's email and name
               git config user.email "hasun@redhat.com"
@@ -124,7 +146,6 @@ spec:
               git rev-parse HEAD | tee $(results.commit-id.path)
               git config credential.helper '!f() { sleep 1; echo "username=git"; echo "password=$GITHUB_TOKEN"; }; f'
               git push --force fork $(params.forkBranch)
-              # todo: replace the PR title, body
               RESPONSE=$(curl -L \
                 -X POST \
                 -H "Accept: application/vnd.github+json" \
