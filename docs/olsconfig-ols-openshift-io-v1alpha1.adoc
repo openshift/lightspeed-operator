@@ -499,6 +499,10 @@ Required::
 | `string`
 | Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".
 
+| `proxyConfig`
+| `object`
+| Proxy settings for connecting to external servers, such as LLM providers.
+
 | `queryFilters`
 | `array`
 | Query filters
@@ -1139,6 +1143,59 @@ If empty, everything from the claim is made available, otherwise
 only the result of this request.
 
 |===
+== .spec.ols.proxyConfig
+Description::
++
+--
+Proxy settings for connecting to external servers, such as LLM providers.
+--
+
+Type::
+  `object`
+
+
+
+
+[cols="1,1,1",options="header"]
+|===
+| Property | Type | Description
+
+| `proxyCACertificate`
+| `object`
+| The configmap holding proxy CA certificate
+
+| `proxyURL`
+| `string`
+| Proxy URL, e.g. https://proxy.example.com:8080
+If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+
+|===
+== .spec.ols.proxyConfig.proxyCACertificate
+Description::
++
+--
+The configmap holding proxy CA certificate
+--
+
+Type::
+  `object`
+
+
+
+
+[cols="1,1,1",options="header"]
+|===
+| Property | Type | Description
+
+| `name`
+| `string`
+| Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+
+|===
 == .spec.ols.queryFilters
 Description::
 +
@@ -1331,11 +1388,11 @@ Type::
 
 | `class`
 | `string`
-| Storage Class of the Requested Volume
+| Storage class of the requested volume
 
 | `size`
-| `string`
-| Size of the Requested Volume
+| `integer-or-string`
+| Size of the requested volume
 
 |===
 == .spec.ols.tlsConfig
