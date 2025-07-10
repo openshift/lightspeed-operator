@@ -200,7 +200,7 @@ spec:
                 cpu: '1'
                 memory: 1Gi
               limits:
-                memory: 10Gi
+                memory: 15Gi
             volumeMounts:
               - name: azure-openai-token
                 mountPath: /var/run/azure_openai
