@@ -190,6 +190,9 @@ type DeploymentConfig struct {
 	// Console container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Console Container"
 	ConsoleContainer ConsoleContainerConfig `json:"console,omitempty"`
+	// Database container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Container"
+	DatabaseContainer DatabaseContainerConfig `json:"database,omitempty"`
 }
 
 type APIContainerConfig struct {
@@ -224,6 +227,15 @@ type ConsoleContainerConfig struct {
 	// +kubebuilder:validation:Pattern=`^-----BEGIN CERTIFICATE-----([\s\S]*)-----END CERTIFICATE-----\s?$`
 	// +optional
 	CAcertificate string `json:"caCertificate,omitempty"`
+}
+
+type DatabaseContainerConfig struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tolerations",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:tolerations"}
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Selector",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeSelector"}
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=postgres

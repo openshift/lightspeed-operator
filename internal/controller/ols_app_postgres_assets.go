@@ -164,6 +164,9 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 		varRunVolumeMount,
 		tmpVolumeMount,
 	}
+
+	databaseResources := getDatabaseResources(cr)
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      PostgresDeploymentName,
@@ -197,15 +200,7 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 								ReadOnlyRootFilesystem:   &[]bool{true}[0],
 							},
 							VolumeMounts: volumeMounts,
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("30m"),
-									corev1.ResourceMemory: resource.MustParse("300Mi"),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("2Gi"),
-								},
-							},
+							Resources:    *databaseResources,
 							Env: []corev1.EnvVar{
 								{
 									Name:  "POSTGRESQL_USER",
@@ -241,6 +236,12 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 		},
 	}
 
+	if cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.Tolerations != nil {
+		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.Tolerations
+	}
+	if cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.NodeSelector != nil {
+		deployment.Spec.Template.Spec.NodeSelector = cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.NodeSelector
+	}
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.Scheme); err != nil {
 		return nil, err
 	}
@@ -480,4 +481,21 @@ func (r *OLSConfigReconciler) generatePostgresPVC(cr *olsv1alpha1.OLSConfig) (*c
 		return nil, err
 	}
 	return pvc, nil
+}
+
+func getDatabaseResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+	if cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.Resources != nil {
+		return cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.Resources
+	}
+	defaultResources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("30m"),
+			corev1.ResourceMemory: resource.MustParse("300Mi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("2Gi"),
+		},
+	}
+
+	return defaultResources
 }
