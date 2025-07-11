@@ -248,4 +248,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	OperatorNetworkPolicyName = "lightspeed-operator"
 	// OperatorMetricsPort is the port number of the operator metrics endpoint
 	OperatorMetricsPort = 8443
+	// MetricsReaderServiceAccountTokenSecretName is the name of the secret containing the service account token for the metrics reader
+	MetricsReaderServiceAccountTokenSecretName = "metrics-reader-token" // #nosec G101
 )
