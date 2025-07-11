@@ -4,10 +4,259 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// OLSTestEnvironment contains all the resources needed for TLS testing
+type OLSTestEnvironment struct {
+	Client       *Client
+	CR           *olsv1alpha1.OLSConfig
+	SAToken      string
+	ForwardHost  string
+	CleanUpFuncs []func()
+}
+
+// SetupOLSTestEnvironment sets up the common test environment for TLS tests
+func SetupOLSTestEnvironment(crModifier func(*olsv1alpha1.OLSConfig)) (*OLSTestEnvironment, error) {
+	env := &OLSTestEnvironment{
+		CleanUpFuncs: make([]func(), 0),
+	}
+
+	var err error
+	env.Client, err = GetClient(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create OLSConfig CR
+	env.CR, err = generateOLSConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply any modifications to the CR
+	if crModifier != nil {
+		crModifier(env.CR)
+	}
+
+	err = env.Client.Create(env.CR)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create service account for OLS user
+	cleanUp, err := env.Client.CreateServiceAccount(OLSNameSpace, TestSAName)
+	if err != nil {
+		return nil, err
+	}
+	env.CleanUpFuncs = append(env.CleanUpFuncs, cleanUp)
+
+	// Create role binding for OLS user accessing query API
+	cleanUp, err = env.Client.CreateClusterRoleBinding(OLSNameSpace, TestSAName, QueryAccessClusterRole)
+	if err != nil {
+		return nil, err
+	}
+	env.CleanUpFuncs = append(env.CleanUpFuncs, cleanUp)
+
+	// Fetch the service account token
+	env.SAToken, err = env.Client.GetServiceAccountToken(OLSNameSpace, TestSAName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Wait for application server deployment rollout
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      AppServerDeploymentName,
+			Namespace: OLSNameSpace,
+		},
+	}
+	err = env.Client.WaitForDeploymentRollout(deployment)
+	if err != nil {
+		return nil, err
+	}
+
+	// Forward the HTTPS port to a local port
+	env.ForwardHost, cleanUp, err = env.Client.ForwardPort(AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort)
+	if err != nil {
+		return nil, err
+	}
+	env.CleanUpFuncs = append(env.CleanUpFuncs, cleanUp)
+
+	return env, nil
+}
+
+// TestOLSServiceActivation tests that TLS is properly activated on the service
+func TestOLSServiceActivation(env *OLSTestEnvironment) (*corev1.Secret, error) {
+	// Wait for the application service to be created
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      AppServerServiceName,
+			Namespace: OLSNameSpace,
+		},
+	}
+	err := env.Client.WaitForServiceCreated(service)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for service creation: %w", err)
+	}
+
+	// Check the secret holding TLS certificates is created
+	secretName, ok := service.ObjectMeta.Annotations[ServiceAnnotationKeyTLSSecret]
+	if !ok {
+		return nil, fmt.Errorf("TLS secret annotation not found on service")
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: OLSNameSpace,
+		},
+	}
+	err = env.Client.WaitForSecretCreated(secret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for secret creation: %w", err)
+	}
+
+	// Check the deployment has the certificate secret mounted
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      AppServerDeploymentName,
+			Namespace: OLSNameSpace,
+		},
+	}
+	err = env.Client.Get(deployment)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployment: %w", err)
+	}
+
+	secretVolumeDefaultMode := int32(420)
+	expectedVolume := corev1.Volume{
+		Name: "secret-" + AppServerTLSSecretName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName:  secretName,
+				DefaultMode: &secretVolumeDefaultMode,
+			},
+		},
+	}
+
+	if !containsVolume(deployment.Spec.Template.Spec.Volumes, expectedVolume) {
+		return nil, fmt.Errorf("expected volume not found in deployment")
+	}
+
+	return secret, nil
+}
+
+// TestHTTPSQueryEndpoint tests HTTPS POST on /v1/query endpoint
+func TestHTTPSQueryEndpoint(env *OLSTestEnvironment, secret *corev1.Secret, requestBody []byte) (*http.Response, []byte, error) {
+	certificate, ok := secret.Data["tls.crt"]
+	if !ok {
+		return nil, nil, fmt.Errorf("tls.crt not found in secret")
+	}
+
+	httpsClient := NewHTTPSClient(env.ForwardHost, InClusterHost, certificate, nil, nil)
+	authHeader := map[string]string{"Authorization": "Bearer " + env.SAToken}
+
+	resp, err := httpsClient.PostJson("/v1/query", requestBody, authHeader)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to make HTTPS request: %w", err)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp, nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return resp, body, nil
+}
+
+// CreateOLSRoute creates a route for the OLS application
+func CreateOLSRoute(client *Client) error {
+	consoleURL := os.Getenv("CONSOLE_URL")
+	if !strings.Contains(consoleURL, ".apps") {
+		return fmt.Errorf("invalid console URL format")
+	}
+
+	// Create OLS application host URL
+	index := strings.Index(consoleURL, ".apps")
+	hostURL := OLSRouteName + consoleURL[index:]
+
+	_, err := client.createRoute(OLSRouteName, OLSNameSpace, hostURL)
+	return err
+}
+
+// UpdateRapidastConfig updates the rapidast config file with host and token
+func UpdateRapidastConfig(hostURL, token string) error {
+	configContent, err := os.ReadFile("../../ols-rapidast-config.yaml")
+	if err != nil {
+		return fmt.Errorf("error reading config file: %w", err)
+	}
+
+	newContent := strings.Replace(string(configContent), "$HOST", hostURL, -1)
+	newContent = strings.Replace(newContent, "$BEARER_TOKEN", token, -1)
+
+	err = os.WriteFile("../../ols-rapidast-config-updated.yaml", []byte(newContent), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing config file: %w", err)
+	}
+
+	return nil
+}
+
+// CleanupTLSTestEnvironment cleans up the test environment
+func CleanupTLSTestEnvironment(env *OLSTestEnvironment, testName string) error {
+	err := mustGather(testName)
+	if err != nil {
+		return fmt.Errorf("failed to gather test artifacts: %w", err)
+	}
+
+	for _, cleanUp := range env.CleanUpFuncs {
+		cleanUp()
+	}
+
+	return nil
+}
+
+// CleanupOLSTestEnvironmentWithCRDeletion cleans up the test environment including CR deletion
+func CleanupOLSTestEnvironmentWithCRDeletion(env *OLSTestEnvironment, testName string) error {
+	err := CleanupTLSTestEnvironment(env, testName)
+	if err != nil {
+		return err
+	}
+
+	// Delete the OLSConfig CR
+	if env.CR != nil {
+		err = env.Client.Delete(env.CR)
+		if err != nil {
+			return fmt.Errorf("failed to delete OLSConfig CR: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// containsVolume checks if a volume exists in the volumes slice
+func containsVolume(volumes []corev1.Volume, target corev1.Volume) bool {
+	for _, volume := range volumes {
+		if volume.Name == target.Name &&
+			volume.VolumeSource.Secret != nil &&
+			target.VolumeSource.Secret != nil &&
+			volume.VolumeSource.Secret.SecretName == target.VolumeSource.Secret.SecretName &&
+			*volume.VolumeSource.Secret.DefaultMode == *target.VolumeSource.Secret.DefaultMode {
+			return true
+		}
+	}
+	return false
+}
 
 func Ptr[T any](v T) *T { return &v }
 
