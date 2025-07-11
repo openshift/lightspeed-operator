@@ -125,13 +125,11 @@ type Storage struct {
 // RAGSpec defines how to retrieve a RAG databases.
 type RAGSpec struct {
 	// The path to the RAG database inside of the container image
-	// +kubebuilder:validation:Required
-	// +required
+	// +kubebuilder:default:="/rag/vector_db"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index Path in the Image"
 	IndexPath string `json:"indexPath,omitempty"`
 	// The Index ID of the RAG database
-	// +kubebuilder:validation:Required
-	// +required
+	// +kubebuilder:default:="vector_db_index"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index ID"
 	IndexID string `json:"indexID,omitempty"`
 	// The URL of the container image to use as a RAG source

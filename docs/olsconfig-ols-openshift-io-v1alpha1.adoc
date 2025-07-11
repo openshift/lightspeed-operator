@@ -464,6 +464,7 @@ Type::
 
 Required::
   - `defaultModel`
+  - `defaultProvider`
 
 
 
@@ -1347,8 +1348,6 @@ Type::
 
 Required::
   - `image`
-  - `indexID`
-  - `indexPath`
 
 
 
