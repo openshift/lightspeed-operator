@@ -24,7 +24,7 @@ LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
 LABEL operators.operatorframework.io.bundle.package.v1=lightspeed-operator
 LABEL operators.operatorframework.io.bundle.channels.v1=alpha
 LABEL operators.operatorframework.io.bundle.channel.default.v1=alpha
-LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.33.0
+LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.36.1
 LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v4
 
@@ -52,10 +52,10 @@ LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assistant for managi
 LABEL io.k8s.display-name="Openshift Lightspeed"
 LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
 LABEL name=openshift-lightspeed
-LABEL release=1.0.1
+LABEL release=0.0.1
 LABEL url="https://github.com/openshift/lightspeed-operator"
 LABEL vendor="Red Hat, Inc."
-LABEL version=1.0.1
+LABEL version=0.0.1
 LABEL summary="Red Hat OpenShift Lightspeed"
 
 # OCP compatibility labels

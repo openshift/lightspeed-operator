@@ -211,8 +211,9 @@ spec:
       - description: The configmap holding proxy CA certificate
         displayName: Proxy CA Certificate
         path: ols.proxyConfig.proxyCACertificate
-      - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified,
-          the cluster wide proxy will be used, though env var "https_proxy".
+      - description: |-
+          Proxy URL, e.g. https://proxy.example.com:8080
+          If not specified, the cluster wide proxy will be used, though env var "https_proxy".
         displayName: Proxy URL
         path: ols.proxyConfig.proxyURL
       - description: Query filters
@@ -252,7 +253,7 @@ spec:
       - description: Token quota increase step
         displayName: Token Quota Increase Step
         path: ols.quotaHandlersConfig.limitersConfig[0].quotaIncrease
-      - description: Type of the limiter
+      - description: Type of the limiter. Valid values are "user_limiter" and "cluster_limiter"
         displayName: Limiter Type
         path: ols.quotaHandlersConfig.limitersConfig[0].type
       - description: RAG databases

@@ -886,7 +886,11 @@ spec:
                               minimum: 0
                               type: integer
                             type:
-                              description: Type of the limiter
+                              description: Type of the limiter. Valid values are "user_limiter"
+                                and "cluster_limiter"
+                              enum:
+                              - user_limiter
+                              - cluster_limiter
                               type: string
                           required:
                           - initialQuota

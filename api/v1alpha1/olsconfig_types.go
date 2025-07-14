@@ -157,7 +157,7 @@ type LimiterConfig struct {
 	// Name of the limiter
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Limiter Name"
 	Name string `json:"name"`
-	// Type of the limiter
+	// Type of the limiter. Valid values are "user_limiter" and "cluster_limiter"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Limiter Type"
 	Type string `json:"type"`
 	// Initial value of the token quota
