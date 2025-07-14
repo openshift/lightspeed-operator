@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-07-09T07:45:59Z"
+    createdAt: "2025-07-14T21:19:09Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -52,10 +52,10 @@ metadata:
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift Platform Plus", "OpenShift Kubernetes Engine", "OpenShift Virtualization Engine"]'
-    operators.operatorframework.io/builder: operator-sdk-v1.33.0
+    operators.operatorframework.io/builder: operator-sdk-v1.36.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
-  name: lightspeed-operator.v1.0.1
+  name: lightspeed-operator.v0.0.1
   namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
@@ -240,7 +240,9 @@ spec:
           - description: The configmap holding proxy CA certificate
             displayName: Proxy CA Certificate
             path: ols.proxyConfig.proxyCACertificate
-          - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+          - description: |-
+              Proxy URL, e.g. https://proxy.example.com:8080
+              If not specified, the cluster wide proxy will be used, though env var "https_proxy".
             displayName: Proxy URL
             path: ols.proxyConfig.proxyURL
           - description: Query filters
@@ -280,7 +282,7 @@ spec:
           - description: Token quota increase step
             displayName: Token Quota Increase Step
             path: ols.quotaHandlersConfig.limitersConfig[0].quotaIncrease
-          - description: Type of the limiter
+          - description: Type of the limiter. Valid values are "user_limiter" and "cluster_limiter"
             displayName: Limiter Type
             path: ols.quotaHandlersConfig.limitersConfig[0].type
           - description: RAG databases
@@ -664,7 +666,7 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
-  version: 1.0.1
+  version: 0.0.1
   relatedImages:
     - name: lightspeed-service-api
       image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
