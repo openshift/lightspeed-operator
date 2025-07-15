@@ -281,7 +281,7 @@ spec:
             displayName: Token Quota Increase Step
             path: ols.quotaHandlersConfig.limitersConfig[0].quotaIncrease
           - description: Type of the limiter
-            displayName: Limiter Type
+            displayName: 'Limiter Type. Accepted Values: cluster_limiter, user_limiter.'
             path: ols.quotaHandlersConfig.limitersConfig[0].type
           - description: RAG databases
             displayName: RAG Databases
