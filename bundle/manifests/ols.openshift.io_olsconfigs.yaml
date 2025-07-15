@@ -887,6 +887,9 @@ spec:
                               type: integer
                             type:
                               description: Type of the limiter
+                              enum:
+                              - cluster_limiter
+                              - user_limiter
                               type: string
                           required:
                           - initialQuota

@@ -158,6 +158,7 @@ type LimiterConfig struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Limiter Name"
 	Name string `json:"name"`
 	// Type of the limiter
+	// +kubebuilder:validation:Enum=cluster_limiter;user_limiter
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Limiter Type"
 	Type string `json:"type"`
 	// Initial value of the token quota
