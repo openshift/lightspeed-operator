@@ -11,6 +11,7 @@ roleRef:
   kind: ClusterRole
   name: ols-metrics-reader
 subjects:
+
   - kind: ServiceAccount
-    name: prometheus-k8s
-    namespace: openshift-monitoring
+    name: metrics-reader
+    namespace: openshift-lightspeed
