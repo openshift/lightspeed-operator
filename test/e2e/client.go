@@ -18,6 +18,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -31,6 +32,7 @@ import (
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -448,5 +450,119 @@ func (c *Client) CreateClusterRoleBinding(namespace, serviceAccount, clusterRole
 			logf.Log.Error(err, "Error deleting ClusterRoleBinding")
 		}
 
+	}, nil
+}
+
+func (c *Client) GetStorageClass(name string) (*storagev1.StorageClass, error) {
+	storageClass := &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	err := c.Get(storageClass)
+	if err != nil {
+		return nil, err
+	}
+	return storageClass, nil
+}
+
+func (c *Client) GetDefaultStorageClass() (*storagev1.StorageClass, error) {
+	storageClassList := &storagev1.StorageClassList{}
+	err := c.List(storageClassList)
+	if err != nil {
+		return nil, err
+	}
+	for _, sc := range storageClassList.Items {
+		logf.Log.Info("StorageClass", "name", sc.Name, "annotations", sc.Annotations)
+		if sc.Annotations != nil {
+			if defaultAnnotation, exists := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; exists && defaultAnnotation == "true" {
+				return &sc, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("no default storage class found")
+}
+
+func (c *Client) CreateStorageClass(name string) (func(), error) {
+	volumeBindingMode := storagev1.VolumeBindingWaitForFirstConsumer
+	storageClass := &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				"storageclass.kubernetes.io/is-default-class": "true",
+			},
+		},
+		Provisioner:       "kubernetes.io/no-provisioner",
+		VolumeBindingMode: &volumeBindingMode,
+	}
+
+	err := c.Create(storageClass)
+	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			logf.Log.Error(err, "StorageClass for test already exists")
+		} else {
+			return nil, err
+		}
+	}
+
+	return func() {
+		err := c.Delete(storageClass)
+		if err != nil {
+			logf.Log.Error(err, "Error deleting StorageClass")
+		}
+	}, nil
+}
+
+func (c *Client) CreatePersistentVolume(name, storageClassName string, volumeSize resource.Quantity) (func(), error) {
+	pv := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: corev1.PersistentVolumeSpec{
+			StorageClassName: storageClassName,
+			Capacity: corev1.ResourceList{
+				corev1.ResourceStorage: volumeSize,
+			},
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteOnce,
+			},
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			PersistentVolumeSource: corev1.PersistentVolumeSource{
+				Local: &corev1.LocalVolumeSource{
+					Path: "/tmp",
+				},
+			},
+			NodeAffinity: &corev1.VolumeNodeAffinity{
+				Required: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{
+									Key:      "kubernetes.io/os",
+									Operator: corev1.NodeSelectorOpIn,
+									Values:   []string{"linux"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := c.Create(pv)
+	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			logf.Log.Error(err, "PersistentVolume for test already exists")
+		} else {
+			return nil, err
+		}
+	}
+
+	return func() {
+		err := c.Delete(pv)
+		if err != nil {
+			logf.Log.Error(err, "Error deleting PersistentVolume")
+		}
 	}, nil
 }
