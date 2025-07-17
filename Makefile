@@ -168,7 +168,20 @@ endif
 ifndef LLM_TOKEN
 	$(error LLM_TOKEN  environment variable is not set)
 endif
-	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast"
+	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade"
+
+.PHONY: test-upgrade
+test-upgrade: ## Run upgrade tests with an Openshift cluster. Requires KUBECONFIG, LLM_TOKEN and BUNDLE_IMAGE environment variables.
+ifndef KUBECONFIG
+	$(error KUBECONFIG environment variable is not set)
+endif
+ifndef LLM_TOKEN
+	$(error LLM_TOKEN  environment variable is not set)
+endif
+ifndef BUNDLE_IMAGE
+	$(error BUNDLE_IMAGE  environment variable is not set)
+endif
+	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="Upgrade"
 
 .PHONY: test-e2e-local
 test-e2e-local: ## Run e2e tests with an Openshift cluster, excluding Database-Persistency test that requires a storage class. Requires KUBECONFIG and LLM_TOKEN environment variables.
