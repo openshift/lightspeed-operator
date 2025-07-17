@@ -170,6 +170,19 @@ ifndef LLM_TOKEN
 endif
 	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast"
 
+.PHONY: test-upgrade
+test-upgrade: ## Run upgrade tests with an Openshift cluster. Requires KUBECONFIG, LLM_TOKEN and BUNDLE_IMAGE environment variables.
+ifndef KUBECONFIG
+	$(error KUBECONFIG environment variable is not set)
+endif
+ifndef LLM_TOKEN
+	$(error LLM_TOKEN  environment variable is not set)
+endif
+ifndef BUNDLE_IMAGE
+	$(error BUNDLE_IMAGE  environment variable is not set)
+endif
+	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="Upgrade"
+
 .PHONY: lint
 lint: ## Run golangci-lint against code.
 	golangci-lint run --config=.golangci.yaml
