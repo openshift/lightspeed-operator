@@ -15,3 +15,21 @@ subjects:
   - kind: ServiceAccount
     name: prometheus-k8s
     namespace: openshift-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/name: rolebinding
+    app.kubernetes.io/part-of: lightspeed-operator
+  name: prometheus-operator
+  namespace: openshift-lightspeed
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-operator
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-operator
+    namespace: openshift-monitoring

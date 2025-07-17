@@ -55,7 +55,7 @@ metadata:
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
-  name: lightspeed-operator.v1.0.1
+  name: lightspeed-operator.v1.0.2
   namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
@@ -281,7 +281,7 @@ spec:
             displayName: Token Quota Increase Step
             path: ols.quotaHandlersConfig.limitersConfig[0].quotaIncrease
           - description: Type of the limiter
-            displayName: Limiter Type
+            displayName: 'Limiter Type. Accepted Values: cluster_limiter, user_limiter.'
             path: ols.quotaHandlersConfig.limitersConfig[0].type
           - description: RAG databases
             displayName: RAG Databases
@@ -664,7 +664,7 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
-  version: 1.0.1
+  version: 1.0.2
   relatedImages:
     - name: lightspeed-service-api
       image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
