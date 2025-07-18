@@ -910,16 +910,16 @@ spec:
                             RAG source
                           type: string
                         indexID:
+                          default: vector_db_index
                           description: The Index ID of the RAG database
                           type: string
                         indexPath:
+                          default: /rag/vector_db
                           description: The path to the RAG database inside of the
                             container image
                           type: string
                       required:
                       - image
-                      - indexID
-                      - indexPath
                       type: object
                     type: array
                   storage:

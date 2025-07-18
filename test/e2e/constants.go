@@ -72,6 +72,21 @@ const (
 	// ConditionTimeoutEnvVar is the environment variable containing the condition check timeout in seconds
 	ConditionTimeoutEnvVar = "CONDITION_TIMEOUT"
 
+	// ServiceAnnotationKeyTLSSecret is the annotation key for TLS secret
+	ServiceAnnotationKeyTLSSecret = "service.beta.openshift.io/serving-cert-secret-name"
+	// TestSAName is the name of the test service account
+	TestSAName = "test-sa"
+	// TestSAOutsiderName is the name of the test service account for outsider tests
+	TestSAOutsiderName = "test-sa-outsider"
+	// QueryAccessClusterRole is the cluster role for query access
+	QueryAccessClusterRole = "lightspeed-operator-query-access"
+	// AppMetricsAccessClusterRole is the cluster role for app metrics access
+	AppMetricsAccessClusterRole = "lightspeed-operator-ols-metrics-reader"
+	// OLSRouteName is the name of the OLS route
+	OLSRouteName = "ols-route"
+	// InClusterHost is the in-cluster host for the lightspeed app server
+	InClusterHost = "lightspeed-app-server.openshift-lightspeed.svc.cluster.local"
+
 	// TestCACert is for testing additional CA certificate
 	TestCACert = `-----BEGIN CERTIFICATE-----
 MIIEMDCCAxigAwIBAgIJANqb7HHzA7AZMA0GCSqGSIb3DQEBCwUAMIGkMQswCQYD
