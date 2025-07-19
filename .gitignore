@@ -17,6 +17,7 @@ bin/
 
 # artifacts post test run
 */*/artifacts/*
+test-artifacts/
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
