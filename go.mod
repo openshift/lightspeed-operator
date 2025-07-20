@@ -1,8 +1,8 @@
 module github.com/openshift/lightspeed-operator
 
-go 1.23.0
+go 1.24.0
 
-toolchain go1.23.9
+toolchain go1.24.4
 
 // v0.0.0-20241014173422-cfa47c3a1cc8 requires go 1.23, we use previous version when waiting for go-toolset update to 1.23
 // replace sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 => sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
@@ -13,8 +13,8 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.36.3
 	github.com/openshift/client-go v0.0.0-20231218140158-47f6d749b9d9
-	k8s.io/api v0.32.3
-	k8s.io/apimachinery v0.32.3
+	k8s.io/api v0.33.2
+	k8s.io/apimachinery v0.33.2
 	k8s.io/client-go v0.32.3
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/yaml v1.4.0
@@ -51,7 +51,6 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20250630185457-6e76a2b096b5 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -60,7 +59,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/openshift/api v0.0.0-20240306072808-610cbc77dbab
+	github.com/openshift/api v0.0.0-20250718204806-3333746edfbf
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
@@ -74,7 +73,7 @@ require (
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
-	golang.org/x/time v0.8.0 // indirect
+	golang.org/x/time v0.9.0 // indirect
 	golang.org/x/tools v0.33.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
