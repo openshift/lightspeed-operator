@@ -273,7 +273,8 @@ spec:
               cd lightspeed-operator
               git config --global user.email olsci@redhat.com
               git config --global user.name olsci
-              git pull origin ${COMMIT_SHA} --rebase
+              git fetch origin ${COMMIT_SHA}
+              git checkout ${COMMIT_SHA}
               echo "---------------------------------------------"
               echo "---------------------------------------------"
               echo "---------------------------------------------"
