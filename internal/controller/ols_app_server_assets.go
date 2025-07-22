@@ -676,6 +676,30 @@ func (r *OLSConfigReconciler) generateAppServerNetworkPolicy(cr *olsv1alpha1.OLS
 	return &np, nil
 }
 
+func (r *OLSConfigReconciler) generateMetricsReaderSecret(cr *olsv1alpha1.OLSConfig) (*corev1.Secret, error) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      MetricsReaderServiceAccountTokenSecretName,
+			Namespace: r.Options.Namespace,
+			Annotations: map[string]string{
+				"kubernetes.io/service-account.name": MetricsReaderServiceAccountName,
+			},
+			Labels: map[string]string{
+				"app.kubernetes.io/name":      "service-account-token",
+				"app.kubernetes.io/component": "metrics",
+				"app.kubernetes.io/part-of":   "lightspeed-operator",
+			},
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}
+
+	if err := controllerutil.SetControllerReference(cr, secret, r.Scheme); err != nil {
+		return nil, err
+	}
+
+	return secret, nil
+}
+
 func (r *OLSConfigReconciler) getClusterVersion(ctx context.Context) (string, string, error) {
 	key := client.ObjectKey{Name: "version"}
 	clusterVersion := &configv1.ClusterVersion{}

@@ -250,4 +250,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	OperatorMetricsPort = 8443
 	// MetricsReaderServiceAccountTokenSecretName is the name of the secret containing the service account token for the metrics reader
 	MetricsReaderServiceAccountTokenSecretName = "metrics-reader-token" // #nosec G101
+	// MetricsReaderServiceAccountName is the name of the service account for the metrics reader
+	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
 )
