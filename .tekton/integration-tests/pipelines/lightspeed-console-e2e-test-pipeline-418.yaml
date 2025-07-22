@@ -245,8 +245,14 @@ spec:
               echo "---------------------------------------------"
               set +e
               NO_COLOR=1 npx cypress run
+                  
+              set -e 
+              if (( err_status != 0 )); then
+                echo "Test case failed with error: ${err_status}"
+                exit $err_status
+              fi
               ls ./gui_test_screenshots
-              mv /home/lightspeed-console/gui_test_screenshots /workspace/artifacts/
+              mv ./gui_test_screenshots /workspace/artifacts/
           - name: gather-cluster-resources
             onError: continue
             ref:
