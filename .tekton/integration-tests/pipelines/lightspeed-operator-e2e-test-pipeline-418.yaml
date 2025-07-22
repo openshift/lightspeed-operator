@@ -263,8 +263,6 @@ spec:
                 value: "$(params.commit)"
               - name: ARTIFACT_DIR
                 value: "/workspace"
-              - name: COMMIT_SHA
-                value: "$(params.commit)"
             image: registry.redhat.io/openshift4/ose-cli:latest
             script: |
               echo "---------------------------------------------"
@@ -275,7 +273,8 @@ spec:
               cd lightspeed-operator
               git config --global user.email olsci@redhat.com
               git config --global user.name olsci
-              git pull origin ${COMMIT_SHA} --rebase
+              git fetch origin ${COMMIT_SHA}
+              git checkout ${COMMIT_SHA}
               echo "---------------------------------------------"
               echo "---------------------------------------------"
               echo "---------------------------------------------"

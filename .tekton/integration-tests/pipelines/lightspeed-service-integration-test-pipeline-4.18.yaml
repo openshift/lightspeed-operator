@@ -262,13 +262,15 @@ spec:
               cd lightspeed-operator
               git config --global user.email olsci@redhat.com
               git config --global user.name olsci
+              git fetch origin ${BUNDLE_COMMIT_SHA}
               git pull origin ${BUNDLE_COMMIT_SHA} --rebase
-              export SERVICE_IMAGE=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-service-api")' | jq '.revision' | tr -d '"' )
+              export SERVICE_SHA=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-service-api")' | jq '.revision' | tr -d '"' )
               git clone https://github.com/openshift/lightspeed-service.git
               cd lightspeed-service
               git config --global user.email olsci@redhat.com
               git config --global user.name olsci
-              git pull origin ${SERVICE_IMAGE} --rebase
+              git fetch origin ${SERVICE_SHA}
+              git checkout ${SERVICE_SHA}
               pip3.11 install --no-cache-dir --upgrade pip pdm
               pdm config python.use_venv false
               export CP_OFFLINE_TOKEN=$(cat /var/run/insights-stage-upload-offline-token/token)

@@ -232,13 +232,15 @@ spec:
               cd lightspeed-operator
               git config --global user.email olsci@redhat.com
               git config --global user.name olsci
+              git fetch origin ${BUNDLE_COMMIT_SHA}
               git pull origin ${BUNDLE_COMMIT_SHA} --rebase
-              export CONSOLE_IMAGE=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-console-plugin")' | jq '.revision' | tr -d '"' )
+              export CONSOLE_SHA=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-console-plugin")' | jq '.revision' | tr -d '"' )
               git clone https://github.com/openshift/lightspeed-console.git
               cd lightspeed-console
               git config --global user.email olsci@redhat.com
               git config --global user.name olsci
-              git pull origin ${CONSOLE_IMAGE} --rebase
+              git fetch origin ${CONSOLE_SHA}
+              git checkout ${CONSOLE_SHA}
               npm install
               npm -v
               echo "---------------------------------------------"
