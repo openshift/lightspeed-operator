@@ -7,7 +7,7 @@ kind: Kustomization
 # channel
 namePrefix: stable-
 # version
-nameSuffix: -1.0.1-2
+nameSuffix: -1.0.2-2
 
 resources:
   - base/components.yaml
@@ -26,49 +26,49 @@ patches:
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-9697k
+        value: ols-4rx25
   - target:
       kind: Release
       name: ols-bundle
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-bundle-tmnbr
+        value: ols-bundle-n7m85
   - target:
       kind: Release
       name: fbc-prod-415
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-15-4djbj
+        value: ols-fbc-v4-15-b9tkf
   - target:
       kind: Release
       name: fbc-prod-416
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-16-8ftgh
+        value: ols-fbc-v4-16-tmzj6
   - target:
       kind: Release
       name: fbc-prod-417
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-17-ptxkd
+        value: ols-fbc-v4-17-ljpz4
   - target:
       kind: Release
       name: fbc-prod-418
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-18-p9r9d
+        value: ols-fbc-v4-18-kskxx
   - target:
       kind: Release
       name: fbc-prod-419
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-19-n6ptw
+        value: ols-fbc-v4-19-qqv2l
   - target:
       kind: Release
       name: fbc-staging
