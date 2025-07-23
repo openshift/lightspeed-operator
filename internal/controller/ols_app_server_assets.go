@@ -545,17 +545,17 @@ func (r *OLSConfigReconciler) generatePrometheusRule(cr *olsv1alpha1.OLSConfig) 
 					Rules: []monv1.Rule{
 						{
 							Record: "ols:rest_api_query_calls_total:2xx",
-							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"2..\"})"),
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/streaming_query\",status_code=~\"2..\"})"),
 							Labels: map[string]string{"status_code": "2xx"},
 						},
 						{
 							Record: "ols:rest_api_query_calls_total:4xx",
-							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"4..\"})"),
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/streaming_query\",status_code=~\"4..\"})"),
 							Labels: map[string]string{"status_code": "4xx"},
 						},
 						{
 							Record: "ols:rest_api_query_calls_total:5xx",
-							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"5..\"})"),
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/streaming_query\",status_code=~\"5..\"})"),
 							Labels: map[string]string{"status_code": "5xx"},
 						},
 						{
