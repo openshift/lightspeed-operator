@@ -276,6 +276,8 @@ type PostgresSpec struct {
 	SharedBuffers string `json:"sharedBuffers,omitempty"`
 	// Postgres maxconnections. Default: "2000"
 	// +kubebuilder:default=2000
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=262143
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Maximum Connections"
 	MaxConnections int `json:"maxConnections,omitempty"`
 }

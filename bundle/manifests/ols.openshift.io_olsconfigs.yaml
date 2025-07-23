@@ -368,6 +368,8 @@ spec:
                           maxConnections:
                             default: 2000
                             description: 'Postgres maxconnections. Default: "2000"'
+                            maximum: 262143
+                            minimum: 1
                             type: integer
                           sharedBuffers:
                             default: 256MB
