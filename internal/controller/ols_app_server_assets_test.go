@@ -283,6 +283,26 @@ var _ = Describe("App server assets", func() {
 			})))
 		})
 
+		It("should place APIVersion in ProviderConfig for Azure OpenAI provider", func() {
+			// Configure CR with Azure OpenAI provider including APIVersion
+			cr = addAzureOpenAIProvider(cr)
+
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var appSrvConfigFile AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &appSrvConfigFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify that there is exactly one provider
+			Expect(appSrvConfigFile.LLMProviders).To(HaveLen(1))
+			provider := appSrvConfigFile.LLMProviders[0]
+
+			// Verify APIVersion is set at the ProviderConfig level
+			Expect(provider.APIVersion).To(Equal("2021-09-01"))
+
+		})
+
 		It("should generate the OLS deployment", func() {
 			By("generate full deployment when telemetry pull secret exists")
 			createTelemetryPullSecret()
