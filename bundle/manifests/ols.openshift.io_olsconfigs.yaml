@@ -911,6 +911,10 @@ spec:
                           description: The URL of the container image to use as a
                             RAG source
                           type: string
+                        imagePullPolicy:
+                          default: IfNotPresent
+                          description: Image pull policy for the RAG container image
+                          type: string
                         indexID:
                           default: vector_db_index
                           description: The Index ID of the RAG database

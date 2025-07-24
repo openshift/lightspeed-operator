@@ -137,6 +137,10 @@ type RAGSpec struct {
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image"
 	Image string `json:"image,omitempty"`
+	// Image pull policy for the RAG container image
+	// +kubebuilder:default="Always"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image Pull Policy"
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // QuotaHandlersConfig defines the token quota configuration

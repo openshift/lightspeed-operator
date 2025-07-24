@@ -253,7 +253,7 @@ spec:
         displayName: Token Quota Increase Step
         path: ols.quotaHandlersConfig.limitersConfig[0].quotaIncrease
       - description: Type of the limiter
-        displayName: Limiter Type
+        displayName: 'Limiter Type. Accepted Values: cluster_limiter, user_limiter.'
         path: ols.quotaHandlersConfig.limitersConfig[0].type
       - description: RAG databases
         displayName: RAG Databases
@@ -263,6 +263,9 @@ spec:
       - description: The URL of the container image to use as a RAG source
         displayName: Image
         path: ols.rag[0].image
+      - description: Image pull policy for the RAG container image
+        displayName: Image Pull Policy
+        path: ols.rag[0].imagePullPolicy
       - description: The Index ID of the RAG database
         displayName: Index ID
         path: ols.rag[0].indexID

@@ -916,17 +916,19 @@ var _ = Describe("App server assets", func() {
 			))
 		})
 
-		It("should generate RAG volume and initContainers", func() {
+		It("should generate RAG volume and initContainers with default ImagePullPolicy", func() {
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
-					IndexPath: "/rag/vector_db/ocp_product_docs/4.15",
-					IndexID:   "ocp-product-docs-4_15",
-					Image:     "rag-ocp-product-docs:4.15",
+					IndexPath:       "/rag/vector_db/ocp_product_docs/4.15",
+					IndexID:         "ocp-product-docs-4_15",
+					Image:           "rag-ocp-product-docs:4.15",
+					ImagePullPolicy: corev1.PullAlways, // Simulate CRD default
 				},
 				{
-					IndexPath: "/rag/vector_db/ansible_docs/2.18",
-					IndexID:   "ansible-docs-2_18",
-					Image:     "rag-ansible-docs:2.18",
+					IndexPath:       "/rag/vector_db/ansible_docs/2.18",
+					IndexID:         "ansible-docs-2_18",
+					Image:           "rag-ansible-docs:2.18",
+					ImagePullPolicy: corev1.PullAlways, // Simulate CRD default
 				},
 			}
 			deployment, err := r.generateOLSDeployment(cr)
@@ -938,6 +940,52 @@ var _ = Describe("App server assets", func() {
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				}))
+
+			Expect(deployment.Spec.Template.Spec.InitContainers).To(ConsistOf(
+				corev1.Container{
+					Name:    "rag-0",
+					Image:   "rag-ocp-product-docs:4.15",
+					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-0 && cp -a /rag/vector_db/ocp_product_docs/4.15/. %s/rag-0", RAGVolumeMountPath, RAGVolumeMountPath)},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      RAGVolumeName,
+							MountPath: RAGVolumeMountPath,
+						},
+					},
+					ImagePullPolicy: corev1.PullAlways,
+				},
+				corev1.Container{
+					Name:    "rag-1",
+					Image:   "rag-ansible-docs:2.18",
+					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-1 && cp -a /rag/vector_db/ansible_docs/2.18/. %s/rag-1", RAGVolumeMountPath, RAGVolumeMountPath)},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      RAGVolumeName,
+							MountPath: RAGVolumeMountPath,
+						},
+					},
+					ImagePullPolicy: corev1.PullAlways,
+				},
+			))
+		})
+
+		It("should generate RAG initContainers with custom ImagePullPolicy", func() {
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					IndexPath:       "/rag/vector_db/ocp_product_docs/4.15",
+					IndexID:         "ocp-product-docs-4_15",
+					Image:           "rag-ocp-product-docs:4.15",
+					ImagePullPolicy: corev1.PullIfNotPresent,
+				},
+				{
+					IndexPath:       "/rag/vector_db/ansible_docs/2.18",
+					IndexID:         "ansible-docs-2_18",
+					Image:           "rag-ansible-docs:2.18",
+					ImagePullPolicy: corev1.PullNever,
+				},
+			}
+			deployment, err := r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(deployment.Spec.Template.Spec.InitContainers).To(ConsistOf(
 				corev1.Container{
@@ -962,7 +1010,7 @@ var _ = Describe("App server assets", func() {
 							MountPath: RAGVolumeMountPath,
 						},
 					},
-					ImagePullPolicy: corev1.PullIfNotPresent,
+					ImagePullPolicy: corev1.PullNever,
 				},
 			))
 		})
