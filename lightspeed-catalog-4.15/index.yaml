@@ -64,6 +64,8 @@ relatedImages:
     image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:47258fd60ce029784c6bdb4bbacc4c0f3bb13c9fc5a85fa6ea0041b45198403e
   - name: lightspeed-operator-bundle
     image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:48565b87b4a53c1ab512c65b29fec6e805f1b74ce6416cc4cf4904dc20306167
+  - name: mcp-server
+    image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/kubernetes-mcp-server-f302c:a3fb7106596a1026dcbc8ed7ef7bbec7b90798db
 schema: olm.bundle
 ---
 schema: olm.channel
