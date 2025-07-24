@@ -4,4 +4,3 @@ resources:
   - clusterrole.yaml
   - clusterrole_binding.yaml
   - service-account.yaml
-  - secret-sa-token.yaml

@@ -55,6 +55,10 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Task: r.reconcileDeployment,
 		},
 		{
+			Name: "reconcile Metrics Reader Secret",
+			Task: r.reconcileMetricsReaderSecret,
+		},
+		{
 			Name: "reconcile App ServiceMonitor",
 			Task: r.reconcileServiceMonitor,
 		},
@@ -382,6 +386,36 @@ func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1
 	}
 	r.stateCache[LLMProviderHashStateCacheKey] = foundProviderCredentialsHash
 	r.logger.Info("OLS llm secrets reconciled", "hash", foundProviderCredentialsHash)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileMetricsReaderSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	secret, err := r.generateMetricsReaderSecret(cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGenerateMetricsReaderSecret, err)
+	}
+	foundSecret := &corev1.Secret{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: secret.Name, Namespace: r.Options.Namespace}, foundSecret)
+	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("creating a new metrics reader secret", "secret", secret.Name)
+		err = r.Create(ctx, secret)
+		if err != nil {
+			return fmt.Errorf("%s: %w", ErrCreateMetricsReaderSecret, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetMetricsReaderSecret, err)
+	}
+
+	if foundSecret.Type != secret.Type || foundSecret.Annotations["kubernetes.io/service-account.name"] != MetricsReaderServiceAccountName {
+		foundSecret.Type = secret.Type
+		foundSecret.Annotations["kubernetes.io/service-account.name"] = MetricsReaderServiceAccountName
+		err = r.Update(ctx, foundSecret)
+		if err != nil {
+			return fmt.Errorf("%s: %w", ErrUpdateMetricsReaderSecret, err)
+		}
+	}
+	r.logger.Info("OLS metrics reader secret reconciled", "secret", secret.Name)
 	return nil
 }
 

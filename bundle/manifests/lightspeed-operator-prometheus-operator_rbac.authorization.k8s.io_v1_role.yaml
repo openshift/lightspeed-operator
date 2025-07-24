@@ -11,7 +11,7 @@ rules:
 - apiGroups:
   - ""
   resourceNames:
-  - lightspeed-operator-metrics-reader-token
+  - metrics-reader-token
   resources:
   - secrets
   verbs:

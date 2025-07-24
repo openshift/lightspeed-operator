@@ -1323,6 +1323,14 @@ user_data_collector_config: {}
 			Expect(serviceMonitor.ObjectMeta.Labels).To(HaveKeyWithValue("openshift.io/user-monitoring", "false"))
 		})
 
+		It("should generate the metrics reader secret", func() {
+			secret, err := r.generateMetricsReaderSecret(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secret.Name).To(Equal(MetricsReaderServiceAccountTokenSecretName))
+			Expect(secret.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(secret.Type).To(Equal(corev1.SecretTypeServiceAccountToken))
+		})
+
 		It("should generate the OLS prometheus rules", func() {
 			prometheusRule, err := r.generatePrometheusRule(cr)
 			Expect(err).NotTo(HaveOccurred())

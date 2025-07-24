@@ -419,6 +419,13 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should create a metrics reader secret", func() {
+			By("Get the metrics reader secret")
+			secret := &corev1.Secret{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: MetricsReaderServiceAccountTokenSecretName, Namespace: OLSNamespaceDefault}, secret)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("should create a prometheus rule", func() {
 			By("Get the prometheus rule")
 			pr := &monv1.PrometheusRule{}

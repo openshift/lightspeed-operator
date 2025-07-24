@@ -545,17 +545,17 @@ func (r *OLSConfigReconciler) generatePrometheusRule(cr *olsv1alpha1.OLSConfig) 
 					Rules: []monv1.Rule{
 						{
 							Record: "ols:rest_api_query_calls_total:2xx",
-							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"2..\"})"),
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/streaming_query\",status_code=~\"2..\"})"),
 							Labels: map[string]string{"status_code": "2xx"},
 						},
 						{
 							Record: "ols:rest_api_query_calls_total:4xx",
-							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"4..\"})"),
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/streaming_query\",status_code=~\"4..\"})"),
 							Labels: map[string]string{"status_code": "4xx"},
 						},
 						{
 							Record: "ols:rest_api_query_calls_total:5xx",
-							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/query\",status_code=~\"5..\"})"),
+							Expr:   intstr.FromString("sum by(status_code) (ols_rest_api_calls_total{path=\"/v1/streaming_query\",status_code=~\"5..\"})"),
 							Labels: map[string]string{"status_code": "5xx"},
 						},
 						{
@@ -674,6 +674,30 @@ func (r *OLSConfigReconciler) generateAppServerNetworkPolicy(cr *olsv1alpha1.OLS
 	}
 
 	return &np, nil
+}
+
+func (r *OLSConfigReconciler) generateMetricsReaderSecret(cr *olsv1alpha1.OLSConfig) (*corev1.Secret, error) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      MetricsReaderServiceAccountTokenSecretName,
+			Namespace: r.Options.Namespace,
+			Annotations: map[string]string{
+				"kubernetes.io/service-account.name": MetricsReaderServiceAccountName,
+			},
+			Labels: map[string]string{
+				"app.kubernetes.io/name":      "service-account-token",
+				"app.kubernetes.io/component": "metrics",
+				"app.kubernetes.io/part-of":   "lightspeed-operator",
+			},
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}
+
+	if err := controllerutil.SetControllerReference(cr, secret, r.Scheme); err != nil {
+		return nil, err
+	}
+
+	return secret, nil
 }
 
 func (r *OLSConfigReconciler) getClusterVersion(ctx context.Context) (string, string, error) {
