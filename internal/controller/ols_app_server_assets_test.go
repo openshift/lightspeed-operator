@@ -950,7 +950,7 @@ var _ = Describe("App server assets", func() {
 							MountPath: RAGVolumeMountPath,
 						},
 					},
-					ImagePullPolicy: corev1.PullIfNotPresent,
+					ImagePullPolicy: corev1.PullAlways,
 				},
 				corev1.Container{
 					Name:    "rag-1",
@@ -962,7 +962,7 @@ var _ = Describe("App server assets", func() {
 							MountPath: RAGVolumeMountPath,
 						},
 					},
-					ImagePullPolicy: corev1.PullIfNotPresent,
+					ImagePullPolicy: corev1.PullAlways,
 				},
 			))
 		})

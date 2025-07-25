@@ -25,7 +25,7 @@ func (r *OLSConfigReconciler) generateRAGInitContainers(cr *olsv1alpha1.OLSConfi
 		initContainers = append(initContainers, corev1.Container{
 			Name:            ragName,
 			Image:           rag.Image,
-			ImagePullPolicy: corev1.PullIfNotPresent,
+			ImagePullPolicy: corev1.PullAlways,
 			Command:         []string{"sh", "-c", fmt.Sprintf("mkdir -p %s && cp -a %s/. %s", path.Join(RAGVolumeMountPath, ragName), rag.IndexPath, path.Join(RAGVolumeMountPath, ragName))},
 			VolumeMounts: []corev1.VolumeMount{
 				{

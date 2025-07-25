@@ -279,7 +279,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 						{
 							Name:            "lightspeed-service-api",
 							Image:           r.Options.LightspeedServiceImage,
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: corev1.PullAlways,
 							Ports:           ports,
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: &[]bool{false}[0],
@@ -347,7 +347,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	telemetryContainer := corev1.Container{
 		Name:            "lightspeed-service-user-data-collector",
 		Image:           r.Options.LightspeedServiceImage,
-		ImagePullPolicy: corev1.PullIfNotPresent,
+		ImagePullPolicy: corev1.PullAlways,
 		SecurityContext: &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &[]bool{false}[0],
 			ReadOnlyRootFilesystem:   &[]bool{true}[0],
