@@ -210,12 +210,12 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
-				"name": Equal("openai"),
-				"type": Equal("azure_openai"),
+				"name":        Equal("openai"),
+				"type":        Equal("azure_openai"),
+				"api_version": Equal("2021-09-01"),
 				"azure_openai_config": MatchKeys(Options(IgnoreExtras), Keys{
 					"url":              Equal(testURL),
 					"credentials_path": Equal("/etc/apikeys/test-secret"),
-					"api_version":      Equal("2021-09-01"),
 					"deployment_name":  Equal("testDeployment"),
 				}),
 			}))))
@@ -281,6 +281,26 @@ var _ = Describe("App server assets", func() {
 					"Args":    ContainElement("./mcp_local/openshift.py"),
 				})),
 			})))
+		})
+
+		It("should place APIVersion in ProviderConfig for Azure OpenAI provider", func() {
+			// Configure CR with Azure OpenAI provider including APIVersion
+			cr = addAzureOpenAIProvider(cr)
+
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var appSrvConfigFile AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &appSrvConfigFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify that there is exactly one provider
+			Expect(appSrvConfigFile.LLMProviders).To(HaveLen(1))
+			provider := appSrvConfigFile.LLMProviders[0]
+
+			// Verify APIVersion is set at the ProviderConfig level
+			Expect(provider.APIVersion).To(Equal("2021-09-01"))
+
 		})
 
 		It("should generate the OLS deployment", func() {

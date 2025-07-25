@@ -179,14 +179,14 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		var providerConfig ProviderConfig
 		if provider.Type == AzureOpenAIType {
 			providerConfig = ProviderConfig{
-				Name:   provider.Name,
-				Type:   provider.Type,
-				Models: modelConfigs,
+				Name:       provider.Name,
+				Type:       provider.Type,
+				Models:     modelConfigs,
+				APIVersion: provider.APIVersion,
 				AzureOpenAIConfig: &AzureOpenAIConfig{
 					URL:                 provider.URL,
 					CredentialsPath:     credentialPath,
 					AzureDeploymentName: provider.AzureDeploymentName,
-					APIVersion:          provider.APIVersion,
 				},
 			}
 		} else {
