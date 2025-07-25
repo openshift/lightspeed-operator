@@ -53,7 +53,7 @@ var _ = Describe("App server assets", func() {
 			Expect(initContainers[0]).To(MatchFields(IgnoreExtras, Fields{
 				"Name":            Equal("rag-0"),
 				"Image":           Equal("rag-image-1"),
-				"ImagePullPolicy": Equal(corev1.PullIfNotPresent),
+				"ImagePullPolicy": Equal(corev1.PullAlways),
 				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-0 && cp -a /path/to/index-1/. /rag-data/rag-0"}),
 				"VolumeMounts": ConsistOf(corev1.VolumeMount{
 					Name:      RAGVolumeName,
@@ -63,7 +63,7 @@ var _ = Describe("App server assets", func() {
 			Expect(initContainers[1]).To(MatchFields(IgnoreExtras, Fields{
 				"Name":            Equal("rag-1"),
 				"Image":           Equal("rag-image-2"),
-				"ImagePullPolicy": Equal(corev1.PullIfNotPresent),
+				"ImagePullPolicy": Equal(corev1.PullAlways),
 				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-1 && cp -a /path/to/index-2/. /rag-data/rag-1"}),
 				"VolumeMounts": ConsistOf(corev1.VolumeMount{
 					Name:      RAGVolumeName,
