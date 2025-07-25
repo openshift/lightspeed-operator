@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-08-13T09:31:54Z"
+    createdAt: "2025-08-25T13:35:44Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -600,6 +600,9 @@ spec:
                       periodSeconds: 20
                     name: manager
                     ports:
+                      - containerPort: 9443
+                        name: webhook
+                        protocol: TCP
                       - containerPort: 8443
                         name: metrics
                         protocol: TCP
@@ -623,6 +626,9 @@ spec:
                           - ALL
                       readOnlyRootFilesystem: true
                     volumeMounts:
+                      - mountPath: /tmp/k8s-webhook-server/serving-certs
+                        name: webhook-cert
+                        readOnly: true
                       - mountPath: /etc/tls/private
                         name: controller-manager-tls
                         readOnly: true
@@ -631,6 +637,10 @@ spec:
                 serviceAccountName: lightspeed-operator-controller-manager
                 terminationGracePeriodSeconds: 10
                 volumes:
+                  - name: webhook-cert
+                    secret:
+                      defaultMode: 420
+                      secretName: webhook-server-cert
                   - name: controller-manager-tls
                     secret:
                       secretName: controller-manager-tls
@@ -699,6 +709,27 @@ spec:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
   version: 1.0.4
+  webhookdefinitions:
+    - admissionReviewVersions:
+        - v1
+      containerPort: 443
+      deploymentName: lightspeed-operator-controller-manager
+      failurePolicy: Fail
+      generateName: volsconfig.kb.io
+      rules:
+        - apiGroups:
+            - ols.openshift.io
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+          resources:
+            - olsconfigs
+      sideEffects: None
+      targetPort: webhook
+      type: ValidatingAdmissionWebhook
+      webhookPath: /validate-ols-openshift-io-v1alpha1-olsconfig
   relatedImages:
     - name: lightspeed-service-api
       image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
