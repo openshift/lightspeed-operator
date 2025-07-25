@@ -171,38 +171,60 @@ var _ = Describe("App server assets", func() {
 			Expect(np.ObjectMeta.Namespace).To(Equal(r.Options.Namespace))
 			Expect(np.Spec.PodSelector.MatchLabels).To(Equal(map[string]string{"control-plane": "controller-manager"}))
 			Expect(np.Spec.PolicyTypes).To(ConsistOf([]networkingv1.PolicyType{"Ingress"}))
-			Expect(np.Spec.Ingress).To(HaveLen(1))
-			Expect(np.Spec.Ingress).To(ConsistOf(networkingv1.NetworkPolicyIngressRule{
-				From: []networkingv1.NetworkPolicyPeer{
-					{
-						NamespaceSelector: &metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"kubernetes.io/metadata.name": "openshift-monitoring",
-							},
-						},
-						PodSelector: &metav1.LabelSelector{
-							MatchExpressions: []metav1.LabelSelectorRequirement{
-								{
-									Key:      "app.kubernetes.io/name",
-									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{"prometheus"},
+			Expect(np.Spec.Ingress).To(HaveLen(2))
+			Expect(np.Spec.Ingress).To(ConsistOf(
+				networkingv1.NetworkPolicyIngressRule{
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": "openshift-monitoring",
 								},
-								{
-									Key:      "prometheus",
-									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{"k8s"},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "app.kubernetes.io/name",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{"prometheus"},
+									},
+									{
+										Key:      "prometheus",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{"k8s"},
+									},
 								},
 							},
 						},
 					},
-				},
-				Ports: []networkingv1.NetworkPolicyPort{
-					{
-						Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
-						Port:     &[]intstr.IntOrString{intstr.FromInt(OperatorMetricsPort)}[0],
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(OperatorMetricsPort)}[0],
+						},
 					},
 				},
-			}))
+				networkingv1.NetworkPolicyIngressRule{
+					// Allow ingress from API server namespaces for webhook validation
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							// Allow traffic from host network (where API server pods run in OpenShift)
+							// refer to https://access.redhat.com/solutions/7008681
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"policy-group.network.openshift.io/host-network": "",
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromString("webhook")}[0],
+						},
+					},
+				},
+			))
 		})
 
 	})

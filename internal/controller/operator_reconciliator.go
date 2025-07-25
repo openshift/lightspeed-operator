@@ -142,6 +142,8 @@ func (r *OLSConfigReconciler) generateNetworkPolicyForOperator() (networkingv1.N
 				{
 					From: []networkingv1.NetworkPolicyPeer{
 						{
+							// Allow ingress from the prometheus-k8s pod in the openshift-monitoring namespace
+							// so that prometheus can scrape the operator metrics
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"kubernetes.io/metadata.name": "openshift-monitoring",
@@ -167,6 +169,26 @@ func (r *OLSConfigReconciler) generateNetworkPolicyForOperator() (networkingv1.N
 						{
 							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
 							Port:     &[]intstr.IntOrString{intstr.FromInt(OperatorMetricsPort)}[0],
+						},
+					},
+				},
+				{
+					// Allow ingress from API server namespaces for webhook validation
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							// Allow traffic from host network (where API server pods run in OpenShift)
+							// refer to https://access.redhat.com/solutions/7008681
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"policy-group.network.openshift.io/host-network": "",
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromString("webhook")}[0],
 						},
 					},
 				},

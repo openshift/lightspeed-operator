@@ -53,6 +53,7 @@ import (
 
 	"github.com/openshift/lightspeed-operator/internal/controller"
 	utiltls "github.com/openshift/lightspeed-operator/internal/tls"
+	"github.com/openshift/lightspeed-operator/internal/webhook"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -265,6 +266,10 @@ func main() {
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")
+		os.Exit(1)
+	}
+	if err = webhook.SetupWebhookWithManager(mgr, mgr.GetClient(), namespace); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "OLSConfig")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
