@@ -210,12 +210,12 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsConfigMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
-				"name": Equal("openai"),
-				"type": Equal("azure_openai"),
+				"name":        Equal("openai"),
+				"type":        Equal("azure_openai"),
+				"api_version": Equal("2021-09-01"),
 				"azure_openai_config": MatchKeys(Options(IgnoreExtras), Keys{
 					"url":              Equal(testURL),
 					"credentials_path": Equal("/etc/apikeys/test-secret"),
-					"api_version":      Equal("2021-09-01"),
 					"deployment_name":  Equal("testDeployment"),
 				}),
 			}))))
