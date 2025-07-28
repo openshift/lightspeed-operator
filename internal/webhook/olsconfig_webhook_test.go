@@ -28,12 +28,14 @@ import (
 
 var _ = Describe("OLSConfig Webhook Validator", Ordered, func() {
 	var (
-		olsConfig       *olsv1alpha1.OLSConfig
-		ctx             context.Context
-		validator       *OLSConfigValidator
-		openaiSecret    *v1.Secret
-		malformedSecret *v1.Secret
-		namespace       *v1.Namespace
+		olsConfig                  *olsv1alpha1.OLSConfig
+		ctx                        context.Context
+		validator                  *OLSConfigValidator
+		openaiSecret               *v1.Secret
+		malformedSecret            *v1.Secret
+		azureOpenaiSecret          *v1.Secret
+		malformedAzureOpenaiSecret *v1.Secret
+		namespace                  *v1.Namespace
 	)
 
 	BeforeAll(func() {
@@ -68,6 +70,32 @@ var _ = Describe("OLSConfig Webhook Validator", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, malformedSecret)).To(Succeed())
+
+		azureOpenaiSecret = &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "azure-openai-secret",
+				Namespace: "openshift-lightspeed",
+			},
+			Data: map[string][]byte{
+				"client_id":     []byte("test-client-id"),
+				"tenant_id":     []byte("test-tenant-id"),
+				"client_secret": []byte("test-client-secret"),
+			},
+		}
+		Expect(k8sClient.Create(ctx, azureOpenaiSecret)).To(Succeed())
+
+		malformedAzureOpenaiSecret = &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "malformed-azure-openai-secret",
+				Namespace: "openshift-lightspeed",
+			},
+			Data: map[string][]byte{
+				"client_id": []byte("test-client-id"),
+				"tenant_id": []byte("test-tenant-id"),
+				// missing client_secret
+			},
+		}
+		Expect(k8sClient.Create(ctx, malformedAzureOpenaiSecret)).To(Succeed())
 	})
 
 	BeforeEach(func() {
@@ -154,6 +182,36 @@ var _ = Describe("OLSConfig Webhook Validator", Ordered, func() {
 			By("reject when the olsconfig is not named 'cluster'")
 			olsConfig.Name = "not-cluster"
 			warnings, err = validator.ValidateCreate(ctx, olsConfig)
+			Expect(err).To(HaveOccurred())
+			Expect(warnings).To(BeNil())
+		})
+
+		It("should accept when Azure OpenAI secret is using client_id, tenant_id, client_secret", func() {
+			olsConfig.Spec.LLMConfig.Providers = []olsv1alpha1.ProviderSpec{
+				{
+					Name: "azure_openai",
+					CredentialsSecretRef: v1.LocalObjectReference{
+						Name: "azure-openai-secret",
+					},
+					Type: "azure_openai",
+				},
+			}
+			warnings, err := validator.ValidateCreate(ctx, olsConfig)
+			Expect(err).To(Succeed())
+			Expect(warnings).To(BeNil())
+		})
+
+		It("should reject when Azure OpenAI secret is using neither apitoken nor client_id, tenant_id, client_secret", func() {
+			olsConfig.Spec.LLMConfig.Providers = []olsv1alpha1.ProviderSpec{
+				{
+					Name: "azure_openai",
+					CredentialsSecretRef: v1.LocalObjectReference{
+						Name: "malformed-azure-openai-secret",
+					},
+					Type: "azure_openai",
+				},
+			}
+			warnings, err := validator.ValidateCreate(ctx, olsConfig)
 			Expect(err).To(HaveOccurred())
 			Expect(warnings).To(BeNil())
 		})
