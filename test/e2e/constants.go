@@ -126,4 +126,7 @@ zl/HHk484IkzlQsPpTLWPFp5LBk=
 	CertBundleVolumeName = "cert-bundle"
 	// CertBundleDir is the path of the volume for the certificate bundle
 	CertBundleDir = "cert-bundle"
+
+	// PostgresDeploymentName is the name of OLS application Postgres deployment
+	PostgresDeploymentName = "lightspeed-postgres-server"
 )
