@@ -14,7 +14,8 @@ metadata:
   name: lightspeed-operator-webhook-service
 spec:
   ports:
-  - port: 443
+  - name: webhook
+    port: 443
     protocol: TCP
     targetPort: webhook
   selector:
