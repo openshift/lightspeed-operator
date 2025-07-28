@@ -62,7 +62,7 @@ func (v *OLSConfigValidator) ValidateCreate(ctx context.Context, obj runtime.Obj
 		return nil, fmt.Errorf("name must be 'cluster'")
 	}
 	for _, provider := range olsConfig.Spec.LLMConfig.Providers {
-		if err := v.validateAPITokenSecret(ctx, provider.CredentialsSecretRef.Name); err != nil {
+		if err := v.validateAPITokenSecret(ctx, provider.CredentialsSecretRef.Name, provider.Type); err != nil {
 			return nil, err
 		}
 	}
@@ -79,7 +79,7 @@ func (v *OLSConfigValidator) ValidateUpdate(ctx context.Context, oldObj, newObj 
 	}
 	webhooklog.Info("validate update", "name", olsConfig.Name)
 	for _, provider := range olsConfig.Spec.LLMConfig.Providers {
-		if err := v.validateAPITokenSecret(ctx, provider.CredentialsSecretRef.Name); err != nil {
+		if err := v.validateAPITokenSecret(ctx, provider.CredentialsSecretRef.Name, provider.Type); err != nil {
 			return nil, err
 		}
 	}
@@ -93,7 +93,7 @@ func (v *OLSConfigValidator) ValidateDelete(ctx context.Context, obj runtime.Obj
 	return nil, nil
 }
 
-func (v *OLSConfigValidator) validateAPITokenSecret(ctx context.Context, secretName string) error {
+func (v *OLSConfigValidator) validateAPITokenSecret(ctx context.Context, secretName string, providerType string) error {
 	if secretName == "" {
 		return fmt.Errorf("secret name is required")
 	}
@@ -101,8 +101,18 @@ func (v *OLSConfigValidator) validateAPITokenSecret(ctx context.Context, secretN
 	if err := v.Client.Get(ctx, types.NamespacedName{Namespace: v.Namespace, Name: secretName}, secret); err != nil {
 		return fmt.Errorf("failed to get secret %s: %w", secretName, err)
 	}
+
 	if _, ok := secret.Data["apitoken"]; !ok {
-		return fmt.Errorf("secret %s does not have the key 'apitoken'", secretName)
+		if providerType == "azure_openai" {
+			for _, key := range []string{"client_id", "tenant_id", "client_secret"} {
+				if _, ok := secret.Data[key]; !ok {
+					return fmt.Errorf("Azure OpenAI token secret %s missing key '%s'", secretName, key)
+				}
+			}
+		} else {
+			return fmt.Errorf("secret %s does not have the key 'apitoken'", secretName)
+		}
 	}
+
 	return nil
 }
