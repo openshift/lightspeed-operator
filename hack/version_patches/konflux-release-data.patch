@@ -2,58 +2,41 @@ diff --git a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshi
 index 6944059e7..ab953a241 100644
 --- a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-bundle.yaml
 +++ b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-bundle.yaml
-@@ -20,8 +20,8 @@ spec:
+@@ -20,13 +20,13 @@ spec:
        defaults:
          tags:
            - "{{ git_sha }}"
--          - "<current-version>"
--          - "<current-version>-{{ timestamp }}"
-+          - "<new-version>"
-+          - "<new-version>-{{ timestamp }}"
+-          - "1.0.2"
+-          - "1.0.2-{{ timestamp }}"
++          - "1.0.3"
++          - "1.0.3-{{ timestamp }}"
          pushSourceContainer: false
-     pyxis:
-       secret: pyxis-prod-secret
-@@ -32,11 +32,11 @@ spec:
      releaseNotes:
-       product_id: [950]
+       product_id: [ 950 ]
        product_name: Red Hat OpenShift Lightspeed
--      product_version: <current-version>
-+      product_version: <new-version>
-       type: "RHEA"
-       synopsis: "OpenShift Lightspeed Release"
-       topic: |
--        The <current-version> release of OpenShift Lightspeed Operator.
-+        The <new-version> release of OpenShift Lightspeed Operator.
-       description: |
-         Red Hat OpenShift Lightspeed is a generative AI-based virtual assistant integrated
-         into the OpenShift console. It can answer questions related to OpenShift and layered
+-      product_version: 1.0.2
++      product_version: 1.0.3
+     intention: production
+   pipeline:
+     pipelineRef:
 diff --git a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml
 index 50b535ae5..a6d63526b 100644
 --- a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml
 +++ b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml
-@@ -24,8 +24,8 @@ spec:
+@@ -24,13 +24,13 @@ spec:
        defaults:
          tags:
            - "{{ git_sha }}"
--          - "<current-version>"
--          - "<current-version>-{{ timestamp }}"
-+          - "<new-version>"
-+          - "<new-version>-{{ timestamp }}"
+-          - "1.0.2"
+-          - "1.0.2-{{ timestamp }}"
++          - "1.0.3"
++          - "1.0.3-{{ timestamp }}"
          pushSourceContainer: false
-     pyxis:
-       secret: pyxis-prod-secret
-@@ -36,11 +36,11 @@ spec:
      releaseNotes:
-       product_id: [950]
+       product_id: [ 950 ]
        product_name: Red Hat OpenShift Lightspeed
--      product_version: <current-version>
-+      product_version: <new-version>
-       type: "RHEA"
-       synopsis: "OpenShift Lightspeed Release"
-       topic: |
--        The <current-version> release of OpenShift Lightspeed Operator.
-+        The <new-version> release of OpenShift Lightspeed Operator.
-       description: |
-         Red Hat OpenShift Lightspeed is a generative AI-based virtual assistant integrated
-         into the OpenShift console. It can answer questions related to OpenShift and layered
-         
+-      product_version: 1.0.2
++      product_version: 1.0.3
+     intention: production
+   pipeline:
+     pipelineRef:
