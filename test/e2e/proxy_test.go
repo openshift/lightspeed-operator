@@ -43,6 +43,77 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), func() {
 	var saToken, forwardHost string
 	var secret *corev1.Secret
 
+	// Helper function to setup proxy configuration
+	setupProxyConfig := func(proxyURL string, proxyCACertRef *corev1.LocalObjectReference) {
+		By("modifying the olsconfig to use proxy")
+		err = client.Get(cr)
+		Expect(err).NotTo(HaveOccurred())
+
+		proxyConfig := &olsv1alpha1.ProxyConfig{
+			ProxyURL: proxyURL,
+		}
+		if proxyCACertRef != nil {
+			proxyConfig.ProxyCACertificateRef = proxyCACertRef
+		}
+		cr.Spec.OLSConfig.ProxyConfig = proxyConfig
+
+		err = client.Update(cr)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	// Helper function to wait for deployment rollout
+	waitForAppServerRollout := func() {
+		By("wait for application server deployment rollout")
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AppServerDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.WaitForDeploymentRollout(deployment)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	// Helper function to setup port forwarding and HTTPS client
+	setupHTTPSClient := func() {
+		By("forwarding the HTTPS port to a local port")
+		forwardHost, forwardCleanUp, err = client.ForwardPort(AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort)
+		Expect(err).NotTo(HaveOccurred())
+		cleanUpFuncs = append(cleanUpFuncs, forwardCleanUp)
+
+		const inClusterHost = "lightspeed-app-server.openshift-lightspeed.svc.cluster.local"
+		certificate, ok := secret.Data["tls.crt"]
+		Expect(ok).To(BeTrue())
+		httpsClient = NewHTTPSClient(forwardHost, inClusterHost, certificate, nil, nil)
+		authHeader = map[string]string{"Authorization": "Bearer " + saToken}
+	}
+
+	// Helper function to make query request and validate response
+	makeQueryRequest := func() {
+		By("creating a query request")
+		reqBody := []byte(`{"query": "what is Openshift?"}`)
+		var resp *http.Response
+		Expect(httpsClient).NotTo(BeNil(), "httpsClient is nil, cannot make POST request")
+		resp, err = httpsClient.PostJson("/v1/query", reqBody, authHeader)
+		if err != nil {
+			fmt.Printf("Error during POST request: %v\n", err)
+		}
+		Expect(err).NotTo(HaveOccurred())
+
+		if resp != nil {
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Printf("Error reading response body: %v\n", err)
+			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(body).NotTo(BeEmpty())
+		} else {
+			fmt.Println("Response is nil, possible panic point")
+		}
+	}
+
 	BeforeAll(func() {
 		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
@@ -391,107 +462,18 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), func() {
 	})
 
 	It("should be able to query the application server with http proxy", func() {
-		By("modifying the olsconfig to use https proxy")
-		err = client.Get(cr)
-		Expect(err).NotTo(HaveOccurred())
-		cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
-			ProxyURL: "http://" + squidHostname + ":" + strconv.Itoa(httpPort),
-		}
-
-		err = client.Update(cr)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("wait for application server deployment rollout")
-		deployment := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      AppServerDeploymentName,
-				Namespace: OLSNameSpace,
-			},
-		}
-		err = client.WaitForDeploymentRollout(deployment)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("forwarding the HTTPS port to a local port")
-		forwardHost, forwardCleanUp, err = client.ForwardPort(AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort)
-		Expect(err).NotTo(HaveOccurred())
-		cleanUpFuncs = append(cleanUpFuncs, forwardCleanUp)
-
-		const inClusterHost = "lightspeed-app-server.openshift-lightspeed.svc.cluster.local"
-		certificate, ok := secret.Data["tls.crt"]
-		Expect(ok).To(BeTrue())
-		httpsClient = NewHTTPSClient(forwardHost, inClusterHost, certificate, nil, nil)
-		authHeader = map[string]string{"Authorization": "Bearer " + saToken}
-
-		By("creating a query request")
-		reqBody := []byte(`{"query": "what is Openshift?"}`)
-		var resp *http.Response
-		Expect(httpsClient).NotTo(BeNil(), "httpsClient is nil, cannot make POST request")
-		resp, err = httpsClient.PostJson("/v1/query", reqBody, authHeader)
-		if err != nil {
-			fmt.Printf("Error during POST request: %v\n", err)
-		}
-		Expect(err).NotTo(HaveOccurred())
-
-		if resp != nil {
-			defer resp.Body.Close()
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				fmt.Printf("Error reading response body: %v\n", err)
-			}
-			Expect(err).NotTo(HaveOccurred())
-			Expect(body).NotTo(BeEmpty())
-		} else {
-			fmt.Println("Response is nil, possible panic point")
-		}
-
+		setupProxyConfig("http://"+squidHostname+":"+strconv.Itoa(httpPort), nil)
+		waitForAppServerRollout()
+		setupHTTPSClient()
+		makeQueryRequest()
 	})
 
 	It("should be able to query the application server with https proxy", func() {
-		By("modifying the olsconfig to use https proxy")
-		err = client.Get(cr)
-		Expect(err).NotTo(HaveOccurred())
-		cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
-			ProxyURL: "https://" + squidHostname + ":" + strconv.Itoa(httpsPort),
-			ProxyCACertificateRef: &corev1.LocalObjectReference{
-				Name: "proxy-ca",
-			},
-		}
-
-		err = client.Update(cr)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("wait for application server deployment rollout")
-		deployment := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      AppServerDeploymentName,
-				Namespace: OLSNameSpace,
-			},
-		}
-		err = client.WaitForDeploymentRollout(deployment)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("forwarding the HTTPS port to a local port")
-		forwardHost, forwardCleanUp, err = client.ForwardPort(AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort)
-		Expect(err).NotTo(HaveOccurred())
-		cleanUpFuncs = append(cleanUpFuncs, forwardCleanUp)
-
-		const inClusterHost = "lightspeed-app-server.openshift-lightspeed.svc.cluster.local"
-		certificate, ok := secret.Data["tls.crt"]
-		Expect(ok).To(BeTrue())
-		httpsClient = NewHTTPSClient(forwardHost, inClusterHost, certificate, nil, nil)
-		authHeader = map[string]string{"Authorization": "Bearer " + saToken}
-
-		By("creating a query request")
-		reqBody := []byte(`{"query": "what is Openshift?"}`)
-		var resp *http.Response
-		resp, err = httpsClient.PostJson("/v1/query", reqBody, authHeader)
-		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
-		Expect(resp.StatusCode).To(Equal(http.StatusOK))
-		body, err := io.ReadAll(resp.Body)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(body).NotTo(BeEmpty())
-
+		setupProxyConfig("https://"+squidHostname+":"+strconv.Itoa(httpsPort), &corev1.LocalObjectReference{
+			Name: "proxy-ca",
+		})
+		waitForAppServerRollout()
+		setupHTTPSClient()
+		makeQueryRequest()
 	})
 })
