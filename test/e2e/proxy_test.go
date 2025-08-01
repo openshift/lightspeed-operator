@@ -134,9 +134,9 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), func() {
 		}
 
 		By("Creating a PersistentVolumeClaim")
-		cleanUpPV, err := client.CreatePersistentVolumeClaim(PVCName, storageClassName, resource.MustParse("1Gi"))
+		cleanUpPVC, err := client.CreatePVC(PVCName, storageClassName, resource.MustParse("1Gi"))
 		Expect(err).NotTo(HaveOccurred())
-		cleanUpFuncs = append(cleanUpFuncs, cleanUpPV)
+		cleanUpFuncs = append(cleanUpFuncs, cleanUpPVC)
 
 		By("create configmap for squid using the squid.conf file")
 
@@ -164,7 +164,7 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), func() {
 				Name:        SquidServiceName,
 				Namespace:   OLSNameSpace,
 				Labels:      map[string]string{"app": "squid"},
-				Annotations: map[string]string{"service.beta.openshift.io/serving-cert-secret-name": "squid-service-tls"},
+				Annotations: map[string]string{serviceAnnotationKeyTLSSecret: "squid-service-tls"},
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{

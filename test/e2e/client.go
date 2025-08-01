@@ -567,7 +567,7 @@ func (c *Client) CreatePersistentVolume(name, storageClassName string, volumeSiz
 	}, nil
 }
 
-func (c *Client) CreatePersistentVolumeClaim(name, storageClassName string, volumeSize resource.Quantity) (func(), error) {
+func (c *Client) CreatePVC(name, storageClassName string, volumeSize resource.Quantity) (func(), error) {
 	pv := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -589,7 +589,7 @@ func (c *Client) CreatePersistentVolumeClaim(name, storageClassName string, volu
 	err := c.Create(pv)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
-			logf.Log.Error(err, "PersistentVolume for test already exists")
+			logf.Log.Error(err, "PersistentVolumeClaim for test already exists")
 		} else {
 			return nil, err
 		}
@@ -598,7 +598,7 @@ func (c *Client) CreatePersistentVolumeClaim(name, storageClassName string, volu
 	return func() {
 		err := c.Delete(pv)
 		if err != nil {
-			logf.Log.Error(err, "Error deleting PersistentVolume")
+			logf.Log.Error(err, "Error deleting PersistentVolumeClaim")
 		}
 	}, nil
 }
