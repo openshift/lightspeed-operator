@@ -453,6 +453,24 @@ func (c *Client) CreateClusterRoleBinding(namespace, serviceAccount, clusterRole
 	}, nil
 }
 
+func (c *Client) UpgradeOperator(namespace string) error {
+	ctx, cancel := context.WithCancel(c.ctx)
+	bundleImage := os.Getenv("BUNDLE_IMAGE")
+	cmd := exec.CommandContext(ctx, "operator-sdk", "run", "bundle-upgrade", bundleImage, "--namespace", namespace, "--timeout", "20m", "--verbose", "--kubeconfig", c.kubeconfigPath)
+
+	cleanUp := func() {
+		cancel()
+		_ = cmd.Wait() // wait to clean up resources but ignore returned error since cancel kills the process
+	}
+
+	err := cmd.Run()
+	if err != nil {
+		cleanUp()
+		return fmt.Errorf("fail to run upgrade command. Please check upgrade version is different from initial: %w", err)
+	}
+	return nil
+}
+
 func (c *Client) GetStorageClass(name string) (*storagev1.StorageClass, error) {
 	storageClass := &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
