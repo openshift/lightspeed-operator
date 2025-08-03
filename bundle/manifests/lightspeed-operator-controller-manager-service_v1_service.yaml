@@ -15,6 +15,10 @@ metadata:
   name: lightspeed-operator-controller-manager-service
 spec:
   ports:
+  - name: webhook
+    port: 443
+    protocol: TCP
+    targetPort: webhook
   - name: metrics
     port: 8443
     protocol: TCP

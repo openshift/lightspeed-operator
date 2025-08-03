@@ -21,3 +21,15 @@ spec:
         secret:
           defaultMode: 420
           secretName: webhook-server-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: controller-manager-service
+  namespace: system
+spec:
+  ports:
+  - name: webhook
+    port: 443
+    protocol: TCP
+    targetPort: webhook
