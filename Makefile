@@ -419,4 +419,5 @@ update-bundle-catalog: opm yq
 # Genarate release objects for Konflux builds
 .PHONY: konflux-release
 konflux-release: kustomize yq
+	mkdir -p release-konflux
 	$(KUSTOMIZE) build hack/release-konflux | $(YQ) -s '"release-konflux/" + .metadata.name'
