@@ -77,7 +77,8 @@ const (
 	RAGVolumeMountPath = "/rag-data"
 	// OLSAppServerNetworkPolicyName is the name of the network policy for the OLS application server
 	OLSAppServerNetworkPolicyName = "lightspeed-app-server"
-
+	// FeatureGateMCPServer is the feature gate flag activating the MCP server
+	FeatureGateMCPServer = "MCPServer"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
 	// LLMProviderHashKey is the key of the hash value of OLS LLM provider credentials consolidated
