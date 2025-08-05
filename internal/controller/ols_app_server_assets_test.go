@@ -278,13 +278,134 @@ var _ = Describe("App server assets", func() {
 				"Name":      Equal("openshift"),
 				"Transport": Equal(StreamableHTTP),
 				"StreamableHTTP": PointTo(MatchFields(IgnoreExtras, Fields{
-					"URL":             Equal(fmt.Sprintf(MCPServerURL, MCPServerPort)),
-					"Timeout":         Equal(MCPServerTimeout),
-					"HTTPReadTimeout": Equal(MCPServerHTTPReadTimeout),
+					"URL":            Equal(fmt.Sprintf(MCPServerURL, MCPServerPort)),
+					"Timeout":        Equal(MCPServerTimeout),
+					"SSEReadTimeout": Equal(MCPServerHTTPReadTimeout),
 				})),
 			})))
 		})
 
+		It("should generate configmap with additional MCP server if feature gate is enabled", func() {
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{FeatureGateMCPServer}
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+				{
+					Name: "testMCP",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL:            "https://testMCP.com",
+						Timeout:        10,
+						SSEReadTimeout: 10,
+						Headers: map[string]string{
+							"header1": "value1",
+						},
+					},
+				},
+				{
+					Name: "testMCP2",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL:            "https://testMCP2.com",
+						Timeout:        10,
+						SSEReadTimeout: 10,
+						Headers: map[string]string{
+							"header2": "value2",
+						},
+						EnableSSE: true,
+					},
+				},
+			}
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			var appSrvConfigFile AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &appSrvConfigFile)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(appSrvConfigFile.MCPServers).To(HaveLen(2))
+			Expect(appSrvConfigFile.MCPServers[0].Name).To(Equal("testMCP"))
+			Expect(appSrvConfigFile.MCPServers[0].Transport).To(Equal(StreamableHTTP))
+			Expect(appSrvConfigFile.MCPServers[0].StreamableHTTP).To(Equal(&StreamableHTTPTransportConfig{
+				URL:            "https://testMCP.com",
+				Timeout:        10,
+				SSEReadTimeout: 10,
+				Headers: map[string]string{
+					"header1": "value1",
+				},
+			}))
+			Expect(appSrvConfigFile.MCPServers[1].Name).To(Equal("testMCP2"))
+			Expect(appSrvConfigFile.MCPServers[1].Transport).To(Equal(SSE))
+			Expect(appSrvConfigFile.MCPServers[1].SSE).To(Equal(&StreamableHTTPTransportConfig{
+				URL:            "https://testMCP2.com",
+				Timeout:        10,
+				SSEReadTimeout: 10,
+				Headers: map[string]string{
+					"header2": "value2",
+				},
+			}))
+		})
+
+		It("should not generate configmap with additional MCP server if feature gate is missing", func() {
+			Expect(cr.Spec.FeatureGates).To(BeNil())
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+				{
+					Name: "testMCP",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL:            "https://testMCP.com",
+						Timeout:        10,
+						SSEReadTimeout: 10,
+						Headers: map[string]string{
+							"header1": "value1",
+						},
+					},
+				},
+			}
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			var appSrvConfigFile AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &appSrvConfigFile)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(appSrvConfigFile.MCPServers).To(BeNil())
+		})
+
+		It("should generate configmap with additional MCP server along side the default MCP server", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{FeatureGateMCPServer}
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+				{
+					Name: "testMCP",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL:            "https://testMCP.com",
+						Timeout:        10,
+						SSEReadTimeout: 10,
+						Headers: map[string]string{
+							"header1": "value1",
+						},
+					},
+				},
+			}
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			var appSrvConfigFile AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &appSrvConfigFile)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(appSrvConfigFile.MCPServers).To(HaveLen(2))
+			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("openshift"),
+				"Transport": Equal(StreamableHTTP),
+				"StreamableHTTP": PointTo(MatchFields(IgnoreExtras, Fields{
+					"URL":            Equal(fmt.Sprintf(MCPServerURL, MCPServerPort)),
+					"Timeout":        Equal(MCPServerTimeout),
+					"SSEReadTimeout": Equal(MCPServerHTTPReadTimeout),
+				})),
+			})))
+			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("testMCP"),
+				"Transport": Equal(StreamableHTTP),
+				"StreamableHTTP": PointTo(MatchFields(IgnoreExtras, Fields{
+					"URL":            Equal("https://testMCP.com"),
+					"Timeout":        BeNumerically("==", 10),
+					"SSEReadTimeout": BeNumerically("==", 10),
+					"Headers":        Equal(map[string]string{"header1": "value1"}),
+				})),
+			})))
+
+		})
 		It("should place APIVersion in ProviderConfig for Azure OpenAI provider", func() {
 			// Configure CR with Azure OpenAI provider including APIVersion
 			cr = addAzureOpenAIProvider(cr)

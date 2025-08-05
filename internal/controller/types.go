@@ -229,9 +229,9 @@ type MCPServerConfig struct {
 	Transport MCPTransport `json:"transport"`
 	// Transport settings if the transport is stdio
 	Stdio *StdioTransportConfig `json:"stdio,omitempty"`
-	// Transport settings if the transport is SSE
-	SSE *SSETransportConfig `json:"sse,omitempty"`
-	// Transport settings if the transport is Streamable HTTP
+	// Transport settings if the transport is sse
+	SSE *StreamableHTTPTransportConfig `json:"sse,omitempty"`
+	// Transport settings if the transport is streamable_http
 	StreamableHTTP *StreamableHTTPTransportConfig `json:"streamable_http,omitempty"`
 }
 
@@ -248,22 +248,15 @@ type StdioTransportConfig struct {
 	Encoding string `json:"encoding,omitempty"`
 }
 
-type SSETransportConfig struct {
+type StreamableHTTPTransportConfig struct {
 	// URL of the MCP server
 	URL string `json:"url,omitempty"`
 	// Overall timeout for the MCP server
 	Timeout int `json:"timeout,omitempty"`
 	// SSE read timeout for the MCP server
 	SSEReadTimeout int `json:"sse_read_timeout,omitempty"`
-}
-
-type StreamableHTTPTransportConfig struct {
-	// URL of the MCP server
-	URL string `json:"url,omitempty"`
-	// Overall timeout for the MCP server
-	Timeout int `json:"timeout,omitempty"`
-	// HTTP read timeout for the MCP server
-	HTTPReadTimeout int `json:"http_read_timeout,omitempty"`
+	// Headers to send to the MCP server
+	Headers map[string]string `json:"headers,omitempty"`
 }
 
 type ProxyConfig struct {

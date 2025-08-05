@@ -40,6 +40,15 @@ spec:
           spec:
             description: OLSConfigSpec defines the desired state of OLSConfig
             properties:
+              featureGates:
+                description: |-
+                  Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
+                  possible values: MCPServer
+                items:
+                  enum:
+                  - MCPServer
+                  type: string
+                type: array
               llm:
                 description: LLMSpec defines the desired state of the large language
                   model (LLM).
@@ -333,6 +342,45 @@ spec:
                 required:
                 - providers
                 type: object
+              mcpServers:
+                description: MCP Server settings
+                items:
+                  description: MCPServer defines the settings for a single MCP server.
+                  properties:
+                    name:
+                      description: Name of the MCP server
+                      type: string
+                    streamableHTTP:
+                      description: Streamable HTTP Transport settings
+                      properties:
+                        enableSSE:
+                          default: false
+                          description: Enable Server Sent Events
+                          type: boolean
+                        headers:
+                          additionalProperties:
+                            type: string
+                          description: Headers to send to the MCP server
+                          type: object
+                        sseReadTimeout:
+                          default: 10
+                          description: SSE Read Timeout, default is 10 seconds
+                          type: integer
+                        timeout:
+                          default: 5
+                          description: Timeout for the MCP server, default is 5 seconds
+                          type: integer
+                        url:
+                          description: URL of the MCP server
+                          pattern: ^https?://.*$
+                          type: string
+                      required:
+                      - url
+                      type: object
+                  required:
+                  - name
+                  type: object
+                type: array
               ols:
                 description: OLSSpec defines the desired state of OLS deployment.
                 properties:
