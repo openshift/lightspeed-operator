@@ -192,6 +192,9 @@ type DeploymentConfig struct {
 	// Database container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Container"
 	DatabaseContainer DatabaseContainerConfig `json:"database,omitempty"`
+	// MCP server container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Container"
+	MCPServerContainer MCPServerContainerConfig `json:"mcpServer,omitempty"`
 }
 
 type APIContainerConfig struct {
@@ -204,6 +207,11 @@ type APIContainerConfig struct {
 }
 
 type DataCollectorContainerConfig struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+type MCPServerContainerConfig struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }

@@ -41,6 +41,7 @@ fi
 : "${OPERATOR_IMAGE:=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:049a1a398ed87e4f35c99b36304055c7f75d0188a4d8c1726df59b5f400561e5}"
 : "${BUNDLE_IMAGE:=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:c8ba8d8b4774fdaa6037fdba8cfeff0a7ee962ebe384eabe45995c8949f76eed}"
 : "${CONSOLE_IMAGE:=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9@sha256:4f45c9ba068cf92e592bb3a502764ce6bc93cd154d081fa49d05cb040885155b}"
+: "${MCP_SERVER_IMAGE:=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/kubernetes-mcp-server-ols@sha256:a453ce901d1cdebcdbf2c91ef04ef38870e02a9abfedc0f6ede9224bd3e7e87d}"
 
 : "${CATALOG_FILE:=lightspeed-catalog/index.yaml}"
 CATALOG_INITIAL_FILE="hack/operator.yaml"
@@ -66,6 +67,10 @@ if [ -z "${RELATED_IMAGES}" ]; then
   {
     "name": "lightspeed-operator",
     "image": "${OPERATOR_IMAGE}"
+  },
+  {
+    "name": "mcp-server",
+    "image": "${MCP_SERVER_IMAGE}"
   }
 ]
 EOF

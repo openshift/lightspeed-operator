@@ -55,6 +55,19 @@ func getOLSDataCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceReq
 	return defaultResources
 }
 
+func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+	if cr.Spec.OLSConfig.DeploymentConfig.MCPServerContainer.Resources != nil {
+		return cr.Spec.OLSConfig.DeploymentConfig.MCPServerContainer.Resources
+	}
+	defaultResources := &corev1.ResourceRequirements{
+		Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
+		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
+		Claims:   []corev1.ResourceClaim{},
+	}
+
+	return defaultResources
+}
+
 func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	// mount points of API key secret
 	const OLSConfigMountPath = "/etc/ols"
@@ -258,6 +271,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	replicas := getOLSServerReplicas(cr)
 	ols_server_resources := getOLSServerResources(cr)
 	data_collector_resources := getOLSDataCollectorResources(cr)
+	mcp_server_resources := getOLSMCPServerResources(cr)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -363,6 +377,23 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		Resources: *data_collector_resources,
 	}
 	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, telemetryContainer)
+
+	// Add MCP sidecar container if introspection is enabled
+	if cr.Spec.OLSConfig.IntrospectionEnabled {
+		mcpSidecarContainer := corev1.Container{
+			Name:            "openshift-mcp",
+			Image:           r.Options.MCPServerImage,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			SecurityContext: &corev1.SecurityContext{
+				AllowPrivilegeEscalation: &[]bool{false}[0],
+				ReadOnlyRootFilesystem:   &[]bool{true}[0],
+			},
+			VolumeMounts: volumeMounts,
+			Command:      []string{"/app/kubernetes-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", MCPServerPort)},
+			Resources:    *mcp_server_resources,
+		}
+		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, mcpSidecarContainer)
+	}
 
 	return &deployment, nil
 }

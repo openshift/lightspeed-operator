@@ -44,6 +44,7 @@ var _ = Describe("App server assets", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
 				LightspeedServiceImage: "lightspeed-service:latest",
+				MCPServerImage:         "mcp-server:latest",
 				Namespace:              OLSNamespaceDefault,
 			}
 			cr = getDefaultOLSConfigCR()
@@ -275,10 +276,11 @@ var _ = Describe("App server assets", func() {
 			Expect(appSrvConfigFile.MCPServers).NotTo(BeEmpty())
 			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Name":      Equal("openshift"),
-				"Transport": Equal(Stdio),
-				"Stdio": PointTo(MatchFields(IgnoreExtras, Fields{
-					"Command": Equal("python3.11"),
-					"Args":    ContainElement("./mcp_local/openshift.py"),
+				"Transport": Equal(StreamableHTTP),
+				"StreamableHTTP": PointTo(MatchFields(IgnoreExtras, Fields{
+					"URL":             Equal(fmt.Sprintf(MCPServerURL, MCPServerPort)),
+					"Timeout":         Equal(MCPServerTimeout),
+					"HTTPReadTimeout": Equal(MCPServerHTTPReadTimeout),
 				})),
 			})))
 		})
@@ -1037,6 +1039,87 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(ConsistOf(ocpIndex))
 
+		})
+
+		It("should generate deployment with MCP server sidecar when introspectionEnabled is true", func() {
+			createTelemetryPullSecret()
+			defer deleteTelemetryPullSecret()
+
+			By("Enabling introspection")
+			cr.Spec.OLSConfig.IntrospectionEnabled = true
+
+			dep, err := r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Name).To(Equal(OLSAppServerDeploymentName))
+			Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
+
+			// Should have 3 containers: main app, telemetry, and MCP server
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
+
+			// Verify MCP server container (should be the third container)
+			mcpContainer := dep.Spec.Template.Spec.Containers[2]
+			Expect(mcpContainer.Name).To(Equal("openshift-mcp"))
+			Expect(mcpContainer.Image).To(Equal(rOptions.MCPServerImage))
+			Expect(mcpContainer.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+			Expect(mcpContainer.Command).To(Equal([]string{"/app/kubernetes-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", MCPServerPort)}))
+			Expect(mcpContainer.SecurityContext).To(Equal(&corev1.SecurityContext{
+				AllowPrivilegeEscalation: &[]bool{false}[0],
+				ReadOnlyRootFilesystem:   &[]bool{true}[0],
+			}))
+			Expect(mcpContainer.Resources).To(Equal(corev1.ResourceRequirements{
+				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
+				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
+				Claims:   []corev1.ResourceClaim{},
+			}))
+
+			// Verify MCP server has the same volume mounts as other containers
+			Expect(mcpContainer.VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
+				{
+					Name:      "secret-test-secret",
+					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
+					ReadOnly:  true,
+				},
+				{
+					Name:      "secret-lightspeed-tls",
+					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
+					ReadOnly:  true,
+				},
+				{
+					Name:      "cm-olsconfig",
+					MountPath: "/etc/ols",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "ols-user-data",
+					ReadOnly:  false,
+					MountPath: "/app-root/ols-user-data",
+				},
+				{
+					Name:      "secret-lightspeed-postgres-secret",
+					ReadOnly:  true,
+					MountPath: "/etc/credentials/lightspeed-postgres-secret",
+				},
+				{
+					Name:      "cm-olspostgresca",
+					ReadOnly:  true,
+					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
+				},
+				{
+					Name:      TmpVolumeName,
+					MountPath: TmpVolumeMountPath,
+				},
+			}))
+
+			By("Disabling introspection")
+			cr.Spec.OLSConfig.IntrospectionEnabled = false
+
+			dep, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Should have only 2 containers: main app and telemetry (no MCP server)
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
 		})
 
 	})

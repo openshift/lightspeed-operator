@@ -188,6 +188,13 @@ spec:
         path: ols.deployment.database.tolerations
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:tolerations
+      - description: MCP server container settings.
+        displayName: MCP Server Container
+        path: ols.deployment.mcpServer
+      - displayName: Resource Requirements
+        path: ols.deployment.mcpServer.resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: 'Defines the number of desired OLS pods. Default: "1"'
         displayName: Number of replicas
         path: ols.deployment.replicas
@@ -253,7 +260,7 @@ spec:
         displayName: Token Quota Increase Step
         path: ols.quotaHandlersConfig.limitersConfig[0].quotaIncrease
       - description: Type of the limiter
-        displayName: Limiter Type
+        displayName: 'Limiter Type. Accepted Values: cluster_limiter, user_limiter.'
         path: ols.quotaHandlersConfig.limitersConfig[0].type
       - description: RAG databases
         displayName: RAG Databases
