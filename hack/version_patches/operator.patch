@@ -37,17 +37,3 @@ index c500578..f688d06 100644
    relatedImages:
      - name: lightspeed-service-api
        image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
-diff --git a/hack/update_bundle_catalog.sh b/hack/update_bundle_catalog.sh
-index 8761708..9d3c10a 100755
---- a/hack/update_bundle_catalog.sh
-+++ b/hack/update_bundle_catalog.sh
-@@ -36,7 +36,7 @@ if [ -z "${YQ}" ]; then
- fi
- 
- # Set the bundle version
--: "${BUNDLE_TAG:=<current-version>}"
-+: "${BUNDLE_TAG:=<new-version>}"
- 
- : "${OPERATOR_IMAGE:=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator@sha256:049a1a398ed87e4f35c99b36304055c7f75d0188a4d8c1726df59b5f400561e5}"
- : "${BUNDLE_IMAGE:=registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle@sha256:c8ba8d8b4774fdaa6037fdba8cfeff0a7ee962ebe384eabe45995c8949f76eed}"
-
