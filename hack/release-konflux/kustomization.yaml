@@ -7,7 +7,7 @@ kind: Kustomization
 # channel
 namePrefix: stable-
 # version
-nameSuffix: -1.0.2-2
+nameSuffix: -1.0.3-1
 
 resources:
   - base/components.yaml
@@ -26,53 +26,53 @@ patches:
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-4rx25
+        value: ols-tfwxx
   - target:
       kind: Release
       name: ols-bundle
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-bundle-n7m85
+        value: ols-bundle-sg4xn
   - target:
       kind: Release
       name: fbc-prod-415
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-15-b9tkf
+        value: ols-fbc-v4-15-tm6wn
   - target:
       kind: Release
       name: fbc-prod-416
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-16-tmzj6
+        value: ols-fbc-v4-16-86kvk
   - target:
       kind: Release
       name: fbc-prod-417
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-17-ljpz4
+        value: ols-fbc-v4-17-22dxv
   - target:
       kind: Release
       name: fbc-prod-418
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-18-kskxx
+        value: ols-fbc-v4-18-ndwfl
   - target:
       kind: Release
       name: fbc-prod-419
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-19-qqv2l
+        value: ols-fbc-v4-19-vpv6g
   - target:
       kind: Release
       name: fbc-staging
     patch: |-
       - op: replace
         path: /spec/snapshot
-        value: ols-fbc-v4-19-tprz2
+        value: ols-fbc-v4-19-vpv6g
