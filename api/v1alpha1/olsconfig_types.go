@@ -35,7 +35,18 @@ type OLSConfigSpec struct {
 	OLSConfig OLSSpec `json:"ols"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="OLS Data Collector Settings"
 	OLSDataCollectorConfig OLSDataCollectorSpec `json:"olsDataCollector,omitempty"`
+	// MCP Server settings
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Settings"
+	MCPServers []MCPServer `json:"mcpServers,omitempty"`
+	// Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
+	// possible values: MCPServer
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Feature Gates"
+	FeatureGates []FeatureGate `json:"featureGates,omitempty"`
 }
+
+// +kubebuilder:validation:Enum=MCPServer
+type FeatureGate string
 
 // OLSConfigStatus defines the observed state of OLS deployment.
 type OLSConfigStatus struct {
@@ -407,6 +418,43 @@ type ProxyConfig struct {
 	// The configmap holding proxy CA certificate
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy CA Certificate"
 	ProxyCACertificateRef *corev1.LocalObjectReference `json:"proxyCACertificate,omitempty"`
+}
+
+// MCPServer defines the settings for a single MCP server.
+type MCPServer struct {
+	// Name of the MCP server
+	// +kubebuilder:validation:Required
+	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Name"
+	Name string `json:"name,omitempty"`
+	// Streamable HTTP Transport settings
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Streamable HTTP Transport"
+	StreamableHTTP *MCPServerStreamableHTTPTransport `json:"streamableHTTP,omitempty"`
+}
+
+// MCPServerStreamableHTTPTransport configures the MCP server to use streamable HTTP transport.
+type MCPServerStreamableHTTPTransport struct {
+	// URL of the MCP server
+	// +kubebuilder:validation:Required
+	// +required
+	// +kubebuilder:validation:Pattern=`^https?://.*$`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="URL"
+	URL string `json:"url,omitempty"`
+	// Timeout for the MCP server, default is 5 seconds
+	// +kubebuilder:default=5
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Timeout in seconds"
+	Timeout int `json:"timeout,omitempty"`
+	// SSE Read Timeout, default is 10 seconds
+	// +kubebuilder:default=10
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="SSE Read Timeout in seconds"
+	SSEReadTimeout int `json:"sseReadTimeout,omitempty"`
+	// Headers to send to the MCP server
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Headers"
+	Headers map[string]string `json:"headers,omitempty"`
+	// Enable Server Sent Events
+	// +kubebuilder:default=false
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Enable Server Sent Events"
+	EnableSSE bool `json:"enableSSE,omitempty"`
 }
 
 // +kubebuilder:object:root=true

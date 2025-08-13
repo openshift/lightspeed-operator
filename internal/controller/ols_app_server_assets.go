@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -340,11 +341,20 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 				Name:      "openshift",
 				Transport: StreamableHTTP,
 				StreamableHTTP: &StreamableHTTPTransportConfig{
-					URL:             fmt.Sprintf(MCPServerURL, MCPServerPort),
-					Timeout:         MCPServerTimeout,
-					HTTPReadTimeout: MCPServerHTTPReadTimeout,
+					URL:            fmt.Sprintf(MCPServerURL, MCPServerPort),
+					Timeout:        MCPServerTimeout,
+					SSEReadTimeout: MCPServerHTTPReadTimeout,
 				},
 			},
+		}
+	}
+
+	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, FeatureGateMCPServer) {
+		mcpServers := generateMCPServerConfigs(cr)
+		if appSrvConfigFile.MCPServers == nil {
+			appSrvConfigFile.MCPServers = mcpServers
+		} else {
+			appSrvConfigFile.MCPServers = append(appSrvConfigFile.MCPServers, mcpServers...)
 		}
 	}
 
@@ -726,4 +736,44 @@ func getQueryFilters(cr *olsv1alpha1.OLSConfig) []QueryFilters {
 		})
 	}
 	return filters
+}
+
+func generateMCPServerConfigs(cr *olsv1alpha1.OLSConfig) []MCPServerConfig {
+	if cr.Spec.MCPServers == nil {
+		return nil
+	}
+
+	servers := []MCPServerConfig{}
+	for _, server := range cr.Spec.MCPServers {
+		servers = append(servers, MCPServerConfig{
+			Name:           server.Name,
+			Transport:      getMCPTransport(&server),
+			SSE:            generateMCPStreamableHTTPTransportConfig(&server),
+			StreamableHTTP: generateMCPStreamableHTTPTransportConfig(&server),
+		})
+	}
+	return servers
+}
+
+func generateMCPStreamableHTTPTransportConfig(server *olsv1alpha1.MCPServer) *StreamableHTTPTransportConfig {
+	if server == nil || server.StreamableHTTP == nil {
+		return nil
+	}
+
+	return &StreamableHTTPTransportConfig{
+		URL:            server.StreamableHTTP.URL,
+		Timeout:        server.StreamableHTTP.Timeout,
+		SSEReadTimeout: server.StreamableHTTP.SSEReadTimeout,
+		Headers:        server.StreamableHTTP.Headers,
+	}
+}
+
+func getMCPTransport(server *olsv1alpha1.MCPServer) MCPTransport {
+	if server == nil || server.StreamableHTTP == nil {
+		return ""
+	}
+	if server.StreamableHTTP.EnableSSE {
+		return SSE
+	}
+	return StreamableHTTP
 }

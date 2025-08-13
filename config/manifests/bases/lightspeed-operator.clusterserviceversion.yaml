@@ -47,6 +47,10 @@ spec:
       - description: The name of the secret object that stores API provider credentials
         displayName: Credential Secret
         path: llm.providers[0].credentialsSecretRef
+      - description: 'Feature Gates holds list of features to be enabled explicitly,
+          otherwise they are disabled by default. possible values: MCPServer'
+        displayName: Feature Gates
+        path: featureGates
       - displayName: LLM Settings
         path: llm
       - displayName: Providers
@@ -87,6 +91,30 @@ spec:
       - description: Provider type
         displayName: Provider Type
         path: llm.providers[0].type
+      - description: MCP Server settings
+        displayName: MCP Server Settings
+        path: mcpServers
+      - description: Name of the MCP server
+        displayName: Name
+        path: mcpServers[0].name
+      - description: Streamable HTTP Transport settings
+        displayName: Streamable HTTP Transport
+        path: mcpServers[0].streamableHTTP
+      - description: Enable Server Sent Events
+        displayName: Enable Server Sent Events
+        path: mcpServers[0].streamableHTTP.enableSSE
+      - description: Headers to send to the MCP server
+        displayName: Headers
+        path: mcpServers[0].streamableHTTP.headers
+      - description: SSE Read Timeout, default is 10 seconds
+        displayName: SSE Read Timeout in seconds
+        path: mcpServers[0].streamableHTTP.sseReadTimeout
+      - description: Timeout for the MCP server, default is 5 seconds
+        displayName: Timeout in seconds
+        path: mcpServers[0].streamableHTTP.timeout
+      - description: URL of the MCP server
+        displayName: URL
+        path: mcpServers[0].streamableHTTP.url
       - displayName: OLS Settings
         path: ols
       - description: Additional CA certificates for TLS communication between OLS
