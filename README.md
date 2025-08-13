@@ -6,7 +6,7 @@ A Kubernetes operator for managing [Red Hat OpenShift Lightspeed](https://github
 
 ## Getting Started
 
-You'll need an OpenShift 4.15+ cluster to run against.
+You'll need an OpenShift 4.16+ cluster to run against.
 
 > [!IMPORTANT]
 > Officially, the Operator only supports OpenAI, Azure OpenAI, WatsonX, RHELAI and RHOAI as large language model (LLM) providers, but technically, if you have an OpenAI API compatible model server (Ollama, VLLM, MLX), it should work.

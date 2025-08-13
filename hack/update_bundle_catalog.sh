@@ -84,7 +84,7 @@ make bundle VERSION="${BUNDLE_TAG}" IMG="${OPERATOR_IMAGE}"
 # restore related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES}" ${CSV_FILE}
 # add compatibility labels to the annotations file
-${YQ} eval -i '.annotations."com.redhat.openshift.versions"="v4.15-v4.17"' ${ANNOTATION_FILE}
+${YQ} eval -i '.annotations."com.redhat.openshift.versions"="v4.16-v4.19"' ${ANNOTATION_FILE}
 ${YQ} eval -i '(.annotations."com.redhat.openshift.versions" | key) head_comment="OCP compatibility labels"' ${ANNOTATION_FILE}
 
 # use UBI image as base image for bundle image
@@ -113,7 +113,7 @@ LABEL version=${BUNDLE_TAG}
 LABEL summary="Red Hat OpenShift Lightspeed"
 
 # OCP compatibility labels
-LABEL com.redhat.openshift.versions=v4.15-v4.17
+LABEL com.redhat.openshift.versions=v4.16-v4.19
 
 # Set user to non-root for security reasons.
 USER 1001
