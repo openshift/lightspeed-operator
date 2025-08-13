@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -426,16 +427,6 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), func() {
 		err = client.Delete(configmap)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Deleting the PVC")
-		PVC := &corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      PVCName,
-				Namespace: OLSNameSpace,
-			},
-		}
-		err = client.Delete(PVC)
-		Expect(err).NotTo(HaveOccurred())
-
 		By("Deleting the proxy service")
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -455,6 +446,22 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), func() {
 		}
 		err = client.Delete(deployment)
 		Expect(err).NotTo(HaveOccurred())
+
+		By("Deleting the PVC")
+		PVC := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      PVCName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.Delete(PVC)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for PVC to be fully deleted")
+		Eventually(func() bool {
+			err := client.Get(PVC)
+			return err != nil
+		}).WithTimeout(5*time.Minute).WithPolling(5*time.Second).Should(BeTrue(), "PVC was not deleted in time")
 
 		for _, cleanUpFunc := range cleanUpFuncs {
 			cleanUpFunc()
