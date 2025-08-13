@@ -18,5 +18,10 @@
     "name": "lightspeed-operator-bundle",
     "image": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:a556e86058237d8afab41a4dc320c487645d8a1824ae68a0c2adb32ae6f72d7f",
     "revision": "f42434020d190c202d048fa35831d53326c04d4c"
+  },
+  {
+    "name": "mcp-server",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/kubernetes-mcp-server-ols@sha256:a453ce901d1cdebcdbf2c91ef04ef38870e02a9abfedc0f6ede9224bd3e7e87d",
+    "revision": ""
   }
 ]

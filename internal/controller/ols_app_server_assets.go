@@ -338,12 +338,11 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		appSrvConfigFile.MCPServers = []MCPServerConfig{
 			{
 				Name:      "openshift",
-				Transport: "stdio",
-				Stdio: &StdioTransportConfig{
-					Command: "python3.11",
-					Args: []string{
-						"./mcp_local/openshift.py",
-					},
+				Transport: StreamableHTTP,
+				StreamableHTTP: &StreamableHTTPTransportConfig{
+					URL:             fmt.Sprintf(MCPServerURL, MCPServerPort),
+					Timeout:         MCPServerTimeout,
+					HTTPReadTimeout: MCPServerHTTPReadTimeout,
 				},
 			},
 		}

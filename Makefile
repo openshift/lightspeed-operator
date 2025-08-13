@@ -168,7 +168,20 @@ endif
 ifndef LLM_TOKEN
 	$(error LLM_TOKEN  environment variable is not set)
 endif
-	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast"
+	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade"
+
+.PHONY: test-upgrade
+test-upgrade: ## Run upgrade tests with an Openshift cluster. Requires KUBECONFIG, LLM_TOKEN and BUNDLE_IMAGE environment variables.
+ifndef KUBECONFIG
+	$(error KUBECONFIG environment variable is not set)
+endif
+ifndef LLM_TOKEN
+	$(error LLM_TOKEN  environment variable is not set)
+endif
+ifndef BUNDLE_IMAGE
+	$(error BUNDLE_IMAGE  environment variable is not set)
+endif
+	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="Upgrade"
 
 .PHONY: test-e2e-local
 test-e2e-local: ## Run e2e tests with an Openshift cluster, excluding Database-Persistency test that requires a storage class. Requires KUBECONFIG and LLM_TOKEN environment variables.
@@ -197,10 +210,11 @@ build: manifests generate fmt vet ## Build manager binary.
 LIGHTSPEED_SERVICE_IMG ?= quay.io/openshift-lightspeed/lightspeed-service-api:latest
 LIGHTSPEED_SERVICE_POSTGRES_IMG ?= registry.redhat.io/rhel9/postgresql-16@sha256:6d2cab6cb6366b26fcf4591fe22aa5e8212a3836c34c896bb65977a8e50d658b
 CONSOLE_PLUGIN_IMG ?= quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
+MCP_SERVER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/kubernetes-mcp-server-ols@sha256:a453ce901d1cdebcdbf2c91ef04ef38870e02a9abfedc0f6ede9224bd3e7e87d
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
     #TODO: Update DB
-	go run ./cmd/main.go --service-image="$(LIGHTSPEED_SERVICE_IMG)" --postgres-image="$(LIGHTSPEED_SERVICE_POSTGRES_IMG)" --console-image="$(CONSOLE_PLUGIN_IMG)"
+	go run ./cmd/main.go --service-image="$(LIGHTSPEED_SERVICE_IMG)" --postgres-image="$(LIGHTSPEED_SERVICE_POSTGRES_IMG)" --console-image="$(CONSOLE_PLUGIN_IMG)" --mcp-server-image="$(MCP_SERVER_IMG)"
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
@@ -419,4 +433,5 @@ update-bundle-catalog: opm yq
 # Genarate release objects for Konflux builds
 .PHONY: konflux-release
 konflux-release: kustomize yq
+	mkdir -p release-konflux
 	$(KUSTOMIZE) build hack/release-konflux | $(YQ) -s '"release-konflux/" + .metadata.name'

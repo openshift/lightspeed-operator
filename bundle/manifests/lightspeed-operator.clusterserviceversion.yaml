@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-07-09T07:45:59Z"
+    createdAt: "2025-08-06T20:26:27Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -219,6 +219,13 @@ spec:
             path: ols.deployment.database.tolerations
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:tolerations
+          - description: MCP server container settings.
+            displayName: MCP Server Container
+            path: ols.deployment.mcpServer
+          - displayName: Resource Requirements
+            path: ols.deployment.mcpServer.resources
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
           - description: 'Defines the number of desired OLS pods. Default: "1"'
             displayName: Number of replicas
             path: ols.deployment.replicas
@@ -672,3 +679,5 @@ spec:
       image: quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
     - name: lightspeed-operator
       image: quay.io/openshift-lightspeed/lightspeed-operator:latest
+    - name: mcp-server
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/kubernetes-mcp-server-ols@sha256:a453ce901d1cdebcdbf2c91ef04ef38870e02a9abfedc0f6ede9224bd3e7e87d

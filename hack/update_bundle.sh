@@ -111,7 +111,7 @@ BUNDLE_DOCKERFILE="bundle.Dockerfile"
 
 # if RELATED_IMAGES is not defined, extract related images or use default values
 if [ -f "${RELATED_IMAGES_FILENAME}" ]; then
-  RELATED_IMAGES=$(${JQ} '[ .[] | select(.name == "lightspeed-service-api" or .name == "lightspeed-operator" or .name == "lightspeed-console-plugin") ]' ${RELATED_IMAGES_FILENAME})
+  RELATED_IMAGES=$(${JQ} '[ .[] | select(.name == "lightspeed-service-api" or .name == "lightspeed-operator" or .name == "lightspeed-console-plugin" or .name == "mcp-server") ]' ${RELATED_IMAGES_FILENAME})
 elif [ -f "${CSV_FILE}" ]; then
   RELATED_IMAGES=$(${YQ} ' .spec.relatedImages' -ojson ${CSV_FILE})
 else
@@ -129,6 +129,10 @@ else
   {
       "name": "lightspeed-operator",
       "image": "quay.io/openshift-lightspeed/lightspeed-operator:latest"
+  },
+  {
+      "name": "mcp-server",
+      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/kubernetes-mcp-server-ols@sha256:a453ce901d1cdebcdbf2c91ef04ef38870e02a9abfedc0f6ede9224bd3e7e87d"
   }
 ]
 EOF
@@ -142,6 +146,7 @@ fi
 OPERATOR_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-operator") | .image' <<<${RELATED_IMAGES})
 SERVICE_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-service-api") | .image' <<<${RELATED_IMAGES})
 CONSOLE_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-console-plugin") | .image' <<<${RELATED_IMAGES})
+MCP_SERVER_IMAGE=$(${JQ} '.[] | select(.name == "mcp-server") | .image' <<<${RELATED_IMAGES})
 
 # Build the bundle image
 echo "Updating bundle artifacts for image ${OPERATOR_IMAGE}"
@@ -151,9 +156,10 @@ rm -rf ./bundle
 ${OPERATOR_SDK} generate kustomize manifests -q
 ${KUSTOMIZE} build config/manifests | ${OPERATOR_SDK} generate bundle ${BUNDLE_GEN_FLAGS}
 ${OPERATOR_SDK} bundle validate ./bundle
-# set service and console image for the operator
+# set service, console, and mcp-server images for the operator
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/openshift-lightspeed/lightspeed-service-api:latest\", ${SERVICE_IMAGE}))" -i ${CSV_FILE}
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/openshift-lightspeed/lightspeed-console-plugin:latest\", ${CONSOLE_IMAGE}))" -i ${CSV_FILE}
+${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/kubernetes-mcp-server-ols@sha256:a453ce901d1cdebcdbf2c91ef04ef38870e02a9abfedc0f6ede9224bd3e7e87d\", ${MCP_SERVER_IMAGE}))" -i ${CSV_FILE}
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].image |= sub(\"quay.io/openshift-lightspeed/lightspeed-operator:latest\", ${OPERATOR_IMAGE}))" -i ${CSV_FILE}
 # set related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES}" ${CSV_FILE}
