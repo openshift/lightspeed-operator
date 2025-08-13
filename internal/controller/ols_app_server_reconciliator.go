@@ -74,6 +74,10 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Name: "reconcile Proxy CA ConfigMap",
 			Task: r.reconcileProxyCAConfigMap,
 		},
+		{
+			Name: "reconcile Postgres CA ConfigMap",
+			Task: r.reconcilePostgresCAConfigMap,
+		},
 	}
 
 	for _, task := range tasks {
@@ -203,6 +207,48 @@ func (r *OLSConfigReconciler) reconcileProxyCAConfigMap(ctx context.Context, cr 
 	}
 
 	r.logger.Info("proxy CA configmap reconciled", "configmap", cm.Name)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcilePostgresCAConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	// Get the openshift-service-ca.crt configmap used by postgres
+	cm := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSCAConfigMap, Namespace: r.Options.Namespace}, cm)
+	if err != nil {
+		// If the service-ca configmap is not present yet, skip without failing reconciliation
+		if errors.IsNotFound(err) {
+			r.logger.Info("Postgres CA configmap not found yet, skipping", "configmap", OLSCAConfigMap)
+			return nil
+		}
+		return fmt.Errorf("failed to get postgres CA configmap %s: %w", OLSCAConfigMap, err)
+	}
+
+	// Annotate the configmap for watcher to trigger reconciliation when it changes
+	annotateConfigMapWatcher(cm)
+	err = r.Update(ctx, cm)
+	if err != nil {
+		return fmt.Errorf("failed to update postgres CA configmap %s: %w", OLSCAConfigMap, err)
+	}
+
+	// Calculate hash of CA certificate data to detect changes
+	certBytes := []byte{}
+	for key, value := range cm.Data {
+		certBytes = append(certBytes, []byte(key)...)
+		certBytes = append(certBytes, []byte(value)...)
+	}
+
+	foundCmHash, err := hashBytes(certBytes)
+	if err != nil {
+		return fmt.Errorf("failed to generate postgres CA certs hash: %w", err)
+	}
+
+	if foundCmHash == r.stateCache[PostgresCAHashStateCacheKey] {
+		r.logger.Info("Postgres CA reconciliation skipped", "hash", foundCmHash)
+		return nil
+	}
+
+	r.stateCache[PostgresCAHashStateCacheKey] = foundCmHash
+	r.logger.Info("postgres CA configmap reconciled", "configmap", cm.Name, "hash", foundCmHash)
 	return nil
 }
 

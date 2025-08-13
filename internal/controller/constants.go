@@ -244,6 +244,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	PostgresConfigHashStateCacheKey = "olspostgresconfig-hash"
 	// #nosec G101
 	PostgresSecretHashStateCacheKey = "olspostgressecret-hash"
+	// PostgresCAHashKey is the key of the hash value of the OLS Postgres CA certificates
+	PostgresCAHashKey = "hash/postgres-ca"
+	// PostgresCAHashStateCacheKey is the key of the hash value of the OLS Postgres CA certificates in state cache
+	PostgresCAHashStateCacheKey = "olspostgresca-hash"
 	// OperatorNetworkPolicyName is the name of the network policy for the operator
 	OperatorNetworkPolicyName = "lightspeed-operator"
 	// OperatorMetricsPort is the port number of the operator metrics endpoint

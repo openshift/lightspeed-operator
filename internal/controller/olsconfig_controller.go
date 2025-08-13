@@ -249,6 +249,7 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(secretWatcherFilter)).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(telemetryPullSecretWatcherFilter)).
 		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(configMapWatcherFilter)).
+		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(postgresCAConfigMapWatcherFilter)).
 		Owns(&consolev1.ConsolePlugin{}).
 		Owns(&monv1.ServiceMonitor{}).
 		Owns(&monv1.PrometheusRule{}).
