@@ -852,9 +852,9 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Reconcile with RAG defined")
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
-					IndexPath: "/rag/vector_db/ocp_product_docs/4.15",
-					IndexID:   "ocp-product-docs-4_15",
-					Image:     "rag-ocp-product-docs:4.15",
+					IndexPath: "/rag/vector_db/ocp_product_docs/4.19",
+					IndexID:   "ocp-product-docs-4_19",
+					Image:     "rag-ocp-product-docs:4.19",
 				},
 				{
 					IndexPath: "/rag/vector_db/ansible_docs/2.18",
@@ -906,9 +906,9 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Reconcile with RAG defined")
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
-					IndexPath: "/rag/vector_db/ocp_product_docs/4.15",
-					IndexID:   "ocp-product-docs-4_15",
-					Image:     "rag-ocp-product-docs:4.15",
+					IndexPath: "/rag/vector_db/ocp_product_docs/4.19",
+					IndexID:   "ocp-product-docs-4_19",
+					Image:     "rag-ocp-product-docs:4.19",
 				},
 				{
 					IndexPath: "/rag/vector_db/ansible_docs/2.18",
@@ -929,7 +929,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("indexes:"))
 			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("  - product_docs_index_id: " + "ocp-product-docs-" + major + "_" + minor))
 			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("    product_docs_index_path: " + "/app-root/vector_db/ocp_product_docs/" + major + "." + minor))
-			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("  - product_docs_index_id: ocp-product-docs-4_15"))
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("  - product_docs_index_id: ocp-product-docs-4_19"))
 			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("    product_docs_index_path: " + RAGVolumeMountPath + "/rag-0"))
 			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("  - product_docs_index_id: ansible-docs-2_18"))
 			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("    product_docs_index_path: " + RAGVolumeMountPath + "/rag-1"))
