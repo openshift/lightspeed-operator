@@ -360,6 +360,8 @@ spec:
             path: ols.userDataCollection.feedbackDisabled
           - displayName: Do Not Collect Transcripts
             path: ols.userDataCollection.transcriptsDisabled
+          - displayName: Do Not Collect Config Data
+            path: ols.userDataCollection.configDisabled
           - displayName: OLS Data Collector Settings
             path: olsDataCollector
           - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".'

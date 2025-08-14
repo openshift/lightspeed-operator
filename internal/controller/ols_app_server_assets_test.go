@@ -125,6 +125,8 @@ var _ = Describe("App server assets", func() {
 						FeedbackStorage:     "/app-root/ols-user-data/feedback",
 						TranscriptsDisabled: false,
 						TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
+						ConfigDisabled:      false,
+						ConfigStorage:       "/app-root/ols-user-data/config",
 					},
 				},
 				LLMProviders: []ProviderConfig{
@@ -930,6 +932,7 @@ var _ = Describe("App server assets", func() {
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
 				TranscriptsDisabled: true,
+				ConfigDisabled:      true,
 			}
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -938,6 +941,7 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeTrue())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeTrue())
+			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.ConfigDisabled).To(BeTrue())
 
 			deployment, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -955,6 +959,7 @@ var _ = Describe("App server assets", func() {
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    false,
 				TranscriptsDisabled: false,
+				ConfigDisabled:      false,
 			}
 			cm, err = r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -962,6 +967,7 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeFalse())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeFalse())
+			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.ConfigDisabled).To(BeFalse())
 
 			deployment, err = r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -1303,6 +1309,8 @@ ols_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
   user_data_collection:
+    config_disabled: false
+    config_storage: /app-root/ols-user-data/config
     feedback_disabled: false
     feedback_storage: /app-root/ols-user-data/feedback
     transcripts_disabled: false
@@ -1359,6 +1367,8 @@ ols_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
   user_data_collection:
+    config_disabled: true
+    config_storage: /app-root/ols-user-data/config
     feedback_disabled: true
     feedback_storage: /app-root/ols-user-data/feedback
     transcripts_disabled: true
