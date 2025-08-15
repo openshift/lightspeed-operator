@@ -12,7 +12,6 @@ nameSuffix: -1.0.3-1
 resources:
   - base/components.yaml
   - base/bundle.yaml
-  - base/fbc-prod-v4-15.yaml
   - base/fbc-prod-v4-16.yaml
   - base/fbc-prod-v4-17.yaml
   - base/fbc-prod-v4-18.yaml
@@ -34,13 +33,6 @@ patches:
       - op: replace
         path: /spec/snapshot
         value: ols-bundle-sg4xn
-  - target:
-      kind: Release
-      name: fbc-prod-415
-    patch: |-
-      - op: replace
-        path: /spec/snapshot
-        value: ols-fbc-v4-15-tm6wn
   - target:
       kind: Release
       name: fbc-prod-416
