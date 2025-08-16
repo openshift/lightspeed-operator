@@ -585,6 +585,7 @@ func (c *Client) CreatePersistentVolume(name, storageClassName string, volumeSiz
 	}, nil
 }
 
+
 func (c *Client) CreatePVC(name, storageClassName string, volumeSize resource.Quantity) (func(), error) {
 	pv := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -619,4 +620,25 @@ func (c *Client) CreatePVC(name, storageClassName string, volumeSize resource.Qu
 			logf.Log.Error(err, "Error deleting PersistentVolumeClaim")
 		}
 	}, nil
+
+  <<<<<<< postgres-image-update
+func (c *Client) ExecInPod(podName, namespace, containerName string, command []string) (string, error) {
+	ctx, cancel := context.WithTimeout(c.ctx, c.timeout)
+	defer cancel()
+
+	// Build kubectl exec command
+	args := []string{"exec", "-n", namespace, podName}
+	if containerName != "" {
+		args = append(args, "-c", containerName)
+	}
+	args = append(args, "--")
+	args = append(args, command...)
+
+	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	if c.kubeconfigPath != "" {
+		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", c.kubeconfigPath))
+	}
+
+	output, err := cmd.CombinedOutput()
+	return string(output), err
 }
