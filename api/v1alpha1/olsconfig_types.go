@@ -391,6 +391,8 @@ type UserDataCollectionSpec struct {
 	FeedbackDisabled bool `json:"feedbackDisabled,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Do Not Collect Transcripts"
 	TranscriptsDisabled bool `json:"transcriptsDisabled,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Do Not Collect Config Data"
+	ConfigDisabled bool `json:"configDisabled,omitempty"`
 }
 
 // OLSDataCollectorSpec defines allowed OLS data collector configuration.
