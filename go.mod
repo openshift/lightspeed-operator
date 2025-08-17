@@ -2,7 +2,7 @@ module github.com/openshift/lightspeed-operator
 
 go 1.23.0
 
-toolchain go1.23.10
+toolchain go1.25.0
 
 // v0.0.0-20241014173422-cfa47c3a1cc8 requires go 1.23, we use previous version when waiting for go-toolset update to 1.23
 // replace sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 => sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
