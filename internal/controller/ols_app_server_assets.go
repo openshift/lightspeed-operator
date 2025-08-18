@@ -279,7 +279,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 			FeedbackStorage:     "/app-root/ols-user-data/feedback",
 			TranscriptsDisabled: cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled || !dataCollectorEnabled,
 			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
-			ConfigDisabled:      cr.Spec.OLSConfig.UserDataCollection.ConfigDisabled || !dataCollectorEnabled,
+			ConfigDisabled:      !dataCollectorEnabled,
 			ConfigStorage:       "/app-root/ols-user-data/config",
 		},
 		ProxyConfig: proxyConfig,

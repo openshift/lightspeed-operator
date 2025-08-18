@@ -1269,8 +1269,6 @@ spec:
                   userDataCollection:
                     description: User data collection switches
                     properties:
-                      configDisabled:
-                        type: boolean
                       feedbackDisabled:
                         type: boolean
                       transcriptsDisabled:
