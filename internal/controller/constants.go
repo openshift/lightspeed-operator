@@ -263,4 +263,14 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MCPServerTimeout = 60
 	// MCP server SSE read timeout, sec
 	MCPServerHTTPReadTimeout = 30
+
+	/*** Data Exporter Constants ***/
+	// ExporterConfigCmName is the name of the exporter configmap
+	ExporterConfigCmName = "lightspeed-exporter-config"
+	// ExporterConfigVolumeName is the name of the volume for exporter configuration
+	ExporterConfigVolumeName = "exporter-config"
+	// ExporterConfigMountPath is the path where exporter config is mounted
+	ExporterConfigMountPath = "/etc/config"
+	// ExporterConfigFilename is the name of the exporter configuration file
+	ExporterConfigFilename = "config.yaml"
 )

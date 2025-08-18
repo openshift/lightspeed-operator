@@ -149,6 +149,20 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			},
 		}
 		volumes = append(volumes, olsUserDataVolume)
+
+		// Add exporter config volume
+		exporterConfigVolume := corev1.Volume{
+			Name: ExporterConfigVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: ExporterConfigCmName,
+					},
+					DefaultMode: &volumeDefaultMode,
+				},
+			},
+		}
+		volumes = append(volumes, exporterConfigVolume)
 	}
 
 	// User provided additional CA certificates
@@ -224,8 +238,13 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		Name:      OLSUserDataVolumeName,
 		MountPath: OLSUserDataMountPath,
 	}
+	exporterConfigVolumeMount := corev1.VolumeMount{
+		Name:      ExporterConfigVolumeName,
+		MountPath: ExporterConfigMountPath,
+		ReadOnly:  true,
+	}
 	if dataCollectorEnabled {
-		volumeMounts = append(volumeMounts, olsUserDataVolumeMount)
+		volumeMounts = append(volumeMounts, olsUserDataVolumeMount, exporterConfigVolumeMount)
 	}
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
 		additionalCAVolumeMount := corev1.VolumeMount{
@@ -357,26 +376,29 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		return &deployment, nil
 	}
 
-	// Add telemetry container
-	telemetryContainer := corev1.Container{
-		Name:            "lightspeed-service-user-data-collector",
-		Image:           r.Options.LightspeedServiceImage,
+	// Add data exporter container
+	exporterContainer := corev1.Container{
+		Name:            "lightspeed-to-dataverse-exporter",
+		Image:           "quay.io/lightspeed-core/lightspeed-to-dataverse-exporter:dev-latest",
 		ImagePullPolicy: corev1.PullAlways,
 		SecurityContext: &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &[]bool{false}[0],
 			ReadOnlyRootFilesystem:   &[]bool{true}[0],
 		},
 		VolumeMounts: volumeMounts,
-		Env: []corev1.EnvVar{
-			{
-				Name:  "OLS_CONFIG_FILE",
-				Value: path.Join(OLSConfigMountPath, OLSConfigFilename),
-			},
+		Args: []string{
+			"--mode",
+			"openshift",
+			"--config",
+			path.Join(ExporterConfigMountPath, ExporterConfigFilename),
+			"--log-level",
+			"DEBUG",
+			"--data-dir",
+			OLSUserDataMountPath,
 		},
-		Command:   []string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"},
 		Resources: *data_collector_resources,
 	}
-	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, telemetryContainer)
+	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, exporterContainer)
 
 	// Add MCP sidecar container if introspection is enabled
 	if cr.Spec.OLSConfig.IntrospectionEnabled {

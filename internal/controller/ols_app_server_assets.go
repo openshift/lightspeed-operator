@@ -400,6 +400,36 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 	return &cm, nil
 }
 
+func (r *OLSConfigReconciler) generateExporterConfigMap(cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+	exporterConfigContent := `service_id: "ols"
+ingress_server_url: "https://console.redhat.com/api/ingress/v1/upload"
+allowed_subdirs:
+ - feedback
+ - transcripts
+
+# Collection settings
+collection_interval: 5
+cleanup_after_send: true
+ingress_connection_timeout: 30`
+
+	cm := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ExporterConfigCmName,
+			Namespace: r.Options.Namespace,
+			Labels:    generateAppServerSelectorLabels(),
+		},
+		Data: map[string]string{
+			ExporterConfigFilename: exporterConfigContent,
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &cm, r.Scheme); err != nil {
+		return nil, err
+	}
+
+	return &cm, nil
+}
+
 func (r *OLSConfigReconciler) getAdditionalCAFileNames(cr *olsv1alpha1.OLSConfig) ([]string, error) {
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef == nil {
 		return nil, nil
