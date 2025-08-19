@@ -389,7 +389,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 				ReadOnlyRootFilesystem:   &[]bool{true}[0],
 			},
 			VolumeMounts: volumeMounts,
-			Command:      []string{"/app/kubernetes-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", MCPServerPort)},
+			Command:      []string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", MCPServerPort)},
 			Resources:    *mcp_server_resources,
 		}
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, mcpSidecarContainer)

@@ -1182,7 +1182,7 @@ var _ = Describe("App server assets", func() {
 			Expect(mcpContainer.Name).To(Equal("openshift-mcp"))
 			Expect(mcpContainer.Image).To(Equal(rOptions.MCPServerImage))
 			Expect(mcpContainer.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
-			Expect(mcpContainer.Command).To(Equal([]string{"/app/kubernetes-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", MCPServerPort)}))
+			Expect(mcpContainer.Command).To(Equal([]string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", MCPServerPort)}))
 			Expect(mcpContainer.SecurityContext).To(Equal(&corev1.SecurityContext{
 				AllowPrivilegeEscalation: &[]bool{false}[0],
 				ReadOnlyRootFilesystem:   &[]bool{true}[0],
