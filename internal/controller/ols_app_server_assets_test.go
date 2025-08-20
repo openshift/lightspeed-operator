@@ -1062,9 +1062,9 @@ var _ = Describe("App server assets", func() {
 		It("should generate RAG volume and initContainers", func() {
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
-					IndexPath: "/rag/vector_db/ocp_product_docs/4.15",
-					IndexID:   "ocp-product-docs-4_15",
-					Image:     "rag-ocp-product-docs:4.15",
+					IndexPath: "/rag/vector_db/ocp_product_docs/4.19",
+					IndexID:   "ocp-product-docs-4_19",
+					Image:     "rag-ocp-product-docs:4.19",
 				},
 				{
 					IndexPath: "/rag/vector_db/ansible_docs/2.18",
@@ -1085,8 +1085,8 @@ var _ = Describe("App server assets", func() {
 			Expect(deployment.Spec.Template.Spec.InitContainers).To(ConsistOf(
 				corev1.Container{
 					Name:    "rag-0",
-					Image:   "rag-ocp-product-docs:4.15",
-					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-0 && cp -a /rag/vector_db/ocp_product_docs/4.15/. %s/rag-0", RAGVolumeMountPath, RAGVolumeMountPath)},
+					Image:   "rag-ocp-product-docs:4.19",
+					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-0 && cp -a /rag/vector_db/ocp_product_docs/4.19/. %s/rag-0", RAGVolumeMountPath, RAGVolumeMountPath)},
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      RAGVolumeName,
@@ -1114,9 +1114,9 @@ var _ = Describe("App server assets", func() {
 			By("additional RAG indexes are added")
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
-					IndexPath: "/rag/vector_db/ocp_product_docs/4.15",
-					IndexID:   "ocp-product-docs-4_15",
-					Image:     "rag-ocp-product-docs:4.15",
+					IndexPath: "/rag/vector_db/ocp_product_docs/4.19",
+					IndexID:   "ocp-product-docs-4_19",
+					Image:     "rag-ocp-product-docs:4.19",
 				},
 				{
 					IndexPath: "/rag/vector_db/ansible_docs/2.18",
@@ -1141,7 +1141,7 @@ var _ = Describe("App server assets", func() {
 			// OLS-1823: prioritize BYOK content over OCP docs
 			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]ReferenceIndex{
 				ReferenceIndex{
-					ProductDocsIndexId:   "ocp-product-docs-4_15",
+					ProductDocsIndexId:   "ocp-product-docs-4_19",
 					ProductDocsIndexPath: RAGVolumeMountPath + "/rag-0",
 				},
 				ReferenceIndex{

@@ -254,7 +254,7 @@ spec:
               operator-sdk version
               echo "---------------------------------------------"
               microdnf -y install git make python3.11 python3.11-devel python3.11-pip shadow-utils tar jq
-              curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.15/openshift-client-linux-amd64-rhel9.tar.gz \
+              curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.19/openshift-client-linux-amd64-rhel9.tar.gz \
                   && tar -xvzf oc.tar.gz \
                   && chmod +x kubectl oc \
                   && mv oc kubectl /usr/local/bin/
