@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-08-13T09:31:54Z"
+    createdAt: "2025-08-20T10:59:34Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -52,7 +52,7 @@ metadata:
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift Platform Plus", "OpenShift Kubernetes Engine", "OpenShift Virtualization Engine"]'
-    operators.operatorframework.io/builder: operator-sdk-v1.33.0
+    operators.operatorframework.io/builder: operator-sdk-v1.36.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
   name: lightspeed-operator.v1.0.3
@@ -81,7 +81,9 @@ spec:
           - description: The name of the secret object that stores API provider credentials
             displayName: Credential Secret
             path: llm.providers[0].credentialsSecretRef
-          - description: 'Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default. possible values: MCPServer'
+          - description: |-
+              Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
+              possible values: MCPServer
             displayName: Feature Gates
             path: featureGates
           - displayName: LLM Settings
@@ -274,7 +276,9 @@ spec:
           - description: The configmap holding proxy CA certificate
             displayName: Proxy CA Certificate
             path: ols.proxyConfig.proxyCACertificate
-          - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+          - description: |-
+              Proxy URL, e.g. https://proxy.example.com:8080
+              If not specified, the cluster wide proxy will be used, though env var "https_proxy".
             displayName: Proxy URL
             path: ols.proxyConfig.proxyURL
           - description: Query filters
@@ -356,9 +360,13 @@ spec:
           - description: User data collection switches
             displayName: User Data Collection
             path: ols.userDataCollection
-          - displayName: Do Not Collect User Feedback
+          - displayName: Do Not Collect Config Data
+            path: ols.userDataCollection.configDisabled
+          - description: When enabled, user feedback will be collected. When either feedback or transcripts are enabled, config collection is also automatically enabled.
+            displayName: Do Not Collect User Feedback
             path: ols.userDataCollection.feedbackDisabled
-          - displayName: Do Not Collect Transcripts
+          - description: When enabled, conversation transcripts will be collected. When either feedback or transcripts are enabled, config collection is also automatically enabled.
+            displayName: Do Not Collect Transcripts
             path: ols.userDataCollection.transcriptsDisabled
           - displayName: OLS Data Collector Settings
             path: olsDataCollector
