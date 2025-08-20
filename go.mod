@@ -11,11 +11,12 @@ require (
 	k8s.io/api v0.33.4
 	k8s.io/apimachinery v0.33.4
 	k8s.io/client-go v0.33.4
-	sigs.k8s.io/controller-runtime v0.20.4
+	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
+	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
@@ -30,7 +31,7 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 )
 
-require github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.81.0
+require github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.84.1
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -73,9 +74,9 @@ require (
 	google.golang.org/protobuf v1.36.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.32.2 // indirect
+	k8s.io/apiextensions-apiserver v0.33.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250628140032-d90c4fd18f59 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 )
