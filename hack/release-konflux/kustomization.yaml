@@ -7,7 +7,7 @@ kind: Kustomization
 # channel
 namePrefix: stable-
 # version
-nameSuffix: -1.0.3-1
+nameSuffix: -1.0.4-1
 
 resources:
   - base/components.yaml

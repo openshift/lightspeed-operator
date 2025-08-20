@@ -54,10 +54,10 @@ LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assistant for managi
 LABEL io.k8s.display-name="Openshift Lightspeed"
 LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
 LABEL name=openshift-lightspeed
-LABEL release=1.0.3
+LABEL release=1.0.4
 LABEL url="https://github.com/openshift/lightspeed-operator"
 LABEL vendor="Red Hat, Inc."
-LABEL version=1.0.3
+LABEL version=1.0.4
 LABEL summary="Red Hat OpenShift Lightspeed"
 
 # OCP compatibility labels
