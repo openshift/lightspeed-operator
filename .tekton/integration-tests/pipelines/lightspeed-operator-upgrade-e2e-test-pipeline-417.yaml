@@ -103,8 +103,6 @@ spec:
           value: "$(params.namespace)"
       taskSpec:
         results:
-          - name: bundle-image
-            value: "$(steps.get-bundle-image.results.bundle-image)"
           - name: commit
             value: "$(steps.get-bundle-image.results.commit)"
         params:
@@ -177,29 +175,22 @@ spec:
               - name: SNAPSHOT
                 value: $(params.SNAPSHOT)
             results:
-              - name: bundle-image
-                type: string
-                description: "service image from snapshot"
               - name: commit
                 type: string
                 description: "commit sha to be used to store artifacts"
             script: |
               dnf -y install jq
-              echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
               echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")" > $(step.results.commit.path)
     - name: ols-operator-tests
       description: Task to run tests from operator repository
       params:
         - name: commit
           value: $(tasks.ols-install.results.commit)
-        - name: bundleimage
-          value: $(tasks.ols-install.results.bundle-image)
       runAfter:
         - ols-install
       taskSpec:
         params:
           - name: commit
-          - name: bundleimage
         volumes:
           - name: azure-openai-token
             secret:
@@ -267,8 +258,6 @@ spec:
                 value: "/var/run/watsonx/token"
               - name: COMMIT_SHA
                 value: "$(params.commit)"
-              - name: BUNDLE_IMAGE
-                value: "$(params.bundleimage)"
               - name: ARTIFACT_DIR
                 value: "/workspace"
             image: registry.redhat.io/openshift4/ose-cli:latest
@@ -276,13 +265,14 @@ spec:
               echo "---------------------------------------------"
               cat $KUBECONFIG
               echo "---------------------------------------------"
-              dnf -y install git make golang
+              dnf -y install git make golang yq
               git clone https://github.com/openshift/lightspeed-operator.git
               cd lightspeed-operator
               git config --global user.email olsci@redhat.com
               git config --global user.name olsci
               git fetch origin ${COMMIT_SHA}
               git checkout ${COMMIT_SHA}
+              export BUNDLE_IMAGE = $(cat lightspeed-catalog-4.17/index.yaml | yq '.relatedImages[] | select(.name == "lightspeed-operator-bundle") | .image')
               echo "---------------------------------------------"
               echo "---------------------------------------------"
               echo "---------------------------------------------"
