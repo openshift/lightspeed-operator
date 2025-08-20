@@ -330,11 +330,11 @@ endif
 ## to use image digests instead of version tag, set the USE_IMAGE_DIGESTS variable to true
 ## to set the related images, use the RELATED_IMAGES_FILE variable
 .PHONY: bundle
-bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
+bundle: manifests kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
 ifdef RELATED_IMAGES_FILE
-	BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i $(RELATED_IMAGES_FILE)
+	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i $(RELATED_IMAGES_FILE)
 else
-	BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG)
+	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG)
 endif
 
 parking:
@@ -377,7 +377,7 @@ ifeq (,$(shell which yq 2>/dev/null))
 	set -e ;\
 	mkdir -p $(dir $(YQ)) ;\
 	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -sSLo $(YQ) https://github.com/mikefarah/yq/releases/download/v4.44.6/yq_$${OS}-$${ARCH} ;\
+	curl -sSLo $(YQ) https://github.com/mikefarah/yq/releases/download/v4.44.6/yq_$${OS}_$${ARCH} ;\
     chmod +x $(YQ) ;\
 	}
 else
