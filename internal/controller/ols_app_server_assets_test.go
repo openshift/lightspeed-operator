@@ -932,7 +932,6 @@ var _ = Describe("App server assets", func() {
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
 				TranscriptsDisabled: true,
-				ConfigDisabled:      true,
 			}
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -941,7 +940,6 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeTrue())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeTrue())
-			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.ConfigDisabled).To(BeTrue())
 
 			deployment, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -959,7 +957,6 @@ var _ = Describe("App server assets", func() {
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    false,
 				TranscriptsDisabled: false,
-				ConfigDisabled:      false,
 			}
 			cm, err = r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -967,7 +964,6 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeFalse())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeFalse())
-			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.ConfigDisabled).To(BeFalse())
 
 			deployment, err = r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())

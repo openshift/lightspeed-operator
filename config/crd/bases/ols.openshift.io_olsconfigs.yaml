@@ -1269,8 +1269,6 @@ spec:
                   userDataCollection:
                     description: User data collection switches
                     properties:
-                      configDisabled:
-                        type: boolean
                       feedbackDisabled:
                         description: When enabled, user feedback will be collected.
                           When either feedback or transcripts are enabled, config

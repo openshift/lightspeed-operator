@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-08-20T10:59:34Z"
+    createdAt: "2025-08-21T15:05:57Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -360,8 +360,6 @@ spec:
           - description: User data collection switches
             displayName: User Data Collection
             path: ols.userDataCollection
-          - displayName: Do Not Collect Config Data
-            path: ols.userDataCollection.configDisabled
           - description: When enabled, user feedback will be collected. When either feedback or transcripts are enabled, config collection is also automatically enabled.
             displayName: Do Not Collect User Feedback
             path: ols.userDataCollection.feedbackDisabled

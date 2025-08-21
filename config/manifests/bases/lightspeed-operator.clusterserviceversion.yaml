@@ -331,8 +331,6 @@ spec:
       - description: User data collection switches
         displayName: User Data Collection
         path: ols.userDataCollection
-      - displayName: Do Not Collect Config Data
-        path: ols.userDataCollection.configDisabled
       - description: When enabled, user feedback will be collected. When either feedback
           or transcripts are enabled, config collection is also automatically enabled.
         displayName: Do Not Collect User Feedback

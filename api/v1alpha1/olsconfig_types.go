@@ -393,8 +393,6 @@ type UserDataCollectionSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Do Not Collect Transcripts"
 	// When enabled, conversation transcripts will be collected. When either feedback or transcripts are enabled, config collection is also automatically enabled.
 	TranscriptsDisabled bool `json:"transcriptsDisabled,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Do Not Collect Config Data"
-	ConfigDisabled bool `json:"configDisabled,omitempty"`
 }
 
 // OLSDataCollectorSpec defines allowed OLS data collector configuration.
