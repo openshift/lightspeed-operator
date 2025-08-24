@@ -31,7 +31,7 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 )
 
-require github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.84.1
+require github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.85.0
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -74,7 +74,7 @@ require (
 	google.golang.org/protobuf v1.36.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.33.2 // indirect
+	k8s.io/apiextensions-apiserver v0.33.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250628140032-d90c4fd18f59 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
