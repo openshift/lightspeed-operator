@@ -39,6 +39,10 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Task: r.reconcileOLSConfigMap,
 		},
 		{
+			Name: "reconcile ExporterConfigMap",
+			Task: r.reconcileExporterConfigMap,
+		},
+		{
 			Name: "reconcile Additional CA ConfigMap",
 			Task: r.reconcileOLSAdditionalCAConfigMap,
 		},
@@ -138,6 +142,47 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 		return fmt.Errorf("%s: %w", ErrUpdateAPIConfigmap, err)
 	}
 	r.logger.Info("OLS configmap reconciled", "configmap", cm.Name, "hash", cm.Annotations[OLSConfigHashKey])
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcileExporterConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	// Only create exporter configmap if data collector is enabled
+	dataCollectorEnabled, err := r.dataCollectorEnabled(cr)
+	if err != nil {
+		return err
+	}
+
+	if !dataCollectorEnabled {
+		r.logger.Info("Data collector not enabled, exporter configmap reconciliation skipped")
+		return nil
+	}
+
+	cm, err := r.generateExporterConfigMap(cr)
+	if err != nil {
+		return fmt.Errorf("failed to generate exporter configmap: %w", err)
+	}
+
+	foundCm := &corev1.ConfigMap{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: ExporterConfigCmName, Namespace: r.Options.Namespace}, foundCm)
+	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("creating a new exporter configmap", "configmap", cm.Name)
+		err = r.Create(ctx, cm)
+		if err != nil {
+			return fmt.Errorf("failed to create exporter configmap: %w", err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get exporter configmap: %w", err)
+	}
+
+	// Update existing configmap
+	foundCm.Data = cm.Data
+	err = r.Update(ctx, foundCm)
+	if err != nil {
+		return fmt.Errorf("failed to update exporter configmap: %w", err)
+	}
+
+	r.logger.Info("Exporter configmap reconciled", "configmap", cm.Name)
 	return nil
 }
 
