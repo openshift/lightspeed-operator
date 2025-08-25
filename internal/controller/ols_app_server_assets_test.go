@@ -125,6 +125,8 @@ var _ = Describe("App server assets", func() {
 						FeedbackStorage:     "/app-root/ols-user-data/feedback",
 						TranscriptsDisabled: false,
 						TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
+						ConfigDisabled:      false,
+						ConfigStorage:       "/app-root/ols-user-data/config",
 					},
 				},
 				LLMProviders: []ProviderConfig{
@@ -1303,6 +1305,8 @@ ols_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
   user_data_collection:
+    config_disabled: false
+    config_storage: /app-root/ols-user-data/config
     feedback_disabled: false
     feedback_storage: /app-root/ols-user-data/feedback
     transcripts_disabled: false
@@ -1359,6 +1363,8 @@ ols_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
   user_data_collection:
+    config_disabled: true
+    config_storage: /app-root/ols-user-data/config
     feedback_disabled: true
     feedback_storage: /app-root/ols-user-data/feedback
     transcripts_disabled: true

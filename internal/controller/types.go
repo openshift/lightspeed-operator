@@ -205,6 +205,8 @@ type UserDataCollectionConfig struct {
 	FeedbackStorage     string `json:"feedback_storage,omitempty"`
 	TranscriptsDisabled bool   `json:"transcripts_disabled" default:"false"`
 	TranscriptsStorage  string `json:"transcripts_storage,omitempty"`
+	ConfigDisabled      bool   `json:"config_disabled" default:"false"`
+	ConfigStorage       string `json:"config_storage,omitempty"`
 }
 
 type UserDataCollectorConfig struct {
