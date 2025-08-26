@@ -1,0 +1,52 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: bundle-to-release-test-5
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    appstudio.openshift.io/application: ols-bundle
+    appstudio.openshift.io/component: ols-bundle
+    appstudio.openshift.io/snapshot: ols-bundle-qm52s
+    kueue.x-k8s.io/priority-class: konflux-pre-merge-test
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pac.test.appstudio.openshift.io/check-run-id: "48919599534"
+    pac.test.appstudio.openshift.io/event-type: pull_request
+    pac.test.appstudio.openshift.io/original-prname: ols-bundle-on-pull-request
+    pac.test.appstudio.openshift.io/pull-request: "935"
+    pac.test.appstudio.openshift.io/repository: lightspeed-operator
+    pac.test.appstudio.openshift.io/sha: 07605d584375a2011d39c7dcc2165ad13e945ac0
+    pac.test.appstudio.openshift.io/state: queued
+    pac.test.appstudio.openshift.io/url-org: openshift
+    pac.test.appstudio.openshift.io/url-repository: lightspeed-operator
+    pipelines.appstudio.openshift.io/type: test
+    tekton.dev/pipeline: ols-integration-tests-pipeline
+    test.appstudio.openshift.io/optional: "true"
+    test.appstudio.openshift.io/pipelinerunfinishtime: "1756219320"
+    test.appstudio.openshift.io/pr-group-sha: fb44cce155e138ab3d915ce9ac1f396d1f890dd138f25e1431ba37a1f5dbf9
+    test.appstudio.openshift.io/scenario: operator-e2e-tests-417
+    test.appstudio.openshift.io/type: component
+spec:
+  params:
+    - name: SNAPSHOT
+      value: '{"application":"ols-bundle","components":[{"name":"ols-bundle","containerImage":"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle@sha256:f9687ace47f4a877f5607e627f8e6198ce5aa7d8939bacf163bb42c5e374051f","source":{"git":{"url":"https://github.com/openshift/lightspeed-operator","revision":"dafabe93c718ca7ebe776d91ab3e311bd94fa654"}}}],"artifacts":{}}'
+    - name: RELEASE_PLAN
+      value: ols-bundle-stable-releaseplan
+    - name: NAMESPACE
+      value: crt-nshift-lightspeed-tenant
+    - name: MAGIC_WORD
+      value: related_images.json
+  pipelineRef:
+    params:
+      - name: url
+        value: https://github.com/raptorsun/lightspeed-operator.git
+        description: better use your own forked repo for quick updates
+      - name: revision
+        value: bundle-push-to-release
+        description: branch or commit hash
+      - name: pathInRepo
+        value: .tekton/release/push-to-release/bundle-to-release-pipeline.yaml
+    resolver: git
+  timeouts:
+    finally: 1h0m0s
+    pipeline: 2h0m0s
+    tasks: 1h0m0s
