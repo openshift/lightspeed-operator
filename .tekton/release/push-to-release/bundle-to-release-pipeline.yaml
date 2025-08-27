@@ -1,0 +1,186 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: bundle-push-to-release
+spec:
+  description: |
+    The pipeline checks bundle on-push events and create a release when the bundle update is ready to be released.
+    The last commit message is used to trigger the release and get the release name.
+  params:
+    - name: SNAPSHOT
+      type: string
+      description: |
+        Spec section of an ApplicationSnapshot resource. Not all fields of the
+        resource are required. A minimal example:
+          {
+            "application": "ols-bundle",
+            "artifacts": {},
+            "components": [
+              {
+                "containerImage": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle@sha256:60ba9ec28921a08bbc53008150d1d61bcb037e71722c1fa62dd8907d0cf4e999",
+                "name": "ols-bundle",
+                "source": {
+                  "git": {
+                    "revision": "d230341bd470cdfe98cee1de29a157aaa66cfd82",
+                    "url": "https://github.com/openshift/lightspeed-operator"
+                  }
+                }
+              }
+            ]
+          }
+    - name: RELEASE_PLAN
+      type: string
+      description: The release plan to use for the Konflux Release CR
+      default: "ols-bundle-stable-automation-releaseplan"
+    - name: NAMESPACE
+      type: string
+      description: The namespace where the Release CR should be created
+      default: "crt-nshift-lightspeed-tenant"
+    - name: MAGIC_WORD
+      type: string
+      description: The magic word to trigger the release
+      default: "related_images"
+  results:
+    - name: release-created
+      type: string
+      description: Whether the release was created successfully
+      value: "$(tasks.check-and-create-release.results.release-created)"
+  tasks:
+    - name: parse-metadata
+      params:
+        - name: snapshot-spec
+          value: $(params.SNAPSHOT)
+      taskSpec:
+        params:
+          - name: snapshot-spec
+            type: string
+        results:
+          - name: source-git-url
+            type: string
+          - name: source-git-revision
+            type: string
+          - name: snapshot-name
+            type: string
+        steps:
+          - name: parse-metadata
+            image: quay.io/hasun/bundle-update:0.0.1
+            env:
+              - name: SNAPSHOT_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['appstudio.openshift.io/snapshot']
+              - name: COMPONENT_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['appstudio.openshift.io/component']
+              - name: SNAPSHOT_SPEC
+                value: $(params.snapshot-spec)
+            script: |
+              set -e
+              # Derive additional environment variables from SNAPSHOT
+              SOURCE_GIT_URL=$(jq -r --arg component_name "${COMPONENT_NAME}" '.components[] | select(.name == $component_name) | .source.git.url' <<< "${SNAPSHOT_SPEC}")
+              SOURCE_GIT_REVISION=$(jq -r --arg component_name "${COMPONENT_NAME}" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "${SNAPSHOT_SPEC}")
+              echo "Parsing metadata"
+              echo "Snapshot Spec: ${SNAPSHOT_SPEC}"
+              echo "Source Git URL: $SOURCE_GIT_URL"
+              echo "Source Git Revision: $SOURCE_GIT_REVISION"
+
+              echo -n "${SOURCE_GIT_URL}" > $(results.source-git-url.path)
+              echo -n "${SOURCE_GIT_REVISION}" > $(results.source-git-revision.path)
+              echo -n "${SNAPSHOT_NAME}" > $(results.snapshot-name.path)
+    - name: check-and-create-release
+      runAfter:
+        - parse-metadata
+      params:
+        - name: snapshot-spec
+          value: $(params.SNAPSHOT)
+        - name: snapshot-name
+          value: $(tasks.parse-metadata.results.snapshot-name)
+        - name: source-git-url
+          value: $(tasks.parse-metadata.results.source-git-url)
+        - name: source-git-revision
+          value: $(tasks.parse-metadata.results.source-git-revision)
+        - name: release-plan
+          value: $(params.RELEASE_PLAN)
+        - name: namespace
+          value: $(params.NAMESPACE)
+        - name: magic-word
+          value: $(params.MAGIC_WORD)
+      taskSpec:
+        params:
+          - name: snapshot-name
+            type: string
+          - name: source-git-url
+            type: string
+          - name: source-git-revision
+            type: string
+          - name: release-plan
+            type: string
+          - name: namespace
+            type: string
+          - name: magic-word
+            type: string
+        results:
+          - name: release-created
+            type: string
+        steps:
+          - name: check-and-create-release
+            image: quay.io/hasun/bundle-update:0.0.1
+            env:
+              - name: KONFLUX_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: release-bot-konflux-token
+                    key: konflux-token
+            script: |
+              set -e
+              echo "Checking release trigger"
+              echo "Snapshot Name: $(params.snapshot-name)"
+              echo "Source Git URL: $(params.source-git-url)"
+              echo "Source Git Revision: $(params.source-git-revision)"
+              TEMP_DIR=$(mktemp -d)
+              cd $TEMP_DIR
+              git clone --depth 100 $(params.source-git-url) repo
+              cd repo
+
+              # Get the commit message for the specified revision
+              COMMIT_MESSAGE=$(git log --format=%B -n 1 $(params.source-git-revision))
+              echo "Commit message:"
+              echo "$COMMIT_MESSAGE"
+              # Check if the commit message contains the magic word "bundle-to-release"
+              if echo "$COMMIT_MESSAGE" | grep -q "$(params.magic-word)"; then
+                echo "Magic word '$(params.magic-word)' found in commit message!"
+                echo "Creating Konflux Release CR..."
+                
+                # Generate a unique release name with timestamp
+                TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+                RELEASE_NAME="bundle-release-${TIMESTAMP}"
+                
+                # Create the Release CR YAML
+                cat > /tmp/release.yaml << EOF
+              apiVersion: appstudio.redhat.com/v1alpha1
+              kind: Release
+              metadata:
+                name: ${RELEASE_NAME}
+                namespace: $(params.namespace)
+              spec:
+                gracePeriodDays: 30
+                releasePlan: $(params.release-plan)
+                snapshot: $(params.snapshot-name)
+                data:
+                  releaseNotes:
+                    type: "RHEA"
+                    synopsis: "Automated bundle release triggered by commit $(params.source-git-revision)"
+                    description: "This release was automatically triggered by a commit containing '$(params.magic-word)' in the message."
+              EOF
+                echo "Release CR YAML:"
+                cat /tmp/release.yaml
+
+                oc login --token=${KONFLUX_TOKEN} --server=https://api.stone-prd-rh01.pg1f.p1.openshiftapps.com:6443
+                oc apply -f /tmp/release.yaml
+
+                echo "true" > $(results.release-created.path)
+              else
+                echo "Magic word $(params.magic-word) not found in commit message!"
+                echo "false" > $(results.release-created.path)
+              fi
