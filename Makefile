@@ -260,7 +260,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 .PHONY: deploy
 deploy: manifests kustomize yq ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(YQ) e -i ".patches[].patch |= sub(\"quay.io/openshift-lightspeed/lightspeed-operator:latest\", \"${IMG}\")" config/default/kustomization.yaml
+	$(YQ) e -i ".patches[0].patch |= sub(\"quay.io/openshift-lightspeed/lightspeed-operator:latest\", \"${IMG}\")" config/default/kustomization.yaml
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 
 .PHONY: undeploy
