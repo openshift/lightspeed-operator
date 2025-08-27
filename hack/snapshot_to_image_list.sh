@@ -169,7 +169,6 @@ fi
 if [ -z "${POSTGRES_IMAGE}" ] || [ "${POSTGRES_IMAGE}" == "null" ]; then
     DEFAULT_POSTGRES_IMAGE=$(grep -o 'PostgresServerImageDefault = "registry[^"]*"' "${SCRIPT_DIR}/../internal/controller/constants.go" | sed 's/PostgresServerImageDefault = "\(.*\)"/\1/')
     POSTGRES_IMAGE="${DEFAULT_POSTGRES_IMAGE}"
-    echo "Using default PostgreSQL image: ${POSTGRES_IMAGE}"
 fi
 
 RELATED_IMAGES=$(
