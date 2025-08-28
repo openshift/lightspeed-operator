@@ -6,7 +6,7 @@
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:3cc6d0cd4bd6f717079735b82d182d788a5d6f3cf2d4132409770bc36d21a5a0",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:f284887e9b2e96f4e2d0e909d2d8394bef9b087db7797c4ad11430eab44481b0",
     "revision": "f7603f2359b67c5cf080e508d32984a5be07c947"
   },
   {
