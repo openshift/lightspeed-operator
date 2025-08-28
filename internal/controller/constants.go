@@ -254,13 +254,13 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	// MetricsReaderServiceAccountName is the name of the service account for the metrics reader
 	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
 	// MCP server image
-	MCPServerImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43"
+	OpenShiftMCPServerImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43"
 	// MCP server URL
-	MCPServerURL = "http://localhost:%d/mcp"
+	OpenShiftMCPServerURL = "http://localhost:%d/mcp"
 	// MCP server port
-	MCPServerPort = 8080
+	OpenShiftMCPServerPort = 8080
 	// MCP server timeout, sec
-	MCPServerTimeout = 60
+	OpenShiftMCPServerTimeout = 60
 	// MCP server SSE read timeout, sec
-	MCPServerHTTPReadTimeout = 30
+	OpenShiftMCPServerHTTPReadTimeout = 30
 )

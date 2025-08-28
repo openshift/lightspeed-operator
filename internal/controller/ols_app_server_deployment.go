@@ -378,21 +378,21 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	}
 	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, telemetryContainer)
 
-	// Add MCP sidecar container if introspection is enabled
+	// Add OpenShift MCP server sidecar container if introspection is enabled
 	if cr.Spec.OLSConfig.IntrospectionEnabled {
-		mcpSidecarContainer := corev1.Container{
-			Name:            "openshift-mcp",
-			Image:           r.Options.MCPServerImage,
+		openshiftMCPServerSidecarContainer := corev1.Container{
+			Name:            "openshift-mcp-server",
+			Image:           r.Options.OpenShiftMCPServerImage,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: &[]bool{false}[0],
 				ReadOnlyRootFilesystem:   &[]bool{true}[0],
 			},
 			VolumeMounts: volumeMounts,
-			Command:      []string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", MCPServerPort)},
+			Command:      []string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", OpenShiftMCPServerPort)},
 			Resources:    *mcp_server_resources,
 		}
-		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, mcpSidecarContainer)
+		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, openshiftMCPServerSidecarContainer)
 	}
 
 	return &deployment, nil
