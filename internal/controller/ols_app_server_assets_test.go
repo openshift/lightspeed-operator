@@ -43,9 +43,9 @@ var _ = Describe("App server assets", func() {
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
-				LightspeedServiceImage: "lightspeed-service:latest",
-				MCPServerImage:         "mcp-server:latest",
-				Namespace:              OLSNamespaceDefault,
+				LightspeedServiceImage:  "lightspeed-service:latest",
+				OpenShiftMCPServerImage: "openshift-mcp-server:latest",
+				Namespace:               OLSNamespaceDefault,
 			}
 			cr = getDefaultOLSConfigCR()
 			r = &OLSConfigReconciler{
@@ -278,9 +278,9 @@ var _ = Describe("App server assets", func() {
 				"Name":      Equal("openshift"),
 				"Transport": Equal(StreamableHTTP),
 				"StreamableHTTP": PointTo(MatchFields(IgnoreExtras, Fields{
-					"URL":            Equal(fmt.Sprintf(MCPServerURL, MCPServerPort)),
-					"Timeout":        Equal(MCPServerTimeout),
-					"SSEReadTimeout": Equal(MCPServerHTTPReadTimeout),
+					"URL":            Equal(fmt.Sprintf(OpenShiftMCPServerURL, OpenShiftMCPServerPort)),
+					"Timeout":        Equal(OpenShiftMCPServerTimeout),
+					"SSEReadTimeout": Equal(OpenShiftMCPServerHTTPReadTimeout),
 				})),
 			})))
 		})
@@ -389,9 +389,9 @@ var _ = Describe("App server assets", func() {
 				"Name":      Equal("openshift"),
 				"Transport": Equal(StreamableHTTP),
 				"StreamableHTTP": PointTo(MatchFields(IgnoreExtras, Fields{
-					"URL":            Equal(fmt.Sprintf(MCPServerURL, MCPServerPort)),
-					"Timeout":        Equal(MCPServerTimeout),
-					"SSEReadTimeout": Equal(MCPServerHTTPReadTimeout),
+					"URL":            Equal(fmt.Sprintf(OpenShiftMCPServerURL, OpenShiftMCPServerPort)),
+					"Timeout":        Equal(OpenShiftMCPServerTimeout),
+					"SSEReadTimeout": Equal(OpenShiftMCPServerHTTPReadTimeout),
 				})),
 			})))
 			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -1177,24 +1177,24 @@ var _ = Describe("App server assets", func() {
 			// Should have 3 containers: main app, telemetry, and MCP server
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
 
-			// Verify MCP server container (should be the third container)
-			mcpContainer := dep.Spec.Template.Spec.Containers[2]
-			Expect(mcpContainer.Name).To(Equal("openshift-mcp"))
-			Expect(mcpContainer.Image).To(Equal(rOptions.MCPServerImage))
-			Expect(mcpContainer.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
-			Expect(mcpContainer.Command).To(Equal([]string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", MCPServerPort)}))
-			Expect(mcpContainer.SecurityContext).To(Equal(&corev1.SecurityContext{
+			// Verify OpenShift MCP server container (should be the third container)
+			openshiftMCPServerContainer := dep.Spec.Template.Spec.Containers[2]
+			Expect(openshiftMCPServerContainer.Name).To(Equal("openshift-mcp-server"))
+			Expect(openshiftMCPServerContainer.Image).To(Equal(rOptions.OpenShiftMCPServerImage))
+			Expect(openshiftMCPServerContainer.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+			Expect(openshiftMCPServerContainer.Command).To(Equal([]string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", OpenShiftMCPServerPort)}))
+			Expect(openshiftMCPServerContainer.SecurityContext).To(Equal(&corev1.SecurityContext{
 				AllowPrivilegeEscalation: &[]bool{false}[0],
 				ReadOnlyRootFilesystem:   &[]bool{true}[0],
 			}))
-			Expect(mcpContainer.Resources).To(Equal(corev1.ResourceRequirements{
+			Expect(openshiftMCPServerContainer.Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
 
 			// Verify MCP server has the same volume mounts as other containers
-			Expect(mcpContainer.VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
+			Expect(openshiftMCPServerContainer.VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
 				{
 					Name:      "secret-test-secret",
 					MountPath: path.Join(APIKeyMountRoot, "test-secret"),

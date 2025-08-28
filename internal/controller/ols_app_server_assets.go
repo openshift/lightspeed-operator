@@ -341,9 +341,9 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 				Name:      "openshift",
 				Transport: StreamableHTTP,
 				StreamableHTTP: &StreamableHTTPTransportConfig{
-					URL:            fmt.Sprintf(MCPServerURL, MCPServerPort),
-					Timeout:        MCPServerTimeout,
-					SSEReadTimeout: MCPServerHTTPReadTimeout,
+					URL:            fmt.Sprintf(OpenShiftMCPServerURL, OpenShiftMCPServerPort),
+					Timeout:        OpenShiftMCPServerTimeout,
+					SSEReadTimeout: OpenShiftMCPServerHTTPReadTimeout,
 				},
 			},
 		}

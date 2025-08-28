@@ -61,10 +61,10 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 	// The default images of operands
 	defaultImages = map[string]string{
-		"lightspeed-service": controller.OLSAppServerImageDefault,
-		"postgres-image":     controller.PostgresServerImageDefault,
-		"console-plugin":     controller.ConsoleUIImageDefault,
-		"mcp-server":         controller.MCPServerImageDefault,
+		"lightspeed-service":         controller.OLSAppServerImageDefault,
+		"postgres-image":             controller.PostgresServerImageDefault,
+		"console-plugin":             controller.ConsoleUIImageDefault,
+		"openshift-mcp-server-image": controller.OpenShiftMCPServerImageDefault,
 	}
 )
 
@@ -81,7 +81,7 @@ func init() {
 
 // overrideImages overides the default images with the images provided by the user
 // if an images is not provided, the default is used.
-func overrideImages(serviceImage string, consoleImage string, postgresImage string, mcpServerImage string) map[string]string {
+func overrideImages(serviceImage string, consoleImage string, postgresImage string, openshiftMCPServerImage string) map[string]string {
 	res := defaultImages
 	if serviceImage != "" {
 		res["lightspeed-service"] = serviceImage
@@ -92,8 +92,8 @@ func overrideImages(serviceImage string, consoleImage string, postgresImage stri
 	if postgresImage != "" {
 		res["postgres-image"] = postgresImage
 	}
-	if mcpServerImage != "" {
-		res["mcp-server"] = mcpServerImage
+	if openshiftMCPServerImage != "" {
+		res["openshift-mcp-server-image"] = openshiftMCPServerImage
 	}
 	return res
 }
@@ -124,7 +124,7 @@ func main() {
 	var consoleImage string
 	var namespace string
 	var postgresImage string
-	var mcpServerImage string
+	var openshiftMCPServerImage string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -140,7 +140,7 @@ func main() {
 	flag.StringVar(&consoleImage, "console-image", controller.ConsoleUIImageDefault, "The image of the console-plugin container.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
 	flag.StringVar(&postgresImage, "postgres-image", controller.PostgresServerImageDefault, "The image of the PostgreSQL server.")
-	flag.StringVar(&mcpServerImage, "mcp-server-image", controller.MCPServerImageDefault, "The image of the MCP server container.")
+	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", controller.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -153,7 +153,7 @@ func main() {
 		namespace = getWatchNamespace()
 	}
 
-	imagesMap := overrideImages(serviceImage, consoleImage, postgresImage, mcpServerImage)
+	imagesMap := overrideImages(serviceImage, consoleImage, postgresImage, openshiftMCPServerImage)
 	setupLog.Info("Images setting loaded", "images", listImages())
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "reconcilerIntervalMinutes", reconcilerIntervalMinutes, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
 
@@ -259,7 +259,7 @@ func main() {
 			LightspeedServiceImage:         imagesMap["lightspeed-service"],
 			ConsoleUIImage:                 imagesMap["console-plugin"],
 			LightspeedServicePostgresImage: imagesMap["postgres-image"],
-			MCPServerImage:                 imagesMap["mcp-server"],
+			OpenShiftMCPServerImage:        imagesMap["openshift-mcp-server-image"],
 			Namespace:                      namespace,
 			ReconcileInterval:              time.Duration(reconcilerIntervalMinutes) * time.Minute, // #nosec G115
 		},
