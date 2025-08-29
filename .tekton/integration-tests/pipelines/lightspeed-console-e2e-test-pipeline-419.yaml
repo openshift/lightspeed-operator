@@ -246,10 +246,11 @@ spec:
               echo "---------------------------------------------"
               echo "---------------------------------------------"
               set +e
-              NO_COLOR=1 npx cypress run
-                  
+              NO_COLOR=1 npx cypress run; err_status=$?
+              
+              ls ./gui_test_screenshots
               set -e 
-              if (( err_status != 0 )); then
+              if (( "$err_status" != 0 )); then
                 echo "Test case failed with error: ${err_status}"
                 exit $err_status
               fi
