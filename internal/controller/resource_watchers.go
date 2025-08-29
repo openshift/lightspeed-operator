@@ -69,3 +69,14 @@ func annotateConfigMapWatcher(cm *corev1.ConfigMap) {
 	annotations[WatcherAnnotationKey] = OLSConfigName
 	cm.SetAnnotations(annotations)
 }
+
+func postgresCAConfigMapWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Request {
+	if obj.GetName() != OLSCAConfigMap {
+		return nil
+	}
+	return []reconcile.Request{
+		{NamespacedName: types.NamespacedName{
+			Name: OLSConfigName,
+		}},
+	}
+}
