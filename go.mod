@@ -32,7 +32,7 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 )
 
-require github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.84.1
+require github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.85.0
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
