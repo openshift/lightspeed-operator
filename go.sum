@@ -14,8 +14,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/emicklei/go-restful/v3 v3.13.0 h1:C4Bl2xDndpU6nJ4bc1jXd+uTmYPVUwkD6bFY/oTyCes=
 github.com/emicklei/go-restful/v3 v3.13.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
-github.com/evanphx/json-patch v4.12.0+incompatible h1:4onqiflcdA9EOZ4RxV643DvftH5pOlLGNtQ5lPWQu84=
-github.com/evanphx/json-patch v4.12.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
+github.com/evanphx/json-patch v0.5.2 h1:xVCHIVMUu1wtM/VkR9jVZ45N3FhZfYMMYGorLCR8P3k=
+github.com/evanphx/json-patch v0.5.2/go.mod h1:ZWS5hhDbVDyob71nXKNL0+PWn6ToqBHMikGIFbs31qQ=
 github.com/evanphx/json-patch/v5 v5.9.11 h1:/8HVnzMq13/3x9TPvjG08wUGqBTmZBsCWzjTM0wiaDU=
 github.com/evanphx/json-patch/v5 v5.9.11/go.mod h1:3j+LviiESTElxA4p3EMKAB9HXj3/XEtnUf6OZxqIQTM=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
@@ -77,10 +77,10 @@ github.com/onsi/ginkgo/v2 v2.25.1 h1:Fwp6crTREKM+oA6Cz4MsO8RhKQzs2/gOIVOUscMAfZY
 github.com/onsi/ginkgo/v2 v2.25.1/go.mod h1:ppTWQ1dh9KM/F1XgpeRqelR+zHVwV81DGRSDnFxK7Sk=
 github.com/onsi/gomega v1.38.1 h1:FaLA8GlcpXDwsb7m0h2A9ew2aTk3vnZMlzFgg5tz/pk=
 github.com/onsi/gomega v1.38.1/go.mod h1:LfcV8wZLvwcYRwPiJysphKAEsmcFnLMK/9c+PjvlX8g=
-github.com/openshift/api v0.0.0-20240306072808-610cbc77dbab h1:L3k198pZJhluvJZzD/ySpkKqJzQh5MgWlsT4U6NOYUY=
-github.com/openshift/api v0.0.0-20240306072808-610cbc77dbab/go.mod h1:CxgbWAlvu2iQB0UmKTtRu1YfepRg1/vJ64n2DlIEVz4=
-github.com/openshift/client-go v0.0.0-20231218140158-47f6d749b9d9 h1:kjgW3luAkf9NWu+8u+jqNNbexDG+CY82/INw8hGbG14=
-github.com/openshift/client-go v0.0.0-20231218140158-47f6d749b9d9/go.mod h1:kKmxYRXTMutfF7XzGppFdbLhNGX1brXkRsZx5ID8c7U=
+github.com/openshift/api v0.0.0-20250811150514-cc869c87a7f0 h1:K/EiQZE4lBzGMvk7APzYWRuRUJtfwaD5QGRVcny2J1M=
+github.com/openshift/api v0.0.0-20250811150514-cc869c87a7f0/go.mod h1:SPLf21TYPipzCO67BURkCfK6dcIIxx0oNRVWaOyRcXM=
+github.com/openshift/client-go v0.0.0-20250811163556-6193816ae379 h1:Xr47DBqFVjpLdU4BTtCS5l2XojbRYap2FIPdSj8YYzU=
+github.com/openshift/client-go v0.0.0-20250811163556-6193816ae379/go.mod h1:HouQRy4JgvTBpxcyw1YSD/Lp+wjOaUrxjWFHlMtZsk8=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
