@@ -162,6 +162,17 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Update status condition for Console Plugin
 	r.updateStatusCondition(ctx, olsconfig, typeConsolePluginReady, true, "All components are successfully deployed", nil)
 
+	// Reconcile postgres CA certificate first to ensure hash is updated before postgres deployment reconciliation
+	// Only do this if we have a CA certificate to reconcile
+	if r.shouldReconcilePostgresCA(ctx) {
+		err = r.reconcilePostgresCAConfigMap(ctx, olsconfig)
+		if err != nil {
+			r.logger.Error(err, "Failed to reconcile postgres CA configmap")
+			r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", err)
+			return ctrl.Result{RequeueAfter: 1 * time.Second}, err
+		}
+	}
+
 	err = r.reconcilePostgresServer(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile ols postgres")
@@ -198,6 +209,18 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	r.NextReconcileTime = time.Now().Add(r.Options.ReconcileInterval)
 	r.logger.Info("Next automatic reconciliation scheduled at", "nextReconcileTime", r.NextReconcileTime)
 	return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
+}
+
+// shouldReconcilePostgresCA checks if we should reconcile the postgres CA certificate
+func (r *OLSConfigReconciler) shouldReconcilePostgresCA(ctx context.Context) bool {
+	// Check if the openshift-service-ca.crt configmap exists
+	cm := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSCAConfigMap, Namespace: r.Options.Namespace}, cm)
+	if err != nil {
+		// If the configmap doesn't exist, we don't need to reconcile
+		return false
+	}
+	return true
 }
 
 // updateStatusCondition updates the status condition of the OLSConfig Custom Resource instance.

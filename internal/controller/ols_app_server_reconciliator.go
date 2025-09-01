@@ -74,10 +74,6 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 			Name: "reconcile Proxy CA ConfigMap",
 			Task: r.reconcileProxyCAConfigMap,
 		},
-		{
-			Name: "reconcile Postgres CA ConfigMap",
-			Task: r.reconcilePostgresCAConfigMap,
-		},
 	}
 
 	for _, task := range tasks {
@@ -221,13 +217,6 @@ func (r *OLSConfigReconciler) reconcilePostgresCAConfigMap(ctx context.Context, 
 			return nil
 		}
 		return fmt.Errorf("failed to get postgres CA configmap %s: %w", OLSCAConfigMap, err)
-	}
-
-	// Annotate the configmap for watcher to trigger reconciliation when it changes
-	annotateConfigMapWatcher(cm)
-	err = r.Update(ctx, cm)
-	if err != nil {
-		return fmt.Errorf("failed to update postgres CA configmap %s: %w", OLSCAConfigMap, err)
 	}
 
 	// Calculate hash of CA certificate data to detect changes
