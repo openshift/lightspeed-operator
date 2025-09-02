@@ -6,13 +6,13 @@
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:3cc6d0cd4bd6f717079735b82d182d788a5d6f3cf2d4132409770bc36d21a5a0",
-    "revision": "f7603f2359b67c5cf080e508d32984a5be07c947"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:f284887e9b2e96f4e2d0e909d2d8394bef9b087db7797c4ad11430eab44481b0",
+    "revision": "143b72411a1362793148f4558a069802b7c6a026"
   },
   {
     "name": "lightspeed-operator",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator:on-pr-7e3c33659c727bd944b9ab3e195b3f895666f871",
-    "revision": "7e3c33659c727bd944b9ab3e195b3f895666f871"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:3b1831f41d26973a5a77d5f5735c69bff85101cbb96b84bc33803339fe157cac",
+    "revision": "c7fd60f6a8fcfd3b6474b8dd4fa7ef4dd428622d"
   },
   {
     "name": "openshift-mcp-server",
