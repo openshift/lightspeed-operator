@@ -294,9 +294,6 @@ func (r *OLSConfigReconciler) generatePostgresService(cr *olsv1alpha1.OLSConfig)
 			Name:      PostgresServiceName,
 			Namespace: r.Options.Namespace,
 			Labels:    generatePostgresSelectorLabels(),
-			Annotations: map[string]string{
-				ServingCertSecretAnnotationKey: PostgresCertsSecretName,
-			},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{

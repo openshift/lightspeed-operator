@@ -206,38 +206,64 @@ func (r *OLSConfigReconciler) reconcileProxyCAConfigMap(ctx context.Context, cr 
 	return nil
 }
 
-func (r *OLSConfigReconciler) reconcilePostgresCAConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	// Get the openshift-service-ca.crt configmap used by postgres
-	cm := &corev1.ConfigMap{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSCAConfigMap, Namespace: r.Options.Namespace}, cm)
+func (r *OLSConfigReconciler) reconcilePostgresCASecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	// Read OpenShift service CA configmap
+	openshiftCA := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: "openshift-service-ca.crt", Namespace: "openshift-config"}, openshiftCA)
 	if err != nil {
-		// If the service-ca configmap is not present yet, skip without failing reconciliation
+		r.logger.Info("OpenShift service CA configmap not found, skipping", "configmap", "openshift-service-ca.crt")
+		// Continue with just the secret
+	}
+
+	// Read PostgreSQL CA secret
+	secret := &corev1.Secret{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresCertsSecretName, Namespace: r.Options.Namespace}, secret)
+	if err != nil {
+		// If the CA certificates secret is not present yet, set a special "deleted" hash to trigger deployment update
 		if errors.IsNotFound(err) {
-			r.logger.Info("Postgres CA configmap not found yet, skipping", "configmap", OLSCAConfigMap)
+			deletedHash := "DELETED-" + fmt.Sprintf("%d", time.Now().Unix())
+			r.stateCache[PostgresCAHashStateCacheKey] = deletedHash
 			return nil
 		}
-		return fmt.Errorf("failed to get postgres CA configmap %s: %w", OLSCAConfigMap, err)
+		return fmt.Errorf("failed to get postgres CA certificates secret %s: %w", PostgresCertsSecretName, err)
 	}
 
-	// Calculate hash of CA certificate data to detect changes
-	certBytes := []byte{}
-	for key, value := range cm.Data {
-		certBytes = append(certBytes, []byte(key)...)
-		certBytes = append(certBytes, []byte(value)...)
+	// Calculate hash combining both OpenShift service CA and PostgreSQL CA data
+	hashData := ""
+
+	// Add OpenShift service CA data if available
+	if openshiftCA.Name != "" {
+		for key, value := range openshiftCA.Data {
+			hashData += fmt.Sprintf("openshift-%s:%s:", key, value)
+		}
+		hashData += fmt.Sprintf("openshift-version:%s:", openshiftCA.GetResourceVersion())
 	}
 
-	foundCmHash, err := hashBytes(certBytes)
+	// Add PostgreSQL CA secret data
+	caCertData, exists := secret.Data["service-ca.crt"]
+	if exists {
+		hashData += fmt.Sprintf("postgres-service-ca:%s:", string(caCertData))
+	}
+	hashData += fmt.Sprintf("postgres-version:%s", secret.GetResourceVersion())
+
+	computedHash, err := hashBytes([]byte(hashData))
 	if err != nil {
-		return fmt.Errorf("failed to generate postgres CA certs hash: %w", err)
+		return fmt.Errorf("failed to generate postgres CA cert hash: %w", err)
 	}
 
-	if foundCmHash == r.stateCache[PostgresCAHashStateCacheKey] {
-		r.logger.Info("Postgres CA reconciliation skipped", "hash", foundCmHash)
+	// Store the computed hash in state cache for comparison
+	oldHash := r.stateCache[PostgresCAHashStateCacheKey]
+	r.stateCache[PostgresCAHashStateCacheKey] = computedHash
+
+	// Debug logging to check for idempotency issues
+	r.logger.Info("CA hash debug", "existing", oldHash, "computed", computedHash, "openshift-version", openshiftCA.GetResourceVersion(), "postgres-version", secret.GetResourceVersion())
+
+	if oldHash == computedHash {
+		r.logger.Info("Postgres CA reconciliation skipped - hash unchanged", "hash", computedHash)
 		return nil
 	}
 
-	r.stateCache[PostgresCAHashStateCacheKey] = foundCmHash
-	r.logger.Info("postgres CA configmap reconciled", "configmap", cm.Name, "hash", foundCmHash)
+	r.logger.Info("Postgres CA hash changed, will trigger deployment update", "oldHash", oldHash, "newHash", computedHash)
 	return nil
 }
 

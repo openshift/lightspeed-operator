@@ -244,6 +244,12 @@ func main() {
 						controller.TelemetryPullSecretNamespace: {},
 					},
 				},
+				&corev1.ConfigMap{}: {
+					Namespaces: map[string]cache.Config{
+						namespace: {},
+						"openshift-config": {},
+					},
+				},
 			},
 		},
 	})

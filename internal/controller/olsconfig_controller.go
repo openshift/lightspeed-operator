@@ -151,7 +151,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.logger.Error(err, "Failed to get olsconfig")
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
-	r.logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
+	r.logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation, "triggered by", req.NamespacedName)
 
 	err = r.reconcileConsoleUI(ctx, olsconfig)
 	if err != nil {
@@ -165,12 +165,16 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Reconcile postgres CA certificate first to ensure hash is updated before postgres deployment reconciliation
 	// Only do this if we have a CA certificate to reconcile
 	if r.shouldReconcilePostgresCA(ctx) {
-		err = r.reconcilePostgresCAConfigMap(ctx, olsconfig)
+		r.logger.Info("Starting postgres CA certificates secret reconciliation")
+		err = r.reconcilePostgresCASecret(ctx, olsconfig)
 		if err != nil {
-			r.logger.Error(err, "Failed to reconcile postgres CA configmap")
+			r.logger.Error(err, "Failed to reconcile postgres CA certificates secret")
 			r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", err)
 			return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 		}
+		r.logger.Info("Completed postgres CA certificates secret reconciliation")
+	} else {
+		r.logger.Info("Skipping postgres CA certificates secret reconciliation")
 	}
 
 	err = r.reconcilePostgresServer(ctx, olsconfig)
@@ -213,11 +217,9 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 // shouldReconcilePostgresCA checks if we should reconcile the postgres CA certificate
 func (r *OLSConfigReconciler) shouldReconcilePostgresCA(ctx context.Context) bool {
-	// Check if the openshift-service-ca.crt configmap exists
-	cm := &corev1.ConfigMap{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSCAConfigMap, Namespace: r.Options.Namespace}, cm)
+	secret := &corev1.Secret{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: PostgresCertsSecretName, Namespace: r.Options.Namespace}, secret)
 	if err != nil {
-		// If the configmap doesn't exist, we don't need to reconcile
 		return false
 	}
 	return true
@@ -271,9 +273,7 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(secretWatcherFilter)).
-		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(telemetryPullSecretWatcherFilter)).
 		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(configMapWatcherFilter)).
-		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(postgresCAConfigMapWatcherFilter)).
 		Owns(&consolev1.ConsolePlugin{}).
 		Owns(&monv1.ServiceMonitor{}).
 		Owns(&monv1.PrometheusRule{}).
