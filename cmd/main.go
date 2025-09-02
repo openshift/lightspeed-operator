@@ -246,7 +246,7 @@ func main() {
 				},
 				&corev1.ConfigMap{}: {
 					Namespaces: map[string]cache.Config{
-						namespace: {},
+						namespace:          {},
 						"openshift-config": {},
 					},
 				},

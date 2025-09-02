@@ -294,6 +294,9 @@ func (r *OLSConfigReconciler) generatePostgresService(cr *olsv1alpha1.OLSConfig)
 			Name:      PostgresServiceName,
 			Namespace: r.Options.Namespace,
 			Labels:    generatePostgresSelectorLabels(),
+			Annotations: map[string]string{
+				"service.beta.openshift.io/serving-cert-secret-name": PostgresCertsSecretName,
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{

@@ -219,10 +219,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 func (r *OLSConfigReconciler) shouldReconcilePostgresCA(ctx context.Context) bool {
 	secret := &corev1.Secret{}
 	err := r.Client.Get(ctx, client.ObjectKey{Name: PostgresCertsSecretName, Namespace: r.Options.Namespace}, secret)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 // updateStatusCondition updates the status condition of the OLSConfig Custom Resource instance.
