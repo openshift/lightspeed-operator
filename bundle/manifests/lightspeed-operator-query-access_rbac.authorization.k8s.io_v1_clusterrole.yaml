@@ -15,3 +15,7 @@ rules:
   - /ols-access
   verbs:
   - get
+- nonResourceURLs:
+  - /ls-access
+  verbs:
+  - get
