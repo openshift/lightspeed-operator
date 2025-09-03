@@ -201,6 +201,15 @@ func (r *OLSConfigReconciler) generatePostgresDeployment(cr *olsv1alpha1.OLSConf
 							},
 							VolumeMounts: volumeMounts,
 							Resources:    *databaseResources,
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									Exec: &corev1.ExecAction{
+										Command: []string{"pg_isready", "-U", PostgresDefaultUser, "-d", PostgresDefaultDbName},
+									},
+								},
+								InitialDelaySeconds: 10,
+								PeriodSeconds:       5,
+							},
 							Env: []corev1.EnvVar{
 								{
 									Name:  "POSTGRESQL_USER",
