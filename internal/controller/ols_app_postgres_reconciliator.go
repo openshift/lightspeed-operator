@@ -70,14 +70,15 @@ func (r *OLSConfigReconciler) reconcilePostgresDeployment(ctx context.Context, c
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		updateDeploymentAnnotations(desiredDeployment, map[string]string{
+		ann := map[string]string{
 			PostgresConfigHashKey: r.stateCache[PostgresConfigHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
-		})
-		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			PostgresConfigHashKey: r.stateCache[PostgresConfigHashStateCacheKey],
-			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
-		})
+		}
+		if r.stateCache[PostgresCAHashStateCacheKey] != "" {
+			ann[PostgresCAHashKey] = r.stateCache[PostgresCAHashStateCacheKey]
+		}
+		updateDeploymentAnnotations(desiredDeployment, ann)
+		updateDeploymentTemplateAnnotations(desiredDeployment, ann)
 		r.logger.Info("creating a new OLS postgres deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
