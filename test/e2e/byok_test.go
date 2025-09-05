@@ -39,7 +39,6 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 		By("Testing HTTPS POST on /v1/query endpoint by OLS user")
 		reqBody := []byte(`{"query": "what CPU architectures does the assisted installer support?"}`)
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
-		fmt.Println("httpsClient.PostJson", map[string]string{"Authorization": "Bearer " + env.SAToken})
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
