@@ -738,6 +738,11 @@ func getQueryFilters(cr *olsv1alpha1.OLSConfig) []QueryFilters {
 	return filters
 }
 
+const (
+	SSEField int = iota
+	StreamableHTTPField
+)
+
 func generateMCPServerConfigs(cr *olsv1alpha1.OLSConfig) []MCPServerConfig {
 	if cr.Spec.MCPServers == nil {
 		return nil
@@ -748,15 +753,28 @@ func generateMCPServerConfigs(cr *olsv1alpha1.OLSConfig) []MCPServerConfig {
 		servers = append(servers, MCPServerConfig{
 			Name:           server.Name,
 			Transport:      getMCPTransport(&server),
-			SSE:            generateMCPStreamableHTTPTransportConfig(&server),
-			StreamableHTTP: generateMCPStreamableHTTPTransportConfig(&server),
+			SSE:            generateMCPStreamableHTTPTransportConfig(&server, SSEField),
+			StreamableHTTP: generateMCPStreamableHTTPTransportConfig(&server, StreamableHTTPField),
 		})
 	}
 	return servers
 }
 
-func generateMCPStreamableHTTPTransportConfig(server *olsv1alpha1.MCPServer) *StreamableHTTPTransportConfig {
+func generateMCPStreamableHTTPTransportConfig(server *olsv1alpha1.MCPServer, field int) *StreamableHTTPTransportConfig {
 	if server == nil || server.StreamableHTTP == nil {
+		return nil
+	}
+
+	switch field {
+	case SSEField:
+		if !server.StreamableHTTP.EnableSSE {
+			return nil
+		}
+	case StreamableHTTPField:
+		if server.StreamableHTTP.EnableSSE {
+			return nil
+		}
+	default:
 		return nil
 	}
 
