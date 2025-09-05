@@ -328,6 +328,8 @@ var _ = Describe("App server assets", func() {
 					"header1": "value1",
 				},
 			}))
+			Expect(appSrvConfigFile.MCPServers[0].SSE).To(BeNil())
+
 			Expect(appSrvConfigFile.MCPServers[1].Name).To(Equal("testMCP2"))
 			Expect(appSrvConfigFile.MCPServers[1].Transport).To(Equal(SSE))
 			Expect(appSrvConfigFile.MCPServers[1].SSE).To(Equal(&StreamableHTTPTransportConfig{
@@ -338,6 +340,7 @@ var _ = Describe("App server assets", func() {
 					"header2": "value2",
 				},
 			}))
+			Expect(appSrvConfigFile.MCPServers[1].StreamableHTTP).To(BeNil())
 		})
 
 		It("should not generate configmap with additional MCP server if feature gate is missing", func() {
