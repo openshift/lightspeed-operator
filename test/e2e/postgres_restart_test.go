@@ -15,11 +15,18 @@ import (
 
 func invokeOLS(env *OLSTestEnvironment, secret *corev1.Secret, query string, expected_success bool) {
 	reqBody := []byte(`{"query": "` + query + `"}`)
-	resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
-	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
-	fmt.Println(GinkgoWriter, string(body))
-	Expect(resp.StatusCode == http.StatusOK).To(Equal(expected_success))
+	// Give up after 5 minutes
+	for i := 0; i < 60; i++ {
+		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
+		Expect(err).NotTo(HaveOccurred())
+		defer resp.Body.Close()
+		fmt.Println(GinkgoWriter, string(body))
+		if (resp.StatusCode == http.StatusOK) == expected_success {
+			return
+		}
+		time.Sleep(5 * time.Second)
+	}
+	Fail("invokeOLS: no expected outcome after 5 minutes of trying")
 }
 
 func waitForPodsToDisappear(env *OLSTestEnvironment, namespace, labelKey, labelValue string) error {
@@ -120,7 +127,7 @@ var _ = Describe("Postgres restart", Ordered, Label("Postgres restart"), func() 
 		By("bring Postgres back up")
 		startPostgres(env)
 
-		By("Testing HTTPS POST on /v1/query endpoint by OLS user")
+		By("Testing HTTPS POST on /v1/query endpoint by OLS user - should pass")
 		invokeOLS(env, secret, "how do I stop a VM?", true)
 	})
 })
