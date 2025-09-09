@@ -15,20 +15,21 @@ import (
 
 func invokeOLS(env *OLSTestEnvironment, secret *corev1.Secret, query string, expected_success bool) {
 	reqBody := []byte(`{"query": "` + query + `"}`)
-	resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
-	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
-	fmt.Println(GinkgoWriter, string(body))
-	Expect(resp.StatusCode == http.StatusOK).To(Equal(expected_success))
+	Eventually(func() bool {
+		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
+		Expect(err).NotTo(HaveOccurred())
+		defer resp.Body.Close()
+		fmt.Println(GinkgoWriter, string(body))
+		return resp.StatusCode == http.StatusOK
+	}, 5*time.Minute, 5*time.Second).Should(Equal(expected_success))
 }
 
-func waitForPodsToDisappear(env *OLSTestEnvironment, namespace, labelKey, labelValue string) error {
+func waitForPodsToDisappear(env *OLSTestEnvironment, namespace, labelKey, labelValue string) {
 	listOpts := []client.ListOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels{labelKey: labelValue},
 	}
-	// Give up after 5 minutes
-	for i := 0; i < 60; i++ {
+	Eventually(func() error {
 		var podList corev1.PodList
 		if err := env.Client.List(&podList, listOpts...); err != nil {
 			return err
@@ -39,11 +40,10 @@ func waitForPodsToDisappear(env *OLSTestEnvironment, namespace, labelKey, labelV
 		for _, pod := range podList.Items {
 			fmt.Fprintf(GinkgoWriter, "Pod %s phase: %s\n", pod.Name, pod.Status.Phase)
 		}
-		time.Sleep(5 * time.Second)
-	}
-	return fmt.Errorf(
-		"timed out waiting for deletion of the pods with label key %s and value %s in namespace %s",
-		labelKey, labelValue, namespace)
+		return fmt.Errorf(
+			"waiting for deletion of the pods with label key %s and value %s in namespace %s",
+			labelKey, labelValue, namespace)
+	}, 5*time.Minute, 5*time.Second).Should(BeNil())
 }
 
 func shutdownPostgres(env *OLSTestEnvironment) {
@@ -67,8 +67,7 @@ func shutdownPostgres(env *OLSTestEnvironment) {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = waitForPodsToDisappear(env, OLSNameSpace, "app.kubernetes.io/component", "postgres-server")
-	Expect(err).NotTo(HaveOccurred())
+	waitForPodsToDisappear(env, OLSNameSpace, "app.kubernetes.io/component", "postgres-server")
 }
 
 func startPostgres(env *OLSTestEnvironment) {
@@ -120,7 +119,7 @@ var _ = Describe("Postgres restart", Ordered, Label("Postgres restart"), func() 
 		By("bring Postgres back up")
 		startPostgres(env)
 
-		By("Testing HTTPS POST on /v1/query endpoint by OLS user")
+		By("Testing HTTPS POST on /v1/query endpoint by OLS user - should pass")
 		invokeOLS(env, secret, "how do I stop a VM?", true)
 	})
 })
