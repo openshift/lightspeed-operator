@@ -73,9 +73,18 @@ Required::
 |===
 | Property | Type | Description
 
+| `featureGates`
+| `array (string)`
+| Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
+possible values: MCPServer
+
 | `llm`
 | `object`
 | LLMSpec defines the desired state of the large language model (LLM).
+
+| `mcpServers`
+| `array`
+| MCP Server settings
 
 | `ols`
 | `object`
@@ -450,6 +459,87 @@ reduced.
 
 Note that the Modern profile is currently not supported because it is not
 yet well adopted by common software libraries.
+
+|===
+== .spec.mcpServers
+Description::
++
+--
+MCP Server settings
+--
+
+Type::
+  `array`
+
+
+
+
+== .spec.mcpServers[]
+Description::
++
+--
+MCPServer defines the settings for a single MCP server.
+--
+
+Type::
+  `object`
+
+Required::
+  - `name`
+
+
+
+[cols="1,1,1",options="header"]
+|===
+| Property | Type | Description
+
+| `name`
+| `string`
+| Name of the MCP server
+
+| `streamableHTTP`
+| `object`
+| Streamable HTTP Transport settings
+
+|===
+== .spec.mcpServers[].streamableHTTP
+Description::
++
+--
+Streamable HTTP Transport settings
+--
+
+Type::
+  `object`
+
+Required::
+  - `url`
+
+
+
+[cols="1,1,1",options="header"]
+|===
+| Property | Type | Description
+
+| `enableSSE`
+| `boolean`
+| Enable Server Sent Events
+
+| `headers`
+| `object (string)`
+| Headers to send to the MCP server
+
+| `sseReadTimeout`
+| `integer`
+| SSE Read Timeout, default is 10 seconds
+
+| `timeout`
+| `integer`
+| Timeout for the MCP server, default is 5 seconds
+
+| `url`
+| `string`
+| URL of the MCP server
 
 |===
 == .spec.ols
