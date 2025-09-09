@@ -135,9 +135,8 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), func() {
 		}
 
 		By("Creating a PersistentVolumeClaim")
-		cleanUpPVC, err := client.CreatePVC(PVCName, storageClassName, resource.MustParse("1Gi"))
+		_, err = client.CreatePVC(PVCName, storageClassName, resource.MustParse("1Gi"))
 		Expect(err).NotTo(HaveOccurred())
-		cleanUpFuncs = append(cleanUpFuncs, cleanUpPVC)
 
 		By("create configmap for squid using the squid.conf file")
 
