@@ -64,8 +64,8 @@ spec:
       - description: List of models from the provider
         displayName: Models
         path: llm.providers[0].models
-      - description: Defines the model's context window size. Default is specific
-          to provider/model.
+      - description: Defines the model's context window size, in tokens. The default
+          is 128k tokens.
         displayName: Context Window Size
         path: llm.providers[0].models[0].contextWindowSize
       - description: Model name
@@ -74,7 +74,7 @@ spec:
       - description: Model API parameters
         displayName: Parameters
         path: llm.providers[0].models[0].parameters
-      - description: Max tokens for response
+      - description: Max tokens for response. The default is 2048 tokens.
         displayName: Max Tokens For Response
         path: llm.providers[0].models[0].parameters.maxTokensForResponse
       - description: Model API URL
