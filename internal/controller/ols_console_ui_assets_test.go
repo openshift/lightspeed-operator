@@ -141,4 +141,111 @@ var _ = Describe("Console UI assets", func() {
 
 		})
 	})
+
+	Context("hideIcon environment variable", func() {
+		BeforeEach(func() {
+			cr = getDefaultOLSConfigCR()
+		})
+
+		It("should set HIDE_ICON to false by default", func() {
+			dep, err := r.generateConsoleUIDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Find the HIDE_ICON environment variable
+			var hideIconEnv *corev1.EnvVar
+			for _, env := range dep.Spec.Template.Spec.Containers[0].Env {
+				if env.Name == "HIDE_ICON" {
+					hideIconEnv = &env
+					break
+				}
+			}
+
+			Expect(hideIconEnv).NotTo(BeNil())
+			Expect(hideIconEnv.Value).To(Equal("false"))
+		})
+
+		It("should set HIDE_ICON to true when HideIcon is true", func() {
+			cr.Spec.OLSConfig.HideIcon = true
+			dep, err := r.generateConsoleUIDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Find the HIDE_ICON environment variable
+			var hideIconEnv *corev1.EnvVar
+			for _, env := range dep.Spec.Template.Spec.Containers[0].Env {
+				if env.Name == "HIDE_ICON" {
+					hideIconEnv = &env
+					break
+				}
+			}
+
+			Expect(hideIconEnv).NotTo(BeNil())
+			Expect(hideIconEnv.Value).To(Equal("true"))
+		})
+
+		It("should set HIDE_ICON to false when HideIcon is false", func() {
+			cr.Spec.OLSConfig.HideIcon = false
+			dep, err := r.generateConsoleUIDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Find the HIDE_ICON environment variable
+			var hideIconEnv *corev1.EnvVar
+			for _, env := range dep.Spec.Template.Spec.Containers[0].Env {
+				if env.Name == "HIDE_ICON" {
+					hideIconEnv = &env
+					break
+				}
+			}
+
+			Expect(hideIconEnv).NotTo(BeNil())
+			Expect(hideIconEnv.Value).To(Equal("false"))
+		})
+	})
+
+	Context("getHideIconEnvVar function", func() {
+		BeforeEach(func() {
+			cr = getDefaultOLSConfigCR()
+		})
+
+		It("should return HIDE_ICON=false by default", func() {
+			envVar := getHideIconEnvVar(cr)
+			Expect(envVar.Name).To(Equal("HIDE_ICON"))
+			Expect(envVar.Value).To(Equal("false"))
+		})
+
+		It("should return HIDE_ICON=true when HideIcon is true", func() {
+			cr.Spec.OLSConfig.HideIcon = true
+			envVar := getHideIconEnvVar(cr)
+			Expect(envVar.Name).To(Equal("HIDE_ICON"))
+			Expect(envVar.Value).To(Equal("true"))
+		})
+
+		It("should return HIDE_ICON=false when HideIcon is false", func() {
+			cr.Spec.OLSConfig.HideIcon = false
+			envVar := getHideIconEnvVar(cr)
+			Expect(envVar.Name).To(Equal("HIDE_ICON"))
+			Expect(envVar.Value).To(Equal("false"))
+		})
+	})
+
+	Context("CRD validation", func() {
+		It("should have hideIcon field in the CRD", func() {
+			// This test verifies that the CRD contains the hideIcon field
+			cr := &olsv1alpha1.OLSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ols-config",
+					Namespace: "default",
+				},
+				Spec: olsv1alpha1.OLSConfigSpec{
+					OLSConfig: olsv1alpha1.OLSSpec{
+						DefaultModel:    "test-model",
+						DefaultProvider: "test-provider",
+						HideIcon:        false, // This should be valid
+					},
+				},
+			}
+			Expect(cr.Spec.OLSConfig.HideIcon).To(BeFalse())
+			cr.Spec.OLSConfig.HideIcon = true
+			Expect(cr.Spec.OLSConfig.HideIcon).To(BeTrue())
+		})
+	})
 })

@@ -917,6 +917,11 @@ spec:
                         minimum: 0
                         type: integer
                     type: object
+                  hideIcon:
+                    default: false
+                    description: Hide Lightspeed icon in the console UI for Users
+                      with no access to the OLS API
+                    type: boolean
                   introspectionEnabled:
                     description: Enable introspection features
                     type: boolean
