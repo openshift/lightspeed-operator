@@ -85,8 +85,8 @@ spec:
                               its parameters.
                             properties:
                               contextWindowSize:
-                                description: Defines the model's context window size.
-                                  Default is specific to provider/model.
+                                description: Defines the model's context window size,
+                                  in tokens. The default is 128k tokens.
                                 minimum: 1024
                                 type: integer
                               name:
@@ -96,7 +96,8 @@ spec:
                                 description: Model API parameters
                                 properties:
                                   maxTokensForResponse:
-                                    description: Max tokens for response
+                                    description: Max tokens for response. The default
+                                      is 2048 tokens.
                                     type: integer
                                 type: object
                               url:
@@ -147,6 +148,7 @@ spec:
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 minTLSVersion:
                                   description: |-
                                     minTLSVersion is used to specify the minimal version of the TLS protocol
@@ -1104,6 +1106,7 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           minTLSVersion:
                             description: |-
                               minTLSVersion is used to specify the minimal version of the TLS protocol

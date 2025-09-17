@@ -316,7 +316,7 @@ type QueryFiltersSpec struct {
 
 // ModelParametersSpec
 type ModelParametersSpec struct {
-	// Max tokens for response
+	// Max tokens for response. The default is 2048 tokens.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max Tokens For Response"
 	MaxTokensForResponse int `json:"maxTokensForResponse,omitempty"`
 }
@@ -332,7 +332,7 @@ type ModelSpec struct {
 	// +kubebuilder:validation:Pattern=`^https?://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="URL"
 	URL string `json:"url,omitempty"`
-	// Defines the model's context window size. Default is specific to provider/model.
+	// Defines the model's context window size, in tokens. The default is 128k tokens.
 	// +kubebuilder:validation:Minimum=1024
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Context Window Size"
 	ContextWindowSize uint `json:"contextWindowSize,omitempty"`
