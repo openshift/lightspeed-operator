@@ -43,6 +43,7 @@ import (
 // Definitions to manage status conditions
 const (
 	typeApiReady           = "ApiReady"
+	typeDeploymentHealthy  = "DeploymentHealthy"
 	typeCacheReady         = "CacheReady"
 	typeConsolePluginReady = "ConsolePluginReady"
 	typeCRReconciled       = "Reconciled"

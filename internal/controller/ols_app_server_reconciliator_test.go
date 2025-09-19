@@ -1052,4 +1052,320 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 	})
 
+	Context("Deployment Health Check", func() {
+		BeforeEach(func() {
+			By("Set OLSConfig CR to default for deployment health tests")
+			err := k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			crDefault := getDefaultOLSConfigCR()
+			cr.Spec = crDefault.Spec
+		})
+
+		It("should set DeploymentHealthy to false when deployment not found", func() {
+			err := reconciler.checkDeploymentHealth(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify the status condition was set
+			updatedCR := &olsv1alpha1.OLSConfig{}
+			err = reconciler.Get(ctx, client.ObjectKey{Name: cr.Name, Namespace: cr.Namespace}, updatedCR)
+			Expect(err).NotTo(HaveOccurred())
+
+			found := false
+			for _, condition := range updatedCR.Status.Conditions {
+				if condition.Type == typeDeploymentHealthy {
+					found = true
+					Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+					Expect(condition.Message).To(ContainSubstring("Deployment not found"))
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "DeploymentHealthy condition should be present")
+		})
+
+		It("should set DeploymentHealthy to false when deployment has unhealthy replicas", func() {
+			// Create a deployment with unhealthy replicas
+			replicas := int32(3)
+			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      OLSAppServerDeploymentName,
+					Namespace: reconciler.Options.Namespace,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: &replicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "lightspeed-app-server",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app": "lightspeed-app-server",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "lightspeed-app-server",
+									Image: "test:latest",
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(reconciler.Create(ctx, deployment)).To(Succeed())
+			defer reconciler.Delete(ctx, deployment)
+
+			// Update the deployment status after creation (simulating controller behavior)
+			deployment.Status = appsv1.DeploymentStatus{
+				Replicas:            3,
+				ReadyReplicas:       1,
+				AvailableReplicas:   1,
+				UnavailableReplicas: 2,
+			}
+			Expect(reconciler.Status().Update(ctx, deployment)).To(Succeed())
+
+			err := reconciler.checkDeploymentHealth(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify the status condition was set
+			updatedCR := &olsv1alpha1.OLSConfig{}
+			err = reconciler.Get(ctx, client.ObjectKey{Name: cr.Name, Namespace: cr.Namespace}, updatedCR)
+			Expect(err).NotTo(HaveOccurred())
+
+			found := false
+			for _, condition := range updatedCR.Status.Conditions {
+				if condition.Type == typeDeploymentHealthy {
+					found = true
+					Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+					Expect(condition.Message).To(ContainSubstring("Deployment unhealthy: 1/3 replicas ready"))
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "DeploymentHealthy condition should be present")
+		})
+
+		It("should set DeploymentHealthy to false when deployment has replica failure condition", func() {
+			// Create a deployment with replica failure
+			replicas := int32(1)
+			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      OLSAppServerDeploymentName,
+					Namespace: reconciler.Options.Namespace,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: &replicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "lightspeed-app-server",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app": "lightspeed-app-server",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "lightspeed-app-server",
+									Image: "test:latest",
+								},
+							},
+						},
+					},
+				},
+				Status: appsv1.DeploymentStatus{
+					ReadyReplicas:     1,
+					AvailableReplicas: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{
+							Type:    appsv1.DeploymentReplicaFailure,
+							Status:  corev1.ConditionTrue,
+							Message: "ReplicaSet has minimum availability",
+						},
+					},
+				},
+			}
+			Expect(reconciler.Create(ctx, deployment)).To(Succeed())
+			defer reconciler.Delete(ctx, deployment)
+
+			err := reconciler.checkDeploymentHealth(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify the status condition was set
+			updatedCR := &olsv1alpha1.OLSConfig{}
+			err = reconciler.Get(ctx, client.ObjectKey{Name: cr.Name, Namespace: cr.Namespace}, updatedCR)
+			Expect(err).NotTo(HaveOccurred())
+
+			found := false
+			for _, condition := range updatedCR.Status.Conditions {
+				if condition.Type == typeDeploymentHealthy {
+					found = true
+					Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+					Expect(condition.Message).To(ContainSubstring("Deployment has replica failure"))
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "DeploymentHealthy condition should be present")
+		})
+
+		It("should set DeploymentHealthy to false when deployment is not progressing", func() {
+			// Create a deployment that is not progressing
+			replicas := int32(1)
+			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      OLSAppServerDeploymentName,
+					Namespace: reconciler.Options.Namespace,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: &replicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "lightspeed-app-server",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app": "lightspeed-app-server",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "lightspeed-app-server",
+									Image: "test:latest",
+								},
+							},
+						},
+					},
+				},
+				Status: appsv1.DeploymentStatus{
+					ReadyReplicas:     1,
+					AvailableReplicas: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{
+							Type:    appsv1.DeploymentProgressing,
+							Status:  corev1.ConditionFalse,
+							Message: "ReplicaSet has timed out progressing",
+						},
+					},
+				},
+			}
+			Expect(reconciler.Create(ctx, deployment)).To(Succeed())
+			defer reconciler.Delete(ctx, deployment)
+
+			err := reconciler.checkDeploymentHealth(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify the status condition was set
+			updatedCR := &olsv1alpha1.OLSConfig{}
+			err = reconciler.Get(ctx, client.ObjectKey{Name: cr.Name, Namespace: cr.Namespace}, updatedCR)
+			Expect(err).NotTo(HaveOccurred())
+
+			found := false
+			for _, condition := range updatedCR.Status.Conditions {
+				if condition.Type == typeDeploymentHealthy {
+					found = true
+					Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+					Expect(condition.Message).To(ContainSubstring("Deployment not progressing"))
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "DeploymentHealthy condition should be present")
+		})
+
+		It("should set DeploymentHealthy to true when deployment is healthy", func() {
+			// Create a healthy deployment
+			replicas := int32(2)
+			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      OLSAppServerDeploymentName,
+					Namespace: reconciler.Options.Namespace,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: &replicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "lightspeed-app-server",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app": "lightspeed-app-server",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "lightspeed-app-server",
+									Image: "test:latest",
+								},
+							},
+						},
+					},
+				},
+				Status: appsv1.DeploymentStatus{
+					ReadyReplicas:       2,
+					AvailableReplicas:   2,
+					UnavailableReplicas: 0,
+					Conditions: []appsv1.DeploymentCondition{
+						{
+							Type:   appsv1.DeploymentProgressing,
+							Status: corev1.ConditionTrue,
+						},
+						{
+							Type:   appsv1.DeploymentAvailable,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			Expect(reconciler.Create(ctx, deployment)).To(Succeed())
+			defer reconciler.Delete(ctx, deployment)
+
+			// Update the deployment status after creation (simulating controller behavior)
+			deployment.Status = appsv1.DeploymentStatus{
+				Replicas:            2,
+				ReadyReplicas:       2,
+				AvailableReplicas:   2,
+				UnavailableReplicas: 0,
+				Conditions: []appsv1.DeploymentCondition{
+					{
+						Type:   appsv1.DeploymentProgressing,
+						Status: corev1.ConditionTrue,
+					},
+					{
+						Type:   appsv1.DeploymentAvailable,
+						Status: corev1.ConditionTrue,
+					},
+				},
+			}
+			Expect(reconciler.Status().Update(ctx, deployment)).To(Succeed())
+
+			err := reconciler.checkDeploymentHealth(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify the status condition was set
+			updatedCR := &olsv1alpha1.OLSConfig{}
+			err = reconciler.Get(ctx, client.ObjectKey{Name: cr.Name, Namespace: cr.Namespace}, updatedCR)
+			Expect(err).NotTo(HaveOccurred())
+
+			found := false
+			for _, condition := range updatedCR.Status.Conditions {
+				if condition.Type == typeDeploymentHealthy {
+					found = true
+					Expect(condition.Status).To(Equal(metav1.ConditionTrue))
+					Expect(condition.Message).To(ContainSubstring("Deployment healthy: 2/2 replicas ready and available"))
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "DeploymentHealthy condition should be present")
+		})
+	})
+
 })

@@ -84,6 +84,13 @@ func (r *OLSConfigReconciler) reconcileAppServer(ctx context.Context, olsconfig 
 		}
 	}
 
+	// Check deployment health after all tasks are complete
+	err := r.checkDeploymentHealth(ctx, olsconfig)
+	if err != nil {
+		r.logger.Error(err, "reconcileAppServer deployment health check error")
+		return fmt.Errorf("failed to check deployment health: %w", err)
+	}
+
 	r.logger.Info("reconcileAppServer completes")
 
 	return nil
@@ -548,5 +555,69 @@ func (r *OLSConfigReconciler) reconcileAppServerNetworkPolicy(ctx context.Contex
 		return fmt.Errorf("%s: %w", ErrUpdateAppServerNetworkPolicy, err)
 	}
 	r.logger.Info("OLS app server network policy reconciled", "networkPolicy", networkPolicy.Name)
+	return nil
+}
+
+// checkDeploymentHealth evaluates the health of the OLS app server deployment beyond basic existence.
+// This provides enhanced monitoring to distinguish between "deployment exists" vs "deployment is healthy".
+// It checks replica availability, deployment conditions, and provides actionable diagnostic information.
+func (r *OLSConfigReconciler) checkDeploymentHealth(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	deployment := &appsv1.Deployment{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, deployment)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Deployment doesn't exist - this indicates a fundamental issue with reconciliation
+			r.updateStatusCondition(ctx, cr, typeDeploymentHealthy, false, "Deployment not found", err)
+			return nil
+		}
+		return fmt.Errorf("failed to get deployment %s: %w", OLSAppServerDeploymentName, err)
+	}
+
+	// Check replica availability - this is the primary indicator of deployment health
+	// ReadyReplicas: number of pods that are ready and can serve traffic
+	// DesiredReplicas: the target number of replicas specified in the deployment spec
+	// AvailableReplicas: number of replicas that have been available for at least minReadySeconds
+	// UnavailableReplicas: number of replicas that are not available
+	readyReplicas := deployment.Status.ReadyReplicas
+	desiredReplicas := *deployment.Spec.Replicas
+	availableReplicas := deployment.Status.AvailableReplicas
+	unavailableReplicas := deployment.Status.UnavailableReplicas
+
+	// Primary health check: ensure all desired replicas are ready
+	// This catches issues like pods stuck in pending, crashlooping, or failing readiness probes
+	if readyReplicas < desiredReplicas {
+		message := fmt.Sprintf("Deployment unhealthy: %d/%d replicas ready, %d available, %d unavailable",
+			readyReplicas, desiredReplicas, availableReplicas, unavailableReplicas)
+		r.updateStatusCondition(ctx, cr, typeDeploymentHealthy, false, message, nil)
+		return nil
+	}
+
+	// Check deployment conditions for specific failure scenarios
+	// These conditions provide more detailed failure information beyond replica counts
+	for _, condition := range deployment.Status.Conditions {
+		switch condition.Type {
+		case appsv1.DeploymentReplicaFailure:
+			// ReplicaFailure indicates the deployment cannot create/maintain the desired number of replicas
+			// This can happen due to resource constraints, node failures, or image pull issues
+			if condition.Status == corev1.ConditionTrue {
+				message := fmt.Sprintf("Deployment has replica failure: %s", condition.Message)
+				r.updateStatusCondition(ctx, cr, typeDeploymentHealthy, false, message, nil)
+				return nil
+			}
+		case appsv1.DeploymentProgressing:
+			// Progressing=False indicates the deployment is stuck and not making progress
+			// This can happen during rolling updates that fail or time out
+			if condition.Status == corev1.ConditionFalse {
+				message := fmt.Sprintf("Deployment not progressing: %s", condition.Message)
+				r.updateStatusCondition(ctx, cr, typeDeploymentHealthy, false, message, nil)
+				return nil
+			}
+		}
+	}
+
+	// If we reach here, all checks passed - deployment is healthy
+	// All desired replicas are ready and no failure conditions are present
+	message := fmt.Sprintf("Deployment healthy: %d/%d replicas ready and available", readyReplicas, desiredReplicas)
+	r.updateStatusCondition(ctx, cr, typeDeploymentHealthy, true, message, nil)
 	return nil
 }
