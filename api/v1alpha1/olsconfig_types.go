@@ -105,6 +105,11 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Introspection Enabled",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	IntrospectionEnabled bool `json:"introspectionEnabled,omitempty"`
+	// Hide Lightspeed icon in the console UI for Users with no access to the OLS API
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Hide Icon",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	HideIcon bool `json:"hideIcon,omitempty"`
 	// Proxy settings for connecting to external servers, such as LLM providers.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy Settings",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:validation:Optional

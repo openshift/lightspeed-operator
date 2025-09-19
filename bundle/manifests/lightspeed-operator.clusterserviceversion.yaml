@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-08-28T16:37:51Z"
+    createdAt: "2025-09-15T01:15:30Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -258,6 +258,11 @@ spec:
             path: ols.deployment.replicas
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:podCount
+          - description: Hide Lightspeed icon in the console UI for Users with no access to the OLS API
+            displayName: Hide Icon
+            path: ols.hideIcon
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: Enable introspection features
             displayName: Introspection Enabled
             path: ols.introspectionEnabled

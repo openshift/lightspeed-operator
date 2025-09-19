@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"fmt"
+
 	consolev1 "github.com/openshift/api/console/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +36,17 @@ func getConsoleUIResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 	}
 
 	return defaultResources
+}
+
+func getHideIconEnvVar(cr *olsv1alpha1.OLSConfig) corev1.EnvVar {
+	// The CRD has a default of false, so we can use the value directly
+	// If the field is not set, it will default to false
+	hideIcon := cr.Spec.OLSConfig.HideIcon
+
+	return corev1.EnvVar{
+		Name:  "HIDE_ICON",
+		Value: fmt.Sprintf("%t", hideIcon),
+	}
 }
 
 func (r *OLSConfigReconciler) generateConsoleUIConfigMap(cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
@@ -144,7 +157,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 								ReadOnlyRootFilesystem:   &[]bool{true}[0],
 							},
 							ImagePullPolicy: corev1.PullAlways,
-							Env:             getProxyEnvVars(),
+							Env:             append(getProxyEnvVars(), getHideIconEnvVar(cr)),
 							Resources:       *resources,
 							VolumeMounts: []corev1.VolumeMount{
 								{
