@@ -147,6 +147,7 @@ spec:
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 minTLSVersion:
                                   description: |-
                                     minTLSVersion is used to specify the minimal version of the TLS protocol
@@ -1104,6 +1105,7 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           minTLSVersion:
                             description: |-
                               minTLSVersion is used to specify the minimal version of the TLS protocol
