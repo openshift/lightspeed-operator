@@ -325,7 +325,7 @@ func (r *OLSConfigReconciler) generatePostgresSecret(cr *olsv1alpha1.OLSConfig) 
 	randomPassword := make([]byte, 12)
 	_, err := rand.Read(randomPassword)
 	if err != nil {
-		return nil, fmt.Errorf("Error generating random password: %w", err)
+		return nil, fmt.Errorf("error generating random password: %w", err)
 	}
 	// Encode the password to base64
 	encodedPassword := base64.StdEncoding.EncodeToString(randomPassword)

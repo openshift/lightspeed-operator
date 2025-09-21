@@ -21,7 +21,7 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
-func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) (string, error) {
 	r.logger.Info("reconcileConsoleUI starts")
 	tasks := []ReconcileTask{
 		{
@@ -36,10 +36,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, olsconfig 
 			Name: "reconcile Console Plugin TLS Certs",
 			Task: r.reconcileConsoleTLSSecret,
 		},
-		{
-			Name: "reconcile Console Plugin Deployment",
-			Task: r.reconcileConsoleUIDeployment,
-		},
+
 		{
 			Name: "reconcile Console Plugin",
 			Task: r.reconcileConsoleUIPlugin,
@@ -52,25 +49,29 @@ func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, olsconfig 
 			Name: "reconcile Console Plugin NetworkPolicy",
 			Task: r.reconcileConsoleNetworkPolicy,
 		},
+		{
+			Name: "reconcile Console Plugin Deployment",
+			Task: r.reconcileConsoleUIDeployment,
+		},
 	}
 
 	for _, task := range tasks {
-		err := task.Task(ctx, olsconfig)
+		message, err := task.Task(ctx, olsconfig)
 		if err != nil {
 			r.logger.Error(err, "reconcileConsoleUI error", "task", task.Name)
-			return fmt.Errorf("failed to %s: %w", task.Name, err)
+			return message, err
 		}
 	}
 
 	r.logger.Info("reconcileConsoleUI completed")
 
-	return nil
+	return "", nil
 }
 
-func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	cm, err := r.generateConsoleUIConfigMap(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginConfigMap, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGenerateConsolePluginConfigMap, err)
 	}
 	foundCm := &corev1.ConfigMap{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIConfigMapName, Namespace: r.Options.Namespace}, foundCm)
@@ -79,31 +80,31 @@ func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, c
 		err = r.Create(ctx, cm)
 		if err != nil {
 			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginConfigMap, err)
-			return fmt.Errorf("%s: %w", ErrCreateConsolePluginConfigMap, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreateConsolePluginConfigMap, err)
 		}
-		return nil
+		return "", nil
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetConsolePluginConfigMap, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetConsolePluginConfigMap, err)
 	}
 
 	if apiequality.Semantic.DeepEqual(foundCm.Data, cm.Data) {
 		r.logger.Info("Console UI configmap unchanged, reconciliation skipped", "configmap", cm.Name)
-		return nil
+		return "", nil
 	}
 	err = r.Update(ctx, cm)
 	if err != nil {
 		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginConfigMap, err)
-		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginConfigMap, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrUpdateConsolePluginConfigMap, err)
 	}
 	r.logger.Info("Console configmap reconciled", "configmap", cm.Name)
 
-	return nil
+	return "", nil
 }
 
-func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	service, err := r.generateConsoleUIService(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginService, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGenerateConsolePluginService, err)
 	}
 	foundService := &corev1.Service{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIServiceName, Namespace: r.Options.Namespace}, foundService)
@@ -112,36 +113,36 @@ func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr 
 		err = r.Create(ctx, service)
 		if err != nil {
 			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginService, err)
-			return fmt.Errorf("%s: %w", ErrCreateConsolePluginService, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreateConsolePluginService, err)
 		}
 		r.logger.Info("Console UI service created", "service", service.Name)
-		return nil
+		return "", nil
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetConsolePluginService, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetConsolePluginService, err)
 	}
 
 	if serviceEqual(foundService, service) &&
 		foundService.ObjectMeta.Annotations != nil &&
 		foundService.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] == service.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] {
 		r.logger.Info("Console UI service unchanged, reconciliation skipped", "service", service.Name)
-		return nil
+		return "", nil
 	}
 
 	err = r.Update(ctx, service)
 	if err != nil {
 		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginService, err)
-		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginService, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrUpdateConsolePluginService, err)
 	}
 
 	r.logger.Info("Console UI service reconciled", "service", service.Name)
 
-	return nil
+	return "", nil
 }
 
-func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	deployment, err := r.generateConsoleUIDeployment(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginDeployment, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGenerateConsolePluginDeployment, err)
 	}
 	foundDeployment := &appsv1.Deployment{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIDeploymentName, Namespace: r.Options.Namespace}, foundDeployment)
@@ -156,12 +157,14 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 		err = r.Create(ctx, deployment)
 		if err != nil {
 			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginDeployment, err)
-			return fmt.Errorf("%s: %w", ErrCreateConsolePluginDeployment, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreateConsolePluginDeployment, err)
 		}
 		r.logger.Info("Console UI deployment created", "deployment", deployment.Name)
-		return nil
+
+		// Deployment was just created – it cannot be ready yet.
+		return "In Progress", fmt.Errorf("deployment is not ready, 0 replicas available")
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetConsolePluginDeployment, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetConsolePluginDeployment, err)
 	}
 
 	// fill in the default values for the deployment for comparison
@@ -170,7 +173,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 		foundDeployment.Annotations[OLSConsoleTLSHashKey] == r.stateCache[OLSConsoleTLSHashStateCacheKey] &&
 		foundDeployment.Spec.Template.Annotations[OLSConsoleTLSHashKey] == r.stateCache[OLSConsoleTLSHashStateCacheKey] {
 		r.logger.Info("Console UI deployment unchanged, reconciliation skipped", "deployment", deployment.Name)
-		return nil
+		return "", nil
 	}
 
 	foundDeployment.Spec = deployment.Spec
@@ -183,17 +186,23 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 	err = r.Update(ctx, foundDeployment)
 	if err != nil {
 		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginDeployment, err)
-		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginDeployment, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrUpdateConsolePluginDeployment, err)
 	}
 	r.logger.Info("Console UI deployment reconciled", "deployment", deployment.Name)
 
-	return nil
+	// ----------  Deployment status  ----------
+	// Re-fetch to obtain freshest conditions & ready replicas
+	dep := &appsv1.Deployment{}
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(deployment), dep); err != nil {
+		return "Failed", fmt.Errorf("failed to read deployment status: %w", err)
+	}
+	return r.checkDeploymentStatus(dep)
 }
 
-func (r *OLSConfigReconciler) reconcileConsoleUIPlugin(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcileConsoleUIPlugin(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	plugin, err := r.generateConsoleUIPlugin(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGenerateConsolePlugin, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGenerateConsolePlugin, err)
 	}
 	foundPlugin := &consolev1.ConsolePlugin{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIPluginName}, foundPlugin)
@@ -202,31 +211,31 @@ func (r *OLSConfigReconciler) reconcileConsoleUIPlugin(ctx context.Context, cr *
 		err = r.Create(ctx, plugin)
 		if err != nil {
 			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePlugin, err)
-			return fmt.Errorf("%s: %w", ErrCreateConsolePlugin, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreateConsolePlugin, err)
 		}
 		r.logger.Info("Console Plugin created", "plugin", plugin.Name)
-		return nil
+		return "", nil
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetConsolePlugin, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetConsolePlugin, err)
 	}
 
 	if apiequality.Semantic.DeepEqual(foundPlugin.Spec, plugin.Spec) {
 		r.logger.Info("Console Plugin unchanged, reconciliation skipped", "plugin", plugin.Name)
-		return nil
+		return "", nil
 	}
 
 	foundPlugin.Spec = plugin.Spec
 	err = r.Update(ctx, foundPlugin)
 	if err != nil {
 		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePlugin, err)
-		return fmt.Errorf("%s: %w", ErrUpdateConsolePlugin, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrUpdateConsolePlugin, err)
 	}
 	r.logger.Info("Console Plugin reconciled", "plugin", plugin.Name)
 
-	return nil
+	return "", nil
 }
 
-func (r *OLSConfigReconciler) activateConsoleUI(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) activateConsoleUI(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		console := &openshiftv1.Console{}
 		err := r.Client.Get(ctx, client.ObjectKey{Name: ConsoleCRName}, console)
@@ -244,13 +253,13 @@ func (r *OLSConfigReconciler) activateConsoleUI(ctx context.Context, cr *olsv1al
 		return r.Update(ctx, console)
 	})
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrUpdateConsole, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrUpdateConsole, err)
 	}
 	r.logger.Info("Console UI plugin activated")
-	return nil
+	return "", nil
 }
 
-func (r *OLSConfigReconciler) removeConsoleUI(ctx context.Context) error {
+func (r *OLSConfigReconciler) removeConsoleUI(ctx context.Context) (string, error) {
 	tasks := []DeleteTask{
 		{
 			Name: "deactivate Console Plugin",
@@ -266,13 +275,13 @@ func (r *OLSConfigReconciler) removeConsoleUI(ctx context.Context) error {
 		err := task.Task(ctx)
 		if err != nil {
 			r.logger.Error(err, "DeleteConsoleUIPlugin error", "task", task.Name)
-			return fmt.Errorf("failed to %s: %w", task.Name, err)
+			return "Failed", err
 		}
 	}
 
 	r.logger.Info("DeleteConsoleUIPlugin completed")
 
-	return nil
+	return "", nil
 }
 
 func (r *OLSConfigReconciler) deleteConsoleUIPlugin(ctx context.Context) error {
@@ -321,7 +330,7 @@ func (r *OLSConfigReconciler) deactivateConsoleUI(ctx context.Context) error {
 	return nil
 }
 
-func (r *OLSConfigReconciler) reconcileConsoleTLSSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcileConsoleTLSSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	foundSecret := &corev1.Secret{}
 	var err, lastErr error
 	var secretValues map[string]string
@@ -334,30 +343,30 @@ func (r *OLSConfigReconciler) reconcileConsoleTLSSecret(ctx context.Context, cr 
 		return true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get TLS key and cert - wait err %w; last error: %w", err, lastErr)
+		return "Failed", fmt.Errorf("failed to get TLS key and cert - wait err %w; last error: %w", err, lastErr)
 	}
 	annotateSecretWatcher(foundSecret)
 	err = r.Update(ctx, foundSecret)
 	if err != nil {
-		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
+		return "Failed", fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
 	}
 	foundTLSSecretHash, err := hashBytes([]byte(secretValues["tls.key"] + secretValues["tls.crt"]))
 	if err != nil {
-		return fmt.Errorf("failed to generate OLS console tls certs hash %w", err)
+		return "Failed", fmt.Errorf("failed to generate OLS console tls certs hash %w", err)
 	}
 	if foundTLSSecretHash == r.stateCache[OLSConsoleTLSHashStateCacheKey] {
 		r.logger.Info("OLS console tls secret reconciliation skipped", "hash", foundTLSSecretHash)
-		return nil
+		return "", nil
 	}
 	r.stateCache[OLSConsoleTLSHashStateCacheKey] = foundTLSSecretHash
 	r.logger.Info("OLS console tls secret reconciled", "hash", foundTLSSecretHash)
-	return nil
+	return "", nil
 }
 
-func (r *OLSConfigReconciler) reconcileConsoleNetworkPolicy(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcileConsoleNetworkPolicy(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	np, err := r.generateConsoleUINetworkPolicy(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginNetworkPolicy, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGenerateConsolePluginNetworkPolicy, err)
 	}
 	foundNp := &networkingv1.NetworkPolicy{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUINetworkPolicyName, Namespace: r.Options.Namespace}, foundNp)
@@ -366,23 +375,23 @@ func (r *OLSConfigReconciler) reconcileConsoleNetworkPolicy(ctx context.Context,
 		err = r.Create(ctx, np)
 		if err != nil {
 			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginNetworkPolicy, err)
-			return fmt.Errorf("%s: %w", ErrCreateConsolePluginNetworkPolicy, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreateConsolePluginNetworkPolicy, err)
 		}
-		return nil
+		return "", nil
 	}
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetConsolePluginNetworkPolicy, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetConsolePluginNetworkPolicy, err)
 	}
 	if networkPolicyEqual(np, foundNp) {
 		r.logger.Info("Console NetworkPolicy unchanged, reconciliation skipped", "networkpolicy", ConsoleUINetworkPolicyName)
-		return nil
+		return "", nil
 	}
 	err = r.Update(ctx, np)
 	if err != nil {
 		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginNetworkPolicy, err)
-		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginNetworkPolicy, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrUpdateConsolePluginNetworkPolicy, err)
 	}
 	r.logger.Info("Console NetworkPolicy reconciled", "networkpolicy", ConsoleUINetworkPolicyName)
-	return nil
+	return "", nil
 
 }

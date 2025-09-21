@@ -140,7 +140,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			r.logger.Info("olsconfig resource not found. Ignoring since object must be deleted")
-			err = r.removeConsoleUI(ctx)
+			_, err = r.removeConsoleUI(ctx)
 			if err != nil {
 				r.logger.Error(err, "Failed to remove console UI")
 				return ctrl.Result{}, err
@@ -152,35 +152,34 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	r.logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
-
-	err = r.reconcileConsoleUI(ctx, olsconfig)
+	message, err := r.reconcileConsoleUI(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile console UI")
-		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", err)
+		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, message, err)
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	// Update status condition for Console Plugin
 	r.updateStatusCondition(ctx, olsconfig, typeConsolePluginReady, true, "All components are successfully deployed", nil)
 
-	err = r.reconcilePostgresServer(ctx, olsconfig)
+	message, err = r.reconcilePostgresServer(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile ols postgres")
-		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", nil)
+		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, message, nil)
 		return ctrl.Result{}, err
 	}
 	// Update status condition for Postgres cache
 	r.updateStatusCondition(ctx, olsconfig, typeCacheReady, true, "All components are successfully deployed", nil)
 
-	err = r.reconcileLLMSecrets(ctx, olsconfig)
+	_, err = r.reconcileLLMSecrets(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile LLM Provider Secrets")
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 
-	err = r.reconcileAppServer(ctx, olsconfig)
+	message, err = r.reconcileAppServer(ctx, olsconfig)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile application server")
-		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", err)
+		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, message, err)
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	// Update status condition for API server
@@ -228,6 +227,35 @@ func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconf
 	if updateErr := r.Status().Update(ctx, olsconfig); updateErr != nil {
 		r.logger.Error(updateErr, ErrUpdateCRStatusCondition)
 	}
+}
+
+// checkDeploymentStatus checks if the deployment is ready and available
+func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deployment) (string, error) {
+	// Check if deployment has the expected number of replicas ready
+	if deployment.Status.ReadyReplicas != *deployment.Spec.Replicas {
+		return "In Progress", fmt.Errorf("deployment not ready: %d replicas available",
+			deployment.Status.ReadyReplicas)
+	}
+
+	// Check deployment conditions
+	for _, condition := range deployment.Status.Conditions {
+		switch condition.Type {
+		case appsv1.DeploymentAvailable:
+			if condition.Status != corev1.ConditionTrue {
+				return "In Progress", fmt.Errorf("deployment not available: %s - %s", condition.Reason, condition.Message)
+			}
+		case appsv1.DeploymentProgressing:
+			if condition.Status == corev1.ConditionFalse {
+				return "In Progress", fmt.Errorf("deployment not progressing: %s - %s", condition.Reason, condition.Message)
+			}
+		case appsv1.DeploymentReplicaFailure:
+			if condition.Status == corev1.ConditionTrue {
+				return "Fail", fmt.Errorf("deployment replica failure: %s - %s", condition.Reason, condition.Message)
+			}
+		}
+	}
+
+	return "", nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

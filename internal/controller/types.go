@@ -7,7 +7,7 @@ import (
 )
 
 /*** controller internal ***/
-type ReconcileFunc func(context.Context, *olsv1alpha1.OLSConfig) error
+type ReconcileFunc func(context.Context, *olsv1alpha1.OLSConfig) (string, error)
 type ReconcileTask struct {
 	Name string
 	Task ReconcileFunc
