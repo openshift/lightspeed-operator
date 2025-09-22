@@ -1908,18 +1908,18 @@ func generateRandomSecret() (*corev1.Secret, error) {
 	return &secret, nil
 }
 
-func generateRandomConfigMap() (*corev1.ConfigMap, error) {
-	configMap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-configmap",
-			Namespace: "openshift-lightspeed",
-		},
-		Data: map[string]string{
-			"service-ca.crt": "random ca cert content",
-		},
-	}
-	return &configMap, nil
-}
+//func generateRandomConfigMap() (*corev1.ConfigMap, error) {
+//	configMap := corev1.ConfigMap{
+//		ObjectMeta: metav1.ObjectMeta{
+//			Name:      "test-configmap",
+//			Namespace: "openshift-lightspeed",
+//		},
+//		Data: map[string]string{
+//			"service-ca.crt": "random ca cert content",
+//		},
+//	}
+//	return &configMap, nil
+//}
 
 func getDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 	// fill the CR with all implemented fields in the configuration file
