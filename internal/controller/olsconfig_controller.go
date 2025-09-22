@@ -124,7 +124,6 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.logger.Error(err, "Failed to reconcile service monitor for operator")
 		return ctrl.Result{}, err
 	}
-
 	err = r.reconcileNetworkPolicyForOperator(ctx)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile network policy for operator")
@@ -157,10 +156,9 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile console UI")
 		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, message, err)
-		if message == "In Progress"{
+		if message != "In Progress" {
 			return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
 		}
-		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	// Update status condition for Console Plugin
 	r.updateStatusCondition(ctx, olsconfig, typeConsolePluginReady, true, "All components are successfully deployed", nil)
@@ -169,10 +167,9 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile ols postgres")
 		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, message, nil)
-		if message == "In Progress"{
-			return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
-		}		
-		return ctrl.Result{}, err
+		if message == "In Progress" {
+			return ctrl.Result{RequeueAfter: 1 * time.Second}, err
+		}
 	}
 	// Update status condition for Postgres cache
 	r.updateStatusCondition(ctx, olsconfig, typeCacheReady, true, "All components are successfully deployed", nil)
@@ -187,10 +184,9 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile application server")
 		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, message, err)
-		if message == "In Progress"{
+		if message != "In Progress" {
 			return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
 		}
-		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 	// Update status condition for API server
 	r.updateStatusCondition(ctx, olsconfig, typeApiReady, true, "All components are successfully deployed", nil)
