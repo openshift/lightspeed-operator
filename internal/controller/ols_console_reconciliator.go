@@ -59,7 +59,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUI(ctx context.Context, olsconfig 
 		message, err := task.Task(ctx, olsconfig)
 		if err != nil {
 			r.logger.Error(err, "reconcileConsoleUI error", "task", task.Name)
-			return message, err
+			return message, fmt.Errorf("failed to %s: %w", task.Name, err)
 		}
 	}
 

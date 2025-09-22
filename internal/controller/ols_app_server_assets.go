@@ -307,7 +307,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 	}
 
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
-		caFileNames, err := r.getAdditionalCAFileNames(cr)
+		caFileNames, err := r.getAdditionalCAFileNames(ctx, cr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate OLS config file, additional CA error: %w", err)
 		}
@@ -400,13 +400,13 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 	return &cm, nil
 }
 
-func (r *OLSConfigReconciler) getAdditionalCAFileNames(cr *olsv1alpha1.OLSConfig) ([]string, error) {
+func (r *OLSConfigReconciler) getAdditionalCAFileNames(ctx context.Context, cr *olsv1alpha1.OLSConfig) ([]string, error) {
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef == nil {
 		return nil, nil
 	}
 	// get data from the referenced configmap
 	cm := &corev1.ConfigMap{}
-	err := r.Get(context.TODO(), client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.Options.Namespace}, cm)
+	err := r.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.Options.Namespace}, cm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get additional CA configmap %s/%s: %v", r.Options.Namespace, cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, err)
 	}
