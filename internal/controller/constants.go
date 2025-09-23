@@ -157,6 +157,8 @@ const (
 	// PostgresSecretHashKey is the key of the hash value of OLS Postgres secret
 	// #nosec G101
 	PostgresSecretHashKey = "hash/postgres-secret"
+	// PostgresCAHashKey is the key of the hash value of the OLS Postgres CA certificate
+	PostgresCAHashKey = "hash/postgres-ca"
 	// PostgresServiceName is the name of OLS application Postgres server service
 	PostgresServiceName = "lightspeed-postgres-server"
 	// PostgresSecretName is the name of OLS application Postgres secret
@@ -243,6 +245,7 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	OperatorDeploymentName          = "lightspeed-operator-controller-manager"
 	OLSDefaultCacheType             = "postgres"
 	PostgresConfigHashStateCacheKey = "olspostgresconfig-hash"
+	PostgresCAHashStateCacheKey     = "olspostgresca-hash"
 	// #nosec G101
 	PostgresSecretHashStateCacheKey = "olspostgressecret-hash"
 	// OperatorNetworkPolicyName is the name of the network policy for the operator

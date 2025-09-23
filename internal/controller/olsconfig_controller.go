@@ -32,10 +32,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
@@ -236,10 +234,9 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.stateCache = make(map[string]string)
 	r.NextReconcileTime = time.Now()
 
-	generationChanged := builder.WithPredicates(predicate.GenerationChangedPredicate{})
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olsv1alpha1.OLSConfig{}).
-		Owns(&appsv1.Deployment{}, generationChanged).
+		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.ClusterRole{}).
 		Owns(&rbacv1.ClusterRoleBinding{}).
@@ -249,7 +246,9 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(secretWatcherFilter)).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(telemetryPullSecretWatcherFilter)).
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(postgresCAWatcherFilter)).
 		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(configMapWatcherFilter)).
+		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(postgresCAWatcherFilter)).
 		Owns(&consolev1.ConsolePlugin{}).
 		Owns(&monv1.ServiceMonitor{}).
 		Owns(&monv1.PrometheusRule{}).

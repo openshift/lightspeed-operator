@@ -69,3 +69,24 @@ func annotateConfigMapWatcher(cm *corev1.ConfigMap) {
 	annotations[WatcherAnnotationKey] = OLSConfigName
 	cm.SetAnnotations(annotations)
 }
+
+// postgresCAWatcherFilter watches for changes to PostgreSQL CA certificate resources
+func postgresCAWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Request {
+	// Watch the openshift-service-ca.crt ConfigMap
+	if obj.GetName() == OLSCAConfigMap {
+		return []reconcile.Request{
+			{NamespacedName: types.NamespacedName{
+				Name: OLSConfigName,
+			}},
+		}
+	}
+	// Watch the PostgreSQL serving certificate Secret
+	if obj.GetName() == PostgresCertsSecretName {
+		return []reconcile.Request{
+			{NamespacedName: types.NamespacedName{
+				Name: OLSConfigName,
+			}},
+		}
+	}
+	return nil
+}

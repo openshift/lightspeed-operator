@@ -31,6 +31,10 @@ func (r *OLSConfigReconciler) reconcilePostgresServer(ctx context.Context, olsco
 			Task: r.reconcilePostgresSecret,
 		},
 		{
+			Name: "reconcile Postgres CA Secret",
+			Task: r.reconcilePostgresCA,
+		},
+		{
 			Name: "reconcile Postgres Service",
 			Task: r.reconcilePostgresService,
 		},
@@ -70,14 +74,18 @@ func (r *OLSConfigReconciler) reconcilePostgresDeployment(ctx context.Context, c
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		updateDeploymentAnnotations(desiredDeployment, map[string]string{
+		annotations := map[string]string{
 			PostgresConfigHashKey: r.stateCache[PostgresConfigHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
-		})
-		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
+		}
+		updateDeploymentAnnotations(desiredDeployment, annotations)
+		templateAnnotations := map[string]string{
 			PostgresConfigHashKey: r.stateCache[PostgresConfigHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
-		})
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
+		}
+		updateDeploymentTemplateAnnotations(desiredDeployment, templateAnnotations)
 		r.logger.Info("creating a new OLS postgres deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
@@ -271,5 +279,68 @@ func (r *OLSConfigReconciler) reconcilePostgresNetworkPolicy(ctx context.Context
 		return fmt.Errorf("%s: %w", ErrUpdatePostgresNetworkPolicy, err)
 	}
 	r.logger.Info("OLS postgres network policy reconciled", "network policy", networkPolicy.Name)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcilePostgresCA(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	var caConfigMap *corev1.ConfigMap
+	var servingCertSecret *corev1.Secret
+	certBytes := []byte{}
+	hasAnyInput := false
+
+	tmpCM := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSCAConfigMap, Namespace: r.Options.Namespace}, tmpCM)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to get openshift-service-ca.crt ConfigMap: %w", err)
+		}
+		r.logger.Info("openshift-service-ca.crt ConfigMap not found, skipping CA bundle")
+	} else {
+		caConfigMap = tmpCM
+		if caCert, exists := caConfigMap.Data["service-ca.crt"]; exists {
+			certBytes = append(certBytes, []byte("service-ca.crt")...)
+			certBytes = append(certBytes, []byte(caCert)...)
+			hasAnyInput = true
+		}
+	}
+
+	// Serving cert Secret
+	tmpSec := &corev1.Secret{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresCertsSecretName, Namespace: r.Options.Namespace}, tmpSec)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to get %s Secret: %w", PostgresCertsSecretName, err)
+		}
+		r.logger.Info("serving cert Secret not found, skipping server certificate", "secret", PostgresCertsSecretName)
+	} else {
+		servingCertSecret = tmpSec
+		if tlsCert, exists := servingCertSecret.Data["tls.crt"]; exists {
+			certBytes = append(certBytes, []byte("tls.crt")...)
+			certBytes = append(certBytes, tlsCert...)
+			hasAnyInput = true
+		}
+	}
+
+	// Calculate hash based on available inputs
+	var combinedHash string
+	if !hasAnyInput {
+		// No cert inputs available - use empty hash
+		combinedHash = ""
+	} else {
+		var err error
+		combinedHash, err = hashBytes(certBytes)
+		if err != nil {
+			return fmt.Errorf("failed to generate Postgres CA hash: %w", err)
+		}
+	}
+
+	// Check if hash changed (including changes to/from empty string)
+	if combinedHash == r.stateCache[PostgresCAHashStateCacheKey] {
+		return nil
+	}
+
+	r.stateCache[PostgresCAHashStateCacheKey] = combinedHash
+	r.logger.Info("Postgres CA hash updated - deployment will be updated via updatePostgresDeployment", "newHash", combinedHash)
+
 	return nil
 }
