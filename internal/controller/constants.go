@@ -137,6 +137,8 @@ const (
 	OLSConsoleTLSHashStateCacheKey = "olsconsoletls-hash"
 	// ConsoleUINetworkPolicyName is the name of the network policy for the console UI plugin
 	ConsoleUINetworkPolicyName = "lightspeed-console-plugin"
+	// Force reload annotation key
+	ForceReloadAnnotationKey = "ols.openshift.io/force-reload"
 
 	/*** watchers ***/
 	WatcherAnnotationKey = "ols.openshift.io/watcher"

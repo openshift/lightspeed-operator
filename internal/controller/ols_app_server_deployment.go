@@ -245,7 +245,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	openShiftCAVolumeMount := corev1.VolumeMount{
 		Name:      OpenShiftCAVolumeName,
 		MountPath: AdditionalCAMountPath,
-		ReadOnly: true,
+		ReadOnly:  true,
 	}
 
 	certBundleVolumeMount := corev1.VolumeMount{

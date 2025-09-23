@@ -2,12 +2,12 @@ package controller
 
 import (
 	"context"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 )
 
 func secretWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -46,7 +46,7 @@ func telemetryPullSecretWatcherFilter(ctx context.Context, obj client.Object) []
 	}
 }
 
-func configMapWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Request {
+func (r *OLSConfigReconciler) configMapWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Request {
 	annotations := obj.GetAnnotations()
 	if annotations == nil {
 		return nil
@@ -67,12 +67,27 @@ func configMapWatcherFilter(ctx context.Context, obj client.Object) []reconcile.
 	}
 
 	// Update impacted deployment - OLSAppServerDeploymentName
-	existingDeployment := &appsv1.Deployment{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
-	if err != nil{
-		
+	dep := &appsv1.Deployment{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, dep)
+	if err != nil {
+		r.logger.Error(err, "failed to get deployment", "deploymentName", OLSAppServerDeploymentName)
+		return nil
+	}
+	// init map if empty
+	if dep.Spec.Template.Annotations == nil {
+		dep.Spec.Template.Annotations = make(map[string]string)
+	}
+	// bump the annotation → new template hash → rolling update
+	dep.Spec.Template.Annotations[ForceReloadAnnotationKey] = time.Now().Format(time.RFC3339Nano)
+	// Update
+	r.logger.Info("updating OLS deployment", "name", dep.Name)
+	err = r.Client.Update(ctx, dep)
+	if err != nil {
+		r.logger.Error(err, "failed to update deployment", "deploymentName", dep.Name)
+		return nil
 	}
 
+	// Reconsile request
 	return []reconcile.Request{
 		{NamespacedName: types.NamespacedName{
 			Name: crName,
