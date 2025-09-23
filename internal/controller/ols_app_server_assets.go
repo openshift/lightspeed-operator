@@ -306,19 +306,21 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		}
 	}
 
+	// Append kube-root-ca.crt certificates
+	extraCAs, err := r.addAdditionalCAFileNames(ctx, &corev1.LocalObjectReference{Name: "kube-root-ca.crt"})
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate additional certs from kube-root-ca.crt, additional CA error: %w", err)
+	}
+	olsConfig.ExtraCAs = extraCAs
+
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
-		caFileNames, err := r.getAdditionalCAFileNames(ctx, cr)
+		extraCAs, err := r.addAdditionalCAFileNames(ctx, cr.Spec.OLSConfig.AdditionalCAConfigMapRef)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate OLS config file, additional CA error: %w", err)
 		}
-
-		olsConfig.ExtraCAs = make([]string, len(caFileNames))
-		for i, caFileName := range caFileNames {
-			olsConfig.ExtraCAs[i] = path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir, caFileName)
-		}
-
-		olsConfig.CertificateDirectory = path.Join(OLSAppCertsMountRoot, CertBundleDir)
+		olsConfig.ExtraCAs = append(olsConfig.ExtraCAs, extraCAs...)
 	}
+	olsConfig.CertificateDirectory = path.Join(OLSAppCertsMountRoot, CertBundleDir)
 
 	if queryFilters := getQueryFilters(cr); queryFilters != nil {
 		olsConfig.QueryFilters = queryFilters
@@ -400,19 +402,15 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 	return &cm, nil
 }
 
-func (r *OLSConfigReconciler) getAdditionalCAFileNames(ctx context.Context, cr *olsv1alpha1.OLSConfig) ([]string, error) {
-	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef == nil {
-		return nil, nil
-	}
+func (r *OLSConfigReconciler) addAdditionalCAFileNames(ctx context.Context, cr *corev1.LocalObjectReference) ([]string, error) {
 	// get data from the referenced configmap
 	cm := &corev1.ConfigMap{}
-	err := r.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.Options.Namespace}, cm)
+	err := r.Get(ctx, client.ObjectKey{Name: cr.Name, Namespace: r.Options.Namespace}, cm)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get additional CA configmap %s/%s: %v", r.Options.Namespace, cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, err)
+		return nil, fmt.Errorf("failed to get additional CA configmap %s/%s: %v", r.Options.Namespace, cr.Name, err)
 	}
 
 	filenames := []string{}
-
 	for key, caStr := range cm.Data {
 		err = validateCertificateFormat([]byte(caStr))
 		if err != nil {
@@ -421,8 +419,12 @@ func (r *OLSConfigReconciler) getAdditionalCAFileNames(ctx context.Context, cr *
 		filenames = append(filenames, key)
 	}
 
-	return filenames, nil
+	extraCAs := make([]string, len(filenames))
+	for i, caFileName := range filenames {
+		extraCAs[i] = path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir, caFileName)
+	}
 
+	return extraCAs, nil
 }
 
 func (r *OLSConfigReconciler) validateCertificateInConfigMap(cmName, fileName string) error {

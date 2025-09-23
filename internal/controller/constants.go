@@ -61,8 +61,10 @@ const (
 	AppServerMetricsPath = "/metrics"
 	// AppAdditionalCACertDir is the directory for storing additional CA certificates in the app server container under OLSAppCertsMountRoot
 	AppAdditionalCACertDir = "ols-additional-ca"
-	// AdditionalCAVolumeName is the name of the volume for additional CA certificates provided by the user
+	// AdditionalCAVolumeName is the name of the volume for OpenShift CA certificates
 	AdditionalCAVolumeName = "additional-ca"
+	// OpenShiftCAVolumeName is the name of the volume for additional CA certificates provided by the user
+	OpenShiftCAVolumeName = "openshift-ca"
 	// CertBundleVolumeName is the name of the volume for the certificate bundle
 	CertBundleVolumeName = "cert-bundle"
 	// CertBundleDir is the path of the volume for the certificate bundle

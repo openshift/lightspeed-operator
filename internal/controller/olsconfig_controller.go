@@ -119,12 +119,14 @@ type OLSConfigReconcilerOptions struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Reconcile operator's resources first
-	err := r.reconcileServiceMonitorForOperator(ctx)
-	if err != nil {
-		r.logger.Error(err, "Failed to reconcile service monitor for operator")
-		return ctrl.Result{}, err
-	}
-	err = r.reconcileNetworkPolicyForOperator(ctx)
+	/*
+		err := r.reconcileServiceMonitorForOperator(ctx)
+		if err != nil {
+			r.logger.Error(err, "Failed to reconcile service monitor for operator")
+			return ctrl.Result{}, err
+		}
+	*/
+	err := r.reconcileNetworkPolicyForOperator(ctx)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile network policy for operator")
 		return ctrl.Result{}, err
