@@ -256,15 +256,18 @@ func (r *OLSConfigReconciler) updatePostgresDeployment(ctx context.Context, exis
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
 		existingDeployment.Annotations[PostgresConfigHashKey] != r.stateCache[PostgresConfigHashStateCacheKey] ||
-		existingDeployment.Annotations[PostgresSecretHashKey] != r.stateCache[PostgresSecretHashStateCacheKey] {
+		existingDeployment.Annotations[PostgresSecretHashKey] != r.stateCache[PostgresSecretHashStateCacheKey] ||
+		existingDeployment.Annotations[PostgresCAHashKey] != r.stateCache[PostgresCAHashStateCacheKey] {
 		updateDeploymentAnnotations(existingDeployment, map[string]string{
 			PostgresConfigHashKey: r.stateCache[PostgresConfigHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
 		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
 			PostgresConfigHashKey: r.stateCache[PostgresConfigHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
 		})
 
 		if _, err := setDeploymentContainerEnvs(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].Env, PostgresDeploymentName); err != nil {

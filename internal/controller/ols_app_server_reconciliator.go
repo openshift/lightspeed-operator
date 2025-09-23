@@ -289,12 +289,14 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
 			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
 		})
 		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
 			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
 			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
 			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
 		})
 		r.logger.Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)

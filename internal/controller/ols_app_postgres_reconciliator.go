@@ -31,6 +31,10 @@ func (r *OLSConfigReconciler) reconcilePostgresServer(ctx context.Context, olsco
 			Task: r.reconcilePostgresSecret,
 		},
 		{
+			Name: "reconcile Postgres CA Secret",
+			Task: r.reconcilePostgresCA,
+		},
+		{
 			Name: "reconcile Postgres Service",
 			Task: r.reconcilePostgresService,
 		},
@@ -73,10 +77,12 @@ func (r *OLSConfigReconciler) reconcilePostgresDeployment(ctx context.Context, c
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
 			PostgresConfigHashKey: r.stateCache[PostgresConfigHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
 		})
 		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
 			PostgresConfigHashKey: r.stateCache[PostgresConfigHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
 		})
 		r.logger.Info("creating a new OLS postgres deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
@@ -271,5 +277,75 @@ func (r *OLSConfigReconciler) reconcilePostgresNetworkPolicy(ctx context.Context
 		return fmt.Errorf("%s: %w", ErrUpdatePostgresNetworkPolicy, err)
 	}
 	r.logger.Info("OLS postgres network policy reconciled", "network policy", networkPolicy.Name)
+	return nil
+}
+
+func (r *OLSConfigReconciler) reconcilePostgresCA(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	// Try to read inputs; skip gracefully if they don't exist
+	var caConfigMap *corev1.ConfigMap
+	var servingCertSecret *corev1.Secret
+	certBytes := []byte{}
+	hasAnyInput := false
+
+	// openshift-service-ca.crt ConfigMap
+	tmpCM := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSCAConfigMap, Namespace: r.Options.Namespace}, tmpCM)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to get openshift-service-ca.crt ConfigMap: %w", err)
+		}
+		r.logger.Info("openshift-service-ca.crt ConfigMap not found, skipping CA bundle")
+	} else {
+		caConfigMap = tmpCM
+		annotateConfigMapWatcher(caConfigMap)
+		if uErr := r.Update(ctx, caConfigMap); uErr != nil {
+			return fmt.Errorf("failed to update openshift-service-ca.crt ConfigMap: %w", uErr)
+		}
+		if caCert, exists := caConfigMap.Data["service-ca.crt"]; exists {
+			certBytes = append(certBytes, []byte("service-ca.crt")...)
+			certBytes = append(certBytes, []byte(caCert)...)
+			hasAnyInput = true
+		}
+	}
+
+	// Serving cert Secret
+	tmpSec := &corev1.Secret{}
+	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresCertsSecretName, Namespace: r.Options.Namespace}, tmpSec)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to get %s Secret: %w", PostgresCertsSecretName, err)
+		}
+		r.logger.Info("serving cert Secret not found, skipping server certificate", "secret", PostgresCertsSecretName)
+	} else {
+		servingCertSecret = tmpSec
+		annotateSecretWatcher(servingCertSecret)
+		if uErr := r.Update(ctx, servingCertSecret); uErr != nil {
+			return fmt.Errorf("failed to update %s Secret: %w", PostgresCertsSecretName, uErr)
+		}
+		if tlsCert, exists := servingCertSecret.Data["tls.crt"]; exists {
+			certBytes = append(certBytes, []byte("tls.crt")...)
+			certBytes = append(certBytes, tlsCert...)
+			hasAnyInput = true
+		}
+	}
+
+	// If neither input exists, skip without error (e.g., test env)
+	if !hasAnyInput {
+		r.logger.Info("Postgres CA inputs not found; skipping CA hash update")
+		return nil
+	}
+
+	combinedHash, err := hashBytes(certBytes)
+	if err != nil {
+		return fmt.Errorf("failed to generate Postgres CA hash: %w", err)
+	}
+
+	if combinedHash == r.stateCache[PostgresCAHashStateCacheKey] {
+		r.logger.Info("Postgres CA reconciliation skipped", "hash", combinedHash)
+		return nil
+	}
+
+	r.stateCache[PostgresCAHashStateCacheKey] = combinedHash
+	r.logger.Info("Postgres CA reconciled", "hash", combinedHash)
 	return nil
 }
