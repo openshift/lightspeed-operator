@@ -5,12 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
 
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
@@ -20,12 +23,16 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/portforward"
+	"k8s.io/client-go/transport/spdy"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -50,6 +57,7 @@ type ClientOptions struct {
 
 type Client struct {
 	kClient               client.Client
+	clientset             kubernetes.Interface
 	timeout               time.Duration
 	ctx                   context.Context
 	kubeconfigPath        string
@@ -91,8 +99,16 @@ func GetClient(options *ClientOptions) (*Client, error) {
 		return nil, err
 	}
 
+	// Create Kubernetes clientset for port forwarding
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		fmt.Printf("Error creating clientset: %s\n", err)
+		return nil, err
+	}
+
 	singletonClient = &Client{
 		kClient:               k8sClient,
+		clientset:             clientset,
 		timeout:               DefaultClientTimeout,
 		ctx:                   context.Background(),
 		kubeconfigPath:        kubeconfigPath,
@@ -154,6 +170,10 @@ func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
 		}
 		return true, nil
 	})
+}
+
+func (c *Client) isPodTerminating(pod *corev1.Pod) bool {
+	return pod.DeletionTimestamp != nil
 }
 
 func (c *Client) WaitForDeploymentCondition(dep *appsv1.Deployment, condition func(*appsv1.Deployment) (bool, error)) error {
@@ -257,6 +277,167 @@ func (c *Client) WaitForObjectCreated(obj client.Object) error {
 }
 
 func (c *Client) ForwardPort(serviceName, namespaceName string, port int) (string, func(), error) {
+	return c.ForwardPortV2(serviceName, namespaceName, port)
+}
+
+// ForwardPortV2 is the new implementation using service and pod selector, select running but not terminating pods
+func (c *Client) ForwardPortV2(serviceName, namespaceName string, port int) (string, func(), error) {
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespaceName,
+		},
+	}
+	err := c.Get(service)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get service %s/%s: %w", namespaceName, serviceName, err)
+	}
+
+	var targetPort int32 = 0
+	if len(service.Spec.Ports) == 0 {
+		return "", nil, fmt.Errorf("service %s/%s has no ports defined", namespaceName, serviceName)
+	}
+
+	// Find the port that matches the requested port
+	for _, svcPort := range service.Spec.Ports {
+		if svcPort.Port == int32(port) {
+			if svcPort.TargetPort.IntVal != 0 {
+				targetPort = svcPort.TargetPort.IntVal
+			} else {
+				targetPort = svcPort.Port
+			}
+			break
+		}
+	}
+
+	if targetPort == 0 {
+		return "", nil, fmt.Errorf("port %d not found on service %s/%s", port, namespaceName, serviceName)
+	}
+
+	selector := labels.SelectorFromSet(service.Spec.Selector)
+
+	pods := &corev1.PodList{}
+	err = c.List(pods, client.InNamespace(namespaceName), client.MatchingLabelsSelector{
+		Selector: selector,
+	})
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to list pods with selector %s: %w", selector, err)
+	}
+
+	if len(pods.Items) == 0 {
+		return "", nil, fmt.Errorf("no pods found for service %s/%s with selector %s", namespaceName, serviceName, selector)
+	}
+
+	// Find the best pod to forward to (running and ready)
+	var targetPod *corev1.Pod
+	for _, pod := range pods.Items {
+		if pod.Status.Phase == corev1.PodRunning {
+			if c.isPodTerminating(&pod) {
+				continue
+			}
+			isReady := true
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type == corev1.PodReady && condition.Status != corev1.ConditionTrue {
+					isReady = false
+					break
+				}
+			}
+			if isReady {
+				targetPod = &pod
+				break
+			}
+		}
+	}
+
+	if targetPod == nil {
+		return "", nil, fmt.Errorf("no ready pods found for service %s/%s", namespaceName, serviceName)
+	}
+
+	logf.Log.Info("Port forwarding via service", "service", fmt.Sprintf("%s/%s", namespaceName, serviceName), "pod", targetPod.Name, "port", targetPort)
+	return c.ForwardPortToPod(targetPod.Name, namespaceName, int(targetPort))
+}
+
+func (c *Client) ForwardPortToPod(podName, namespaceName string, port int) (string, func(), error) {
+
+	req := c.clientset.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Namespace(namespaceName).
+		Name(podName).
+		SubResource("portforward")
+
+	transport, upgrader, err := spdy.RoundTripperFor(c.config)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create SPDY round tripper: %w", err)
+	}
+
+	readyCh := make(chan struct{})
+	errCh := make(chan error, 1)
+	ctx, cancel := context.WithCancel(c.ctx)
+	ports := []string{fmt.Sprintf("0:%d", port)}
+
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
+
+	pf, err := portforward.New(
+		dialer,
+		ports,
+		ctx.Done(),
+		readyCh,
+		nil, // stdout ignored
+		nil, // stderr ignored
+	)
+	if err != nil {
+		cancel()
+		return "", nil, fmt.Errorf("failed to create port forwarder: %w", err)
+	}
+
+	// port forwarding routine
+	go func() {
+		if err := pf.ForwardPorts(); err != nil {
+			select {
+			case errCh <- err:
+				logf.Log.Error(err, "Port forwarding error")
+			default:
+			}
+		}
+	}()
+
+	// Wait for the port forward to be ready or fail
+	select {
+	case <-readyCh:
+		// Port forwarding is ready
+		ports, err := pf.GetPorts()
+		if err != nil {
+			cancel()
+			return "", nil, fmt.Errorf("failed to get forwarded ports: %w", err)
+		}
+
+		if len(ports) == 0 {
+			cancel()
+			return "", nil, fmt.Errorf("no ports were forwarded")
+		}
+
+		localPort := ports[0].Local
+		address := fmt.Sprintf("127.0.0.1:%d", localPort)
+
+		cleanUp := func() {
+			cancel()
+		}
+
+		logf.Log.Info("Port forwarding established", "pod", fmt.Sprintf("%s/%s", namespaceName, podName), "local", address, "remote", port)
+		return address, cleanUp, nil
+
+	case err := <-errCh:
+		cancel()
+		return "", nil, fmt.Errorf("port forwarding failed: %w", err)
+
+	case <-time.After(30 * time.Second):
+		cancel()
+		return "", nil, fmt.Errorf("timeout waiting for port forward to be ready")
+	}
+}
+
+// ForwardPortV1 is the original implementation using oc command line tool, selecting running pods
+func (c *Client) ForwardPortV1(serviceName, namespaceName string, port int) (string, func(), error) {
 	ctx, cancel := context.WithCancel(c.ctx)
 	// #nosec G204
 	cmd := exec.CommandContext(ctx, "oc", "port-forward", fmt.Sprintf("service/%s", serviceName), fmt.Sprintf(":%d", port), "-n", namespaceName, "--kubeconfig", c.kubeconfigPath)
@@ -317,6 +498,30 @@ func (c *Client) ForwardPort(serviceName, namespaceName string, port int) (strin
 	}
 
 	return fmt.Sprintf("127.0.0.1:%s", matches[1]), cleanUp, nil
+}
+
+// CheckErrorAndRestartPortForwardService checks if the error is EOF and restarts the port forwarding service
+// Port forwarding should work on next attempt of the test case
+func (c *Client) CheckErrorAndRestartPortForwardService(err error, serviceName, namespace string, port int, forwardHost *string, cleanUpFuncs *[]func()) {
+	var fpErr error
+	var cleanUp func()
+	var forwardHostNew string
+	if err == nil {
+		return
+	}
+	if !strings.Contains(err.Error(), "EOF") {
+		fmt.Fprintf(GinkgoWriter, "CheckErrorAndRestartPortForwardService skips non-EOF error: %s \n", err)
+		return
+	}
+	fmt.Fprintf(GinkgoWriter, "EOF error detected, restarting port forwarding\n")
+	forwardHostNew, cleanUp, fpErr = c.ForwardPort(serviceName, namespace, port)
+	if fpErr != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to restart port forwarding: %s \n", fpErr)
+		return
+	}
+	fmt.Fprintf(GinkgoWriter, "restarted port forwarding\n")
+	*forwardHost = forwardHostNew
+	*cleanUpFuncs = append(*cleanUpFuncs, cleanUp)
 }
 
 func (c *Client) createRoute(name, namespace, host string) (func(), error) {
