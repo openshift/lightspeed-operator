@@ -125,7 +125,7 @@ var _ = Describe("TLS activation - application", FlakeAttempts(5), Ordered, func
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.Get(deployment)
+		err = client.WaitForDeploymentRollout(deployment)
 		Expect(err).NotTo(HaveOccurred())
 		secretVolumeDefaultMode := int32(420)
 		Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
@@ -145,12 +145,14 @@ var _ = Describe("TLS activation - application", FlakeAttempts(5), Ordered, func
 		httpsClient := NewHTTPSClient(forwardHost, inClusterHost, certificate, nil, nil)
 		authHeader := map[string]string{"Authorization": "Bearer " + saToken}
 		err = httpsClient.waitForHTTPSGetStatus("/metrics", http.StatusOK, authHeader)
+		client.CheckErrorAndRestartPortForwardService(err, AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort, &forwardHost, &cleanUpFuncs)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("check HTTPS Post on /v1/query endpoint by OLS user")
 		reqBody := []byte(`{"query": "write a deployment yaml for the mongodb image"}`)
 		var resp *http.Response
 		resp, err = httpsClient.PostJson("/v1/query", reqBody, authHeader)
+		client.CheckErrorAndRestartPortForwardService(err, AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort, &forwardHost, &cleanUpFuncs)
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
@@ -161,12 +163,13 @@ var _ = Describe("TLS activation - application", FlakeAttempts(5), Ordered, func
 		By("check HTTPS Get on /metrics endpoint by an outsider")
 		authHeader = map[string]string{"Authorization": "Bearer " + saOutsiderToken}
 		err = httpsClient.waitForHTTPSGetStatus("/metrics", http.StatusForbidden, authHeader)
+		client.CheckErrorAndRestartPortForwardService(err, AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort, &forwardHost, &cleanUpFuncs)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("check HTTPS Post on /v1/query endpoint by an outsider")
 		err = httpsClient.waitForHTTPSPostStatus("/v1/query", reqBody, http.StatusForbidden, authHeader)
+		client.CheckErrorAndRestartPortForwardService(err, AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort, &forwardHost, &cleanUpFuncs)
 		Expect(err).NotTo(HaveOccurred())
-
 	})
 })
 
@@ -280,6 +283,7 @@ var _ = Describe("TLS activation - operator", FlakeAttempts(5), Ordered, func() 
 		By("check HTTPS Get on /metrics endpoint: connect over https")
 		httpsClient := NewHTTPSClient(forwardHost, inClusterHost, []byte(caCert), clientCert, clientKey)
 		err = httpsClient.waitForHTTPSGetStatus("/metrics", http.StatusOK)
+		client.CheckErrorAndRestartPortForwardService(err, operatorServiceName, OLSNameSpace, operatorServicePort, &forwardHost, &cleanUpFuncs)
 		Expect(err).NotTo(HaveOccurred())
 
 	})
