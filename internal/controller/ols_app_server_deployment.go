@@ -105,6 +105,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		secretMounts[OLSCertsSecretName] = path.Join(OLSAppCertsMountRoot, OLSCertsSecretName)
 	}
 	AdditionalCAMountPath := path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir)
+	UserCAMountPath := path.Join(OLSAppCertsMountRoot, UserCACertDir)
 
 	// Container ports
 	ports := []corev1.ContainerPort{
@@ -257,7 +258,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
 		additionalCAVolumeMount := corev1.VolumeMount{
 			Name:      AdditionalCAVolumeName,
-			MountPath: AdditionalCAMountPath,
+			MountPath: UserCAMountPath,
 			ReadOnly:  true,
 		}
 		volumeMounts = append(volumeMounts, additionalCAVolumeMount)

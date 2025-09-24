@@ -307,14 +307,14 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 	}
 
 	// Append kube-root-ca.crt certificates
-	extraCAs, err := r.addAdditionalCAFileNames(ctx, &corev1.LocalObjectReference{Name: "kube-root-ca.crt"})
+	extraCAs, err := r.addAdditionalCAFileNames(ctx, &corev1.LocalObjectReference{Name: "kube-root-ca.crt"}, AppAdditionalCACertDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate additional certs from kube-root-ca.crt, additional CA error: %w", err)
 	}
 	olsConfig.ExtraCAs = extraCAs
 
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
-		extraCAs, err := r.addAdditionalCAFileNames(ctx, cr.Spec.OLSConfig.AdditionalCAConfigMapRef)
+		extraCAs, err := r.addAdditionalCAFileNames(ctx, cr.Spec.OLSConfig.AdditionalCAConfigMapRef, UserCACertDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate OLS config file, additional CA error: %w", err)
 		}
@@ -402,7 +402,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 	return &cm, nil
 }
 
-func (r *OLSConfigReconciler) addAdditionalCAFileNames(ctx context.Context, cr *corev1.LocalObjectReference) ([]string, error) {
+func (r *OLSConfigReconciler) addAdditionalCAFileNames(ctx context.Context, cr *corev1.LocalObjectReference, certDirectory string) ([]string, error) {
 	// get data from the referenced configmap
 	cm := &corev1.ConfigMap{}
 	err := r.Get(ctx, client.ObjectKey{Name: cr.Name, Namespace: r.Options.Namespace}, cm)
@@ -421,7 +421,7 @@ func (r *OLSConfigReconciler) addAdditionalCAFileNames(ctx context.Context, cr *
 
 	extraCAs := make([]string, len(filenames))
 	for i, caFileName := range filenames {
-		extraCAs[i] = path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir, caFileName)
+		extraCAs[i] = path.Join(OLSAppCertsMountRoot, certDirectory, caFileName)
 	}
 
 	return extraCAs, nil

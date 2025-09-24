@@ -162,7 +162,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 		r.logger.Info("Console UI deployment created", "deployment", deployment.Name)
 
 		// Deployment was just created – it cannot be ready yet.
-		return "In Progress", fmt.Errorf("deployment is not ready, 0 replicas available")
+		return DeploymentInProgress, fmt.Errorf("deployment is not ready, 0 replicas available")
 	} else if err != nil {
 		return "Failed", fmt.Errorf("%s: %w", ErrGetConsolePluginDeployment, err)
 	}

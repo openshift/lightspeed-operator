@@ -71,8 +71,11 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 
 		It("should reconcile from OLSConfig custom resource", func() {
 			By("Reconcile the OLSConfig custom resource")
-			_, err := reconciler.reconcileConsoleUI(ctx, cr)
-			Expect(err).NotTo(HaveOccurred())
+			msg, err := reconciler.reconcileConsoleUI(ctx, cr)
+			// This now cant return an error as deployment might not be ready yet
+			if msg != DeploymentInProgress {
+				Expect(err).NotTo(HaveOccurred())
+			}
 			reconciler.updateStatusCondition(ctx, cr, typeConsolePluginReady, true, "All components are successfully deployed", nil)
 			expectedCondition := metav1.Condition{
 				Type:   typeConsolePluginReady,
@@ -150,8 +153,11 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Reconcile the console")
-			_, err = reconciler.reconcileConsoleUI(ctx, cr)
-			Expect(err).NotTo(HaveOccurred())
+			msg, err := reconciler.reconcileConsoleUI(ctx, cr)
+			// This now cant return an error as deployment might not be ready yet
+			if msg != DeploymentInProgress {
+				Expect(err).NotTo(HaveOccurred())
+			}
 
 			By("Get the updated deployment")
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
@@ -196,8 +202,11 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Reconcile the console")
-			_, err = reconciler.reconcileConsoleUI(ctx, cr)
-			Expect(err).NotTo(HaveOccurred())
+			msg, err := reconciler.reconcileConsoleUI(ctx, cr)
+			// This now cant return an error as deployment might not be ready yet
+			if msg != DeploymentInProgress {
+				Expect(err).NotTo(HaveOccurred())
+			}
 
 			By("Get the updated deployment")
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
@@ -233,8 +242,11 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 		}
 
 		By("Reconcile the app server")
-		_, err = reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
-		Expect(err).NotTo(HaveOccurred())
+		msg, err := reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
+		// This now cant return an error as deployment might not be ready yet
+		if msg != DeploymentInProgress {
+			Expect(err).NotTo(HaveOccurred())
+		}
 
 		By("Get the deployment")
 		err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
@@ -257,8 +269,11 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 		}
 
 		By("Reconcile the app server")
-		_, err = reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
-		Expect(err).NotTo(HaveOccurred())
+		msg, err := reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
+		// This now cant return an error as deployment might not be ready yet
+		if msg != DeploymentInProgress {
+			Expect(err).NotTo(HaveOccurred())
+		}
 
 		By("Get the deployment")
 		err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
@@ -315,8 +330,11 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 
 		It("should reconcile from OLSConfig custom resource", func() {
 			By("Reconcile the OLSConfig custom resource")
-			_, err := reconciler.reconcileConsoleUI(ctx, cr)
-			Expect(err).NotTo(HaveOccurred())
+			msg, err := reconciler.reconcileConsoleUI(ctx, cr)
+			// This now cant return an error as deployment might not be ready yet
+			if msg != DeploymentInProgress {
+				Expect(err).NotTo(HaveOccurred())
+			}
 		})
 
 		It("should delete the console plugin lightspeed-console-plugin", func() {

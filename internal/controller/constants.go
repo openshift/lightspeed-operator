@@ -61,6 +61,8 @@ const (
 	AppServerMetricsPath = "/metrics"
 	// AppAdditionalCACertDir is the directory for storing additional CA certificates in the app server container under OLSAppCertsMountRoot
 	AppAdditionalCACertDir = "ols-additional-ca"
+	// UserCACertDir is the directory for storing additional CA certificates in the app server container under OLSAppCertsMountRoot
+	UserCACertDir = "ols-user-ca"
 	// AdditionalCAVolumeName is the name of the volume for OpenShift CA certificates
 	AdditionalCAVolumeName = "additional-ca"
 	// OpenShiftCAVolumeName is the name of the volume for additional CA certificates provided by the user
@@ -110,6 +112,8 @@ const (
 	AzureOpenAIType = "azure_openai"
 	// AdditionalCAHashStateCacheKey is the key of the hash value of the additional CA certificates in the state cache
 	AdditionalCAHashStateCacheKey = "additionalca-hash"
+	// DeploymentInProgress message
+	DeploymentInProgress = "In Progress"
 
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap

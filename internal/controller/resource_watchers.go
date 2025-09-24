@@ -54,7 +54,7 @@ func (r *OLSConfigReconciler) configMapWatcherFilter(ctx context.Context, obj cl
 	skip := true
 	// Check for annotation
 	crName, exist := annotations[WatcherAnnotationKey]
-	if !exist {
+	if exist {
 		skip = false
 	}
 	// Check for name as well. We need a configmap containing a CA bundle that can be used to verify the kube-apiserve
@@ -70,7 +70,7 @@ func (r *OLSConfigReconciler) configMapWatcherFilter(ctx context.Context, obj cl
 	dep := &appsv1.Deployment{}
 	err := r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, dep)
 	if err != nil {
-		r.logger.Error(err, "failed to get deployment", "deploymentName", OLSAppServerDeploymentName)
+		r.logger.Info("failed to get deployment", "deploymentName", OLSAppServerDeploymentName, "error", err)
 		return nil
 	}
 	// init map if empty
@@ -83,7 +83,7 @@ func (r *OLSConfigReconciler) configMapWatcherFilter(ctx context.Context, obj cl
 	r.logger.Info("updating OLS deployment", "name", dep.Name)
 	err = r.Client.Update(ctx, dep)
 	if err != nil {
-		r.logger.Error(err, "failed to update deployment", "deploymentName", dep.Name)
+		r.logger.Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
 		return nil
 	}
 

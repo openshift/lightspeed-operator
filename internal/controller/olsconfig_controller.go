@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -119,14 +120,12 @@ type OLSConfigReconcilerOptions struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Reconcile operator's resources first
-	/*
-		err := r.reconcileServiceMonitorForOperator(ctx)
-		if err != nil {
-			r.logger.Error(err, "Failed to reconcile service monitor for operator")
-			return ctrl.Result{}, err
-		}
-	*/
-	err := r.reconcileNetworkPolicyForOperator(ctx)
+	err := r.reconcileServiceMonitorForOperator(ctx)
+	if err != nil {
+		r.logger.Error(err, "Failed to reconcile service monitor for operator")
+		return ctrl.Result{}, err
+	}
+	err = r.reconcileNetworkPolicyForOperator(ctx)
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile network policy for operator")
 		return ctrl.Result{}, err
@@ -158,7 +157,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile console UI")
 		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, message, err)
-		if message != "In Progress" {
+		if message != DeploymentInProgress {
 			return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
 		}
 	}
@@ -169,7 +168,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile ols postgres")
 		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, message, nil)
-		if message == "In Progress" {
+		if message == DeploymentInProgress {
 			return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 		}
 	}
@@ -186,7 +185,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		r.logger.Error(err, "Failed to reconcile application server")
 		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, message, err)
-		if message != "In Progress" {
+		if message != DeploymentInProgress {
 			return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
 		}
 	}
@@ -211,6 +210,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // TODO: Should we support Unknown status and ObservedGeneration?
 // TODO: conditionType must be metav1.Condition?
 func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig, conditionType string, status bool, message string, err error) {
+	// build condition
 	condition := metav1.Condition{
 		Type:               conditionType,
 		Status:             metav1.ConditionUnknown,
@@ -230,10 +230,27 @@ func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconf
 		condition.Message = message
 	}
 
-	meta.SetStatusCondition(&olsconfig.Status.Conditions, condition)
+	// Retry status update on conflicts, refetching latest version each time
+	if updateErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Get latest version for status update
+		currentOLSConfig := &olsv1alpha1.OLSConfig{}
+		if getErr := r.Get(ctx, client.ObjectKey{Name: olsconfig.Name, Namespace: olsconfig.Namespace}, currentOLSConfig); getErr != nil {
+			if apierrors.IsNotFound(getErr) {
+				r.logger.V(1).Info("OLSConfig not found during status update, skipping", "name", olsconfig.Name)
+				return nil // Don't retry NotFound errors
+			}
+			return getErr
+		}
 
-	if updateErr := r.Status().Update(ctx, olsconfig); updateErr != nil {
-		r.logger.Error(updateErr, ErrUpdateCRStatusCondition)
+		// Apply the condition to the current version
+		meta.SetStatusCondition(&currentOLSConfig.Status.Conditions, condition)
+
+		// Attempt status update
+		return r.Status().Update(ctx, currentOLSConfig)
+	}); updateErr != nil {
+		if !apierrors.IsNotFound(updateErr) {
+			r.logger.Error(updateErr, ErrUpdateCRStatusCondition, "name", olsconfig.Name)
+		}
 	}
 }
 
@@ -241,7 +258,7 @@ func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconf
 func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deployment) (string, error) {
 	// Check if deployment has the expected number of replicas ready
 	if deployment.Status.ReadyReplicas != *deployment.Spec.Replicas {
-		return "In Progress", fmt.Errorf("deployment not ready: %d replicas available",
+		return DeploymentInProgress, fmt.Errorf("deployment not ready: %d replicas available",
 			deployment.Status.ReadyReplicas)
 	}
 
@@ -250,11 +267,11 @@ func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deploymen
 		switch condition.Type {
 		case appsv1.DeploymentAvailable:
 			if condition.Status != corev1.ConditionTrue {
-				return "In Progress", fmt.Errorf("deployment not available: %s - %s", condition.Reason, condition.Message)
+				return DeploymentInProgress, fmt.Errorf("deployment not available: %s - %s", condition.Reason, condition.Message)
 			}
 		case appsv1.DeploymentProgressing:
 			if condition.Status == corev1.ConditionFalse {
-				return "In Progress", fmt.Errorf("deployment not progressing: %s - %s", condition.Reason, condition.Message)
+				return DeploymentInProgress, fmt.Errorf("deployment not progressing: %s - %s", condition.Reason, condition.Message)
 			}
 		case appsv1.DeploymentReplicaFailure:
 			if condition.Status == corev1.ConditionTrue {

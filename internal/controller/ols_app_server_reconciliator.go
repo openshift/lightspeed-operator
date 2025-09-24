@@ -300,11 +300,11 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
 			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateAPIDeployment, err)
-			return "In Progress", fmt.Errorf("%s: %w", ErrCreateAPIDeployment, err)
+			return DeploymentInProgress, fmt.Errorf("%s: %w", ErrCreateAPIDeployment, err)
 		}
 
 		// Deployment was just created – it cannot be ready yet.
-		return "In Progress", fmt.Errorf("deployment is not ready, 0 replicas available")
+		return DeploymentInProgress, fmt.Errorf("deployment is not ready, 0 replicas available")
 	} else if err != nil {
 		return "Failed", fmt.Errorf("%s: %w", ErrGetAPIDeployment, err)
 	}

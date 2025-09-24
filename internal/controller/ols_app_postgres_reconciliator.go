@@ -86,7 +86,7 @@ func (r *OLSConfigReconciler) reconcilePostgresDeployment(ctx context.Context, c
 		}
 
 		// Deployment was just created – it cannot be ready yet.
-		return "In Progress", fmt.Errorf("deployment is not ready, 0 replicas available")
+		return DeploymentInProgress, fmt.Errorf("deployment is not ready, 0 replicas available")
 	} else if err != nil {
 		return "Failed", fmt.Errorf("%s: %w", ErrGetPostgresDeployment, err)
 	}
