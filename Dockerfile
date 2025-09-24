@@ -37,6 +37,7 @@ RUN mkdir /licenses
 COPY LICENSE /licenses/.
 LABEL name="openshift-lightspeed/lightspeed-rhel9-operator" \
       com.redhat.component="openshift-lightspeed" \
+      cpe="cpe:/a:redhat:openshift_lightspeed:1::el9" \
       io.k8s.display-name="OpenShift Lightspeed Operator" \
       summary="OpenShift Lightspeed Operator manages the AI-powered OpenShift Assistant Service." \
       description="OpenShift Lightspeed Operator manages the AI-powered OpenShift Assistant Service and Openshift Console plugin extention." \
