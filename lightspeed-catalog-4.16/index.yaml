@@ -60,7 +60,7 @@ relatedImages:
   - name: lightspeed-operator
     image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:b12803642df4d9b3ad0cf800315021483f543c6a8827b3901e57bdb65f10dc48
   - name: openshift-mcp-server
-    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:f1e4521ff2cc076f361c04d8c9aeac09ffcedb89a2f1dbe71f85caa27472adab
+    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:abf8bd04bb1128d24bf64c05fb3b15e0d359cf4ee932f1d9997145a8b09f12c3
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:6d2cab6cb6366b26fcf4591fe22aa5e8212a3836c34c896bb65977a8e50d658b
   - name: lightspeed-operator-bundle
