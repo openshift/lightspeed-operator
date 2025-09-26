@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -120,6 +121,11 @@ func (c *HTTPSClient) waitForHTTPSGetStatus(queryUrl string, statusCode int, hea
 		var resp *http.Response
 		resp, lastErr = c.Get(queryUrl, headers...)
 		if lastErr != nil {
+			// return EOF error to trigger port forwarding restart
+			// the pipe is already closed, so we need to restart the port forwarding
+			if strings.Contains(lastErr.Error(), "EOF") {
+				return false, lastErr
+			}
 			return false, nil
 		}
 		defer resp.Body.Close()

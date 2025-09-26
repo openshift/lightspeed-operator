@@ -95,6 +95,44 @@ func SetupOLSTestEnvironment(crModifier func(*olsv1alpha1.OLSConfig)) (*OLSTestE
 	return env, nil
 }
 
+func CheckErrorAndRestartPortForwardingTestEnvironment(env *OLSTestEnvironment, err error) {
+	if err == nil {
+		return
+	}
+	if !strings.Contains(err.Error(), "EOF") {
+		return
+	}
+	fmt.Printf("EOF error detected, restarting port forwarding\n")
+	errPf := RestartPortForwardingTestEnvironment(env)
+	if errPf != nil {
+		fmt.Printf("failed to restart port forwarding: %s \n", errPf)
+	}
+}
+
+func RestartPortForwardingTestEnvironment(env *OLSTestEnvironment) error {
+	var cleanUp func()
+	var err error
+	// Wait for application server deployment have a ready pod
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      AppServerDeploymentName,
+			Namespace: OLSNameSpace,
+		},
+	}
+	err = env.Client.WaitForDeploymentRollout(deployment)
+	if err != nil {
+		fmt.Printf("port forwarding not restarted, failed to wait for deployment rollout: %s \n", err)
+		return err
+	}
+	env.ForwardHost, cleanUp, err = env.Client.ForwardPort(AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort)
+	if err != nil {
+		fmt.Printf("failed to restart port forwarding: %s \n", err)
+		return err
+	}
+	env.CleanUpFuncs = append(env.CleanUpFuncs, cleanUp)
+	return nil
+}
+
 // TestOLSServiceActivation tests that TLS is properly activated on the service
 func TestOLSServiceActivation(env *OLSTestEnvironment) (*corev1.Secret, error) {
 	// Wait for the application service to be created

@@ -28,7 +28,7 @@ const (
 	proxyConfigmapName  = "proxy-ca"
 )
 
-var _ = Describe("Proxy test", Ordered, Label("Proxy"), func() {
+var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func() {
 
 	var cr *olsv1alpha1.OLSConfig
 	var err error
