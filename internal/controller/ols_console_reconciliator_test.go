@@ -71,7 +71,7 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 
 		It("should reconcile from OLSConfig custom resource", func() {
 			By("Reconcile the OLSConfig custom resource")
-			err := reconciler.reconcileConsoleUI(ctx, cr)
+			_, err := reconciler.reconcileConsoleUI(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 			reconciler.updateStatusCondition(ctx, cr, typeConsolePluginReady, true, "All components are successfully deployed", nil)
 			expectedCondition := metav1.Condition{
@@ -150,7 +150,7 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Reconcile the console")
-			err = reconciler.reconcileConsoleUI(ctx, cr)
+			_, err = reconciler.reconcileConsoleUI(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the updated deployment")
@@ -196,7 +196,7 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Reconcile the console")
-			err = reconciler.reconcileConsoleUI(ctx, cr)
+			_, err = reconciler.reconcileConsoleUI(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the updated deployment")
@@ -233,7 +233,7 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 		}
 
 		By("Reconcile the app server")
-		err = reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
+		_, err = reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Get the deployment")
@@ -257,7 +257,7 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 		}
 
 		By("Reconcile the app server")
-		err = reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
+		_, err = reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Get the deployment")
@@ -315,13 +315,13 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 
 		It("should reconcile from OLSConfig custom resource", func() {
 			By("Reconcile the OLSConfig custom resource")
-			err := reconciler.reconcileConsoleUI(ctx, cr)
+			_, err := reconciler.reconcileConsoleUI(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should delete the console plugin lightspeed-console-plugin", func() {
 			By("Delete the console plugin")
-			err := reconciler.removeConsoleUI(ctx)
+			_, err := reconciler.removeConsoleUI(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			By("Get the console plugin")
 			plugin := &consolev1.ConsolePlugin{}
