@@ -90,7 +90,7 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 		It("should reconcile from OLSConfig custom resource", func() {
 			By("Reconcile the OLSConfig custom resource")
 			cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = PostgresSecretName
-			err := reconciler.reconcilePostgresServer(ctx, cr)
+			_, err := reconciler.reconcilePostgresServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -170,10 +170,10 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 			olsConfig.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret"
 
 			By("Reconcile the app server")
-			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			_, err = reconciler.reconcileAppServer(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 			By("Reconcile the postgres server")
-			err = reconciler.reconcilePostgresServer(ctx, olsConfig)
+			_, err = reconciler.reconcilePostgresServer(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the postgres deployment")

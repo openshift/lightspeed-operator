@@ -85,7 +85,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 		It("should reconcile from OLSConfig custom resource", func() {
 			By("Reconcile the OLSConfig custom resource")
-			err := reconciler.reconcileAppServer(ctx, cr)
+			_, err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 			reconciler.updateStatusCondition(ctx, cr, typeApiReady, true, "All components are successfully deployed", nil)
 			expectedCondition := metav1.Condition{
@@ -161,7 +161,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			olsConfig.Spec.OLSConfig.LogLevel = "ERROR"
 
 			By("Reconcile the app server")
-			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			_, err = reconciler.reconcileAppServer(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the deployment")
@@ -192,7 +192,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			}
 
 			By("Reconcile the app server")
-			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			_, err = reconciler.reconcileAppServer(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the deployment")
@@ -217,7 +217,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			}
 
 			By("Reconcile the app server")
-			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			_, err = reconciler.reconcileAppServer(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the deployment")
@@ -248,7 +248,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Reconcile the app server")
-			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			_, err = reconciler.reconcileAppServer(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the updated deployment")
@@ -293,7 +293,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Reconcile the app server")
-			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			_, err = reconciler.reconcileAppServer(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the deployment")
@@ -319,7 +319,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 					Name: tlsUserSecretName,
 				},
 			}
-			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			_, err = reconciler.reconcileAppServer(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Check new hash is updated")
@@ -340,7 +340,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 			By("Reconcile for LLM Provider Secrets")
 			olsConfig := &olsv1alpha1.OLSConfig{}
-			err := reconciler.reconcileLLMSecrets(ctx, olsConfig)
+			_, err := reconciler.reconcileLLMSecrets(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
@@ -354,14 +354,14 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Reconcile for LLM Provider Secrets Again")
-			err = reconciler.reconcileLLMSecrets(ctx, olsConfig)
+			_, err = reconciler.reconcileLLMSecrets(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Reconcile the app server
 			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 			By("Reconcile the app server")
-			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			_, err = reconciler.reconcileAppServer(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 			By("Get the updated deployment")
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
@@ -400,10 +400,10 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 			By("Reconcile for LLM Provider Secrets Again")
-			err = reconciler.reconcileLLMSecrets(ctx, olsConfig)
+			_, err = reconciler.reconcileLLMSecrets(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 			By("Reconcile the app server")
-			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			_, err = reconciler.reconcileAppServer(ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 			By("Get the deployment")
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSAppServerDeploymentName, Namespace: OLSNamespaceDefault}, dep)
@@ -440,7 +440,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			delete(secret.Data, "apitoken")
 			err := k8sClient.Update(ctx, secret)
 			Expect(err).NotTo(HaveOccurred())
-			err = reconciler.reconcileAppServer(ctx, cr)
+			_, err = reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("missing key 'apitoken'"))
 
@@ -453,30 +453,30 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			crAzure := cr.DeepCopy()
 			crAzure.Spec.LLMConfig.Providers[0].Type = AzureOpenAIType
-			err = reconciler.reconcileAppServer(ctx, crAzure)
+			_, err = reconciler.reconcileAppServer(ctx, crAzure)
 			Expect(err).NotTo(HaveOccurred())
 			delete(secret.Data, "apitoken")
 			err = k8sClient.Update(ctx, secret)
 			Expect(err).NotTo(HaveOccurred())
-			err = reconciler.reconcileAppServer(ctx, crAzure)
+			_, err = reconciler.reconcileAppServer(ctx, crAzure)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("missing key 'client_id'"))
 			secret.Data["client_id"] = []byte("test-client-id")
 			err = k8sClient.Update(ctx, secret)
 			Expect(err).NotTo(HaveOccurred())
-			err = reconciler.reconcileAppServer(ctx, crAzure)
+			_, err = reconciler.reconcileAppServer(ctx, crAzure)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("missing key 'tenant_id'"))
 			secret.Data["tenant_id"] = []byte("test-tenant-id")
 			err = k8sClient.Update(ctx, secret)
 			Expect(err).NotTo(HaveOccurred())
-			err = reconciler.reconcileAppServer(ctx, crAzure)
+			_, err = reconciler.reconcileAppServer(ctx, crAzure)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("missing key 'client_secret'"))
 			secret.Data["client_secret"] = []byte("test-client-secret")
 			err = k8sClient.Update(ctx, secret)
 			Expect(err).NotTo(HaveOccurred())
-			err = reconciler.reconcileAppServer(ctx, crAzure)
+			_, err = reconciler.reconcileAppServer(ctx, crAzure)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -528,7 +528,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 		It("should reconcile from OLSConfig custom resource", func() {
 			By("Reconcile the OLSConfig custom resource")
-			err := reconciler.reconcileAppServer(ctx, cr)
+			_, err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -549,7 +549,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 			By("Reconcile after modifying the token secret")
 			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: "new-token-secret"}
-			err := reconciler.reconcileAppServer(ctx, cr)
+			_, err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the deployment and check the new volume")
@@ -576,7 +576,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Reconcile after modifying the token secret")
 			originalSecretName := cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name
 			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: "non-existing-secret"}
-			err := reconciler.reconcileLLMSecrets(ctx, cr)
+			_, err := reconciler.reconcileLLMSecrets(ctx, cr)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("secret not found: non-existing-secret"))
 			Expect(statusHasCondition(cr.Status, metav1.Condition{
@@ -590,13 +590,13 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 		It("should return error when the TLS secret is not found", func() {
 			By("reconcile TLS secret")
-			err := reconciler.reconcileTLSSecret(ctx, cr)
+			_, err := reconciler.reconcileTLSSecret(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Delete the tls secret and reconcile again")
 			err = reconciler.Delete(ctx, tlsSecret)
 			Expect(err).NotTo(HaveOccurred())
-			err = reconciler.reconcileTLSSecret(ctx, cr)
+			_, err = reconciler.reconcileTLSSecret(ctx, cr)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to get TLS secret"))
 			Expect(statusHasCondition(cr.Status, metav1.Condition{
@@ -699,7 +699,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
 				Name: cmCACert1Name,
 			}
-			err := reconciler.reconcileAppServer(ctx, cr)
+			_, err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("check OLS configmap has extra_ca section")
@@ -752,7 +752,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		It("should not generate additional CA related settings if additional CA is not defined", func() {
 			By("Set no additional CA cert")
 			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = nil
-			err := reconciler.reconcileAppServer(ctx, cr)
+			_, err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Check app deployment does not have additional CA volumes and volume mounts")
@@ -862,7 +862,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 					Image:     "rag-ansible-docs:2.18",
 				},
 			}
-			err := reconciler.reconcileAppServer(ctx, cr)
+			_, err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 			By("Check deployment have RAG volumes and initContainers")
 			deployment := &appsv1.Deployment{}
@@ -882,7 +882,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 			By("Reconcile without RAG defined")
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{}
-			err = reconciler.reconcileAppServer(ctx, cr)
+			_, err = reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 			By("Check deployment does not have RAG volumes and initContainers")
 			deployment = &appsv1.Deployment{}
@@ -916,7 +916,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 					Image:     "rag-ansible-docs:2.18",
 				},
 			}
-			err := reconciler.reconcileAppServer(ctx, cr)
+			_, err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 			By("Check configmap has RAG indexes")
 			cm := &corev1.ConfigMap{}
@@ -1010,7 +1010,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 					Name: cmCACertName,
 				},
 			}
-			err := reconciler.reconcileAppServer(ctx, cr)
+			_, err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("check OLS configmap has proxy_ca section")
