@@ -121,12 +121,11 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrGenerateHash, err)
 	}
-	// update the state cache with the hash of the existing configmap.
-	// so that we can skip the reconciling the deployment if the configmap has not changed.
-	r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
-	r.stateCache[PostgresConfigHashStateCacheKey] = cm.Annotations[PostgresConfigHashKey]
 	if foundCmHash == cm.Annotations[OLSConfigHashKey] {
 		r.logger.Info("OLS configmap reconciliation skipped", "configmap", foundCm.Name, "hash", foundCm.Annotations[OLSConfigHashKey])
+		// update the state cache with the hash only when we confirm the configmap is up-to-date
+		r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
+		r.stateCache[PostgresConfigHashStateCacheKey] = cm.Annotations[PostgresConfigHashKey]
 		return nil
 	}
 	foundCm.Data = cm.Data
@@ -137,6 +136,9 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 		r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrUpdateAPIConfigmap, err)
 		return fmt.Errorf("%s: %w", ErrUpdateAPIConfigmap, err)
 	}
+	// update the state cache with the hash of the updated configmap only after successful update
+	r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
+	r.stateCache[PostgresConfigHashStateCacheKey] = cm.Annotations[PostgresConfigHashKey]
 	r.logger.Info("OLS configmap reconciled", "configmap", cm.Name, "hash", cm.Annotations[OLSConfigHashKey])
 	return nil
 }

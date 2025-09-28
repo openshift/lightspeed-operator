@@ -172,6 +172,31 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Annotations[OLSConfigHashKey]).NotTo(Equal(oldHash))
 		})
 
+		It("should update state cache only after successful configmap update", func() {
+			By("Update OLSConfig to trigger configmap change")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err := k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Make a change that will trigger configmap update
+			olsConfig.Spec.OLSConfig.LogLevel = "DEBUG"
+
+			By("Reconcile and verify state cache matches updated configmap hash")
+			err = reconciler.reconcileAppServer(ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify state cache has correct hash after successful update")
+			cm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSConfigCmName, Namespace: OLSNamespaceDefault}, cm)
+			Expect(err).NotTo(HaveOccurred())
+
+			actualHash := cm.Annotations[OLSConfigHashKey]
+			stateCacheHash := reconciler.stateCache[OLSConfigHashStateCacheKey]
+
+			// Critical fix: state cache should match the actual configmap hash
+			Expect(stateCacheHash).To(Equal(actualHash), "State cache should be updated only after successful configmap update")
+		})
+
 		It("should trigger rolling update of the deployment when updating the tolerations", func() {
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
