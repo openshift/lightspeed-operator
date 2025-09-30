@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -1246,6 +1247,87 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
 		})
 
+		It("should deploy MCP container independently of data collection settings", func() {
+			By("Test case 1: introspection enabled, data collection enabled - should have both MCP and data collector containers")
+			createTelemetryPullSecret()
+			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    false,
+				TranscriptsDisabled: false,
+			}
+
+			dep, err := r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
+			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
+			Expect(dep.Spec.Template.Spec.Containers[2].Name).To(Equal("openshift-mcp-server"))
+
+			By("Test case 2: introspection enabled, data collection disabled - should have only MCP container (no data collector)")
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+
+			dep, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("openshift-mcp-server"))
+
+			By("Test case 3: introspection disabled, data collection enabled - should have only data collector container (no MCP)")
+			cr.Spec.OLSConfig.IntrospectionEnabled = false
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    false,
+				TranscriptsDisabled: false,
+			}
+
+			dep, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
+
+			By("Test case 4: introspection disabled, data collection disabled - should have only main container")
+			cr.Spec.OLSConfig.IntrospectionEnabled = false
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+
+			dep, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
+			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
+
+			deleteTelemetryPullSecret()
+		})
+
+		It("should deploy MCP container when introspection is enabled regardless of telemetry settings", func() {
+			By("Test case: introspection enabled with no telemetry pull secret - MCP should still be deployed")
+			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+
+			dep, err := r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("openshift-mcp-server"))
+
+			// Verify MCP container configuration
+			mcpContainer := dep.Spec.Template.Spec.Containers[1]
+			Expect(mcpContainer.Image).To(Equal(rOptions.OpenShiftMCPServerImage))
+			Expect(mcpContainer.Command).To(Equal([]string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", OpenShiftMCPServerPort)}))
+			Expect(mcpContainer.Resources).To(Equal(corev1.ResourceRequirements{
+				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
+				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
+				Claims:   []corev1.ResourceClaim{},
+			}))
+		})
+
 	})
 
 	Context("empty custom resource", func() {
@@ -2057,7 +2139,10 @@ func createTelemetryPullSecret() {
 	}
 
 	err := k8sClient.Create(ctx, pullSecret)
-	Expect(err).NotTo(HaveOccurred())
+	// Ignore "already exists" errors since the secret may have been created by another test
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		Expect(err).NotTo(HaveOccurred())
+	}
 }
 
 func createTelemetryPullSecretWithoutTelemetryToken() {
@@ -2082,7 +2167,10 @@ func createTelemetryPullSecretWithoutTelemetryToken() {
 	}
 
 	err := k8sClient.Create(ctx, pullSecret)
-	Expect(err).NotTo(HaveOccurred())
+	// Ignore "already exists" errors since the secret may have been created by another test
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		Expect(err).NotTo(HaveOccurred())
+	}
 }
 
 func deleteTelemetryPullSecret() {
@@ -2093,7 +2181,10 @@ func deleteTelemetryPullSecret() {
 		},
 	}
 	err := k8sClient.Delete(ctx, pullSecret)
-	Expect(err).NotTo(HaveOccurred())
+	// Ignore "not found" errors since the secret may have been deleted already
+	if err != nil && !apierrors.IsNotFound(err) {
+		Expect(err).NotTo(HaveOccurred())
+	}
 }
 
 func createPostgresCacheConfig() PostgresCacheConfig {
