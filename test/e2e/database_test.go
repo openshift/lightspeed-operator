@@ -39,10 +39,12 @@ var _ = Describe("Database Persistency", Ordered, Label("Database-Persistency"),
 	const serviceAnnotationKeyTLSSecret = "service.beta.openshift.io/serving-cert-secret-name"
 	const testSAName = "test-sa"
 	const queryAccessClusterRole = "lightspeed-operator-query-access"
+	const inClusterHost = "lightspeed-app-server.openshift-lightspeed.svc.cluster.local"
 	var saToken, forwardHost string
 	var httpsClient *HTTPSClient
 	var authHeader map[string]string
 	var storageClassName string
+	var certificate []byte
 
 	BeforeAll(func() {
 		client, err = GetClient(nil)
@@ -131,8 +133,7 @@ var _ = Describe("Database Persistency", Ordered, Label("Database-Persistency"),
 		Expect(err).NotTo(HaveOccurred())
 		cleanUpFuncs = append(cleanUpFuncs, cleanUp)
 
-		const inClusterHost = "lightspeed-app-server.openshift-lightspeed.svc.cluster.local"
-		certificate, ok := secret.Data["tls.crt"]
+		certificate, ok = secret.Data["tls.crt"]
 		Expect(ok).To(BeTrue())
 		httpsClient = NewHTTPSClient(forwardHost, inClusterHost, certificate, nil, nil)
 		authHeader = map[string]string{"Authorization": "Bearer " + saToken}
@@ -151,7 +152,7 @@ var _ = Describe("Database Persistency", Ordered, Label("Database-Persistency"),
 		}
 	})
 
-	It("should persist data in the database", func() {
+	It("should persist data in the database", FlakeAttempts(5), func() {
 		By("checking the PVC is created")
 		pvc := &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -182,8 +183,27 @@ var _ = Describe("Database Persistency", Ordered, Label("Database-Persistency"),
 		By("send query to OLS, generate a conversation record in database")
 		reqBody := []byte(`{"query": "what is latest version of Openshift?"}`)
 		var resp *http.Response
-		resp, err = httpsClient.PostJson("/v1/query", reqBody, authHeader)
-		Expect(err).NotTo(HaveOccurred())
+
+		// Use Eventually to handle potential EOF errors and restart port forwarding if needed
+		Eventually(func() error {
+			var err, pfErr error
+			resp, err = httpsClient.PostJson("/v1/query", reqBody, authHeader)
+			if err != nil && strings.Contains(err.Error(), "EOF") {
+				By("EOF error detected, restarting port forwarding")
+				var portForwardCleanup func()
+				// Restart port forwarding
+				forwardHost, portForwardCleanup, pfErr = client.ForwardPort(AppServerServiceName, OLSNameSpace, AppServerServiceHTTPSPort)
+				if pfErr != nil {
+					// log the portforward error and return error from http post request
+					fmt.Fprintf(GinkgoWriter, "failed to restart port forwarding: %s \n", pfErr)
+					return err
+				}
+				cleanUpFuncs = append(cleanUpFuncs, portForwardCleanup)
+				httpsClient = NewHTTPSClient(forwardHost, inClusterHost, certificate, nil, nil)
+			}
+			return err
+		}, 1*time.Minute, 5*time.Second).Should(Succeed())
+
 		defer resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		body, err := io.ReadAll(resp.Body)

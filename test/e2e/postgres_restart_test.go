@@ -3,6 +3,7 @@ package e2e
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,6 +18,11 @@ func invokeOLS(env *OLSTestEnvironment, secret *corev1.Secret, query string, exp
 	reqBody := []byte(`{"query": "` + query + `"}`)
 	Eventually(func() bool {
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
+		CheckErrorAndRestartPortForwardingTestEnvironment(env, err)
+		if err != nil && strings.Contains(err.Error(), "EOF") {
+			// retry in next iteration after port forwarding restarts
+			return !expected_success
+		}
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 		fmt.Println(GinkgoWriter, string(body))
@@ -102,7 +108,7 @@ var _ = Describe("Postgres restart", Ordered, Label("Postgres restart"), func() 
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("should bounce Postgres and reestablish connection with it", func() {
+	It("should bounce Postgres and reestablish connection with it", FlakeAttempts(5), func() {
 		By("Testing OLS service activation")
 		secret, err := TestOLSServiceActivation(env)
 		Expect(err).NotTo(HaveOccurred())

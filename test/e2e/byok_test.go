@@ -31,7 +31,7 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("should query the BYOK database", func() {
+	It("should query the BYOK database", FlakeAttempts(5), func() {
 		By("Testing OLS service activation")
 		secret, err := TestOLSServiceActivation(env)
 		Expect(err).NotTo(HaveOccurred())
@@ -39,6 +39,7 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 		By("Testing HTTPS POST on /v1/query endpoint by OLS user")
 		reqBody := []byte(`{"query": "what CPU architectures does the assisted installer support?"}`)
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
+		CheckErrorAndRestartPortForwardingTestEnvironment(env, err)
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
