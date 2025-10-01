@@ -353,30 +353,32 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		return nil, err
 	}
 
-	if !dataCollectorEnabled {
-		return &deployment, nil
-	}
+	// Add additional containers in a consistent order:
+	// 1. Data collector container (if enabled)
+	// 2. MCP server container (if enabled)
 
-	// Add telemetry container
-	telemetryContainer := corev1.Container{
-		Name:            "lightspeed-service-user-data-collector",
-		Image:           r.Options.LightspeedServiceImage,
-		ImagePullPolicy: corev1.PullAlways,
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &[]bool{false}[0],
-			ReadOnlyRootFilesystem:   &[]bool{true}[0],
-		},
-		VolumeMounts: volumeMounts,
-		Env: []corev1.EnvVar{
-			{
-				Name:  "OLS_CONFIG_FILE",
-				Value: path.Join(OLSConfigMountPath, OLSConfigFilename),
+	if dataCollectorEnabled {
+		// Add telemetry container
+		telemetryContainer := corev1.Container{
+			Name:            "lightspeed-service-user-data-collector",
+			Image:           r.Options.LightspeedServiceImage,
+			ImagePullPolicy: corev1.PullAlways,
+			SecurityContext: &corev1.SecurityContext{
+				AllowPrivilegeEscalation: &[]bool{false}[0],
+				ReadOnlyRootFilesystem:   &[]bool{true}[0],
 			},
-		},
-		Command:   []string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"},
-		Resources: *data_collector_resources,
+			VolumeMounts: volumeMounts,
+			Env: []corev1.EnvVar{
+				{
+					Name:  "OLS_CONFIG_FILE",
+					Value: path.Join(OLSConfigMountPath, OLSConfigFilename),
+				},
+			},
+			Command:   []string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"},
+			Resources: *data_collector_resources,
+		}
+		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, telemetryContainer)
 	}
-	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, telemetryContainer)
 
 	// Add OpenShift MCP server sidecar container if introspection is enabled
 	if cr.Spec.OLSConfig.IntrospectionEnabled {
