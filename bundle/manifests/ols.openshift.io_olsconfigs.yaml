@@ -401,6 +401,10 @@ spec:
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
+                  byokRAGOnly:
+                    description: Only use BYOK RAG sources, ignore the OpenShift documentation
+                      RAG
+                    type: boolean
                   conversationCache:
                     description: Conversation cache settings
                     properties:
