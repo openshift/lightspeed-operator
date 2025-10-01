@@ -334,12 +334,17 @@ func (r *OLSConfigReconciler) reconcilePostgresCA(ctx context.Context, cr *olsv1
 		}
 	}
 
+	// Store existing hash before updating
+	existingHash := r.stateCache[PostgresCAHashStateCacheKey]
+
+	// Always update state cache to ensure it's set, even if value hasn't changed
+	r.stateCache[PostgresCAHashStateCacheKey] = combinedHash
+
 	// Check if hash changed (including changes to/from empty string)
-	if combinedHash == r.stateCache[PostgresCAHashStateCacheKey] {
+	if combinedHash == existingHash {
 		return nil
 	}
 
-	r.stateCache[PostgresCAHashStateCacheKey] = combinedHash
 	r.logger.Info("Postgres CA hash updated - deployment will be updated via updatePostgresDeployment", "newHash", combinedHash)
 
 	return nil
