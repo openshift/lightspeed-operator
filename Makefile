@@ -34,11 +34,11 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 IMAGE_TAG_BASE ?= quay.io/openshift-lightspeed/lightspeed-operator
 
 # BUNDLE_TAG defines the version of the bundle.
-# You can use it as an arg. (E.g make update-bundle-catalog BUNDLE_TAG=0.0.1)
+# You can use it as an arg. (E.g make bundle BUNDLE_TAG=0.0.1)
 BUNDLE_TAG ?= 1.0.5
 
 # set the base image for docker files
-# You can use it as an arg.  (E.g make update-bundle-catalog BASE_IMG=registry.redhat.io/ubi9/ubi-minimal)
+# You can use it as an arg.  (E.g make bundle BASE_IMG=registry.redhat.io/ubi9/ubi-minimal)
 BASE_IMG ?= registry.redhat.io/ubi9/ubi-minimal
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
@@ -426,9 +426,6 @@ catalog-build: opm ## Build a catalog image.
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-# Update bundle and catalog artifacts.
-update-bundle-catalog: opm yq
-	OPM=$(OPM) YQ=$(YQ) BUNDLE_TAG=$(BUNDLE_TAG) BASE_IMAGE=$(BASE_IMG) hack/update_bundle_catalog.sh
 
 # Genarate release objects for Konflux builds
 .PHONY: konflux-release
