@@ -120,6 +120,10 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Persistent Storage Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	Storage *Storage `json:"storage,omitempty"`
+	// Only use BYOK RAG sources, ignore the OpenShift documentation RAG
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Only use BYOK RAG sources",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	ByokRAGOnly bool `json:"byokRAGOnly,omitempty"`
 }
 
 // Persistent Storage Configuration

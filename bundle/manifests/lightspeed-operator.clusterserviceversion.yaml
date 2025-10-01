@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-09-11T16:54:39Z"
+    createdAt: "2025-10-03T15:49:27Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -55,7 +55,7 @@ metadata:
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
-  name: lightspeed-operator.v1.0.5
+  name: lightspeed-operator.v1.0.6
   namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
@@ -154,6 +154,11 @@ spec:
             path: ols.additionalCAConfigMapRef
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
+          - description: Only use BYOK RAG sources, ignore the OpenShift documentation RAG
+            displayName: Only use BYOK RAG sources
+            path: ols.byokRAGOnly
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - displayName: PostgreSQL Settings
             path: ols.conversationCache.postgres
           - description: Secret that holds postgres credentials
@@ -699,7 +704,7 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
-  version: 1.0.5
+  version: 1.0.6
   relatedImages:
     - name: lightspeed-service-api
       image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
