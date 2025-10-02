@@ -19,12 +19,9 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -67,8 +64,6 @@ type OLSConfigReconcilerOptions struct {
 	LightspeedServiceImage         string
 	LightspeedServicePostgresImage string
 	ConsoleUIImage                 string
-	ConsoleUIImagePf5              string
-	ConsoleUIImagePf6              string
 	OpenShiftMCPServerImage        string
 	Namespace                      string
 	ReconcileInterval              time.Duration
@@ -237,45 +232,11 @@ func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconf
 	}
 }
 
-func (r *OLSConfigReconciler) getClusterVersion(ctx context.Context) (string, string, error) {
-	key := client.ObjectKey{Name: "version"}
-	clusterVersion := &configv1.ClusterVersion{}
-	if err := r.Get(ctx, key, clusterVersion); err != nil {
-		return "", "", err
-	}
-	versions := strings.Split(clusterVersion.Status.Desired.Version, ".")
-	if len(versions) < 2 {
-		return "", "", fmt.Errorf("failed to parse cluster version: %s", clusterVersion.Status.Desired.Version)
-	}
-	return versions[0], versions[1], nil
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.logger = ctrl.Log.WithName("Reconciler")
 	r.stateCache = make(map[string]string)
 	r.NextReconcileTime = time.Now()
-
-	// Get openshift version
-	major, minor, err := r.getClusterVersion(context.Background())
-	if err != nil {
-		return err
-	}
-	r.Options.OpenShiftMajor = major
-	r.Options.OpenshiftMinor = minor
-
-	// Setup required console image
-	mVersion, err := strconv.Atoi(minor)
-	if err != nil {
-		return err
-	}
-	if mVersion < 19 {
-		// Use PF5
-		r.Options.ConsoleUIImage = r.Options.ConsoleUIImagePf6
-	} else {
-		// Use PF6
-		r.Options.ConsoleUIImage = r.Options.ConsoleUIImagePf6
-	}
 
 	generationChanged := builder.WithPredicates(predicate.GenerationChangedPredicate{})
 	return ctrl.NewControllerManagedBy(mgr).
