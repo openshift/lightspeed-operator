@@ -61,8 +61,8 @@ type OLSConfigReconciler struct {
 }
 
 type OLSConfigReconcilerOptions struct {
-	OpenShiftMajor				  string
-	OpenshiftMinor				  string	
+	OpenShiftMajor                 string
+	OpenshiftMinor                 string
 	LightspeedServiceImage         string
 	LightspeedServicePostgresImage string
 	ConsoleUIImage                 string
@@ -134,8 +134,8 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	// The operator reconciles only for OLSConfig CR with a specific name
-	if req.NamespacedName.Name != OLSConfigName {
-		r.logger.Info(fmt.Sprintf("Ignoring OLSConfig CR other than %s", OLSConfigName), "name", req.NamespacedName.Name)
+	if req.Name != OLSConfigName {
+		r.logger.Info(fmt.Sprintf("Ignoring OLSConfig CR other than %s", OLSConfigName), "name", req.Name)
 		return ctrl.Result{}, nil
 	}
 
