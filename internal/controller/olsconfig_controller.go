@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -66,6 +67,8 @@ type OLSConfigReconcilerOptions struct {
 	LightspeedServiceImage         string
 	LightspeedServicePostgresImage string
 	ConsoleUIImage                 string
+	ConsoleUIImagePf5              string
+	ConsoleUIImagePf6              string
 	OpenShiftMCPServerImage        string
 	Namespace                      string
 	ReconcileInterval              time.Duration
@@ -260,6 +263,19 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	r.Options.OpenShiftMajor = major
 	r.Options.OpenshiftMinor = minor
+
+	// Setup required console image
+	mVersion, err := strconv.Atoi(minor)
+	if err != nil {
+		return err
+	}
+	if mVersion < 19 {
+		// Use PF5
+		r.Options.ConsoleUIImage = r.Options.ConsoleUIImagePf6
+	} else {
+		// Use PF6
+		r.Options.ConsoleUIImage = r.Options.ConsoleUIImagePf6
+	}
 
 	generationChanged := builder.WithPredicates(predicate.GenerationChangedPredicate{})
 	return ctrl.NewControllerManagedBy(mgr).
