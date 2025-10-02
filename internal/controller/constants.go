@@ -255,6 +255,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
 	// MCP server image
 	OpenShiftMCPServerImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43"
+	// Dataverse exporter image
+	DataverseExporterImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:a7a880be0ad773c338e40ea0ce1aa7a1d832bd0fbaa7d624c6325fe5c3c5be75"
 	// MCP server URL
 	OpenShiftMCPServerURL = "http://localhost:%d/mcp"
 	// MCP server port
