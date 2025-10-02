@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -81,13 +83,16 @@ func init() {
 
 // overrideImages overides the default images with the images provided by the user
 // if an images is not provided, the default is used.
-func overrideImages(serviceImage string, consoleImage string, postgresImage string, openshiftMCPServerImage string) map[string]string {
+func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 string, postgresImage string, openshiftMCPServerImage string) map[string]string {
 	res := defaultImages
 	if serviceImage != "" {
 		res["lightspeed-service"] = serviceImage
 	}
 	if consoleImage != "" {
 		res["console-plugin"] = consoleImage
+	}
+	if consoleImage_pf5 != "" {
+		res["console-plugin-pf5"] = consoleImage_pf5
 	}
 	if postgresImage != "" {
 		res["postgres-image"] = postgresImage
@@ -122,6 +127,7 @@ func main() {
 	var metricsClientCA string
 	var serviceImage string
 	var consoleImage string
+	var consoleImage_pf5 string
 	var namespace string
 	var postgresImage string
 	var openshiftMCPServerImage string
@@ -137,7 +143,8 @@ func main() {
 	flag.StringVar(&keyName, "key-name", controller.OperatorKeyNameDefault, "The name of the TLS key file.")
 	flag.StringVar(&caCertPath, "ca-cert", controller.OperatorCACertPathDefault, "The path to the CA certificate file.")
 	flag.StringVar(&serviceImage, "service-image", controller.OLSAppServerImageDefault, "The image of the lightspeed-service container.")
-	flag.StringVar(&consoleImage, "console-image", controller.ConsoleUIImageDefault, "The image of the console-plugin container.")
+	flag.StringVar(&consoleImage, "console-image", controller.ConsoleUIImageDefault, "The image of the console-plugin container using PatternFly 6.")
+	flag.StringVar(&consoleImage_pf5, "console-image_pf5", controller.ConsoleUIImagePF5Default, "The image of the console-plugin container using PatternFly 5.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
 	flag.StringVar(&postgresImage, "postgres-image", controller.PostgresServerImageDefault, "The image of the PostgreSQL server.")
 	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", controller.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
@@ -153,25 +160,25 @@ func main() {
 		namespace = getWatchNamespace()
 	}
 
-	imagesMap := overrideImages(serviceImage, consoleImage, postgresImage, openshiftMCPServerImage)
+	imagesMap := overrideImages(serviceImage, consoleImage, consoleImage_pf5, postgresImage, openshiftMCPServerImage)
 	setupLog.Info("Images setting loaded", "images", listImages())
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "reconcilerIntervalMinutes", reconcilerIntervalMinutes, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
+	// Get K8 client and context
+	cfg, err := config.GetConfig()
+	if err != nil {
+		setupLog.Error(err, "unable to get Kubernetes config")
+		os.Exit(1)
+	}
+	k8sClient, err := client.New(cfg, client.Options{Scheme: scheme})
+	if err != nil {
+		setupLog.Error(err, "unable to create Kubernetes client")
+		os.Exit(1)
+	}
+
+	ctx := context.Background()
 
 	var tlsSecurityProfileSpec configv1.TLSProfileSpec
 	if secureMetricsServer {
-		cfg, err := config.GetConfig()
-		if err != nil {
-			setupLog.Error(err, "unable to get Kubernetes config")
-			os.Exit(1)
-		}
-
-		k8sClient, err := client.New(cfg, client.Options{Scheme: scheme})
-		if err != nil {
-			setupLog.Error(err, "unable to create Kubernetes client")
-			os.Exit(1)
-		}
-
-		ctx := context.Background()
 		apiAuthConfigmap := &corev1.ConfigMap{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Name: controller.ClientCACmName, Namespace: controller.ClientCACmNamespace}, apiAuthConfigmap)
 		if err != nil {
@@ -203,6 +210,33 @@ func main() {
 			tlsSecurityProfileSpec = utiltls.GetTLSProfileSpec(profileAPIServer)
 		}
 
+	}
+
+	// Get Openshift version
+	key := client.ObjectKey{Name: "version"}
+	clusterVersion := &configv1.ClusterVersion{}
+	if err := k8sClient.Get(ctx, key, clusterVersion); err != nil {
+		setupLog.Error(err, "failed to get Openshift version.")
+		os.Exit(1)
+	}
+	openshift_versions := strings.Split(clusterVersion.Status.Desired.Version, ".")
+	if len(openshift_versions) < 2 {
+		setupLog.Error(fmt.Errorf("failed to parse cluster version: %s", clusterVersion.Status.Desired.Version), "failed to get Openshift version.")
+		os.Exit(1)
+	}
+
+	// Setup required console image
+	mVersion, err := strconv.Atoi(openshift_versions[1])
+	if err != nil {
+		setupLog.Error(err, "failed to get Openshift version.")
+		os.Exit(1)
+	}
+	if mVersion < 19 {
+		// Use PF5
+		consoleImage = imagesMap["console-plugin-pf5"]
+	} else {
+		// Use PF6
+		consoleImage = imagesMap["console-plugin"]
 	}
 
 	metricsTLSSetup := func(tlsConf *tls.Config) {
@@ -256,8 +290,10 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Options: controller.OLSConfigReconcilerOptions{
+			OpenShiftMajor:                 openshift_versions[0],
+			OpenshiftMinor:                 openshift_versions[1],
+			ConsoleUIImage:                 consoleImage,
 			LightspeedServiceImage:         imagesMap["lightspeed-service"],
-			ConsoleUIImage:                 imagesMap["console-plugin"],
 			LightspeedServicePostgresImage: imagesMap["postgres-image"],
 			OpenShiftMCPServerImage:        imagesMap["openshift-mcp-server-image"],
 			Namespace:                      namespace,
