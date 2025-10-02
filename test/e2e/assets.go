@@ -12,9 +12,9 @@ import (
 
 func generateLLMTokenSecret(name string) (*corev1.Secret, error) { // nolint:unused
 	token := os.Getenv(LLMTokenEnvVar)
-	var tenantID string = os.Getenv(AzureTenantID)
-	var clientID string = os.Getenv(AzureClientID)
-	var clientSecret string = os.Getenv(AzureClientSecret)
+	var tenantID = os.Getenv(AzureTenantID)
+	var clientID = os.Getenv(AzureClientID)
+	var clientSecret = os.Getenv(AzureClientSecret)
 	if token == "" {
 		return nil, fmt.Errorf("LLM token not found in $%s", LLMTokenEnvVar)
 	}

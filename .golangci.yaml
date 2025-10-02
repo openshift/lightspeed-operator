@@ -1,25 +1,38 @@
+version: "2"                          # ← mandatory for v2.x
+
 run:
-   timeout: 5m
-   tests: false
-   modules-download-mode: readonly
+    timeout: 5m
+    tests: false
+    modules-download-mode: readonly
+
 output:
-   formats:
-   - format: colored-line-number
-   sort-results: true
-linters:
-   disable-all: true
-   enable:
-   - errcheck
-   - gosimple
-   - govet
-   - gosec
-   - goimports
-   - ineffassign
-   - staticcheck
-   - unused
+    formats:
+        colored-line-number:
+            path: stdout
+    sort-results: true
+
+llinters:
+    default: none
+    enable:
+    - errcheck
+    - gosimple
+    - govet
+    - gosec
+    - ineffassign
+    - staticcheck
+    - unused
+
+formatters:
+    enable:
+    - goimports                 # <-- moved here
+    settings:
+        goimports:
+            local-prefixes: github.com/openshift/lightspeed-operator
+
 linters-settings:
-   goimports:
-     local-prefixes: github.com/openshift/lightspeed-operator
+    goimports:
+        local-prefixes: github.com/openshift/lightspeed-operator
+
 issues:
-   exclude-dirs:
-     - test/
+    exclude-dirs:
+    - test/

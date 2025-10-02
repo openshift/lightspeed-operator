@@ -37,9 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
 const (

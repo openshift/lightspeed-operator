@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 
-	configv1 "github.com/openshift/api/config/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -208,10 +207,6 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		Postgres: r.postgresCacheConfig(cr),
 	}
 
-	major, minor, err := r.getClusterVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
 	// We want to disable the data collector if the user has explicitly disabled it
 	// or if the data collector is not enabled in the cluster with pull secret
 
@@ -252,13 +247,13 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		}
 		referenceIndexes = append(referenceIndexes, referenceIndex)
 	}
-	if !cr.Spec.OLSConfig.ByokRAGOnly {
-		ocpReferenceIndex := ReferenceIndex{
-			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
-			ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
-		}
-		referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
+	// OCP documentation is always available
+	ocpReferenceIndex := ReferenceIndex{
+		ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.Options.OpenShiftMajor + "." + r.Options.OpenshiftMinor,
+		ProductDocsIndexId:   "ocp-product-docs-" + r.Options.OpenShiftMajor + "_" + r.Options.OpenshiftMinor,
 	}
+
+	referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 
 	olsConfig := OLSConfig{
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
@@ -708,19 +703,6 @@ func (r *OLSConfigReconciler) generateMetricsReaderSecret(cr *olsv1alpha1.OLSCon
 	}
 
 	return secret, nil
-}
-
-func (r *OLSConfigReconciler) getClusterVersion(ctx context.Context) (string, string, error) {
-	key := client.ObjectKey{Name: "version"}
-	clusterVersion := &configv1.ClusterVersion{}
-	if err := r.Get(ctx, key, clusterVersion); err != nil {
-		return "", "", err
-	}
-	versions := strings.Split(clusterVersion.Status.Desired.Version, ".")
-	if len(versions) < 2 {
-		return "", "", fmt.Errorf("failed to parse cluster version: %s", clusterVersion.Status.Desired.Version)
-	}
-	return versions[0], versions[1], nil
 }
 
 func getQueryFilters(cr *olsv1alpha1.OLSConfig) []QueryFilters {

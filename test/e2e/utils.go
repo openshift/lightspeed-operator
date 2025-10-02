@@ -10,10 +10,11 @@ import (
 	"os/exec"
 	"strings"
 
-	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
 // OLSTestEnvironment contains all the resources needed for TLS testing
@@ -148,7 +149,7 @@ func TestOLSServiceActivation(env *OLSTestEnvironment) (*corev1.Secret, error) {
 	}
 
 	// Check the secret holding TLS certificates is created
-	secretName, ok := service.ObjectMeta.Annotations[ServiceAnnotationKeyTLSSecret]
+	secretName, ok := service.Annotations[ServiceAnnotationKeyTLSSecret]
 	if !ok {
 		return nil, fmt.Errorf("TLS secret annotation not found on service")
 	}
@@ -239,8 +240,8 @@ func UpdateRapidastConfig(hostURL, token string) error {
 		return fmt.Errorf("error reading config file: %w", err)
 	}
 
-	newContent := strings.Replace(string(configContent), "$HOST", hostURL, -1)
-	newContent = strings.Replace(newContent, "$BEARER_TOKEN", token, -1)
+	newContent := strings.ReplaceAll(string(configContent), "$HOST", hostURL)
+	newContent = strings.ReplaceAll(newContent, "$BEARER_TOKEN", token)
 
 	err = os.WriteFile("../../ols-rapidast-config-updated.yaml", []byte(newContent), 0644)
 	if err != nil {
@@ -286,10 +287,10 @@ func CleanupOLSTestEnvironmentWithCRDeletion(env *OLSTestEnvironment, testName s
 func containsVolume(volumes []corev1.Volume, target corev1.Volume) bool {
 	for _, volume := range volumes {
 		if volume.Name == target.Name &&
-			volume.VolumeSource.Secret != nil &&
-			target.VolumeSource.Secret != nil &&
-			volume.VolumeSource.Secret.SecretName == target.VolumeSource.Secret.SecretName &&
-			*volume.VolumeSource.Secret.DefaultMode == *target.VolumeSource.Secret.DefaultMode {
+			volume.Secret != nil &&
+			target.Secret != nil &&
+			volume.Secret.SecretName == target.Secret.SecretName &&
+			*volume.Secret.DefaultMode == *target.Secret.DefaultMode {
 			return true
 		}
 	}

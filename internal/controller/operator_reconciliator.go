@@ -73,10 +73,10 @@ func (r *OLSConfigReconciler) reconcileServiceMonitorForOperator(ctx context.Con
 	}
 	operatorDeployment := &appsv1.Deployment{}
 	foundSm := &monv1.ServiceMonitor{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OperatorServiceMonitorName, Namespace: r.Options.Namespace}, foundSm)
+	err = r.Get(ctx, client.ObjectKey{Name: OperatorServiceMonitorName, Namespace: r.Options.Namespace}, foundSm)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new service monitor", "serviceMonitor", sm.Name)
-		err = r.Client.Get(ctx, client.ObjectKey{Name: OperatorDeploymentName, Namespace: r.Options.Namespace}, operatorDeployment)
+		err = r.Get(ctx, client.ObjectKey{Name: OperatorDeploymentName, Namespace: r.Options.Namespace}, operatorDeployment)
 		if err != nil {
 			r.logger.Error(err, "cannot get operator deployment", "name", OperatorDeploymentName, "namespace", r.Options.Namespace)
 			return fmt.Errorf("%s: %w", ErrCreateServiceMonitor, err)
@@ -98,7 +98,7 @@ func (r *OLSConfigReconciler) reconcileServiceMonitorForOperator(ctx context.Con
 		return nil
 	}
 	foundSm.Spec = sm.Spec
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OperatorDeploymentName, Namespace: r.Options.Namespace}, operatorDeployment)
+	err = r.Get(ctx, client.ObjectKey{Name: OperatorDeploymentName, Namespace: r.Options.Namespace}, operatorDeployment)
 	if err != nil {
 		r.logger.Error(err, "cannot get operator deployment", "name", OperatorDeploymentName, "namespace", r.Options.Namespace)
 		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)
@@ -183,7 +183,7 @@ func (r *OLSConfigReconciler) reconcileNetworkPolicyForOperator(ctx context.Cont
 		return fmt.Errorf("%s: %w", ErrGenerateOperatorNetworkPolicy, err)
 	}
 	foundNp := &networkingv1.NetworkPolicy{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OperatorNetworkPolicyName, Namespace: r.Options.Namespace}, foundNp)
+	err = r.Get(ctx, client.ObjectKey{Name: OperatorNetworkPolicyName, Namespace: r.Options.Namespace}, foundNp)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, &np)
 		if err != nil {
