@@ -60,7 +60,7 @@ func (c *HTTPSClient) Get(queryUrl string, headers ...map[string]string) (*http.
 	}
 	u.Host = c.host
 	u.Scheme = "https"
-	var body = make([]byte, 1024)
+	var body []byte = make([]byte, 1024)
 	req, err := http.NewRequest(http.MethodGet, u.String(), bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err

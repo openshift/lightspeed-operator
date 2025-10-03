@@ -160,7 +160,7 @@ $(OCP_APISERVER_CRD_FILE): $(TEST_CRD_DIR)
 	wget -O $(OCP_APISERVER_CRD_FILE) $(OCP_APISERVER_CRD_URL)
 
 
-.PHONY: test-e2e
+.PHONY: test-e2etest-e2e
 test-e2e: ## Run e2e tests with an Openshift cluster. Requires KUBECONFIG and LLM_TOKEN environment variables.
 ifndef KUBECONFIG
 	$(error KUBECONFIG environment variable is not set)

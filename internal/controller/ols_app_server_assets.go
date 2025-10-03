@@ -252,7 +252,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.Options.OpenShiftMajor + "." + r.Options.OpenshiftMinor,
 		ProductDocsIndexId:   "ocp-product-docs-" + r.Options.OpenShiftMajor + "_" + r.Options.OpenshiftMinor,
 	}
-
+	
 	referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 
 	olsConfig := OLSConfig{
