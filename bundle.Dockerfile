@@ -5,6 +5,7 @@ ARG OPERATOR_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-operator:lat
 ARG SERVICE_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-service-api:latest
 ARG CONSOLE_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
 ARG OPENSHIFT_MCP_SERVER_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
+ARG DATAVERSE_EXPORTER_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ca52c424be7f2fb1f42f7e2f4e1819e87535250a53b27493b4d63c26c422d97c
 
 RUN microdnf install -y jq
 
@@ -15,6 +16,7 @@ RUN OPERATOR_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-operator") | .imag
 RUN SERVICE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-service-api") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${SERVICE_IMAGE_ORIGINAL}|${SERVICE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN CONSOLE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-console-plugin") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${CONSOLE_IMAGE_ORIGINAL}|${CONSOLE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN OPENSHIFT_MCP_SERVER_IMAGE=$(jq -r '.[] | select(.name == "openshift-mcp-server") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${OPENSHIFT_MCP_SERVER_IMAGE_ORIGINAL}|${OPENSHIFT_MCP_SERVER_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
+RUN DATAVERSE_EXPORTER_IMAGE=$(jq -r '.[] | select(.name == "dataverse-exporter") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${DATAVERSE_EXPORTER_IMAGE_ORIGINAL}|${DATAVERSE_EXPORTER_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 
 
 FROM registry.redhat.io/ubi9/ubi-minimal:9.6

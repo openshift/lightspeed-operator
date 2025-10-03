@@ -24,6 +24,10 @@
     "image": "registry.redhat.io/rhel9/postgresql-16@sha256:6d2cab6cb6366b26fcf4591fe22aa5e8212a3836c34c896bb65977a8e50d658b"
   },
   {
+    "name": "dataverse-exporter",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ca52c424be7f2fb1f42f7e2f4e1819e87535250a53b27493b4d63c26c422d97c"
+  },
+  {
     "name": "lightspeed-operator-bundle",
     "image": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:78627f5bed3fa4fc207439a6144cb28c7d8493119394ad2a75382473418a70ac",
     "revision": "c385ef25f9050aba28c39741313c3b99f0965097"
