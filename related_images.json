@@ -25,7 +25,7 @@
   },
   {
     "name": "dataverse-exporter",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:b0c234700c2ceb813ead81b0e44b669741febe3dead4b75b4efbe34b1aa6e5ac"
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ca52c424be7f2fb1f42f7e2f4e1819e87535250a53b27493b4d63c26c422d97c"
   },
   {
     "name": "lightspeed-operator-bundle",

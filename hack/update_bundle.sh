@@ -136,7 +136,7 @@ else
   },
   {
       "name": "dataverse-exporter",
-      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:b0c234700c2ceb813ead81b0e44b669741febe3dead4b75b4efbe34b1aa6e5ac"
+      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ca52c424be7f2fb1f42f7e2f4e1819e87535250a53b27493b4d63c26c422d97c"
   }
 ]
 EOF
@@ -167,7 +167,7 @@ ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] 
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43\", ${OPENSHIFT_MCP_SERVER_IMAGE}))" -i ${CSV_FILE}
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].image |= sub(\"quay.io/openshift-lightspeed/lightspeed-operator:latest\", ${OPERATOR_IMAGE}))" -i ${CSV_FILE}
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/
-lightspeed-to-dataverse-exporter@sha256:b0c234700c2ceb813ead81b0e44b669741febe3dead4b75b4efbe34b1aa6e5ac\", ${DATAVERSE_EXPORTER_IMAGE}))" -i ${CSV_FILE}
+lightspeed-to-dataverse-exporter@sha256:ca52c424be7f2fb1f42f7e2f4e1819e87535250a53b27493b4d63c26c422d97c\", ${DATAVERSE_EXPORTER_IMAGE}))" -i ${CSV_FILE}
 # set related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES}" ${CSV_FILE}
 # add compatibility labels to the annotations file
