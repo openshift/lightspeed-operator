@@ -105,6 +105,7 @@ spec:
               ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.17/index.yaml -m
               ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.18/index.yaml -m
               ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.19/index.yaml -m
+              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.20/index.yaml -m
 
             workingDir: /workspace
             env:
