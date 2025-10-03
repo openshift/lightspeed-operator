@@ -139,7 +139,7 @@ spec:
               set -e
               cd repo
               git add lightspeed-catalog-4.16/index.yaml lightspeed-catalog-4.17/index.yaml \
-                lightspeed-catalog-4.18/index.yaml lightspeed-catalog-4.19/index.yaml
+                lightspeed-catalog-4.18/index.yaml lightspeed-catalog-4.19/index.yaml lightspeed-catalog-4.20/index.yaml
               git add related_images.json
               git commit -m "Update catalog with bundle snapshot $(params.snapshot)"
               git config credential.helper '!f() { sleep 1; echo "username=git"; echo "password=$GITHUB_TOKEN"; }; f'

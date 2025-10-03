@@ -1,27 +1,27 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:ec359967a87bc7ee2c1d6a61e553acbdb0dc85d6f240a1865bf57d3ba5dc7193",
-    "revision": "20cfe6bc3f834010a3ee48cfa0cfe5b80f5d725b"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:4a9336718d247bbbe5caade2c7186e8d11e636683ab3b043ff5058b486eaf6fa",
+    "revision": "5311006d97802fd1b9bdf6adf3a348d692bdcfae"
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:dfc42c2651ac8793f61ff0e54334ecb006dc4a77487bc7c6878cdf47bd4ac080",
-    "revision": "06a9c4d0e34166a2412351910e072652ca0fc19f"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:1db560558b454b15f307f07b2840fbfd96f3ee73d6c515561c9d9d7d77156b0e",
+    "revision": "9157be74a22855364d8e69684bdc59589529c413"
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:b12803642df4d9b3ad0cf800315021483f543c6a8827b3901e57bdb65f10dc48",
-    "revision": "6ce14427068974f91f0986128756e6ab4e679d1b"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:697fb9043c4c1a1b3f7fff25faf8c109c0436ec98d1ec15e17e84c60a656f18d",
+    "revision": "3db49d631c32d0b669162bb446f1151e7741a43c"
   },
   {
     "name": "openshift-mcp-server",
-    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:f1e4521ff2cc076f361c04d8c9aeac09ffcedb89a2f1dbe71f85caa27472adab",
-    "revision": "71f6c47f620d669f88b6c9b73778373a759dff68"
+    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:e23ab62b89f1952aec1979bfe5b73a4c52b8bdad5ef44dc8b5d1620a0d5c69d2",
+    "revision": "2b8e41e03ca019fd2ee7c309d0de347f63550a3c"
   },
   {
     "name": "lightspeed-postgresql",
-    "image": "registry.redhat.io/rhel9/postgresql-16@sha256:6d2cab6cb6366b26fcf4591fe22aa5e8212a3836c34c896bb65977a8e50d658b"
+    "image": "registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b"
   },
   {
     "name": "lightspeed-operator-bundle",

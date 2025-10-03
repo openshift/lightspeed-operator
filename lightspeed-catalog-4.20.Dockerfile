@@ -1,4 +1,4 @@
-FROM brew.registry.redhat.io/rh-osbs/openshift-ose-operator-registry-rhel9:v4.20
+FROM registry.redhat.io/openshift4/ose-operator-registry-rhel9:v4.20
 
 # Configure the entrypoint and command
 ENTRYPOINT ["/bin/opm"]
