@@ -15,7 +15,7 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
-func (r *OLSConfigReconciler) reconcilePostgresServer(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcilePostgresServer(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) (string, error) {
 	r.logger.Info("reconcilePostgresServer starts")
 	tasks := []ReconcileTask{
 		{
@@ -38,33 +38,34 @@ func (r *OLSConfigReconciler) reconcilePostgresServer(ctx context.Context, olsco
 			Name: "reconcile Postgres PVC",
 			Task: r.reconcilePostgresPVC,
 		},
-		{
-			Name: "reconcile Postgres Deployment",
-			Task: r.reconcilePostgresDeployment,
-		},
+
 		{
 			Name: "generate Postgres Network Policy",
 			Task: r.reconcilePostgresNetworkPolicy,
 		},
+		{
+			Name: "reconcile Postgres Deployment",
+			Task: r.reconcilePostgresDeployment,
+		},
 	}
 
 	for _, task := range tasks {
-		err := task.Task(ctx, olsconfig)
+		message, err := task.Task(ctx, olsconfig)
 		if err != nil {
 			r.logger.Error(err, "reconcilePostgresServer error", "task", task.Name)
-			return fmt.Errorf("failed to %s: %w", task.Name, err)
+			return message, fmt.Errorf("failed to %s: %w", task.Name, err)
 		}
 	}
 
 	r.logger.Info("reconcilePostgresServer completed")
 
-	return nil
+	return "", nil
 }
 
-func (r *OLSConfigReconciler) reconcilePostgresDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcilePostgresDeployment(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	desiredDeployment, err := r.generatePostgresDeployment(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGeneratePostgresDeployment, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGeneratePostgresDeployment, err)
 	}
 
 	existingDeployment := &appsv1.Deployment{}
@@ -81,31 +82,40 @@ func (r *OLSConfigReconciler) reconcilePostgresDeployment(ctx context.Context, c
 		r.logger.Info("creating a new OLS postgres deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
-			return fmt.Errorf("%s: %w", ErrCreatePostgresDeployment, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreatePostgresDeployment, err)
 		}
-		return nil
+
+		// Deployment was just created – it cannot be ready yet.
+		return "In Progress", fmt.Errorf("deployment is not ready, 0 replicas available")
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetPostgresDeployment, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetPostgresDeployment, err)
 	}
 
 	err = r.updatePostgresDeployment(ctx, existingDeployment, desiredDeployment)
 
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrUpdatePostgresDeployment, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrUpdatePostgresDeployment, err)
 	}
 
 	r.logger.Info("OLS postgres deployment reconciled", "deployment", desiredDeployment.Name)
-	return nil
+
+	// ----------  Deployment status  ----------
+	// Re-fetch to obtain freshest conditions & ready replicas
+	dep := &appsv1.Deployment{}
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(desiredDeployment), dep); err != nil {
+		return "Failed", fmt.Errorf("failed to read deployment status: %w", err)
+	}
+	return r.checkDeploymentStatus(dep)
 }
 
-func (r *OLSConfigReconciler) reconcilePostgresPVC(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcilePostgresPVC(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 
 	if cr.Spec.OLSConfig.Storage == nil {
-		return nil
+		return "", nil
 	}
 	pvc, err := r.generatePostgresPVC(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGeneratePostgresPVC, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGeneratePostgresPVC, err)
 	}
 
 	foundPVC := &corev1.PersistentVolumeClaim{}
@@ -113,19 +123,19 @@ func (r *OLSConfigReconciler) reconcilePostgresPVC(ctx context.Context, cr *olsv
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, pvc)
 		if err != nil {
-			return fmt.Errorf("%s: %w", ErrCreatePostgresPVC, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreatePostgresPVC, err)
 		}
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetPostgresPVC, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetPostgresPVC, err)
 	}
 	r.logger.Info("OLS postgres PVC reconciled", "pvc", pvc.Name)
-	return nil
+	return "", nil
 }
 
-func (r *OLSConfigReconciler) reconcilePostgresService(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcilePostgresService(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	service, err := r.generatePostgresService(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGeneratePostgresService, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGeneratePostgresService, err)
 	}
 
 	foundService := &corev1.Service{}
@@ -133,19 +143,19 @@ func (r *OLSConfigReconciler) reconcilePostgresService(ctx context.Context, cr *
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, service)
 		if err != nil {
-			return fmt.Errorf("%s: %w", ErrCreatePostgresService, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreatePostgresService, err)
 		}
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetPostgresService, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetPostgresService, err)
 	}
 	r.logger.Info("OLS postgres service reconciled", "service", service.Name)
-	return nil
+	return "", nil
 }
 
-func (r *OLSConfigReconciler) reconcilePostgresConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcilePostgresConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	configMap, err := r.generatePostgresConfigMap(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGeneratePostgresConfigMap, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGeneratePostgresConfigMap, err)
 	}
 
 	foundConfigMap := &corev1.ConfigMap{}
@@ -153,19 +163,19 @@ func (r *OLSConfigReconciler) reconcilePostgresConfigMap(ctx context.Context, cr
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, configMap)
 		if err != nil {
-			return fmt.Errorf("%s: %w", ErrCreatePostgresConfigMap, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreatePostgresConfigMap, err)
 		}
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetPostgresConfigMap, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetPostgresConfigMap, err)
 	}
 	r.logger.Info("OLS postgres configmap reconciled", "configmap", configMap.Name)
-	return nil
+	return "", nil
 }
 
-func (r *OLSConfigReconciler) reconcilePostgresBootstrapSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcilePostgresBootstrapSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	secret, err := r.generatePostgresBootstrapSecret(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGeneratePostgresBootstrapSecret, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGeneratePostgresBootstrapSecret, err)
 	}
 
 	foundSecret := &corev1.Secret{}
@@ -173,54 +183,54 @@ func (r *OLSConfigReconciler) reconcilePostgresBootstrapSecret(ctx context.Conte
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, secret)
 		if err != nil {
-			return fmt.Errorf("%s: %w", ErrCreatePostgresBootstrapSecret, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreatePostgresBootstrapSecret, err)
 		}
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetPostgresBootstrapSecret, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetPostgresBootstrapSecret, err)
 	}
 	r.logger.Info("OLS postgres bootstrap secret reconciled", "secret", secret.Name)
-	return nil
+	return "", nil
 }
 
-func (r *OLSConfigReconciler) reconcilePostgresSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcilePostgresSecret(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	secret, err := r.generatePostgresSecret(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGeneratePostgresSecret, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGeneratePostgresSecret, err)
 	}
 	foundSecret := &corev1.Secret{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: secret.Name, Namespace: r.Options.Namespace}, foundSecret)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.deleteOldPostgresSecrets(ctx)
 		if err != nil {
-			return err
+			return "Failed", err
 		}
 		r.logger.Info("creating a new Postgres secret", "secret", secret.Name)
 		err = r.Create(ctx, secret)
 		if err != nil {
-			return fmt.Errorf("%s: %w", ErrCreatePostgresSecret, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreatePostgresSecret, err)
 		}
 		r.stateCache[PostgresSecretHashStateCacheKey] = secret.Annotations[PostgresSecretHashKey]
-		return nil
+		return "", nil
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetPostgresSecret, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetPostgresSecret, err)
 	}
 	foundSecretHash, err := hashBytes(foundSecret.Data[PostgresSecretKeyName])
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGeneratePostgresSecretHash, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGeneratePostgresSecretHash, err)
 	}
 	if foundSecretHash == r.stateCache[PostgresSecretHashStateCacheKey] {
 		r.logger.Info("OLS postgres secret reconciliation skipped", "secret", foundSecret.Name, "hash", foundSecret.Annotations[PostgresSecretHashKey])
-		return nil
+		return "", nil
 	}
 	r.stateCache[PostgresSecretHashStateCacheKey] = foundSecretHash
 	secret.Annotations[PostgresSecretHashKey] = foundSecretHash
 	secret.Data[PostgresSecretKeyName] = foundSecret.Data[PostgresSecretKeyName]
 	err = r.Update(ctx, secret)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrUpdatePostgresSecret, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrUpdatePostgresSecret, err)
 	}
 	r.logger.Info("OLS postgres reconciled", "secret", secret.Name, "hash", secret.Annotations[PostgresSecretHashKey])
-	return nil
+	return "", nil
 }
 
 func (r *OLSConfigReconciler) deleteOldPostgresSecrets(ctx context.Context) error {
@@ -245,31 +255,31 @@ func (r *OLSConfigReconciler) deleteOldPostgresSecrets(ctx context.Context) erro
 	return nil
 }
 
-func (r *OLSConfigReconciler) reconcilePostgresNetworkPolicy(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+func (r *OLSConfigReconciler) reconcilePostgresNetworkPolicy(ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	networkPolicy, err := r.generatePostgresNetworkPolicy(cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGeneratePostgresNetworkPolicy, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGeneratePostgresNetworkPolicy, err)
 	}
 	foundNetworkPolicy := &networkingv1.NetworkPolicy{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresNetworkPolicyName, Namespace: r.Options.Namespace}, foundNetworkPolicy)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, networkPolicy)
 		if err != nil {
-			return fmt.Errorf("%s: %w", ErrCreatePostgresNetworkPolicy, err)
+			return "Failed", fmt.Errorf("%s: %w", ErrCreatePostgresNetworkPolicy, err)
 		}
-		return nil
+		return "", nil
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetPostgresNetworkPolicy, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrGetPostgresNetworkPolicy, err)
 	}
 	if networkPolicyEqual(foundNetworkPolicy, networkPolicy) {
 		r.logger.Info("OLS postgres network policy unchanged, reconciliation skipped", "network policy", networkPolicy.Name)
-		return nil
+		return "", nil
 	}
 	foundNetworkPolicy.Spec = networkPolicy.Spec
 	err = r.Update(ctx, foundNetworkPolicy)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrUpdatePostgresNetworkPolicy, err)
+		return "Failed", fmt.Errorf("%s: %w", ErrUpdatePostgresNetworkPolicy, err)
 	}
 	r.logger.Info("OLS postgres network policy reconciled", "network policy", networkPolicy.Name)
-	return nil
+	return "", nil
 }
