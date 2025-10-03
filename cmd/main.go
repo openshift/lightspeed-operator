@@ -25,7 +25,6 @@ import (
 	"os"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -212,33 +211,6 @@ func main() {
 
 	}
 
-	// Get Openshift version
-	key := client.ObjectKey{Name: "version"}
-	clusterVersion := &configv1.ClusterVersion{}
-	if err := k8sClient.Get(ctx, key, clusterVersion); err != nil {
-		setupLog.Error(err, "failed to get Openshift version.")
-		os.Exit(1)
-	}
-	openshift_versions := strings.Split(clusterVersion.Status.Desired.Version, ".")
-	if len(openshift_versions) < 2 {
-		setupLog.Error(fmt.Errorf("failed to parse cluster version: %s", clusterVersion.Status.Desired.Version), "failed to get Openshift version.")
-		os.Exit(1)
-	}
-
-	// Setup required console image
-	mVersion, err := strconv.Atoi(openshift_versions[1])
-	if err != nil {
-		setupLog.Error(err, "failed to get Openshift version.")
-		os.Exit(1)
-	}
-	if mVersion < 19 {
-		// Use PF5
-		consoleImage = imagesMap["console-plugin-pf5"]
-	} else {
-		// Use PF6
-		consoleImage = imagesMap["console-plugin"]
-	}
-
 	metricsTLSSetup := func(tlsConf *tls.Config) {
 		if !secureMetricsServer {
 			return
@@ -286,12 +258,33 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Get Openshift version
+	major, minor, err := controller.GetOpenshiftVersion(k8sClient, ctx)
+	if err != nil {
+		setupLog.Error(err, "failed to get Openshift version.")
+		os.Exit(1)
+	}
+
+	// Setup required console image
+	mVersion, err := strconv.Atoi(minor)
+	if err != nil {
+		setupLog.Error(err, "failed to get Openshift version.")
+		os.Exit(1)
+	}
+	if mVersion < 19 {
+		// Use PF5
+		consoleImage = imagesMap["console-plugin-pf5"]
+	} else {
+		// Use PF6
+		consoleImage = imagesMap["console-plugin"]
+	}
+
 	if err = (&controller.OLSConfigReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Options: controller.OLSConfigReconcilerOptions{
-			OpenShiftMajor:                 openshift_versions[0],
-			OpenshiftMinor:                 openshift_versions[1],
+			OpenShiftMajor:                 major,
+			OpenshiftMinor:                 minor,
 			ConsoleUIImage:                 consoleImage,
 			LightspeedServiceImage:         imagesMap["lightspeed-service"],
 			LightspeedServicePostgresImage: imagesMap["postgres-image"],

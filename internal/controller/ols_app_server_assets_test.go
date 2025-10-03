@@ -85,8 +85,8 @@ var _ = Describe("App server assets", func() {
 
 		It("should generate the olsconfig config map", func() {
 			createTelemetryPullSecret()
-			major := r.Options.OpenShiftMajor
-			minor := r.Options.OpenshiftMinor
+			major, minor, err := GetOpenshiftVersion(r.Client, ctx)
+			Expect(err).NotTo(HaveOccurred())
 
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -1134,8 +1134,9 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
 
-			major := r.Options.OpenShiftMajor
-			minor := r.Options.OpenshiftMinor
+			major, minor, err := GetOpenshiftVersion(r.Client, ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			// OCP document is always there
 			ocpIndex := ReferenceIndex{
 				ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
@@ -1357,8 +1358,8 @@ var _ = Describe("App server assets", func() {
 			// todo: this test is not complete
 			// generateOLSConfigMap should return an error if the CR is missing required fields
 			createTelemetryPullSecret()
-			major := r.Options.OpenShiftMajor
-			minor := r.Options.OpenshiftMinor
+			major, minor, err := GetOpenshiftVersion(r.Client, ctx)
+			Expect(err).NotTo(HaveOccurred())
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))
@@ -1413,8 +1414,8 @@ user_data_collector_config:
 			// pull-secret without telemetry token should disable data collection
 			// and user_data_collector_config should not be present in the config
 			createTelemetryPullSecretWithoutTelemetryToken()
-			major := r.Options.OpenShiftMajor
-			minor := r.Options.OpenshiftMinor
+			major, minor, err := GetOpenshiftVersion(r.Client, ctx)
+			Expect(err).NotTo(HaveOccurred())
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(OLSConfigCmName))

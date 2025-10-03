@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	configv1 "github.com/openshift/api/config/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -426,4 +427,18 @@ func validateCertificateFormat(cert []byte) error {
 	}
 
 	return nil
+}
+
+// Get Openshift version
+func GetOpenshiftVersion(k8sClient client.Client, ctx context.Context) (string, string, error) {
+	key := client.ObjectKey{Name: "version"}
+	clusterVersion := &configv1.ClusterVersion{}
+	if err := k8sClient.Get(ctx, key, clusterVersion); err != nil {
+		return "", "", err
+	}
+	openshift_versions := strings.Split(clusterVersion.Status.Desired.Version, ".")
+	if len(openshift_versions) < 2 {
+		return "", "", fmt.Errorf("failed to parse cluster version: %s", clusterVersion.Status.Desired.Version)
+	}
+	return openshift_versions[0], openshift_versions[1], nil
 }
