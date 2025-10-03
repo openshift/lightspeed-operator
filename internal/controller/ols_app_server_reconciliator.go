@@ -101,7 +101,7 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	}
 
 	foundCm := &corev1.ConfigMap{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSConfigCmName, Namespace: r.Options.Namespace}, foundCm)
+	err = r.Get(ctx, client.ObjectKey{Name: OLSConfigCmName, Namespace: r.Options.Namespace}, foundCm)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new configmap", "configmap", cm.Name)
 		err = r.Create(ctx, cm)
@@ -148,7 +148,7 @@ func (r *OLSConfigReconciler) reconcileOLSAdditionalCAConfigMap(ctx context.Cont
 	// annotate the configmap for watcher
 	cm := &corev1.ConfigMap{}
 
-	err := r.Client.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.Options.Namespace}, cm)
+	err := r.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.Options.Namespace}, cm)
 
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrGetAdditionalCACM, err)
@@ -189,7 +189,7 @@ func (r *OLSConfigReconciler) reconcileProxyCAConfigMap(ctx context.Context, cr 
 	}
 
 	cm := &corev1.ConfigMap{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, Namespace: r.Options.Namespace}, cm)
+	err := r.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, Namespace: r.Options.Namespace}, cm)
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrGetProxyCACM, err)
 	}
@@ -210,7 +210,7 @@ func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *o
 	}
 
 	foundSa := &corev1.ServiceAccount{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerServiceAccountName, Namespace: r.Options.Namespace}, foundSa)
+	err = r.Get(ctx, client.ObjectKey{Name: OLSAppServerServiceAccountName, Namespace: r.Options.Namespace}, foundSa)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new service account", "serviceAccount", sa.Name)
 		err = r.Create(ctx, sa)
@@ -232,7 +232,7 @@ func (r *OLSConfigReconciler) reconcileSARRole(ctx context.Context, cr *olsv1alp
 	}
 
 	foundRole := &rbacv1.ClusterRole{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: role.Name}, foundRole)
+	err = r.Get(ctx, client.ObjectKey{Name: role.Name}, foundRole)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new SAR cluster role", "ClusterRole", role.Name)
 		err = r.Create(ctx, role)
@@ -254,7 +254,7 @@ func (r *OLSConfigReconciler) reconcileSARRoleBinding(ctx context.Context, cr *o
 	}
 
 	foundRB := &rbacv1.ClusterRoleBinding{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: rb.Name}, foundRB)
+	err = r.Get(ctx, client.ObjectKey{Name: rb.Name}, foundRB)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new SAR cluster role binding", "ClusterRoleBinding", rb.Name)
 		err = r.Create(ctx, rb)
@@ -276,7 +276,7 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	}
 
 	existingDeployment := &appsv1.Deployment{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
+	err = r.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
 			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
@@ -315,7 +315,7 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 	}
 
 	foundService := &corev1.Service{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerServiceName, Namespace: r.Options.Namespace}, foundService)
+	err = r.Get(ctx, client.ObjectKey{Name: OLSAppServerServiceName, Namespace: r.Options.Namespace}, foundService)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new service", "service", service.Name)
 		err = r.Create(ctx, service)
@@ -328,12 +328,12 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 		return fmt.Errorf("%s: %w", ErrGetAPIServiceAccount, err)
 	}
 
-	if serviceEqual(foundService, service) && foundService.ObjectMeta.Annotations != nil {
+	if serviceEqual(foundService, service) && foundService.Annotations != nil {
 		if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate != "" {
 			r.logger.Info("OLS service unchanged, reconciliation skipped", "service", service.Name)
 			return nil
 
-		} else if foundService.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] == service.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] {
+		} else if foundService.Annotations[ServingCertSecretAnnotationKey] == service.Annotations[ServingCertSecretAnnotationKey] {
 			r.logger.Info("OLS service unchanged, reconciliation skipped", "service", service.Name)
 			return nil
 		}
@@ -384,7 +384,7 @@ func (r *OLSConfigReconciler) reconcileMetricsReaderSecret(ctx context.Context, 
 		return fmt.Errorf("%s: %w", ErrGenerateMetricsReaderSecret, err)
 	}
 	foundSecret := &corev1.Secret{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: secret.Name, Namespace: r.Options.Namespace}, foundSecret)
+	err = r.Get(ctx, client.ObjectKey{Name: secret.Name, Namespace: r.Options.Namespace}, foundSecret)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new metrics reader secret", "secret", secret.Name)
 		err = r.Create(ctx, secret)
@@ -415,7 +415,7 @@ func (r *OLSConfigReconciler) reconcileServiceMonitor(ctx context.Context, cr *o
 	}
 
 	foundSm := &monv1.ServiceMonitor{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: AppServerServiceMonitorName, Namespace: r.Options.Namespace}, foundSm)
+	err = r.Get(ctx, client.ObjectKey{Name: AppServerServiceMonitorName, Namespace: r.Options.Namespace}, foundSm)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new service monitor", "serviceMonitor", sm.Name)
 		err = r.Create(ctx, sm)
@@ -446,7 +446,7 @@ func (r *OLSConfigReconciler) reconcilePrometheusRule(ctx context.Context, cr *o
 	}
 
 	foundRule := &monv1.PrometheusRule{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: AppServerPrometheusRuleName, Namespace: r.Options.Namespace}, foundRule)
+	err = r.Get(ctx, client.ObjectKey{Name: AppServerPrometheusRuleName, Namespace: r.Options.Namespace}, foundRule)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new prometheus rule", "prometheusRule", rule.Name)
 		err = r.Create(ctx, rule)
@@ -515,7 +515,7 @@ func (r *OLSConfigReconciler) reconcileAppServerNetworkPolicy(ctx context.Contex
 	}
 
 	foundNP := &networkingv1.NetworkPolicy{}
-	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerNetworkPolicyName, Namespace: r.Options.Namespace}, foundNP)
+	err = r.Get(ctx, client.ObjectKey{Name: OLSAppServerNetworkPolicyName, Namespace: r.Options.Namespace}, foundNP)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new network policy", "networkPolicy", networkPolicy.Name)
 		err = r.Create(ctx, networkPolicy)

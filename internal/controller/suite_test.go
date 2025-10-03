@@ -140,6 +140,8 @@ var _ = BeforeSuite(func() {
 
 	reconciler = &OLSConfigReconciler{
 		Options: OLSConfigReconcilerOptions{
+			OpenShiftMajor:                 "123",
+			OpenshiftMinor:                 "456",
 			LightspeedServiceImage:         OLSAppServerImageDefault,
 			LightspeedServicePostgresImage: PostgresServerImageDefault,
 			ConsoleUIImage:                 ConsoleUIImageDefault,

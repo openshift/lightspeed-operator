@@ -68,7 +68,7 @@ func (r *OLSConfigReconciler) reconcilePostgresDeployment(ctx context.Context, c
 	}
 
 	existingDeployment := &appsv1.Deployment{}
-	err = r.Get(ctx, client.ObjectKey{Name: PostgresDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(desiredDeployment, map[string]string{
 			PostgresConfigHashKey: r.stateCache[PostgresConfigHashStateCacheKey],
@@ -109,7 +109,7 @@ func (r *OLSConfigReconciler) reconcilePostgresPVC(ctx context.Context, cr *olsv
 	}
 
 	foundPVC := &corev1.PersistentVolumeClaim{}
-	err = r.Get(ctx, client.ObjectKey{Name: PostgresPVCName, Namespace: r.Options.Namespace}, foundPVC)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresPVCName, Namespace: r.Options.Namespace}, foundPVC)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, pvc)
 		if err != nil {
@@ -129,7 +129,7 @@ func (r *OLSConfigReconciler) reconcilePostgresService(ctx context.Context, cr *
 	}
 
 	foundService := &corev1.Service{}
-	err = r.Get(ctx, client.ObjectKey{Name: PostgresServiceName, Namespace: r.Options.Namespace}, foundService)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresServiceName, Namespace: r.Options.Namespace}, foundService)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, service)
 		if err != nil {
@@ -149,7 +149,7 @@ func (r *OLSConfigReconciler) reconcilePostgresConfigMap(ctx context.Context, cr
 	}
 
 	foundConfigMap := &corev1.ConfigMap{}
-	err = r.Get(ctx, client.ObjectKey{Name: PostgresConfigMap, Namespace: r.Options.Namespace}, foundConfigMap)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresConfigMap, Namespace: r.Options.Namespace}, foundConfigMap)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, configMap)
 		if err != nil {
@@ -169,7 +169,7 @@ func (r *OLSConfigReconciler) reconcilePostgresBootstrapSecret(ctx context.Conte
 	}
 
 	foundSecret := &corev1.Secret{}
-	err = r.Get(ctx, client.ObjectKey{Name: PostgresBootstrapSecretName, Namespace: r.Options.Namespace}, foundSecret)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresBootstrapSecretName, Namespace: r.Options.Namespace}, foundSecret)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, secret)
 		if err != nil {
@@ -188,7 +188,7 @@ func (r *OLSConfigReconciler) reconcilePostgresSecret(ctx context.Context, cr *o
 		return fmt.Errorf("%s: %w", ErrGeneratePostgresSecret, err)
 	}
 	foundSecret := &corev1.Secret{}
-	err = r.Get(ctx, client.ObjectKey{Name: secret.Name, Namespace: r.Options.Namespace}, foundSecret)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: secret.Name, Namespace: r.Options.Namespace}, foundSecret)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.deleteOldPostgresSecrets(ctx)
 		if err != nil {
@@ -227,7 +227,7 @@ func (r *OLSConfigReconciler) deleteOldPostgresSecrets(ctx context.Context) erro
 	labelSelector := labels.Set{"app.kubernetes.io/name": "lightspeed-service-postgres"}.AsSelector()
 	matchingLabels := client.MatchingLabelsSelector{Selector: labelSelector}
 	oldSecrets := &corev1.SecretList{}
-	err := r.List(ctx, oldSecrets, &client.ListOptions{Namespace: r.Options.Namespace, LabelSelector: labelSelector})
+	err := r.Client.List(ctx, oldSecrets, &client.ListOptions{Namespace: r.Options.Namespace, LabelSelector: labelSelector})
 	if err != nil {
 		return fmt.Errorf("failed to list old Postgres secrets: %w", err)
 	}
@@ -239,7 +239,7 @@ func (r *OLSConfigReconciler) deleteOldPostgresSecrets(ctx context.Context) erro
 			LabelSelector: matchingLabels,
 		},
 	}
-	if err := r.DeleteAllOf(ctx, &corev1.Secret{}, deleteOptions); err != nil {
+	if err := r.Client.DeleteAllOf(ctx, &corev1.Secret{}, deleteOptions); err != nil {
 		return fmt.Errorf("failed to delete old Postgres secrets: %w", err)
 	}
 	return nil
@@ -251,7 +251,7 @@ func (r *OLSConfigReconciler) reconcilePostgresNetworkPolicy(ctx context.Context
 		return fmt.Errorf("%s: %w", ErrGeneratePostgresNetworkPolicy, err)
 	}
 	foundNetworkPolicy := &networkingv1.NetworkPolicy{}
-	err = r.Get(ctx, client.ObjectKey{Name: PostgresNetworkPolicyName, Namespace: r.Options.Namespace}, foundNetworkPolicy)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: PostgresNetworkPolicyName, Namespace: r.Options.Namespace}, foundNetworkPolicy)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, networkPolicy)
 		if err != nil {

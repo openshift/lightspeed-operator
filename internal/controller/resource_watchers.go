@@ -47,30 +47,13 @@ func telemetryPullSecretWatcherFilter(ctx context.Context, obj client.Object) []
 
 func configMapWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Request {
 	annotations := obj.GetAnnotations()
-	skip := true
-	crName := ""
-
-	// Check for annotation
-	if annotations != nil {
-		var exist bool
-		crName, exist = annotations[WatcherAnnotationKey]
-		if exist {
-			skip = false
-		}
-	}
-
-	// Check for name as well. We need a configmap containing a CA bundle that can be used to verify the kube-apiserver
-	if obj.GetName() == "kube-root-ca.crt" {
-		skip = false
-		if crName == "" {
-			crName = OLSConfigName
-		}
-	}
-
-	if skip {
+	if annotations == nil {
 		return nil
 	}
-
+	crName, exist := annotations[WatcherAnnotationKey]
+	if !exist {
+		return nil
+	}
 	return []reconcile.Request{
 		{NamespacedName: types.NamespacedName{
 			Name: crName,

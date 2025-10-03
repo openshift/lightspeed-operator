@@ -73,7 +73,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, c
 		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginConfigMap, err)
 	}
 	foundCm := &corev1.ConfigMap{}
-	err = r.Get(ctx, client.ObjectKey{Name: ConsoleUIConfigMapName, Namespace: r.Options.Namespace}, foundCm)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIConfigMapName, Namespace: r.Options.Namespace}, foundCm)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating Console UI configmap", "configmap", cm.Name)
 		err = r.Create(ctx, cm)
@@ -104,7 +104,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr 
 		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginService, err)
 	}
 	foundService := &corev1.Service{}
-	err = r.Get(ctx, client.ObjectKey{Name: ConsoleUIServiceName, Namespace: r.Options.Namespace}, foundService)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIServiceName, Namespace: r.Options.Namespace}, foundService)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating Console UI service", "service", service.Name)
 		err = r.Create(ctx, service)
@@ -118,8 +118,8 @@ func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr 
 	}
 
 	if serviceEqual(foundService, service) &&
-		foundService.Annotations != nil &&
-		foundService.Annotations[ServingCertSecretAnnotationKey] == service.Annotations[ServingCertSecretAnnotationKey] {
+		foundService.ObjectMeta.Annotations != nil &&
+		foundService.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] == service.ObjectMeta.Annotations[ServingCertSecretAnnotationKey] {
 		r.logger.Info("Console UI service unchanged, reconciliation skipped", "service", service.Name)
 		return nil
 	}
@@ -140,7 +140,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginDeployment, err)
 	}
 	foundDeployment := &appsv1.Deployment{}
-	err = r.Get(ctx, client.ObjectKey{Name: ConsoleUIDeploymentName, Namespace: r.Options.Namespace}, foundDeployment)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIDeploymentName, Namespace: r.Options.Namespace}, foundDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		updateDeploymentAnnotations(deployment, map[string]string{
 			OLSConsoleTLSHashKey: r.stateCache[OLSConsoleTLSHashStateCacheKey],
@@ -190,7 +190,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIPlugin(ctx context.Context, cr *
 		return fmt.Errorf("%s: %w", ErrGenerateConsolePlugin, err)
 	}
 	foundPlugin := &consolev1.ConsolePlugin{}
-	err = r.Get(ctx, client.ObjectKey{Name: ConsoleUIPluginName}, foundPlugin)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIPluginName}, foundPlugin)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating Console Plugin", "plugin", plugin.Name)
 		err = r.Create(ctx, plugin)
@@ -221,7 +221,7 @@ func (r *OLSConfigReconciler) reconcileConsoleUIPlugin(ctx context.Context, cr *
 func (r *OLSConfigReconciler) activateConsoleUI(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		console := &openshiftv1.Console{}
-		err := r.Get(ctx, client.ObjectKey{Name: ConsoleCRName}, console)
+		err := r.Client.Get(ctx, client.ObjectKey{Name: ConsoleCRName}, console)
 		if err != nil {
 			return fmt.Errorf("%s: %w", ErrGetConsole, err)
 		}
@@ -269,7 +269,7 @@ func (r *OLSConfigReconciler) removeConsoleUI(ctx context.Context) error {
 
 func (r *OLSConfigReconciler) deleteConsoleUIPlugin(ctx context.Context) error {
 	plugin := &consolev1.ConsolePlugin{}
-	err := r.Get(ctx, client.ObjectKey{Name: ConsoleUIPluginName}, plugin)
+	err := r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUIPluginName}, plugin)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			r.logger.Info("Console Plugin not found, skip deletion")
@@ -292,7 +292,7 @@ func (r *OLSConfigReconciler) deleteConsoleUIPlugin(ctx context.Context) error {
 func (r *OLSConfigReconciler) deactivateConsoleUI(ctx context.Context) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		console := &openshiftv1.Console{}
-		err := r.Get(ctx, client.ObjectKey{Name: ConsoleCRName}, console)
+		err := r.Client.Get(ctx, client.ObjectKey{Name: ConsoleCRName}, console)
 		if err != nil {
 			return fmt.Errorf("%s: %w", ErrGetConsole, err)
 		}
@@ -352,7 +352,7 @@ func (r *OLSConfigReconciler) reconcileConsoleNetworkPolicy(ctx context.Context,
 		return fmt.Errorf("%s: %w", ErrGenerateConsolePluginNetworkPolicy, err)
 	}
 	foundNp := &networkingv1.NetworkPolicy{}
-	err = r.Get(ctx, client.ObjectKey{Name: ConsoleUINetworkPolicyName, Namespace: r.Options.Namespace}, foundNp)
+	err = r.Client.Get(ctx, client.ObjectKey{Name: ConsoleUINetworkPolicyName, Namespace: r.Options.Namespace}, foundNp)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating Console NetworkPolicy", "networkpolicy", ConsoleUINetworkPolicyName)
 		err = r.Create(ctx, np)
