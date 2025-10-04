@@ -44,6 +44,8 @@ var _ = Describe("App server assets", func() {
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
+				OpenShiftMajor:          "123",
+				OpenshiftMinor:          "456",
 				LightspeedServiceImage:  "lightspeed-service:latest",
 				OpenShiftMCPServerImage: "openshift-mcp-server:latest",
 				Namespace:               OLSNamespaceDefault,
@@ -1335,6 +1337,8 @@ var _ = Describe("App server assets", func() {
 		BeforeEach(func() {
 			cr = getEmptyOLSConfigCR()
 			rOptions = &OLSConfigReconcilerOptions{
+				OpenShiftMajor:         "123",
+				OpenshiftMinor:         "456",
 				LightspeedServiceImage: "lightspeed-service:latest",
 				Namespace:              OLSNamespaceDefault,
 			}
@@ -1687,6 +1691,8 @@ user_data_collector_config: {}
 
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
+				OpenShiftMajor:         "123",
+				OpenshiftMinor:         "456",
 				LightspeedServiceImage: "lightspeed-service:latest",
 				Namespace:              OLSNamespaceDefault,
 			}
@@ -1817,6 +1823,8 @@ user_data_collector_config: {}
 
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
+				OpenShiftMajor:         "123",
+				OpenshiftMinor:         "456",
 				LightspeedServiceImage: "lightspeed-service:latest",
 				Namespace:              OLSNamespaceDefault,
 			}
