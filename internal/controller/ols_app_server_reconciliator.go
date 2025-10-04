@@ -143,8 +143,9 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 
 func (r *OLSConfigReconciler) reconcileOLSAdditionalCAConfigMap(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef == nil {
-		// no additional CA certs, skip
-		r.logger.Info("Additional CA not configured, reconciliation skipped")
+		// no additional CA certs, set empty hash
+		r.logger.Info("Additional CA not configured, setting empty hash")
+		r.stateCache[AdditionalCAHashStateCacheKey] = ""
 		return nil
 	}
 
@@ -284,18 +285,22 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		updateDeploymentAnnotations(desiredDeployment, map[string]string{
+		annotations := map[string]string{
 			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
 			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
 			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
-		})
-		updateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
+		}
+		updateDeploymentAnnotations(desiredDeployment, annotations)
+		templateAnnotations := map[string]string{
 			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
 			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
 			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
-		})
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
+		}
+		updateDeploymentTemplateAnnotations(desiredDeployment, templateAnnotations)
 		r.logger.Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
