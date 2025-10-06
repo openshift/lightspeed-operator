@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-10-03T15:49:27Z"
+    createdAt: "2025-10-10T17:31:05Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -97,7 +97,7 @@ spec:
           - description: List of models from the provider
             displayName: Models
             path: llm.providers[0].models
-          - description: Defines the model's context window size. Default is specific to provider/model.
+          - description: Defines the model's context window size, in tokens. The default is 128k tokens.
             displayName: Context Window Size
             path: llm.providers[0].models[0].contextWindowSize
           - description: Model name
@@ -106,7 +106,7 @@ spec:
           - description: Model API parameters
             displayName: Parameters
             path: llm.providers[0].models[0].parameters
-          - description: Max tokens for response
+          - description: Max tokens for response. The default is 2048 tokens.
             displayName: Max Tokens For Response
             path: llm.providers[0].models[0].parameters.maxTokensForResponse
           - description: Model API URL
@@ -335,7 +335,7 @@ spec:
           - description: The URL of the container image to use as a RAG source
             displayName: Image
             path: ols.rag[0].image
-          - description: The Index ID of the RAG database
+          - description: The Index ID of the RAG database. Only needed if there are multiple indices in the database.
             displayName: Index ID
             path: ols.rag[0].indexID
           - description: The path to the RAG database inside of the container image
