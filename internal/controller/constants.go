@@ -108,6 +108,8 @@ const (
 	AzureOpenAIType = "azure_openai"
 	// AdditionalCAHashStateCacheKey is the key of the hash value of the additional CA certificates in the state cache
 	AdditionalCAHashStateCacheKey = "additionalca-hash"
+	// DeploymentInProgress message
+	DeploymentInProgress = "In Progress"
 
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
