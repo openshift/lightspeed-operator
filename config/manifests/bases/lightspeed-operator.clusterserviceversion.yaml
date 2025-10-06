@@ -311,7 +311,8 @@ spec:
       - description: The URL of the container image to use as a RAG source
         displayName: Image
         path: ols.rag[0].image
-      - description: The Index ID of the RAG database
+      - description: The Index ID of the RAG database. Only needed if there are multiple
+          indices in the database.
         displayName: Index ID
         path: ols.rag[0].indexID
       - description: The path to the RAG database inside of the container image
