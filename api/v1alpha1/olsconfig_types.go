@@ -143,8 +143,8 @@ type RAGSpec struct {
 	// +kubebuilder:default:="/rag/vector_db"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index Path in the Image"
 	IndexPath string `json:"indexPath,omitempty"`
-	// The Index ID of the RAG database
-	// +kubebuilder:default:="vector_db_index"
+	// The Index ID of the RAG database. Only needed if there are multiple indices in the database.
+	// +kubebuilder:default:=""
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index ID"
 	IndexID string `json:"indexID,omitempty"`
 	// The URL of the container image to use as a RAG source
