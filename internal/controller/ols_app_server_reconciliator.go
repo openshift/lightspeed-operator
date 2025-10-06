@@ -106,7 +106,6 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 		r.logger.Info("creating a new configmap", "configmap", cm.Name)
 		err = r.Create(ctx, cm)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateAPIConfigmap, err)
 			return fmt.Errorf("%s: %w", ErrCreateAPIConfigmap, err)
 		}
 		r.stateCache[OLSConfigHashStateCacheKey] = cm.Annotations[OLSConfigHashKey]
@@ -133,8 +132,6 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 	foundCm.Annotations = cm.Annotations
 	err = r.Update(ctx, foundCm)
 	if err != nil {
-
-		r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrUpdateAPIConfigmap, err)
 		return fmt.Errorf("%s: %w", ErrUpdateAPIConfigmap, err)
 	}
 	r.logger.Info("OLS configmap reconciled", "configmap", cm.Name, "hash", cm.Annotations[OLSConfigHashKey])
@@ -218,7 +215,6 @@ func (r *OLSConfigReconciler) reconcileServiceAccount(ctx context.Context, cr *o
 		r.logger.Info("creating a new service account", "serviceAccount", sa.Name)
 		err = r.Create(ctx, sa)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateAPIServiceAccount, err)
 			return fmt.Errorf("%s: %w", ErrCreateAPIServiceAccount, err)
 		}
 		return nil
@@ -241,7 +237,6 @@ func (r *OLSConfigReconciler) reconcileSARRole(ctx context.Context, cr *olsv1alp
 		r.logger.Info("creating a new SAR cluster role", "ClusterRole", role.Name)
 		err = r.Create(ctx, role)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateSARClusterRole, err)
 			return fmt.Errorf("%s: %w", ErrCreateSARClusterRole, err)
 		}
 		return nil
@@ -264,7 +259,6 @@ func (r *OLSConfigReconciler) reconcileSARRoleBinding(ctx context.Context, cr *o
 		r.logger.Info("creating a new SAR cluster role binding", "ClusterRoleBinding", rb.Name)
 		err = r.Create(ctx, rb)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateSARClusterRoleBinding, err)
 			return fmt.Errorf("%s: %w", ErrCreateSARClusterRoleBinding, err)
 		}
 		return nil
@@ -299,7 +293,6 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 		r.logger.Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateAPIDeployment, err)
 			return fmt.Errorf("%s: %w", ErrCreateAPIDeployment, err)
 		}
 		return nil
@@ -309,7 +302,6 @@ func (r *OLSConfigReconciler) reconcileDeployment(ctx context.Context, cr *olsv1
 
 	err = r.updateOLSDeployment(ctx, existingDeployment, desiredDeployment)
 	if err != nil {
-		r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrUpdateAPIDeployment, err)
 		return fmt.Errorf("%s: %w", ErrUpdateAPIDeployment, err)
 	}
 
@@ -328,7 +320,6 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 		r.logger.Info("creating a new service", "service", service.Name)
 		err = r.Create(ctx, service)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrCreateAPIService, err)
 			return fmt.Errorf("%s: %w", ErrCreateAPIService, err)
 		}
 
@@ -350,7 +341,6 @@ func (r *OLSConfigReconciler) reconcileService(ctx context.Context, cr *olsv1alp
 
 	err = r.Update(ctx, service)
 	if err != nil {
-		r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrUpdateAPIService, err)
 		return fmt.Errorf("%s: %w", ErrUpdateAPIService, err)
 	}
 
@@ -364,7 +354,6 @@ func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1
 		foundSecret := &corev1.Secret{}
 		secretValues, err := getAllSecretContent(r.Client, provider.CredentialsSecretRef.Name, r.Options.Namespace, foundSecret)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeApiReady, false, ErrGetLLMSecret, err)
 			return fmt.Errorf("Secret token not found for provider: %s. error: %w", provider.Name, err)
 		}
 		for key, value := range secretValues {
@@ -498,7 +487,6 @@ func (r *OLSConfigReconciler) reconcileTLSSecret(ctx context.Context, cr *olsv1a
 		return true, nil
 	})
 	if err != nil {
-		r.updateStatusCondition(ctx, cr, typeApiReady, false, fmt.Sprintf("%s - %s", ErrGetTLSSecret, OLSCertsSecretName), err)
 		return fmt.Errorf("%s -%s - wait err %w; last error: %w", ErrGetTLSSecret, OLSCertsSecretName, err, lastErr)
 	}
 
