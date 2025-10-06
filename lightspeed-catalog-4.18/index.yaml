@@ -6,8 +6,8 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:78627f5bed3fa4fc207439a6144cb28c7d8493119394ad2a75382473418a70ac
-name: lightspeed-operator.v1.0.5
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:2ca4638bfc967b0a623c7c6f4170765a38662189653a343b5de5cbd8e26d9595
+name: lightspeed-operator.v1.0.6
 package: lightspeed-operator
 properties:
   - type: olm.gvk
@@ -18,7 +18,7 @@ properties:
   - type: olm.package
     value:
       packageName: lightspeed-operator
-      version: 1.0.5
+      version: 1.0.6
   - type: olm.csv.metadata
     value:
       annotations:
@@ -58,7 +58,7 @@ properties:
           ]
         capabilities: Basic Install
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2025-08-28T16:37:51Z"
+        createdAt: "2025-10-03T15:49:27Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -114,7 +114,7 @@ properties:
               - description: List of models from the provider
                 displayName: Models
                 path: llm.providers[0].models
-              - description: Defines the model's context window size. Default is specific to provider/model.
+              - description: Defines the model's context window size, in tokens. The default is 128k tokens.
                 displayName: Context Window Size
                 path: llm.providers[0].models[0].contextWindowSize
               - description: Model name
@@ -123,7 +123,7 @@ properties:
               - description: Model API parameters
                 displayName: Parameters
                 path: llm.providers[0].models[0].parameters
-              - description: Max tokens for response
+              - description: Max tokens for response. The default is 2048 tokens.
                 displayName: Max Tokens For Response
                 path: llm.providers[0].models[0].parameters.maxTokensForResponse
               - description: Model API URL
@@ -171,6 +171,11 @@ properties:
                 path: ols.additionalCAConfigMapRef
                 x-descriptors:
                   - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: Only use BYOK RAG sources, ignore the OpenShift documentation RAG
+                displayName: Only use BYOK RAG sources
+                path: ols.byokRAGOnly
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
               - displayName: PostgreSQL Settings
                 path: ols.conversationCache.postgres
               - description: Secret that holds postgres credentials
@@ -423,29 +428,29 @@ properties:
         url: https://github.com/openshift/lightspeed-service
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:ec359967a87bc7ee2c1d6a61e553acbdb0dc85d6f240a1865bf57d3ba5dc7193
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:4a9336718d247bbbe5caade2c7186e8d11e636683ab3b043ff5058b486eaf6fa
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:dfc42c2651ac8793f61ff0e54334ecb006dc4a77487bc7c6878cdf47bd4ac080
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:1db560558b454b15f307f07b2840fbfd96f3ee73d6c515561c9d9d7d77156b0e
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:b12803642df4d9b3ad0cf800315021483f543c6a8827b3901e57bdb65f10dc48
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:697fb9043c4c1a1b3f7fff25faf8c109c0436ec98d1ec15e17e84c60a656f18d
   - name: openshift-mcp-server
-    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:f1e4521ff2cc076f361c04d8c9aeac09ffcedb89a2f1dbe71f85caa27472adab
+    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:e23ab62b89f1952aec1979bfe5b73a4c52b8bdad5ef44dc8b5d1620a0d5c69d2
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:78627f5bed3fa4fc207439a6144cb28c7d8493119394ad2a75382473418a70ac
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:2ca4638bfc967b0a623c7c6f4170765a38662189653a343b5de5cbd8e26d9595
 schema: olm.bundle
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: stable
 entries:
-  - name: lightspeed-operator.v1.0.5
-    skipRange: ">=0.1.0 <1.0.5"
+  - name: lightspeed-operator.v1.0.6
+    skipRange: ">=0.1.0 <1.0.6"
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: alpha
 entries:
-  - name: lightspeed-operator.v1.0.5
-    skipRange: ">=0.1.0 <1.0.5"
+  - name: lightspeed-operator.v1.0.6
+    skipRange: ">=0.1.0 <1.0.6"

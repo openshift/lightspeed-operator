@@ -289,7 +289,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-additional-ca/"+caCert1FileName)
+		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-user-ca/"+caCert1FileName)
 		Expect(err).NotTo(HaveOccurred())
 		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "certificate_directory: /etc/certs/cert-bundle")
 		Expect(err).NotTo(HaveOccurred())
@@ -356,7 +356,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		caCertConfigMap.Data[caCert2FileName] = TestCACert
 		err = client.Update(caCertConfigMap)
 		Expect(err).NotTo(HaveOccurred())
-		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-additional-ca/"+caCert2FileName)
+		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-user-ca/"+caCert2FileName)
 		Expect(err).NotTo(HaveOccurred())
 		err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
 			newCmHash := dep.Spec.Template.Annotations[AdditionalCAHashKey]

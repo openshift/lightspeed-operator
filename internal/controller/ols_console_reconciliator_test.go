@@ -73,7 +73,7 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			By("Reconcile the OLSConfig custom resource")
 			err := reconciler.reconcileConsoleUI(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			reconciler.updateStatusCondition(ctx, cr, typeConsolePluginReady, true, "All components are successfully deployed", nil)
+			reconciler.updateStatusCondition(ctx, cr, typeConsolePluginReady, true, "All components are successfully deployed", nil, false)
 			expectedCondition := metav1.Condition{
 				Type:   typeConsolePluginReady,
 				Status: metav1.ConditionTrue,

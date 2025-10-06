@@ -61,6 +61,10 @@ const (
 	AppServerMetricsPath = "/metrics"
 	// AppAdditionalCACertDir is the directory for storing additional CA certificates in the app server container under OLSAppCertsMountRoot
 	AppAdditionalCACertDir = "ols-additional-ca"
+	// UserCACertDir is the directory for storing additional CA certificates in the app server container under OLSAppCertsMountRoot
+	UserCACertDir = "ols-user-ca"
+	// OpenShiftCAVolumeName is the name of the volume for OpenShift CA certificates
+	OpenShiftCAVolumeName = "openshift-ca"
 	// AdditionalCAVolumeName is the name of the volume for additional CA certificates provided by the user
 	AdditionalCAVolumeName = "additional-ca"
 	// CertBundleVolumeName is the name of the volume for the certificate bundle
@@ -108,6 +112,8 @@ const (
 	AzureOpenAIType = "azure_openai"
 	// AdditionalCAHashStateCacheKey is the key of the hash value of the additional CA certificates in the state cache
 	AdditionalCAHashStateCacheKey = "additionalca-hash"
+	// DeploymentInProgress message
+	DeploymentInProgress = "In Progress"
 
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
@@ -137,8 +143,12 @@ const (
 	ConsoleUINetworkPolicyName = "lightspeed-console-plugin"
 
 	/*** watchers ***/
+	// Watcher Annotation key
 	WatcherAnnotationKey = "ols.openshift.io/watcher"
-
+	// ConfigMap with default openshift certificates
+	DefaultOpenShiftCerts = "kube-root-ca.crt"
+	// Force reload annotation key
+	ForceReloadAnnotationKey = "ols.openshift.io/force-reload"
 	/*** Postgres Constants ***/
 	// PostgresCAVolume is the name of the OLS Postgres TLS ca certificate volume name
 	PostgresCAVolume = "cm-olspostgresca"

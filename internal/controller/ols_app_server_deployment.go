@@ -104,7 +104,10 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	} else {
 		secretMounts[OLSCertsSecretName] = path.Join(OLSAppCertsMountRoot, OLSCertsSecretName)
 	}
+
+	// certificates mount paths
 	AdditionalCAMountPath := path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir)
+	UserCAMountPath := path.Join(OLSAppCertsMountRoot, UserCACertDir)
 
 	// Container ports
 	ports := []corev1.ContainerPort{
@@ -151,6 +154,28 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		volumes = append(volumes, olsUserDataVolume)
 	}
 
+	// Mount "kube-root-ca.crt" configmap
+	certVolume := corev1.Volume{
+		Name: OpenShiftCAVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "kube-root-ca.crt",
+				},
+				DefaultMode: &volumeDefaultMode,
+			},
+		},
+	}
+
+	// Create certificates volume
+	certBundleVolume := corev1.Volume{
+		Name: CertBundleVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+	volumes = append(volumes, certVolume, certBundleVolume)
+
 	// User provided additional CA certificates
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
 		additionalCAVolume := corev1.Volume{
@@ -162,13 +187,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 				},
 			},
 		}
-		certBundleVolume := corev1.Volume{
-			Name: CertBundleVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		}
-		volumes = append(volumes, additionalCAVolume, certBundleVolume)
+		volumes = append(volumes, additionalCAVolume)
 	}
 
 	// Proxy CA certificates
@@ -227,17 +246,27 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	if dataCollectorEnabled {
 		volumeMounts = append(volumeMounts, olsUserDataVolumeMount)
 	}
+
+	// Volumemount OpenShift certificates configmap
+	openShiftCAVolumeMount := corev1.VolumeMount{
+		Name:      OpenShiftCAVolumeName,
+		MountPath: AdditionalCAMountPath,
+		ReadOnly:  true,
+	}
+
+	certBundleVolumeMount := corev1.VolumeMount{
+		Name:      CertBundleVolumeName,
+		MountPath: path.Join(OLSAppCertsMountRoot, CertBundleDir),
+	}
+	volumeMounts = append(volumeMounts, openShiftCAVolumeMount, certBundleVolumeMount)
+
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
 		additionalCAVolumeMount := corev1.VolumeMount{
 			Name:      AdditionalCAVolumeName,
-			MountPath: AdditionalCAMountPath,
+			MountPath: UserCAMountPath,
 			ReadOnly:  true,
 		}
-		certBundleVolumeMount := corev1.VolumeMount{
-			Name:      CertBundleVolumeName,
-			MountPath: path.Join(OLSAppCertsMountRoot, CertBundleDir),
-		}
-		volumeMounts = append(volumeMounts, additionalCAVolumeMount, certBundleVolumeMount)
+		volumeMounts = append(volumeMounts, additionalCAVolumeMount)
 	}
 
 	if cr.Spec.OLSConfig.ProxyConfig != nil && cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil {
