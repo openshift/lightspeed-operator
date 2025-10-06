@@ -87,7 +87,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Reconcile the OLSConfig custom resource")
 			err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			reconciler.updateStatusCondition(ctx, cr, typeApiReady, true, "All components are successfully deployed", nil)
+			reconciler.updateStatusCondition(ctx, cr, typeApiReady, true, "All components are successfully deployed", nil, false)
 			expectedCondition := metav1.Condition{
 				Type:   typeApiReady,
 				Status: metav1.ConditionTrue,
@@ -579,11 +579,12 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err := reconciler.reconcileLLMSecrets(ctx, cr)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("secret not found: non-existing-secret"))
+			reconciler.updateStatusCondition(ctx, cr, typeApiReady, false, "Failed", err, false)
 			Expect(statusHasCondition(cr.Status, metav1.Condition{
 				Type:    typeApiReady,
 				Status:  metav1.ConditionFalse,
 				Reason:  "Reconciling",
-				Message: "failed to get LLM provider secret: secret not found: non-existing-secret. error: secrets \"non-existing-secret\" not found",
+				Message: "Failed: Secret token not found for provider: testProvider. error: secret not found: non-existing-secret. error: secrets \"non-existing-secret\" not found",
 			})).To(BeTrue())
 			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: originalSecretName}
 		})
@@ -599,11 +600,12 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = reconciler.reconcileTLSSecret(ctx, cr)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to get TLS secret"))
+			reconciler.updateStatusCondition(ctx, cr, typeApiReady, false, "Failed", err, false)
 			Expect(statusHasCondition(cr.Status, metav1.Condition{
 				Type:    typeApiReady,
 				Status:  metav1.ConditionFalse,
 				Reason:  "Reconciling",
-				Message: "failed to get TLS secret - lightspeed-tls: context deadline exceeded",
+				Message: "Failed: failed to get TLS secret -lightspeed-tls - wait err context deadline exceeded; last error: secret: lightspeed-tls does not have expected tls.key or tls.crt. error: secret not found: lightspeed-tls. error: secrets \"lightspeed-tls\" not found",
 			})).To(BeTrue())
 		})
 
