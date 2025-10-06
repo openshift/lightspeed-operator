@@ -173,30 +173,56 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		name          string
 		fn            func(context.Context, *olsv1alpha1.OLSConfig) error
 		conditionType string
+		deployment    string
 	}{
-		{"console UI", r.reconcileConsoleUI, typeConsolePluginReady},
-		{"postgres server", r.reconcilePostgresServer, typeCacheReady},
-		{"application server", r.reconcileAppServer, typeApiReady},
+		{"console UI", r.reconcileConsoleUI, typeConsolePluginReady, ConsoleUIDeploymentName},
+		{"postgres server", r.reconcilePostgresServer, typeCacheReady, PostgresDeploymentName},
+		{"application server", r.reconcileAppServer, typeApiReady, OLSAppServerDeploymentName},
 	}
 
 	// Execute deployments reconcile
 	var overallError error
 	overallError = nil
+	progressing := false
 	for _, step := range reconcileSteps {
 		err := step.fn(ctx, olsconfig)
 		if err != nil {
 			r.logger.Error(err, fmt.Sprintf("Failed to reconcile %s", step.name))
 			r.updateStatusCondition(ctx, olsconfig, step.conditionType, false, "Failed", err)
 			overallError = err
+		} else {
+			// Get corresponding deployment
+			deployment := &appsv1.Deployment{}
+			err := r.Get(ctx, client.ObjectKey{Name: step.deployment, Namespace: r.Options.Namespace}, deployment)
+			if err != nil {
+				r.updateStatusCondition(ctx, olsconfig, step.conditionType, false, "Failed", err)
+				overallError = err
+			} else {
+				message, err := r.checkDeploymentStatus(deployment)
+				if err != nil {
+					if message == DeploymentInProgress {
+						// Deployment is not ready
+						r.updateStatusCondition(ctx, olsconfig, step.conditionType, false, message, nil)
+						progressing = true
+					} else {
+						// Deployment failed
+						r.updateStatusCondition(ctx, olsconfig, step.conditionType, false, "Failed", err)
+						overallError = err
+					}
+				} else {
+					// Update status condition for successful reconciliation
+					r.updateStatusCondition(ctx, olsconfig, step.conditionType, true, "All components are successfully deployed", nil)
+				}
+			}
 		}
-
-		// Update status condition for successful reconciliation
-		r.updateStatusCondition(ctx, olsconfig, step.conditionType, true, "All components are successfully deployed", nil)
 	}
 
 	if overallError != nil {
 		// One of the deployment reconciliations failed
 		return ctrl.Result{}, overallError
+	}
+	if progressing {
+		return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
 	}
 
 	r.logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
@@ -271,6 +297,36 @@ func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconf
 			r.logger.Error(updateErr, ErrUpdateCRStatusCondition)
 		}
 	}
+}
+
+// checkDeploymentStatus checks if the deployment is ready and available
+func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deployment) (string, error) {
+
+	// Check if deployment has the expected number of replicas ready
+	if deployment.Status.ReadyReplicas != *deployment.Spec.Replicas {
+		return DeploymentInProgress, fmt.Errorf("deployment not ready: %d replicas available",
+			deployment.Status.ReadyReplicas)
+	}
+
+	// Check deployment conditions
+	for _, condition := range deployment.Status.Conditions {
+		switch condition.Type {
+		case appsv1.DeploymentAvailable:
+			if condition.Status != corev1.ConditionTrue {
+				return DeploymentInProgress, fmt.Errorf("deployment not available: %s - %s", condition.Reason, condition.Message)
+			}
+		case appsv1.DeploymentProgressing:
+			if condition.Status == corev1.ConditionFalse {
+				return DeploymentInProgress, fmt.Errorf("deployment not progressing: %s - %s", condition.Reason, condition.Message)
+			}
+		case appsv1.DeploymentReplicaFailure:
+			if condition.Status == corev1.ConditionTrue {
+				return "Fail", fmt.Errorf("deployment replica failure: %s - %s", condition.Reason, condition.Message)
+			}
+		}
+	}
+
+	return "", nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
