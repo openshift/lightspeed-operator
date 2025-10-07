@@ -20,6 +20,7 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 	Context("Creation logic", Ordered, func() {
 		var secret, bootstrapSecret *corev1.Secret
 		var sc *storagev1.StorageClass
+		var configmap *corev1.ConfigMap
 		BeforeEach(func() {
 			By("create the provider secret")
 			secret, _ = generateRandomSecret()
@@ -67,6 +68,20 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 			sc = buildDefaultStorageClass()
 			storageClassCreationErr := reconciler.Create(ctx, sc)
 			Expect(storageClassCreationErr).NotTo(HaveOccurred())
+
+			By("create the OpenShift certificates config map")
+			configmap, _ = generateRandomConfigMap()
+			configmap.Name = DefaultOpenShiftCerts
+			configmap.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Configmap",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       DefaultOpenShiftCerts,
+				},
+			})
+			configMapCreationErr := reconciler.Create(ctx, configmap)
+			Expect(configMapCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -85,6 +100,10 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 			By("Delete the bootstrap secret")
 			bootstrapSecretDeletionErr := reconciler.Delete(ctx, bootstrapSecret)
 			Expect(bootstrapSecretDeletionErr).NotTo(HaveOccurred())
+
+			By("Delete OpenShift certificates config map")
+			configMapDeletionErr := reconciler.Delete(ctx, configmap)
+			Expect(configMapDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should reconcile from OLSConfig custom resource", func() {
