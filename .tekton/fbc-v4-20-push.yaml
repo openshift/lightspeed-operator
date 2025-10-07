@@ -7,9 +7,11 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: "false"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main"
-  creationTimestamp: null
+    pipelinesascode.tekton.dev/on-cel-expression: |
+      event == "push" &&
+      target_branch == "main" &&
+      (".tekton/fbc-v4-20-push.yaml".pathChanged() || "lightspeed-catalog-4.20/***".pathChanged() || "lightspeed-catalog-4.20.Dockerfile".pathChanged())
+
   labels:
     appstudio.openshift.io/application: ols-fbc-v4-20
     appstudio.openshift.io/component: fbc-v4-20
@@ -24,8 +26,15 @@ spec:
     value: '{{revision}}'
   - name: output-image
     value: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/fbc-v4-20:{{revision}}
+  - name: build-platforms
+    value:
+    - linux/x86_64
   - name: dockerfile
     value: lightspeed-catalog-4.20.Dockerfile
+  - name: build-source-image
+    value: 'true'
+  - name: hermetic
+    value: 'true'
   pipelineSpec:
     description: |
       This pipeline is ideal for building container images from a Containerfile while maintaining trust after pipeline customization.
