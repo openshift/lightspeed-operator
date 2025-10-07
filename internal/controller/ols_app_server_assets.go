@@ -252,12 +252,13 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		}
 		referenceIndexes = append(referenceIndexes, referenceIndex)
 	}
-	// OCP documentation is always available
-	ocpReferenceIndex := ReferenceIndex{
-		ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
-		ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		ocpReferenceIndex := ReferenceIndex{
+			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+			ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
+		}
+		referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 	}
-	referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 
 	olsConfig := OLSConfig{
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,

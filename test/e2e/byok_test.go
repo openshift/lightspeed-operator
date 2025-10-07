@@ -21,6 +21,7 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 					Image: "quay.io/openshift-lightspeed-test/assisted-installer-guide:2025-1",
 				},
 			}
+			cr.Spec.OLSConfig.ByokRAGOnly = true
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -53,5 +54,21 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 				ContainSubstring("s390x"),
 			),
 		)
+	})
+
+	It("should only query the BYOK database", func() {
+		By("Testing OLS service activation")
+		secret, err := TestOLSServiceActivation(env)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Testing HTTPS POST on /v1/query endpoint by OLS user")
+		reqBody := []byte(`{"query": "how do I stop a VM?"}`)
+		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
+		Expect(err).NotTo(HaveOccurred())
+		defer resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		fmt.Println(string(body))
+
+		Expect(string(body)).NotTo(ContainSubstring("Related documentation"))
 	})
 })
