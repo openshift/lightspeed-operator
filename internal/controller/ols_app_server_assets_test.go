@@ -834,8 +834,7 @@ var _ = Describe("App server assets", func() {
 
 			major, minor, err := GetOpenshiftVersion(k8sClient, ctx)
 			Expect(err).NotTo(HaveOccurred())
-
-			// OCP document is always there
+			// OCP document is there unless byokRAGOnly is true
 			ocpIndex := ReferenceIndex{
 				ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
 				ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
@@ -866,6 +865,34 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(ConsistOf(ocpIndex))
 
+		})
+
+		// This test covers ByokRAGOnly == true. ByokRAGOnly == false is covered by the previous test.
+		It("should not include the OCP docs RAG when byokRAGOnly is true", func() {
+			cr.Spec.OLSConfig.ByokRAGOnly = true
+			By("RAG index is added")
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					IndexPath: "/rag/vector_db/ansible_docs/2.18",
+					IndexID:   "ansible-docs-2_18",
+					Image:     "rag-ansible-docs:2.18",
+				},
+			}
+			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			olsconfigGenerated := AppSrvConfigFile{}
+			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Testing for equality means the only RAG source is the one specified via the BYOK
+			// mechanism above. The OCP RAG database is not included.
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]ReferenceIndex{
+				{
+					ProductDocsIndexId:   "ansible-docs-2_18",
+					ProductDocsIndexPath: RAGVolumeMountPath + "/rag-0",
+					ProductDocsOrigin:    "rag-ansible-docs:2.18",
+				},
+			}))
 		})
 
 		It("should generate deployment with MCP server sidecar when introspectionEnabled is true", func() {
