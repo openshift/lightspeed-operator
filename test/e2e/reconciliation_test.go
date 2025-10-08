@@ -331,7 +331,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			for _, volumeMount := range dep.Spec.Template.Spec.Containers[0].VolumeMounts {
 				if apiequality.Semantic.DeepEqual(volumeMount, corev1.VolumeMount{
 					Name:      AdditionalCAVolumeName,
-					MountPath: path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir),
+					MountPath: path.Join(OLSAppCertsMountRoot, UserCACertDir),
 					ReadOnly:  true,
 				}) {
 					certVolumeMountExist = true

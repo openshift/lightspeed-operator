@@ -118,8 +118,8 @@ zl/HHk484IkzlQsPpTLWPFp5LBk=
 	OLSAppCertsMountRoot = "/etc/certs"
 	// AdditionalCAVolumeName is the name of the additional CA volume in the app server container
 	AdditionalCAVolumeName = "additional-ca"
-	// AppAdditionalCACertDir is the directory for storing additional CA certificates in the app server container under OLSAppCertsMountRoot
-	AppAdditionalCACertDir = "ols-additional-ca"
+	// UserCACertDir is the directory for storing additional CA certificates in the app server container under OLSAppCertsMountRoot
+	UserCACertDir = "ols-user-ca"
 	// AdditionalCAHashKey is the key of the hash value of the additional CA certificates
 	AdditionalCAHashKey = "hash/additionalca"
 	// CertBundleVolumeName is the name of the volume for the certificate bundle
