@@ -135,6 +135,7 @@ var _ = Describe("App server assets", func() {
 							{
 								ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
 								ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+								ProductDocsOrigin:    "Red Hat OpenShift 123.456 documentation",
 							},
 						},
 					},
@@ -838,17 +839,20 @@ var _ = Describe("App server assets", func() {
 			ocpIndex := ReferenceIndex{
 				ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
 				ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+				ProductDocsOrigin:    "Red Hat OpenShift 123.456 documentation",
 			}
 
 			// OLS-1823: prioritize BYOK content over OCP docs
 			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]ReferenceIndex{
-				ReferenceIndex{
+				{
 					ProductDocsIndexId:   "ocp-product-docs-4_19",
 					ProductDocsIndexPath: RAGVolumeMountPath + "/rag-0",
+					ProductDocsOrigin:    "rag-ocp-product-docs:4.19",
 				},
-				ReferenceIndex{
+				{
 					ProductDocsIndexId:   "ansible-docs-2_18",
 					ProductDocsIndexPath: RAGVolumeMountPath + "/rag-1",
+					ProductDocsOrigin:    "rag-ansible-docs:2.18",
 				},
 				ocpIndex,
 			}))
@@ -1068,6 +1072,7 @@ ols_config:
     indexes:
     - product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
       product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
+      product_docs_origin: Red Hat OpenShift 123.456 documentation
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
@@ -1127,6 +1132,7 @@ ols_config:
     indexes:
     - product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
       product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
+      product_docs_origin: Red Hat OpenShift 123.456 documentation
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key

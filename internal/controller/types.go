@@ -191,6 +191,8 @@ type ReferenceIndex struct {
 	ProductDocsIndexPath string `json:"product_docs_index_path,omitempty"`
 	// Name of the index to load.
 	ProductDocsIndexId string `json:"product_docs_index_id,omitempty"`
+	// Where the database was copied from, i.e. BYOK image name.
+	ProductDocsOrigin string `json:"product_docs_origin,omitempty"`
 }
 
 type ReferenceContent struct {
