@@ -78,7 +78,6 @@ func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, c
 		r.logger.Info("creating Console UI configmap", "configmap", cm.Name)
 		err = r.Create(ctx, cm)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginConfigMap, err)
 			return fmt.Errorf("%s: %w", ErrCreateConsolePluginConfigMap, err)
 		}
 		return nil
@@ -92,7 +91,6 @@ func (r *OLSConfigReconciler) reconcileConsoleUIConfigMap(ctx context.Context, c
 	}
 	err = r.Update(ctx, cm)
 	if err != nil {
-		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginConfigMap, err)
 		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginConfigMap, err)
 	}
 	r.logger.Info("Console configmap reconciled", "configmap", cm.Name)
@@ -111,7 +109,6 @@ func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr 
 		r.logger.Info("creating Console UI service", "service", service.Name)
 		err = r.Create(ctx, service)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginService, err)
 			return fmt.Errorf("%s: %w", ErrCreateConsolePluginService, err)
 		}
 		r.logger.Info("Console UI service created", "service", service.Name)
@@ -129,7 +126,6 @@ func (r *OLSConfigReconciler) reconcileConsoleUIService(ctx context.Context, cr 
 
 	err = r.Update(ctx, service)
 	if err != nil {
-		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginService, err)
 		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginService, err)
 	}
 
@@ -155,7 +151,6 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 		r.logger.Info("creating Console UI deployment", "deployment", deployment.Name)
 		err = r.Create(ctx, deployment)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginDeployment, err)
 			return fmt.Errorf("%s: %w", ErrCreateConsolePluginDeployment, err)
 		}
 		r.logger.Info("Console UI deployment created", "deployment", deployment.Name)
@@ -182,7 +177,6 @@ func (r *OLSConfigReconciler) reconcileConsoleUIDeployment(ctx context.Context, 
 	})
 	err = r.Update(ctx, foundDeployment)
 	if err != nil {
-		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginDeployment, err)
 		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginDeployment, err)
 	}
 	r.logger.Info("Console UI deployment reconciled", "deployment", deployment.Name)
@@ -201,7 +195,6 @@ func (r *OLSConfigReconciler) reconcileConsoleUIPlugin(ctx context.Context, cr *
 		r.logger.Info("creating Console Plugin", "plugin", plugin.Name)
 		err = r.Create(ctx, plugin)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePlugin, err)
 			return fmt.Errorf("%s: %w", ErrCreateConsolePlugin, err)
 		}
 		r.logger.Info("Console Plugin created", "plugin", plugin.Name)
@@ -218,7 +211,6 @@ func (r *OLSConfigReconciler) reconcileConsoleUIPlugin(ctx context.Context, cr *
 	foundPlugin.Spec = plugin.Spec
 	err = r.Update(ctx, foundPlugin)
 	if err != nil {
-		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePlugin, err)
 		return fmt.Errorf("%s: %w", ErrUpdateConsolePlugin, err)
 	}
 	r.logger.Info("Console Plugin reconciled", "plugin", plugin.Name)
@@ -365,7 +357,6 @@ func (r *OLSConfigReconciler) reconcileConsoleNetworkPolicy(ctx context.Context,
 		r.logger.Info("creating Console NetworkPolicy", "networkpolicy", ConsoleUINetworkPolicyName)
 		err = r.Create(ctx, np)
 		if err != nil {
-			r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrCreateConsolePluginNetworkPolicy, err)
 			return fmt.Errorf("%s: %w", ErrCreateConsolePluginNetworkPolicy, err)
 		}
 		return nil
@@ -379,7 +370,6 @@ func (r *OLSConfigReconciler) reconcileConsoleNetworkPolicy(ctx context.Context,
 	}
 	err = r.Update(ctx, np)
 	if err != nil {
-		r.updateStatusCondition(ctx, cr, typeConsolePluginReady, false, ErrUpdateConsolePluginNetworkPolicy, err)
 		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginNetworkPolicy, err)
 	}
 	r.logger.Info("Console NetworkPolicy reconciled", "networkpolicy", ConsoleUINetworkPolicyName)
