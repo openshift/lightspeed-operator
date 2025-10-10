@@ -47,8 +47,9 @@ spec:
       - description: The name of the secret object that stores API provider credentials
         displayName: Credential Secret
         path: llm.providers[0].credentialsSecretRef
-      - description: 'Feature Gates holds list of features to be enabled explicitly,
-          otherwise they are disabled by default. possible values: MCPServer'
+      - description: |-
+          Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
+          possible values: MCPServer
         displayName: Feature Gates
         path: featureGates
       - displayName: LLM Settings
@@ -252,8 +253,9 @@ spec:
       - description: The configmap holding proxy CA certificate
         displayName: Proxy CA Certificate
         path: ols.proxyConfig.proxyCACertificate
-      - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified,
-          the cluster wide proxy will be used, though env var "https_proxy".
+      - description: |-
+          Proxy URL, e.g. https://proxy.example.com:8080
+          If not specified, the cluster wide proxy will be used, though env var "https_proxy".
         displayName: Proxy URL
         path: ols.proxyConfig.proxyURL
       - description: Query filters
