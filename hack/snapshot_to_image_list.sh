@@ -124,16 +124,20 @@ SERVICE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service"
 SERVICE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
 OPENSHIFT_MCP_SERVER_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="openshift-mcp-server") | .containerImage' "${TMP_SNAPSHOT_JSON}")
 OPENSHIFT_MCP_SERVER_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="openshift-mcp-server") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
+DATAVERSE_EXPORTER_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-to-dataverse-exporter") | .containerImage' "${TMP_SNAPSHOT_JSON}")
+DATAVERSE_EXPORTER_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-to-dataverse-exporter") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
 if [ "${USE_REGISTRY}" = "preview" ]; then
     OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator"
     CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9"
     SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9"
     OPENSHIFT_MCP_SERVER_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/openshift-mcp-server-rhel9"
+    DATAVERSE_EXPORTER_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-to-dataverse-exporter-rhel9"
 
     OPERATOR_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator|'"${OPERATOR_IMAGE_BASE}"'|g' <<<${OPERATOR_IMAGE})
     CONSOLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console|'"${CONSOLE_IMAGE_BASE}"'|g' <<<${CONSOLE_IMAGE})
     SERVICE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service|'"${SERVICE_IMAGE_BASE}"'|g' <<<${SERVICE_IMAGE})
     OPENSHIFT_MCP_SERVER_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server|'"${OPENSHIFT_MCP_SERVER_IMAGE_BASE}"'|g' <<<${OPENSHIFT_MCP_SERVER_IMAGE})
+    DATAVERSE_EXPORTER_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter|'"${DATAVERSE_EXPORTER_IMAGE_BASE}"'|g' <<<${DATAVERSE_EXPORTER_IMAGE})
     POSTGRES_IMAGE=$(sed "s|quay\.io.*/lightspeed-postgresql|registry.redhat.io/rhel9/postgresql-16|g" <<<"${POSTGRES_IMAGE}")
 
     if [ -n "${BUNDLE_SNAPSHOT_REF}" ]; then
@@ -147,11 +151,13 @@ if [ "${USE_REGISTRY}" = "stable" ]; then
     CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9"
     SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9"
     OPENSHIFT_MCP_SERVER_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9"
+    DATAVERSE_EXPORTER_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9"
 
     OPERATOR_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator|'"${OPERATOR_IMAGE_BASE}"'|g' <<<${OPERATOR_IMAGE})
     CONSOLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console|'"${CONSOLE_IMAGE_BASE}"'|g' <<<${CONSOLE_IMAGE})
     SERVICE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service|'"${SERVICE_IMAGE_BASE}"'|g' <<<${SERVICE_IMAGE})
     OPENSHIFT_MCP_SERVER_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server|'"${OPENSHIFT_MCP_SERVER_IMAGE_BASE}"'|g' <<<${OPENSHIFT_MCP_SERVER_IMAGE})
+    DATAVERSE_EXPORTER_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter|'"${DATAVERSE_EXPORTER_IMAGE_BASE}"'|g' <<<${DATAVERSE_EXPORTER_IMAGE})
     POSTGRES_IMAGE=$(sed "s|quay\.io.*/lightspeed-postgresql|registry.redhat.io/rhel9/postgresql-16|g" <<<"${POSTGRES_IMAGE}")
 
     if [ -n "${BUNDLE_SNAPSHOT_REF}" ]; then
@@ -193,6 +199,11 @@ RELATED_IMAGES=$(
     "name": "openshift-mcp-server",
     "image": "${OPENSHIFT_MCP_SERVER_IMAGE}",
     "revision": "${OPENSHIFT_MCP_SERVER_REVISION}"
+  },
+  {
+    "name": "lightspeed-to-dataverse-exporter",
+    "image": "${DATAVERSE_EXPORTER_IMAGE}",
+    "revision": "${DATAVERSE_EXPORTER_REVISION}"
   },
   {
     "name": "lightspeed-postgresql",
