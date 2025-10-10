@@ -25,6 +25,7 @@ var tlsSecret *corev1.Secret
 var _ = Describe("App server reconciliator", Ordered, func() {
 	Context("Creation logic", Ordered, func() {
 		var secret *corev1.Secret
+		var configmap *corev1.ConfigMap
 		var tlsSecret *corev1.Secret
 		var tlsUserSecret *corev1.Secret
 		const tlsUserSecretName = "tls-user-secret"
@@ -67,6 +68,19 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			crDefault := getDefaultOLSConfigCR()
 			cr.Spec = crDefault.Spec
+
+			By("create the OpenShift certificates config map")
+			configmap, _ = generateRandomConfigMap()
+			configmap.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Configmap",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       DefaultOpenShiftCerts,
+				},
+			})
+			configMapCreationErr := reconciler.Create(ctx, configmap)
+			Expect(configMapCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -81,6 +95,10 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Delete the user provided tls secret")
 			secretDeletionErr = reconciler.Delete(ctx, tlsUserSecret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
+
+			By("Delete OpenShift certificates config map")
+			configMapDeletionErr := reconciler.Delete(ctx, configmap)
+			Expect(configMapDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should reconcile from OLSConfig custom resource", func() {
@@ -485,6 +503,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 	Context("Referred Secrets", Ordered, func() {
 		var secret *corev1.Secret
 		var tlsSecret *corev1.Secret
+		var configmap *corev1.ConfigMap
 		BeforeEach(func() {
 			By("create the provider secret")
 			secret, _ = generateRandomSecret()
@@ -511,6 +530,19 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			})
 			secretCreationErr = reconciler.Create(ctx, tlsSecret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
+
+			By("create the OpenShift certificates config map")
+			configmap, _ = generateRandomConfigMap()
+			configmap.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Configmap",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       DefaultOpenShiftCerts,
+				},
+			})
+			configMapCreationErr := reconciler.Create(ctx, configmap)
+			Expect(configMapCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -524,6 +556,9 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			} else {
 				Expect(secretDeletionErr).NotTo(HaveOccurred())
 			}
+			By("Delete OpenShift certificates config map")
+			configMapDeletionErr := reconciler.Delete(ctx, configmap)
+			Expect(configMapDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should reconcile from OLSConfig custom resource", func() {
@@ -616,6 +651,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		var volumeDefaultMode = int32(420)
 		var cmCACert1 *corev1.ConfigMap
 		var cmCACert2 *corev1.ConfigMap
+		var configmap *corev1.ConfigMap
 		const cmCACert1Name = "ca-cert-1"
 		const cmCACert2Name = "ca-cert-2"
 		const caCert1FileName = "ca-cert-1.crt"
@@ -674,6 +710,19 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = reconciler.Create(ctx, cmCACert2)
 			Expect(err).NotTo(HaveOccurred())
 
+			By("create the OpenShift certificates config map")
+			configmap, _ = generateRandomConfigMap()
+			configmap.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Configmap",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       DefaultOpenShiftCerts,
+				},
+			})
+			configMapCreationErr := reconciler.Create(ctx, configmap)
+			Expect(configMapCreationErr).NotTo(HaveOccurred())
+
 			By("Generate default CR")
 			cr = getDefaultOLSConfigCR()
 		})
@@ -694,6 +743,10 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Delete the config map for CA cert 2")
 			err = reconciler.Delete(ctx, cmCACert2)
 			Expect(err).NotTo(HaveOccurred())
+
+			By("Delete OpenShift certificates config map")
+			configMapDeletionErr := reconciler.Delete(ctx, configmap)
+			Expect(configMapDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should update the configmap and deployment when changing the additional CA cert", func() {
@@ -709,7 +762,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSConfigCmName, Namespace: OLSNamespaceDefault}, cm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Data).To(HaveKey(OLSConfigFilename))
-			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring(fmt.Sprintf("extra_ca:\n  - %s", path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir, caCert1FileName))))
+			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/ca-cert-1.crt"))
 			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
 
 			By("check the additional CA configmap has watcher annotation")
@@ -742,12 +795,12 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			))
 			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
 				Name:      AdditionalCAVolumeName,
-				MountPath: path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir),
+				MountPath: path.Join(OLSAppCertsMountRoot, UserCACertDir),
 				ReadOnly:  true,
 			}))
 			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
 				Name:      CertBundleVolumeName,
-				MountPath: path.Join(OLSAppCertsMountRoot, CertBundleDir),
+				MountPath: path.Join(OLSAppCertsMountRoot, CertBundleVolumeName),
 			}))
 		})
 
@@ -778,14 +831,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 				MountPath: path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir),
 				ReadOnly:  true,
 			}))
-
-			By("Check OLS configmap does not have extra_ca section")
-			cm := &corev1.ConfigMap{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSConfigCmName, Namespace: OLSNamespaceDefault}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Data).To(HaveKey(OLSConfigFilename))
-			Expect(cm.Data[OLSConfigFilename]).NotTo(ContainSubstring("extra_ca:"))
-
 		})
 
 	})
@@ -794,6 +839,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		var secret *corev1.Secret
 		var tlsSecret *corev1.Secret
 		var tlsUserSecret *corev1.Secret
+		var configmap *corev1.ConfigMap
 		const tlsUserSecretName = "tls-user-secret"
 		BeforeEach(func() {
 			By("create the provider secret")
@@ -834,6 +880,19 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			crDefault := getDefaultOLSConfigCR()
 			cr.Spec = crDefault.Spec
+
+			By("create the OpenShift certificates config map")
+			configmap, _ = generateRandomConfigMap()
+			configmap.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Configmap",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       DefaultOpenShiftCerts,
+				},
+			})
+			configMapCreationErr := reconciler.Create(ctx, configmap)
+			Expect(configMapCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -848,6 +907,10 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Delete the user provided tls secret")
 			secretDeletionErr = reconciler.Delete(ctx, tlsUserSecret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
+
+			By("Delete OpenShift certificates config map")
+			configMapDeletionErr := reconciler.Delete(ctx, configmap)
+			Expect(configMapDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should generate RAG volumes and initContainers when RAG is defined, remove them when RAG is not defined", func() {
@@ -943,6 +1006,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		var secret *corev1.Secret
 		var volumeDefaultMode = int32(420)
 		var cmCACert *corev1.ConfigMap
+		var configmap *corev1.ConfigMap
 		const cmCACertName = "proxy-ca-cert"
 		BeforeEach(func() {
 			By("create the provider secret")
@@ -985,6 +1049,19 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err := reconciler.Create(ctx, cmCACert)
 			Expect(err).NotTo(HaveOccurred())
 
+			By("create the OpenShift certificates config map")
+			configmap, _ = generateRandomConfigMap()
+			configmap.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Configmap",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       DefaultOpenShiftCerts,
+				},
+			})
+			configMapCreationErr := reconciler.Create(ctx, configmap)
+			Expect(configMapCreationErr).NotTo(HaveOccurred())
+
 			By("Generate default CR")
 			cr = getDefaultOLSConfigCR()
 		})
@@ -1001,6 +1078,10 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Delete the config map for CA cert")
 			err := reconciler.Delete(ctx, cmCACert)
 			Expect(err).NotTo(HaveOccurred())
+
+			By("Delete OpenShift certificates config map")
+			configMapDeletionErr := reconciler.Delete(ctx, configmap)
+			Expect(configMapDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should update the configmap and deployment when changing the proxy CA cert", func() {

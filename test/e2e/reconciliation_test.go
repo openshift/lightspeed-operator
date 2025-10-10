@@ -289,7 +289,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-additional-ca/"+caCert1FileName)
+		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-user-ca/"+caCert1FileName)
 		Expect(err).NotTo(HaveOccurred())
 		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "certificate_directory: /etc/certs/cert-bundle")
 		Expect(err).NotTo(HaveOccurred())
@@ -331,7 +331,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			for _, volumeMount := range dep.Spec.Template.Spec.Containers[0].VolumeMounts {
 				if apiequality.Semantic.DeepEqual(volumeMount, corev1.VolumeMount{
 					Name:      AdditionalCAVolumeName,
-					MountPath: path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir),
+					MountPath: path.Join(OLSAppCertsMountRoot, UserCACertDir),
 					ReadOnly:  true,
 				}) {
 					certVolumeMountExist = true
@@ -356,7 +356,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		caCertConfigMap.Data[caCert2FileName] = TestCACert
 		err = client.Update(caCertConfigMap)
 		Expect(err).NotTo(HaveOccurred())
-		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-additional-ca/"+caCert2FileName)
+		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-user-ca/"+caCert2FileName)
 		Expect(err).NotTo(HaveOccurred())
 		err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
 			newCmHash := dep.Spec.Template.Annotations[AdditionalCAHashKey]

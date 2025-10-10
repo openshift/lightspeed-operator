@@ -33,13 +33,14 @@ import (
 )
 
 var testURL = "https://testURL"
+var defaultVolumeMode = int32(420)
 
 var _ = Describe("App server assets", func() {
 	var cr *olsv1alpha1.OLSConfig
 	var r *OLSConfigReconciler
 	var rOptions *OLSConfigReconcilerOptions
 	var secret *corev1.Secret
-	defaultVolumeMode := int32(420)
+	var configmap *corev1.ConfigMap
 
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
@@ -70,12 +71,26 @@ var _ = Describe("App server assets", func() {
 			})
 			secretCreationErr := r.Create(ctx, secret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
+			By("create the OpenShift certificates config map")
+			configmap, _ = generateRandomConfigMap()
+			configmap.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Configmap",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       DefaultOpenShiftCerts,
+				},
+			})
+			configMapCreationErr := r.Create(ctx, configmap)
+			Expect(configMapCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
 			By("Delete the provider secret")
 			secretDeletionErr := r.Delete(ctx, secret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
+			configMapDeletionErr := r.Delete(ctx, configmap)
+			Expect(configMapDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should generate a service account", func() {
@@ -129,6 +144,10 @@ var _ = Describe("App server assets", func() {
 						TranscriptsDisabled: false,
 						TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 					},
+					ExtraCAs: []string{
+						"/etc/certs/ols-additional-ca/service-ca.crt",
+					},
+					CertificateDirectory: "/etc/certs/cert-bundle",
 				},
 				LLMProviders: []ProviderConfig{
 					{
@@ -457,42 +476,7 @@ var _ = Describe("App server assets", func() {
 					Value: path.Join("/etc/ols", OLSConfigFilename),
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
-				{
-					Name:      "secret-test-secret",
-					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "secret-lightspeed-tls",
-					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "cm-olsconfig",
-					MountPath: "/etc/ols",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "ols-user-data",
-					ReadOnly:  false,
-					MountPath: "/app-root/ols-user-data",
-				},
-				{
-					Name:      "secret-lightspeed-postgres-secret",
-					ReadOnly:  true,
-					MountPath: "/etc/credentials/lightspeed-postgres-secret",
-				},
-				{
-					Name:      "cm-olspostgresca",
-					ReadOnly:  true,
-					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
-				},
-				{
-					Name:      TmpVolumeName,
-					MountPath: TmpVolumeMountPath,
-				},
-			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get9RequiredVolumeMounts()))
 			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("4Gi")},
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("1Gi")},
@@ -509,105 +493,13 @@ var _ = Describe("App server assets", func() {
 					Value: path.Join("/etc/ols", OLSConfigFilename),
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
-				{
-					Name:      "secret-test-secret",
-					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "secret-lightspeed-tls",
-					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "cm-olsconfig",
-					MountPath: "/etc/ols",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "ols-user-data",
-					ReadOnly:  false,
-					MountPath: "/app-root/ols-user-data",
-				},
-				{
-					Name:      "secret-lightspeed-postgres-secret",
-					ReadOnly:  true,
-					MountPath: "/etc/credentials/lightspeed-postgres-secret",
-				},
-				{
-					Name:      "cm-olspostgresca",
-					ReadOnly:  true,
-					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
-				},
-				{
-					Name:      TmpVolumeName,
-					MountPath: TmpVolumeMountPath,
-				},
-			}))
+			Expect(dep.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf(get9RequiredVolumeMounts()))
 			Expect(dep.Spec.Template.Spec.Containers[1].Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
-			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
-				{
-					Name: "secret-test-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  "test-secret",
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "secret-lightspeed-tls",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  OLSCertsSecretName,
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "secret-lightspeed-postgres-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  PostgresSecretName,
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "cm-olspostgresca",
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
-						},
-					},
-				},
-				{
-					Name: "cm-olsconfig",
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
-							DefaultMode:          &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "ols-user-data",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-				{
-					Name: TmpVolumeName,
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			}))
+			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf(get9RequiredVolumes()))
 			Expect(dep.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
 
 			By("generate deployment without data collector when telemetry pull secret does not exist")
@@ -634,89 +526,8 @@ var _ = Describe("App server assets", func() {
 					Value: path.Join("/etc/ols", OLSConfigFilename),
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
-				{
-					Name:      "secret-test-secret",
-					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "secret-lightspeed-tls",
-					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "cm-olsconfig",
-					MountPath: "/etc/ols",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "secret-lightspeed-postgres-secret",
-					ReadOnly:  true,
-					MountPath: "/etc/credentials/lightspeed-postgres-secret",
-				},
-				{
-					Name:      PostgresCAVolume,
-					ReadOnly:  true,
-					MountPath: "/etc/certs/lightspeed-postgres-certs/cm-olspostgresca",
-				},
-				{
-					Name:      TmpVolumeName,
-					MountPath: TmpVolumeMountPath,
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
-				{
-					Name: "secret-test-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  "test-secret",
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "secret-lightspeed-tls",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  OLSCertsSecretName,
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "cm-olsconfig",
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
-							DefaultMode:          &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "secret-lightspeed-postgres-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  "lightspeed-postgres-secret",
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: PostgresCAVolume,
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
-						},
-					},
-				},
-				{
-					Name: TmpVolumeName,
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get8RequiredVolumeMounts()))
+			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf(get8RequiredVolumes()))
 
 			By("generate deployment without data collector when telemetry pull secret does not contain telemetry token")
 			createTelemetryPullSecretWithoutTelemetryToken()
@@ -743,89 +554,8 @@ var _ = Describe("App server assets", func() {
 					Value: path.Join("/etc/ols", OLSConfigFilename),
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
-				{
-					Name:      "secret-test-secret",
-					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "secret-lightspeed-tls",
-					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "cm-olsconfig",
-					MountPath: "/etc/ols",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "secret-lightspeed-postgres-secret",
-					MountPath: "/etc/credentials/lightspeed-postgres-secret",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "cm-olspostgresca",
-					MountPath: "/etc/certs/lightspeed-postgres-certs/cm-olspostgresca",
-					ReadOnly:  true,
-				},
-				{
-					Name:      TmpVolumeName,
-					MountPath: TmpVolumeMountPath,
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
-				{
-					Name: "secret-test-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  "test-secret",
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "secret-lightspeed-tls",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  OLSCertsSecretName,
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "cm-olsconfig",
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
-							DefaultMode:          &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "secret-lightspeed-postgres-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  "lightspeed-postgres-secret",
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: PostgresCAVolume,
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
-						},
-					},
-				},
-				{
-					Name: TmpVolumeName,
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get8RequiredVolumeMounts()))
+			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf(get8RequiredVolumes()))
 			deleteTelemetryPullSecret()
 		})
 
@@ -982,42 +712,7 @@ var _ = Describe("App server assets", func() {
 					Value: path.Join("/etc/ols", OLSConfigFilename),
 				},
 			}))
-			Expect(deployment.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
-				{
-					Name:      "secret-test-secret",
-					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "secret-lightspeed-tls",
-					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "cm-olsconfig",
-					MountPath: "/etc/ols",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "ols-user-data",
-					ReadOnly:  false,
-					MountPath: "/app-root/ols-user-data",
-				},
-				{
-					Name:      "secret-lightspeed-postgres-secret",
-					ReadOnly:  true,
-					MountPath: "/etc/credentials/lightspeed-postgres-secret",
-				},
-				{
-					Name:      "cm-olspostgresca",
-					ReadOnly:  true,
-					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
-				},
-				{
-					Name:      TmpVolumeName,
-					MountPath: TmpVolumeMountPath,
-				},
-			}))
+			Expect(deployment.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf(get9RequiredVolumeMounts()))
 			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
 				corev1.Volume{
 					Name: "ols-user-data",
@@ -1201,42 +896,7 @@ var _ = Describe("App server assets", func() {
 			}))
 
 			// Verify MCP server has the same volume mounts as other containers
-			Expect(openshiftMCPServerContainer.VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
-				{
-					Name:      "secret-test-secret",
-					MountPath: path.Join(APIKeyMountRoot, "test-secret"),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "secret-lightspeed-tls",
-					MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
-					ReadOnly:  true,
-				},
-				{
-					Name:      "cm-olsconfig",
-					MountPath: "/etc/ols",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "ols-user-data",
-					ReadOnly:  false,
-					MountPath: "/app-root/ols-user-data",
-				},
-				{
-					Name:      "secret-lightspeed-postgres-secret",
-					ReadOnly:  true,
-					MountPath: "/etc/credentials/lightspeed-postgres-secret",
-				},
-				{
-					Name:      "cm-olspostgresca",
-					ReadOnly:  true,
-					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
-				},
-				{
-					Name:      TmpVolumeName,
-					MountPath: TmpVolumeMountPath,
-				},
-			}))
+			Expect(openshiftMCPServerContainer.VolumeMounts).To(ConsistOf(get9RequiredVolumeMounts()))
 
 			By("Disabling introspection")
 			cr.Spec.OLSConfig.IntrospectionEnabled = false
@@ -1349,6 +1009,22 @@ var _ = Describe("App server assets", func() {
 				Scheme:     k8sClient.Scheme(),
 				stateCache: make(map[string]string),
 			}
+			By("create the OpenShift certificates config map")
+			configmap, _ = generateRandomConfigMap()
+			configmap.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Configmap",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       DefaultOpenShiftCerts,
+				},
+			})
+			configMapCreationErr := r.Create(ctx, configmap)
+			Expect(configMapCreationErr).NotTo(HaveOccurred())
+		})
+		AfterEach(func() {
+			configMapDeletionErr := r.Delete(ctx, configmap)
+			Expect(configMapDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should generate a service account", func() {
@@ -1380,6 +1056,9 @@ ols_config:
       ssl_mode: require
       user: postgres
     type: postgres
+  extra_ca:
+    - /etc/certs/ols-additional-ca/service-ca.crt
+  certificate_directory: /etc/certs/cert-bundle		
   logging_config:
     app_log_level: ""
     lib_log_level: ""
@@ -1436,6 +1115,9 @@ ols_config:
       ssl_mode: require
       user: postgres
     type: postgres
+  extra_ca:
+    - /etc/certs/ols-additional-ca/service-ca.crt
+  certificate_directory: /etc/certs/cert-bundle		
   logging_config:
     app_log_level: ""
     lib_log_level: ""
@@ -1509,86 +1191,23 @@ user_data_collector_config: {}
 					Value: path.Join("/etc/ols", OLSConfigFilename),
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf([]corev1.VolumeMount{
-				{
-					Name:      "secret-lightspeed-tls",
-					MountPath: "/etc/certs/lightspeed-tls",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "cm-olsconfig",
-					MountPath: "/etc/ols",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "ols-user-data",
-					ReadOnly:  false,
-					MountPath: "/app-root/ols-user-data",
-				},
-				{
-					Name:      "secret-lightspeed-postgres-secret",
-					ReadOnly:  true,
-					MountPath: "/etc/credentials/lightspeed-postgres-secret",
-				},
-				{
-					Name:      "cm-olspostgresca",
-					ReadOnly:  true,
-					MountPath: path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume),
-				},
-				{
-					Name:      TmpVolumeName,
-					MountPath: TmpVolumeMountPath,
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf([]corev1.Volume{
-				{
-					Name: "secret-lightspeed-tls",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  OLSCertsSecretName,
-							DefaultMode: &defaultVolumeMode,
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(
+				append(get7RequiredVolumeMounts(),
+					corev1.VolumeMount{
+						Name:      "ols-user-data",
+						ReadOnly:  false,
+						MountPath: "/app-root/ols-user-data",
+					}),
+			))
+			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf(
+				append(get7RequiredVolumes(),
+					corev1.Volume{
+						Name: "ols-user-data",
+						VolumeSource: corev1.VolumeSource{
+							EmptyDir: &corev1.EmptyDirVolumeSource{},
 						},
-					},
-				},
-				{
-					Name: "cm-olsconfig",
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
-							DefaultMode:          &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "secret-lightspeed-postgres-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  PostgresSecretName,
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-				{
-					Name: "cm-olspostgresca",
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
-						},
-					},
-				},
-				{
-					Name: "ols-user-data",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-				{
-					Name: TmpVolumeName,
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			}))
+					}),
+			))
 			Expect(dep.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
 			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe).ToNot(BeNil())
 			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe.HTTPGet.Port).To(Equal(intstr.FromString("https")))
@@ -1729,6 +1348,18 @@ user_data_collector_config: {}
 			err = r.Create(ctx, additionalCACm)
 			Expect(err).NotTo(HaveOccurred())
 
+			By("create the OpenShift certificates config map")
+			configmap, _ = generateRandomConfigMap()
+			configmap.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Configmap",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       DefaultOpenShiftCerts,
+				},
+			})
+			configMapCreationErr := r.Create(ctx, configmap)
+			Expect(configMapCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -1738,14 +1369,11 @@ user_data_collector_config: {}
 			By("Delete the additional CA configmap")
 			err = r.Delete(ctx, additionalCACm)
 			Expect(err).NotTo(HaveOccurred())
-
+			configMapDeletionErr := r.Delete(ctx, configmap)
+			Expect(configMapDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should update OLS config and mount volumes for additional CA", func() {
-			olsCm, err := r.generateOLSConfigMap(ctx, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(olsCm.Data[OLSConfigFilename]).NotTo(ContainSubstring("extra_ca:"))
-
 			dep, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(
@@ -1760,21 +1388,14 @@ user_data_collector_config: {}
 						},
 					},
 				}))
-			Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(
-				corev1.Volume{
-					Name: CertBundleVolumeName,
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				}))
 
 			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
 				Name: caConfigMapName,
 			}
 
-			olsCm, err = r.generateOLSConfigMap(ctx, cr)
+			olsCm, err := r.generateOLSConfigMap(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsCm.Data[OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/additional-ca.crt"))
+			Expect(olsCm.Data[OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
 			Expect(olsCm.Data[OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
 
 			dep, err = r.generateOLSDeployment(cr)
@@ -1860,6 +1481,19 @@ user_data_collector_config: {}
 			}
 			err = r.Create(ctx, proxyCACm)
 			Expect(err).NotTo(HaveOccurred())
+
+			By("create the OpenShift certificates config map")
+			configmap, _ = generateRandomConfigMap()
+			configmap.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					Kind:       "Configmap",
+					APIVersion: "v1",
+					UID:        "ownerUID",
+					Name:       DefaultOpenShiftCerts,
+				},
+			})
+			configMapCreationErr := r.Create(ctx, configmap)
+			Expect(configMapCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -1869,6 +1503,8 @@ user_data_collector_config: {}
 			By("Delete the additional CA configmap")
 			err = r.Delete(ctx, proxyCACm)
 			Expect(err).NotTo(HaveOccurred())
+			configMapDeletionErr := r.Delete(ctx, configmap)
+			Expect(configMapDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should update OLS config and mount volumes for proxy settings", func() {
@@ -1941,18 +1577,14 @@ user_data_collector_config: {}
 	})
 })
 
-func generateRandomSecret() (*corev1.Secret, error) {
-	randomPassword := make([]byte, 12)
-	_, _ = rand.Read(randomPassword)
-	// Encode the password to base64
-	encodedPassword := base64.StdEncoding.EncodeToString(randomPassword)
-	passwordHash, _ := hashBytes([]byte(encodedPassword))
+func generateCertificate() ([]byte, []byte, error) {
 
-	// Generate RSA key
+	// Generate private key
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
 	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
@@ -1972,12 +1604,26 @@ func generateRandomSecret() (*corev1.Secret, error) {
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	certPEM := pem.EncodeToMemory(&pem.Block{
+	return privateKeyPEM, pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: certDER,
-	})
+	}), nil
+}
+
+func generateRandomSecret() (*corev1.Secret, error) {
+	randomPassword := make([]byte, 12)
+	_, _ = rand.Read(randomPassword)
+	// Encode the password to base64
+	encodedPassword := base64.StdEncoding.EncodeToString(randomPassword)
+	passwordHash, _ := hashBytes([]byte(encodedPassword))
+
+	// Generate self-signed certificate
+	privateKeyPEM, certPEM, err := generateCertificate()
+	if err != nil {
+		return nil, err
+	}
 
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2000,13 +1646,20 @@ func generateRandomSecret() (*corev1.Secret, error) {
 }
 
 func generateRandomConfigMap() (*corev1.ConfigMap, error) {
+
+	// Generate self-signed certificate
+	_, certPEM, err := generateCertificate()
+	if err != nil {
+		return nil, err
+	}
+
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-configmap",
+			Name:      DefaultOpenShiftCerts,
 			Namespace: "openshift-lightspeed",
 		},
 		Data: map[string]string{
-			"service-ca.crt": "random ca cert content",
+			"service-ca.crt": string(certPEM),
 		},
 	}
 	return &configMap, nil
@@ -2206,4 +1859,146 @@ func createPostgresCacheConfig() PostgresCacheConfig {
 		SSLMode:      PostgresDefaultSSLMode,
 		CACertPath:   path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
 	}
+}
+
+func get7RequiredVolumeMounts() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      "secret-lightspeed-tls",
+			MountPath: path.Join(OLSAppCertsMountRoot, OLSCertsSecretName),
+			ReadOnly:  true,
+		},
+		{
+			Name:      "cm-olsconfig",
+			MountPath: "/etc/ols",
+			ReadOnly:  true,
+		},
+		{
+			Name:      "secret-lightspeed-postgres-secret",
+			ReadOnly:  true,
+			MountPath: "/etc/credentials/lightspeed-postgres-secret",
+		},
+		{
+			Name:      PostgresCAVolume,
+			ReadOnly:  true,
+			MountPath: "/etc/certs/lightspeed-postgres-certs/cm-olspostgresca",
+		},
+		{
+			Name:      TmpVolumeName,
+			MountPath: TmpVolumeMountPath,
+		},
+		{
+			Name:      "openshift-ca",
+			ReadOnly:  true,
+			MountPath: "/etc/certs/ols-additional-ca",
+		},
+		{
+			Name:      "cert-bundle",
+			ReadOnly:  false,
+			MountPath: "/etc/certs/cert-bundle",
+		},
+	}
+}
+
+func get8RequiredVolumeMounts() []corev1.VolumeMount {
+	return append(get7RequiredVolumeMounts(),
+		corev1.VolumeMount{
+			Name:      "secret-test-secret",
+			MountPath: path.Join(APIKeyMountRoot, "test-secret"),
+			ReadOnly:  true,
+		})
+}
+
+func get9RequiredVolumeMounts() []corev1.VolumeMount {
+	return append(get8RequiredVolumeMounts(),
+		corev1.VolumeMount{
+			Name:      "ols-user-data",
+			ReadOnly:  false,
+			MountPath: "/app-root/ols-user-data",
+		})
+}
+
+func get7RequiredVolumes() []corev1.Volume {
+
+	return []corev1.Volume{
+		{
+			Name: "secret-lightspeed-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  OLSCertsSecretName,
+					DefaultMode: &defaultVolumeMode,
+				},
+			},
+		},
+		{
+			Name: "cm-olsconfig",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: OLSConfigCmName},
+					DefaultMode:          &defaultVolumeMode,
+				},
+			},
+		},
+		{
+			Name: "secret-lightspeed-postgres-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  "lightspeed-postgres-secret",
+					DefaultMode: &defaultVolumeMode,
+				},
+			},
+		},
+		{
+			Name: PostgresCAVolume,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
+				},
+			},
+		},
+		{
+			Name: TmpVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		{
+			Name: "openshift-ca",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "kube-root-ca.crt"},
+					DefaultMode:          &defaultVolumeMode,
+				},
+			},
+		},
+		{
+			Name: "cert-bundle",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	}
+}
+
+func get8RequiredVolumes() []corev1.Volume {
+	return append(get7RequiredVolumes(),
+		corev1.Volume{
+			Name: "secret-test-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  "test-secret",
+					DefaultMode: &defaultVolumeMode,
+				},
+			},
+		})
+}
+
+func get9RequiredVolumes() []corev1.Volume {
+	return append(get8RequiredVolumes(),
+		corev1.Volume{
+			Name: "ols-user-data",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
 }
