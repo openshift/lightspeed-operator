@@ -244,16 +244,18 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		referenceIndex := ReferenceIndex{
 			ProductDocsIndexPath: filepath.Join(RAGVolumeMountPath, fmt.Sprintf("rag-%d", i)),
 			ProductDocsIndexId:   index.IndexID,
+			ProductDocsOrigin:    index.Image,
 		}
 		referenceIndexes = append(referenceIndexes, referenceIndex)
 	}
-	// OCP documentation is always available
-	ocpReferenceIndex := ReferenceIndex{
-		ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.Options.OpenShiftMajor + "." + r.Options.OpenshiftMinor,
-		ProductDocsIndexId:   "ocp-product-docs-" + r.Options.OpenShiftMajor + "_" + r.Options.OpenshiftMinor,
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		ocpReferenceIndex := ReferenceIndex{
+			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.Options.OpenShiftMajor + "." + r.Options.OpenshiftMinor,
+			ProductDocsIndexId:   "ocp-product-docs-" + r.Options.OpenShiftMajor + "_" + r.Options.OpenshiftMinor,
+			ProductDocsOrigin:    "Red Hat OpenShift " + r.Options.OpenShiftMajor + "." + r.Options.OpenshiftMinor + " documentation",
+		}
+		referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 	}
-
-	referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 
 	olsConfig := OLSConfig{
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
