@@ -925,7 +925,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: OLSConfigCmName, Namespace: OLSNamespaceDefault}, cm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Data).To(HaveKey(OLSConfigFilename))
-			major, minor, err := reconciler.getClusterVersion(ctx)
+			major, minor, err := GetOpenshiftVersion(k8sClient, ctx)
 			Expect(err).NotTo(HaveOccurred())
 			// OCP document is always there
 			Expect(cm.Data[OLSConfigFilename]).To(ContainSubstring("indexes:"))

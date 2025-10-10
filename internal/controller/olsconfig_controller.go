@@ -60,6 +60,8 @@ type OLSConfigReconciler struct {
 }
 
 type OLSConfigReconcilerOptions struct {
+	OpenShiftMajor                 string
+	OpenshiftMinor                 string
 	LightspeedServiceImage         string
 	LightspeedServicePostgresImage string
 	ConsoleUIImage                 string

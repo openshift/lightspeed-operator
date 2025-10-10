@@ -44,6 +44,8 @@ var _ = Describe("App server assets", func() {
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
+				OpenShiftMajor:          "123",
+				OpenshiftMinor:          "456",
 				LightspeedServiceImage:  "lightspeed-service:latest",
 				OpenShiftMCPServerImage: "openshift-mcp-server:latest",
 				Namespace:               OLSNamespaceDefault,
@@ -85,7 +87,7 @@ var _ = Describe("App server assets", func() {
 
 		It("should generate the olsconfig config map", func() {
 			createTelemetryPullSecret()
-			major, minor, err := r.getClusterVersion(ctx)
+			major, minor, err := GetOpenshiftVersion(k8sClient, ctx)
 			Expect(err).NotTo(HaveOccurred())
 
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
@@ -1134,8 +1136,9 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
 
-			major, minor, err := r.getClusterVersion(ctx)
+			major, minor, err := GetOpenshiftVersion(k8sClient, ctx)
 			Expect(err).NotTo(HaveOccurred())
+
 			// OCP document is always there
 			ocpIndex := ReferenceIndex{
 				ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
@@ -1334,6 +1337,8 @@ var _ = Describe("App server assets", func() {
 		BeforeEach(func() {
 			cr = getEmptyOLSConfigCR()
 			rOptions = &OLSConfigReconcilerOptions{
+				OpenShiftMajor:         "123",
+				OpenshiftMinor:         "456",
 				LightspeedServiceImage: "lightspeed-service:latest",
 				Namespace:              OLSNamespaceDefault,
 			}
@@ -1357,7 +1362,7 @@ var _ = Describe("App server assets", func() {
 			// todo: this test is not complete
 			// generateOLSConfigMap should return an error if the CR is missing required fields
 			createTelemetryPullSecret()
-			major, minor, err := r.getClusterVersion(ctx)
+			major, minor, err := GetOpenshiftVersion(k8sClient, ctx)
 			Expect(err).NotTo(HaveOccurred())
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -1413,7 +1418,7 @@ user_data_collector_config:
 			// pull-secret without telemetry token should disable data collection
 			// and user_data_collector_config should not be present in the config
 			createTelemetryPullSecretWithoutTelemetryToken()
-			major, minor, err := r.getClusterVersion(ctx)
+			major, minor, err := GetOpenshiftVersion(k8sClient, ctx)
 			Expect(err).NotTo(HaveOccurred())
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -1686,6 +1691,8 @@ user_data_collector_config: {}
 
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
+				OpenShiftMajor:         "123",
+				OpenshiftMinor:         "456",
 				LightspeedServiceImage: "lightspeed-service:latest",
 				Namespace:              OLSNamespaceDefault,
 			}
@@ -1816,6 +1823,8 @@ user_data_collector_config: {}
 
 		BeforeEach(func() {
 			rOptions = &OLSConfigReconcilerOptions{
+				OpenShiftMajor:         "123",
+				OpenshiftMinor:         "456",
 				LightspeedServiceImage: "lightspeed-service:latest",
 				Namespace:              OLSNamespaceDefault,
 			}
