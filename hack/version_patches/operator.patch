@@ -1,11 +1,11 @@
-diff --git a/bundle.Dockerfile b/bundle.Dockerfile
-index 0ffbe18..a485f0e 100644
+ diff --git a/bundle.Dockerfile b/bundle.Dockerfile
+index c625871..db9bc97 100644
 --- a/bundle.Dockerfile
 +++ b/bundle.Dockerfile
-@@ -32,10 +32,10 @@ LABEL io.k8s.description="Red Hat OpenShift Lightspeed - AI assistant for managi
- LABEL io.k8s.display-name="Openshift Lightspeed"
+@@ -55,10 +55,10 @@ LABEL io.k8s.display-name="Openshift Lightspeed"
  LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
- LABEL name=openshift-lightspeed
+ LABEL name="openshift-lightspeed-tech-preview/lightspeed-operator-bundle"
+ LABEL cpe="cpe:/a:redhat:openshift_lightspeed:1::el9"
 -LABEL release=<current-version>
 +LABEL release=<new-version>
  LABEL url="https://github.com/openshift/lightspeed-operator"
@@ -13,7 +13,7 @@ index 0ffbe18..a485f0e 100644
 -LABEL version=<current-version>
 +LABEL version=<new-version>
  LABEL summary="Red Hat OpenShift Lightspeed"
- 
+
  # OCP compatibility labels
 diff --git a/bundle/manifests/lightspeed-operator.clusterserviceversion.yaml b/bundle/manifests/lightspeed-operator.clusterserviceversion.yaml
 index c500578..f688d06 100644

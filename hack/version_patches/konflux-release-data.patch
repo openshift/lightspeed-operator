@@ -1,42 +1,42 @@
-diff --git a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-bundle.yaml b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-bundle.yaml
-index 6944059e7..ab953a241 100644
---- a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-bundle.yaml
-+++ b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-bundle.yaml
+diff --git a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-bundle-stable.yaml b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-bundle-stable.yaml
+index 03074147c9..be298fc418 100644
+--- a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-bundle-stable.yaml
++++ b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-bundle-stable.yaml
 @@ -20,13 +20,13 @@ spec:
        defaults:
          tags:
            - "{{ git_sha }}"
--          - "1.0.3"
--          - "1.0.3-{{ timestamp }}"
-+          - "1.0.4"
-+          - "1.0.4-{{ timestamp }}"
-         pushSourceContainer: false
+-          - "<current-version>"
+-          - "<current-version>-{{ timestamp }}"
++          - "<new-version>"
++          - "<new-version>-{{ timestamp }}"
+         pushSourceContainer: true
      releaseNotes:
-       product_id: [ 950 ]
+       product_id: [950]
        product_name: Red Hat OpenShift Lightspeed
--      product_version: 1.0.3
-+      product_version: 1.0.4
+-      product_version: <current-version>
++      product_version: <new-version>
      intention: production
    pipeline:
      pipelineRef:
-diff --git a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml
-index 50b535ae5..a6d63526b 100644
---- a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml
-+++ b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols.yaml
-@@ -24,12 +24,12 @@ spec:
+diff --git a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-stable.yaml b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-stable.yaml
+index b81d51c492..ef2ea3f3a6 100644
+--- a/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-stable.yaml
++++ b/config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/crt-nshift-lightspeed/ols-stable.yaml
+@@ -28,13 +28,13 @@ spec:
        defaults:
          tags:
            - "{{ git_sha }}"
--          - "1.0.3"
--          - "1.0.3-{{ timestamp }}"
-+          - "1.0.4"
-+          - "1.0.4-{{ timestamp }}"
-         pushSourceContainer: false
+-          - "<current-version>"
+-          - "<current-version>-{{ timestamp }}"
++          - "<new-version>"
++          - "<new-version>-{{ timestamp }}"
+         pushSourceContainer: true
      releaseNotes:
-       product_id: [ 950 ]
+       product_id: [950]
        product_name: Red Hat OpenShift Lightspeed
--      product_version: 1.0.3
-+      product_version: 1.0.4
+-      product_version: <current-version>
++      product_version: <new-version>
      intention: production
    pipeline:
      pipelineRef:
