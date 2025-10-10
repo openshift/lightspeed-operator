@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
@@ -30,6 +31,16 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 		By("Cleaning up OLS test environment with CR deletion")
 		err = CleanupOLSTestEnvironmentWithCRDeletion(env, "byok_test")
 		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should check that the default index ID is empty", FlakeAttempts(5), func() {
+		olsConfig := &olsv1alpha1.OLSConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: OLSCRName,
+			}}
+		err := env.Client.Get(olsConfig)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(olsConfig.Spec.OLSConfig.RAG[0].IndexID).To(BeEmpty())
 	})
 
 	It("should query the BYOK database", FlakeAttempts(5), func() {

@@ -41,7 +41,7 @@ LABEL version={BUNDLE_VERSION}
 LABEL summary="Red Hat OpenShift Lightspeed"
 
 # OCP compatibility labels
-LABEL com.redhat.openshift.versions=v4.16-v4.19
+LABEL com.redhat.openshift.versions=v4.16-v4.20
 
 # Set user to non-root for security reasons.
 USER 1001
