@@ -1,0 +1,11 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Release
+metadata:
+  name: fbc-prod-420
+  namespace: crt-nshift-lightspeed-tenant
+spec:
+  releasePlan: ols-fbc-releaseplan-prod-v4-20
+  snapshot: snapshot-value
+  data:
+    releaseNotes:
+      type: "RHEA"
