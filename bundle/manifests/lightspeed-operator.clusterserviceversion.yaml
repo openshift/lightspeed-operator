@@ -154,6 +154,11 @@ spec:
             path: ols.additionalCAConfigMapRef
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
+          - description: Only use BYOK RAG sources, ignore the OpenShift documentation RAG
+            displayName: Only use BYOK RAG sources
+            path: ols.byokRAGOnly
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - displayName: PostgreSQL Settings
             path: ols.conversationCache.postgres
           - description: Secret that holds postgres credentials
