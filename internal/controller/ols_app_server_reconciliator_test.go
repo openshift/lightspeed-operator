@@ -619,7 +619,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 				Type:    typeApiReady,
 				Status:  metav1.ConditionFalse,
 				Reason:  "Reconciling",
-				Message: "Failed: Secret token not found for provider: testProvider. error: secret not found: non-existing-secret. error: secrets \"non-existing-secret\" not found",
+				Message: "Failed: secret token not found for provider: testProvider. error: secret not found: non-existing-secret. error: secrets \"non-existing-secret\" not found",
 			})).To(BeTrue())
 			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: originalSecretName}
 		})

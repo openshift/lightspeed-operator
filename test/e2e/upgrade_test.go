@@ -10,12 +10,8 @@ import (
 )
 
 var _ = Describe("Upgrade operator tests", Ordered, Label("Upgrade"), func() {
-	const serviceAnnotationKeyTLSSecret = "service.beta.openshift.io/serving-cert-secret-name"
 	const testSAName = "test-sa"
-	const testSAOutsiderName = "test-sa-outsider"
 	const queryAccessClusterRole = "lightspeed-operator-query-access"
-	const appMetricsAccessClusterRole = "lightspeed-operator-ols-metrics-reader"
-	const olsRouteName = "ols-route"
 	var cr *olsv1alpha1.OLSConfig
 	var err error
 	var client *Client

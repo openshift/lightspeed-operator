@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2"
 
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
@@ -37,9 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
 const (
@@ -510,16 +511,16 @@ func (c *Client) CheckErrorAndRestartPortForwardService(err error, serviceName, 
 		return
 	}
 	if !strings.Contains(err.Error(), "EOF") {
-		fmt.Fprintf(GinkgoWriter, "CheckErrorAndRestartPortForwardService skips non-EOF error: %s \n", err)
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "CheckErrorAndRestartPortForwardService skips non-EOF error: %s \n", err)
 		return
 	}
-	fmt.Fprintf(GinkgoWriter, "EOF error detected, restarting port forwarding\n")
+	_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "EOF error detected, restarting port forwarding\n")
 	forwardHostNew, cleanUp, fpErr = c.ForwardPort(serviceName, namespace, port)
 	if fpErr != nil {
-		fmt.Fprintf(GinkgoWriter, "failed to restart port forwarding: %s \n", fpErr)
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "failed to restart port forwarding: %s \n", fpErr)
 		return
 	}
-	fmt.Fprintf(GinkgoWriter, "restarted port forwarding\n")
+	_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "restarted port forwarding\n")
 	*forwardHost = forwardHostNew
 	*cleanUpFuncs = append(*cleanUpFuncs, cleanUp)
 }

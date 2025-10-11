@@ -60,7 +60,7 @@ func (c *HTTPSClient) Get(queryUrl string, headers ...map[string]string) (*http.
 	}
 	u.Host = c.host
 	u.Scheme = "https"
-	var body []byte = make([]byte, 1024)
+	var body = make([]byte, 1024)
 	req, err := http.NewRequest(http.MethodGet, u.String(), bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
@@ -128,7 +128,7 @@ func (c *HTTPSClient) waitForHTTPSGetStatus(queryUrl string, statusCode int, hea
 			}
 			return false, nil
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != statusCode {
 			lastErr = fmt.Errorf("unexpected status code %d", resp.StatusCode)
 			return false, nil
@@ -150,7 +150,7 @@ func (c *HTTPSClient) waitForHTTPSPostStatus(queryUrl string, body []byte, statu
 		if lastErr != nil {
 			return false, nil
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != statusCode {
 			lastErr = fmt.Errorf("unexpected status code %d", resp.StatusCode)
 			return false, nil

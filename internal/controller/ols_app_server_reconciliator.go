@@ -354,7 +354,7 @@ func (r *OLSConfigReconciler) reconcileLLMSecrets(ctx context.Context, cr *olsv1
 		foundSecret := &corev1.Secret{}
 		secretValues, err := getAllSecretContent(r.Client, provider.CredentialsSecretRef.Name, r.Options.Namespace, foundSecret)
 		if err != nil {
-			return fmt.Errorf("Secret token not found for provider: %s. error: %w", provider.Name, err)
+			return fmt.Errorf("secret token not found for provider: %s. error: %w", provider.Name, err)
 		}
 		for key, value := range secretValues {
 			providerCredentials += key + "=" + value + "\n"
