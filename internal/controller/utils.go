@@ -316,9 +316,9 @@ func probeEqual(a, b *corev1.Probe) bool {
 
 // serviceEqual compares two v1.Service and returns true if they are equal.
 func serviceEqual(a *corev1.Service, b *corev1.Service) bool {
-	if !(apiequality.Semantic.DeepEqual(a.ObjectMeta.Labels, b.ObjectMeta.Labels) &&
-		apiequality.Semantic.DeepEqual(a.Spec.Selector, b.Spec.Selector) &&
-		len(a.Spec.Ports) == len(b.Spec.Ports)) {
+	if !apiequality.Semantic.DeepEqual(a.Labels, b.Labels) ||
+		!apiequality.Semantic.DeepEqual(a.Spec.Selector, b.Spec.Selector) ||
+		len(a.Spec.Ports) != len(b.Spec.Ports) {
 		return false
 	}
 
@@ -334,19 +334,19 @@ func serviceEqual(a *corev1.Service, b *corev1.Service) bool {
 
 // serviceMonitorEqual compares two monv1.ServiceMonitor and returns true if they are equal.
 func serviceMonitorEqual(a *monv1.ServiceMonitor, b *monv1.ServiceMonitor) bool {
-	return apiequality.Semantic.DeepEqual(a.ObjectMeta.Labels, b.ObjectMeta.Labels) &&
+	return apiequality.Semantic.DeepEqual(a.Labels, b.Labels) &&
 		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
 }
 
 // prometheusRuleEqual compares two monv1.PrometheusRule and returns true if they are equal.
 func prometheusRuleEqual(a *monv1.PrometheusRule, b *monv1.PrometheusRule) bool {
-	return apiequality.Semantic.DeepEqual(a.ObjectMeta.Labels, b.ObjectMeta.Labels) &&
+	return apiequality.Semantic.DeepEqual(a.Labels, b.Labels) &&
 		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
 }
 
 // networkPolicyEqual compares two networkingv1.NetworkPolicy and returns true if they are equal.
 func networkPolicyEqual(a *networkingv1.NetworkPolicy, b *networkingv1.NetworkPolicy) bool {
-	return apiequality.Semantic.DeepEqual(a.ObjectMeta.Labels, b.ObjectMeta.Labels) &&
+	return apiequality.Semantic.DeepEqual(a.Labels, b.Labels) &&
 		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
 }
 

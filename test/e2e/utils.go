@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,10 +9,11 @@ import (
 	"os/exec"
 	"strings"
 
-	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
 // OLSTestEnvironment contains all the resources needed for TLS testing
@@ -148,7 +148,7 @@ func TestOLSServiceActivation(env *OLSTestEnvironment) (*corev1.Secret, error) {
 	}
 
 	// Check the secret holding TLS certificates is created
-	secretName, ok := service.ObjectMeta.Annotations[ServiceAnnotationKeyTLSSecret]
+	secretName, ok := service.Annotations[ServiceAnnotationKeyTLSSecret]
 	if !ok {
 		return nil, fmt.Errorf("TLS secret annotation not found on service")
 	}
@@ -239,8 +239,8 @@ func UpdateRapidastConfig(hostURL, token string) error {
 		return fmt.Errorf("error reading config file: %w", err)
 	}
 
-	newContent := strings.Replace(string(configContent), "$HOST", hostURL, -1)
-	newContent = strings.Replace(newContent, "$BEARER_TOKEN", token, -1)
+	newContent := strings.ReplaceAll(string(configContent), "$HOST", hostURL)
+	newContent = strings.ReplaceAll(newContent, "$BEARER_TOKEN", token)
 
 	err = os.WriteFile("../../ols-rapidast-config-updated.yaml", []byte(newContent), 0644)
 	if err != nil {
@@ -286,10 +286,10 @@ func CleanupOLSTestEnvironmentWithCRDeletion(env *OLSTestEnvironment, testName s
 func containsVolume(volumes []corev1.Volume, target corev1.Volume) bool {
 	for _, volume := range volumes {
 		if volume.Name == target.Name &&
-			volume.VolumeSource.Secret != nil &&
-			target.VolumeSource.Secret != nil &&
-			volume.VolumeSource.Secret.SecretName == target.VolumeSource.Secret.SecretName &&
-			*volume.VolumeSource.Secret.DefaultMode == *target.VolumeSource.Secret.DefaultMode {
+			volume.Secret != nil &&
+			target.Secret != nil &&
+			volume.Secret.SecretName == target.Secret.SecretName &&
+			*volume.Secret.DefaultMode == *target.Secret.DefaultMode {
 			return true
 		}
 	}
@@ -297,15 +297,6 @@ func containsVolume(volumes []corev1.Volume, target corev1.Volume) bool {
 }
 
 func Ptr[T any](v T) *T { return &v }
-
-func hashBytes(sourceStr []byte) (string, error) { // nolint:unused
-	hashFunc := sha256.New()
-	_, err := hashFunc.Write(sourceStr)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate hash %w", err)
-	}
-	return fmt.Sprintf("%x", hashFunc.Sum(nil)), nil
-}
 
 func WriteResourceToFile(client *Client, clusterDir string, filename string, resource string) error {
 	ctx, cancel := context.WithCancel(client.ctx)
@@ -315,13 +306,13 @@ func WriteResourceToFile(client *Client, clusterDir string, filename string, res
 	if err != nil {
 		return fmt.Errorf("failed to create %s: %w", filename, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	// Execute command and write output to file
 	cmd, err := exec.CommandContext(ctx, "oc", "get", resource, "-n", OLSNameSpace, "--kubeconfig", client.kubeconfigPath, "-o", "yaml").Output()
 	if err != nil {
 		return fmt.Errorf("failed to write to %s: %w", filename, err)
 	}
-	f.Write(cmd)
+	_, _ = f.Write(cmd)
 	return nil
 }
 
@@ -342,12 +333,12 @@ func WriteLogsToFile(client *Client, clusterDir string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create %s: %w", SinglePod, err)
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 			cmd, err := exec.CommandContext(ctx, "oc", "logs", "-n", OLSNameSpace, SinglePod, "--kubeconfig", client.kubeconfigPath).Output()
 			if err != nil {
 				fmt.Printf("failed to get logs: %s \n", err)
 			}
-			f.Write(cmd)
+			_, _ = f.Write(cmd)
 		}
 		//}
 	}

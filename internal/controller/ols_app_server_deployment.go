@@ -560,7 +560,7 @@ func (r *OLSConfigReconciler) telemetryEnabled() (bool, error) {
 
 func (r *OLSConfigReconciler) dataCollectorEnabled(cr *olsv1alpha1.OLSConfig) (bool, error) {
 	// data collector is enabled in OLS configuration
-	configEnabled := !(cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled && cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled)
+	configEnabled := !cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled || !cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled
 	telemetryEnabled, err := r.telemetryEnabled()
 	if err != nil {
 		return false, err

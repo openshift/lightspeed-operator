@@ -103,7 +103,7 @@ func (r *OLSConfigReconciler) restartAppServer(ctx context.Context, inCluster bo
 	if inCluster {
 		// Update impacted deployment - OLSAppServerDeploymentName
 		dep := &appsv1.Deployment{}
-		err := r.Client.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, dep)
+		err := r.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, dep)
 		if err != nil {
 			r.logger.Info("failed to get deployment", "deploymentName", OLSAppServerDeploymentName, "error", err)
 			return err
@@ -116,7 +116,7 @@ func (r *OLSConfigReconciler) restartAppServer(ctx context.Context, inCluster bo
 		dep.Spec.Template.Annotations[ForceReloadAnnotationKey] = time.Now().Format(time.RFC3339Nano)
 		// Update
 		r.logger.Info("updating OLS deployment", "name", dep.Name)
-		err = r.Client.Update(ctx, dep)
+		err = r.Update(ctx, dep)
 		if err != nil {
 			r.logger.Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
 			return err
