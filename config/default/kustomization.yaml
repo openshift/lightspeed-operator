@@ -39,6 +39,9 @@ patches:
         value: --console-image=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
       - op: add
         path: /spec/template/spec/containers/0/args/-
+        value: --console-image_pf5=quay.io/openshift-lightspeed/lightspeed-console-plugin_pf5:latest
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
         value: --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
       - op: add
         path: /spec/template/spec/containers/0/args/-
