@@ -248,6 +248,7 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		}
 		referenceIndexes = append(referenceIndexes, referenceIndex)
 	}
+
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
 		ocpReferenceIndex := ReferenceIndex{
 			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.Options.OpenShiftMajor + "." + r.Options.OpenshiftMinor,

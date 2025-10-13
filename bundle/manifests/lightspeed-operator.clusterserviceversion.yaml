@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-10-03T15:49:27Z"
+    createdAt: "2025-10-13T10:23:44Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -81,7 +81,9 @@ spec:
           - description: The name of the secret object that stores API provider credentials
             displayName: Credential Secret
             path: llm.providers[0].credentialsSecretRef
-          - description: 'Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default. possible values: MCPServer'
+          - description: |-
+              Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
+              possible values: MCPServer
             displayName: Feature Gates
             path: featureGates
           - displayName: LLM Settings
@@ -97,7 +99,7 @@ spec:
           - description: List of models from the provider
             displayName: Models
             path: llm.providers[0].models
-          - description: Defines the model's context window size. Default is specific to provider/model.
+          - description: Defines the model's context window size, in tokens. The default is 128k tokens.
             displayName: Context Window Size
             path: llm.providers[0].models[0].contextWindowSize
           - description: Model name
@@ -106,7 +108,7 @@ spec:
           - description: Model API parameters
             displayName: Parameters
             path: llm.providers[0].models[0].parameters
-          - description: Max tokens for response
+          - description: Max tokens for response. The default is 2048 tokens.
             displayName: Max Tokens For Response
             path: llm.providers[0].models[0].parameters.maxTokensForResponse
           - description: Model API URL
@@ -279,7 +281,9 @@ spec:
           - description: The configmap holding proxy CA certificate
             displayName: Proxy CA Certificate
             path: ols.proxyConfig.proxyCACertificate
-          - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+          - description: |-
+              Proxy URL, e.g. https://proxy.example.com:8080
+              If not specified, the cluster wide proxy will be used, though env var "https_proxy".
             displayName: Proxy URL
             path: ols.proxyConfig.proxyURL
           - description: Query filters
