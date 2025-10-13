@@ -39,7 +39,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
-	go.yaml.in/yaml/v2 v2.4.2 // indirect
+	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/mod v0.28.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
@@ -73,7 +73,7 @@ require (
 	github.com/openshift/api v0.0.0-20250904155839-a30da32c0ca8
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.66.1 // indirect
+	github.com/prometheus/common v0.67.1 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
