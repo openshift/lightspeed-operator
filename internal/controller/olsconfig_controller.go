@@ -140,8 +140,8 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 	// The operator reconciles only for OLSConfig CR with a specific name
-	if req.NamespacedName.Name != OLSConfigName {
-		r.logger.Info(fmt.Sprintf("Ignoring OLSConfig CR other than %s", OLSConfigName), "name", req.NamespacedName.Name)
+	if req.Name != OLSConfigName {
+		r.logger.Info(fmt.Sprintf("Ignoring OLSConfig CR other than %s", OLSConfigName), "name", req.Name)
 		return ctrl.Result{}, nil
 	}
 
