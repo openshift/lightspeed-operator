@@ -28,9 +28,9 @@ resources:
 - ../prometheus
 
 patches:
-  # set image of lightspeed-service-api
-  # todo: sync with the release version of openshift/lightspeed-service-api
-  - patch: |-
+# set image of lightspeed-service-api
+# todo: sync with the release version of openshift/lightspeed-service-api
+- patch: |-
       - op: add
         path: /spec/template/spec/containers/0/args/-
         value: --service-image=quay.io/openshift-lightspeed/lightspeed-service-api:latest
@@ -49,7 +49,7 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/image
         value: quay.io/openshift-lightspeed/lightspeed-operator:latest
-    target:
+  target:
       group: apps
       version: v1
       kind: Deployment

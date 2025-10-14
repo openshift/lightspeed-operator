@@ -65,6 +65,7 @@ var (
 		"lightspeed-service":         controller.OLSAppServerImageDefault,
 		"postgres-image":             controller.PostgresServerImageDefault,
 		"console-plugin":             controller.ConsoleUIImageDefault,
+		"console-plugin-pf5":         controller.ConsoleUIImagePF5Default,
 		"openshift-mcp-server-image": controller.OpenShiftMCPServerImageDefault,
 		"dataverse-exporter-image":   controller.DataverseExporterImageDefault,
 	}
@@ -148,7 +149,7 @@ func main() {
 	flag.StringVar(&caCertPath, "ca-cert", controller.OperatorCACertPathDefault, "The path to the CA certificate file.")
 	flag.StringVar(&serviceImage, "service-image", controller.OLSAppServerImageDefault, "The image of the lightspeed-service container.")
 	flag.StringVar(&consoleImage, "console-image", controller.ConsoleUIImageDefault, "The image of the console-plugin container using PatternFly 6.")
-	flag.StringVar(&consoleImage_pf5, "console-image_pf5", controller.ConsoleUIImagePF5Default, "The image of the console-plugin container using PatternFly 5.")
+	flag.StringVar(&consoleImage_pf5, "console-image-pf5", controller.ConsoleUIImagePF5Default, "The image of the console-plugin container using PatternFly 5.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
 	flag.StringVar(&postgresImage, "postgres-image", controller.PostgresServerImageDefault, "The image of the PostgreSQL server.")
 	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", controller.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
