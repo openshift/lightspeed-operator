@@ -267,8 +267,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
 	// MCP server image
 	OpenShiftMCPServerImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43"
-	// Dataverse exporter image
-	DataverseExporterImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722"
 	// MCP server URL
 	OpenShiftMCPServerURL = "http://localhost:%d/mcp"
 	// MCP server port
@@ -287,4 +285,18 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MCPSECRETDATAPATH = "header"
 	// OCP RAG image
 	OcpRagImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-rag-content-lsc@sha256:edf031376f6ad3a06d3ad1b2e3b06ed6139a03f5c32f01ffee012240e9169639"
+
+	/*** Data Exporter Constants ***/
+	// Dataverse exporter image
+	DataverseExporterImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722"
+	// ExporterConfigCmName is the name of the exporter configmap
+	ExporterConfigCmName = "lightspeed-exporter-config"
+	// ExporterConfigVolumeName is the name of the volume for exporter configuration
+	ExporterConfigVolumeName = "exporter-config"
+	// ExporterConfigMountPath is the path where exporter config is mounted
+	ExporterConfigMountPath = "/etc/config"
+	// ExporterConfigFilename is the name of the exporter configuration file
+	ExporterConfigFilename = "config.yaml"
+	// OLSUserDataMountPath is the path where user data is mounted in the app server container
+	OLSUserDataMountPath = "/app-root/ols-user-data"
 )
