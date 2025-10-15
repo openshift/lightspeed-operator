@@ -119,6 +119,19 @@ type OLSConfigReconcilerOptions struct {
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
 
+// getAppServerReconcileFunction returns the appropriate reconcile function based on the presence of a configmap
+func (r *OLSConfigReconciler) getAppServerReconcileFunction(ctx context.Context) (func(context.Context, *olsv1alpha1.OLSConfig) error, error) {
+	err := r.Get(ctx, client.ObjectKey{Name: LSCAppServerActivatorCmName, Namespace: r.Options.Namespace}, &corev1.ConfigMap{})
+	if err != nil && apierrors.IsNotFound(err) {
+		return r.reconcileAppServer, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", ErrGetLSCActivatorConfigmap, err)
+	}
+	return r.reconcileAppServerLSC, nil
+
+}
+
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -171,6 +184,12 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 
+	appServerReconcileFunc, err := r.getAppServerReconcileFunction(ctx)
+	if err != nil {
+		r.logger.Error(err, "Failed to get app server reconcile function")
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
+	}
+
 	// Define reconciliation steps for all deployments with their associated status conditions
 	reconcileSteps := []struct {
 		name          string
@@ -180,7 +199,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}{
 		{"console UI", r.reconcileConsoleUI, typeConsolePluginReady, ConsoleUIDeploymentName},
 		{"postgres server", r.reconcilePostgresServer, typeCacheReady, PostgresDeploymentName},
-		{"application server", r.reconcileAppServer, typeApiReady, OLSAppServerDeploymentName},
+		{"application server", appServerReconcileFunc, typeApiReady, OLSAppServerDeploymentName},
 	}
 
 	// Execute deployments reconcile
