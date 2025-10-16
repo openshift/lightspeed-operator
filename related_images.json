@@ -32,4 +32,5 @@
     "image": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:2ca4638bfc967b0a623c7c6f4170765a38662189653a343b5de5cbd8e26d9595",
     "revision": "e8383723a47af947ec49f3d01659d65065c66c86"
   }
+
 ]
