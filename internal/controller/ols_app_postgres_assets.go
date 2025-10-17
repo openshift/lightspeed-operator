@@ -256,16 +256,16 @@ func (r *OLSConfigReconciler) updatePostgresDeployment(ctx context.Context, exis
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
 		existingDeployment.Annotations[PostgresConfigHashKey] != r.stateCache[PostgresConfigHashStateCacheKey] ||
-		existingDeployment.Annotations[PostgresSecretHashKey] != r.stateCache[PostgresSecretHashStateCacheKey] {
-		updateDeploymentAnnotations(existingDeployment, map[string]string{
+		existingDeployment.Annotations[PostgresSecretHashKey] != r.stateCache[PostgresSecretHashStateCacheKey] ||
+		existingDeployment.Annotations[PostgresCAHashKey] != r.stateCache[PostgresCAHashStateCacheKey] {
+		annotations := map[string]string{
 			PostgresConfigHashKey: r.stateCache[PostgresConfigHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
-		})
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
+		}
+		updateDeploymentAnnotations(existingDeployment, annotations)
 		// update the deployment template annotation triggers the rolling update
-		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			PostgresConfigHashKey: r.stateCache[PostgresConfigHashStateCacheKey],
-			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
-		})
+		updateDeploymentTemplateAnnotations(existingDeployment, annotations)
 
 		if _, err := setDeploymentContainerEnvs(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].Env, PostgresDeploymentName); err != nil {
 			return err
@@ -454,7 +454,11 @@ func (r *OLSConfigReconciler) storageDefaults(s *olsv1alpha1.Storage) error {
 
 func (r *OLSConfigReconciler) generatePostgresPVC(cr *olsv1alpha1.OLSConfig) (*corev1.PersistentVolumeClaim, error) {
 
-	storage := cr.Spec.OLSConfig.Storage
+	// Create a copy of the storage configuration to avoid modifying the original CR
+	storage := &olsv1alpha1.Storage{}
+	if cr.Spec.OLSConfig.Storage != nil {
+		storage = cr.Spec.OLSConfig.Storage.DeepCopy()
+	}
 	if err := r.storageDefaults(storage); err != nil {
 		return nil, err
 	}
