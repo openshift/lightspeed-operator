@@ -28,6 +28,8 @@ const (
 	/*** application server configuration file ***/
 	// OLSConfigName is the name of the OLSConfig configmap
 	OLSConfigCmName = "olsconfig"
+	// AppServerConfigCmName is the name of the app server configmap
+	AppServerConfigCmName = "olsconfig"
 	// OLSCAConfigMap is the name of the OLS TLS ca certificate configmap
 	OLSCAConfigMap = "openshift-service-ca.crt"
 	// OLSNamespaceDefault is the default namespace for OLS
@@ -277,4 +279,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	OpenShiftMCPServerTimeout = 60
 	// MCP server SSE read timeout, sec
 	OpenShiftMCPServerHTTPReadTimeout = 30
+	// LSCAppServerActivatorCmName is the name of the LSC app server activator configmap
+	LSCAppServerActivatorCmName = "lsc-app-server-activator"
 )
