@@ -291,6 +291,29 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		},
 	)
 
+	// mount the volumes and add Volume mounts for the MCP server headers
+	for _, server := range cr.Spec.MCPServers {
+		for _, v := range server.StreamableHTTP.Headers {
+			if v == KUBERNETES_PLACEHOLDER {
+				continue
+			}
+			volumes = append(volumes, corev1.Volume{
+				Name: "header-" + v,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  v,
+						DefaultMode: &volumeDefaultMode,
+					},
+				},
+			})
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
+				Name:      "header-" + v,
+				MountPath: path.Join(MCPHeadersMountRoot, v),
+				ReadOnly:  true,
+			})
+		}
+	}
+
 	initContainers := []corev1.Container{}
 	if len(cr.Spec.OLSConfig.RAG) > 0 {
 		ragInitContainers := r.generateRAGInitContainers(cr)

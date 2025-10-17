@@ -1135,4 +1135,74 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 	})
 
+	Context("MCP Headers", Ordered, func() {
+		var volumeDefaultMode = int32(420)
+		BeforeEach(func() {
+			By("Set OLSConfig CR to default")
+			err := k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			crDefault := getDefaultOLSConfigCR()
+			cr.Spec = crDefault.Spec
+		})
+
+		It("should create additional volumes and volume mounts when MCP headers are defined", func() {
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{FeatureGateMCPServer}
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+				{
+					Name: "testMCP",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL:            "https://testMCP.com",
+						Timeout:        10,
+						SSEReadTimeout: 10,
+						Headers: map[string]string{
+							"header1": "value1",
+						},
+					},
+				},
+				{
+					Name: "testMCP2",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL:            "https://testMCP2.com",
+						Timeout:        10,
+						SSEReadTimeout: 10,
+						Headers: map[string]string{
+							"header2": "value2",
+						},
+						EnableSSE: true,
+					},
+				},
+			}
+			deployment, err := reconciler.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
+				Name: "header-value1",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  "value1",
+						DefaultMode: &volumeDefaultMode,
+					},
+				},
+			}))
+			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
+				Name: "header-value2",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  "value2",
+						DefaultMode: &volumeDefaultMode,
+					},
+				},
+			}))
+			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
+				Name:      "header-value1",
+				MountPath: "/etc/mcp/headers/value1",
+				ReadOnly:  true,
+			}))
+			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
+				Name:      "header-value2",
+				MountPath: "/etc/mcp/headers/value2",
+				ReadOnly:  true,
+			}))
+		})
+	})
+
 })
