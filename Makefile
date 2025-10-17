@@ -189,7 +189,7 @@ endif
 ifndef BUNDLE_IMAGE
 	$(error BUNDLE_IMAGE  environment variable is not set)
 endif
-ifdef ARTIFACT_DIR
+ifdef ARTIFACT_DIR ##Ensuring complete export or artifact directory is set.
 	@LLM_PROVIDER=$${LLM_PROVIDER:-default} && \
 	mkdir -p $(ARTIFACT_DIR)/test-reports/$$LLM_PROVIDER && \
 	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="Upgrade" \
