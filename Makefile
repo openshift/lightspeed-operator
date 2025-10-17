@@ -168,7 +168,15 @@ endif
 ifndef LLM_TOKEN
 	$(error LLM_TOKEN  environment variable is not set)
 endif
+ifdef ARTIFACT_DIR
+	@LLM_PROVIDER=$${LLM_PROVIDER:-default} && \
+	mkdir -p $(ARTIFACT_DIR)/test-reports/$$LLM_PROVIDER && \
+	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade" \
+		--ginkgo.junit-report=$(ARTIFACT_DIR)/test-reports/$$LLM_PROVIDER/junit-report.xml \
+		--ginkgo.json-report=$(ARTIFACT_DIR)/test-reports/$$LLM_PROVIDER/json-report.json
+else
 	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade"
+endif
 
 .PHONY: test-upgrade
 test-upgrade: ## Run upgrade tests with an Openshift cluster. Requires KUBECONFIG, LLM_TOKEN and BUNDLE_IMAGE environment variables.
@@ -181,7 +189,15 @@ endif
 ifndef BUNDLE_IMAGE
 	$(error BUNDLE_IMAGE  environment variable is not set)
 endif
+ifdef ARTIFACT_DIR
+	@LLM_PROVIDER=$${LLM_PROVIDER:-default} && \
+	mkdir -p $(ARTIFACT_DIR)/test-reports/$$LLM_PROVIDER && \
+	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="Upgrade" \
+		--ginkgo.junit-report=$(ARTIFACT_DIR)/test-reports/$$LLM_PROVIDER/junit-upgrade-report.xml \
+		--ginkgo.json-report=$(ARTIFACT_DIR)/test-reports/$$LLM_PROVIDER/json-upgrade-report.json
+else
 	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="Upgrade"
+endif
 
 .PHONY: test-e2e-local
 test-e2e-local: ## Run e2e tests with an Openshift cluster, excluding Database-Persistency test that requires a storage class. Requires KUBECONFIG and LLM_TOKEN environment variables.
