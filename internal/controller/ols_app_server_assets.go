@@ -344,13 +344,17 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 					URL:            fmt.Sprintf(OpenShiftMCPServerURL, OpenShiftMCPServerPort),
 					Timeout:        OpenShiftMCPServerTimeout,
 					SSEReadTimeout: OpenShiftMCPServerHTTPReadTimeout,
+					Headers:        map[string]string{K8S_AUTH_HEADER: KUBERNETES_PLACEHOLDER},
 				},
 			},
 		}
 	}
 
 	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, FeatureGateMCPServer) {
-		mcpServers := generateMCPServerConfigs(cr)
+		mcpServers, err := r.generateMCPServerConfigs(ctx, cr)
+		if err != nil {
+			return nil, err
+		}
 		if appSrvConfigFile.MCPServers == nil {
 			appSrvConfigFile.MCPServers = mcpServers
 		} else {
@@ -730,47 +734,86 @@ const (
 	StreamableHTTPField
 )
 
-func generateMCPServerConfigs(cr *olsv1alpha1.OLSConfig) []MCPServerConfig {
+func (r *OLSConfigReconciler) generateMCPServerConfigs(ctx context.Context, cr *olsv1alpha1.OLSConfig) ([]MCPServerConfig, error) {
 	if cr.Spec.MCPServers == nil {
-		return nil
+		return nil, nil
 	}
 
 	servers := []MCPServerConfig{}
+	var overall_error error
+	overall_error = nil
 	for _, server := range cr.Spec.MCPServers {
+		// check all the secrets
+		sse, err := r.generateMCPStreamableHTTPTransportConfig(ctx, &server, SSEField)
+		if err != nil {
+			overall_error = err
+			continue
+		}
+		streamableHTTP, err := r.generateMCPStreamableHTTPTransportConfig(ctx, &server, StreamableHTTPField)
+		if err != nil {
+			overall_error = err
+			continue
+		}
 		servers = append(servers, MCPServerConfig{
 			Name:           server.Name,
 			Transport:      getMCPTransport(&server),
-			SSE:            generateMCPStreamableHTTPTransportConfig(&server, SSEField),
-			StreamableHTTP: generateMCPStreamableHTTPTransportConfig(&server, StreamableHTTPField),
+			SSE:            sse,
+			StreamableHTTP: streamableHTTP,
 		})
 	}
-	return servers
+	return servers, overall_error
 }
 
-func generateMCPStreamableHTTPTransportConfig(server *olsv1alpha1.MCPServer, field int) *StreamableHTTPTransportConfig {
+func (r *OLSConfigReconciler) generateMCPStreamableHTTPTransportConfig(ctx context.Context, server *olsv1alpha1.MCPServer, field int) (*StreamableHTTPTransportConfig, error) {
 	if server == nil || server.StreamableHTTP == nil {
-		return nil
+		return nil, nil
 	}
 
 	switch field {
 	case SSEField:
 		if !server.StreamableHTTP.EnableSSE {
-			return nil
+			return nil, nil
 		}
 	case StreamableHTTPField:
 		if server.StreamableHTTP.EnableSSE {
-			return nil
+			return nil, nil
 		}
 	default:
-		return nil
+		return nil, nil
+	}
+
+	// convert headers to paths
+	headers := make(map[string]string, len(server.StreamableHTTP.Headers))
+	for k, v := range server.StreamableHTTP.Headers {
+		if v == KUBERNETES_PLACEHOLDER {
+			headers[k] = v
+		} else {
+			secret := &corev1.Secret{}
+			err := r.Get(ctx, client.ObjectKey{Name: v, Namespace: r.Options.Namespace}, secret)
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					r.logger.Error(err, fmt.Sprint("Header secret ", v, " for MCP server ", server.Name, " is not found"))
+					return nil, fmt.Errorf("MCP %s header secret %s is not found", server.Name, v)
+				}
+				r.logger.Error(err, fmt.Sprint("Failed to get header", v, " for MCP server ", server.Name))
+				return nil, fmt.Errorf("failed to get secret %s for MCP provider %s: %w", v, server.Name, err)
+			}
+			// make sure the secret has header path
+			if _, ok := secret.Data[MCPSECRETDATAPATH]; !ok {
+				r.logger.Error(err, fmt.Sprint("Header", v, " for MCP server ", server.Name, " does not contain 'header' path"))
+				return nil, fmt.Errorf("header %s for MCP server %s is missing key 'header'", v, server.Name)
+			}
+			// update header
+			headers[k] = path.Join(MCPHeadersMountRoot, v, MCPSECRETDATAPATH)
+		}
 	}
 
 	return &StreamableHTTPTransportConfig{
 		URL:            server.StreamableHTTP.URL,
 		Timeout:        server.StreamableHTTP.Timeout,
 		SSEReadTimeout: server.StreamableHTTP.SSEReadTimeout,
-		Headers:        server.StreamableHTTP.Headers,
-	}
+		Headers:        headers,
+	}, nil
 }
 
 func getMCPTransport(server *olsv1alpha1.MCPServer) MCPTransport {
