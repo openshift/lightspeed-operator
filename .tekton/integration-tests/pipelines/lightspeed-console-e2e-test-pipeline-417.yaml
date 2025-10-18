@@ -194,7 +194,7 @@ spec:
                 value: "$(steps.get-kubeconfig.results.consoleURL)"
               - name: BUNDLE_COMMIT_SHA
                 value: "$(params.commit)"
-            image: cypress/browsers:24.0.0
+            image: cypress/browsers:25.0.0
             script: |
               echo "---------------------------------------------"
               echo "${CYPRESS_BASE_URL}"
