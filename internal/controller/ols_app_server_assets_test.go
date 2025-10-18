@@ -101,7 +101,7 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate the olsconfig config map", func() {
-			createTelemetryPullSecret()
+			createTelemetryPullSecret(true)
 			major, minor, err := GetOpenshiftVersion(k8sClient, ctx)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -304,12 +304,53 @@ var _ = Describe("App server assets", func() {
 					"URL":            Equal(fmt.Sprintf(OpenShiftMCPServerURL, OpenShiftMCPServerPort)),
 					"Timeout":        Equal(OpenShiftMCPServerTimeout),
 					"SSEReadTimeout": Equal(OpenShiftMCPServerHTTPReadTimeout),
+					"Headers":        Equal(map[string]string{"kubernetes-authorization": "kubernetes"}),
 				})),
 			})))
 		})
 
+		It("should fail to generate configmap with additional MCP server if the headers are not configured correctly", func() {
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{FeatureGateMCPServer}
+			createHeaderSecret("garbage", false)
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+				{
+					Name: "testMCP",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL:            "https://testMCP.com",
+						Timeout:        10,
+						SSEReadTimeout: 10,
+						Headers: map[string]string{
+							"header1": "value3",
+						},
+					},
+				},
+			}
+			_, err := r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("MCP testMCP header secret value3 is not found"))
+
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+				{
+					Name: "testMCP",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL:            "https://testMCP.com",
+						Timeout:        10,
+						SSEReadTimeout: 10,
+						Headers: map[string]string{
+							"header1": "garbage",
+						},
+					},
+				},
+			}
+			_, err = r.generateOLSConfigMap(context.TODO(), cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("header garbage for MCP server testMCP is missing key 'header'"))
+		})
+
 		It("should generate configmap with additional MCP server if feature gate is enabled", func() {
 			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{FeatureGateMCPServer}
+			createHeaderSecret("value1", true)
+			createHeaderSecret("value2", true)
 			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
 				{
 					Name: "testMCP",
@@ -348,7 +389,7 @@ var _ = Describe("App server assets", func() {
 				Timeout:        10,
 				SSEReadTimeout: 10,
 				Headers: map[string]string{
-					"header1": "value1",
+					"header1": MCPHeadersMountRoot + "/value1/" + MCPSECRETDATAPATH,
 				},
 			}))
 			Expect(appSrvConfigFile.MCPServers[0].SSE).To(BeNil())
@@ -360,7 +401,7 @@ var _ = Describe("App server assets", func() {
 				Timeout:        10,
 				SSEReadTimeout: 10,
 				Headers: map[string]string{
-					"header2": "value2",
+					"header2": MCPHeadersMountRoot + "/value2/" + MCPSECRETDATAPATH,
 				},
 			}))
 			Expect(appSrvConfigFile.MCPServers[1].StreamableHTTP).To(BeNil())
@@ -368,6 +409,7 @@ var _ = Describe("App server assets", func() {
 
 		It("should not generate configmap with additional MCP server if feature gate is missing", func() {
 			Expect(cr.Spec.FeatureGates).To(BeNil())
+			createHeaderSecret("value1", true)
 			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
 				{
 					Name: "testMCP",
@@ -427,10 +469,19 @@ var _ = Describe("App server assets", func() {
 					"URL":            Equal("https://testMCP.com"),
 					"Timeout":        BeNumerically("==", 10),
 					"SSEReadTimeout": BeNumerically("==", 10),
-					"Headers":        Equal(map[string]string{"header1": "value1"}),
+					"Headers":        Equal(map[string]string{"header1": MCPHeadersMountRoot + "/value1/" + MCPSECRETDATAPATH}),
 				})),
 			})))
-
+			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("openshift"),
+				"Transport": Equal(StreamableHTTP),
+				"StreamableHTTP": PointTo(MatchFields(IgnoreExtras, Fields{
+					"URL":            Equal(fmt.Sprintf(OpenShiftMCPServerURL, OpenShiftMCPServerPort)),
+					"Timeout":        Equal(OpenShiftMCPServerTimeout),
+					"SSEReadTimeout": Equal(OpenShiftMCPServerHTTPReadTimeout),
+					"Headers":        Equal(map[string]string{"kubernetes-authorization": "kubernetes"}),
+				})),
+			})))
 		})
 		It("should place APIVersion in ProviderConfig for Azure OpenAI provider", func() {
 			// Configure CR with Azure OpenAI provider including APIVersion
@@ -454,7 +505,7 @@ var _ = Describe("App server assets", func() {
 
 		It("should generate the OLS deployment", func() {
 			By("generate full deployment when telemetry pull secret exists")
-			createTelemetryPullSecret()
+			createTelemetryPullSecret(true)
 
 			dep, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -531,7 +582,7 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf(get8RequiredVolumes()))
 
 			By("generate deployment without data collector when telemetry pull secret does not contain telemetry token")
-			createTelemetryPullSecretWithoutTelemetryToken()
+			createTelemetryPullSecret(false)
 			dep, err = r.generateOLSDeployment(cr)
 
 			Expect(err).NotTo(HaveOccurred())
@@ -661,7 +712,7 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should switch data collection on and off as CR defines in .spec.ols_config.user_data_collection", func() {
-			createTelemetryPullSecret()
+			createTelemetryPullSecret(true)
 			defer deleteTelemetryPullSecret()
 			By("Switching data collection off")
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
@@ -896,7 +947,7 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate deployment with MCP server sidecar when introspectionEnabled is true", func() {
-			createTelemetryPullSecret()
+			createTelemetryPullSecret(true)
 			defer deleteTelemetryPullSecret()
 
 			By("Enabling introspection")
@@ -943,7 +994,7 @@ var _ = Describe("App server assets", func() {
 
 		It("should deploy MCP container independently of data collection settings", func() {
 			By("Test case 1: introspection enabled, data collection enabled - should have both MCP and data collector containers")
-			createTelemetryPullSecret()
+			createTelemetryPullSecret(true)
 			cr.Spec.OLSConfig.IntrospectionEnabled = true
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    false,
@@ -1068,7 +1119,7 @@ var _ = Describe("App server assets", func() {
 		It("should generate the olsconfig config map", func() {
 			// todo: this test is not complete
 			// generateOLSConfigMap should return an error if the CR is missing required fields
-			createTelemetryPullSecret()
+			createTelemetryPullSecret(true)
 			major, minor, err := GetOpenshiftVersion(k8sClient, ctx)
 			Expect(err).NotTo(HaveOccurred())
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
@@ -1128,7 +1179,7 @@ user_data_collector_config:
 		It("should generate the olsconfig config map without user_data_collector_config", func() {
 			// pull-secret without telemetry token should disable data collection
 			// and user_data_collector_config should not be present in the config
-			createTelemetryPullSecretWithoutTelemetryToken()
+			createTelemetryPullSecret(false)
 			major, minor, err := GetOpenshiftVersion(k8sClient, ctx)
 			Expect(err).NotTo(HaveOccurred())
 			cm, err := r.generateOLSConfigMap(context.TODO(), cr)
@@ -1203,7 +1254,7 @@ user_data_collector_config: {}
 
 		It("should generate the OLS deployment", func() {
 			// todo: update this test after updating the test for generateOLSConfigMap
-			createTelemetryPullSecret()
+			createTelemetryPullSecret(true)
 			defer deleteTelemetryPullSecret()
 			dep, err := r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -1466,7 +1517,6 @@ user_data_collector_config: {}
 			_, err = r.generateOLSConfigMap(ctx, cr)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to validate additional CA certificate"))
-
 		})
 
 	})
@@ -1812,7 +1862,8 @@ func addRHELAIProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	return cr
 }
 
-func createTelemetryPullSecret() {
+func createTelemetryPullSecret(token bool) {
+
 	const telemetryToken = `
 		{
 			"auths": {
@@ -1823,25 +1874,8 @@ func createTelemetryPullSecret() {
 			}
 		}
 		`
-	pullSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pull-secret",
-			Namespace: "openshift-config",
-		},
-		Data: map[string][]byte{
-			".dockerconfigjson": []byte(telemetryToken),
-		},
-	}
 
-	err := k8sClient.Create(ctx, pullSecret)
-	// Ignore "already exists" errors since the secret may have been created by another test
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		Expect(err).NotTo(HaveOccurred())
-	}
-}
-
-func createTelemetryPullSecretWithoutTelemetryToken() {
-	const telemetryToken = `
+	const telemetryNoToken = `
 		{
 			"auths": {
 				"other.token": {
@@ -1851,14 +1885,22 @@ func createTelemetryPullSecretWithoutTelemetryToken() {
 			}
 		}
 		`
+
 	pullSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pull-secret",
 			Namespace: "openshift-config",
 		},
-		Data: map[string][]byte{
+	}
+
+	if token {
+		pullSecret.Data = map[string][]byte{
 			".dockerconfigjson": []byte(telemetryToken),
-		},
+		}
+	} else {
+		pullSecret.Data = map[string][]byte{
+			".dockerconfigjson": []byte(telemetryNoToken),
+		}
 	}
 
 	err := k8sClient.Create(ctx, pullSecret)
@@ -1891,6 +1933,32 @@ func createPostgresCacheConfig() PostgresCacheConfig {
 		PasswordPath: path.Join(CredentialsMountRoot, PostgresSecretName, OLSComponentPasswordFileName),
 		SSLMode:      PostgresDefaultSSLMode,
 		CACertPath:   path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
+	}
+}
+
+func createHeaderSecret(name string, header bool) {
+
+	headerSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: OLSNamespaceDefault,
+		},
+	}
+
+	if header {
+		headerSecret.Data = map[string][]byte{
+			MCPSECRETDATAPATH: []byte(name),
+		}
+	} else {
+		headerSecret.Data = map[string][]byte{
+			"garbage": []byte(name),
+		}
+	}
+
+	err := k8sClient.Create(ctx, headerSecret)
+	// Ignore "already exists" errors since the secret may have been created by another test
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		Expect(err).NotTo(HaveOccurred())
 	}
 }
 

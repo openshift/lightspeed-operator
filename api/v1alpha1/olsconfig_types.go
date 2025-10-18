@@ -453,6 +453,10 @@ type MCPServerStreamableHTTPTransport struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="SSE Read Timeout in seconds"
 	SSEReadTimeout int `json:"sseReadTimeout,omitempty"`
 	// Headers to send to the MCP server
+	// the map contains the header name and the name of the secret with the content of the header. This secret
+	// should contain a header path in the data containing a header value.
+	// A special case is usage of the kubernetes token in the header. to specify this use
+	// a string "kubernetes" instead of the secret name
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Headers"
 	Headers map[string]string `json:"headers,omitempty"`
 	// Enable Server Sent Events
