@@ -451,6 +451,46 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should create exporter configmap when data collector is enabled", func() {
+			By("Enable telemetry via pull secret and reconcile")
+			// Ensure exporter container has a valid image when enabled
+			reconciler.Options.DataverseExporterImage = DataverseExporterImageDefault
+			reconciler.Options.OpenShiftMCPServerImage = OpenShiftMCPServerImageDefault
+			createTelemetryPullSecret()
+			defer deleteTelemetryPullSecret()
+			err := reconciler.reconcileAppServer(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify exporter configmap exists")
+			cm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: ExporterConfigCmName, Namespace: OLSNamespaceDefault}, cm)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should delete exporter configmap when data collector is disabled", func() {
+			By("Ensure exporter configmap exists by enabling telemetry and reconciling")
+			// Ensure exporter container has a valid image when enabled
+			reconciler.Options.DataverseExporterImage = DataverseExporterImageDefault
+			reconciler.Options.OpenShiftMCPServerImage = OpenShiftMCPServerImageDefault
+			createTelemetryPullSecret()
+			err := reconciler.reconcileAppServer(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify exporter configmap exists")
+			cm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: ExporterConfigCmName, Namespace: OLSNamespaceDefault}, cm)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Disable telemetry and reconcile to trigger deletion")
+			deleteTelemetryPullSecret()
+			err = reconciler.reconcileAppServer(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify exporter configmap has been deleted")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: ExporterConfigCmName, Namespace: OLSNamespaceDefault}, &corev1.ConfigMap{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
 		It("should return error when the LLM provider token secret does not have required keys", func() {
 			By("General provider: the token secret miss 'apitoken' key")
 			secret, _ := generateRandomSecret()
