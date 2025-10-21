@@ -150,7 +150,20 @@ func (r *OLSConfigReconciler) reconcileExporterConfigMap(ctx context.Context, cr
 	}
 
 	if !dataCollectorEnabled {
-		r.logger.Info("Data collector not enabled, exporter configmap reconciliation skipped")
+		// Attempt to delete exporter configmap if it exists
+		foundCm := &corev1.ConfigMap{}
+		err := r.Client.Get(ctx, client.ObjectKey{Name: ExporterConfigCmName, Namespace: r.Options.Namespace}, foundCm)
+		if err != nil && !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to get exporter configmap: %w", err)
+		}
+		if err == nil {
+			if delErr := r.Delete(ctx, foundCm); delErr != nil && !errors.IsNotFound(delErr) {
+				return fmt.Errorf("failed to delete exporter configmap: %w", delErr)
+			}
+			r.logger.Info("Data collector not enabled, exporter configmap deleted", "configmap", foundCm.Name)
+		} else {
+			r.logger.Info("Data collector not enabled, exporter configmap does not exist")
+		}
 		return nil
 	}
 
