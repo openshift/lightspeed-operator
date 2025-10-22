@@ -362,7 +362,12 @@ spec:
                         headers:
                           additionalProperties:
                             type: string
-                          description: Headers to send to the MCP server
+                          description: |-
+                            Headers to send to the MCP server
+                            the map contains the header name and the name of the secret with the content of the header. This secret
+                            should contain a header path in the data containing a header value.
+                            A special case is usage of the kubernetes token in the header. to specify this use
+                            a string "kubernetes" instead of the secret name
                           type: object
                         sseReadTimeout:
                           default: 10

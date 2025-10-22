@@ -135,7 +135,12 @@ spec:
           - description: Enable Server Sent Events
             displayName: Enable Server Sent Events
             path: mcpServers[0].streamableHTTP.enableSSE
-          - description: Headers to send to the MCP server
+          - description: |-
+              Headers to send to the MCP server
+              the map contains the header name and the name of the secret with the content of the header. This secret
+              should contain a header path in the data containing a header value.
+              A special case is usage of the kubernetes token in the header. to specify this use
+              a string "kubernetes" instead of the secret name
             displayName: Headers
             path: mcpServers[0].streamableHTTP.headers
           - description: SSE Read Timeout, default is 10 seconds
