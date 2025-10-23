@@ -721,6 +721,8 @@ spec:
       image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
     - name: lightspeed-console-plugin
       image: quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
+    - name: lightspeed-console-plugin-pf5
+      image: quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest
     - name: lightspeed-operator
       image: quay.io/openshift-lightspeed/lightspeed-operator:latest
     - name: openshift-mcp-server

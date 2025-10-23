@@ -11,8 +11,8 @@
   },
   {
     "name": "lightspeed-console-plugin-pf5",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-pf5@sha256:2d39169b10c69a03f9792e37deb279129c72d170ad87433267f46df29413598e",
-    "revision": "799c836accf511a12ea1e844d430cb22c6736851"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:ca2fe8953843d3f21108d6232ed5a14a3c4f1ac14b87c94c5822752e6dcb7945",
+    "revision": "19a50aba4b7c7524edc54603eba3ef1ea1be8e8a"
   },
   {
     "name": "lightspeed-operator",
