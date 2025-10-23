@@ -16,7 +16,7 @@ COPY ${RELATED_IMAGE_FILE} /${RELATED_IMAGE_FILE}
 RUN OPERATOR_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-operator") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${OPERATOR_IMAGE_ORIGINAL}|${OPERATOR_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN SERVICE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-service-api") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${SERVICE_IMAGE_ORIGINAL}|${SERVICE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN CONSOLE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-console-plugin") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${CONSOLE_IMAGE_ORIGINAL}|${CONSOLE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
-RUN CONSOLE_IMAGE_PF5=$(jq -r '.[] | select(.name == "lightspeed-console-plugin-pf5") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${CONSOLE_IMAGE_ORIGINAL_PF5}|${CONSOLE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
+RUN CONSOLE_IMAGE_PF5=$(jq -r '.[] | select(.name == "lightspeed-console-plugin-pf5") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${CONSOLE_IMAGE_ORIGINAL_PF5}|${CONSOLE_IMAGE_PF5}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN OPENSHIFT_MCP_SERVER_IMAGE=$(jq -r '.[] | select(.name == "openshift-mcp-server") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${OPENSHIFT_MCP_SERVER_IMAGE_ORIGINAL}|${OPENSHIFT_MCP_SERVER_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN DATAVERSE_EXPORTER_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-to-dataverse-exporter") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${DATAVERSE_EXPORTER_IMAGE_ORIGINAL}|${DATAVERSE_EXPORTER_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 
@@ -30,7 +30,7 @@ LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
 LABEL operators.operatorframework.io.bundle.package.v1=lightspeed-operator
 LABEL operators.operatorframework.io.bundle.channels.v1=alpha
 LABEL operators.operatorframework.io.bundle.channel.default.v1=alpha
-LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.33.0
+LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.41.1
 LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v4
 
