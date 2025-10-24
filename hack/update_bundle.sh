@@ -112,7 +112,7 @@ BUNDLE_DOCKERFILE="bundle.Dockerfile"
 # if RELATED_IMAGES is not defined, extract related images or use default values
 if [ -f "${RELATED_IMAGES_FILENAME}" ]; then
   echo "using related images from file ${RELATED_IMAGES_FILENAME}"
-  RELATED_IMAGES=$(${JQ} '[ .[] | select(.name == "lightspeed-service-api" or .name == "lightspeed-operator" or .name == "lightspeed-console-plugin" or .name == "openshift-mcp-server" or .name == "dataverse-exporter") ]' ${RELATED_IMAGES_FILENAME})
+  RELATED_IMAGES=$(${JQ} '[ .[] | select(.name == "lightspeed-service-api" or .name == "lightspeed-operator" or .name == "lightspeed-console-plugin" or .name == "openshift-mcp-server" or .name == "lightspeed-to-dataverse-exporter") ]' ${RELATED_IMAGES_FILENAME})
 elif [ -f "${CSV_FILE}" ]; then
   echo "using related images from CSV file ${CSV_FILE}"
   RELATED_IMAGES=$(${YQ} ' .spec.relatedImages' -ojson ${CSV_FILE})
@@ -138,7 +138,7 @@ else
       "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43"
   },
   {
-      "name": "dataverse-exporter",
+      "name": "lightspeed-to-dataverse-exporter",
       "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722"
   }
 ]
@@ -154,7 +154,7 @@ OPERATOR_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-operator") | .image' <
 SERVICE_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-service-api") | .image' <<<${RELATED_IMAGES})
 CONSOLE_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-console-plugin") | .image' <<<${RELATED_IMAGES})
 OPENSHIFT_MCP_SERVER_IMAGE=$(${JQ} '.[] | select(.name == "openshift-mcp-server") | .image' <<<${RELATED_IMAGES})
-DATAVERSE_EXPORTER_IMAGE=$(${JQ} '.[] | select(.name == "dataverse-exporter") | .image' <<<${RELATED_IMAGES})
+DATAVERSE_EXPORTER_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-to-dataverse-exporter") | .image' <<<${RELATED_IMAGES})
 
 # Build the bundle image
 echo "Updating bundle artifacts for image ${OPERATOR_IMAGE}"

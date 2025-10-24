@@ -16,7 +16,7 @@ RUN OPERATOR_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-operator") | .imag
 RUN SERVICE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-service-api") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${SERVICE_IMAGE_ORIGINAL}|${SERVICE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN CONSOLE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-console-plugin") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${CONSOLE_IMAGE_ORIGINAL}|${CONSOLE_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN OPENSHIFT_MCP_SERVER_IMAGE=$(jq -r '.[] | select(.name == "openshift-mcp-server") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${OPENSHIFT_MCP_SERVER_IMAGE_ORIGINAL}|${OPENSHIFT_MCP_SERVER_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
-RUN DATAVERSE_EXPORTER_IMAGE=$(jq -r '.[] | select(.name == "dataverse-exporter") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${DATAVERSE_EXPORTER_IMAGE_ORIGINAL}|${DATAVERSE_EXPORTER_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
+RUN DATAVERSE_EXPORTER_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-to-dataverse-exporter") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${DATAVERSE_EXPORTER_IMAGE_ORIGINAL}|${DATAVERSE_EXPORTER_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 
 ##__GENERATED_CONTAINER_FILE__##
 
