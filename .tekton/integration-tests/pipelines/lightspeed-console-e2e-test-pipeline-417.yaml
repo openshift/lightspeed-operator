@@ -243,7 +243,7 @@ spec:
               git config --global user.name olsci
               git fetch origin ${BUNDLE_COMMIT_SHA}
               git pull origin ${BUNDLE_COMMIT_SHA} --rebase
-              export CONSOLE_SHA=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-console-plugin")' | jq '.revision' | tr -d '"' )
+              export CONSOLE_SHA=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-console-plugin-pf5")' | jq '.revision' | tr -d '"' )
               git clone https://github.com/openshift/lightspeed-console.git
               cd lightspeed-console
               git config --global user.email olsci@redhat.com
