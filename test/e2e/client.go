@@ -166,6 +166,7 @@ func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
 				dep.Status.Replicas, dep.Status.UpdatedReplicas)
 		}
 		if dep.Status.UnavailableReplicas != 0 {
+			c.ShowUnavailablePodsOfDeployment(dep)
 			return false, fmt.Errorf("got %d unavailable replicas",
 				dep.Status.UnavailableReplicas)
 		}
@@ -194,6 +195,121 @@ func (c *Client) WaitForDeploymentCondition(dep *appsv1.Deployment, condition fu
 	})
 	if err != nil {
 		return fmt.Errorf("WaitForDeploymentCondition - waiting for condition of the deployment %s/%s: %w ; last error: %w", dep.GetNamespace(), dep.GetName(), err, lastErr)
+	}
+
+	return nil
+}
+
+func (c *Client) ShowUnavailablePodsOfDeployment(dep *appsv1.Deployment) error {
+	err := c.Get(dep)
+	if err != nil {
+		return fmt.Errorf("failed to get deployment %s/%s: %w", dep.GetNamespace(), dep.GetName(), err)
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(dep.Spec.Selector)
+	if err != nil {
+		return fmt.Errorf("failed to parse deployment selector: %w", err)
+	}
+
+	pods := &corev1.PodList{}
+	err = c.List(pods, client.InNamespace(dep.GetNamespace()), client.MatchingLabelsSelector{
+		Selector: selector,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list pods for deployment %s/%s: %w", dep.GetNamespace(), dep.GetName(), err)
+	}
+
+	if len(pods.Items) == 0 {
+		logf.Log.Info("No pods found for deployment", "deployment", fmt.Sprintf("%s/%s", dep.GetNamespace(), dep.GetName()))
+		return nil
+	}
+
+	// Find unavailable pods
+	unavailablePods := []corev1.Pod{}
+	for _, pod := range pods.Items {
+		isAvailable := false
+
+		// A pod is considered available if it's running and ready
+		if pod.Status.Phase == corev1.PodRunning && !c.isPodTerminating(&pod) {
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+					isAvailable = true
+					break
+				}
+			}
+		}
+
+		if !isAvailable {
+			unavailablePods = append(unavailablePods, pod)
+		}
+	}
+
+	// Log unavailable pods and their status messages
+	if len(unavailablePods) == 0 {
+		logf.Log.Info("All pods are available for deployment", "deployment", fmt.Sprintf("%s/%s", dep.GetNamespace(), dep.GetName()))
+	} else {
+		logf.Log.Info("Found unavailable pods", "deployment", fmt.Sprintf("%s/%s", dep.GetNamespace(), dep.GetName()), "count", len(unavailablePods))
+
+		for _, pod := range unavailablePods {
+			logf.Log.Info("Unavailable pod details",
+				"pod", pod.Name,
+				"phase", pod.Status.Phase,
+				"reason", pod.Status.Reason,
+				"message", pod.Status.Message,
+			)
+
+			// Show container statuses
+			for _, containerStatus := range pod.Status.ContainerStatuses {
+				logf.Log.Info("Container status",
+					"pod", pod.Name,
+					"container", containerStatus.Name,
+					"ready", containerStatus.Ready,
+					"restartCount", containerStatus.RestartCount,
+				)
+
+				if containerStatus.State.Waiting != nil {
+					logf.Log.Info("Container waiting",
+						"pod", pod.Name,
+						"container", containerStatus.Name,
+						"reason", containerStatus.State.Waiting.Reason,
+						"message", containerStatus.State.Waiting.Message,
+					)
+				}
+
+				if containerStatus.State.Terminated != nil {
+					logf.Log.Info("Container terminated",
+						"pod", pod.Name,
+						"container", containerStatus.Name,
+						"reason", containerStatus.State.Terminated.Reason,
+						"message", containerStatus.State.Terminated.Message,
+						"exitCode", containerStatus.State.Terminated.ExitCode,
+					)
+				}
+
+				if containerStatus.LastTerminationState.Terminated != nil {
+					logf.Log.Info("Container last termination",
+						"pod", pod.Name,
+						"container", containerStatus.Name,
+						"reason", containerStatus.LastTerminationState.Terminated.Reason,
+						"message", containerStatus.LastTerminationState.Terminated.Message,
+						"exitCode", containerStatus.LastTerminationState.Terminated.ExitCode,
+					)
+				}
+			}
+
+			// Show pod conditions
+			for _, condition := range pod.Status.Conditions {
+				if condition.Status != corev1.ConditionTrue {
+					logf.Log.Info("Pod condition not met",
+						"pod", pod.Name,
+						"type", condition.Type,
+						"status", condition.Status,
+						"reason", condition.Reason,
+						"message", condition.Message,
+					)
+				}
+			}
+		}
 	}
 
 	return nil
