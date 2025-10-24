@@ -68,6 +68,7 @@ const (
 	ErrGetConsolePluginDeployment         = "failed to get Console Plugin deployment"
 	ErrGetConsolePluginNetworkPolicy      = "failed to get Console Plugin network policy"
 	ErrGetConsolePluginService            = "failed to get Console Plugin service"
+	ErrGetLSCActivatorConfigmap           = "failed to get LSC backend activator configmap"
 	ErrGetLLMSecret                       = "failed to get LLM provider secret" // #nosec G101
 	ErrGetOperatorNetworkPolicy           = "failed to get operator network policy"
 	ErrGetPostgresNetworkPolicy           = "failed to get OLS Postgres network policy"
