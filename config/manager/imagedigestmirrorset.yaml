@@ -17,3 +17,7 @@ spec:
     - source: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9
       mirrors:
         - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
+    - source: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9
+      mirrors:
+        - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console-pf5
+
