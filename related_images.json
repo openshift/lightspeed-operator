@@ -1,31 +1,32 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:4a9336718d247bbbe5caade2c7186e8d11e636683ab3b043ff5058b486eaf6fa",
-    "revision": "5311006d97802fd1b9bdf6adf3a348d692bdcfae"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:5e3aa38ee18f32e3e292c54121dd21758a5ef6a248d199020a0f4f4095fbdb94",
+    "revision": "4ffeb005babdcbf776bb412f17171a80b87df7f6"
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:1db560558b454b15f307f07b2840fbfd96f3ee73d6c515561c9d9d7d77156b0e",
-    "revision": "9157be74a22855364d8e69684bdc59589529c413"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:001b15649014380c0f69c3f27c488462f8b53a41ff3c5c432f0dd62bc20a7263",
+    "revision": "90e13b5db3962935f4c19cc3e3d96202b035f418"
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:4d8dff93a554b48521163c6c37029eb4026a27aa54abe8870ad7a963be8e367a",
-    "revision": "3db49d631c32d0b669162bb446f1151e7741a43c"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:164a8f4a93ff81f4240f79fbab7937fbb6742aa737ba8a0f53ae816a3e424bad",
+    "revision": "0811f746553dd681ee4260acb1ab8e6282068515"
   },
   {
     "name": "openshift-mcp-server",
-    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:e23ab62b89f1952aec1979bfe5b73a4c52b8bdad5ef44dc8b5d1620a0d5c69d2",
-    "revision": "2b8e41e03ca019fd2ee7c309d0de347f63550a3c"
+    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:99fc7c5d7be0328a98081ffef79cb1e8379443c7d80b3b89bedde616a0187225",
+    "revision": "b5bc635b6824cab65e4056503c377732f0c23c89"
+  },
+  {
+    "name": "lightspeed-to-dataverse-exporter",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:165ed82825bf40c3bf30f5838ee551f830a7aec61b917adabc802e16a7b21e74",
+    "revision": "3cee984c5cbfd5404481a75b9a95902e85189e48"
   },
   {
     "name": "lightspeed-postgresql",
     "image": "registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b"
-  },
-  {
-    "name": "dataverse-exporter",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722"
   },
   {
     "name": "lightspeed-operator-bundle",
