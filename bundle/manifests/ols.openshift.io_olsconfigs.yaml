@@ -1036,8 +1036,9 @@ spec:
                             RAG source
                           type: string
                         indexID:
-                          default: vector_db_index
-                          description: The Index ID of the RAG database
+                          default: ""
+                          description: The Index ID of the RAG database. Only needed
+                            if there are multiple indices in the database.
                           type: string
                         indexPath:
                           default: /rag/vector_db
