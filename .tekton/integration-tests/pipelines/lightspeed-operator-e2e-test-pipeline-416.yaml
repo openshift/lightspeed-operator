@@ -304,6 +304,7 @@ spec:
               echo "starting tests for $LLM_PROVIDER $LLM_MODEL"
               make test-e2e
           - name: gather-cluster-resources
+            onError: continue
             ref:
               resolver: git
               params:
@@ -322,12 +323,14 @@ spec:
                 value: "/workspace/konflux-artifacts"
           # validate that the cluster resources are available in another tekton step
           - name: list-artifacts
+            onError: continue
             image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
             workingDir: "/workspace"
             script: |
               #!/bin/bash
               ls -la /workspace
           - name: push-artifacts
+            onError: continue
             ref: 
               resolver: git
               params:
