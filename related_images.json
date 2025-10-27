@@ -6,18 +6,18 @@
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:001b15649014380c0f69c3f27c488462f8b53a41ff3c5c432f0dd62bc20a7263",
-    "revision": "90e13b5db3962935f4c19cc3e3d96202b035f418"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:6bae9b396e7540b9b6602747c5a7d86d219e8a677ac7e339a9bcba5e874dc7d0",
+    "revision": "1072ede0b983022ac871c9283f44bd1306eacdfb"
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:164a8f4a93ff81f4240f79fbab7937fbb6742aa737ba8a0f53ae816a3e424bad",
-    "revision": "0811f746553dd681ee4260acb1ab8e6282068515"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:aceaf5dace58bdcb688a6285ebf0518c5167c82030e903291bcb309f2d82b070",
+    "revision": "cb1cc17b76b0fa39576dda9734826d85986adfbb"
   },
   {
     "name": "openshift-mcp-server",
-    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:99fc7c5d7be0328a98081ffef79cb1e8379443c7d80b3b89bedde616a0187225",
-    "revision": "b5bc635b6824cab65e4056503c377732f0c23c89"
+    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:653bc261b5776acd3eaeb4bdabeaea823209ae694fb4b0911dae75622c37fda7",
+    "revision": "ce2967824ed6a6c75f3e33f533d67d33d6238258"
   },
   {
     "name": "lightspeed-to-dataverse-exporter",
