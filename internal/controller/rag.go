@@ -44,3 +44,30 @@ func (r *OLSConfigReconciler) generateRAGVolumeMount() corev1.VolumeMount {
 		MountPath: RAGVolumeMountPath,
 	}
 }
+
+// applyROSARAGConfiguration adds the ROSA-specific RAG source to the OLSConfig
+// if it doesn't already exist. This is called when ROSA environment is detected.
+func (r *OLSConfigReconciler) applyROSARAGConfiguration(cr *olsv1alpha1.OLSConfig) error {
+	rosaRAGSpec := olsv1alpha1.RAGSpec{
+		Image:     "quay.io/thoraxe/acm-byok:2510030943", // Using placeholder image as specified
+		IndexPath: "/rag/vector_db",
+		IndexID:   "vector_db_index",
+	}
+
+	// Check if ROSA RAG source already exists
+	for _, existingRAG := range cr.Spec.OLSConfig.RAG {
+		if existingRAG.Image == rosaRAGSpec.Image {
+			r.logger.Info("ROSA RAG source already present, skipping addition",
+				"image", rosaRAGSpec.Image)
+			return nil
+		}
+	}
+
+	// Add ROSA RAG source to the list
+	cr.Spec.OLSConfig.RAG = append(cr.Spec.OLSConfig.RAG, rosaRAGSpec)
+	r.logger.Info("Added ROSA RAG source to configuration",
+		"image", rosaRAGSpec.Image,
+		"totalRAGSources", len(cr.Spec.OLSConfig.RAG))
+
+	return nil
+}

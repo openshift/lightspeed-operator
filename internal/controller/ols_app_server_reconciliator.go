@@ -95,6 +95,14 @@ func (r *OLSConfigReconciler) reconcileOLSConfigMap(ctx context.Context, cr *ols
 		return fmt.Errorf("%s: %w", ErrCheckLLMCredentials, err)
 	}
 
+	// Apply ROSA RAG configuration if ROSA environment is detected
+	if r.stateCache != nil && r.stateCache["rosa_detected"] == "true" {
+		err = r.applyROSARAGConfiguration(cr)
+		if err != nil {
+			return fmt.Errorf("failed to apply ROSA RAG configuration: %w", err)
+		}
+	}
+
 	cm, err := r.generateOLSConfigMap(ctx, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrGenerateAPIConfigmap, err)

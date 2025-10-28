@@ -249,12 +249,19 @@ func (r *OLSConfigReconciler) generateOLSConfigMap(ctx context.Context, cr *olsv
 		referenceIndexes = append(referenceIndexes, referenceIndex)
 	}
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
-		ocpReferenceIndex := ReferenceIndex{
-			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.Options.OpenShiftMajor + "." + r.Options.OpenshiftMinor,
-			ProductDocsIndexId:   "ocp-product-docs-" + r.Options.OpenShiftMajor + "_" + r.Options.OpenshiftMinor,
-			ProductDocsOrigin:    "Red Hat OpenShift " + r.Options.OpenShiftMajor + "." + r.Options.OpenshiftMinor + " documentation",
+		// Skip default OpenShift documentation when ROSA is detected
+		// (ROSA-specific content will be provided by RAG init containers instead)
+		if r.stateCache != nil && r.stateCache["rosa_detected"] == "true" {
+			r.logger.Info("ROSA environment detected, skipping default OpenShift documentation (ROSA-specific content will be provided by RAG sources)")
+		} else {
+			// Use default OpenShift documentation for non-ROSA environments
+			ocpReferenceIndex := ReferenceIndex{
+				ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.Options.OpenShiftMajor + "." + r.Options.OpenshiftMinor,
+				ProductDocsIndexId:   "ocp-product-docs-" + r.Options.OpenShiftMajor + "_" + r.Options.OpenshiftMinor,
+				ProductDocsOrigin:    "Red Hat OpenShift " + r.Options.OpenShiftMajor + "." + r.Options.OpenshiftMinor + " documentation",
+			}
+			referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 		}
-		referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 	}
 
 	olsConfig := OLSConfig{

@@ -71,16 +71,23 @@ func (r *OLSConfigReconciler) reconcileServiceMonitorForOperator(ctx context.Con
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrGenerateServiceMonitor, err)
 	}
+
+	// Check if operator deployment exists (won't exist when running locally)
 	operatorDeployment := &appsv1.Deployment{}
+	err = r.Get(ctx, client.ObjectKey{Name: OperatorDeploymentName, Namespace: r.Options.Namespace}, operatorDeployment)
+	if err != nil && errors.IsNotFound(err) {
+		r.logger.Info("Operator deployment not found, skipping ServiceMonitor creation (likely running locally)",
+			"name", OperatorDeploymentName, "namespace", r.Options.Namespace)
+		return nil
+	} else if err != nil {
+		r.logger.Error(err, "error checking operator deployment", "name", OperatorDeploymentName, "namespace", r.Options.Namespace)
+		return fmt.Errorf("failed to check operator deployment: %w", err)
+	}
+
 	foundSm := &monv1.ServiceMonitor{}
 	err = r.Get(ctx, client.ObjectKey{Name: OperatorServiceMonitorName, Namespace: r.Options.Namespace}, foundSm)
 	if err != nil && errors.IsNotFound(err) {
 		r.logger.Info("creating a new service monitor", "serviceMonitor", sm.Name)
-		err = r.Get(ctx, client.ObjectKey{Name: OperatorDeploymentName, Namespace: r.Options.Namespace}, operatorDeployment)
-		if err != nil {
-			r.logger.Error(err, "cannot get operator deployment", "name", OperatorDeploymentName, "namespace", r.Options.Namespace)
-			return fmt.Errorf("%s: %w", ErrCreateServiceMonitor, err)
-		}
 		err = controllerutil.SetOwnerReference(operatorDeployment, sm, r.Scheme)
 		if err != nil {
 			return fmt.Errorf("%s: %w", ErrCreateServiceMonitor, err)
@@ -98,11 +105,6 @@ func (r *OLSConfigReconciler) reconcileServiceMonitorForOperator(ctx context.Con
 		return nil
 	}
 	foundSm.Spec = sm.Spec
-	err = r.Get(ctx, client.ObjectKey{Name: OperatorDeploymentName, Namespace: r.Options.Namespace}, operatorDeployment)
-	if err != nil {
-		r.logger.Error(err, "cannot get operator deployment", "name", OperatorDeploymentName, "namespace", r.Options.Namespace)
-		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)
-	}
 	err = controllerutil.SetOwnerReference(operatorDeployment, sm, r.Scheme)
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)

@@ -171,6 +171,25 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 
+	// Detect ROSA environment early in reconciliation
+	isROSA, err := r.detectROSAEnvironment(ctx)
+	if err != nil {
+		r.logger.Error(err, "Failed to detect ROSA environment")
+		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", err)
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
+	}
+
+	// Store ROSA detection result in reconciler state for potential use by other components
+	if r.stateCache == nil {
+		r.stateCache = make(map[string]string)
+	}
+	if isROSA {
+		r.stateCache["rosa_detected"] = "true"
+		r.logger.Info("ROSA environment detected, RAG configuration may be modified during app server reconciliation")
+	} else {
+		r.stateCache["rosa_detected"] = "false"
+	}
+
 	// Define reconciliation steps for all deployments with their associated status conditions
 	reconcileSteps := []struct {
 		name          string
