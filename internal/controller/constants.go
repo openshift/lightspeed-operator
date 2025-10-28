@@ -112,10 +112,30 @@ const (
 	LLMProviderHashStateCacheKey = "llmprovider-hash"
 	// AzureOpenAIType is the name of the Azure OpenAI provider type
 	AzureOpenAIType = "azure_openai"
+	// OpenAIType is the name of the OpenAI provider type
+	OpenAIType = "openai"
+	// WatsonXType is the name of the Watson X provider type
+	WatsonXType = "watsonx"
+	// RHELAIType is the name of the RHELAI provider type
+	RHELAIType = "rhelai_vllm"
+	// RHOAIType is the name of the RHOAI provider type
+	RHOAIType = "rhoai_vllm"
+	// LlamaStackOpenAIType is the name of the OpenAI provider type for the llama stack
+	LlamaStackOpenAIType = "remote::openai"
+	// LlamaStackAzureOpenAIType is the name of the Azure OpenAI provider type for the llama stack
+	LlamaStackAzureOpenAIType = "remote::azure_openai"
+	// LlamaStackWatsonXType is the name of the Watson X provider type for the llama stack
+	LlamaStackWatsonXType = "remote::watsonx"
+	// LlamaStackVLLMType is the name of the VLLM provider type for the llama stack
+	LlamaStackVLLMType = "remote::vllm"
 	// AdditionalCAHashStateCacheKey is the key of the hash value of the additional CA certificates in the state cache
 	AdditionalCAHashStateCacheKey = "additionalca-hash"
 	// DeploymentInProgress message
 	DeploymentInProgress = "In Progress"
+	// LlamaStackConfigCmName is the name of the llama stack configuration configmap
+	LlamaStackConfigCmName = "llama-stack-config"
+	// LlamaStackConfigFilename is the name of the llama stack configuration file
+	LlamaStackConfigFilename = "llama-stack-config.yaml"
 
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
@@ -289,4 +309,18 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MCPSECRETDATAPATH = "header"
 	// LSCAppServerActivatorCmName is the name of the LSC app server activator configmap
 	LSCAppServerActivatorCmName = "lsc-app-server-activator"
+
+	/*** llama stack configuration ***/
+	// LlamaStackConfigVersion is the version of the llama stack configuration file, currently only version 2 is supported
+	LlamaStackConfigVersion = "2"
+	// OpenAIAPIKeyEnvVar is the environment variable for the OpenAI API key
+	OpenAIAPIKeyEnvVar = "OPENAI_API_KEY" // #nosec G101
+	// AzureOpenAIAPIKeyEnvVar is the environment variable for the Azure OpenAI API key
+	AzureOpenAIAPIKeyEnvVar = "AZURE_OPENAI_API_KEY" // #nosec G101
+	// WatsonXAPIKeyEnvVar is the environment variable for the Watson X API key
+	WatsonXAPIKeyEnvVar = "WATSONX_API_KEY" // #nosec G101
+	// RHELAIAPITokenEnvVar is the environment variable for the RHELAI API token
+	RHELAIAPITokenEnvVar = "RHELAI_API_TOKEN" // #nosec G101
+	// RHOAIAPITokenEnvVar is the environment variable for the RHOAI API token
+	RHOAIAPITokenEnvVar = "RHOAI_API_TOKEN" // #nosec G101
 )
