@@ -285,4 +285,16 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MCPHeadersMountRoot = "/etc/mcp/headers"
 	// Header Secret Data Path
 	MCPSECRETDATAPATH = "header"
+
+	/*** ROSA Detection Constants ***/
+	// ROSARAGImageDefault is the default RAG image for ROSA environments
+	ROSARAGImageDefault = "quay.io/openshift-lightspeed/lightspeed-rag-content-rosa:latest"
+	// ROSABrandName is the brand name used to identify ROSA environments in Console CR
+	ROSABrandName = "ROSA"
+
+	/*** ROSA Detection Error Constants ***/
+	// ErrGetConsoleForROSA error message for Console object retrieval failure
+	ErrGetConsoleForROSA = "failed to get Console object for ROSA detection"
+	// ErrROSADetection error message for general ROSA detection failure
+	ErrROSADetection = "failed to detect ROSA environment"
 )
