@@ -456,7 +456,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			// Ensure exporter container has a valid image when enabled
 			reconciler.Options.DataverseExporterImage = DataverseExporterImageDefault
 			reconciler.Options.OpenShiftMCPServerImage = OpenShiftMCPServerImageDefault
-			createTelemetryPullSecret()
+			createTelemetryPullSecret(true)
 			defer deleteTelemetryPullSecret()
 			err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -472,7 +472,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			// Ensure exporter container has a valid image when enabled
 			reconciler.Options.DataverseExporterImage = DataverseExporterImageDefault
 			reconciler.Options.OpenShiftMCPServerImage = OpenShiftMCPServerImageDefault
-			createTelemetryPullSecret()
+			createTelemetryPullSecret(true)
 			err := reconciler.reconcileAppServer(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
