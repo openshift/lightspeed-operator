@@ -288,6 +288,7 @@ spec:
               export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
               tests/scripts/test-e2e-cluster.sh
           - name: gather-cluster-resources
+            onError: continue
             ref:
               resolver: git
               params:
@@ -306,12 +307,14 @@ spec:
                 value: "/workspace/konflux-artifacts"
           # validate that the cluster resources are available in another tekton step
           - name: list-artifacts
+            onError: continue
             image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
             workingDir: "/workspace"
             script: |
               #!/bin/bash
               ls -la /workspace
           - name: push-artifacts
+            onError: continue
             ref: 
               resolver: git
               params:
