@@ -474,6 +474,11 @@ func reconcileMetricsReaderSecret(r reconciler.Reconciler, ctx context.Context, 
 }
 
 func reconcileServiceMonitor(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	if !r.IsPrometheusAvailable() {
+		r.GetLogger().Info("Prometheus Operator not available, skipping app server ServiceMonitor reconciliation")
+		return nil
+	}
+
 	sm, err := GenerateServiceMonitor(r, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateServiceMonitor, err)
@@ -505,6 +510,11 @@ func reconcileServiceMonitor(r reconciler.Reconciler, ctx context.Context, cr *o
 }
 
 func reconcilePrometheusRule(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	if !r.IsPrometheusAvailable() {
+		r.GetLogger().Info("Prometheus Operator not available, skipping app server PrometheusRule reconciliation")
+		return nil
+	}
+
 	rule, err := GeneratePrometheusRule(r, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGeneratePrometheusRule, err)

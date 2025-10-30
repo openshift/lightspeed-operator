@@ -13,18 +13,19 @@ import (
 // used across controller test suites
 type TestReconciler struct {
 	client.Client
-	logger            logr.Logger
-	scheme            *runtime.Scheme
-	StateCache        map[string]string
-	namespace         string
-	PostgresImage     string
-	ConsoleImage      string
-	AppServerImage    string
-	McpServerImage    string
-	DataverseExporter string
-	LCoreImage        string
-	openShiftMajor    string
-	openShiftMinor    string
+	logger              logr.Logger
+	scheme              *runtime.Scheme
+	StateCache          map[string]string
+	namespace           string
+	PostgresImage       string
+	ConsoleImage        string
+	AppServerImage      string
+	McpServerImage      string
+	DataverseExporter   string
+	LCoreImage          string
+	openShiftMajor      string
+	openShiftMinor      string
+	PrometheusAvailable bool
 }
 
 func (r *TestReconciler) GetScheme() *runtime.Scheme {
@@ -75,6 +76,10 @@ func (r *TestReconciler) GetLCoreImage() string {
 	return r.LCoreImage
 }
 
+func (r *TestReconciler) IsPrometheusAvailable() bool {
+	return r.PrometheusAvailable
+}
+
 // NewTestReconciler creates a new TestReconciler instance with the provided parameters
 func NewTestReconciler(
 	client client.Client,
@@ -83,19 +88,20 @@ func NewTestReconciler(
 	namespace string,
 ) *TestReconciler {
 	return &TestReconciler{
-		Client:            client,
-		logger:            logger,
-		scheme:            scheme,
-		StateCache:        make(map[string]string),
-		namespace:         namespace,
-		PostgresImage:     PostgresServerImageDefault,
-		ConsoleImage:      ConsoleUIImageDefault,
-		AppServerImage:    OLSAppServerImageDefault,
-		McpServerImage:    OLSAppServerImageDefault,
-		LCoreImage:        LlamaStackImageDefault,
-		DataverseExporter: DataverseExporterImageDefault,
-		openShiftMajor:    "123",
-		openShiftMinor:    "456",
+		Client:              client,
+		logger:              logger,
+		scheme:              scheme,
+		StateCache:          make(map[string]string),
+		namespace:           namespace,
+		PostgresImage:       PostgresServerImageDefault,
+		ConsoleImage:        ConsoleUIImageDefault,
+		AppServerImage:      OLSAppServerImageDefault,
+		McpServerImage:      OLSAppServerImageDefault,
+		LCoreImage:          LlamaStackImageDefault,
+		DataverseExporter:   DataverseExporterImageDefault,
+		openShiftMajor:      "123",
+		openShiftMinor:      "456",
+		PrometheusAvailable: true, // Default to true for tests to maintain backward compatibility
 	}
 }
 

@@ -30,10 +30,8 @@ var _ = Describe("App server assets", func() {
 
 	Context("Operator Service Monitor", func() {
 		BeforeEach(func() {
-			rOptions = &utils.OLSConfigReconcilerOptions{
-				LightspeedServiceImage: "lightspeed-service:latest",
-				Namespace:              utils.OLSNamespaceDefault,
-			}
+			options := getDefaultReconcilerOptions(utils.OLSNamespaceDefault)
+			rOptions = &options
 			r = &OLSConfigReconciler{
 				Options: *rOptions,
 				Logger:  logf.Log.WithName("olsconfig.reconciler"),
@@ -79,7 +77,6 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate operator service monitor in operator's namespace", func() {
-
 			err := r.ReconcileServiceMonitorForOperator(context.Background())
 			Expect(err).To(BeNil())
 
@@ -141,14 +138,32 @@ var _ = Describe("App server assets", func() {
 			Expect(sm.ObjectMeta.OwnerReferences[0].Name).To(Equal(operatorDeployment.Name))
 		})
 
+		It("should skip service monitor creation when Prometheus is not available", func() {
+			// Delete any existing ServiceMonitor from previous test
+			existingSm := &monv1.ServiceMonitor{}
+			err := k8sClient.Get(context.Background(), client.ObjectKey{Name: utils.OperatorServiceMonitorName, Namespace: r.Options.Namespace}, existingSm)
+			if err == nil {
+				err = k8sClient.Delete(context.Background(), existingSm)
+				Expect(err).To(BeNil())
+			}
+
+			// Override PrometheusAvailable to false
+			r.Options.PrometheusAvailable = false
+
+			err = r.ReconcileServiceMonitorForOperator(context.Background())
+			Expect(err).To(BeNil())
+
+			// Verify ServiceMonitor was NOT created
+			sm := &monv1.ServiceMonitor{}
+			err = k8sClient.Get(context.Background(), client.ObjectKey{Name: utils.OperatorServiceMonitorName, Namespace: r.Options.Namespace}, sm)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
 	})
 
 	Context("Operator Network Policy", func() {
 		BeforeEach(func() {
-			rOptions = &utils.OLSConfigReconcilerOptions{
-				LightspeedServiceImage: "lightspeed-service:latest",
-				Namespace:              utils.OLSNamespaceDefault,
-			}
 			r = &OLSConfigReconciler{
 				Options: *rOptions,
 				Logger:  logf.Log.WithName("olsconfig.reconciler"),
@@ -222,12 +237,8 @@ var _ = Describe("Main Reconcile Loop", func() {
 
 		// Setup reconciler
 		reconciler = &OLSConfigReconciler{
-			Client: k8sClient,
-			Options: utils.OLSConfigReconcilerOptions{
-				Namespace:              testNamespace,
-				LightspeedServiceImage: "test-image:latest",
-				ConsoleUIImage:         "console-image:latest",
-			},
+			Client:     k8sClient,
+			Options:    getDefaultReconcilerOptions(testNamespace),
 			Logger:     logf.Log.WithName("test.reconciler"),
 			StateCache: make(map[string]string),
 		}

@@ -134,6 +134,10 @@ func (r *OLSConfigReconciler) GetLCoreImage() string {
 	return r.Options.LightspeedCoreImage
 }
 
+func (r *OLSConfigReconciler) IsPrometheusAvailable() bool {
+	return r.Options.PrometheusAvailable
+}
+
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/finalizers,verbs=update

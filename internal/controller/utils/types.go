@@ -28,6 +28,7 @@ type OLSConfigReconcilerOptions struct {
 	UseLCore                       bool
 	Namespace                      string
 	ReconcileInterval              time.Duration
+	PrometheusAvailable            bool
 }
 
 /*** controller internal ***/

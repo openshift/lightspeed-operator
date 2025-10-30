@@ -343,6 +343,21 @@ func main() {
 		consoleImage = imagesMap["console-plugin"]
 	}
 
+	// Check if Prometheus Operator CRDs are available
+	prometheusAvailable := utils.IsPrometheusOperatorAvailable(ctx, k8sClient)
+	prometheusStatus := "NOT AVAILABLE"
+	if prometheusAvailable {
+		prometheusStatus = "AVAILABLE"
+	}
+	setupLog.Info("========================================")
+	setupLog.Info(">>> PROMETHEUS OPERATOR STATUS <<<", "status", prometheusStatus)
+	setupLog.Info("========================================")
+	if prometheusAvailable {
+		setupLog.Info("ServiceMonitor and PrometheusRule resources will be created")
+	} else {
+		setupLog.Info("ServiceMonitor and PrometheusRule resources will be skipped")
+	}
+
 	if err = (&controller.OLSConfigReconciler{
 		Client:     mgr.GetClient(),
 		Logger:     ctrl.Log.WithName("controller").WithName("OLSConfig"),
@@ -359,6 +374,7 @@ func main() {
 			UseLCore:                       useLCore,
 			Namespace:                      namespace,
 			ReconcileInterval:              time.Duration(reconcilerIntervalMinutes) * time.Minute, // #nosec G115
+			PrometheusAvailable:            prometheusAvailable,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")

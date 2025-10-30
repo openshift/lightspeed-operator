@@ -43,11 +43,22 @@ import (
 )
 
 var (
-	ctx       context.Context
-	cfg       *rest.Config
-	k8sClient client.Client
-	testEnv   *envtest.Environment
+	ctx                 context.Context
+	cfg                 *rest.Config
+	k8sClient           client.Client
+	testEnv             *envtest.Environment
+	prometheusAvailable = true // Default to true for all tests
 )
+
+// Helper function to create default reconciler options for tests
+func getDefaultReconcilerOptions(namespace string) utils.OLSConfigReconcilerOptions {
+	return utils.OLSConfigReconcilerOptions{
+		LightspeedServiceImage: "lightspeed-service:latest",
+		ConsoleUIImage:         "console-image:latest",
+		Namespace:              namespace,
+		PrometheusAvailable:    prometheusAvailable,
+	}
+}
 
 func TestController(t *testing.T) {
 	RegisterFailHandler(Fail)

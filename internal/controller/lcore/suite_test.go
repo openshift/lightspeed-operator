@@ -141,6 +141,12 @@ var _ = BeforeSuite(func() {
 		scheme.Scheme,
 		utils.OLSNamespaceDefault,
 	)
+
+	// Set default flags for test reconciler (can be overridden in specific tests)
+	if tr, ok := testReconcilerInstance.(*utils.TestReconciler); ok {
+		tr.PrometheusAvailable = true
+	}
+
 	cr = &olsv1alpha1.OLSConfig{}
 	crNamespacedName = types.NamespacedName{
 		Name: "cluster",

@@ -511,3 +511,22 @@ func AnnotateConfigMapWatcher(cm *corev1.ConfigMap) {
 	annotations[WatcherAnnotationKey] = OLSConfigName
 	cm.SetAnnotations(annotations)
 }
+
+// IsPrometheusOperatorAvailable checks if Prometheus Operator CRDs are available on the cluster.
+// It attempts to list ServiceMonitor and PrometheusRule resources to determine availability.
+// Returns true if both CRDs are present, false otherwise.
+func IsPrometheusOperatorAvailable(ctx context.Context, c client.Client) bool {
+	// Check ServiceMonitor CRD
+	serviceMonitorList := &monv1.ServiceMonitorList{}
+	if err := c.List(ctx, serviceMonitorList, &client.ListOptions{Limit: 1}); err != nil {
+		return false
+	}
+
+	// Check PrometheusRule CRD
+	prometheusRuleList := &monv1.PrometheusRuleList{}
+	if err := c.List(ctx, prometheusRuleList, &client.ListOptions{Limit: 1}); err != nil {
+		return false
+	}
+
+	return true
+}
