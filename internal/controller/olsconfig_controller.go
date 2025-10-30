@@ -14,6 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package controller implements the main Kubernetes controller for managing
+// the OpenShift Lightspeed operator lifecycle.
+//
+// This package contains the OLSConfigReconciler, which is the central orchestrator
+// for the entire operator. It coordinates reconciliation across all components
+// (appserver, postgres, console) and manages the OLSConfig custom resource.
+//
+// Key Responsibilities:
+//   - Reconcile the OLSConfig custom resource
+//   - Coordinate component reconciliation (appserver, postgres, console)
+//   - Manage status conditions and CR status updates
+//   - Delegate LLM provider secret reconciliation to appserver package
+//   - Set up resource watchers for automatic updates (secrets, configmaps)
+//   - Implement hash-based change detection for configuration updates
+//   - Manage operator-level resources (service monitors, network policies)
+//
+// The main reconciliation flow:
+//  1. Reconcile operator-level resources (service monitor, network policy)
+//  2. Delegate LLM provider secret reconciliation to appserver.ReconcileLLMSecrets()
+//  3. Reconcile PostgreSQL database (if conversation cache enabled)
+//  4. Reconcile Console UI plugin
+//  5. Reconcile application server components
+//  6. Update status conditions based on deployment readiness
+//
+// The OLSConfigReconciler implements the reconciler.Reconciler interface,
+// allowing it to be passed to component packages for isolated reconciliation
+// without circular dependencies.
 package controller
 
 import (
@@ -43,8 +70,10 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
+	"github.com/openshift/lightspeed-operator/internal/controller/lcore"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
+	"github.com/openshift/lightspeed-operator/internal/controller/watchers"
 )
 
 // OLSConfigReconciler reconciles a OLSConfig object
@@ -99,6 +128,10 @@ func (r *OLSConfigReconciler) GetOpenShiftMCPServerImage() string {
 
 func (r *OLSConfigReconciler) GetDataverseExporterImage() string {
 	return r.Options.DataverseExporterImage
+}
+
+func (r *OLSConfigReconciler) GetLCoreImage() string {
+	return r.Options.LightspeedCoreImage
 }
 
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -220,9 +253,27 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		{Name: "postgres server", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return postgres.ReconcilePostgres(r, ctx, cr)
 		}, ConditionType: utils.TypeCacheReady, Deployment: utils.PostgresDeploymentName},
-		{Name: "application server", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-			return appserver.ReconcileAppServer(r, ctx, cr)
-		}, ConditionType: utils.TypeApiReady, Deployment: utils.OLSAppServerDeploymentName},
+	}
+
+	// Conditionally add either LCore or AppServer reconciliation
+	if r.Options.UseLCore {
+		reconcileSteps = append(reconcileSteps, utils.ReconcileSteps{
+			Name: "LCore server",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return lcore.ReconcileLCore(r, ctx, cr)
+			},
+			ConditionType: utils.TypeApiReady,
+			Deployment:    "lightspeed-stack-deployment",
+		})
+	} else {
+		reconcileSteps = append(reconcileSteps, utils.ReconcileSteps{
+			Name: "application server",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return appserver.ReconcileAppServer(r, ctx, cr)
+			},
+			ConditionType: utils.TypeApiReady,
+			Deployment:    utils.OLSAppServerDeploymentName,
+		})
 	}
 
 	// Execute deployments reconcile
@@ -391,10 +442,9 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
-		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(SecretWatcherFilter)).
-		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(telemetryPullSecretWatcherFilter)).
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(watchers.SecretWatcherFilter)).
 		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			return r.ConfigMapWatcherFilter(ctx, obj)
+			return watchers.ConfigMapWatcherFilter(r, ctx, obj, r.Options.UseLCore)
 		})).
 		Owns(&consolev1.ConsolePlugin{}).
 		Owns(&monv1.ServiceMonitor{}).

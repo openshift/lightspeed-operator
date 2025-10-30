@@ -24,6 +24,8 @@ type OLSConfigReconcilerOptions struct {
 	ConsoleUIImage                 string
 	DataverseExporterImage         string
 	OpenShiftMCPServerImage        string
+	LightspeedCoreImage            string
+	UseLCore                       bool
 	Namespace                      string
 	ReconcileInterval              time.Duration
 }
