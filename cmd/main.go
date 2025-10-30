@@ -68,6 +68,7 @@ var (
 		"console-plugin-pf5":         controller.ConsoleUIImagePF5Default,
 		"openshift-mcp-server-image": controller.OpenShiftMCPServerImageDefault,
 		"dataverse-exporter-image":   controller.DataverseExporterImageDefault,
+		"ocp-rag-image":              controller.OcpRagImageDefault,
 	}
 )
 
@@ -84,7 +85,7 @@ func init() {
 
 // overrideImages overides the default images with the images provided by the user
 // if an images is not provided, the default is used.
-func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string) map[string]string {
+func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
 	res := defaultImages
 	if serviceImage != "" {
 		res["lightspeed-service"] = serviceImage
@@ -103,6 +104,9 @@ func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 s
 	}
 	if dataverseExporterImage != "" {
 		res["dataverse-exporter-image"] = dataverseExporterImage
+	}
+	if ocpRagImage != "" {
+		res["ocp-rag-image"] = ocpRagImage
 	}
 	return res
 }
@@ -136,6 +140,7 @@ func main() {
 	var postgresImage string
 	var openshiftMCPServerImage string
 	var dataverseExporterImage string
+	var ocpRagImage string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -154,6 +159,7 @@ func main() {
 	flag.StringVar(&postgresImage, "postgres-image", controller.PostgresServerImageDefault, "The image of the PostgreSQL server.")
 	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", controller.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
 	flag.StringVar(&dataverseExporterImage, "dataverse-exporter-image", controller.DataverseExporterImageDefault, "The image of the dataverse exporter container.")
+	flag.StringVar(&ocpRagImage, "ocp-rag-image", controller.OcpRagImageDefault, "The image with the OCP RAG databases.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -166,7 +172,7 @@ func main() {
 		namespace = getWatchNamespace()
 	}
 
-	imagesMap := overrideImages(serviceImage, consoleImage, consoleImage_pf5, postgresImage, openshiftMCPServerImage, dataverseExporterImage)
+	imagesMap := overrideImages(serviceImage, consoleImage, consoleImage_pf5, postgresImage, openshiftMCPServerImage, dataverseExporterImage, ocpRagImage)
 	setupLog.Info("Images setting loaded", "images", listImages())
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "reconcilerIntervalMinutes", reconcilerIntervalMinutes, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
 	// Get K8 client and context

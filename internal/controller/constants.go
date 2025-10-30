@@ -285,4 +285,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MCPHeadersMountRoot = "/etc/mcp/headers"
 	// Header Secret Data Path
 	MCPSECRETDATAPATH = "header"
+	// OCP RAG image
+	OcpRagImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-rag-content-lsc@sha256:edf031376f6ad3a06d3ad1b2e3b06ed6139a03f5c32f01ffee012240e9169639"
 )
