@@ -17,7 +17,8 @@ OLSConfigReconciler.Reconcile() →
 ├── reconcileLLMSecrets()
 ├── reconcileConsoleUI()
 ├── reconcilePostgresServer()
-└── reconcileAppServer() → [12 sub-tasks via ReconcileTask pattern]
+└── reconcileAppServer() OR reconcileLCore()  [MUTUALLY EXCLUSIVE via --enable-lcore flag]
+    └── [12+ sub-tasks via ReconcileTask pattern]
 ```
 
 ## Code Conventions
@@ -47,6 +48,26 @@ OLSConfigReconciler.Reconcile() →
 - **E2E Tests**: `test/e2e/` - Real cluster testing
 - **Suite Pattern**: `suite_test.go` for test setup
 
+### Running Tests
+
+> **🚨 CRITICAL RULE: NEVER USE `go test` DIRECTLY! 🚨**
+> 
+> **ALWAYS use `make test` instead!**
+> 
+> Why? The Makefile handles essential setup that `go test` doesn't:
+> - Setting up test environment (`envtest`)
+> - Installing CRDs into the test cluster
+> - Proper build flags and timeout configuration
+> - Coverage reporting
+> - Correct working directory and dependencies
+>
+> Using `go test` directly will cause tests to fail or produce incorrect results.
+
+```bash
+make test              # Run all unit tests (ALWAYS use this - NEVER use go test)
+make test-e2e         # Run E2E tests (requires cluster)
+```
+
 ### Test Structure
 ```go
 var _ = Describe("Component Name", func() {
@@ -68,7 +89,8 @@ var _ = Describe("Component Name", func() {
 
 ### Critical Controller Files
 - `internal/controller/olsconfig_controller.go` - Main reconciler orchestrator
-- `internal/controller/appserver/reconciler.go` - App server components
+- `internal/controller/appserver/reconciler.go` - App server components (LEGACY backend)
+- `internal/controller/lcore/reconciler.go` - Lightspeed Core/Llama Stack components (NEW backend)
 - `internal/controller/postgres/reconciler.go` - PostgreSQL database components
 - `internal/controller/console/reconciler.go` - Console UI plugin components
 - `internal/controller/utils/utils.go` - Shared utilities and constants
@@ -190,8 +212,10 @@ r.stateCache[LLMProviderHashStateCacheKey] = providerHash
 
 ### Reconciliation Triggers
 - Config changes (detected via hash comparison)
-- Secret updates (via annotations + watchers)
+- Secret updates (via annotations + `watchers` package)
+- ConfigMap updates (via annotations + `watchers` package, triggers rolling restarts)
 - Resource deletions/modifications
+- Telemetry pull secret changes (special watcher)
 
 ## Token-Efficient Debugging Tips
 
@@ -215,17 +239,21 @@ oc get pods -n openshift-lightspeed  # Check running components
 
 ### Local Development
 ```bash
-make test              # Run unit tests
-make e2e-test         # Run E2E tests (requires cluster)
+make test              # Run unit tests (ALWAYS use make, not go test)
+make test-e2e         # Run E2E tests (requires cluster)
 make docker-build     # Build operator image
 make deploy           # Deploy to cluster
+make run              # Run operator locally (auto-sets up RBAC & CRDs)
 ```
 
 ### Code Changes
 1. Modify controller logic in `internal/controller/`
 2. Update tests (`*_test.go` files)
-3. Run `make test` for validation
+3. **Run `make test` for validation** (never use `go test` directly)
 4. For API changes: Update `api/v1alpha1/` and regenerate manifests
+
+> **💡 Testing Reminder**: The Makefile ensures proper test environment setup.
+> Always use `make test`, not `go test ./internal/...`
 
 ## Maintaining This Guide
 

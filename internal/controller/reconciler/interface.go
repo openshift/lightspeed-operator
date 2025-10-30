@@ -62,4 +62,7 @@ type Reconciler interface {
 
 	// GetDataverseExporterImage returns the OpenShift MCP server image to use
 	GetDataverseExporterImage() string
+
+	// GetLCoreImage returns the LCore image to use
+	GetLCoreImage() string
 }
