@@ -335,6 +335,42 @@ spec:
                 value: "quay.io/openshift-lightspeed/ols-operator-artifacts:$(params.commit)"
               - name: credentials-volume-name
                 value: ols-konflux-artifacts-bot-creds
+          - name: cleanup-resources
+            onError: continue
+            volumeMounts:
+              - name: credentials
+                mountPath: /credentials
+            env:
+              - name: KUBECONFIG
+                value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            script: |
+              #!/bin/bash
+              set -x
+              echo "=========================================="
+              echo "Cleaning up OLS resources after artifact push"
+              echo "=========================================="
+
+              # Delete all OLSConfig CRs in openshift-lightspeed namespace
+              echo "Deleting OLSConfig CRs..."
+              oc delete olsconfig --all -n openshift-lightspeed --ignore-not-found=true --timeout=60s || true
+
+              # Wait a bit for operator to process deletion
+              echo "Waiting for cleanup to complete..."
+              sleep 15
+
+              # Check if namespace still exists and show status
+              if oc get namespace openshift-lightspeed 2>/dev/null; then
+                echo "Namespace still exists, showing remaining resources:"
+                oc get all -n openshift-lightspeed || true
+              else
+                echo "Namespace has been cleaned up"
+              fi
+
+              echo "=========================================="
+              echo "Cleanup completed"
+              echo "=========================================="
+
           - name: fail-if-any-step-failed
             ref:
               resolver: git
