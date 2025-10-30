@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package postgres
 
 import (
 	"context"
@@ -24,12 +24,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,20 +42,84 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	//+kubebuilder:scaffold:imports
 )
 
+// These tests use Ginkgo (BDD-style Go testing framework). Refer to
+// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
+
+// testReconciler is a test implementation of the reconciler.Reconciler interface
+type testReconciler struct {
+	client.Client
+	logger         logr.Logger
+	scheme         *runtime.Scheme
+	stateCache     map[string]string
+	namespace      string
+	postgresImage  string
+	consoleImage   string
+	appServerImage string
+	mcpServerImage string
+	openShiftMajor string
+	openShiftMinor string
+}
+
+func (r *testReconciler) GetScheme() *runtime.Scheme {
+	return r.Client.Scheme()
+}
+
+func (r *testReconciler) GetLogger() logr.Logger {
+	return r.logger
+}
+
+func (r *testReconciler) GetStateCache() map[string]string {
+	return r.stateCache
+}
+
+func (r *testReconciler) GetNamespace() string {
+	return r.namespace
+}
+
+func (r *testReconciler) GetPostgresImage() string {
+	return r.postgresImage
+}
+
+func (r *testReconciler) GetConsoleUIImage() string {
+	return r.consoleImage
+}
+
+func (r *testReconciler) GetOpenShiftMajor() string {
+	return r.openShiftMajor
+}
+
+func (r *testReconciler) GetOpenshiftMinor() string {
+	return r.openShiftMinor
+}
+
+func (r *testReconciler) GetAppServerImage() string {
+	return r.appServerImage
+}
+
+func (r *testReconciler) GetOpenShiftMCPServerImage() string {
+	return r.mcpServerImage
+}
+
 var (
-	ctx       context.Context
-	cfg       *rest.Config
-	k8sClient client.Client
-	testEnv   *envtest.Environment
+	ctx                    context.Context
+	cfg                    *rest.Config
+	k8sClient              client.Client
+	testEnv                *envtest.Environment
+	cr                     *olsv1alpha1.OLSConfig
+	testReconcilerInstance reconciler.Reconciler
+	crNamespacedName       types.NamespacedName
+	tlsSecret              *corev1.Secret
 )
 
-func TestController(t *testing.T) {
+func TestPostgres(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Suite")
+
+	RunSpecs(t, "Postgres Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -60,8 +128,8 @@ var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "config", "crd", "bases"),
-			filepath.Join("..", "..", ".testcrds"),
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", ".testcrds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -82,9 +150,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = monv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = configv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
@@ -131,6 +196,41 @@ var _ = BeforeSuite(func() {
 		},
 	}
 	err = k8sClient.Create(ctx, ns)
+	Expect(err).NotTo(HaveOccurred())
+
+	testReconcilerInstance = &testReconciler{
+		Client:         k8sClient,
+		logger:         logf.Log.WithName("controller").WithName("OLSConfig"),
+		scheme:         scheme.Scheme,
+		stateCache:     make(map[string]string),
+		namespace:      utils.OLSNamespaceDefault,
+		postgresImage:  utils.PostgresServerImageDefault,
+		consoleImage:   utils.ConsoleUIImageDefault,
+		appServerImage: utils.OLSAppServerImageDefault,
+		openShiftMajor: "123",
+		openShiftMinor: "456",
+	}
+	cr = &olsv1alpha1.OLSConfig{}
+	crNamespacedName = types.NamespacedName{
+		Name: "cluster",
+	}
+
+	By("Create a complete OLSConfig custom resource")
+	err = k8sClient.Get(ctx, crNamespacedName, cr)
+	if err != nil && errors.IsNotFound(err) {
+		cr = utils.GetDefaultOLSConfigCR()
+		err = k8sClient.Create(ctx, cr)
+		Expect(err).NotTo(HaveOccurred())
+	} else if err == nil {
+		cr = utils.GetDefaultOLSConfigCR()
+		err = k8sClient.Update(ctx, cr)
+		Expect(err).NotTo(HaveOccurred())
+	} else {
+		Fail("Failed to create or update the OLSConfig custom resource")
+	}
+
+	By("Get the OLSConfig custom resource")
+	err = k8sClient.Get(ctx, crNamespacedName, cr)
 	Expect(err).NotTo(HaveOccurred())
 })
 

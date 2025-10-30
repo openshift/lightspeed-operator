@@ -4,6 +4,12 @@ For users who just want to run OpenShift Lightspeed, please refer to the [OpenSh
 
 A Kubernetes operator for managing [Red Hat OpenShift Lightspeed](https://github.com/openshift/lightspeed-service).
 
+## Documentation
+
+- **[Contributing Guide](CONTRIBUTING.md)** - How to add or modify components
+- **[Architecture](ARCHITECTURE.md)** - Internal architecture and developer guide
+- **[CLAUDE.md](CLAUDE.md)** - AI assistant guidelines for working with this codebase
+
 ## Getting Started
 
 You'll need an OpenShift 4.16+ cluster to run against.

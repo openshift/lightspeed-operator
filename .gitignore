@@ -8,6 +8,8 @@
 *.so
 *.dylib
 bin/
+.idea/"
+main
 
 # Test binary, built with `go test -c`
 *.test
