@@ -112,7 +112,7 @@ BUNDLE_DOCKERFILE="bundle.Dockerfile"
 # if RELATED_IMAGES is not defined, extract related images or use default values
 if [ -f "${RELATED_IMAGES_FILENAME}" ]; then
   echo "using related images from file ${RELATED_IMAGES_FILENAME}"
-  RELATED_IMAGES=$(${JQ} '[ .[] | select(.name == "lightspeed-service-api" or .name == "lightspeed-operator" or .name == "lightspeed-console-plugin" or .name == "openshift-mcp-server" or .name == "lightspeed-to-dataverse-exporter") ]' ${RELATED_IMAGES_FILENAME})
+  RELATED_IMAGES=$(${JQ} '[ .[] | select(.name == "lightspeed-service-api" or .name == "lightspeed-operator" or .name == "lightspeed-console-plugin" or .name == "openshift-mcp-server" or .name == "lightspeed-to-dataverse-exporter" or .name == "lightspeed-ocp-rag") ]' ${RELATED_IMAGES_FILENAME})
 elif [ -f "${CSV_FILE}" ]; then
   echo "using related images from CSV file ${CSV_FILE}"
   RELATED_IMAGES=$(${YQ} ' .spec.relatedImages' -ojson ${CSV_FILE})
@@ -141,6 +141,10 @@ else
       "name": "lightspeed-to-dataverse-exporter",
       "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722"
   }
+  {
+      "name": "lightspeed-ocp-rag",
+      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec"
+  }
 ]
 EOF
   )
@@ -155,6 +159,7 @@ SERVICE_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-service-api") | .image'
 CONSOLE_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-console-plugin") | .image' <<<${RELATED_IMAGES})
 OPENSHIFT_MCP_SERVER_IMAGE=$(${JQ} '.[] | select(.name == "openshift-mcp-server") | .image' <<<${RELATED_IMAGES})
 DATAVERSE_EXPORTER_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-to-dataverse-exporter") | .image' <<<${RELATED_IMAGES})
+OCP_RAG_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-ocp-rag") | .image' <<<${RELATED_IMAGES})
 
 # Build the bundle image
 echo "Updating bundle artifacts for image ${OPERATOR_IMAGE}"
@@ -170,10 +175,11 @@ ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] 
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43\", ${OPENSHIFT_MCP_SERVER_IMAGE}))" -i ${CSV_FILE}
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].image |= sub(\"quay.io/openshift-lightspeed/lightspeed-operator:latest\", ${OPERATOR_IMAGE}))" -i ${CSV_FILE}
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722\", ${DATAVERSE_EXPORTER_IMAGE}))" -i ${CSV_FILE}
+${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec\", ${OCP_RAG_IMAGE}))" -i ${CSV_FILE}
 # set related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES}" ${CSV_FILE}
 # add compatibility labels to the annotations file
-${YQ} eval -i '.annotations."com.redhat.openshift.versions"="v4.16-v4.19"' ${ANNOTATION_FILE}
+${YQ} eval -i '.annotations."com.redhat.openshift.versions"="v4.16-v4.20"' ${ANNOTATION_FILE}
 ${YQ} eval -i '(.annotations."com.redhat.openshift.versions" | key) head_comment="OCP compatibility labels"' ${ANNOTATION_FILE}
 ${YQ} eval -i '.annotations."features.operators.openshift.io/fips-compliant"="true"' ${ANNOTATION_FILE}
 # use UBI image as base image for bundle image
