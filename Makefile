@@ -212,11 +212,17 @@ LIGHTSPEED_SERVICE_POSTGRES_IMG ?= registry.redhat.io/rhel9/postgresql-16@sha256
 CONSOLE_PLUGIN_IMG ?= quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
 OPENSHIFT_MCP_SERVER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
 DATAVERSE_EXPORTER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
+OCP_RAG_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
     #TODO: Update DB
-	go run ./cmd/main.go --service-image="$(LIGHTSPEED_SERVICE_IMG)" --postgres-image="$(LIGHTSPEED_SERVICE_POSTGRES_IMG)" --console-image="$(CONSOLE_PLUGIN_IMG)" --openshift-mcp-server-image="$(OPENSHIFT_MCP_SERVER_IMG)" --dataverse-exporter-image="$(DATAVERSE_EXPORTER_IMG)"
+	go run ./cmd/main.go --service-image="$(LIGHTSPEED_SERVICE_IMG)" \
+        --postgres-image="$(LIGHTSPEED_SERVICE_POSTGRES_IMG)" \
+        --console-image="$(CONSOLE_PLUGIN_IMG)" \
+        --openshift-mcp-server-image="$(OPENSHIFT_MCP_SERVER_IMG)" \
+        --dataverse-exporter-image="$(DATAVERSE_EXPORTER_IMG)" \
+        --ocp-rag-image="$(OCP_RAG_IMG)"
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.

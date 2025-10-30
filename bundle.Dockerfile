@@ -7,6 +7,7 @@ ARG CONSOLE_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-console-plugi
 ARG CONSOLE_IMAGE_ORIGINAL_PF5=quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest
 ARG OPENSHIFT_MCP_SERVER_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
 ARG DATAVERSE_EXPORTER_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
+ARG OCP_RAG_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec
 
 RUN microdnf install -y jq
 
@@ -19,7 +20,7 @@ RUN CONSOLE_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-console-plugin") | 
 RUN CONSOLE_IMAGE_PF5=$(jq -r '.[] | select(.name == "lightspeed-console-plugin-pf5") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${CONSOLE_IMAGE_ORIGINAL_PF5}|${CONSOLE_IMAGE_PF5}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN OPENSHIFT_MCP_SERVER_IMAGE=$(jq -r '.[] | select(.name == "openshift-mcp-server") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${OPENSHIFT_MCP_SERVER_IMAGE_ORIGINAL}|${OPENSHIFT_MCP_SERVER_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN DATAVERSE_EXPORTER_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-to-dataverse-exporter") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${DATAVERSE_EXPORTER_IMAGE_ORIGINAL}|${DATAVERSE_EXPORTER_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
-
+RUN OCP_RAG_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-ocp-rag") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${OCP_RAG_IMAGE_ORIGINAL}|${OCP_RAG_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 
 FROM registry.redhat.io/ubi9/ubi-minimal:9.6
 
@@ -30,7 +31,7 @@ LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
 LABEL operators.operatorframework.io.bundle.package.v1=lightspeed-operator
 LABEL operators.operatorframework.io.bundle.channels.v1=alpha
 LABEL operators.operatorframework.io.bundle.channel.default.v1=alpha
-LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.41.1
+LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.33.0
 LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v4
 

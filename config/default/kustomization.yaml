@@ -49,6 +49,9 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/args/-
         value: --dataverse-exporter-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --ocp-rag-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec	
       - op: replace
         path: /spec/template/spec/containers/0/image
         value: quay.io/openshift-lightspeed/lightspeed-operator:latest
