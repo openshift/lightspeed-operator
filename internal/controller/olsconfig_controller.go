@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -40,36 +41,64 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
-)
-
-// Definitions to manage status conditions
-const (
-	typeApiReady           = "ApiReady"
-	typeCacheReady         = "CacheReady"
-	typeConsolePluginReady = "ConsolePluginReady"
-	typeCRReconciled       = "Reconciled"
+	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
+	"github.com/openshift/lightspeed-operator/internal/controller/console"
+	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
 // OLSConfigReconciler reconciles a OLSConfig object
 type OLSConfigReconciler struct {
 	client.Client
-	Scheme            *runtime.Scheme
-	logger            logr.Logger
-	stateCache        map[string]string
-	Options           OLSConfigReconcilerOptions
+	Logger            logr.Logger
+	StateCache        map[string]string
+	Options           utils.OLSConfigReconcilerOptions
 	NextReconcileTime time.Time
 }
 
-type OLSConfigReconcilerOptions struct {
-	OpenShiftMajor                 string
-	OpenshiftMinor                 string
-	LightspeedServiceImage         string
-	LightspeedServicePostgresImage string
-	ConsoleUIImage                 string
-	OpenShiftMCPServerImage        string
-	DataverseExporterImage         string
-	Namespace                      string
-	ReconcileInterval              time.Duration
+// Implement reconciler.Reconciler interface
+func (r *OLSConfigReconciler) GetScheme() *runtime.Scheme {
+	return r.Scheme()
+}
+
+func (r *OLSConfigReconciler) GetLogger() logr.Logger {
+	return r.Logger
+}
+
+func (r *OLSConfigReconciler) GetStateCache() map[string]string {
+	return r.StateCache
+}
+
+func (r *OLSConfigReconciler) GetNamespace() string {
+	return r.Options.Namespace
+}
+
+func (r *OLSConfigReconciler) GetPostgresImage() string {
+	return r.Options.LightspeedServicePostgresImage
+}
+
+func (r *OLSConfigReconciler) GetConsoleUIImage() string {
+	return r.Options.ConsoleUIImage
+}
+
+func (r *OLSConfigReconciler) GetOpenShiftMajor() string {
+	return r.Options.OpenShiftMajor
+}
+
+func (r *OLSConfigReconciler) GetOpenshiftMinor() string {
+	return r.Options.OpenshiftMinor
+}
+
+func (r *OLSConfigReconciler) GetAppServerImage() string {
+	return r.Options.LightspeedServiceImage
+}
+
+func (r *OLSConfigReconciler) GetOpenShiftMCPServerImage() string {
+	return r.Options.OpenShiftMCPServerImage
+}
+
+func (r *OLSConfigReconciler) GetDataverseExporterImage() string {
+	return r.Options.DataverseExporterImage
 }
 
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -125,24 +154,35 @@ type OLSConfigReconcilerOptions struct {
 func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
 	// Reconcile operator's resources first
-	operatorReconcileFuncs := []struct {
-		name string
-		fn   func(context.Context) error
-	}{
-		{"service monitor for operator", r.reconcileServiceMonitorForOperator},
-		{"network policy for operator", r.reconcileNetworkPolicyForOperator},
+	operatorReconcileFuncs := []utils.OperatorReconcileFuncs{}
+
+	// Skip ServiceMonitor in local development mode (requires Prometheus Operator CRDs)
+	// Set LOCAL_DEV_MODE=true when running locally with "make run-local"
+	if os.Getenv("LOCAL_DEV_MODE") != "true" {
+		operatorReconcileFuncs = append(operatorReconcileFuncs,
+			utils.OperatorReconcileFuncs{
+				Name: "service monitor for operator",
+				Fn:   r.ReconcileServiceMonitorForOperator,
+			})
 	}
 
+	// Network policy works in all environments
+	operatorReconcileFuncs = append(operatorReconcileFuncs,
+		utils.OperatorReconcileFuncs{
+			Name: "network policy for operator",
+			Fn:   r.ReconcileNetworkPolicyForOperator,
+		})
+
 	for _, reconcileFunc := range operatorReconcileFuncs {
-		err := reconcileFunc.fn(ctx)
+		err := reconcileFunc.Fn(ctx)
 		if err != nil {
-			r.logger.Error(err, fmt.Sprintf("Failed to reconcile %s", reconcileFunc.name))
+			r.Logger.Error(err, fmt.Sprintf("Failed to reconcile %s", reconcileFunc.Name))
 			return ctrl.Result{}, err
 		}
 	}
 	// The operator reconciles only for OLSConfig CR with a specific name
-	if req.Name != OLSConfigName {
-		r.logger.Info(fmt.Sprintf("Ignoring OLSConfig CR other than %s", OLSConfigName), "name", req.Name)
+	if req.Name != utils.OLSConfigName {
+		r.Logger.Info(fmt.Sprintf("Ignoring OLSConfig CR other than %s", utils.OLSConfigName), "name", req.Name)
 		return ctrl.Result{}, nil
 	}
 
@@ -150,38 +190,39 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	err := r.Get(ctx, req.NamespacedName, olsconfig)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			r.logger.Info("olsconfig resource not found. Ignoring since object must be deleted")
-			err = r.removeConsoleUI(ctx)
+			r.Logger.Info("olsconfig resource not found. Ignoring since object must be deleted")
+			err = console.RemoveConsoleUI(r, ctx)
 			if err != nil {
-				r.logger.Error(err, "Failed to remove console UI")
+				r.Logger.Error(err, "Failed to remove console UI")
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		r.logger.Error(err, "Failed to get olsconfig")
+		r.Logger.Error(err, "Failed to get olsconfig")
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
-	r.logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
+	r.Logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
 
 	// Reconcile LLM secrets first
-	err = r.reconcileLLMSecrets(ctx, olsconfig)
+	err = appserver.ReconcileLLMSecrets(r, ctx, olsconfig)
 	if err != nil {
-		r.logger.Error(err, "Failed to reconcile LLM secrets")
-		r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, false, "Failed", err)
+		r.Logger.Error(err, "Failed to reconcile LLM secrets")
+		r.UpdateStatusCondition(ctx, olsconfig, utils.TypeCRReconciled, false, "Failed", err)
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 
 	// Define reconciliation steps for all deployments with their associated status conditions
-	reconcileSteps := []struct {
-		name          string
-		fn            func(context.Context, *olsv1alpha1.OLSConfig) error
-		conditionType string
-		deployment    string
-	}{
-		{"console UI", r.reconcileConsoleUI, typeConsolePluginReady, ConsoleUIDeploymentName},
-		{"postgres server", r.reconcilePostgresServer, typeCacheReady, PostgresDeploymentName},
-		{"application server", r.reconcileAppServer, typeApiReady, OLSAppServerDeploymentName},
+	reconcileSteps := []utils.ReconcileSteps{
+		{Name: "console UI", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return console.ReconcileConsoleUI(r, ctx, cr)
+		}, ConditionType: utils.TypeConsolePluginReady, Deployment: utils.ConsoleUIDeploymentName},
+		{Name: "postgres server", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return postgres.ReconcilePostgres(r, ctx, cr)
+		}, ConditionType: utils.TypeCacheReady, Deployment: utils.PostgresDeploymentName},
+		{Name: "application server", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return appserver.ReconcileAppServer(r, ctx, cr)
+		}, ConditionType: utils.TypeApiReady, Deployment: utils.OLSAppServerDeploymentName},
 	}
 
 	// Execute deployments reconcile
@@ -189,33 +230,33 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	overallError = nil
 	progressing := false
 	for _, step := range reconcileSteps {
-		err := step.fn(ctx, olsconfig)
+		err := step.Fn(ctx, olsconfig)
 		if err != nil {
-			r.logger.Error(err, fmt.Sprintf("Failed to reconcile %s", step.name))
-			r.updateStatusCondition(ctx, olsconfig, step.conditionType, false, "Failed", err)
+			r.Logger.Error(err, fmt.Sprintf("Failed to reconcile %s", step.Name))
+			r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, "Failed", err)
 			overallError = err
 		} else {
 			// Get corresponding deployment
 			deployment := &appsv1.Deployment{}
-			err := r.Get(ctx, client.ObjectKey{Name: step.deployment, Namespace: r.Options.Namespace}, deployment)
+			err := r.Get(ctx, client.ObjectKey{Name: step.Deployment, Namespace: r.Options.Namespace}, deployment)
 			if err != nil {
-				r.updateStatusCondition(ctx, olsconfig, step.conditionType, false, "Failed", err)
+				r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, "Failed", err)
 				overallError = err
 			} else {
 				message, err := r.checkDeploymentStatus(deployment)
 				if err != nil {
-					if message == DeploymentInProgress {
+					if message == utils.DeploymentInProgress {
 						// Deployment is not ready
-						r.updateStatusCondition(ctx, olsconfig, step.conditionType, false, message, nil)
+						r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, message, nil)
 						progressing = true
 					} else {
 						// Deployment failed
-						r.updateStatusCondition(ctx, olsconfig, step.conditionType, false, "Failed", err)
+						r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, "Failed", err)
 						overallError = err
 					}
 				} else {
 					// Update status condition for successful reconciliation
-					r.updateStatusCondition(ctx, olsconfig, step.conditionType, true, "All components are successfully deployed", nil)
+					r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, true, "All components are successfully deployed", nil)
 				}
 			}
 		}
@@ -229,24 +270,24 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
 	}
 
-	r.logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
+	r.Logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
 
 	// Update status condition for Custom Resource
-	r.updateStatusCondition(ctx, olsconfig, typeCRReconciled, true, "Custom resource successfully reconciled", nil)
+	r.UpdateStatusCondition(ctx, olsconfig, utils.TypeCRReconciled, true, "Custom resource successfully reconciled", nil)
 
 	// Requeue if no reconciliation is scheduled in future.
 	if r.NextReconcileTime.After(time.Now()) {
 		return ctrl.Result{}, nil
 	}
 	r.NextReconcileTime = time.Now().Add(r.Options.ReconcileInterval)
-	r.logger.Info("Next automatic reconciliation scheduled at", "nextReconcileTime", r.NextReconcileTime)
+	r.Logger.Info("Next automatic reconciliation scheduled at", "nextReconcileTime", r.NextReconcileTime)
 	return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
 }
 
 // updateStatusCondition updates the status condition of the OLSConfig Custom Resource instance.
 // TODO: Should we support Unknown status and ObservedGeneration?
 // TODO: conditionType must be metav1.Condition?
-func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig, conditionType string, status bool, message string, err error, inCluster ...bool) {
+func (r *OLSConfigReconciler) UpdateStatusCondition(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig, conditionType string, status bool, message string, err error, inCluster ...bool) {
 	// Set default value for inCluster
 	inClusterValue := true
 	if len(inCluster) > 0 {
@@ -279,7 +320,7 @@ func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconf
 			currentOLSConfig := &olsv1alpha1.OLSConfig{}
 			if getErr := r.Get(ctx, client.ObjectKey{Name: olsconfig.Name, Namespace: olsconfig.Namespace}, currentOLSConfig); getErr != nil {
 				if apierrors.IsNotFound(getErr) {
-					r.logger.V(1).Info("OLSConfig not found during status update, skipping", "name", olsconfig.Name)
+					r.Logger.V(1).Info("OLSConfig not found during status update, skipping", "name", olsconfig.Name)
 					return nil // Don't retry NotFound errors
 				}
 				return getErr
@@ -292,13 +333,13 @@ func (r *OLSConfigReconciler) updateStatusCondition(ctx context.Context, olsconf
 			return r.Status().Update(ctx, currentOLSConfig)
 		}); updateErr != nil {
 			if !apierrors.IsNotFound(updateErr) {
-				r.logger.Error(updateErr, ErrUpdateCRStatusCondition, "name", olsconfig.Name)
+				r.Logger.Error(updateErr, utils.ErrUpdateCRStatusCondition, "name", olsconfig.Name)
 			}
 		}
 	} else {
 		meta.SetStatusCondition(&olsconfig.Status.Conditions, condition)
 		if updateErr := r.Status().Update(ctx, olsconfig); updateErr != nil {
-			r.logger.Error(updateErr, ErrUpdateCRStatusCondition)
+			r.Logger.Error(updateErr, utils.ErrUpdateCRStatusCondition)
 		}
 	}
 }
@@ -308,7 +349,7 @@ func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deploymen
 
 	// Check if deployment has the expected number of replicas ready
 	if deployment.Status.ReadyReplicas != *deployment.Spec.Replicas {
-		return DeploymentInProgress, fmt.Errorf("deployment not ready: %d replicas available",
+		return utils.DeploymentInProgress, fmt.Errorf("deployment not ready: %d replicas available",
 			deployment.Status.ReadyReplicas)
 	}
 
@@ -317,11 +358,11 @@ func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deploymen
 		switch condition.Type {
 		case appsv1.DeploymentAvailable:
 			if condition.Status != corev1.ConditionTrue {
-				return DeploymentInProgress, fmt.Errorf("deployment not available: %s - %s", condition.Reason, condition.Message)
+				return utils.DeploymentInProgress, fmt.Errorf("deployment not available: %s - %s", condition.Reason, condition.Message)
 			}
 		case appsv1.DeploymentProgressing:
 			if condition.Status == corev1.ConditionFalse {
-				return DeploymentInProgress, fmt.Errorf("deployment not progressing: %s - %s", condition.Reason, condition.Message)
+				return utils.DeploymentInProgress, fmt.Errorf("deployment not progressing: %s - %s", condition.Reason, condition.Message)
 			}
 		case appsv1.DeploymentReplicaFailure:
 			if condition.Status == corev1.ConditionTrue {
@@ -335,8 +376,8 @@ func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deploymen
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.logger = ctrl.Log.WithName("Reconciler")
-	r.stateCache = make(map[string]string)
+	r.Logger = ctrl.Log.WithName("Reconciler")
+	r.StateCache = make(map[string]string)
 	r.NextReconcileTime = time.Now()
 
 	generationChanged := builder.WithPredicates(predicate.GenerationChangedPredicate{})
@@ -350,10 +391,10 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
-		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(secretWatcherFilter)).
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(SecretWatcherFilter)).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(telemetryPullSecretWatcherFilter)).
 		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			return r.configMapWatcherFilter(ctx, obj)
+			return r.ConfigMapWatcherFilter(ctx, obj)
 		})).
 		Owns(&consolev1.ConsolePlugin{}).
 		Owns(&monv1.ServiceMonitor{}).

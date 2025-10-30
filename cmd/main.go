@@ -14,6 +14,38 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package main is the entry point for the OpenShift Lightspeed Operator.
+//
+// This package initializes and starts the Kubernetes controller manager that
+// manages the lifecycle of the OpenShift Lightspeed application.
+//
+// The main function performs the following initialization:
+//   - Parses command-line flags for configuration (image URLs, namespaces, intervals)
+//   - Sets up the Kubernetes scheme with required API types (Console, Monitoring, etc.)
+//   - Configures the controller manager with metrics, health probes, and leader election
+//   - Detects OpenShift version and selects appropriate console plugin image
+//   - Configures TLS security for metrics server (if enabled)
+//   - Initializes and starts the OLSConfigReconciler
+//
+// Command-line Flags:
+//   - metrics-bind-address: Address for metrics endpoint (default: :8080)
+//   - health-probe-bind-address: Address for health probe endpoint (default: :8081)
+//   - leader-elect: Enable leader election for HA deployments
+//   - reconcile-interval: Interval in minutes for reconciliation (default: 10)
+//   - secure-metrics-server: Enable mTLS for metrics server
+//   - service-image: Override default lightspeed-service image
+//   - console-image: Override default console plugin image (PatternFly 6)
+//   - console-image-pf5: Override default console plugin image (PatternFly 5)
+//   - postgres-image: Override default PostgreSQL image
+//   - openshift-mcp-server-image: Override default MCP server image
+//   - namespace: Operator namespace (defaults to WATCH_NAMESPACE env var or "openshift-lightspeed")
+//
+// Environment Variables:
+//   - WATCH_NAMESPACE: Namespace to watch for OLSConfig resources
+//
+// The operator runs as a singleton in the cluster (with optional leader election)
+// and continuously reconciles the OLSConfig custom resource to maintain the
+// desired state of all OpenShift Lightspeed components.
 package main
 
 import (
@@ -53,6 +85,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/lightspeed-operator/internal/controller"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	utiltls "github.com/openshift/lightspeed-operator/internal/tls"
 	//+kubebuilder:scaffold:imports
 )
@@ -62,13 +95,13 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 	// The default images of operands
 	defaultImages = map[string]string{
-		"lightspeed-service":         controller.OLSAppServerImageDefault,
-		"postgres-image":             controller.PostgresServerImageDefault,
-		"console-plugin":             controller.ConsoleUIImageDefault,
-		"console-plugin-pf5":         controller.ConsoleUIImagePF5Default,
-		"openshift-mcp-server-image": controller.OpenShiftMCPServerImageDefault,
-		"dataverse-exporter-image":   controller.DataverseExporterImageDefault,
-		"ocp-rag-image":              controller.OcpRagImageDefault,
+		"lightspeed-service":         utils.OLSAppServerImageDefault,
+		"postgres-image":             utils.PostgresServerImageDefault,
+		"console-plugin":             utils.ConsoleUIImageDefault,
+		"console-plugin-pf5":         utils.ConsoleUIImagePF5Default,
+		"openshift-mcp-server-image": utils.OpenShiftMCPServerImageDefault,
+		"dataverse-exporter-image":   utils.DataverseExporterImageDefault,
+		"ocp-rag-image":              utils.OcpRagImageDefault,
 	}
 )
 
@@ -146,20 +179,20 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.UintVar(&reconcilerIntervalMinutes, "reconcile-interval", controller.DefaultReconcileInterval, "The interval in minutes to reconcile the OLSConfig CR")
+	flag.UintVar(&reconcilerIntervalMinutes, "reconcile-interval", utils.DefaultReconcileInterval, "The interval in minutes to reconcile the OLSConfig CR")
 	flag.BoolVar(&secureMetricsServer, "secure-metrics-server", false, "Enable secure serving of the metrics server using mTLS.")
-	flag.StringVar(&certDir, "cert-dir", controller.OperatorCertDirDefault, "The directory where the TLS certificates are stored.")
-	flag.StringVar(&certName, "cert-name", controller.OperatorCertNameDefault, "The name of the TLS certificate file.")
-	flag.StringVar(&keyName, "key-name", controller.OperatorKeyNameDefault, "The name of the TLS key file.")
-	flag.StringVar(&caCertPath, "ca-cert", controller.OperatorCACertPathDefault, "The path to the CA certificate file.")
-	flag.StringVar(&serviceImage, "service-image", controller.OLSAppServerImageDefault, "The image of the lightspeed-service container.")
-	flag.StringVar(&consoleImage, "console-image", controller.ConsoleUIImageDefault, "The image of the console-plugin container using PatternFly 6.")
-	flag.StringVar(&consoleImage_pf5, "console-image-pf5", controller.ConsoleUIImagePF5Default, "The image of the console-plugin container using PatternFly 5.")
+	flag.StringVar(&certDir, "cert-dir", utils.OperatorCertDirDefault, "The directory where the TLS certificates are stored.")
+	flag.StringVar(&certName, "cert-name", utils.OperatorCertNameDefault, "The name of the TLS certificate file.")
+	flag.StringVar(&keyName, "key-name", utils.OperatorKeyNameDefault, "The name of the TLS key file.")
+	flag.StringVar(&caCertPath, "ca-cert", utils.OperatorCACertPathDefault, "The path to the CA certificate file.")
+	flag.StringVar(&serviceImage, "service-image", utils.OLSAppServerImageDefault, "The image of the lightspeed-service container.")
+	flag.StringVar(&consoleImage, "console-image", utils.ConsoleUIImageDefault, "The image of the console-plugin container using PatternFly 6.")
+	flag.StringVar(&consoleImage_pf5, "console-image-pf5", utils.ConsoleUIImagePF5Default, "The image of the console-plugin container using PatternFly 5.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
-	flag.StringVar(&postgresImage, "postgres-image", controller.PostgresServerImageDefault, "The image of the PostgreSQL server.")
-	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", controller.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
-	flag.StringVar(&dataverseExporterImage, "dataverse-exporter-image", controller.DataverseExporterImageDefault, "The image of the dataverse exporter container.")
-	flag.StringVar(&ocpRagImage, "ocp-rag-image", controller.OcpRagImageDefault, "The image with the OCP RAG databases.")
+	flag.StringVar(&postgresImage, "postgres-image", utils.PostgresServerImageDefault, "The image of the PostgreSQL server.")
+	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", utils.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
+	flag.StringVar(&dataverseExporterImage, "dataverse-exporter-image", utils.DataverseExporterImageDefault, "The image of the dataverse exporter container.")
+	flag.StringVar(&ocpRagImage, "ocp-rag-image", utils.OcpRagImageDefault, "The image with the OCP RAG databases.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -192,22 +225,22 @@ func main() {
 	var tlsSecurityProfileSpec configv1.TLSProfileSpec
 	if secureMetricsServer {
 		apiAuthConfigmap := &corev1.ConfigMap{}
-		err = k8sClient.Get(ctx, types.NamespacedName{Name: controller.ClientCACmName, Namespace: controller.ClientCACmNamespace}, apiAuthConfigmap)
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ClientCACmName, Namespace: utils.ClientCACmNamespace}, apiAuthConfigmap)
 		if err != nil {
-			setupLog.Error(err, fmt.Sprintf("failed to get %s/%s configmap.", controller.ClientCACmNamespace, controller.ClientCACmName))
+			setupLog.Error(err, fmt.Sprintf("failed to get %s/%s configmap.", utils.ClientCACmNamespace, utils.ClientCACmName))
 			os.Exit(1)
 		}
 		var exists bool
-		metricsClientCA, exists = apiAuthConfigmap.Data[controller.ClientCACertKey]
+		metricsClientCA, exists = apiAuthConfigmap.Data[utils.ClientCACertKey]
 		if !exists {
-			setupLog.Error(err, fmt.Sprintf("the key %s is not found in %s/%s configmap.", controller.ClientCACertKey, controller.ClientCACmNamespace, controller.ClientCACmName))
+			setupLog.Error(err, fmt.Sprintf("the key %s is not found in %s/%s configmap.", utils.ClientCACertKey, utils.ClientCACmNamespace, utils.ClientCACmName))
 			os.Exit(1)
 		}
 
 		olsconfig := &olsv1alpha1.OLSConfig{}
-		err = k8sClient.Get(ctx, types.NamespacedName{Name: controller.OLSConfigName}, olsconfig)
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, olsconfig)
 		if err != nil && client.IgnoreNotFound(err) != nil {
-			setupLog.Error(err, fmt.Sprintf("failed to get %s OLSConfig.", controller.OLSConfigName))
+			setupLog.Error(err, fmt.Sprintf("failed to get %s OLSConfig.", utils.OLSConfigName))
 			os.Exit(1)
 		}
 		if olsconfig.Spec.OLSConfig.TLSSecurityProfile != nil {
@@ -259,8 +292,8 @@ func main() {
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Secret{}: {
 					Namespaces: map[string]cache.Config{
-						namespace:                               {},
-						controller.TelemetryPullSecretNamespace: {},
+						namespace:                          {},
+						utils.TelemetryPullSecretNamespace: {},
 					},
 				},
 			},
@@ -272,7 +305,7 @@ func main() {
 	}
 
 	// Get Openshift version
-	major, minor, err := controller.GetOpenshiftVersion(k8sClient, ctx)
+	major, minor, err := utils.GetOpenshiftVersion(k8sClient, ctx)
 	if err != nil {
 		setupLog.Error(err, "failed to get Openshift version.")
 		os.Exit(1)
@@ -293,9 +326,10 @@ func main() {
 	}
 
 	if err = (&controller.OLSConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Options: controller.OLSConfigReconcilerOptions{
+		Client:     mgr.GetClient(),
+		Logger:     ctrl.Log.WithName("controller").WithName("OLSConfig"),
+		StateCache: make(map[string]string),
+		Options: utils.OLSConfigReconcilerOptions{
 			OpenShiftMajor:                 major,
 			OpenshiftMinor:                 minor,
 			ConsoleUIImage:                 consoleImage,
@@ -332,7 +366,7 @@ func main() {
 func getWatchNamespace() string {
 	ns, found := os.LookupEnv("WATCH_NAMESPACE")
 	if !found {
-		return controller.OLSNamespaceDefault
+		return utils.OLSNamespaceDefault
 	}
 	return ns
 }

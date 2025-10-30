@@ -1,4 +1,4 @@
-package controller
+package postgres
 
 import (
 	"path"
@@ -12,29 +12,27 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
 var _ = Describe("App postgres server assets", func() {
 
-	var cr *olsv1alpha1.OLSConfig
-	var r *OLSConfigReconciler
-	var rOptions *OLSConfigReconcilerOptions
+	var testCr *olsv1alpha1.OLSConfig
 
 	validatePostgresDeployment := func(dep *appsv1.Deployment, password string, with_pvc bool) {
 		replicas := int32(1)
 		revisionHistoryLimit := int32(1)
 		defaultPermission := int32(0600)
-		Expect(dep.Name).To(Equal(PostgresDeploymentName))
-		Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
-		Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(rOptions.LightspeedServicePostgresImage))
-		Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-postgres-server"))
+		Expect(dep.Name).To(Equal(utils.PostgresDeploymentName))
+		Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
+		Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.PostgresServerImageDefault))
+		Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.PostgresContainerName))
 		Expect(dep.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
 		Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
 			{
-				ContainerPort: PostgresServicePort,
+				ContainerPort: utils.PostgresServicePort,
 				Name:          "server",
 				Protocol:      corev1.ProtocolTCP,
 			},
@@ -51,11 +49,11 @@ var _ = Describe("App postgres server assets", func() {
 		Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
 			{
 				Name:  "POSTGRESQL_USER",
-				Value: PostgresDefaultUser,
+				Value: utils.PostgresDefaultUser,
 			},
 			{
 				Name:  "POSTGRESQL_DATABASE",
-				Value: PostgresDefaultDbName,
+				Value: utils.PostgresDefaultDbName,
 			},
 			{
 				Name:  "POSTGRESQL_ADMIN_PASSWORD",
@@ -67,90 +65,90 @@ var _ = Describe("App postgres server assets", func() {
 			},
 			{
 				Name:  "POSTGRESQL_SHARED_BUFFERS",
-				Value: PostgresSharedBuffers,
+				Value: utils.PostgresSharedBuffers,
 			},
 			{
 				Name:  "POSTGRESQL_MAX_CONNECTIONS",
-				Value: strconv.Itoa(PostgresMaxConnections),
+				Value: strconv.Itoa(utils.PostgresMaxConnections),
 			},
 		}))
-		Expect(dep.Spec.Selector.MatchLabels).To(Equal(generatePostgresSelectorLabels()))
+		Expect(dep.Spec.Selector.MatchLabels).To(Equal(utils.GeneratePostgresSelectorLabels()))
 		Expect(dep.Spec.RevisionHistoryLimit).To(Equal(&revisionHistoryLimit))
 		Expect(dep.Spec.Replicas).To(Equal(&replicas))
 		Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(Equal([]corev1.VolumeMount{
 			{
-				Name:      "secret-" + PostgresCertsSecretName,
-				MountPath: OLSAppCertsMountRoot,
+				Name:      "secret-" + utils.PostgresCertsSecretName,
+				MountPath: utils.OLSAppCertsMountRoot,
 				ReadOnly:  true,
 			},
 			{
-				Name:      "secret-" + PostgresBootstrapSecretName,
-				MountPath: PostgresBootstrapVolumeMountPath,
-				SubPath:   PostgresExtensionScript,
+				Name:      "secret-" + utils.PostgresBootstrapSecretName,
+				MountPath: utils.PostgresBootstrapVolumeMountPath,
+				SubPath:   utils.PostgresExtensionScript,
 				ReadOnly:  true,
 			},
 			{
-				Name:      PostgresConfigMap,
-				MountPath: PostgresConfigVolumeMountPath,
-				SubPath:   PostgresConfig,
+				Name:      utils.PostgresConfigMap,
+				MountPath: utils.PostgresConfigVolumeMountPath,
+				SubPath:   utils.PostgresConfig,
 			},
 			{
-				Name:      PostgresDataVolume,
-				MountPath: PostgresDataVolumeMountPath,
+				Name:      utils.PostgresDataVolume,
+				MountPath: utils.PostgresDataVolumeMountPath,
 			},
 			{
-				Name:      PostgresCAVolume,
-				MountPath: path.Join(OLSAppCertsMountRoot, PostgresCAVolume),
+				Name:      utils.PostgresCAVolume,
+				MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.PostgresCAVolume),
 				ReadOnly:  true,
 			},
 			{
-				Name:      PostgresVarRunVolumeName,
-				MountPath: PostgresVarRunVolumeMountPath,
+				Name:      utils.PostgresVarRunVolumeName,
+				MountPath: utils.PostgresVarRunVolumeMountPath,
 			},
 			{
-				Name:      TmpVolumeName,
-				MountPath: TmpVolumeMountPath,
+				Name:      utils.TmpVolumeName,
+				MountPath: utils.TmpVolumeMountPath,
 			},
 		}))
 		expectedVolumes := []corev1.Volume{
 			{
-				Name: "secret-" + PostgresCertsSecretName,
+				Name: "secret-" + utils.PostgresCertsSecretName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName:  PostgresCertsSecretName,
+						SecretName:  utils.PostgresCertsSecretName,
 						DefaultMode: &defaultPermission,
 					},
 				},
 			},
 			{
-				Name: "secret-" + PostgresBootstrapSecretName,
+				Name: "secret-" + utils.PostgresBootstrapSecretName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: PostgresBootstrapSecretName,
+						SecretName: utils.PostgresBootstrapSecretName,
 					},
 				},
 			},
 			{
-				Name: PostgresConfigMap,
+				Name: utils.PostgresConfigMap,
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: PostgresConfigMap},
+						LocalObjectReference: corev1.LocalObjectReference{Name: utils.PostgresConfigMap},
 					},
 				},
 			},
 		}
 		if with_pvc {
 			expectedVolumes = append(expectedVolumes, corev1.Volume{
-				Name: PostgresDataVolume,
+				Name: utils.PostgresDataVolume,
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: PostgresPVCName,
+						ClaimName: utils.PostgresPVCName,
 					},
 				},
 			})
 		} else {
 			expectedVolumes = append(expectedVolumes, corev1.Volume{
-				Name: PostgresDataVolume,
+				Name: utils.PostgresDataVolume,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
@@ -158,21 +156,21 @@ var _ = Describe("App postgres server assets", func() {
 		}
 		expectedVolumes = append(expectedVolumes,
 			corev1.Volume{
-				Name: PostgresCAVolume,
+				Name: utils.PostgresCAVolume,
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: OLSCAConfigMap},
+						LocalObjectReference: corev1.LocalObjectReference{Name: utils.OLSCAConfigMap},
 					},
 				},
 			},
 			corev1.Volume{
-				Name: PostgresVarRunVolumeName,
+				Name: utils.PostgresVarRunVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
 			},
 			corev1.Volume{
-				Name: TmpVolumeName,
+				Name: utils.TmpVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
@@ -183,18 +181,18 @@ var _ = Describe("App postgres server assets", func() {
 
 	validatePostgresService := func(service *corev1.Service, err error) {
 		Expect(err).NotTo(HaveOccurred())
-		Expect(service.Name).To(Equal(PostgresServiceName))
-		Expect(service.Namespace).To(Equal(OLSNamespaceDefault))
-		Expect(service.Labels).To(Equal(generatePostgresSelectorLabels()))
+		Expect(service.Name).To(Equal(utils.PostgresServiceName))
+		Expect(service.Namespace).To(Equal(utils.OLSNamespaceDefault))
+		Expect(service.Labels).To(Equal(utils.GeneratePostgresSelectorLabels()))
 		Expect(service.Annotations).To(Equal(map[string]string{
-			"service.beta.openshift.io/serving-cert-secret-name": PostgresCertsSecretName,
+			"service.beta.openshift.io/serving-cert-secret-name": utils.PostgresCertsSecretName,
 		}))
-		Expect(service.Spec.Selector).To(Equal(generatePostgresSelectorLabels()))
+		Expect(service.Spec.Selector).To(Equal(utils.GeneratePostgresSelectorLabels()))
 		Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
 		Expect(service.Spec.Ports).To(Equal([]corev1.ServicePort{
 			{
 				Name:       "server",
-				Port:       PostgresServicePort,
+				Port:       utils.PostgresServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.Parse("server"),
 			},
@@ -202,53 +200,53 @@ var _ = Describe("App postgres server assets", func() {
 	}
 
 	validatePostgresConfigMap := func(configMap *corev1.ConfigMap) {
-		Expect(configMap.Namespace).To(Equal(cr.Namespace))
-		Expect(configMap.Labels).To(Equal(generatePostgresSelectorLabels()))
-		Expect(configMap.Data).To(HaveKey(PostgresConfig))
+		Expect(configMap.Namespace).To(Equal(testCr.Namespace))
+		Expect(configMap.Labels).To(Equal(utils.GeneratePostgresSelectorLabels()))
+		Expect(configMap.Data).To(HaveKey(utils.PostgresConfig))
 	}
 
 	validatePostgresSecret := func(secret *corev1.Secret) {
-		Expect(secret.Namespace).To(Equal(cr.Namespace))
-		Expect(secret.Labels).To(Equal(generatePostgresSelectorLabels()))
-		Expect(secret.Annotations).To(HaveKey(PostgresSecretHashKey))
-		Expect(secret.Data).To(HaveKey(PostgresSecretKeyName))
+		Expect(secret.Namespace).To(Equal(testCr.Namespace))
+		Expect(secret.Labels).To(Equal(utils.GeneratePostgresSelectorLabels()))
+		Expect(secret.Annotations).To(HaveKey(utils.PostgresSecretHashKey))
+		Expect(secret.Data).To(HaveKey(utils.PostgresSecretKeyName))
 	}
 
 	validatePostgresBootstrapSecret := func(secret *corev1.Secret) {
-		Expect(secret.Namespace).To(Equal(cr.Namespace))
-		Expect(secret.Labels).To(Equal(generatePostgresSelectorLabels()))
-		Expect(secret.StringData).To(HaveKey(PostgresExtensionScript))
+		Expect(secret.Namespace).To(Equal(testCr.Namespace))
+		Expect(secret.Labels).To(Equal(utils.GeneratePostgresSelectorLabels()))
+		Expect(secret.StringData).To(HaveKey(utils.PostgresExtensionScript))
 	}
 
 	validatePostgresNetworkPolicy := func(networkPolicy *networkingv1.NetworkPolicy) {
-		Expect(networkPolicy.Name).To(Equal(PostgresNetworkPolicyName))
-		Expect(networkPolicy.Namespace).To(Equal(OLSNamespaceDefault))
+		Expect(networkPolicy.Name).To(Equal(utils.PostgresNetworkPolicyName))
+		Expect(networkPolicy.Namespace).To(Equal(utils.OLSNamespaceDefault))
 		Expect(networkPolicy.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
 		Expect(networkPolicy.Spec.Ingress).To(HaveLen(1))
 		Expect(networkPolicy.Spec.Ingress).To(ConsistOf(networkingv1.NetworkPolicyIngressRule{
 			From: []networkingv1.NetworkPolicyPeer{
 				{
 					PodSelector: &metav1.LabelSelector{
-						MatchLabels: generateAppServerSelectorLabels(),
+						MatchLabels: utils.GenerateAppServerSelectorLabels(),
 					},
 				},
 			},
 			Ports: []networkingv1.NetworkPolicyPort{
 				{
 					Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
-					Port:     &[]intstr.IntOrString{intstr.FromInt(PostgresServicePort)}[0],
+					Port:     &[]intstr.IntOrString{intstr.FromInt(utils.PostgresServicePort)}[0],
 				},
 			},
 		}))
-		Expect(networkPolicy.Spec.PodSelector.MatchLabels).To(Equal(generatePostgresSelectorLabels()))
+		Expect(networkPolicy.Spec.PodSelector.MatchLabels).To(Equal(utils.GeneratePostgresSelectorLabels()))
 	}
 
 	createAndValidatePostgresDeployment := func(with_pvc bool) {
 		if with_pvc {
-			cr.Spec.OLSConfig.Storage = &olsv1alpha1.Storage{}
+			testCr.Spec.OLSConfig.Storage = &olsv1alpha1.Storage{}
 		}
-		cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-1"
-		secret, _ := r.generatePostgresSecret(cr)
+		testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-1"
+		secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
 		secret.SetOwnerReferences([]metav1.OwnerReference{
 			{
 				Kind:       "Secret",
@@ -257,31 +255,20 @@ var _ = Describe("App postgres server assets", func() {
 				Name:       "dummy-secret-1",
 			},
 		})
-		secretCreationErr := r.Create(ctx, secret)
+		secretCreationErr := testReconcilerInstance.Create(ctx, secret)
 		Expect(secretCreationErr).NotTo(HaveOccurred())
-		passwordMap, _ := getSecretContent(r.Client, secret.Name, cr.Namespace, []string{OLSComponentPasswordFileName}, secret)
-		password := passwordMap[OLSComponentPasswordFileName]
-		deployment, err := r.generatePostgresDeployment(cr)
+		passwordMap, _ := utils.GetSecretContent(testReconcilerInstance, secret.Name, testCr.Namespace, []string{utils.OLSComponentPasswordFileName}, secret)
+		password := passwordMap[utils.OLSComponentPasswordFileName]
+		deployment, err := GeneratePostgresDeployment(testReconcilerInstance, testCr)
 		Expect(err).NotTo(HaveOccurred())
 		validatePostgresDeployment(deployment, password, with_pvc)
-		secretDeletionErr := r.Delete(ctx, secret)
+		secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
 		Expect(secretDeletionErr).NotTo(HaveOccurred())
 	}
 
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
-			rOptions = &OLSConfigReconcilerOptions{
-				LightspeedServicePostgresImage: "lightspeed-service-postgres:latest",
-				Namespace:                      OLSNamespaceDefault,
-			}
-			cr = getOLSConfigWithCacheCR()
-			r = &OLSConfigReconciler{
-				Options:    *rOptions,
-				logger:     logf.Log.WithName("olsconfig.reconciler"),
-				Client:     k8sClient,
-				Scheme:     k8sClient.Scheme(),
-				stateCache: make(map[string]string),
-			}
+			testCr = utils.GetOLSConfigWithCacheCR()
 		})
 
 		It("should generate the OLS postgres deployment", func() {
@@ -313,14 +300,14 @@ var _ = Describe("App postgres server assets", func() {
 			nodeSelector := map[string]string{
 				"test-node-selector-key": "test-node-selector-value",
 			}
-			cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer = olsv1alpha1.DatabaseContainerConfig{
+			testCr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer = olsv1alpha1.DatabaseContainerConfig{
 				Resources:    resources,
 				Tolerations:  tolerations,
 				NodeSelector: nodeSelector,
 			}
 
-			cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-1"
-			secret, _ := r.generatePostgresSecret(cr)
+			testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-1"
+			secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
 			secret.SetOwnerReferences([]metav1.OwnerReference{
 				{
 					Kind:       "Secret",
@@ -329,10 +316,10 @@ var _ = Describe("App postgres server assets", func() {
 					Name:       "dummy-secret-1",
 				},
 			})
-			secretCreationErr := r.Create(ctx, secret)
+			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
 
-			deployment, err := r.generatePostgresDeployment(cr)
+			deployment, err := GeneratePostgresDeployment(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(deployment.Spec.Template.Spec.Containers[0].Resources).To(Equal(*resources))
@@ -341,8 +328,8 @@ var _ = Describe("App postgres server assets", func() {
 		})
 
 		It("should work when no update in the OLS postgres deployment", func() {
-			cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-2"
-			secret, _ := r.generatePostgresSecret(cr)
+			testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-2"
+			secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
 			secret.SetOwnerReferences([]metav1.OwnerReference{
 				{
 					Kind:       "Secret",
@@ -351,9 +338,9 @@ var _ = Describe("App postgres server assets", func() {
 					Name:       "dummy-secret-2",
 				},
 			})
-			secretCreationErr := r.Create(ctx, secret)
+			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
-			deployment, err := r.generatePostgresDeployment(cr)
+			deployment, err := GeneratePostgresDeployment(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
 			deployment.SetOwnerReferences([]metav1.OwnerReference{
 				{
@@ -364,19 +351,19 @@ var _ = Describe("App postgres server assets", func() {
 				},
 			})
 			deployment.ObjectMeta.Name = "lightspeed-postgres-server-1"
-			deploymentCreationErr := r.Create(ctx, deployment)
+			deploymentCreationErr := testReconcilerInstance.Create(ctx, deployment)
 			Expect(deploymentCreationErr).NotTo(HaveOccurred())
-			updateErr := r.updatePostgresDeployment(ctx, deployment, deployment)
+			updateErr := UpdatePostgresDeployment(testReconcilerInstance, ctx, deployment, deployment)
 			Expect(updateErr).NotTo(HaveOccurred())
-			secretDeletionErr := r.Delete(ctx, secret)
+			secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
-			deploymentDeletionErr := r.Delete(ctx, deployment)
+			deploymentDeletionErr := testReconcilerInstance.Delete(ctx, deployment)
 			Expect(deploymentDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should work when there is an update in the OLS postgres deployment", func() {
-			cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-3"
-			secret, _ := r.generatePostgresSecret(cr)
+			testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-3"
+			secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
 			secret.SetOwnerReferences([]metav1.OwnerReference{
 				{
 					Kind:       "Secret",
@@ -385,9 +372,9 @@ var _ = Describe("App postgres server assets", func() {
 					Name:       "dummy-secret-3",
 				},
 			})
-			secretCreationErr := r.Create(ctx, secret)
+			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
-			deployment, err := r.generatePostgresDeployment(cr)
+			deployment, err := GeneratePostgresDeployment(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
 			deployment.SetOwnerReferences([]metav1.OwnerReference{
 				{
@@ -398,56 +385,56 @@ var _ = Describe("App postgres server assets", func() {
 				},
 			})
 			deployment.ObjectMeta.Name = "lightspeed-postgres-server-2"
-			deploymentCreationErr := r.Create(ctx, deployment)
+			deploymentCreationErr := testReconcilerInstance.Create(ctx, deployment)
 			Expect(deploymentCreationErr).NotTo(HaveOccurred())
 			deploymentClone := deployment.DeepCopy()
 			deploymentClone.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{
 				{
 					Name:  "DUMMY_UPDATE",
-					Value: PostgresDefaultUser,
+					Value: utils.PostgresDefaultUser,
 				},
 			}
-			updateErr := r.updatePostgresDeployment(ctx, deployment, deploymentClone)
+			updateErr := UpdatePostgresDeployment(testReconcilerInstance, ctx, deployment, deploymentClone)
 			Expect(updateErr).NotTo(HaveOccurred())
 			Expect(deployment.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
 				{
 					Name:  "DUMMY_UPDATE",
-					Value: PostgresDefaultUser,
+					Value: utils.PostgresDefaultUser,
 				},
 			}))
-			secretDeletionErr := r.Delete(ctx, secret)
+			secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
-			deploymentDeletionErr := r.Delete(ctx, deployment)
+			deploymentDeletionErr := testReconcilerInstance.Delete(ctx, deployment)
 			Expect(deploymentDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should generate the OLS postgres service", func() {
-			validatePostgresService(r.generatePostgresService(cr))
+			validatePostgresService(GeneratePostgresService(testReconcilerInstance, testCr))
 		})
 
 		It("should generate the OLS postgres configmap", func() {
-			configMap, err := r.generatePostgresConfigMap(cr)
+			configMap, err := GeneratePostgresConfigMap(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap.Name).To(Equal(PostgresConfigMap))
+			Expect(configMap.Name).To(Equal(utils.PostgresConfigMap))
 			validatePostgresConfigMap(configMap)
 		})
 
 		It("should generate the OLS postgres secret", func() {
-			secret, err := r.generatePostgresSecret(cr)
+			secret, err := GeneratePostgresSecret(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(secret.Name).To(Equal("lightspeed-postgres-secret"))
+			Expect(secret.Name).To(Equal(utils.PostgresSecretName))
 			validatePostgresSecret(secret)
 		})
 
 		It("should generate the OLS postgres bootstrap secret", func() {
-			secret, err := r.generatePostgresBootstrapSecret(cr)
+			secret, err := GeneratePostgresBootstrapSecret(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(secret.Name).To(Equal(PostgresBootstrapSecretName))
+			Expect(secret.Name).To(Equal(utils.PostgresBootstrapSecretName))
 			validatePostgresBootstrapSecret(secret)
 		})
 
 		It("should generate the OLS postgres network policy", func() {
-			networkPolicy, err := r.generatePostgresNetworkPolicy(cr)
+			networkPolicy, err := GeneratePostgresNetworkPolicy(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
 			validatePostgresNetworkPolicy(networkPolicy)
 		})
@@ -455,27 +442,16 @@ var _ = Describe("App postgres server assets", func() {
 
 	Context("empty custom resource", func() {
 		BeforeEach(func() {
-			rOptions = &OLSConfigReconcilerOptions{
-				LightspeedServicePostgresImage: "lightspeed-service-postgres:latest",
-				Namespace:                      OLSNamespaceDefault,
-			}
-			cr = getNoCacheCR()
-			r = &OLSConfigReconciler{
-				Options:    *rOptions,
-				logger:     logf.Log.WithName("olsconfig.reconciler"),
-				Client:     k8sClient,
-				Scheme:     k8sClient.Scheme(),
-				stateCache: make(map[string]string),
-			}
+			testCr = utils.GetNoCacheCR()
 		})
 
 		It("should generate the OLS postgres deployment", func() {
-			cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-4"
-			cr.Spec.OLSConfig.ConversationCache.Postgres.User = PostgresDefaultUser
-			cr.Spec.OLSConfig.ConversationCache.Postgres.DbName = PostgresDefaultDbName
-			cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers = PostgresSharedBuffers
-			cr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections = PostgresMaxConnections
-			secret, _ := r.generatePostgresSecret(cr)
+			testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-4"
+			testCr.Spec.OLSConfig.ConversationCache.Postgres.User = utils.PostgresDefaultUser
+			testCr.Spec.OLSConfig.ConversationCache.Postgres.DbName = utils.PostgresDefaultDbName
+			testCr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers = utils.PostgresSharedBuffers
+			testCr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections = utils.PostgresMaxConnections
+			secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
 			secret.SetOwnerReferences([]metav1.OwnerReference{
 				{
 					Kind:       "Secret",
@@ -484,76 +460,42 @@ var _ = Describe("App postgres server assets", func() {
 					Name:       "dummy-secret-4",
 				},
 			})
-			secretCreationErr := r.Create(ctx, secret)
+			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
-			passwordMap, _ := getSecretContent(r.Client, secret.Name, cr.Namespace, []string{OLSComponentPasswordFileName}, secret)
-			password := passwordMap[OLSComponentPasswordFileName]
-			deployment, err := r.generatePostgresDeployment(cr)
+			passwordMap, _ := utils.GetSecretContent(testReconcilerInstance, secret.Name, testCr.Namespace, []string{utils.OLSComponentPasswordFileName}, secret)
+			password := passwordMap[utils.OLSComponentPasswordFileName]
+			deployment, err := GeneratePostgresDeployment(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
 			validatePostgresDeployment(deployment, password, false)
-			secretDeletionErr := r.Delete(ctx, secret)
+			secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should generate the OLS postgres service", func() {
-			validatePostgresService(r.generatePostgresService(cr))
+			validatePostgresService(GeneratePostgresService(testReconcilerInstance, testCr))
 		})
 
 		It("should generate the OLS postgres configmap", func() {
-			configMap, err := r.generatePostgresConfigMap(cr)
+			configMap, err := GeneratePostgresConfigMap(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap.Name).To(Equal(PostgresConfigMap))
+			Expect(configMap.Name).To(Equal(utils.PostgresConfigMap))
 			validatePostgresConfigMap(configMap)
 		})
 
 		It("should generate the OLS postgres bootstrap secret", func() {
-			secret, err := r.generatePostgresBootstrapSecret(cr)
+			secret, err := GeneratePostgresBootstrapSecret(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(secret.Name).To(Equal(PostgresBootstrapSecretName))
+			Expect(secret.Name).To(Equal(utils.PostgresBootstrapSecretName))
 			validatePostgresBootstrapSecret(secret)
 		})
 
 		It("should generate the OLS postgres secret", func() {
-			cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = PostgresSecretName
-			secret, err := r.generatePostgresSecret(cr)
+			testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = utils.PostgresSecretName
+			secret, err := GeneratePostgresSecret(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(secret.Name).To(Equal("lightspeed-postgres-secret"))
+			Expect(secret.Name).To(Equal(utils.PostgresSecretName))
 			validatePostgresSecret(secret)
 		})
 	})
 
 })
-
-func getOLSConfigWithCacheCR() *olsv1alpha1.OLSConfig {
-	return &olsv1alpha1.OLSConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cluster",
-			Namespace: OLSNamespaceDefault,
-			UID:       "OLSConfig_created_in_getOLSConfigWithCacheCR", // avoid the "uid must not be empty" error
-		},
-		Spec: olsv1alpha1.OLSConfigSpec{
-			OLSConfig: olsv1alpha1.OLSSpec{
-				ConversationCache: olsv1alpha1.ConversationCacheSpec{
-					Type: olsv1alpha1.Postgres,
-					Postgres: olsv1alpha1.PostgresSpec{
-						User:              PostgresDefaultUser,
-						DbName:            PostgresDefaultDbName,
-						SharedBuffers:     PostgresSharedBuffers,
-						MaxConnections:    PostgresMaxConnections,
-						CredentialsSecret: PostgresSecretName,
-					},
-				},
-			},
-		},
-	}
-}
-
-func getNoCacheCR() *olsv1alpha1.OLSConfig {
-	return &olsv1alpha1.OLSConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cluster",
-			Namespace: OLSNamespaceDefault,
-			UID:       "OLSConfig_created_in_getNoCacheCR", // avoid the "uid must not be empty" error
-		},
-	}
-}

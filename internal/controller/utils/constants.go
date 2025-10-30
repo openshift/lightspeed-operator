@@ -1,4 +1,4 @@
-package controller
+package utils
 
 import "time"
 
@@ -69,8 +69,6 @@ const (
 	AdditionalCAVolumeName = "additional-ca"
 	// CertBundleVolumeName is the name of the volume for the certificate bundle
 	CertBundleVolumeName = "cert-bundle"
-	// CertBundleDir is the path of the volume for the certificate bundle
-	CertBundleDir = "cert-bundle"
 	// ProxyCACertFileName is the name of the proxy CA certificate file
 	ProxyCACertFileName = "proxy-ca.crt"
 	// ProxyCACertVolumeName is the name of the volume for the proxy CA certificate
@@ -299,4 +297,26 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	ExporterConfigFilename = "config.yaml"
 	// OLSUserDataMountPath is the path where user data is mounted in the app server container
 	OLSUserDataMountPath = "/app-root/ols-user-data"
+
+	/*** Container Names (used for testing) ***/
+	// OLSAppServerContainerName is the name of the OLS application server container
+	OLSAppServerContainerName = "lightspeed-service-api"
+	// DataverseExporterContainerName is the name of the dataverse exporter container
+	DataverseExporterContainerName = "lightspeed-to-dataverse-exporter"
+	// ConsoleUIContainerName is the name of the console UI container
+	ConsoleUIContainerName = "lightspeed-console-plugin"
+	// PostgresContainerName is the name of the postgres container
+	PostgresContainerName = "lightspeed-postgres-server"
+	// OpenShiftMCPServerContainerName is the name of the OpenShift MCP server container
+	OpenShiftMCPServerContainerName = "openshift-mcp-server"
+
+	/*** Log Levels (used for testing) ***/
+	// LogLevelInfo is the INFO log level
+	LogLevelInfo = "INFO"
+	// LogLevelDebug is the DEBUG log level
+	LogLevelDebug = "DEBUG"
+	// LogLevelWarning is the WARNING log level
+	LogLevelWarning = "WARNING"
+	// LogLevelError is the ERROR log level
+	LogLevelError = "ERROR"
 )

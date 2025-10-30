@@ -1,4 +1,4 @@
-package controller
+package console
 
 import (
 	consolev1 "github.com/openshift/api/console/v1"
@@ -11,9 +11,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-func generateConsoleUILabels() map[string]string {
+func GenerateConsoleUILabels() map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/component":  "console-plugin",
 		"app.kubernetes.io/managed-by": "lightspeed-operator",
@@ -36,7 +38,7 @@ func getConsoleUIResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 	return defaultResources
 }
 
-func (r *OLSConfigReconciler) generateConsoleUIConfigMap(cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+func GenerateConsoleUIConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
 	nginxConfig := `
 			pid       /tmp/nginx/nginx.pid;
 			error_log /dev/stdout info;
@@ -62,79 +64,79 @@ func (r *OLSConfigReconciler) generateConsoleUIConfigMap(cr *olsv1alpha1.OLSConf
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConsoleUIConfigMapName,
-			Namespace: r.Options.Namespace,
-			Labels:    generateConsoleUILabels(),
+			Name:      utils.ConsoleUIConfigMapName,
+			Namespace: r.GetNamespace(),
+			Labels:    GenerateConsoleUILabels(),
 		},
 		Data: map[string]string{
 			"nginx.conf": nginxConfig,
 		},
 	}
-	if err := controllerutil.SetControllerReference(cr, cm, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, cm, r.GetScheme()); err != nil {
 		return nil, err
 	}
 
 	return cm, nil
 }
 
-func (r *OLSConfigReconciler) generateConsoleUIService(cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
+func GenerateConsoleUIService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConsoleUIServiceName,
-			Namespace: r.Options.Namespace,
-			Labels:    generateConsoleUILabels(),
+			Name:      utils.ConsoleUIServiceName,
+			Namespace: r.GetNamespace(),
+			Labels:    GenerateConsoleUILabels(),
 			Annotations: map[string]string{
-				ServingCertSecretAnnotationKey: ConsoleUIServiceCertSecretName,
+				utils.ServingCertSecretAnnotationKey: utils.ConsoleUIServiceCertSecretName,
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Port:       ConsoleUIHTTPSPort,
+					Port:       utils.ConsoleUIHTTPSPort,
 					Name:       "https",
 					Protocol:   corev1.ProtocolTCP,
 					TargetPort: intstr.Parse("https"),
 				},
 			},
-			Selector: generateConsoleUILabels(),
+			Selector: GenerateConsoleUILabels(),
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(cr, &service, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, &service, r.GetScheme()); err != nil {
 		return nil, err
 	}
 
 	return &service, nil
 }
 
-func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
+func GenerateConsoleUIDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	const certVolumeName = "lightspeed-console-plugin-cert"
 	val_true := true
 	volumeDefaultMode := int32(420)
 	resources := getConsoleUIResources(cr)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConsoleUIDeploymentName,
-			Namespace: r.Options.Namespace,
-			Labels:    generateConsoleUILabels(),
+			Name:      utils.ConsoleUIDeploymentName,
+			Namespace: r.GetNamespace(),
+			Labels:    GenerateConsoleUILabels(),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: generateConsoleUILabels(),
+				MatchLabels: GenerateConsoleUILabels(),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: generateConsoleUILabels(),
+					Labels: GenerateConsoleUILabels(),
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
 							Name:  "lightspeed-console-plugin",
-							Image: r.Options.ConsoleUIImage,
+							Image: r.GetConsoleUIImage(),
 							Ports: []corev1.ContainerPort{
 								{
-									ContainerPort: ConsoleUIHTTPSPort,
+									ContainerPort: utils.ConsoleUIHTTPSPort,
 									Name:          "https",
 									Protocol:      corev1.ProtocolTCP,
 								},
@@ -144,7 +146,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 								ReadOnlyRootFilesystem:   &[]bool{true}[0],
 							},
 							ImagePullPolicy: corev1.PullAlways,
-							Env:             getProxyEnvVars(),
+							Env:             utils.GetProxyEnvVars(),
 							Resources:       *resources,
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -170,7 +172,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 							Name: certVolumeName,
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName:  ConsoleUIServiceCertSecretName,
+									SecretName:  utils.ConsoleUIServiceCertSecretName,
 									DefaultMode: &volumeDefaultMode,
 								},
 							},
@@ -180,7 +182,7 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: ConsoleUIConfigMapName,
+										Name: utils.ConsoleUIConfigMapName,
 									},
 									DefaultMode: &volumeDefaultMode,
 								},
@@ -211,25 +213,25 @@ func (r *OLSConfigReconciler) generateConsoleUIDeployment(cr *olsv1alpha1.OLSCon
 		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Tolerations
 	}
 
-	if err := controllerutil.SetControllerReference(cr, deployment, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, deployment, r.GetScheme()); err != nil {
 		return nil, err
 	}
 
 	return deployment, nil
 }
 
-func (r *OLSConfigReconciler) generateConsoleUIPlugin(cr *olsv1alpha1.OLSConfig) (*consolev1.ConsolePlugin, error) {
+func GenerateConsoleUIPlugin(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*consolev1.ConsolePlugin, error) {
 	plugin := &consolev1.ConsolePlugin{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   ConsoleUIPluginName,
-			Labels: generateConsoleUILabels(),
+			Name:   utils.ConsoleUIPluginName,
+			Labels: GenerateConsoleUILabels(),
 		},
 		Spec: consolev1.ConsolePluginSpec{
 			Backend: consolev1.ConsolePluginBackend{
 				Service: &consolev1.ConsolePluginService{
-					Name:      ConsoleUIServiceName,
-					Namespace: r.Options.Namespace,
-					Port:      ConsoleUIHTTPSPort,
+					Name:      utils.ConsoleUIServiceName,
+					Namespace: r.GetNamespace(),
+					Port:      utils.ConsoleUIHTTPSPort,
 					BasePath:  "/",
 				},
 				Type: consolev1.Service,
@@ -240,13 +242,13 @@ func (r *OLSConfigReconciler) generateConsoleUIPlugin(cr *olsv1alpha1.OLSConfig)
 			},
 			Proxy: []consolev1.ConsolePluginProxy{
 				{
-					Alias:         ConsoleProxyAlias,
+					Alias:         utils.ConsoleProxyAlias,
 					Authorization: consolev1.UserToken,
 					Endpoint: consolev1.ConsolePluginProxyEndpoint{
 						Service: &consolev1.ConsolePluginProxyServiceConfig{
-							Name:      OLSAppServerServiceName,
-							Namespace: r.Options.Namespace,
-							Port:      OLSAppServerServicePort,
+							Name:      utils.OLSAppServerServiceName,
+							Namespace: r.GetNamespace(),
+							Port:      utils.OLSAppServerServicePort,
 						},
 						Type: consolev1.ProxyTypeService,
 					},
@@ -260,19 +262,19 @@ func (r *OLSConfigReconciler) generateConsoleUIPlugin(cr *olsv1alpha1.OLSConfig)
 		plugin.Spec.Proxy[0].CACertificate = cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate
 	}
 
-	if err := controllerutil.SetControllerReference(cr, plugin, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, plugin, r.GetScheme()); err != nil {
 		return nil, err
 	}
 
 	return plugin, nil
 }
 
-func (r *OLSConfigReconciler) generateConsoleUINetworkPolicy(cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
+func GenerateConsoleUINetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
 	np := networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConsoleUINetworkPolicyName,
-			Namespace: r.Options.Namespace,
-			Labels:    generateConsoleUILabels(),
+			Name:      utils.ConsoleUINetworkPolicyName,
+			Namespace: r.GetNamespace(),
+			Labels:    GenerateConsoleUILabels(),
 		},
 		Spec: networkingv1.NetworkPolicySpec{
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
@@ -294,13 +296,13 @@ func (r *OLSConfigReconciler) generateConsoleUINetworkPolicy(cr *olsv1alpha1.OLS
 					Ports: []networkingv1.NetworkPolicyPort{
 						{
 							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
-							Port:     &[]intstr.IntOrString{intstr.FromInt(ConsoleUIHTTPSPort)}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(utils.ConsoleUIHTTPSPort)}[0],
 						},
 					},
 				},
 			},
 			PodSelector: metav1.LabelSelector{
-				MatchLabels: generateConsoleUILabels(),
+				MatchLabels: GenerateConsoleUILabels(),
 			},
 			PolicyTypes: []networkingv1.PolicyType{
 				networkingv1.PolicyTypeIngress,
@@ -308,7 +310,7 @@ func (r *OLSConfigReconciler) generateConsoleUINetworkPolicy(cr *olsv1alpha1.OLS
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(cr, &np, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, &np, r.GetScheme()); err != nil {
 		return nil, err
 	}
 	return &np, nil

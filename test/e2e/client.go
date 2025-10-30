@@ -166,7 +166,7 @@ func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
 				dep.Status.Replicas, dep.Status.UpdatedReplicas)
 		}
 		if dep.Status.UnavailableReplicas != 0 {
-			c.ShowUnavailablePodsOfDeployment(dep)
+			_ = c.ShowUnavailablePodsOfDeployment(dep)
 			return false, fmt.Errorf("got %d unavailable replicas",
 				dep.Status.UnavailableReplicas)
 		}

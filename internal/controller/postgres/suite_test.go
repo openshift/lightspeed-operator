@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package postgres
 
 import (
 	"context"
@@ -29,7 +29,9 @@ import (
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,20 +40,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	//+kubebuilder:scaffold:imports
 )
 
+// These tests use Ginkgo (BDD-style Go testing framework). Refer to
+// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
+
 var (
-	ctx       context.Context
-	cfg       *rest.Config
-	k8sClient client.Client
-	testEnv   *envtest.Environment
+	ctx                    context.Context
+	cfg                    *rest.Config
+	k8sClient              client.Client
+	testEnv                *envtest.Environment
+	cr                     *olsv1alpha1.OLSConfig
+	testReconcilerInstance reconciler.Reconciler
+	crNamespacedName       types.NamespacedName
+	tlsSecret              *corev1.Secret
 )
 
-func TestController(t *testing.T) {
+func TestPostgres(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Suite")
+
+	RunSpecs(t, "Postgres Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -60,8 +71,8 @@ var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "config", "crd", "bases"),
-			filepath.Join("..", "..", ".testcrds"),
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", ".testcrds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -82,9 +93,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = monv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = configv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
@@ -127,10 +135,45 @@ var _ = BeforeSuite(func() {
 	By("Create the namespace openshift-config")
 	ns = &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "openshift-config",
+			Name: utils.TelemetryPullSecretNamespace,
 		},
 	}
 	err = k8sClient.Create(ctx, ns)
+	Expect(err).NotTo(HaveOccurred())
+
+	testReconcilerInstance = utils.NewTestReconciler(
+		k8sClient,
+		logf.Log.WithName("controller").WithName("OLSConfig"),
+		scheme.Scheme,
+		utils.OLSNamespaceDefault,
+	)
+
+	// Set default postgres image for test reconciler (can be overridden in specific tests)
+	if tr, ok := testReconcilerInstance.(*utils.TestReconciler); ok {
+		tr.PostgresImage = utils.PostgresServerImageDefault
+	}
+
+	cr = &olsv1alpha1.OLSConfig{}
+	crNamespacedName = types.NamespacedName{
+		Name: "cluster",
+	}
+
+	By("Create a complete OLSConfig custom resource")
+	err = k8sClient.Get(ctx, crNamespacedName, cr)
+	if err != nil && errors.IsNotFound(err) {
+		cr = utils.GetDefaultOLSConfigCR()
+		err = k8sClient.Create(ctx, cr)
+		Expect(err).NotTo(HaveOccurred())
+	} else if err == nil {
+		cr = utils.GetDefaultOLSConfigCR()
+		err = k8sClient.Update(ctx, cr)
+		Expect(err).NotTo(HaveOccurred())
+	} else {
+		Fail("Failed to create or update the OLSConfig custom resource")
+	}
+
+	By("Get the OLSConfig custom resource")
+	err = k8sClient.Get(ctx, crNamespacedName, cr)
 	Expect(err).NotTo(HaveOccurred())
 })
 

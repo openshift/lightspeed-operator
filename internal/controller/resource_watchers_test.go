@@ -7,6 +7,8 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
 var _ = Describe("Watchers", func() {
@@ -17,13 +19,13 @@ var _ = Describe("Watchers", func() {
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "test-secret"},
 			}
-			requests := secretWatcherFilter(ctx, secret)
+			requests := SecretWatcherFilter(ctx, secret)
 			Expect(requests).To(BeEmpty())
 
-			annotateSecretWatcher(secret)
-			requests = secretWatcherFilter(ctx, secret)
+			AnnotateSecretWatcher(secret)
+			requests = SecretWatcherFilter(ctx, secret)
 			Expect(requests).To(HaveLen(1))
-			Expect(requests[0].Name).To(Equal(OLSConfigName))
+			Expect(requests[0].Name).To(Equal(utils.OLSConfigName))
 		})
 	})
 
@@ -32,7 +34,7 @@ var _ = Describe("Watchers", func() {
 		It("should identify watched configmap by annotations", func() {
 			// Create a reconciler instance for testing
 			r := &OLSConfigReconciler{
-				Options: OLSConfigReconcilerOptions{
+				Options: utils.OLSConfigReconcilerOptions{
 					Namespace: "default",
 				},
 			}
@@ -40,20 +42,20 @@ var _ = Describe("Watchers", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "test-configmap"},
 			}
-			requests := r.configMapWatcherFilter(ctx, configMap, false)
+			requests := r.ConfigMapWatcherFilter(ctx, configMap, false)
 			Expect(requests).To(BeEmpty())
 
-			annotateConfigMapWatcher(configMap)
-			requests = r.configMapWatcherFilter(ctx, configMap, false)
+			AnnotateConfigMapWatcher(configMap)
+			requests = r.ConfigMapWatcherFilter(ctx, configMap, false)
 			Expect(requests).To(HaveLen(1))
-			Expect(requests[0].Name).To(Equal(OLSConfigName))
+			Expect(requests[0].Name).To(Equal(utils.OLSConfigName))
 
 			configMap = &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: DefaultOpenShiftCerts},
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: utils.DefaultOpenShiftCerts},
 			}
-			requests = r.configMapWatcherFilter(ctx, configMap, false)
+			requests = r.ConfigMapWatcherFilter(ctx, configMap, false)
 			Expect(requests).To(HaveLen(1))
-			Expect(requests[0].Name).To(Equal(OLSConfigName))
+			Expect(requests[0].Name).To(Equal(utils.OLSConfigName))
 		})
 	})
 
