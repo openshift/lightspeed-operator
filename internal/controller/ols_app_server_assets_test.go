@@ -49,6 +49,7 @@ var _ = Describe("App server assets", func() {
 				OpenshiftMinor:          "456",
 				LightspeedServiceImage:  "lightspeed-service:latest",
 				OpenShiftMCPServerImage: "openshift-mcp-server:latest",
+				DataverseExporterImage:  "dataverse-exporter:latest",
 				Namespace:               OLSNamespaceDefault,
 			}
 			cr = getDefaultOLSConfigCR()
@@ -528,30 +529,33 @@ var _ = Describe("App server assets", func() {
 					Value: path.Join("/etc/ols", OLSConfigFilename),
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get9RequiredVolumeMounts()))
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get10RequiredVolumeMounts()))
 			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("4Gi")},
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("1Gi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
-			// telemetry container
-			Expect(dep.Spec.Template.Spec.Containers[1].Image).To(Equal(rOptions.LightspeedServiceImage))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
+			// dataverse exporter container
+			Expect(dep.Spec.Template.Spec.Containers[1].Image).To(Equal(rOptions.DataverseExporterImage))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-to-dataverse-exporter"))
 			Expect(dep.Spec.Template.Spec.Containers[1].Resources).ToNot(BeNil())
-			Expect(dep.Spec.Template.Spec.Containers[1].Command).To(Equal([]string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"}))
-			Expect(dep.Spec.Template.Spec.Containers[1].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", OLSConfigFilename),
-				},
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(Equal([]string{
+				"--mode",
+				"openshift",
+				"--config",
+				path.Join(ExporterConfigMountPath, ExporterConfigFilename),
+				"--log-level",
+				"INFO",
+				"--data-dir",
+				OLSUserDataMountPath,
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf(get9RequiredVolumeMounts()))
+			Expect(dep.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf(get10RequiredVolumeMounts()))
 			Expect(dep.Spec.Template.Spec.Containers[1].Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
-			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf(get9RequiredVolumes()))
+			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf(get10RequiredVolumes()))
 			Expect(dep.Spec.Selector.MatchLabels).To(Equal(generateAppServerSelectorLabels()))
 
 			By("generate deployment without data collector when telemetry pull secret does not exist")
@@ -754,17 +758,20 @@ var _ = Describe("App server assets", func() {
 			deployment, err = r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(2))
-			Expect(deployment.Spec.Template.Spec.Containers[1].Image).To(Equal(rOptions.LightspeedServiceImage))
-			Expect(deployment.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
+			Expect(deployment.Spec.Template.Spec.Containers[1].Image).To(Equal(rOptions.DataverseExporterImage))
+			Expect(deployment.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-to-dataverse-exporter"))
 			Expect(deployment.Spec.Template.Spec.Containers[1].Resources).ToNot(BeNil())
-			Expect(deployment.Spec.Template.Spec.Containers[1].Command).To(Equal([]string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"}))
-			Expect(deployment.Spec.Template.Spec.Containers[1].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", OLSConfigFilename),
-				},
+			Expect(deployment.Spec.Template.Spec.Containers[1].Args).To(Equal([]string{
+				"--mode",
+				"openshift",
+				"--config",
+				path.Join(ExporterConfigMountPath, ExporterConfigFilename),
+				"--log-level",
+				"INFO",
+				"--data-dir",
+				OLSUserDataMountPath,
 			}))
-			Expect(deployment.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf(get9RequiredVolumeMounts()))
+			Expect(deployment.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf(get10RequiredVolumeMounts()))
 			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
 				corev1.Volume{
 					Name: "ols-user-data",
@@ -978,7 +985,7 @@ var _ = Describe("App server assets", func() {
 			}))
 
 			// Verify MCP server has the same volume mounts as other containers
-			Expect(openshiftMCPServerContainer.VolumeMounts).To(ConsistOf(get9RequiredVolumeMounts()))
+			Expect(openshiftMCPServerContainer.VolumeMounts).To(ConsistOf(get10RequiredVolumeMounts()))
 
 			By("Disabling introspection")
 			cr.Spec.OLSConfig.IntrospectionEnabled = false
@@ -986,14 +993,14 @@ var _ = Describe("App server assets", func() {
 			dep, err = r.generateOLSDeployment(cr)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Should have only 2 containers: main app and telemetry (no MCP server)
+			// Should have only 2 containers: main app and dataverse exporter (no MCP server)
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-to-dataverse-exporter"))
 		})
 
 		It("should deploy MCP container independently of data collection settings", func() {
-			By("Test case 1: introspection enabled, data collection enabled - should have both MCP and data collector containers")
+			By("Test case 1: introspection enabled, data collection enabled - should have both MCP and dataverse exporter containers")
 			createTelemetryPullSecret(true)
 			cr.Spec.OLSConfig.IntrospectionEnabled = true
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
@@ -1005,10 +1012,10 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-to-dataverse-exporter"))
 			Expect(dep.Spec.Template.Spec.Containers[2].Name).To(Equal("openshift-mcp-server"))
 
-			By("Test case 2: introspection enabled, data collection disabled - should have only MCP container (no data collector)")
+			By("Test case 2: introspection enabled, data collection disabled - should have only MCP container (no dataverse exporter)")
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
 				TranscriptsDisabled: true,
@@ -1020,7 +1027,7 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("openshift-mcp-server"))
 
-			By("Test case 3: introspection disabled, data collection enabled - should have only data collector container (no MCP)")
+			By("Test case 3: introspection disabled, data collection enabled - should have only dataverse exporter container (no MCP)")
 			cr.Spec.OLSConfig.IntrospectionEnabled = false
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    false,
@@ -1031,7 +1038,7 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-service-api"))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-service-user-data-collector"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-to-dataverse-exporter"))
 
 			By("Test case 4: introspection disabled, data collection disabled - should have only main container")
 			cr.Spec.OLSConfig.IntrospectionEnabled = false
@@ -1079,10 +1086,12 @@ var _ = Describe("App server assets", func() {
 		BeforeEach(func() {
 			cr = getEmptyOLSConfigCR()
 			rOptions = &OLSConfigReconcilerOptions{
-				OpenShiftMajor:         "123",
-				OpenshiftMinor:         "456",
-				LightspeedServiceImage: "lightspeed-service:latest",
-				Namespace:              OLSNamespaceDefault,
+				OpenShiftMajor:          "123",
+				OpenshiftMinor:          "456",
+				LightspeedServiceImage:  "lightspeed-service:latest",
+				OpenShiftMCPServerImage: "openshift-mcp-server:latest",
+				DataverseExporterImage:  "dataverse-exporter:latest",
+				Namespace:               OLSNamespaceDefault,
 			}
 			r = &OLSConfigReconciler{
 				Options:    *rOptions,
@@ -1281,6 +1290,11 @@ user_data_collector_config: {}
 						Name:      "ols-user-data",
 						ReadOnly:  false,
 						MountPath: "/app-root/ols-user-data",
+					},
+					corev1.VolumeMount{
+						Name:      ExporterConfigVolumeName,
+						ReadOnly:  true,
+						MountPath: ExporterConfigMountPath,
 					}),
 			))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf(
@@ -1289,6 +1303,15 @@ user_data_collector_config: {}
 						Name: "ols-user-data",
 						VolumeSource: corev1.VolumeSource{
 							EmptyDir: &corev1.EmptyDirVolumeSource{},
+						},
+					},
+					corev1.Volume{
+						Name: ExporterConfigVolumeName,
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{Name: ExporterConfigCmName},
+								DefaultMode:          &defaultVolumeMode,
+							},
 						},
 					}),
 			))
@@ -2019,6 +2042,15 @@ func get9RequiredVolumeMounts() []corev1.VolumeMount {
 		})
 }
 
+func get10RequiredVolumeMounts() []corev1.VolumeMount {
+	return append(get9RequiredVolumeMounts(),
+		corev1.VolumeMount{
+			Name:      ExporterConfigVolumeName,
+			ReadOnly:  true,
+			MountPath: ExporterConfigMountPath,
+		})
+}
+
 func get7RequiredVolumes() []corev1.Volume {
 
 	return []corev1.Volume{
@@ -2100,6 +2132,20 @@ func get9RequiredVolumes() []corev1.Volume {
 			Name: "ols-user-data",
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+}
+
+func get10RequiredVolumes() []corev1.Volume {
+	defaultVolumeMode := int32(420)
+	return append(get9RequiredVolumes(),
+		corev1.Volume{
+			Name: ExporterConfigVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: ExporterConfigCmName},
+					DefaultMode:          &defaultVolumeMode,
+				},
 			},
 		})
 }

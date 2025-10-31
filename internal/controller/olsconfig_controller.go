@@ -67,6 +67,7 @@ type OLSConfigReconcilerOptions struct {
 	LightspeedServicePostgresImage string
 	ConsoleUIImage                 string
 	OpenShiftMCPServerImage        string
+	DataverseExporterImage         string
 	Namespace                      string
 	ReconcileInterval              time.Duration
 }

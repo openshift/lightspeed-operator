@@ -302,6 +302,7 @@ func main() {
 			LightspeedServiceImage:         imagesMap["lightspeed-service"],
 			LightspeedServicePostgresImage: imagesMap["postgres-image"],
 			OpenShiftMCPServerImage:        imagesMap["openshift-mcp-server-image"],
+			DataverseExporterImage:         imagesMap["dataverse-exporter-image"],
 			Namespace:                      namespace,
 			ReconcileInterval:              time.Duration(reconcilerIntervalMinutes) * time.Minute, // #nosec G115
 		},
