@@ -461,22 +461,19 @@ func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingD
 		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] ||
 		existingDeployment.Annotations[OLSAppTLSHashKey] != r.stateCache[OLSAppTLSHashStateCacheKey] ||
 		existingDeployment.Annotations[LLMProviderHashKey] != r.stateCache[LLMProviderHashStateCacheKey] ||
-		existingDeployment.Annotations[PostgresSecretHashKey] != r.stateCache[PostgresSecretHashStateCacheKey] {
-		updateDeploymentAnnotations(existingDeployment, map[string]string{
+		existingDeployment.Annotations[PostgresSecretHashKey] != r.stateCache[PostgresSecretHashStateCacheKey] ||
+		existingDeployment.Annotations[PostgresCAHashKey] != r.stateCache[PostgresCAHashStateCacheKey] {
+		annotations := map[string]string{
 			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
 			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
 			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
 			AdditionalCAHashKey:   r.stateCache[AdditionalCAHashStateCacheKey],
 			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
-		})
+			PostgresCAHashKey:     r.stateCache[PostgresCAHashStateCacheKey],
+		}
+		updateDeploymentAnnotations(existingDeployment, annotations)
 		// update the deployment template annotation triggers the rolling update
-		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
-			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
-			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
-			AdditionalCAHashKey:   r.stateCache[AdditionalCAHashStateCacheKey],
-			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
-		})
+		updateDeploymentTemplateAnnotations(existingDeployment, annotations)
 		changed = true
 	}
 
