@@ -365,11 +365,7 @@ spec:
 
               # Delete all OLSConfig CRs in openshift-lightspeed namespace
               echo "Deleting OLSConfig CRs..."
-              oc delete olsconfig --all -n openshift-lightspeed --ignore-not-found=true --timeout=60s || true
-
-              # Wait a bit for operator to process deletion
-              echo "Waiting for cleanup to complete..."
-              sleep 15
+              oc delete olsconfig --all -n openshift-lightspeed --wait=true
 
               # Check if namespace still exists and show status
               if oc get namespace openshift-lightspeed 2>/dev/null; then
