@@ -1,4 +1,4 @@
-package controller
+package console
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -6,6 +6,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -21,7 +22,7 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 		BeforeAll(func() {
 			console := openshiftv1.Console{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: ConsoleCRName,
+					Name: utils.ConsoleCRName,
 				},
 				Spec: openshiftv1.ConsoleSpec{
 					Plugins: []string{"monitoring-plugin"},
@@ -33,29 +34,29 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			err := k8sClient.Create(ctx, &console)
 			Expect(err).NotTo(HaveOccurred())
 			By("create the console tls secret")
-			tlsSecret, _ = generateRandomSecret()
-			tlsSecret.Name = ConsoleUIServiceCertSecretName
+			tlsSecret, _ = utils.GenerateRandomTLSSecret()
+			tlsSecret.Name = utils.ConsoleUIServiceCertSecretName
 			tlsSecret.SetOwnerReferences([]metav1.OwnerReference{
 				{
 					Kind:       "Secret",
 					APIVersion: "v1",
 					UID:        "ownerUID",
-					Name:       ConsoleUIServiceCertSecretName,
+					Name:       utils.ConsoleUIServiceCertSecretName,
 				},
 			})
-			secretCreationErr := reconciler.Create(ctx, tlsSecret)
+			secretCreationErr := testReconcilerInstance.Create(ctx, tlsSecret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
 
 			By("set the OLSConfig custom resource to default")
 			err = k8sClient.Get(ctx, crNamespacedName, cr)
 			Expect(err).NotTo(HaveOccurred())
-			crDefault := getDefaultOLSConfigCR()
+			crDefault := utils.GetDefaultOLSConfigCR()
 			cr.Spec = crDefault.Spec
 		})
 
 		AfterAll(func() {
 			console := openshiftv1.Console{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleCRName}, &console)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleCRName}, &console)
 			if err == nil {
 				err = k8sClient.Delete(ctx, &console)
 				Expect(err).NotTo(HaveOccurred())
@@ -65,78 +66,73 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			}
 			Expect(err).NotTo(HaveOccurred())
 			By("Delete the console tls secret")
-			secretDeletionErr := reconciler.Delete(ctx, tlsSecret)
+			secretDeletionErr := testReconcilerInstance.Delete(ctx, tlsSecret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should reconcile from OLSConfig custom resource", func() {
 			By("Reconcile the OLSConfig custom resource")
-			err := reconciler.reconcileConsoleUI(ctx, cr)
+			err := ReconcileConsoleUI(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			reconciler.updateStatusCondition(ctx, cr, typeConsolePluginReady, true, "All components are successfully deployed", nil, false)
-			expectedCondition := metav1.Condition{
-				Type:   typeConsolePluginReady,
-				Status: metav1.ConditionTrue,
-			}
-			Expect(cr.Status.Conditions).To(ContainElement(HaveField("Type", expectedCondition.Type)))
-			Expect(cr.Status.Conditions).To(ContainElement(HaveField("Status", expectedCondition.Status)))
+			// Note: Status conditions are managed by the main OLSConfigReconciler,
+			// not by the component-specific reconcilers
 		})
 
 		It("should create a service lightspeed-console-plugin", func() {
 			By("Get the service")
 			svc := &corev1.Service{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIServiceName, Namespace: OLSNamespaceDefault}, svc)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIServiceName, Namespace: utils.OLSNamespaceDefault}, svc)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should create a config map lightspeed-console-plugin", func() {
 			By("Get the config map")
 			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIConfigMapName, Namespace: OLSNamespaceDefault}, cm)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIConfigMapName, Namespace: utils.OLSNamespaceDefault}, cm)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should create a deployment lightspeed-console-plugin", func() {
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should create a console plugin lightspeed-console-plugin", func() {
 			By("Get the console plugin")
 			plugin := &consolev1.ConsolePlugin{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIPluginName}, plugin)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIPluginName}, plugin)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should create a network policy lightspeed-console-plugin", func() {
 			By("Get the network policy")
 			np := &networkingv1.NetworkPolicy{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUINetworkPolicyName, Namespace: OLSNamespaceDefault}, np)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUINetworkPolicyName, Namespace: utils.OLSNamespaceDefault}, np)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should activate the console plugin", func() {
 			By("Get the console plugin")
 			console := &openshiftv1.Console{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleCRName}, console)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleCRName}, console)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(console.Spec.Plugins).To(ContainElement(ConsoleUIPluginName))
+			Expect(console.Spec.Plugins).To(ContainElement(utils.ConsoleUIPluginName))
 		})
 
 		It("should trigger rolling update of the console deployment when changing tls secret content", func() {
 
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			oldHash := dep.Spec.Template.Annotations[OLSConsoleTLSHashKey]
+			oldHash := dep.Spec.Template.Annotations[utils.OLSConsoleTLSHashKey]
 			Expect(oldHash).NotTo(BeEmpty())
 
 			foundSecret := &corev1.Secret{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIServiceCertSecretName, Namespace: OLSNamespaceDefault}, foundSecret)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIServiceCertSecretName, Namespace: utils.OLSNamespaceDefault}, foundSecret)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Update the console tls secret content")
@@ -150,44 +146,44 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Reconcile the console")
-			err = reconciler.reconcileConsoleUI(ctx, cr)
+			err = ReconcileConsoleUI(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the updated deployment")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
 
 			// Verify that the hash in deployment annotations has been updated
-			Expect(dep.Annotations[OLSConsoleTLSHashKey]).NotTo(Equal(oldHash))
+			Expect(dep.Annotations[utils.OLSConsoleTLSHashKey]).NotTo(Equal(oldHash))
 		})
 
 		It("should trigger rolling update of the console deployment when recreating tls secret", func() {
 
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			oldHash := dep.Spec.Template.Annotations[OLSConsoleTLSHashKey]
+			oldHash := dep.Spec.Template.Annotations[utils.OLSConsoleTLSHashKey]
 			Expect(oldHash).NotTo(BeEmpty())
 
 			By("Delete the console tls secret")
-			secretDeletionErr := reconciler.Delete(ctx, tlsSecret)
+			secretDeletionErr := testReconcilerInstance.Delete(ctx, tlsSecret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 
 			By("Recreate the provider secret")
-			tlsSecret, _ = generateRandomSecret()
-			tlsSecret.Name = ConsoleUIServiceCertSecretName
+			tlsSecret, _ = utils.GenerateRandomTLSSecret()
+			tlsSecret.Name = utils.ConsoleUIServiceCertSecretName
 			tlsSecret.SetOwnerReferences([]metav1.OwnerReference{
 				{
 					Kind:       "Secret",
 					APIVersion: "v1",
 					UID:        "ownerUID",
-					Name:       ConsoleUIServiceCertSecretName,
+					Name:       utils.ConsoleUIServiceCertSecretName,
 				},
 			})
-			secretCreationErr := reconciler.Create(ctx, tlsSecret)
+			secretCreationErr := testReconcilerInstance.Create(ctx, tlsSecret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
 
 			// Reconcile the console
@@ -196,18 +192,18 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Reconcile the console")
-			err = reconciler.reconcileConsoleUI(ctx, cr)
+			err = ReconcileConsoleUI(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Get the updated deployment")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
 
 			// Verify that the hash in deployment annotations has been updated
-			Expect(dep.Annotations[OLSConsoleTLSHashKey]).NotTo(Equal(oldHash))
+			Expect(dep.Annotations[utils.OLSConsoleTLSHashKey]).NotTo(Equal(oldHash))
 			By("Delete the console tls secret")
-			secretDeletionErr = reconciler.Delete(ctx, tlsSecret)
+			secretDeletionErr = testReconcilerInstance.Delete(ctx, tlsSecret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
@@ -216,7 +212,7 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 	It("should trigger rolling update of the deployment when updating the tolerations", func() {
 		By("Get the deployment")
 		dep := &appsv1.Deployment{}
-		err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Update the OLSConfig custom resource")
@@ -233,11 +229,11 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 		}
 
 		By("Reconcile the app server")
-		err = reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
+		err = ReconcileConsoleUIDeployment(testReconcilerInstance, ctx, olsConfig)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Get the deployment")
-		err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(dep.Spec.Template.Spec.Tolerations).To(Equal(olsConfig.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Tolerations))
 	})
@@ -245,7 +241,7 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 	It("should trigger rolling update of the deployment when updating the nodeselector", func() {
 		By("Get the deployment")
 		dep := &appsv1.Deployment{}
-		err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Update the OLSConfig custom resource")
@@ -257,11 +253,11 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 		}
 
 		By("Reconcile the app server")
-		err = reconciler.reconcileConsoleUIDeployment(ctx, olsConfig)
+		err = ReconcileConsoleUIDeployment(testReconcilerInstance, ctx, olsConfig)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Get the deployment")
-		err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIDeploymentName, Namespace: OLSNamespaceDefault}, dep)
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(dep.Spec.Template.Spec.NodeSelector).To(Equal(olsConfig.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.NodeSelector))
 	})
@@ -271,10 +267,10 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 		BeforeAll(func() {
 			console := openshiftv1.Console{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: ConsoleCRName,
+					Name: utils.ConsoleCRName,
 				},
 				Spec: openshiftv1.ConsoleSpec{
-					Plugins: []string{"monitoring-plugin", ConsoleUIPluginName},
+					Plugins: []string{"monitoring-plugin", utils.ConsoleUIPluginName},
 					OperatorSpec: openshiftv1.OperatorSpec{
 						ManagementState: openshiftv1.Managed,
 					},
@@ -283,23 +279,23 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			err := k8sClient.Create(ctx, &console)
 			Expect(err).NotTo(HaveOccurred())
 			By("create the console tls secret")
-			tlsSecret, _ = generateRandomSecret()
-			tlsSecret.Name = ConsoleUIServiceCertSecretName
+			tlsSecret, _ = utils.GenerateRandomTLSSecret()
+			tlsSecret.Name = utils.ConsoleUIServiceCertSecretName
 			tlsSecret.SetOwnerReferences([]metav1.OwnerReference{
 				{
 					Kind:       "Secret",
 					APIVersion: "v1",
 					UID:        "ownerUID",
-					Name:       ConsoleUIServiceCertSecretName,
+					Name:       utils.ConsoleUIServiceCertSecretName,
 				},
 			})
-			secretCreationErr := reconciler.Create(ctx, tlsSecret)
+			secretCreationErr := testReconcilerInstance.Create(ctx, tlsSecret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterAll(func() {
 			console := openshiftv1.Console{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleCRName}, &console)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleCRName}, &console)
 			if err == nil {
 				err = k8sClient.Delete(ctx, &console)
 				Expect(err).NotTo(HaveOccurred())
@@ -309,29 +305,29 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			}
 			Expect(err).NotTo(HaveOccurred())
 			By("Delete the console tls secret")
-			secretDeletionErr := reconciler.Delete(ctx, tlsSecret)
+			secretDeletionErr := testReconcilerInstance.Delete(ctx, tlsSecret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should reconcile from OLSConfig custom resource", func() {
 			By("Reconcile the OLSConfig custom resource")
-			err := reconciler.reconcileConsoleUI(ctx, cr)
+			err := ReconcileConsoleUI(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should delete the console plugin lightspeed-console-plugin", func() {
 			By("Delete the console plugin")
-			err := reconciler.removeConsoleUI(ctx)
+			err := RemoveConsoleUI(testReconcilerInstance, ctx)
 			Expect(err).NotTo(HaveOccurred())
 			By("Get the console plugin")
 			plugin := &consolev1.ConsolePlugin{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleUIPluginName}, plugin)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIPluginName}, plugin)
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 			By("Get the console plugin list")
 			console := &openshiftv1.Console{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: ConsoleCRName}, console)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleCRName}, console)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(console.Spec.Plugins).NotTo(ContainElement(ConsoleUIPluginName))
+			Expect(console.Spec.Plugins).NotTo(ContainElement(utils.ConsoleUIPluginName))
 
 		})
 

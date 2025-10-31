@@ -9,14 +9,16 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-func secretWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Request {
+func SecretWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Request {
 	annotations := obj.GetAnnotations()
 	if annotations == nil {
 		return nil
 	}
-	crName, exist := annotations[WatcherAnnotationKey]
+	crName, exist := annotations[utils.WatcherAnnotationKey]
 	if !exist {
 		return nil
 	}
@@ -27,27 +29,22 @@ func secretWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Req
 	}
 }
 
-func annotateSecretWatcher(secret *corev1.Secret) {
-	annotations := secret.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-	annotations[WatcherAnnotationKey] = OLSConfigName
-	secret.SetAnnotations(annotations)
+func AnnotateSecretWatcher(secret *corev1.Secret) {
+	utils.AnnotateSecretWatcher(secret)
 }
 
 func telemetryPullSecretWatcherFilter(ctx context.Context, obj client.Object) []reconcile.Request {
-	if obj.GetNamespace() != TelemetryPullSecretNamespace || obj.GetName() != TelemetryPullSecretName {
+	if obj.GetNamespace() != utils.TelemetryPullSecretNamespace || obj.GetName() != utils.TelemetryPullSecretName {
 		return nil
 	}
 	return []reconcile.Request{
 		{NamespacedName: types.NamespacedName{
-			Name: OLSConfigName,
+			Name: utils.OLSConfigName,
 		}},
 	}
 }
 
-func (r *OLSConfigReconciler) configMapWatcherFilter(ctx context.Context, obj client.Object, inCluster ...bool) []reconcile.Request {
+func (r *OLSConfigReconciler) ConfigMapWatcherFilter(ctx context.Context, obj client.Object, inCluster ...bool) []reconcile.Request {
 
 	// Set default value for inCluster
 	inClusterValue := true
@@ -61,13 +58,13 @@ func (r *OLSConfigReconciler) configMapWatcherFilter(ctx context.Context, obj cl
 	}
 	skip := true
 	// Check for annotation
-	crName, exist := annotations[WatcherAnnotationKey]
+	crName, exist := annotations[utils.WatcherAnnotationKey]
 	if exist {
 		skip = false
 	}
 	// Check for name as well. We need a configmap containing a CA bundle that can be used to verify the kube-apiserve
-	if obj.GetName() == DefaultOpenShiftCerts {
-		crName = OLSConfigName
+	if obj.GetName() == utils.DefaultOpenShiftCerts {
+		crName = utils.OLSConfigName
 		skip = false
 	}
 
@@ -89,23 +86,18 @@ func (r *OLSConfigReconciler) configMapWatcherFilter(ctx context.Context, obj cl
 	}
 }
 
-func annotateConfigMapWatcher(cm *corev1.ConfigMap) {
-	annotations := cm.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-	annotations[WatcherAnnotationKey] = OLSConfigName
-	cm.SetAnnotations(annotations)
+func AnnotateConfigMapWatcher(cm *corev1.ConfigMap) {
+	utils.AnnotateConfigMapWatcher(cm)
 }
 
 func (r *OLSConfigReconciler) restartAppServer(ctx context.Context, inCluster bool) error {
 
 	if inCluster {
-		// Update impacted deployment - OLSAppServerDeploymentName
+		// Update impacted deployment - utils.OLSAppServerDeploymentName
 		dep := &appsv1.Deployment{}
-		err := r.Get(ctx, client.ObjectKey{Name: OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, dep)
+		err := r.Get(ctx, client.ObjectKey{Name: utils.OLSAppServerDeploymentName, Namespace: r.Options.Namespace}, dep)
 		if err != nil {
-			r.logger.Info("failed to get deployment", "deploymentName", OLSAppServerDeploymentName, "error", err)
+			r.Logger.Info("failed to get deployment", "deploymentName", utils.OLSAppServerDeploymentName, "error", err)
 			return err
 		}
 		// init map if empty
@@ -113,12 +105,12 @@ func (r *OLSConfigReconciler) restartAppServer(ctx context.Context, inCluster bo
 			dep.Spec.Template.Annotations = make(map[string]string)
 		}
 		// bump the annotation → new template hash → rolling update
-		dep.Spec.Template.Annotations[ForceReloadAnnotationKey] = time.Now().Format(time.RFC3339Nano)
+		dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey] = time.Now().Format(time.RFC3339Nano)
 		// Update
-		r.logger.Info("updating OLS deployment", "name", dep.Name)
+		r.Logger.Info("updating OLS deployment", "name", dep.Name)
 		err = r.Update(ctx, dep)
 		if err != nil {
-			r.logger.Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
+			r.Logger.Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
 			return err
 		}
 	}
