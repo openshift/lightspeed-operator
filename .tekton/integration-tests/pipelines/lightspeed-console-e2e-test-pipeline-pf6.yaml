@@ -99,6 +99,9 @@ spec:
                   - source: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9
                     mirrors:
                       - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server
+                  - source: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag
+                    mirrors:
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag
     - name: ols-install
       description: Task to install bundle onto ephemeral namespace
       runAfter:
@@ -256,9 +259,9 @@ spec:
               echo "---------------------------------------------"
               set +e
               NO_COLOR=1 npx cypress run; err_status=$?
-              
+
               ls ./gui_test_screenshots
-              set -e 
+              set -e
               if (( "$err_status" != 0 )); then
                 echo "Test case failed with error: ${err_status}"
                 exit $err_status
