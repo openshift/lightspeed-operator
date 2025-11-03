@@ -166,12 +166,12 @@ def prepare_pull_request(
     """Prepare pull request for given repository."""
     branch_name = f"bump-from-{current_version}-to-{new_version}"
     patch = patch_name(target_repository, current_version, new_version)
-    #sync_repository(target_repository)
-    #create_branch(target_repository, branch_name)
-    #check_if_applicable(target_repository, patch)
-    #apply_patch(target_repository, patch)
+    sync_repository(target_repository)
+    create_branch(target_repository, branch_name)
+    check_if_applicable(target_repository, patch)
+    apply_patch(target_repository, patch)
     commit_changes(target_repository, new_version)
-    #push_pr(target_repository, branch_name)
+    push_pr(target_repository, branch_name)
 
 
 def prepare_pull_requests(
