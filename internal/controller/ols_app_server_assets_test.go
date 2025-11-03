@@ -304,7 +304,7 @@ var _ = Describe("App server assets", func() {
 					"URL":            Equal(fmt.Sprintf(OpenShiftMCPServerURL, OpenShiftMCPServerPort)),
 					"Timeout":        Equal(OpenShiftMCPServerTimeout),
 					"SSEReadTimeout": Equal(OpenShiftMCPServerHTTPReadTimeout),
-					"Headers":        Equal(map[string]string{"kubernetes-authorization": "kubernetes"}),
+					"Headers":        Equal(map[string]string{K8S_AUTH_HEADER: KUBERNETES_PLACEHOLDER}),
 				})),
 			})))
 		})
@@ -479,7 +479,7 @@ var _ = Describe("App server assets", func() {
 					"URL":            Equal(fmt.Sprintf(OpenShiftMCPServerURL, OpenShiftMCPServerPort)),
 					"Timeout":        Equal(OpenShiftMCPServerTimeout),
 					"SSEReadTimeout": Equal(OpenShiftMCPServerHTTPReadTimeout),
-					"Headers":        Equal(map[string]string{"kubernetes-authorization": "kubernetes"}),
+					"Headers":        Equal(map[string]string{K8S_AUTH_HEADER: KUBERNETES_PLACEHOLDER}),
 				})),
 			})))
 		})

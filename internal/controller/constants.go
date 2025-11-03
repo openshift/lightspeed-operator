@@ -278,7 +278,7 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	// MCP server SSE read timeout, sec
 	OpenShiftMCPServerHTTPReadTimeout = 30
 	// Authorization header for OpenShift MCP server
-	K8S_AUTH_HEADER = "kubernetes-authorization"
+	K8S_AUTH_HEADER = "Authorization"
 	// Constant, defining usage of kubernetes token
 	KUBERNETES_PLACEHOLDER = "kubernetes"
 	// MCPHeadersMountRoot is the directory hosting MCP headers in the container
