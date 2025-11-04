@@ -250,21 +250,23 @@ spec:
               git config --global user.name olsci
               git fetch origin ${CONSOLE_SHA}
               git checkout ${CONSOLE_SHA}
-              npm install
-              npm -v
               echo "---------------------------------------------"
+              echo "npm version: $(npm -v)"
               echo "---------------------------------------------"
+              NODE_OPTIONS=--max-old-space-size=4096 npm ci --omit=optional --no-fund
+              echo "---------------------------------------------"
+              export CYPRESS_LOGIN_PASSWORD=$(cat ${PASSWORD_PATH})
               set +e
-              NO_COLOR=1 npx cypress run; err_status=$?
-              
-              ls ./gui_test_screenshots
-              set -e 
-              if (( "$err_status" != 0 )); then
-                echo "Test case failed with error: ${err_status}"
-                exit $err_status
-              fi
+              NO_COLOR=1 npx cypress run
+              err_status=$?
+              echo -n "${err_status}" > /workspace/cypress-exit-code
+              echo "---------------------------------------------"
               ls ./gui_test_screenshots
               mv ./gui_test_screenshots /workspace/artifacts/
+              set -e
+              echo "Cypress exit code: ${err_status}"
+              exit ${err_status}
+              echo "---------------------------------------------"
           - name: gather-cluster-resources
             onError: continue
             ref:
