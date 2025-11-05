@@ -145,6 +145,8 @@ spec:
       params:
         - name: commit
           value: $(tasks.ols-install.results.commit)
+        - name: bundle-image
+          value: $(tasks.ols-install.results.bundle-image)
       taskSpec:
         volumes:
           - name: openai-token
@@ -157,6 +159,7 @@ spec:
               secretName: ols-konflux-artifacts-bot
         params:
           - name: commit
+          - name: bundle-image
         steps:
           - name: get-kubeconfig
             ref:
@@ -203,6 +206,8 @@ spec:
                 value: "$(steps.get-kubeconfig.results.consoleURL)"
               - name: BUNDLE_COMMIT_SHA
                 value: "$(params.commit)"
+              - name: CYPRESS_BUNDLE_IMAGE
+                value: "$(params.bundle-image)"
             image: cypress/browsers:24.0.0
             script: |
               echo "---------------------------------------------"
@@ -242,7 +247,7 @@ spec:
               git config --global user.email olsci@redhat.com
               git config --global user.name olsci
               git fetch origin ${BUNDLE_COMMIT_SHA}
-              git pull origin ${BUNDLE_COMMIT_SHA} --rebase
+              git checkout ${BUNDLE_COMMIT_SHA}
               export CONSOLE_SHA=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-console-plugin-pf5")' | jq '.revision' | tr -d '"' )
               git clone https://github.com/openshift/lightspeed-console.git
               cd lightspeed-console
