@@ -11,7 +11,7 @@
   },
   {
     "name": "lightspeed-console-plugin-pf5",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-pf5@sha256:725cd5a43d587a974cdf957cfcd4ce6bcf100fb526eb99dfdf7821e0b4ba0672",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:725cd5a43d587a974cdf957cfcd4ce6bcf100fb526eb99dfdf7821e0b4ba0672",
     "revision": "842a249a68ffc8233372b9cc9406efdbef7b17c2"
   },
   {
