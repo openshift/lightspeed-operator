@@ -430,6 +430,10 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 
 	if dataCollectorEnabled {
 		// Add data exporter container
+		logLevel := cr.Spec.OLSDataCollectorConfig.LogLevel
+		if logLevel == "" {
+			logLevel = "INFO"
+		}
 		exporterContainer := corev1.Container{
 			Name:            "lightspeed-to-dataverse-exporter",
 			Image:           r.Options.DataverseExporterImage,
@@ -441,14 +445,13 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			VolumeMounts: volumeMounts,
 			// running in openshift mode ensures that cluster_id is set
 			// as identity_id
-			// make logging configurable via config: OLS-2191
 			Args: []string{
 				"--mode",
 				"openshift",
 				"--config",
 				path.Join(ExporterConfigMountPath, ExporterConfigFilename),
 				"--log-level",
-				"INFO",
+				logLevel,
 				"--data-dir",
 				OLSUserDataMountPath,
 			},

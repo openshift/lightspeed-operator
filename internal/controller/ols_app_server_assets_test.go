@@ -615,6 +615,70 @@ var _ = Describe("App server assets", func() {
 			deleteTelemetryPullSecret()
 		})
 
+		It("should use configured log level for data collector container", func() {
+			createTelemetryPullSecret(true)
+
+			By("using default INFO log level when not specified")
+			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{}
+			dep, err := r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			// data collector container should be the second container
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-to-dataverse-exporter"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement("INFO"))
+
+			By("using DEBUG log level when configured")
+			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
+				LogLevel: "DEBUG",
+			}
+			dep, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-to-dataverse-exporter"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(Equal([]string{
+				"--mode",
+				"openshift",
+				"--config",
+				path.Join(ExporterConfigMountPath, ExporterConfigFilename),
+				"--log-level",
+				"DEBUG",
+				"--data-dir",
+				OLSUserDataMountPath,
+			}))
+
+			By("using WARNING log level when configured")
+			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
+				LogLevel: "WARNING",
+			}
+			dep, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-to-dataverse-exporter"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement("WARNING"))
+
+			By("using ERROR log level when configured")
+			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
+				LogLevel: "ERROR",
+			}
+			dep, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-to-dataverse-exporter"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement("ERROR"))
+
+			By("using CRITICAL log level when configured")
+			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
+				LogLevel: "CRITICAL",
+			}
+			dep, err = r.generateOLSDeployment(cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal("lightspeed-to-dataverse-exporter"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement("CRITICAL"))
+
+			deleteTelemetryPullSecret()
+		})
+
 		It("should generate the OLS service", func() {
 			service, err := r.generateService(cr)
 			Expect(err).NotTo(HaveOccurred())
