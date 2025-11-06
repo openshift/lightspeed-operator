@@ -9,13 +9,13 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: |
       event == "push" &&
       target_branch == "main" &&
-      (".tekton/fbc-v4-19-push.yaml".pathChanged() || "lightspeed-catalog-4.19/***".pathChanged() || "lightspeed-catalog-4.19.Dockerfile".pathChanged())
+      (".tekton/fbc-v4-20-push.yaml".pathChanged() || "lightspeed-catalog-4.20/***".pathChanged() || "lightspeed-catalog-4.20.Dockerfile".pathChanged())
   creationTimestamp:
   labels:
-    appstudio.openshift.io/application: ols-fbc-v4-19
-    appstudio.openshift.io/component: fbc-v4-19
+    appstudio.openshift.io/application: ols-fbc-v4-20
+    appstudio.openshift.io/component: fbc-v4-20
     pipelines.appstudio.openshift.io/type: build
-  name: fbc-v4-19-on-push
+  name: fbc-v4-20-on-push
   namespace: crt-nshift-lightspeed-tenant
 spec:
   params:
@@ -24,12 +24,12 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/fbc-v4-19:{{revision}}
+    value: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/fbc-v4-20:{{revision}}
   - name: build-platforms
     value:
     - linux/x86_64
   - name: dockerfile
-    value: lightspeed-catalog-4.19.Dockerfile
+    value: lightspeed-catalog-4.20.Dockerfile
   - name: build-source-image
     value: 'true'
   - name: hermetic
@@ -623,7 +623,7 @@ spec:
     - name: netrc
       optional: true
   taskRunTemplate:
-    serviceAccountName: build-pipeline-fbc-v4-19
+    serviceAccountName: build-pipeline-fbc-v4-20
   workspaces:
   - name: workspace
     volumeClaimTemplate:
