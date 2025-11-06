@@ -6,8 +6,8 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:2ca4638bfc967b0a623c7c6f4170765a38662189653a343b5de5cbd8e26d9595
-name: lightspeed-operator.v1.0.6
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:40a7705ef702d9839ae6f7e6019d76451dd8d817822c58fbaaaf7e3bdfe87d1a
+name: lightspeed-operator.v1.0.7
 package: lightspeed-operator
 properties:
   - type: olm.gvk
@@ -18,7 +18,7 @@ properties:
   - type: olm.package
     value:
       packageName: lightspeed-operator
-      version: 1.0.6
+      version: 1.0.7
   - type: olm.csv.metadata
     value:
       annotations:
@@ -58,7 +58,7 @@ properties:
           ]
         capabilities: Basic Install
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2025-10-03T15:49:27Z"
+        createdAt: "2025-10-10T17:31:05Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -98,7 +98,9 @@ properties:
               - description: The name of the secret object that stores API provider credentials
                 displayName: Credential Secret
                 path: llm.providers[0].credentialsSecretRef
-              - description: 'Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default. possible values: MCPServer'
+              - description: |-
+                  Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
+                  possible values: MCPServer
                 displayName: Feature Gates
                 path: featureGates
               - displayName: LLM Settings
@@ -152,7 +154,12 @@ properties:
               - description: Enable Server Sent Events
                 displayName: Enable Server Sent Events
                 path: mcpServers[0].streamableHTTP.enableSSE
-              - description: Headers to send to the MCP server
+              - description: |-
+                  Headers to send to the MCP server
+                  the map contains the header name and the name of the secret with the content of the header. This secret
+                  should contain a header path in the data containing a header value.
+                  A special case is usage of the kubernetes token in the header. to specify this use
+                  a string "kubernetes" instead of the secret name
                 displayName: Headers
                 path: mcpServers[0].streamableHTTP.headers
               - description: SSE Read Timeout, default is 10 seconds
@@ -296,7 +303,9 @@ properties:
               - description: The configmap holding proxy CA certificate
                 displayName: Proxy CA Certificate
                 path: ols.proxyConfig.proxyCACertificate
-              - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+              - description: |-
+                  Proxy URL, e.g. https://proxy.example.com:8080
+                  If not specified, the cluster wide proxy will be used, though env var "https_proxy".
                 displayName: Proxy URL
                 path: ols.proxyConfig.proxyURL
               - description: Query filters
@@ -347,7 +356,7 @@ properties:
               - description: The URL of the container image to use as a RAG source
                 displayName: Image
                 path: ols.rag[0].image
-              - description: The Index ID of the RAG database
+              - description: The Index ID of the RAG database. Only needed if there are multiple indices in the database.
                 displayName: Index ID
                 path: ols.rag[0].indexID
               - description: The path to the RAG database inside of the container image
@@ -428,29 +437,33 @@ properties:
         url: https://github.com/openshift/lightspeed-service
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:4a9336718d247bbbe5caade2c7186e8d11e636683ab3b043ff5058b486eaf6fa
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:ecb6174fe137b7401b10e3a54d79615dd50ecddca21f0edd79583cd86689e6d8
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:1db560558b454b15f307f07b2840fbfd96f3ee73d6c515561c9d9d7d77156b0e
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:7f518602609484e768780edd706b2be1aedb695a9e23e082ae21a8582f98d205
+  - name: lightspeed-console-plugin-pf5
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:725cd5a43d587a974cdf957cfcd4ce6bcf100fb526eb99dfdf7821e0b4ba0672
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:697fb9043c4c1a1b3f7fff25faf8c109c0436ec98d1ec15e17e84c60a656f18d
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:7afec87917d1be19e2a39268fd88a217ce10fe0f1d7c38c10936d245f8bf21a3
   - name: openshift-mcp-server
-    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:e23ab62b89f1952aec1979bfe5b73a4c52b8bdad5ef44dc8b5d1620a0d5c69d2
+    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:b72038962341e27fca063d9082bf04069daae00094ebba10ea3db58ec423e47d
+  - name: lightspeed-to-dataverse-exporter
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:17ff570a69079936de2a70958b8c073e8456e3e9db79be2882c931eda931670f
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:2ca4638bfc967b0a623c7c6f4170765a38662189653a343b5de5cbd8e26d9595
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:40a7705ef702d9839ae6f7e6019d76451dd8d817822c58fbaaaf7e3bdfe87d1a
 schema: olm.bundle
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: stable
 entries:
-  - name: lightspeed-operator.v1.0.6
-    skipRange: ">=0.1.0 <1.0.6"
+  - name: lightspeed-operator.v1.0.7
+    skipRange: ">=0.1.0 <1.0.7"
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: alpha
 entries:
-  - name: lightspeed-operator.v1.0.6
-    skipRange: ">=0.1.0 <1.0.6"
+  - name: lightspeed-operator.v1.0.7
+    skipRange: ">=0.1.0 <1.0.7"
