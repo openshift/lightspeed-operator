@@ -445,7 +445,7 @@ relatedImages:
   - name: lightspeed-operator
     image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:7afec87917d1be19e2a39268fd88a217ce10fe0f1d7c38c10936d245f8bf21a3
   - name: openshift-mcp-server
-    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:b72038962341e27fca063d9082bf04069daae00094ebba10ea3db58ec423e47d
+    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:3958fa5e48e7f35d2e195628ca635dcd6ae8adbc6766792d1d8f010436301d96
   - name: lightspeed-to-dataverse-exporter
     image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:17ff570a69079936de2a70958b8c073e8456e3e9db79be2882c931eda931670f
   - name: lightspeed-postgresql
