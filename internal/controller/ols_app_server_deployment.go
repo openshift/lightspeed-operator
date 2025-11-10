@@ -73,7 +73,6 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	const OLSConfigMountPath = "/etc/ols"
 	const OLSConfigVolumeName = "cm-olsconfig"
 	const OLSUserDataVolumeName = "ols-user-data"
-	const OLSUserDataMountPath = "/app-root/ols-user-data"
 
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := int32(420)
@@ -152,6 +151,20 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			},
 		}
 		volumes = append(volumes, olsUserDataVolume)
+
+		// Add exporter config volume
+		exporterConfigVolume := corev1.Volume{
+			Name: ExporterConfigVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: ExporterConfigCmName,
+					},
+					DefaultMode: &volumeDefaultMode,
+				},
+			},
+		}
+		volumes = append(volumes, exporterConfigVolume)
 	}
 
 	// Mount "kube-root-ca.crt" configmap
@@ -243,8 +256,14 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		Name:      OLSUserDataVolumeName,
 		MountPath: OLSUserDataMountPath,
 	}
+	exporterConfigVolumeMount := corev1.VolumeMount{
+		Name:      ExporterConfigVolumeName,
+		MountPath: ExporterConfigMountPath,
+		ReadOnly:  true,
+	}
+
 	if dataCollectorEnabled {
-		volumeMounts = append(volumeMounts, olsUserDataVolumeMount)
+		volumeMounts = append(volumeMounts, olsUserDataVolumeMount, exporterConfigVolumeMount)
 	}
 
 	// Volumemount OpenShift certificates configmap
@@ -410,26 +429,35 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	// 2. MCP server container (if enabled)
 
 	if dataCollectorEnabled {
-		// Add telemetry container
-		telemetryContainer := corev1.Container{
-			Name:            "lightspeed-service-user-data-collector",
-			Image:           r.Options.LightspeedServiceImage,
+		// Add data exporter container
+		logLevel := cr.Spec.OLSDataCollectorConfig.LogLevel
+		if logLevel == "" {
+			logLevel = "INFO"
+		}
+		exporterContainer := corev1.Container{
+			Name:            "lightspeed-to-dataverse-exporter",
+			Image:           r.Options.DataverseExporterImage,
 			ImagePullPolicy: corev1.PullAlways,
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: &[]bool{false}[0],
 				ReadOnlyRootFilesystem:   &[]bool{true}[0],
 			},
 			VolumeMounts: volumeMounts,
-			Env: []corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join(OLSConfigMountPath, OLSConfigFilename),
-				},
+			// running in openshift mode ensures that cluster_id is set
+			// as identity_id
+			Args: []string{
+				"--mode",
+				"openshift",
+				"--config",
+				path.Join(ExporterConfigMountPath, ExporterConfigFilename),
+				"--log-level",
+				logLevel,
+				"--data-dir",
+				OLSUserDataMountPath,
 			},
-			Command:   []string{"python3.11", "/app-root/ols/user_data_collection/data_collector.py"},
 			Resources: *data_collector_resources,
 		}
-		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, telemetryContainer)
+		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, exporterContainer)
 	}
 
 	// Add OpenShift MCP server sidecar container if introspection is enabled
