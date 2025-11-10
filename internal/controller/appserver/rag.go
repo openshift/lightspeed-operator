@@ -3,6 +3,7 @@ package appserver
 import (
 	"fmt"
 	"path"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -44,4 +45,16 @@ func generateRAGVolumeMount() corev1.VolumeMount {
 		Name:      utils.RAGVolumeName,
 		MountPath: utils.RAGVolumeMountPath,
 	}
+}
+
+func generateImageStreamTriggers(cr *olsv1alpha1.OLSConfig) string {
+	res := "["
+	triggers := []string{}
+	for idx, rag := range cr.Spec.OLSConfig.RAG {
+		isName := utils.ImageStreamNameFor(rag.Image)
+		initContainerName := fmt.Sprintf("rag-%d", idx)
+		triggers = append(triggers, fmt.Sprintf(`{"from":{"kind":"ImageStreamTag","name":"%s:latest"},"fieldPath":"spec.template.spec.initContainers[?(@.name==\"%s\")].image"}`, isName, initContainerName))
+	}
+	res += strings.Join(triggers, ",") + "]"
+	return res
 }

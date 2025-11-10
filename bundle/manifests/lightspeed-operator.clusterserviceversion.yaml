@@ -251,9 +251,7 @@ spec:
           - description: The configmap holding proxy CA certificate
             displayName: Proxy CA Certificate
             path: ols.proxyConfig.proxyCACertificate
-          - description: |-
-              Proxy URL, e.g. https://proxy.example.com:8080
-              If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+          - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified, the cluster wide proxy will be used, though env var "https_proxy".
             displayName: Proxy URL
             path: ols.proxyConfig.proxyURL
           - description: Query filters
@@ -685,6 +683,18 @@ spec:
                 - delete
                 - get
                 - update
+            - apiGroups:
+                - image.openshift.io
+              resources:
+                - imagestreams
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
             - apiGroups:
                 - monitoring.coreos.com
               resources:
