@@ -30,6 +30,11 @@
     "revision": "b5ea77aeb5ed0952c90b6e2e78c461c094aef125"
   },
   {
+    "name": "lightspeed-ocp-rag",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec",
+    "revision": "29a668fa7a5520788fa99383219ffb4fa5776374"
+  },    
+  {
     "name": "lightspeed-postgresql",
     "image": "registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b"
   },

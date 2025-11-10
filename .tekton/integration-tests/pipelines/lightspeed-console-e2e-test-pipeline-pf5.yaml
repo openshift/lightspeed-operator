@@ -99,6 +99,9 @@ spec:
                   - source: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9
                     mirrors:
                       - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server
+                  - source: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag
+                    mirrors:
+                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag
     - name: ols-install
       description: Task to install bundle onto ephemeral namespace
       runAfter:
