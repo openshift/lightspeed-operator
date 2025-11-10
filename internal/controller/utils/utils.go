@@ -17,10 +17,13 @@ package utils
 
 import (
 	"context"
+	"crypto/sha1" //nolint:gosec
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -239,7 +242,7 @@ func ConfigMapEqual(a, b *corev1.ConfigMap) bool {
 		apiequality.Semantic.DeepEqual(a.BinaryData, b.BinaryData)
 }
 
-func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec) bool {
+func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec, compareInitContainers bool) bool {
 	if !apiequality.Semantic.DeepEqual(a.Template.Spec.NodeSelector, b.Template.Spec.NodeSelector) || // check node selector
 		!apiequality.Semantic.DeepEqual(a.Template.Spec.Tolerations, b.Template.Spec.Tolerations) || // check toleration
 		!apiequality.Semantic.DeepEqual(a.Strategy, b.Strategy) || // check strategy
@@ -254,7 +257,7 @@ func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec) bool {
 	}
 
 	// check init containers
-	if !ContainersEqual(a.Template.Spec.InitContainers, b.Template.Spec.InitContainers) {
+	if compareInitContainers && !ContainersEqual(a.Template.Spec.InitContainers, b.Template.Spec.InitContainers) {
 		return false
 	}
 
@@ -795,4 +798,23 @@ func ForEachExternalConfigMap(cr *olsv1alpha1.OLSConfig, fn func(name string, so
 	}
 
 	return nil
+}
+
+func ImageStreamNameFor(image string) string {
+	base := strings.ToLower(strings.ReplaceAll(image, "/", "_"))
+	base = strings.ReplaceAll(base, ":", "_")
+	base = strings.ReplaceAll(base, "@", "_")
+
+	re := regexp.MustCompile(`[^a-z0-9-]+`)
+	slug := re.ReplaceAllString(base, "-")
+	slug = strings.Trim(slug, "-")
+
+	const maxSlug = 52
+	if len(slug) > maxSlug {
+		slug = slug[:maxSlug]
+	}
+	slug = strings.Trim(slug, "-")
+	sum := sha1.Sum([]byte(image)) //nolint:gosec
+	sfx := hex.EncodeToString(sum[:])[:6]
+	return fmt.Sprintf("%s-%s", slug, sfx)
 }

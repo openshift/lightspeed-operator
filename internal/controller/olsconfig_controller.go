@@ -56,6 +56,7 @@ import (
 
 	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
+	imagev1 "github.com/openshift/api/image/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -146,6 +147,9 @@ type OLSConfigReconciler struct {
 // PVC access for the Postgres PVC
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
+
+// ImageStream access
+// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;list;watch;create;update;patch;delete
 
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
@@ -848,5 +852,6 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&consolev1.ConsolePlugin{}).
 		Owns(&monitoringv1.ServiceMonitor{}).
 		Owns(&monitoringv1.PrometheusRule{}).
+		Owns(&imagev1.ImageStream{}).
 		Complete(r)
 }

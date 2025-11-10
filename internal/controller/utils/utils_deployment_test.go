@@ -62,7 +62,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 			replicas := int32(3)
 			desiredDeployment.Spec.Replicas = &replicas
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeFalse())
 		})
@@ -70,7 +70,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 		It("should detect when replicas are the same", func() {
 			desiredDeployment := deployment.DeepCopy()
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeTrue())
 		})
@@ -80,7 +80,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 			replicas := int32(0)
 			desiredDeployment.Spec.Replicas = &replicas
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeFalse())
 		})
@@ -98,7 +98,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 				},
 			}
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeFalse())
 		})
@@ -110,7 +110,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 			deployment.Spec.Template.Spec.Tolerations = tolerations
 			desiredDeployment := deployment.DeepCopy()
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeTrue())
 		})
@@ -120,7 +120,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 			desiredDeployment := deployment.DeepCopy()
 			desiredDeployment.Spec.Template.Spec.Tolerations = []corev1.Toleration{}
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeFalse())
 		})
@@ -134,7 +134,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 				"region":   "us-west",
 			}
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeFalse())
 		})
@@ -144,7 +144,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 			deployment.Spec.Template.Spec.NodeSelector = nodeSelector
 			desiredDeployment := deployment.DeepCopy()
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeTrue())
 		})
@@ -154,7 +154,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 			desiredDeployment := deployment.DeepCopy()
 			desiredDeployment.Spec.Template.Spec.NodeSelector = map[string]string{}
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeFalse())
 		})
@@ -174,7 +174,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 				},
 			}
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeFalse())
 		})
@@ -182,7 +182,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 		It("should detect when volumes are the same", func() {
 			desiredDeployment := deployment.DeepCopy()
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeTrue())
 		})
@@ -198,7 +198,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 				{Name: "vol-a", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 			}
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			// Should be true because PodVolumeEqual sorts them
 			Expect(equal).To(BeTrue())
@@ -212,7 +212,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 				{Name: "vol2", MountPath: "/config"},
 			}
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeFalse())
 		})
@@ -220,7 +220,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 		It("should detect when volume mounts are the same", func() {
 			desiredDeployment := deployment.DeepCopy()
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeTrue())
 		})
@@ -229,7 +229,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 			desiredDeployment := deployment.DeepCopy()
 			desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeFalse())
 		})
@@ -283,7 +283,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 				},
 			}
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeFalse())
 		})
@@ -291,7 +291,7 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 		It("should detect when resources are the same", func() {
 			desiredDeployment := deployment.DeepCopy()
 
-			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeTrue())
 		})

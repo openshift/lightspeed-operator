@@ -120,7 +120,7 @@ fmt: ## Run go fmt against code.
 
 .PHONY: vet
 vet: ## Run go vet against code.
-	go vet ./...
+	go vet -tags=exclude_graphdriver_btrfs ./...
 
 .PHONY: test
 test: manifests generate fmt vet envtest test-crds ## Run local tests.
@@ -132,15 +132,18 @@ OS_CONSOLE_PLUGIN_CRD_URL = https://raw.githubusercontent.com/openshift/api/refs
 OCP_CLUSTER_VERSION_CRD_URL = https://raw.githubusercontent.com/openshift/api/refs/heads/release-4.18/config/v1/zz_generated.crd-manifests/0000_00_cluster-version-operator_01_clusterversions-Default.crd.yaml
 MONITORING_CRD_URL = https://raw.githubusercontent.com/openshift/prometheus-operator/master/bundle.yaml
 OCP_APISERVER_CRD_URL = https://raw.githubusercontent.com/openshift/api/refs/heads/release-4.18/payload-manifests/crds/0000_10_config-operator_01_apiservers.crd.yaml
+# generated with `controller-gen crd paths=./image/... output:crd:dir=./crd` from https://github.com/openshift/api
+OCP_IMAGESTREAM_CRD_URL = ./config/crd/ocp/image.openshift.io_imagestreams.yaml
 TEST_CRD_DIR = .testcrds
 OS_CONSOLE_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-crd.yaml
 OS_CONSOLE_PLUGIN_CRD_FILE = $(TEST_CRD_DIR)/openshift-console-plugin-crd.yaml
 OCP_CLUSTER_VERSION_CRD_FILE = $(TEST_CRD_DIR)/openshift-config-clusterversion-crd.yaml
 MONITORING_CRD_FILE = $(TEST_CRD_DIR)/monitoring-crd.yaml
 OCP_APISERVER_CRD_FILE = $(TEST_CRD_DIR)/openshift-apiserver-crd.yaml
+OCP_IMAGESTREAM_CRD_FILE = $(TEST_CRD_DIR)/image.openshift.io_imagestreams.yaml
 
 .PHONY: test-crds
-test-crds: $(TEST_CRD_DIR) $(OS_CONSOLE_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_FILE) $(MONITORING_CRD_FILE) $(OCP_CLUSTER_VERSION_CRD_FILE) $(OCP_APISERVER_CRD_FILE) ## Test Dependencies CRDs
+test-crds: $(TEST_CRD_DIR) $(OS_CONSOLE_CRD_FILE) $(OS_CONSOLE_PLUGIN_CRD_FILE) $(MONITORING_CRD_FILE) $(OCP_CLUSTER_VERSION_CRD_FILE) $(OCP_APISERVER_CRD_FILE) $(OCP_IMAGESTREAM_CRD_FILE) ## Test Dependencies CRDs
 
 $(TEST_CRD_DIR):
 	mkdir -p $(TEST_CRD_DIR)
@@ -160,6 +163,9 @@ $(OCP_CLUSTER_VERSION_CRD_FILE): $(TEST_CRD_DIR)
 $(OCP_APISERVER_CRD_FILE): $(TEST_CRD_DIR)
 	wget -O $(OCP_APISERVER_CRD_FILE) $(OCP_APISERVER_CRD_URL)
 
+$(OCP_IMAGESTREAM_CRD_FILE): $(TEST_CRD_DIR)
+	cp $(OCP_IMAGESTREAM_CRD_URL) $(OCP_APISERVER_CRD_FILE)
+
 
 .PHONY: test-e2e
 test-e2e: ## Run e2e tests with an Openshift cluster. Requires KUBECONFIG and LLM_TOKEN environment variables.
@@ -169,7 +175,7 @@ endif
 ifndef LLM_TOKEN
 	$(error LLM_TOKEN  environment variable is not set)
 endif
-	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade" --ginkgo.timeout=2h
+	go test -tags=exclude_graphdriver_btrfs ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade" --ginkgo.timeout=2h
 
 .PHONY: test-upgrade
 test-upgrade: ## Run upgrade tests with an Openshift cluster. Requires KUBECONFIG, LLM_TOKEN and BUNDLE_IMAGE environment variables.
@@ -196,7 +202,7 @@ endif
 
 .PHONY: lint
 lint: ## Run golangci-lint against code.
-	golangci-lint run --config=.golangci.yaml
+	golangci-lint run --config=.golangci.yaml --build-tags "exclude_graphdriver_btrfs"
 
 .PHONY: lint-fix
 lint-fix: ## Fix found issues (if it's supported by the linter).
@@ -322,16 +328,17 @@ LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
+## Tool Versions
+KUSTOMIZE_VERSION ?= v5.3.0
+CONTROLLER_TOOLS_VERSION ?= v0.19.0
+ENVTEST_VERSION ?= release-0.19
+
+
 ## Tool Binaries
 KUBECTL ?= kubectl
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
-CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen --load-build-tags=exclude_graphdriver_btrfs
 ENVTEST ?= $(LOCALBIN)/setup-envtest
-
-## Tool Versions
-KUSTOMIZE_VERSION ?= v5.3.0
-CONTROLLER_TOOLS_VERSION ?= v0.16.5
-ENVTEST_VERSION ?= release-0.19
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.

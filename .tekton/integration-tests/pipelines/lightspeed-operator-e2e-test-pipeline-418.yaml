@@ -259,7 +259,7 @@ spec:
               echo "---------------------------------------------"
               cat $KUBECONFIG
               echo "---------------------------------------------"
-              dnf -y install git make golang jq
+              dnf -y install git make golang jq gpgme-devel
               git init lightspeed-operator
               cd lightspeed-operator
               git remote add origin https://github.com/openshift/lightspeed-operator.git

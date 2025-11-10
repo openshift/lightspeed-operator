@@ -996,7 +996,7 @@ func RestartLCore(r reconciler.Reconciler, ctx context.Context, deployment ...*a
 func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existingDeployment, desiredDeployment *appsv1.Deployment) error {
 	// Step 1: Check if deployment spec has changed
 	utils.SetDefaults_Deployment(desiredDeployment)
-	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec)
+	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec, true)
 
 	// Step 2: Check ConfigMap ResourceVersions
 	// Check if LCore ConfigMap ResourceVersion has changed

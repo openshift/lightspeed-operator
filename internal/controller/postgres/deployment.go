@@ -258,7 +258,7 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 func UpdatePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, existingDeployment, desiredDeployment *appsv1.Deployment) error {
 	// Step 1: Check if deployment spec has changed
 	utils.SetDefaults_Deployment(desiredDeployment)
-	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec)
+	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec, true)
 
 	// Step 2: Check if ConfigMap ResourceVersion has changed
 	currentConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.PostgresConfigMap)
