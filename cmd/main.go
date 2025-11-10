@@ -62,6 +62,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	consolev1 "github.com/openshift/api/console/v1"
+	imagev1 "github.com/openshift/api/image/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -107,6 +108,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(consolev1.AddToScheme(scheme))
+	utilruntime.Must(imagev1.AddToScheme(scheme))
 	utilruntime.Must(openshiftv1.AddToScheme(scheme))
 	utilruntime.Must(monv1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))
