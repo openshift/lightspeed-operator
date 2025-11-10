@@ -116,6 +116,8 @@ const (
 	AzureOpenAIType = "azure_openai"
 	// DeploymentInProgress message
 	DeploymentInProgress = "In Progress"
+	// BYOK image stream annotation on the app server deployment
+	OLSAppServerImageStreamTriggerAnnotation = "image.openshift.io/triggers"
 
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
