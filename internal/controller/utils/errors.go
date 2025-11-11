@@ -1,4 +1,4 @@
-package controller
+package utils
 
 const (
 	ErrCheckLLMCredentials                = "failed to validate LLM provider credential settings"

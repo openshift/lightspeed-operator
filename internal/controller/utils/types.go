@@ -1,19 +1,41 @@
-package controller
+package utils
 
 import (
 	"context"
+	"time"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 )
 
+// Definitions to manage status conditions
+const (
+	TypeApiReady           = "ApiReady"
+	TypeCacheReady         = "CacheReady"
+	TypeConsolePluginReady = "ConsolePluginReady"
+	TypeCRReconciled       = "Reconciled"
+)
+
+type OLSConfigReconcilerOptions struct {
+	OpenShiftMajor                 string
+	OpenshiftMinor                 string
+	LightspeedServiceImage         string
+	LightspeedServicePostgresImage string
+	ConsoleUIImage                 string
+	DataverseExporterImage         string
+	OpenShiftMCPServerImage        string
+	Namespace                      string
+	ReconcileInterval              time.Duration
+}
+
 /*** controller internal ***/
-type ReconcileFunc func(context.Context, *olsv1alpha1.OLSConfig) error
+type ReconcileFunc func(reconciler.Reconciler, context.Context, *olsv1alpha1.OLSConfig) error
 type ReconcileTask struct {
 	Name string
 	Task ReconcileFunc
 }
 
-type DeleteFunc func(context.Context) error
+type DeleteFunc func(reconciler.Reconciler, context.Context) error
 type DeleteTask struct {
 	Name string
 	Task DeleteFunc
@@ -266,4 +288,16 @@ type ProxyConfig struct {
 	ProxyURL string `json:"proxy_url,omitempty"`
 	// ProxyCACertPath is the path to the CA certificate for the proxy server
 	ProxyCACertPath string `json:"proxy_ca_cert_path,omitempty"`
+}
+
+type OperatorReconcileFuncs struct {
+	Name string
+	Fn   func(context.Context) error
+}
+
+type ReconcileSteps struct {
+	Name          string
+	Fn            func(context.Context, *olsv1alpha1.OLSConfig) error
+	ConditionType string
+	Deployment    string
 }

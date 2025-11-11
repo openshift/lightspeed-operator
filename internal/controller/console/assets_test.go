@@ -1,4 +1,4 @@
-package controller
+package console
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -11,13 +11,11 @@ import (
 
 	consolev1 "github.com/openshift/api/console/v1"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
 var _ = Describe("Console UI assets", func() {
 	var cr *olsv1alpha1.OLSConfig
-	var r *OLSConfigReconciler
-	var rOptions *OLSConfigReconcilerOptions
 	labels := map[string]string{
 		"app.kubernetes.io/component":  "console-plugin",
 		"app.kubernetes.io/managed-by": "lightspeed-operator",
@@ -27,38 +25,27 @@ var _ = Describe("Console UI assets", func() {
 
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
-			rOptions = &OLSConfigReconcilerOptions{
-				ConsoleUIImage: ConsoleUIImageDefault,
-				Namespace:      OLSNamespaceDefault,
-			}
-			cr = getDefaultOLSConfigCR()
-			r = &OLSConfigReconciler{
-				Options:    *rOptions,
-				logger:     logf.Log.WithName("olsconfig.reconciler"),
-				Client:     k8sClient,
-				Scheme:     k8sClient.Scheme(),
-				stateCache: make(map[string]string),
-			}
+			cr = utils.GetDefaultOLSConfigCR()
 		})
 
 		It("should generate the nginx config map", func() {
-			cm, err := r.generateConsoleUIConfigMap(cr)
+			cm, err := GenerateConsoleUIConfigMap(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Name).To(Equal(ConsoleUIConfigMapName))
-			Expect(cm.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(cm.Name).To(Equal(utils.ConsoleUIConfigMapName))
+			Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
 			Expect(cm.Labels).To(Equal(labels))
 
 			// todo: check the nginx config
 		})
 
 		It("should generate the console UI service", func() {
-			svc, err := r.generateConsoleUIService(cr)
+			svc, err := GenerateConsoleUIService(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(svc.Name).To(Equal(ConsoleUIServiceName))
-			Expect(svc.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(svc.Name).To(Equal(utils.ConsoleUIServiceName))
+			Expect(svc.Namespace).To(Equal(utils.OLSNamespaceDefault))
 			Expect(svc.Labels).To(Equal(labels))
-			Expect(svc.ObjectMeta.Annotations["service.beta.openshift.io/serving-cert-secret-name"]).To(Equal(ConsoleUIServiceCertSecretName))
-			Expect(svc.Spec.Ports[0].Port).To(Equal(int32(ConsoleUIHTTPSPort)))
+			Expect(svc.ObjectMeta.Annotations["service.beta.openshift.io/serving-cert-secret-name"]).To(Equal(utils.ConsoleUIServiceCertSecretName))
+			Expect(svc.Spec.Ports[0].Port).To(Equal(int32(utils.ConsoleUIHTTPSPort)))
 			Expect(svc.Spec.Ports[0].TargetPort.StrVal).To(Equal("https"))
 			Expect(svc.Spec.Ports[0].Protocol).To(Equal(corev1.ProtocolTCP))
 		})
@@ -66,15 +53,15 @@ var _ = Describe("Console UI assets", func() {
 		It("should generate the console UI deployment", func() {
 			var replicas int32 = 2
 			cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Replicas = &replicas
-			dep, err := r.generateConsoleUIDeployment(cr)
+			dep, err := GenerateConsoleUIDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Name).To(Equal(ConsoleUIDeploymentName))
-			Expect(dep.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(dep.Name).To(Equal(utils.ConsoleUIDeploymentName))
+			Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
 			Expect(dep.Labels).To(Equal(labels))
 			Expect(dep.Spec.Template.Labels).To(Equal(labels))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal("lightspeed-console-plugin"))
-			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(r.Options.ConsoleUIImage))
-			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].ContainerPort).To(Equal(int32(ConsoleUIHTTPSPort)))
+			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.ConsoleUIContainerName))
+			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.ConsoleUIImageDefault))
+			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].ContainerPort).To(Equal(int32(utils.ConsoleUIHTTPSPort)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].Name).To(Equal("https"))
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].Protocol).To(Equal(corev1.ProtocolTCP))
 			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
@@ -88,28 +75,28 @@ var _ = Describe("Console UI assets", func() {
 		})
 
 		It("should generate the console UI plugin", func() {
-			plugin, err := r.generateConsoleUIPlugin(cr)
+			plugin, err := GenerateConsoleUIPlugin(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(plugin.Name).To(Equal(ConsoleUIPluginName))
+			Expect(plugin.Name).To(Equal(utils.ConsoleUIPluginName))
 			Expect(plugin.Labels).To(Equal(labels))
-			Expect(plugin.Spec.Backend.Service.Name).To(Equal(ConsoleUIServiceName))
-			Expect(plugin.Spec.Backend.Service.Namespace).To(Equal(OLSNamespaceDefault))
-			Expect(plugin.Spec.Backend.Service.Port).To(Equal(int32(ConsoleUIHTTPSPort)))
+			Expect(plugin.Spec.Backend.Service.Name).To(Equal(utils.ConsoleUIServiceName))
+			Expect(plugin.Spec.Backend.Service.Namespace).To(Equal(utils.OLSNamespaceDefault))
+			Expect(plugin.Spec.Backend.Service.Port).To(Equal(int32(utils.ConsoleUIHTTPSPort)))
 			Expect(plugin.Spec.Backend.Service.BasePath).To(Equal("/"))
 			Expect(plugin.Spec.Backend.Type).To(Equal(consolev1.Service))
 
 			Expect(plugin.Spec.Proxy).To(HaveLen(1))
-			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Name).To(Equal(OLSAppServerServiceName))
-			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Port).To(Equal(int32(OLSAppServerServicePort)))
-			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Name).To(Equal(utils.OLSAppServerServiceName))
+			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Port).To(Equal(int32(utils.OLSAppServerServicePort)))
+			Expect(plugin.Spec.Proxy[0].Endpoint.Service.Namespace).To(Equal(utils.OLSNamespaceDefault))
 			Expect(plugin.Spec.Proxy[0].Endpoint.Type).To(Equal(consolev1.ProxyTypeService))
 		})
 
 		It("should generate the console UI plugin NetworkPolicy", func() {
-			np, err := r.generateConsoleUINetworkPolicy(cr)
+			np, err := GenerateConsoleUINetworkPolicy(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(np.Name).To(Equal(ConsoleUINetworkPolicyName))
-			Expect(np.Namespace).To(Equal(OLSNamespaceDefault))
+			Expect(np.Name).To(Equal(utils.ConsoleUINetworkPolicyName))
+			Expect(np.Namespace).To(Equal(utils.OLSNamespaceDefault))
 			Expect(np.Labels).To(Equal(labels))
 			Expect(np.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
 			Expect(np.Spec.Ingress).To(HaveLen(1))
@@ -132,7 +119,7 @@ var _ = Describe("Console UI assets", func() {
 					Ports: []networkingv1.NetworkPolicyPort{
 						{
 							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
-							Port:     &[]intstr.IntOrString{intstr.FromInt(ConsoleUIHTTPSPort)}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(utils.ConsoleUIHTTPSPort)}[0],
 						},
 					},
 				},

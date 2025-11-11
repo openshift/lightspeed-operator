@@ -14,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
 func (r *OLSConfigReconciler) generateServiceMonitorForOperator() (*monv1.ServiceMonitor, error) {
@@ -32,7 +34,7 @@ func (r *OLSConfigReconciler) generateServiceMonitorForOperator() (*monv1.Servic
 	serverName := strings.Join([]string{"lightspeed-operator-controller-manager-service", r.Options.Namespace, "svc"}, ".")
 	serviceMonitor := monv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OperatorServiceMonitorName,
+			Name:      utils.OperatorServiceMonitorName,
 			Namespace: r.Options.Namespace,
 			Labels:    metaLabels,
 		},
@@ -66,52 +68,52 @@ func (r *OLSConfigReconciler) generateServiceMonitorForOperator() (*monv1.Servic
 	return &serviceMonitor, nil
 }
 
-func (r *OLSConfigReconciler) reconcileServiceMonitorForOperator(ctx context.Context) error {
+func (r *OLSConfigReconciler) ReconcileServiceMonitorForOperator(ctx context.Context) error {
 	sm, err := r.generateServiceMonitorForOperator()
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGenerateServiceMonitor, err)
+		return fmt.Errorf("%s: %w", utils.ErrGenerateServiceMonitor, err)
 	}
 	operatorDeployment := &appsv1.Deployment{}
 	foundSm := &monv1.ServiceMonitor{}
-	err = r.Get(ctx, client.ObjectKey{Name: OperatorServiceMonitorName, Namespace: r.Options.Namespace}, foundSm)
+	err = r.Get(ctx, client.ObjectKey{Name: utils.OperatorServiceMonitorName, Namespace: r.Options.Namespace}, foundSm)
 	if err != nil && errors.IsNotFound(err) {
-		r.logger.Info("creating a new service monitor", "serviceMonitor", sm.Name)
-		err = r.Get(ctx, client.ObjectKey{Name: OperatorDeploymentName, Namespace: r.Options.Namespace}, operatorDeployment)
+		r.Logger.Info("creating a new service monitor", "serviceMonitor", sm.Name)
+		err = r.Get(ctx, client.ObjectKey{Name: utils.OperatorDeploymentName, Namespace: r.Options.Namespace}, operatorDeployment)
 		if err != nil {
-			r.logger.Error(err, "cannot get operator deployment", "name", OperatorDeploymentName, "namespace", r.Options.Namespace)
-			return fmt.Errorf("%s: %w", ErrCreateServiceMonitor, err)
+			r.Logger.Error(err, "cannot get operator deployment", "name", utils.OperatorDeploymentName, "namespace", r.Options.Namespace)
+			return fmt.Errorf("%s: %w", utils.ErrCreateServiceMonitor, err)
 		}
-		err = controllerutil.SetOwnerReference(operatorDeployment, sm, r.Scheme)
+		err = controllerutil.SetOwnerReference(operatorDeployment, sm, r.Scheme())
 		if err != nil {
-			return fmt.Errorf("%s: %w", ErrCreateServiceMonitor, err)
+			return fmt.Errorf("%s: %w", utils.ErrCreateServiceMonitor, err)
 		}
 		err = r.Create(ctx, sm)
 		if err != nil {
-			return fmt.Errorf("%s: %w", ErrCreateServiceMonitor, err)
+			return fmt.Errorf("%s: %w", utils.ErrCreateServiceMonitor, err)
 		}
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetServiceMonitor, err)
+		return fmt.Errorf("%s: %w", utils.ErrGetServiceMonitor, err)
 	}
-	if serviceMonitorEqual(foundSm, sm) {
-		r.logger.Info("Lightspeed Operator service monitor unchanged, reconciliation skipped", "serviceMonitor", sm.Name)
+	if utils.ServiceMonitorEqual(foundSm, sm) {
+		r.Logger.Info("Lightspeed Operator service monitor unchanged, reconciliation skipped", "serviceMonitor", sm.Name)
 		return nil
 	}
 	foundSm.Spec = sm.Spec
-	err = r.Get(ctx, client.ObjectKey{Name: OperatorDeploymentName, Namespace: r.Options.Namespace}, operatorDeployment)
+	err = r.Get(ctx, client.ObjectKey{Name: utils.OperatorDeploymentName, Namespace: r.Options.Namespace}, operatorDeployment)
 	if err != nil {
-		r.logger.Error(err, "cannot get operator deployment", "name", OperatorDeploymentName, "namespace", r.Options.Namespace)
-		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)
+		r.Logger.Error(err, "cannot get operator deployment", "name", utils.OperatorDeploymentName, "namespace", r.Options.Namespace)
+		return fmt.Errorf("%s: %w", utils.ErrUpdateServiceMonitor, err)
 	}
-	err = controllerutil.SetOwnerReference(operatorDeployment, sm, r.Scheme)
+	err = controllerutil.SetOwnerReference(operatorDeployment, sm, r.Scheme())
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)
+		return fmt.Errorf("%s: %w", utils.ErrUpdateServiceMonitor, err)
 	}
 	err = r.Update(ctx, foundSm)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrUpdateServiceMonitor, err)
+		return fmt.Errorf("%s: %w", utils.ErrUpdateServiceMonitor, err)
 	}
-	r.logger.Info("Lightspeed Operator service monitor reconciled", "serviceMonitor", sm.Name)
+	r.Logger.Info("Lightspeed Operator service monitor reconciled", "serviceMonitor", sm.Name)
 	return nil
 }
 
@@ -125,7 +127,7 @@ func (r *OLSConfigReconciler) generateNetworkPolicyForOperator() (networkingv1.N
 	}
 	np := networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OperatorNetworkPolicyName,
+			Name:      utils.OperatorNetworkPolicyName,
 			Namespace: r.Options.Namespace,
 			Labels:    metaLabels,
 		},
@@ -144,7 +146,7 @@ func (r *OLSConfigReconciler) generateNetworkPolicyForOperator() (networkingv1.N
 						{
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"kubernetes.io/metadata.name": "openshift-monitoring",
+									"kubernetes.io/metadata.name": utils.ClientCACmNamespace,
 								},
 							},
 							PodSelector: &metav1.LabelSelector{
@@ -166,7 +168,7 @@ func (r *OLSConfigReconciler) generateNetworkPolicyForOperator() (networkingv1.N
 					Ports: []networkingv1.NetworkPolicyPort{
 						{
 							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
-							Port:     &[]intstr.IntOrString{intstr.FromInt(OperatorMetricsPort)}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(utils.OperatorMetricsPort)}[0],
 						},
 					},
 				},
@@ -177,32 +179,32 @@ func (r *OLSConfigReconciler) generateNetworkPolicyForOperator() (networkingv1.N
 	return np, nil
 }
 
-func (r *OLSConfigReconciler) reconcileNetworkPolicyForOperator(ctx context.Context) error {
+func (r *OLSConfigReconciler) ReconcileNetworkPolicyForOperator(ctx context.Context) error {
 	np, err := r.generateNetworkPolicyForOperator()
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGenerateOperatorNetworkPolicy, err)
+		return fmt.Errorf("%s: %w", utils.ErrGenerateOperatorNetworkPolicy, err)
 	}
 	foundNp := &networkingv1.NetworkPolicy{}
-	err = r.Get(ctx, client.ObjectKey{Name: OperatorNetworkPolicyName, Namespace: r.Options.Namespace}, foundNp)
+	err = r.Get(ctx, client.ObjectKey{Name: utils.OperatorNetworkPolicyName, Namespace: r.Options.Namespace}, foundNp)
 	if err != nil && errors.IsNotFound(err) {
 		err = r.Create(ctx, &np)
 		if err != nil {
-			return fmt.Errorf("%s: %w", ErrCreateOperatorNetworkPolicy, err)
+			return fmt.Errorf("%s: %w", utils.ErrCreateOperatorNetworkPolicy, err)
 		}
-		r.logger.Info("created a new network policy", "networkPolicy", np.Name)
+		r.Logger.Info("created a new network policy", "networkPolicy", np.Name)
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetOperatorNetworkPolicy, err)
+		return fmt.Errorf("%s: %w", utils.ErrGetOperatorNetworkPolicy, err)
 	}
-	if networkPolicyEqual(foundNp, &np) {
-		r.logger.Info("Operator network policy unchanged, reconciliation skipped", "networkPolicy", np.Name)
+	if utils.NetworkPolicyEqual(foundNp, &np) {
+		r.Logger.Info("Operator network policy unchanged, reconciliation skipped", "networkPolicy", np.Name)
 		return nil
 	}
 	foundNp.Spec = np.Spec
 	err = r.Update(ctx, foundNp)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrUpdateOperatorNetworkPolicy, err)
+		return fmt.Errorf("%s: %w", utils.ErrUpdateOperatorNetworkPolicy, err)
 	}
-	r.logger.Info("Operator network policy reconciled", "networkPolicy", np.Name)
+	r.Logger.Info("Operator network policy reconciled", "networkPolicy", np.Name)
 	return nil
 }

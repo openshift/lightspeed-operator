@@ -1,4 +1,20 @@
-package controller
+// Package utils provides shared utility functions, types, and constants used across
+// the OpenShift Lightspeed operator components.
+//
+// This package contains:
+//   - Constants for resource names, labels, and annotations
+//   - Error constants for consistent error handling
+//   - Hash computation functions for change detection
+//   - Helper functions for Kubernetes resource operations
+//   - Status condition utilities
+//   - TLS certificate validation
+//   - OpenShift version detection
+//   - Configuration data structures for OLS components
+//
+// The utilities in this package are designed to be reusable across all operator
+// components (appserver, postgres, console) and promote consistency in resource
+// naming, labeling, and error handling throughout the codebase.
+package utils
 
 import (
 	"context"
@@ -21,7 +37,7 @@ import (
 )
 
 // updateDeploymentAnnotations updates the annotations in a given deployment.
-func updateDeploymentAnnotations(deployment *appsv1.Deployment, annotations map[string]string) {
+func UpdateDeploymentAnnotations(deployment *appsv1.Deployment, annotations map[string]string) {
 	if deployment.Annotations == nil {
 		deployment.Annotations = make(map[string]string)
 	}
@@ -30,7 +46,7 @@ func updateDeploymentAnnotations(deployment *appsv1.Deployment, annotations map[
 	}
 }
 
-func updateDeploymentTemplateAnnotations(deployment *appsv1.Deployment, annotations map[string]string) {
+func UpdateDeploymentTemplateAnnotations(deployment *appsv1.Deployment, annotations map[string]string) {
 	if deployment.Spec.Template.Annotations == nil {
 		deployment.Spec.Template.Annotations = make(map[string]string)
 	}
@@ -40,7 +56,7 @@ func updateDeploymentTemplateAnnotations(deployment *appsv1.Deployment, annotati
 }
 
 // setDeploymentReplicas sets the number of replicas in a given deployment.
-func setDeploymentReplicas(deployment *appsv1.Deployment, replicas int32) bool {
+func SetDeploymentReplicas(deployment *appsv1.Deployment, replicas int32) bool {
 	if *deployment.Spec.Replicas != replicas {
 		*deployment.Spec.Replicas = replicas
 		return true
@@ -49,7 +65,7 @@ func setDeploymentReplicas(deployment *appsv1.Deployment, replicas int32) bool {
 	return false
 }
 
-func setTolerations(deployment *appsv1.Deployment, tolerations []corev1.Toleration) bool {
+func SetTolerations(deployment *appsv1.Deployment, tolerations []corev1.Toleration) bool {
 	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Tolerations, tolerations) {
 		deployment.Spec.Template.Spec.Tolerations = tolerations
 		return true
@@ -57,7 +73,7 @@ func setTolerations(deployment *appsv1.Deployment, tolerations []corev1.Tolerati
 	return false
 }
 
-func setNodeSelector(deployment *appsv1.Deployment, nodeSelector map[string]string) bool {
+func SetNodeSelector(deployment *appsv1.Deployment, nodeSelector map[string]string) bool {
 	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.NodeSelector, nodeSelector) {
 		deployment.Spec.Template.Spec.NodeSelector = nodeSelector
 		return true
@@ -66,7 +82,7 @@ func setNodeSelector(deployment *appsv1.Deployment, nodeSelector map[string]stri
 }
 
 // setVolumes sets the volumes for a given deployment.
-func setVolumes(deployment *appsv1.Deployment, desiredVolumes []corev1.Volume) bool {
+func SetVolumes(deployment *appsv1.Deployment, desiredVolumes []corev1.Volume) bool {
 	existingVolumes := deployment.Spec.Template.Spec.Volumes
 	sort.Slice(existingVolumes, func(i, j int) bool {
 		return existingVolumes[i].Name < existingVolumes[j].Name
@@ -83,8 +99,8 @@ func setVolumes(deployment *appsv1.Deployment, desiredVolumes []corev1.Volume) b
 }
 
 // setVolumeMounts sets the volumes mounts for a specific container in a given deployment.
-func setVolumeMounts(deployment *appsv1.Deployment, desiredVolumeMounts []corev1.VolumeMount, containerName string) (bool, error) {
-	containerIndex, err := getContainerIndex(deployment, containerName)
+func SetVolumeMounts(deployment *appsv1.Deployment, desiredVolumeMounts []corev1.VolumeMount, containerName string) (bool, error) {
+	containerIndex, err := GetContainerIndex(deployment, containerName)
 	if err != nil {
 		return false, err
 	}
@@ -105,8 +121,8 @@ func setVolumeMounts(deployment *appsv1.Deployment, desiredVolumeMounts []corev1
 }
 
 // setDeploymentContainerEnvs sets the envs for a specific container in a given deployment.
-func setDeploymentContainerEnvs(deployment *appsv1.Deployment, desiredEnvs []corev1.EnvVar, containerName string) (bool, error) {
-	containerIndex, err := getContainerIndex(deployment, containerName)
+func SetDeploymentContainerEnvs(deployment *appsv1.Deployment, desiredEnvs []corev1.EnvVar, containerName string) (bool, error) {
+	containerIndex, err := GetContainerIndex(deployment, containerName)
 	if err != nil {
 		return false, err
 	}
@@ -119,8 +135,8 @@ func setDeploymentContainerEnvs(deployment *appsv1.Deployment, desiredEnvs []cor
 }
 
 // setDeploymentContainerResources sets the resource requirements for a specific container in a given deployment.
-func setDeploymentContainerResources(deployment *appsv1.Deployment, resources *corev1.ResourceRequirements, containerName string) (bool, error) {
-	containerIndex, err := getContainerIndex(deployment, containerName)
+func SetDeploymentContainerResources(deployment *appsv1.Deployment, resources *corev1.ResourceRequirements, containerName string) (bool, error) {
+	containerIndex, err := GetContainerIndex(deployment, containerName)
 	if err != nil {
 		return false, err
 	}
@@ -135,8 +151,8 @@ func setDeploymentContainerResources(deployment *appsv1.Deployment, resources *c
 }
 
 // setDeploymentContainerVolumeMounts sets the volume mounts for a specific container in a given deployment.
-func setDeploymentContainerVolumeMounts(deployment *appsv1.Deployment, containerName string, volumeMounts []corev1.VolumeMount) (bool, error) {
-	containerIndex, err := getContainerIndex(deployment, containerName)
+func SetDeploymentContainerVolumeMounts(deployment *appsv1.Deployment, containerName string, volumeMounts []corev1.VolumeMount) (bool, error) {
+	containerIndex, err := GetContainerIndex(deployment, containerName)
 	if err != nil {
 		return false, err
 	}
@@ -150,7 +166,7 @@ func setDeploymentContainerVolumeMounts(deployment *appsv1.Deployment, container
 }
 
 // getContainerIndex returns the index of the container with the specified name in a given deployment.
-func getContainerIndex(deployment *appsv1.Deployment, containerName string) (int, error) {
+func GetContainerIndex(deployment *appsv1.Deployment, containerName string) (int, error) {
 	for i, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == containerName {
 			return i, nil
@@ -159,7 +175,7 @@ func getContainerIndex(deployment *appsv1.Deployment, containerName string) (int
 	return -1, fmt.Errorf("container %s not found in deployment %s", containerName, deployment.Name)
 }
 
-func hashBytes(sourceStr []byte) (string, error) {
+func HashBytes(sourceStr []byte) (string, error) {
 	hashFunc := sha256.New()
 	_, err := hashFunc.Write(sourceStr)
 	if err != nil {
@@ -168,7 +184,7 @@ func hashBytes(sourceStr []byte) (string, error) {
 	return fmt.Sprintf("%x", hashFunc.Sum(nil)), nil
 }
 
-func getSecretContent(rclient client.Client, secretName string, namespace string, secretFields []string, foundSecret *corev1.Secret) (map[string]string, error) {
+func GetSecretContent(rclient client.Client, secretName string, namespace string, secretFields []string, foundSecret *corev1.Secret) (map[string]string, error) {
 	ctx := context.Background()
 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
 	if err != nil {
@@ -186,7 +202,7 @@ func getSecretContent(rclient client.Client, secretName string, namespace string
 	return secretValues, nil
 }
 
-func getAllSecretContent(rclient client.Client, secretName string, namespace string, foundSecret *corev1.Secret) (map[string]string, error) {
+func GetAllSecretContent(rclient client.Client, secretName string, namespace string, foundSecret *corev1.Secret) (map[string]string, error) {
 	ctx := context.Background()
 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
 	if err != nil {
@@ -203,7 +219,7 @@ func getAllSecretContent(rclient client.Client, secretName string, namespace str
 
 // podVolumEqual compares two slices of corev1.Volume and returns true if they are equal.
 // covers 3 volume types: Secret, ConfigMap, EmptyDir
-func podVolumeEqual(a, b []corev1.Volume) bool {
+func PodVolumeEqual(a, b []corev1.Volume) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -245,26 +261,26 @@ func podVolumeEqual(a, b []corev1.Volume) bool {
 }
 
 // deploymentSpecEqual compares two appsv1.DeploymentSpec and returns true if they are equal.
-func deploymentSpecEqual(a, b *appsv1.DeploymentSpec) bool {
+func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec) bool {
 	if !apiequality.Semantic.DeepEqual(a.Template.Spec.NodeSelector, b.Template.Spec.NodeSelector) || // check node selector
 		!apiequality.Semantic.DeepEqual(a.Template.Spec.Tolerations, b.Template.Spec.Tolerations) || // check toleration
 		!apiequality.Semantic.DeepEqual(a.Strategy, b.Strategy) || // check strategy
-		!podVolumeEqual(a.Template.Spec.Volumes, b.Template.Spec.Volumes) || // check volumes
+		!PodVolumeEqual(a.Template.Spec.Volumes, b.Template.Spec.Volumes) || // check volumes
 		*a.Replicas != *b.Replicas { // check replicas
 		return false
 	}
 
-	return containersEqual(a.Template.Spec.Containers, b.Template.Spec.Containers)
+	return ContainersEqual(a.Template.Spec.Containers, b.Template.Spec.Containers)
 }
 
 // containerEqual compares two container arrays and returns true if they are equal.
-func containersEqual(a, b []corev1.Container) bool {
+func ContainersEqual(a, b []corev1.Container) bool {
 	// check containers
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if !containerSpecEqual(&a[i], &b[i]) {
+		if !ContainerSpecEqual(&a[i], &b[i]) {
 			return false
 		}
 	}
@@ -273,7 +289,7 @@ func containersEqual(a, b []corev1.Container) bool {
 
 // containerSpecEqual compares two corev1.Container and returns true if they are equal.
 // checks performed on limited fields
-func containerSpecEqual(a, b *corev1.Container) bool {
+func ContainerSpecEqual(a, b *corev1.Container) bool {
 	return (a.Name == b.Name && // check name
 		a.Image == b.Image && // check image
 		apiequality.Semantic.DeepEqual(a.Ports, b.Ports) && // check ports
@@ -283,12 +299,12 @@ func containerSpecEqual(a, b *corev1.Container) bool {
 		apiequality.Semantic.DeepEqual(a.Resources, b.Resources) && // check resources
 		apiequality.Semantic.DeepEqual(a.SecurityContext, b.SecurityContext) && // check security context
 		a.ImagePullPolicy == b.ImagePullPolicy && // check image pull policy
-		probeEqual(a.LivenessProbe, b.LivenessProbe) && // check liveness probe
-		probeEqual(a.ReadinessProbe, b.ReadinessProbe) && // check readiness probe
-		probeEqual(a.StartupProbe, b.StartupProbe)) // check startup probe
+		ProbeEqual(a.LivenessProbe, b.LivenessProbe) && // check liveness probe
+		ProbeEqual(a.ReadinessProbe, b.ReadinessProbe) && // check readiness probe
+		ProbeEqual(a.StartupProbe, b.StartupProbe)) // check startup probe
 }
 
-func probeEqual(a, b *corev1.Probe) bool {
+func ProbeEqual(a, b *corev1.Probe) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -315,7 +331,7 @@ func probeEqual(a, b *corev1.Probe) bool {
 }
 
 // serviceEqual compares two v1.Service and returns true if they are equal.
-func serviceEqual(a *corev1.Service, b *corev1.Service) bool {
+func ServiceEqual(a *corev1.Service, b *corev1.Service) bool {
 	if !apiequality.Semantic.DeepEqual(a.Labels, b.Labels) ||
 		!apiequality.Semantic.DeepEqual(a.Spec.Selector, b.Spec.Selector) ||
 		len(a.Spec.Ports) != len(b.Spec.Ports) {
@@ -333,19 +349,19 @@ func serviceEqual(a *corev1.Service, b *corev1.Service) bool {
 }
 
 // serviceMonitorEqual compares two monv1.ServiceMonitor and returns true if they are equal.
-func serviceMonitorEqual(a *monv1.ServiceMonitor, b *monv1.ServiceMonitor) bool {
+func ServiceMonitorEqual(a *monv1.ServiceMonitor, b *monv1.ServiceMonitor) bool {
 	return apiequality.Semantic.DeepEqual(a.Labels, b.Labels) &&
 		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
 }
 
 // prometheusRuleEqual compares two monv1.PrometheusRule and returns true if they are equal.
-func prometheusRuleEqual(a *monv1.PrometheusRule, b *monv1.PrometheusRule) bool {
+func PrometheusRuleEqual(a *monv1.PrometheusRule, b *monv1.PrometheusRule) bool {
 	return apiequality.Semantic.DeepEqual(a.Labels, b.Labels) &&
 		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
 }
 
 // networkPolicyEqual compares two networkingv1.NetworkPolicy and returns true if they are equal.
-func networkPolicyEqual(a *networkingv1.NetworkPolicy, b *networkingv1.NetworkPolicy) bool {
+func NetworkPolicyEqual(a *networkingv1.NetworkPolicy, b *networkingv1.NetworkPolicy) bool {
 	return apiequality.Semantic.DeepEqual(a.Labels, b.Labels) &&
 		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
 }
@@ -395,7 +411,7 @@ func SetDefaults_Deployment(obj *appsv1.Deployment) {
 	}
 }
 
-func getProxyEnvVars() []corev1.EnvVar {
+func GetProxyEnvVars() []corev1.EnvVar {
 	envVars := []corev1.EnvVar{}
 	for _, envvar := range []string{"HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "NO_PROXY", "no_proxy"} {
 		if value := os.Getenv(envvar); value != "" {
@@ -409,7 +425,7 @@ func getProxyEnvVars() []corev1.EnvVar {
 }
 
 // validate the x509 certificate syntax
-func validateCertificateFormat(cert []byte) error {
+func ValidateCertificateFormat(cert []byte) error {
 	if len(cert) == 0 {
 		return fmt.Errorf("certificate is empty")
 	}
@@ -441,4 +457,44 @@ func GetOpenshiftVersion(k8sClient client.Client, ctx context.Context) (string, 
 		return "", "", fmt.Errorf("failed to parse cluster version: %s", clusterVersion.Status.Desired.Version)
 	}
 	return openshift_versions[0], openshift_versions[1], nil
+}
+
+// GeneratePostgresSelectorLabels returns selector labels for Postgres components
+func GeneratePostgresSelectorLabels() map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/component":  "postgres-server",
+		"app.kubernetes.io/managed-by": "lightspeed-operator",
+		"app.kubernetes.io/name":       "lightspeed-service-postgres",
+		"app.kubernetes.io/part-of":    "openshift-lightspeed",
+	}
+}
+
+// GenerateAppServerSelectorLabels returns selector labels for Application Server components
+func GenerateAppServerSelectorLabels() map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/component":  "application-server",
+		"app.kubernetes.io/managed-by": "lightspeed-operator",
+		"app.kubernetes.io/name":       "lightspeed-service-api",
+		"app.kubernetes.io/part-of":    "openshift-lightspeed",
+	}
+}
+
+// AnnotateSecretWatcher adds the watcher annotation to a secret
+func AnnotateSecretWatcher(secret *corev1.Secret) {
+	annotations := secret.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[WatcherAnnotationKey] = OLSConfigName
+	secret.SetAnnotations(annotations)
+}
+
+// AnnotateConfigMapWatcher adds the watcher annotation to a configmap
+func AnnotateConfigMapWatcher(cm *corev1.ConfigMap) {
+	annotations := cm.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[WatcherAnnotationKey] = OLSConfigName
+	cm.SetAnnotations(annotations)
 }

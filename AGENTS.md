@@ -67,48 +67,89 @@ var _ = Describe("Component Name", func() {
 ## Key Files & Their Purpose
 
 ### Critical Controller Files
-- `internal/controller/olsconfig_controller.go` - Main reconciler
-- `internal/controller/ols_app_server_reconciliator.go` - App server components (12 tasks)
-- `internal/controller/constants.go` - All constant definitions
-- `internal/controller/utils.go` - Utility functions
+- `internal/controller/olsconfig_controller.go` - Main reconciler orchestrator
+- `internal/controller/appserver/reconciler.go` - App server components
+- `internal/controller/postgres/reconciler.go` - PostgreSQL database components
+- `internal/controller/console/reconciler.go` - Console UI plugin components
+- `internal/controller/utils/utils.go` - Shared utilities and constants
 
 ### API & Types
 - `api/v1alpha1/olsconfig_types.go` - Main CRD struct definitions
 - Includes: `LLMSpec`, `OLSSpec`, `DeploymentConfig`, etc.
 
 ### Tests to Check
-- Unit: `internal/controller/*_test.go`
-- E2E: `test/e2e/reconciliation_test.go`, `test/e2e/upgrade_test.go`
+- **Unit Tests** (co-located with source):
+  - `internal/controller/*_test.go` - Main controller tests
+  - `internal/controller/appserver/*_test.go` - App server component tests
+  - `internal/controller/postgres/*_test.go` - PostgreSQL component tests
+  - `internal/controller/console/*_test.go` - Console UI component tests
+  - `internal/controller/utils/*_test.go` - Utility function tests
+- **E2E Tests**: `test/e2e/reconciliation_test.go`, `test/e2e/upgrade_test.go`
+- **Test Infrastructure**: 
+  - `internal/controller/utils/testing.go` - Test reconciler and utilities
+  - `internal/controller/utils/test_fixtures.go` - CR fixtures and resource helpers
 
 ## Common Tasks & Patterns
 
 ### Adding New Reconciliation Step
-1. Add to `ReconcileTask` slice in `reconcileAppServer()`
-2. Implement `reconcile<NewComponent>()` method
-3. Add constants to `constants.go`
+
+**For App Server Components:**
+1. Add to `ReconcileTask` slice in `internal/controller/appserver/reconciler.go`
+2. Implement `reconcile<NewComponent>()` function in appropriate file
+3. Add constants to `internal/controller/utils/utils.go`
 4. Add error constants with `Err<Action><Component>` pattern
-5. Write unit tests in `*_test.go`
+5. Write unit tests in `internal/controller/appserver/*_test.go`
+
+**For New Top-Level Components:**
+1. Create new package under `internal/controller/<component>/`
+2. Implement `Reconcile<Component>()` function accepting `reconciler.Reconciler`
+3. Add reconciliation step to `olsconfig_controller.go`
+4. Create test suite with `suite_test.go` and component tests
+5. Use shared test helpers from `utils/testing.go` and `utils/test_fixtures.go`
 
 ### Resource Generation Pattern
 ```go
-func (r *OLSConfigReconciler) reconcile<Resource>(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-    resource, err := r.generate<Resource>(cr)
+func reconcile<Resource>(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+    resource, err := generate<Resource>(r, cr)
     if err != nil {
-        return fmt.Errorf("%s: %w", Err<Action><Resource>, err)
+        return fmt.Errorf("%s: %w", utils.Err<Action><Resource>, err)
     }
 
     found := &<ResourceType>{}
-    err = r.Get(ctx, client.ObjectKey{Name: <name>, Namespace: r.Options.Namespace}, found)
+    err = r.Get(ctx, client.ObjectKey{Name: <name>, Namespace: r.GetNamespace()}, found)
     if err != nil && errors.IsNotFound(err) {
-        r.logger.Info("creating new <resource>", "<resource>", resource.Name)
+        r.GetLogger().Info("creating new <resource>", "<resource>", resource.Name)
         return r.Create(ctx, resource)
     } else if err != nil {
-        return fmt.Errorf("%s: %w", ErrGet<Resource>, err)
+        return fmt.Errorf("%s: %w", utils.ErrGet<Resource>, err)
     }
 
     // Update logic if needed
     return nil
 }
+```
+
+### Testing Pattern
+```go
+// In suite_test.go
+var _ = Describe("<Component> Name", func() {
+    It("should describe expected behavior", func() {
+        // Arrange - Create test resources
+        cr := utils.GetDefaultOLSConfigCR()
+        
+        // Act - Call reconciliation function
+        err := Reconcile<Component>(testReconcilerInstance, ctx, cr)
+        
+        // Assert with Gomega matchers
+        Expect(err).NotTo(HaveOccurred())
+        
+        // Verify resource was created
+        resource := &<ResourceType>{}
+        err = testReconcilerInstance.Get(ctx, client.ObjectKey{...}, resource)
+        Expect(err).NotTo(HaveOccurred())
+        Expect(resource.Spec.Field).To(Equal(expectedValue))
+    })
+})
 ```
 
 ## Dependencies & Tools

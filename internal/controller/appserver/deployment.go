@@ -1,10 +1,12 @@
-package controller
+package appserver
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"path"
+
+	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +18,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
 func getOLSServerReplicas(cr *olsv1alpha1.OLSConfig) *int32 {
@@ -68,7 +72,7 @@ func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequire
 	return defaultResources
 }
 
-func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
+func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	// mount points of API key secret
 	const OLSConfigMountPath = "/etc/ols"
 	const OLSConfigVolumeName = "cm-olsconfig"
@@ -77,7 +81,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := int32(420)
 
-	dataCollectorEnabled, err := r.dataCollectorEnabled(cr)
+	dataCollectorEnabled, err := dataCollectorEnabled(r, cr)
 	if err != nil {
 		return nil, err
 	}
@@ -85,33 +89,33 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	// map from secret name to secret mount path
 	secretMounts := map[string]string{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
-		credentialMountPath := path.Join(APIKeyMountRoot, provider.CredentialsSecretRef.Name)
+		credentialMountPath := path.Join(utils.APIKeyMountRoot, provider.CredentialsSecretRef.Name)
 		secretMounts[provider.CredentialsSecretRef.Name] = credentialMountPath
 	}
 
 	// Postgres Volume
-	postgresSecretName := PostgresSecretName
+	postgresSecretName := utils.PostgresSecretName
 	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
 		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
 	}
-	postgresCredentialsMountPath := path.Join(CredentialsMountRoot, postgresSecretName)
+	postgresCredentialsMountPath := path.Join(utils.CredentialsMountRoot, postgresSecretName)
 	secretMounts[postgresSecretName] = postgresCredentialsMountPath
 
 	// TLS volume
 	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
-		secretMounts[cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name] = path.Join(OLSAppCertsMountRoot, cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name)
+		secretMounts[cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name] = path.Join(utils.OLSAppCertsMountRoot, cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name)
 	} else {
-		secretMounts[OLSCertsSecretName] = path.Join(OLSAppCertsMountRoot, OLSCertsSecretName)
+		secretMounts[utils.OLSCertsSecretName] = path.Join(utils.OLSAppCertsMountRoot, utils.OLSCertsSecretName)
 	}
 
 	// certificates mount paths
-	AdditionalCAMountPath := path.Join(OLSAppCertsMountRoot, AppAdditionalCACertDir)
-	UserCAMountPath := path.Join(OLSAppCertsMountRoot, UserCACertDir)
+	AdditionalCAMountPath := path.Join(utils.OLSAppCertsMountRoot, utils.AppAdditionalCACertDir)
+	UserCAMountPath := path.Join(utils.OLSAppCertsMountRoot, utils.UserCACertDir)
 
 	// Container ports
 	ports := []corev1.ContainerPort{
 		{
-			ContainerPort: OLSAppServerContainerPort,
+			ContainerPort: utils.OLSAppServerContainerPort,
 			Name:          "https",
 			Protocol:      corev1.ProtocolTCP,
 		},
@@ -136,7 +140,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: OLSConfigCmName,
+					Name: utils.OLSConfigCmName,
 				},
 				DefaultMode: &volumeDefaultMode,
 			},
@@ -154,11 +158,11 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 
 		// Add exporter config volume
 		exporterConfigVolume := corev1.Volume{
-			Name: ExporterConfigVolumeName,
+			Name: utils.ExporterConfigVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: ExporterConfigCmName,
+						Name: utils.ExporterConfigCmName,
 					},
 					DefaultMode: &volumeDefaultMode,
 				},
@@ -169,7 +173,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 
 	// Mount "kube-root-ca.crt" configmap
 	certVolume := corev1.Volume{
-		Name: OpenShiftCAVolumeName,
+		Name: utils.OpenShiftCAVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -182,7 +186,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 
 	// Create certificates volume
 	certBundleVolume := corev1.Volume{
-		Name: CertBundleVolumeName,
+		Name: utils.CertBundleVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
@@ -192,7 +196,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	// User provided additional CA certificates
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
 		additionalCAVolume := corev1.Volume{
-			Name: AdditionalCAVolumeName,
+			Name: utils.AdditionalCAVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: *cr.Spec.OLSConfig.AdditionalCAConfigMapRef,
@@ -206,7 +210,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	// Proxy CA certificates
 	if cr.Spec.OLSConfig.ProxyConfig != nil && cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil {
 		proxyCACertVolume := corev1.Volume{
-			Name: ProxyCACertVolumeName,
+			Name: utils.ProxyCACertVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: *cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef,
@@ -219,16 +223,16 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 
 	// RAG volume
 	if len(cr.Spec.OLSConfig.RAG) > 0 {
-		ragVolume := r.generateRAGVolume()
+		ragVolume := generateRAGVolume()
 		volumes = append(volumes, ragVolume)
 	}
 
 	// Postgres CA volume
-	volumes = append(volumes, getPostgresCAConfigVolume())
+	volumes = append(volumes, postgres.GetPostgresCAConfigVolume())
 
 	volumes = append(volumes,
 		corev1.Volume{
-			Name: TmpVolumeName,
+			Name: utils.TmpVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
@@ -254,11 +258,11 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 
 	olsUserDataVolumeMount := corev1.VolumeMount{
 		Name:      OLSUserDataVolumeName,
-		MountPath: OLSUserDataMountPath,
+		MountPath: utils.OLSUserDataMountPath,
 	}
 	exporterConfigVolumeMount := corev1.VolumeMount{
-		Name:      ExporterConfigVolumeName,
-		MountPath: ExporterConfigMountPath,
+		Name:      utils.ExporterConfigVolumeName,
+		MountPath: utils.ExporterConfigMountPath,
 		ReadOnly:  true,
 	}
 
@@ -268,20 +272,20 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 
 	// Volumemount OpenShift certificates configmap
 	openShiftCAVolumeMount := corev1.VolumeMount{
-		Name:      OpenShiftCAVolumeName,
+		Name:      utils.OpenShiftCAVolumeName,
 		MountPath: AdditionalCAMountPath,
 		ReadOnly:  true,
 	}
 
 	certBundleVolumeMount := corev1.VolumeMount{
-		Name:      CertBundleVolumeName,
-		MountPath: path.Join(OLSAppCertsMountRoot, CertBundleDir),
+		Name:      utils.CertBundleVolumeName,
+		MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.CertBundleVolumeName),
 	}
 	volumeMounts = append(volumeMounts, openShiftCAVolumeMount, certBundleVolumeMount)
 
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
 		additionalCAVolumeMount := corev1.VolumeMount{
-			Name:      AdditionalCAVolumeName,
+			Name:      utils.AdditionalCAVolumeName,
 			MountPath: UserCAMountPath,
 			ReadOnly:  true,
 		}
@@ -290,30 +294,30 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 
 	if cr.Spec.OLSConfig.ProxyConfig != nil && cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil {
 		proxyCACertVolumeMount := corev1.VolumeMount{
-			Name:      ProxyCACertVolumeName,
-			MountPath: path.Join(OLSAppCertsMountRoot, ProxyCACertVolumeName),
+			Name:      utils.ProxyCACertVolumeName,
+			MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.ProxyCACertVolumeName),
 			ReadOnly:  true,
 		}
 		volumeMounts = append(volumeMounts, proxyCACertVolumeMount)
 	}
 
 	if len(cr.Spec.OLSConfig.RAG) > 0 {
-		ragVolumeMounts := r.generateRAGVolumeMount()
+		ragVolumeMounts := generateRAGVolumeMount()
 		volumeMounts = append(volumeMounts, ragVolumeMounts)
 	}
 
 	volumeMounts = append(volumeMounts,
-		getPostgresCAVolumeMount(path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume)),
+		postgres.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, utils.PostgresCertsSecretName, utils.PostgresCAVolume)),
 		corev1.VolumeMount{
-			Name:      TmpVolumeName,
-			MountPath: TmpVolumeMountPath,
+			Name:      utils.TmpVolumeName,
+			MountPath: utils.TmpVolumeMountPath,
 		},
 	)
 
 	// mount the volumes and add Volume mounts for the MCP server headers
 	for _, server := range cr.Spec.MCPServers {
 		for _, v := range server.StreamableHTTP.Headers {
-			if v == KUBERNETES_PLACEHOLDER {
+			if v == utils.KUBERNETES_PLACEHOLDER {
 				continue
 			}
 			volumes = append(volumes, corev1.Volume{
@@ -327,7 +331,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 			})
 			volumeMounts = append(volumeMounts, corev1.VolumeMount{
 				Name:      "header-" + v,
-				MountPath: path.Join(MCPHeadersMountRoot, v),
+				MountPath: path.Join(utils.MCPHeadersMountRoot, v),
 				ReadOnly:  true,
 			})
 		}
@@ -335,7 +339,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 
 	initContainers := []corev1.Container{}
 	if len(cr.Spec.OLSConfig.RAG) > 0 {
-		ragInitContainers := r.generateRAGInitContainers(cr)
+		ragInitContainers := GenerateRAGInitContainers(cr)
 		initContainers = append(initContainers, ragInitContainers...)
 	}
 
@@ -346,24 +350,24 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OLSAppServerDeploymentName,
-			Namespace: r.Options.Namespace,
-			Labels:    generateAppServerSelectorLabels(),
+			Name:      utils.OLSAppServerDeploymentName,
+			Namespace: r.GetNamespace(),
+			Labels:    utils.GenerateAppServerSelectorLabels(),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: generateAppServerSelectorLabels(),
+				MatchLabels: utils.GenerateAppServerSelectorLabels(),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: generateAppServerSelectorLabels(),
+					Labels: utils.GenerateAppServerSelectorLabels(),
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
 							Name:            "lightspeed-service-api",
-							Image:           r.Options.LightspeedServiceImage,
+							Image:           r.GetAppServerImage(),
 							ImagePullPolicy: corev1.PullAlways,
 							Ports:           ports,
 							SecurityContext: &corev1.SecurityContext{
@@ -371,9 +375,9 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 								ReadOnlyRootFilesystem:   &[]bool{true}[0],
 							},
 							VolumeMounts: volumeMounts,
-							Env: append(getProxyEnvVars(), corev1.EnvVar{
+							Env: append(utils.GetProxyEnvVars(), corev1.EnvVar{
 								Name:  "OLS_CONFIG_FILE",
-								Value: path.Join(OLSConfigMountPath, OLSConfigFilename),
+								Value: path.Join(OLSConfigMountPath, utils.OLSConfigFilename),
 							}),
 							Resources: *ols_server_resources,
 							ReadinessProbe: &corev1.Probe{
@@ -406,7 +410,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 					},
 					InitContainers:     initContainers,
 					Volumes:            volumes,
-					ServiceAccountName: OLSAppServerServiceAccountName,
+					ServiceAccountName: utils.OLSAppServerServiceAccountName,
 				},
 			},
 			RevisionHistoryLimit: &revisionHistoryLimit,
@@ -420,7 +424,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations
 	}
 
-	if err := controllerutil.SetControllerReference(cr, &deployment, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {
 		return nil, err
 	}
 
@@ -436,7 +440,7 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 		}
 		exporterContainer := corev1.Container{
 			Name:            "lightspeed-to-dataverse-exporter",
-			Image:           r.Options.DataverseExporterImage,
+			Image:           r.GetDataverseExporterImage(),
 			ImagePullPolicy: corev1.PullAlways,
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: &[]bool{false}[0],
@@ -449,11 +453,11 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 				"--mode",
 				"openshift",
 				"--config",
-				path.Join(ExporterConfigMountPath, ExporterConfigFilename),
+				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
 				"--log-level",
 				logLevel,
 				"--data-dir",
-				OLSUserDataMountPath,
+				utils.OLSUserDataMountPath,
 			},
 			Resources: *data_collector_resources,
 		}
@@ -464,14 +468,14 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 	if cr.Spec.OLSConfig.IntrospectionEnabled {
 		openshiftMCPServerSidecarContainer := corev1.Container{
 			Name:            "openshift-mcp-server",
-			Image:           r.Options.OpenShiftMCPServerImage,
+			Image:           r.GetOpenShiftMCPServerImage(),
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: &[]bool{false}[0],
 				ReadOnlyRootFilesystem:   &[]bool{true}[0],
 			},
 			VolumeMounts: volumeMounts,
-			Command:      []string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", OpenShiftMCPServerPort)},
+			Command:      []string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort)},
 			Resources:    *mcp_server_resources,
 		}
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, openshiftMCPServerSidecarContainer)
@@ -481,110 +485,105 @@ func (r *OLSConfigReconciler) generateOLSDeployment(cr *olsv1alpha1.OLSConfig) (
 }
 
 // updateOLSDeployment updates the deployment based on CustomResource configuration.
-func (r *OLSConfigReconciler) updateOLSDeployment(ctx context.Context, existingDeployment, desiredDeployment *appsv1.Deployment) error {
+func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingDeployment, desiredDeployment *appsv1.Deployment) error {
 	changed := false
 
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
-		existingDeployment.Annotations[OLSConfigHashKey] != r.stateCache[OLSConfigHashStateCacheKey] ||
-		existingDeployment.Annotations[OLSAppTLSHashKey] != r.stateCache[OLSAppTLSHashStateCacheKey] ||
-		existingDeployment.Annotations[LLMProviderHashKey] != r.stateCache[LLMProviderHashStateCacheKey] ||
-		existingDeployment.Annotations[PostgresSecretHashKey] != r.stateCache[PostgresSecretHashStateCacheKey] {
-		updateDeploymentAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
-			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
-			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
-			AdditionalCAHashKey:   r.stateCache[AdditionalCAHashStateCacheKey],
-			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
+		existingDeployment.Annotations[utils.OLSConfigHashKey] != r.GetStateCache()[utils.OLSConfigHashStateCacheKey] ||
+		existingDeployment.Annotations[utils.OLSAppTLSHashKey] != r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey] ||
+		existingDeployment.Annotations[utils.LLMProviderHashKey] != r.GetStateCache()[utils.LLMProviderHashStateCacheKey] ||
+		existingDeployment.Annotations[utils.PostgresSecretHashKey] != r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] {
+		utils.UpdateDeploymentAnnotations(existingDeployment, map[string]string{
+			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
+			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],
+			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
+			utils.AdditionalCAHashKey:   r.GetStateCache()[utils.AdditionalCAHashStateCacheKey],
+			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
-		updateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			OLSConfigHashKey:      r.stateCache[OLSConfigHashStateCacheKey],
-			OLSAppTLSHashKey:      r.stateCache[OLSAppTLSHashStateCacheKey],
-			LLMProviderHashKey:    r.stateCache[LLMProviderHashStateCacheKey],
-			AdditionalCAHashKey:   r.stateCache[AdditionalCAHashStateCacheKey],
-			PostgresSecretHashKey: r.stateCache[PostgresSecretHashStateCacheKey],
+		utils.UpdateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
+			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
+			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],
+			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
+			utils.AdditionalCAHashKey:   r.GetStateCache()[utils.AdditionalCAHashStateCacheKey],
+			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
 		})
 		changed = true
 	}
 
 	// Validate deployment replicas.
-	if setDeploymentReplicas(existingDeployment, *desiredDeployment.Spec.Replicas) {
+	if utils.SetDeploymentReplicas(existingDeployment, *desiredDeployment.Spec.Replicas) {
 		changed = true
 	}
 
 	//validate deployment Tolerations
-	if setTolerations(existingDeployment, desiredDeployment.Spec.Template.Spec.Tolerations) {
+	if utils.SetTolerations(existingDeployment, desiredDeployment.Spec.Template.Spec.Tolerations) {
 		changed = true
 	}
 
-	if setNodeSelector(existingDeployment, desiredDeployment.Spec.Template.Spec.NodeSelector) {
+	if utils.SetNodeSelector(existingDeployment, desiredDeployment.Spec.Template.Spec.NodeSelector) {
 		changed = true
 	}
 
 	// Validate deployment volumes.
-	if setVolumes(existingDeployment, desiredDeployment.Spec.Template.Spec.Volumes) {
+	if utils.SetVolumes(existingDeployment, desiredDeployment.Spec.Template.Spec.Volumes) {
 		changed = true
 	}
 
 	// Validate volume mounts for a specific container in deployment.
-	if volumeMountsChanged, err := setVolumeMounts(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts, "lightspeed-service-api"); err != nil {
+	if volumeMountsChanged, err := utils.SetVolumeMounts(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts, "lightspeed-service-api"); err != nil {
 		return err
 	} else if volumeMountsChanged {
 		changed = true
 	}
 
 	// Validate deployment resources.
-	if resourcesChanged, err := setDeploymentContainerResources(existingDeployment, &desiredDeployment.Spec.Template.Spec.Containers[0].Resources, "lightspeed-service-api"); err != nil {
+	if resourcesChanged, err := utils.SetDeploymentContainerResources(existingDeployment, &desiredDeployment.Spec.Template.Spec.Containers[0].Resources, "lightspeed-service-api"); err != nil {
 		return err
 	} else if resourcesChanged {
 		changed = true
 	}
 
 	// validate volumes including token secrets and application config map
-	if !podVolumeEqual(existingDeployment.Spec.Template.Spec.Volumes, desiredDeployment.Spec.Template.Spec.Volumes) {
+	if !utils.PodVolumeEqual(existingDeployment.Spec.Template.Spec.Volumes, desiredDeployment.Spec.Template.Spec.Volumes) {
 		changed = true
 		existingDeployment.Spec.Template.Spec.Volumes = desiredDeployment.Spec.Template.Spec.Volumes
-		_, err := setDeploymentContainerVolumeMounts(existingDeployment, "lightspeed-service-api", desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts)
+		_, err := utils.SetDeploymentContainerVolumeMounts(existingDeployment, "lightspeed-service-api", desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts)
 		if err != nil {
 			return err
 		}
 	}
 
 	// validate container specs
-	if !containersEqual(existingDeployment.Spec.Template.Spec.Containers, desiredDeployment.Spec.Template.Spec.Containers) {
+	if !utils.ContainersEqual(existingDeployment.Spec.Template.Spec.Containers, desiredDeployment.Spec.Template.Spec.Containers) {
 		changed = true
 		existingDeployment.Spec.Template.Spec.Containers = desiredDeployment.Spec.Template.Spec.Containers
 	}
-	if !containersEqual(existingDeployment.Spec.Template.Spec.InitContainers, desiredDeployment.Spec.Template.Spec.InitContainers) {
+	if !utils.ContainersEqual(existingDeployment.Spec.Template.Spec.InitContainers, desiredDeployment.Spec.Template.Spec.InitContainers) {
 		changed = true
 		existingDeployment.Spec.Template.Spec.InitContainers = desiredDeployment.Spec.Template.Spec.InitContainers
 	}
 
 	if changed {
-		r.logger.Info("updating OLS deployment", "name", existingDeployment.Name)
+		r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
 		if err := r.Update(ctx, existingDeployment); err != nil {
 			return err
 		}
 	} else {
-		r.logger.Info("OLS deployment reconciliation skipped", "deployment", existingDeployment.Name, "olsconfig hash", existingDeployment.Annotations[OLSConfigHashKey])
+		r.GetLogger().Info("OLS deployment reconciliation skipped", "deployment", existingDeployment.Name, "olsconfig hash", existingDeployment.Annotations[utils.OLSConfigHashKey])
 	}
 
 	return nil
 }
 
-func (r *OLSConfigReconciler) telemetryEnabled() (bool, error) {
+func telemetryEnabled(r reconciler.Reconciler) (bool, error) {
 	// Telemetry enablement is determined by the presence of the telemetry pull secret
 	// the presence of the field '.auths."cloud.openshift.com"' indicates that telemetry is enabled
 	// use this command to check in an Openshift cluster
 	// oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' | jq '.auths."cloud.openshift.com"'
-	// #nosec G101
-	const pullSecretName = "pull-secret"
-	// #nosec G101
-	const pullSecretNamespace = "openshift-config"
-
 	pullSecret := &corev1.Secret{}
-	err := r.Get(context.Background(), client.ObjectKey{Namespace: pullSecretNamespace, Name: pullSecretName}, pullSecret)
+	err := r.Get(context.Background(), client.ObjectKey{Namespace: utils.TelemetryPullSecretNamespace, Name: utils.TelemetryPullSecretName}, pullSecret)
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -609,10 +608,10 @@ func (r *OLSConfigReconciler) telemetryEnabled() (bool, error) {
 
 }
 
-func (r *OLSConfigReconciler) dataCollectorEnabled(cr *olsv1alpha1.OLSConfig) (bool, error) {
+func dataCollectorEnabled(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (bool, error) {
 	// data collector is enabled in OLS configuration
 	configEnabled := !cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled || !cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled
-	telemetryEnabled, err := r.telemetryEnabled()
+	telemetryEnabled, err := telemetryEnabled(r)
 	if err != nil {
 		return false, err
 	}
