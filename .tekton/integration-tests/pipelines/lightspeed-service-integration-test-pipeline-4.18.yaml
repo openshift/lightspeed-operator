@@ -275,7 +275,7 @@ spec:
               git config --global user.email olsci@redhat.com
               git config --global user.name olsci
               git fetch origin ${BUNDLE_COMMIT_SHA}
-              git pull origin ${BUNDLE_COMMIT_SHA} --rebase
+              git checkout ${BUNDLE_COMMIT_SHA}
               export SERVICE_SHA=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-service-api")' | jq '.revision' | tr -d '"' )
               git clone https://github.com/openshift/lightspeed-service.git
               cd lightspeed-service
