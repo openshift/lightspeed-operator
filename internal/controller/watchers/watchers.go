@@ -106,3 +106,33 @@ func ConfigMapWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj cl
 		}},
 	}
 }
+
+// PostgresCAWatcherFilter is a filter function for watching PostgreSQL CA certificate resources.
+// It watches for changes to:
+//   - ConfigMap with the PostgreSQL CA certificate bundle
+//   - Secret with the PostgreSQL serving certificate
+// It returns reconcile requests for the OLSConfig resource when these resources change.
+func PostgresCAWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj client.Object) []reconcile.Request {
+	// Only watch resources in the operator's namespace
+	if obj.GetNamespace() != r.GetNamespace() {
+		return nil
+	}
+
+	// Watch the openshift-service-ca.crt ConfigMap
+	if obj.GetName() == utils.OLSCAConfigMap {
+		return []reconcile.Request{
+			{NamespacedName: types.NamespacedName{
+				Name: utils.OLSConfigName,
+			}},
+		}
+	}
+	// Watch the PostgreSQL serving certificate Secret
+	if obj.GetName() == utils.PostgresCertsSecretName {
+		return []reconcile.Request{
+			{NamespacedName: types.NamespacedName{
+				Name: utils.OLSConfigName,
+			}},
+		}
+	}
+	return nil
+}

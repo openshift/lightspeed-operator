@@ -343,18 +343,15 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, client.ObjectKey{Name: utils.OLSAppServerDeploymentName, Namespace: r.GetNamespace()}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		utils.UpdateDeploymentAnnotations(desiredDeployment, map[string]string{
+		annotations := map[string]string{
 			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
 			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],
 			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
 			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
-		utils.UpdateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],
-			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
+			utils.PostgresCAHashKey:     r.GetStateCache()[utils.PostgresCAHashStateCacheKey],
+		}
+		utils.UpdateDeploymentAnnotations(desiredDeployment, annotations)
+		utils.UpdateDeploymentTemplateAnnotations(desiredDeployment, annotations)
 		r.GetLogger().Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {

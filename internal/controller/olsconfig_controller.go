@@ -447,8 +447,14 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(watchers.SecretWatcherFilter)).
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return watchers.PostgresCAWatcherFilter(r, ctx, obj)
+		})).
 		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 			return watchers.ConfigMapWatcherFilter(r, ctx, obj, r.Options.UseLCore)
+		})).
+		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return watchers.PostgresCAWatcherFilter(r, ctx, obj)
 		})).
 		Owns(&consolev1.ConsolePlugin{}).
 		Owns(&monv1.ServiceMonitor{}).
