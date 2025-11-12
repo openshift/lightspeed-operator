@@ -1,4 +1,4 @@
-# OpenShift Lightspeed Operator - Claude AI Assistant Guide
+# OpenShift Lightspeed Operator - AI Assistant Guide
 
 ## Project Overview
 **lightspeed-operator** is a Kubernetes operator managing OpenShift Lightspeed (AI-powered OpenShift Virtual Assistant). Written in Go using controller-runtime/kubebuilder patterns.
@@ -226,5 +226,39 @@ make deploy           # Deploy to cluster
 2. Update tests (`*_test.go` files)
 3. Run `make test` for validation
 4. For API changes: Update `api/v1alpha1/` and regenerate manifests
+
+## Maintaining This Guide
+
+### When to UPDATE AGENTS.md
+This guide should be updated when making structural or conventional changes to the codebase:
+
+**Architectural Changes:**
+- Adding new top-level components or reconciliation steps
+- Changing the reconciliation pattern or flow
+- Introducing new state management approaches
+- Modifying the controller structure or entry points
+
+**Convention Changes:**
+- Adopting new naming patterns for files, functions, or constants
+- Changing error handling or logging approaches
+- Updating resource management patterns
+- Modifying the testing framework or test structure
+
+**Documentation Drift:**
+- File paths become outdated after refactoring
+- Code examples no longer match actual implementation
+- New common tasks or patterns emerge through repeated use
+- Dependencies are added, removed, or significantly updated
+
+### AI Assistant Responsibility
+After making any of the above types of changes, proactively:
+1. Identify which sections of AGENTS.md are now outdated
+2. Suggest specific updates to keep the guide accurate
+3. Update code examples to match current implementation
+4. Ensure patterns described match actual codebase conventions
+
+**Note:** Routine code changes (bug fixes, feature additions following existing patterns) do NOT require guide updates. Focus on changes that would mislead future AI assistants or developers consulting this guide.
+
+---
 
 This guide provides Claude assistants with essential context for efficient analysis and modification of the lightspeed-operator codebase.
