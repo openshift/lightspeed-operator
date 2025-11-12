@@ -249,16 +249,16 @@ func UpdatePostgresDeployment(r reconciler.Reconciler, ctx context.Context, exis
 	// Validate deployment annotations.
 	if existingDeployment.Annotations == nil ||
 		existingDeployment.Annotations[utils.PostgresConfigHashKey] != r.GetStateCache()[utils.PostgresConfigHashStateCacheKey] ||
-		existingDeployment.Annotations[utils.PostgresSecretHashKey] != r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] {
-		utils.UpdateDeploymentAnnotations(existingDeployment, map[string]string{
+		existingDeployment.Annotations[utils.PostgresSecretHashKey] != r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] ||
+		existingDeployment.Annotations[utils.PostgresCAHashKey] != r.GetStateCache()[utils.PostgresCAHashStateCacheKey] {
+		annotations := map[string]string{
 			utils.PostgresConfigHashKey: r.GetStateCache()[utils.PostgresConfigHashStateCacheKey],
 			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
+			utils.PostgresCAHashKey:     r.GetStateCache()[utils.PostgresCAHashStateCacheKey],
+		}
+		utils.UpdateDeploymentAnnotations(existingDeployment, annotations)
 		// update the deployment template annotation triggers the rolling update
-		utils.UpdateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			utils.PostgresConfigHashKey: r.GetStateCache()[utils.PostgresConfigHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
+		utils.UpdateDeploymentTemplateAnnotations(existingDeployment, annotations)
 
 		if _, err := utils.SetDeploymentContainerEnvs(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].Env, utils.PostgresDeploymentName); err != nil {
 			return err

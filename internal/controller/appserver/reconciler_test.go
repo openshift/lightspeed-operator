@@ -30,6 +30,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		var configmap *corev1.ConfigMap
 		var tlsSecret *corev1.Secret
 		var tlsUserSecret *corev1.Secret
+		var postgresDeployment *appsv1.Deployment
 		const tlsUserSecretName = "tls-user-secret"
 		BeforeEach(func() {
 			By("create the provider secret")
@@ -83,6 +84,44 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			})
 			configMapCreationErr := testReconcilerInstance.Create(ctx, configmap)
 			Expect(configMapCreationErr).NotTo(HaveOccurred())
+
+			By("create a ready PostgreSQL deployment")
+			replicas := int32(1)
+			postgresDeployment = &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.PostgresDeploymentName,
+					Namespace: utils.OLSNamespaceDefault,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: &replicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "postgres",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app": "postgres",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "postgres",
+									Image: "postgres:latest",
+								},
+							},
+						},
+					},
+				},
+			}
+			deploymentCreationErr := testReconcilerInstance.Create(ctx, postgresDeployment)
+			Expect(deploymentCreationErr).NotTo(HaveOccurred())
+			postgresDeployment.Status.Replicas = replicas
+			postgresDeployment.Status.ReadyReplicas = replicas
+			statusUpdateErr := testReconcilerInstance.Status().Update(ctx, postgresDeployment)
+			Expect(statusUpdateErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -101,6 +140,10 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Delete OpenShift certificates config map")
 			configMapDeletionErr := testReconcilerInstance.Delete(ctx, configmap)
 			Expect(configMapDeletionErr).NotTo(HaveOccurred())
+
+			By("Delete PostgreSQL deployment")
+			deploymentDeletionErr := testReconcilerInstance.Delete(ctx, postgresDeployment)
+			Expect(deploymentDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should reconcile from OLSConfig custom resource", func() {
@@ -150,6 +193,10 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify deployment has PostgresCAHashKey annotation")
+			Expect(dep.Annotations).To(HaveKey(utils.PostgresCAHashKey))
+			Expect(dep.Spec.Template.Annotations).To(HaveKey(utils.PostgresCAHashKey))
 		})
 
 		It("should create a network policy lightspeed-app-server", func() {
@@ -428,6 +475,75 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
 			Expect(dep.Spec.Template.Annotations[utils.LLMProviderHashKey]).NotTo(Equal(oldHash))
+		})
+
+		It("should defer update when postgres not ready during CA rotation", func() {
+			By("Get the current app server deployment")
+			appDep := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, appDep)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Ensure deployment has initial CA hash annotation set")
+			if appDep.Annotations == nil {
+				appDep.Annotations = make(map[string]string)
+			}
+			if appDep.Spec.Template.Annotations == nil {
+				appDep.Spec.Template.Annotations = make(map[string]string)
+			}
+			appDep.Annotations[utils.PostgresCAHashKey] = "initial-ca-hash"
+			appDep.Spec.Template.Annotations[utils.PostgresCAHashKey] = "initial-ca-hash"
+			err = k8sClient.Update(ctx, appDep)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get existing postgres deployment and set it to not ready")
+			postgresDep := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.PostgresDeploymentName, Namespace: utils.OLSNamespaceDefault}, postgresDep)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Set postgres deployment status to not ready")
+			postgresDep.Status = appsv1.DeploymentStatus{
+				Replicas:      1,
+				ReadyReplicas: 0, // Not ready
+			}
+			err = k8sClient.Status().Update(ctx, postgresDep)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Simulate Postgres CA hash change in state cache")
+			testReconcilerInstance.GetStateCache()[utils.PostgresCAHashStateCacheKey] = "new-ca-hash-value"
+
+			By("Get OLSConfig CR to generate desired deployment")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Generate desired deployment")
+			desiredDep, err := GenerateOLSDeployment(testReconcilerInstance, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Try to update app server deployment - should fail because postgres not ready")
+			err = updateOLSDeployment(testReconcilerInstance, ctx, appDep, desiredDep)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("PostgreSQL deployment is not ready yet"))
+			Expect(err.Error()).To(ContainSubstring("deferring app-server update"))
+
+			By("Update postgres deployment to be ready")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.PostgresDeploymentName, Namespace: utils.OLSNamespaceDefault}, postgresDep)
+			Expect(err).NotTo(HaveOccurred())
+			postgresDep.Status.ReadyReplicas = 1
+			err = k8sClient.Status().Update(ctx, postgresDep)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Update app server deployment again - should succeed")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, appDep)
+			Expect(err).NotTo(HaveOccurred())
+			err = updateOLSDeployment(testReconcilerInstance, ctx, appDep, desiredDep)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify deployment annotation was updated with new hash")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, appDep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(appDep.Annotations[utils.PostgresCAHashKey]).To(Equal("new-ca-hash-value"))
+			Expect(appDep.Annotations[utils.PostgresCAHashKey]).NotTo(Equal("initial-ca-hash"))
 		})
 
 		It("should create a service monitor lightspeed-app-server-monitor", func() {

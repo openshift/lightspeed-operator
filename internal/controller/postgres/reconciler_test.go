@@ -161,6 +161,30 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should calculate and store CA hash when resources exist", func() {
+			By("Create CA ConfigMap with cert data")
+			caConfigMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.OLSCAConfigMap,
+					Namespace: utils.OLSNamespaceDefault,
+				},
+				Data: map[string]string{
+					utils.PostgresServiceCACertKeyName: "test-ca-certificate-data",
+				},
+			}
+			err := testReconcilerInstance.Create(ctx, caConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			defer testReconcilerInstance.Delete(ctx, caConfigMap)
+
+			By("Call reconcilePostgresCA")
+			err = reconcilePostgresCA(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify hash is stored in state cache and not empty")
+			hash := testReconcilerInstance.GetStateCache()[utils.PostgresCAHashStateCacheKey]
+			Expect(hash).NotTo(BeEmpty(), "CA hash should be calculated and stored in state cache")
+		})
+
 		// TODO: This test requires full reconciliation flow including app server
 		// which creates a circular dependency. Re-enable when we have proper integration tests.
 		PIt("should trigger a rolling deployment when there is an update in secret name", func() {
