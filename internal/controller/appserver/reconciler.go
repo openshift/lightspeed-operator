@@ -343,6 +343,26 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, client.ObjectKey{Name: utils.OLSAppServerDeploymentName, Namespace: r.GetNamespace()}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
+		// Before creating app server deployment, verify PostgreSQL is ready (if using postgres cache)
+		if cr.Spec.OLSConfig.ConversationCache.Type == utils.OLSDefaultCacheType {
+			postgresDeployment := &appsv1.Deployment{}
+			err := r.Get(ctx, client.ObjectKey{Name: utils.PostgresDeploymentName, Namespace: r.GetNamespace()}, postgresDeployment)
+			if err == nil {
+				// PostgreSQL deployment exists, check if it's ready
+				if postgresDeployment.Status.ReadyReplicas != *postgresDeployment.Spec.Replicas {
+					// PostgreSQL is not ready yet, skip app-server creation to avoid readiness failures
+					r.GetLogger().Info("PostgreSQL deployment is not ready yet, deferring app-server creation until PostgreSQL is ready",
+						"postgres_ready_replicas", postgresDeployment.Status.ReadyReplicas,
+						"postgres_desired_replicas", *postgresDeployment.Spec.Replicas)
+					return nil
+				}
+				r.GetLogger().Info("PostgreSQL deployment is ready, proceeding with app-server creation")
+			} else if !errors.IsNotFound(err) {
+				return fmt.Errorf("failed to check PostgreSQL deployment status: %w", err)
+			}
+			// If PostgreSQL deployment doesn't exist yet, allow app-server creation to proceed
+		}
+
 		annotations := map[string]string{
 			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
 			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],

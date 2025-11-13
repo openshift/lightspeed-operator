@@ -497,19 +497,32 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 		existingDeployment.Annotations[utils.PostgresSecretHashKey] != r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] ||
 		existingDeployment.Annotations[utils.PostgresCAHashKey] != r.GetStateCache()[utils.PostgresCAHashStateCacheKey] {
 
-		// Check if PostgreSQL CA hash changed - if so, verify PostgreSQL deployment is ready before restarting app-server
-		// Only check if the existing annotation is not empty (to avoid blocking initial deployment)
+		// Check if PostgreSQL-related hashes changed - if so, verify PostgreSQL deployment is ready before restarting app-server
+		// Only check if the existing annotations are not empty (to avoid blocking initial deployment)
 		existingCAHash := existingDeployment.Annotations[utils.PostgresCAHashKey]
 		newCAHash := r.GetStateCache()[utils.PostgresCAHashStateCacheKey]
+		existingSecretHash := existingDeployment.Annotations[utils.PostgresSecretHashKey]
+		newSecretHash := r.GetStateCache()[utils.PostgresSecretHashStateCacheKey]
+
 		postgresCAHashChanged := existingCAHash != "" && existingCAHash != newCAHash
-		if postgresCAHashChanged {
+		postgresSecretHashChanged := existingSecretHash != "" && existingSecretHash != newSecretHash
+
+		if postgresCAHashChanged || postgresSecretHashChanged {
 			postgresDeployment := &appsv1.Deployment{}
 			err := r.Get(ctx, client.ObjectKey{Name: utils.PostgresDeploymentName, Namespace: r.GetNamespace()}, postgresDeployment)
 			if err == nil {
 				// PostgreSQL deployment exists, check if it's ready
 				if postgresDeployment.Status.ReadyReplicas != *postgresDeployment.Spec.Replicas {
 					// PostgreSQL is not ready yet, skip app-server update to avoid readiness failures
-					r.GetLogger().Info("PostgreSQL deployment is not ready yet, skipping app-server update to prevent readiness failures",
+					changeType := ""
+					if postgresCAHashChanged && postgresSecretHashChanged {
+						changeType = "PostgreSQL CA and secret"
+					} else if postgresCAHashChanged {
+						changeType = "PostgreSQL CA"
+					} else {
+						changeType = "PostgreSQL secret"
+					}
+					r.GetLogger().Info("PostgreSQL deployment is not ready yet after "+changeType+" change, skipping app-server update to prevent readiness failures",
 						"postgres_ready_replicas", postgresDeployment.Status.ReadyReplicas,
 						"postgres_desired_replicas", *postgresDeployment.Spec.Replicas)
 					return nil
