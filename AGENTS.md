@@ -167,7 +167,13 @@ var _ = Describe("<Component> Name", func() {
 ### Build Tools
 - **Makefile**: Standard operator-sdk generated targets
 - **Go Version**: 1.24.0
-- **Base Image**: `registry.redhat.io/ubi9/ubi-minimal`
+- **Base Image**: `registry.redhat.io/ubi9/ubi-minimal:9.6`
+
+### Operator Capabilities
+- **OLM Capability Level**: Seamless Upgrades (Level 2)
+  - Defined in CSV: `capabilities: Seamless Upgrades`
+  - Supports zero-downtime upgrades between versions
+  - Upgrade paths managed through `replaces` field in CSV
 
 ## Configuration Management
 
