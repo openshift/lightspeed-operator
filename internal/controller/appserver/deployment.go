@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"time"
 
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 
@@ -616,4 +617,34 @@ func dataCollectorEnabled(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (b
 		return false, err
 	}
 	return configEnabled && telemetryEnabled, nil
+}
+
+// RestartAppServer triggers a rolling restart of the app server deployment by updating its pod template annotation.
+// This is useful when configuration changes require a pod restart (e.g., ConfigMap or Secret updates).
+func RestartAppServer(r reconciler.Reconciler, ctx context.Context) error {
+	// Get the app server deployment
+	dep := &appsv1.Deployment{}
+	err := r.Get(ctx, client.ObjectKey{Name: utils.OLSAppServerDeploymentName, Namespace: r.GetNamespace()}, dep)
+	if err != nil {
+		r.GetLogger().Info("failed to get deployment", "deploymentName", utils.OLSAppServerDeploymentName, "error", err)
+		return err
+	}
+
+	// Initialize annotations map if empty
+	if dep.Spec.Template.Annotations == nil {
+		dep.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	// Bump the annotation to trigger a rolling update (new template hash)
+	dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey] = time.Now().Format(time.RFC3339Nano)
+
+	// Update the deployment
+	r.GetLogger().Info("triggering app server rolling restart", "deployment", dep.Name)
+	err = r.Update(ctx, dep)
+	if err != nil {
+		r.GetLogger().Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
+		return err
+	}
+
+	return nil
 }

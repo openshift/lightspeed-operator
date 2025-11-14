@@ -319,4 +319,36 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	LogLevelWarning = "WARNING"
 	// LogLevelError is the ERROR log level
 	LogLevelError = "ERROR"
+
+	/*** LCore specific Settings ***/
+	// LlamaStackConfigCmName name for the Llama stack config map
+	LlamaStackConfigCmName = "llama-stack-config"
+	// LCoreConfigCmName name for the LCore config map
+	LCoreConfigCmName = "lightspeed-stack-config"
+	// LlamaStackImageDefault default image for Llama Stack
+	LlamaStackImageDefault = "quay.io/lightspeed-core/lightspeed-stack:dev-latest"
+	// LlamaStackConfigHashKey is the key of the hash value of the Llama Stack configmap
+	LlamaStackConfigHashKey = "hash/llamastackconfig"
+	// LCoreDeploymentName is the name of the LCore deployment (used for testing)
+	LCoreDeploymentName = "lightspeed-stack-deployment"
+	// LCoreAppLabel is the app label for LCore resources (used for testing)
+	LCoreAppLabel = "lightspeed-stack"
+	// LlamaStackContainerName is the name of the Llama Stack container (used for testing)
+	LlamaStackContainerName = "llama-stack"
+	// LCoreContainerName is the name of the LCore container (used for testing)
+	LCoreContainerName = "lightspeed-stack"
+	// LlamaStackContainerPort is the port for the Llama Stack container (used for testing)
+	LlamaStackContainerPort = 8321
+	// LlamaCacheVolumeName is the name of the Llama cache volume (used for testing)
+	LlamaCacheVolumeName = "llama-cache"
+	// LlamaStackConfigFilename is the filename for Llama Stack config (used for testing)
+	LlamaStackConfigFilename = "run.yaml"
+	// LCoreConfigFilename is the filename for LCore config (used for testing)
+	LCoreConfigFilename = "lightspeed-stack.yaml"
+	// KubeRootCAMountPath is the mount path for kube-root-ca.crt (used for testing)
+	KubeRootCAMountPath = "/etc/pki/ca-trust/extracted/pem"
+	// AdditionalCAMountPath is the mount path for additional CA certificates (used for testing)
+	AdditionalCAMountPath = "/etc/pki/ca-trust/source/anchors"
+	// LlamaStackHealthPath is the health check path for Llama Stack (used for testing)
+	LlamaStackHealthPath = "/v1/health"
 )

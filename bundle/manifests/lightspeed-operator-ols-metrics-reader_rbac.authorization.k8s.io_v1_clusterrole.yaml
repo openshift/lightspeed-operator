@@ -12,3 +12,7 @@ rules:
   - /ols-metrics-access
   verbs:
   - get
+- nonResourceURLs:
+  - /ls-access
+  verbs:
+  - get

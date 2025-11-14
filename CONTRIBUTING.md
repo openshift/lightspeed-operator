@@ -543,6 +543,28 @@ make test-e2e
 
 ### Manual Testing
 
+#### Local Development (Fast Iteration)
+
+Run the controller locally for rapid development:
+
+```bash
+# Run controller locally (auto-setup RBAC, CRDs, namespace)
+make run
+```
+
+This automatically sets up the development environment and runs the controller on your local machine. The controller will connect to your current cluster context.
+
+**Manual setup commands (if needed):**
+```bash
+# Explicit setup (optional - make run does this automatically)
+make dev-setup
+
+# Clean up (optional - usually not needed for short-lived clusters)
+make dev-teardown
+```
+
+#### Cluster Deployment (Full Integration Testing)
+
 1. Build and deploy your changes:
 ```bash
 make docker-build

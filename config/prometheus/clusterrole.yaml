@@ -11,3 +11,8 @@ rules:
       - "/ols-metrics-access"
     verbs:
       - "get"
+  # Allow access to lightspeed-stack service (required by lightspeed-stack K8s auth module)
+  - nonResourceURLs:
+      - "/ls-access"
+    verbs:
+      - "get"

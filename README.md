@@ -159,29 +159,28 @@ make undeploy
 
 ### Run locally (outside the cluster)
 
-1. Create a namespace `openshift-lightspeed`
-
-```shell
-oc create namespace openshift-lightspeed
-```
-
-2. Install the CRDs into the cluster:
-
-```shell
-make install
-```
-
-3. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
+1. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
 
 ```shell
 make run
 ```
 
-4. Create a secret containing the API Key for BAM or OpenAI. The key for API key is `apitoken`.
+This command automatically:
+- Creates the `openshift-lightspeed` namespace (if needed)
+- Installs CRDs into the cluster
+- Applies necessary RBAC resources (Prometheus roles, user-access roles)
+- Starts the controller locally
 
-5. Create an `OLSConfig` custom resource
+> [!TIP]
+> For manual setup or cleanup, you can use:
+> - `make dev-setup` - Manually set up the development environment (namespace, CRDs, RBAC)
+> - `make dev-teardown` - Clean up the development environment (removes RBAC, CRDs, namespace)
 
-6. The Operator will reconcile the CustomResource (CR) and create all the necessary resources for launching the `Red Hat OpenShift Lightspeed` application server.
+2. Create a secret containing the API Key for BAM or OpenAI. The key for API key is `apitoken`.
+
+3. Create an `OLSConfig` custom resource
+
+4. The Operator will reconcile the CustomResource (CR) and create all the necessary resources for launching the `Red Hat OpenShift Lightspeed` application server.
 
 ```shell
 ➜ oc get configmaps -n openshift-lightspeed

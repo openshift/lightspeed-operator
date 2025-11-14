@@ -202,19 +202,51 @@ spec:
     - type: MultiNamespace    # Install watching multiple namespaces
       supported: false
     - type: AllNamespaces     # Install watching all namespaces
-      supported: true
+      supported: false
 ```
 
 **Install Mode Types:**
 
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| `OwnNamespace` | Operator watches its own namespace | Development/testing |
-| `SingleNamespace` | Operator watches one namespace | Namespace isolation |
-| `MultiNamespace` | Operator watches specific namespaces | Multi-tenant with selection |
-| `AllNamespaces` | Operator watches cluster-wide | Cluster-scoped resources (like Lightspeed) |
+| Mode | Description | Supported | Reason |
+|------|-------------|-----------|--------|
+| `OwnNamespace` | Operator watches its own namespace | ✅ Yes | Operator installs in `openshift-lightspeed` |
+| `SingleNamespace` | Operator watches one namespace | ❌ No | Not applicable for cluster-scoped CRD |
+| `MultiNamespace` | Operator watches specific namespaces | ❌ No | Not applicable for cluster-scoped CRD |
+| `AllNamespaces` | Operator watches cluster-wide | ❌ No | Not needed - uses cluster-scoped CRD |
 
-**Note:** Lightspeed Operator only supports `AllNamespaces` because `OLSConfig` is cluster-scoped.
+**Note:** Although the CSV specifies `OwnNamespace` install mode, the `OLSConfig` CRD itself is **cluster-scoped**.
+
+**What this means:**
+1. **Operator installation**: The operator must be installed in the `openshift-lightspeed` namespace (`OwnNamespace` mode)
+2. **CRD scope**: `OLSConfig` is cluster-scoped (no namespace in metadata - accessed as `oc get olsconfig cluster`)
+3. **Resource creation**: All operand resources (deployments, services, etc.) are created in the `openshift-lightspeed` namespace
+4. **Namespace hardcoding**: The operator is hardcoded to create resources in `openshift-lightspeed` (see `utils.OLSNamespaceDefault`)
+
+**Why cluster-scoped CRD?**
+
+The `OLSConfig` CRD is intentionally cluster-scoped for several reasons:
+
+1. **Singleton Pattern**: OpenShift Lightspeed is a cluster-wide service with only ONE instance per cluster
+   - Enforced by validation: `self.metadata.name == 'cluster'`
+   - The operator ignores any OLSConfig CR not named "cluster"
+   - Similar to other cluster-scoped resources like ClusterVersion, Ingress, etc.
+
+2. **Semantic Correctness**: A cluster-wide service should be represented by a cluster-scoped resource
+   - Makes it clear there's one configuration for the entire cluster
+   - Prevents confusion about which namespace's configuration applies
+
+3. **Cross-Namespace Resource Watching**: Allows watching Secrets/ConfigMaps in any namespace
+   - Users can store LLM credentials in their own namespaces
+   - Resource watchers can monitor annotated resources cluster-wide
+   - Provides flexibility for credential management
+
+4. **User Convenience**: No namespace required when accessing the CR
+   - `oc get olsconfig cluster` (not `oc get olsconfig cluster -n openshift-lightspeed`)
+   - Simpler user experience for a cluster-wide service
+
+**Key distinction:**
+- **CSV install mode (`OwnNamespace`)**: Where the operator deployment lives
+- **CRD scope (`Cluster`)**: How the custom resource is accessed (no namespace required)
 
 #### Install Strategy
 
@@ -915,11 +947,11 @@ spec:
     - type: OwnNamespace
       supported: true
     - type: SingleNamespace
-      supported: true
+      supported: false
     - type: MultiNamespace
       supported: false
     - type: AllNamespaces
-      supported: true
+      supported: false
   
   # Install strategy
   install:

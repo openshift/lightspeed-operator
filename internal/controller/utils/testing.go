@@ -22,6 +22,7 @@ type TestReconciler struct {
 	AppServerImage    string
 	McpServerImage    string
 	DataverseExporter string
+	LCoreImage        string
 	openShiftMajor    string
 	openShiftMinor    string
 }
@@ -70,6 +71,10 @@ func (r *TestReconciler) GetDataverseExporterImage() string {
 	return r.DataverseExporter
 }
 
+func (r *TestReconciler) GetLCoreImage() string {
+	return r.LCoreImage
+}
+
 // NewTestReconciler creates a new TestReconciler instance with the provided parameters
 func NewTestReconciler(
 	client client.Client,
@@ -87,6 +92,7 @@ func NewTestReconciler(
 		ConsoleImage:      ConsoleUIImageDefault,
 		AppServerImage:    OLSAppServerImageDefault,
 		McpServerImage:    OLSAppServerImageDefault,
+		LCoreImage:        LlamaStackImageDefault,
 		DataverseExporter: DataverseExporterImageDefault,
 		openShiftMajor:    "123",
 		openShiftMinor:    "456",
