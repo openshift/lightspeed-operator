@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi9/ubi-minimal:9.6 as builder
+FROM registry.redhat.io/ubi9/ubi-minimal:9.7 as builder
 ARG RELATED_IMAGE_FILE=related_images.json
 ARG CSV_FILE=bundle/manifests/lightspeed-operator.clusterserviceversion.yaml
 ARG OPERATOR_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-operator:latest
@@ -22,7 +22,7 @@ RUN OPENSHIFT_MCP_SERVER_IMAGE=$(jq -r '.[] | select(.name == "openshift-mcp-ser
 RUN DATAVERSE_EXPORTER_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-to-dataverse-exporter") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${DATAVERSE_EXPORTER_IMAGE_ORIGINAL}|${DATAVERSE_EXPORTER_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN OCP_RAG_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-ocp-rag") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${OCP_RAG_IMAGE_ORIGINAL}|${OCP_RAG_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 
-FROM registry.redhat.io/ubi9/ubi-minimal:9.6
+FROM registry.redhat.io/ubi9/ubi-minimal:9.7
 
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
