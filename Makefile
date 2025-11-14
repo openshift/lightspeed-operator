@@ -123,7 +123,7 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: manifests generate fmt vet envtest test-crds ## Run local tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./internal/... -coverprofile cover.out -p 6 -timeout 10m
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./internal/... -coverprofile cover.out -p 8 -timeout 10m
 
 # Use 4.18 release branch for CRDs in unit tests
 OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/refs/heads/release-4.18/operator/v1/zz_generated.crd-manifests/0000_50_console_01_consoles.crd.yaml
@@ -214,8 +214,28 @@ OPENSHIFT_MCP_SERVER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-
 DATAVERSE_EXPORTER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
 OCP_RAG_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec
 
+.PHONY: dev-setup
+dev-setup: manifests kustomize install ## Setup RBAC and resources for local development (idempotent, safe to run multiple times)
+	@echo "📦 Setting up local development environment..."
+	@$(KUBECTL) create namespace openshift-lightspeed --dry-run=client -o yaml | $(KUBECTL) apply -f - 2>/dev/null || true
+	@$(KUBECTL) apply -f bundle/manifests/lightspeed-operator-metrics-reader_v1_serviceaccount.yaml 2>/dev/null || true
+	@$(KUBECTL) apply -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrole.yaml 2>/dev/null || true
+	@$(KUBECTL) apply -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml 2>/dev/null || true
+	@$(KUBECTL) apply -k config/user-access/ 2>/dev/null || true
+	@echo "✅ Development environment ready!"
+
+.PHONY: dev-teardown
+dev-teardown: uninstall ## Teardown local development environment (removes RBAC, CRDs, and namespace)
+	@echo "🧹 Cleaning up local development environment..."
+	@$(KUBECTL) delete -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml --ignore-not-found=true 2>/dev/null || true
+	@$(KUBECTL) delete -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrole.yaml --ignore-not-found=true 2>/dev/null || true
+	@$(KUBECTL) delete -f bundle/manifests/lightspeed-operator-metrics-reader_v1_serviceaccount.yaml --ignore-not-found=true 2>/dev/null || true
+	@$(KUBECTL) delete -k config/user-access/ --ignore-not-found=true 2>/dev/null || true
+	@$(KUBECTL) delete namespace openshift-lightspeed --ignore-not-found=true 2>/dev/null || true
+	@echo "✅ Development environment cleaned up."
+
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
+run: dev-setup manifests generate fmt vet ## Run a controller from your host (auto-setup RBAC if needed).
     #TODO: Update DB
 	@echo "🔧 Running controller locally (ServiceMonitor reconciliation disabled for local development)"
 	LOCAL_DEV_MODE=true go run ./cmd/main.go --service-image="$(LIGHTSPEED_SERVICE_IMG)" --postgres-image="$(LIGHTSPEED_SERVICE_POSTGRES_IMG)" --console-image="$(CONSOLE_PLUGIN_IMG)" --openshift-mcp-server-image="$(OPENSHIFT_MCP_SERVER_IMG)" --dataverse-exporter-image="$(DATAVERSE_EXPORTER_IMG)"
@@ -225,6 +245,8 @@ run: manifests generate fmt vet ## Run a controller from your host.
         --openshift-mcp-server-image="$(OPENSHIFT_MCP_SERVER_IMG)" \
         --dataverse-exporter-image="$(DATAVERSE_EXPORTER_IMG)" \
         --ocp-rag-image="$(OCP_RAG_IMG)"
+	@echo "🔧 Running controller locally (ServiceMonitor reconciliation disabled for local development)"
+	LOCAL_DEV_MODE=true go run ./cmd/main.go --service-image="$(LIGHTSPEED_SERVICE_IMG)" --postgres-image="$(LIGHTSPEED_SERVICE_POSTGRES_IMG)" --console-image="$(CONSOLE_PLUGIN_IMG)" --openshift-mcp-server-image="$(OPENSHIFT_MCP_SERVER_IMG)" --dataverse-exporter-image="$(DATAVERSE_EXPORTER_IMG)"
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.

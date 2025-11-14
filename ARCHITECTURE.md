@@ -6,7 +6,7 @@ This document describes the internal architecture of the OpenShift Lightspeed Op
 
 ## Overview
 
-The operator follows a modular, component-based architecture where each major component (application server, PostgreSQL, Console UI) is managed by its own dedicated package with independent reconciliation logic.
+The operator follows a modular, component-based architecture where each major component (application server, Lightspeed Core/Llama Stack, PostgreSQL, Console UI) is managed by its own dedicated package with independent reconciliation logic.
 
 ## Directory Structure
 
@@ -19,6 +19,10 @@ internal/controller/
 │   ├── assets.go          # Resource generation (ConfigMaps, Services, etc.)
 │   ├── deployment.go      # Deployment-specific logic
 │   └── rag.go            # RAG (Retrieval-Augmented Generation) support
+├── lcore/                 # Lightspeed Core (Llama Stack) component
+│   ├── reconciler.go      # Main reconciliation logic
+│   ├── assets.go         # Resource generation (Llama Stack config, LCore config)
+│   └── deployment.go     # Deployment-specific logic
 ├── postgres/              # PostgreSQL database component
 │   ├── reconciler.go     # Main reconciliation logic
 │   └── assets.go        # Resource generation
@@ -51,12 +55,13 @@ The main package is the operator's entry point that initializes and starts the c
 - Handle graceful shutdown
 
 **Configuration Options:**
-- Image overrides for all components (service, console, postgres, MCP server)
+- Image overrides for all components (service, console, postgres, MCP server, lcore)
 - Namespace configuration
 - Reconciliation interval
 - Metrics and health probe addresses
 - TLS security settings
 - Leader election for HA deployments
+- **Backend selection**: `--enable-lcore` flag (default: false, uses appserver)
 
 ### Main Controller (`olsconfig_controller.go`)
 
@@ -65,15 +70,16 @@ The main `OLSConfigReconciler` orchestrates the reconciliation of all components
 - Manages the OLSConfig custom resource lifecycle
 - Coordinates reconciliation steps across components
 - Updates status conditions
-- Delegates LLM provider secret reconciliation to appserver package
-- Sets up resource watchers for automatic updates
+- Delegates LLM provider secret reconciliation to appserver or lcore package
+- Registers resource watchers (via `watchers` package) for automatic updates
+- **Selects backend**: Calls either `appserver.ReconcileAppServer()` OR `lcore.ReconcileLCore()` based on `--enable-lcore` flag
 
 **Key Responsibilities:**
 - Overall reconciliation coordination
 - Status management
-- Secret watching and hash-based change detection
+- Hash-based change detection
 - Error handling and retries
-- Component orchestration (calls appserver, postgres, console reconcilers)
+- Component orchestration (calls console, postgres, watchers, and either appserver OR lcore reconcilers)
 
 ### Reconciler Interface (`internal/controller/reconciler`)
 
@@ -93,7 +99,49 @@ type Reconciler interface {
     GetPostgresImage() string
     GetConsoleUIImage() string
     GetAppServerImage() string
+    GetLCoreImage() string
     // ... other configuration getters
+}
+```
+
+### Watchers Package (`internal/controller/watchers`)
+
+Manages Kubernetes resource watching and automatic reconciliation triggers.
+
+**Main Components:**
+- `SecretWatcherFilter()` - Watches Secrets with watcher annotations or telemetry pull secret
+- `ConfigMapWatcherFilter()` - Watches ConfigMaps with watcher annotations or OpenShift default certs
+
+**Note**: Annotation helpers (`AnnotateSecretWatcher`, `AnnotateConfigMapWatcher`) are provided by the `utils` package and used directly by component packages.
+
+**Key Features:**
+- **Backend-aware**: Caller passes `useLCore` flag to determine which backend to restart
+- **Rolling restarts**: Triggers deployment restarts when watched ConfigMaps change (e.g., CA certificates)
+- **Annotation-based**: Uses `ols.openshift.io/watch-olsconfig` annotation to identify watched resources
+- **Special cases**: Watches OpenShift default certs ConfigMap (`kube-root-ca.crt`) automatically
+
+**Watched Resources:**
+- Secrets with watcher annotations (LLM credentials, TLS certificates)
+- Telemetry pull secret (`openshift-config/pull-secret`)
+- ConfigMaps with watcher annotations (CA certificates, configuration)
+- OpenShift default certificates ConfigMap
+
+**Usage in Main Controller:**
+```go
+Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(
+    func(ctx context.Context, obj client.Object) []reconcile.Request {
+        return watchers.ConfigMapWatcherFilter(r, ctx, obj, r.Options.UseLCore)
+    }
+))
+```
+
+**Restart Logic:**
+```go
+// Inside ConfigMapWatcherFilter
+if useLCore {
+    lcore.RestartLCore(r, ctx)  // Restart LCore deployment
+} else {
+    appserver.RestartAppServer(r, ctx)  // Restart AppServer deployment
 }
 ```
 
@@ -117,6 +165,56 @@ Manages the OpenShift Lightspeed application server lifecycle.
 - Prometheus Rules (alerting)
 - Network Policy (security)
 - Secrets (TLS certificates, metrics tokens)
+
+### Lightspeed Core Package (`internal/controller/lcore`)
+
+Manages the Lightspeed Core (LCS) and Llama Stack server lifecycle. This component provides AI agent capabilities and MCP (Model Context Protocol) support.
+
+> **⚠️ Backend Selection**: LCore and AppServer are **mutually exclusive** backend implementations. Only one can be active at a time.
+> - The operator uses a feature flag (`--enable-lcore`) to determine which backend to reconcile
+> - **LCore (NEW)**: Agent-based architecture with Llama Stack integration, MCP support, and RAG capabilities
+> - **AppServer (LEGACY)**: Traditional LLM API proxy
+
+**Main Components:**
+- `ReconcileLCore()` - Main entry point for reconciliation
+- `GenerateLlamaStackConfigMap()` - Creates Llama Stack run configuration
+- `GenerateLcoreConfigMap()` - Creates Lightspeed Stack application configuration
+- `GenerateLCoreDeployment()` - Creates dual-container deployment (llama-stack + lightspeed-stack)
+
+**Key Features:**
+- **Dynamic LLM Configuration**: Automatically generates Llama Stack provider config from OLSConfig
+- **Supported Providers**: OpenAI, Azure OpenAI (with provider-specific fields like deployment name, API version)
+- **Unsupported Providers**: WatsonX, BAM, RHOAI vLLM, RHELAI vLLM (returns error with clear message)
+- **CA Certificate Support**: Mounts `kube-root-ca.crt` and optional `additionalCAConfigMapRef` for custom TLS
+- **RAG Support**: Vector database configuration for Retrieval-Augmented Generation
+- **MCP Integration**: Model Context Protocol for agent workflows
+- **Metrics & Monitoring**: Prometheus metrics with K8s authentication
+- **Configuration from OLSConfig**:
+  - `LogLevel`: Controls logging verbosity via `LOG_LEVEL` env var (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  - `DefaultModel` & `DefaultProvider`: Default inference model and provider selection
+  - `UserDataCollection.{FeedbackDisabled, TranscriptsDisabled}`: Enable/disable data collection
+  - `DeploymentConfig.Replicas`: Pod replica count (default: 1)
+  - `DeploymentConfig.APIContainer.Resources`: CPU/memory limits for lightspeed-stack container
+  - `DeploymentConfig.APIContainer.NodeSelector`: Pod scheduling based on node labels
+  - `DeploymentConfig.APIContainer.Tolerations`: Pod toleration of node taints
+  - Note: llama-stack sidecar uses fixed resources (500m/512Mi requests, 1000m/1Gi limits)
+
+**Managed Resources:**
+- Deployment (dual-container: llama-stack + lightspeed-stack)
+- Service (ClusterIP for LCS access on port 8443)
+- ServiceAccount & RBAC (cluster roles and bindings for metrics)
+- ConfigMaps (Llama Stack config, LCore config, Additional CA, Proxy CA)
+- Service Monitor (Prometheus monitoring with user-workload support)
+- Network Policy (security)
+- Secrets (TLS certificates, metrics tokens, LLM provider API keys)
+
+**Architecture:**
+The lcore package is **completely independent** from appserver, following the same patterns:
+- Task-based reconciliation
+- Interface-based dependency injection via `reconciler.Reconciler`
+- Hash-based change detection
+- Separate test suite with comprehensive coverage (75.7%)
+- No shared code or imports between lcore and appserver (ensures clean separation)
 
 ### PostgreSQL Package (`internal/controller/postgres`)
 
@@ -171,12 +269,20 @@ Provides shared functionality across all components.
    └── Validates OLSConfig CR exists
    
 2. Reconcile LLM Secrets
-   └── appserver.ReconcileLLMSecrets()
+   └── appserver.ReconcileLLMSecrets() OR lcore.checkLLMCredentials()
        ├── Validate provider credentials
        ├── Hash provider credentials
        └── Store hash in state cache
    
-3. Reconcile PostgreSQL (if conversation cache enabled)
+3. Reconcile Console UI (if enabled)
+   └── console.ReconcileConsoleUI()
+       ├── ConsolePlugin CR
+       ├── ConfigMap
+       ├── Service
+       ├── Deployment
+       └── Network Policy
+   
+4. Reconcile PostgreSQL (if conversation cache enabled)
    └── postgres.ReconcilePostgres()
        ├── ConfigMap
        ├── Secrets (bootstrap, credentials)
@@ -185,15 +291,9 @@ Provides shared functionality across all components.
        ├── Deployment
        └── Network Policy
    
-4. Reconcile Console UI (if enabled)
-   └── console.ReconcileConsoleUI()
-       ├── ConsolePlugin CR
-       ├── ConfigMap
-       ├── Service
-       ├── Deployment
-       └── Network Policy
+5. Reconcile Backend (MUTUALLY EXCLUSIVE - controlled by --enable-lcore flag)
    
-5. Reconcile Application Server
+   OPTION A: Reconcile Application Server (LEGACY)
    └── appserver.ReconcileAppServer()
        ├── ServiceAccount & RBAC
        ├── ConfigMap (OLS config)
@@ -202,6 +302,20 @@ Provides shared functionality across all components.
        ├── Deployment
        ├── Service Monitor
        ├── Prometheus Rules
+       └── Network Policy
+   
+   OPTION B: Reconcile Lightspeed Core (NEW)
+   └── lcore.ReconcileLCore()
+       ├── ServiceAccount & RBAC
+       ├── ConfigMap (Llama Stack config)
+       ├── ConfigMap (LCore config)
+       ├── Additional CA ConfigMap (if specified)
+       ├── Proxy CA ConfigMap (if specified)
+       ├── Service
+       ├── TLS Secret
+       ├── Deployment (dual-container: llama-stack + lightspeed-stack)
+       ├── Service Monitor
+       ├── Metrics Reader Secret
        └── Network Policy
    
 6. Update Status Conditions
@@ -230,16 +344,29 @@ deployment.Spec.Template.Annotations[OLSConfigHashKey] = configHash
 
 ## Resource Watching
 
-The operator watches for changes in:
-- **OLSConfig CR**: Main configuration resource
-- **Secrets**: LLM provider credentials, TLS certificates
-- **ConfigMaps**: Additional CA certificates, configuration overrides
-- **Deployments**: Status monitoring for readiness
+The operator uses the `watchers` package to watch for changes in:
+- **OLSConfig CR**: Main configuration resource (owned resource)
+- **Secrets**: LLM provider credentials, TLS certificates, telemetry pull secret (watched via `SecretWatcherFilter`)
+- **ConfigMaps**: Additional CA certificates, configuration overrides, OpenShift default certs (watched via `ConfigMapWatcherFilter`)
+- **Deployments**: Status monitoring for readiness (owned resource)
+
+**Watcher Annotations:**
 
 Resources are annotated to identify which ones should trigger reconciliation:
 ```go
-annotations[WatcherAnnotationKey] = "cluster"  // OLSConfig name
+annotations[utils.WatcherAnnotationKey] = "cluster"  // OLSConfig name
+// Key: "ols.openshift.io/watch-olsconfig"
 ```
+
+**Automatic Restart Behavior:**
+
+When a watched ConfigMap changes (e.g., CA certificates), the watcher:
+1. Detects the change via annotation or special name matching
+2. Determines which backend is active (AppServer or LCore)
+3. Triggers a rolling restart of the appropriate deployment
+4. Returns a reconciliation request to update the OLSConfig
+
+This ensures that configuration changes are picked up without manual intervention.
 
 ## Testing Strategy
 
@@ -256,8 +383,10 @@ The codebase employs a comprehensive testing strategy with strong coverage:
 - **Location**: Co-located with source code in each package
   - `internal/controller/*_test.go` - Main controller tests (Reconcile loop, status updates, deployment checks)
   - `internal/controller/appserver/*_test.go` - App server component tests
+  - `internal/controller/lcore/*_test.go` - LCore component tests
   - `internal/controller/postgres/*_test.go` - PostgreSQL component tests
   - `internal/controller/console/*_test.go` - Console UI component tests
+  - `internal/controller/watchers/*_test.go` - Resource watcher tests (Secret/ConfigMap filters, annotations)
   - `internal/controller/utils/*_test.go` - Utility function tests (hashing, secrets, volume comparison)
 
 - **Framework**: Ginkgo (BDD) + Gomega (assertions)

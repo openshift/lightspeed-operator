@@ -184,6 +184,19 @@ func HashBytes(sourceStr []byte) (string, error) {
 	return fmt.Sprintf("%x", hashFunc.Sum(nil)), nil
 }
 
+// ProviderNameToEnvVarName converts a provider name to a valid environment variable name.
+// Kubernetes resource names typically use hyphens (DNS-1123), but environment variable
+// names cannot contain hyphens. This function replaces hyphens with underscores and
+// converts to uppercase for consistency with environment variable naming conventions.
+//
+// Example: "my-provider" -> "MY_PROVIDER"
+func ProviderNameToEnvVarName(providerName string) string {
+	// Replace hyphens with underscores for valid environment variable names
+	envVarName := strings.ReplaceAll(providerName, "-", "_")
+	// Convert to uppercase for standard environment variable convention
+	return strings.ToUpper(envVarName)
+}
+
 func GetSecretContent(rclient client.Client, secretName string, namespace string, secretFields []string, foundSecret *corev1.Secret) (map[string]string, error) {
 	ctx := context.Background()
 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
