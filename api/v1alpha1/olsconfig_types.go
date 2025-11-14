@@ -84,7 +84,7 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
-	DefaultProvider string `json:"defaultProvider,omitempty"`
+	DefaultProvider string `json:"defaultProvider"`
 	// Query filters
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Query Filters"
 	QueryFilters []QueryFiltersSpec `json:"queryFilters,omitempty"`
@@ -151,7 +151,7 @@ type RAGSpec struct {
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image"
-	Image string `json:"image,omitempty"`
+	Image string `json:"image"`
 }
 
 // QuotaHandlersConfig defines the token quota configuration
@@ -353,7 +353,7 @@ type ProviderSpec struct {
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,displayName="Name"
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 	// Provider API URL
 	// +kubebuilder:validation:Pattern=`^https?://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2,displayName="URL"
@@ -362,12 +362,12 @@ type ProviderSpec struct {
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=3,displayName="Credential Secret"
-	CredentialsSecretRef corev1.LocalObjectReference `json:"credentialsSecretRef,omitempty"`
+	CredentialsSecretRef corev1.LocalObjectReference `json:"credentialsSecretRef"`
 	// List of models from the provider
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Models"
-	Models []ModelSpec `json:"models,omitempty"`
+	Models []ModelSpec `json:"models"`
 	// Provider type
 	// +kubebuilder:validation:Required
 	// +required
@@ -430,7 +430,7 @@ type MCPServer struct {
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Name"
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 	// Streamable HTTP Transport settings
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Streamable HTTP Transport"
 	StreamableHTTP *MCPServerStreamableHTTPTransport `json:"streamableHTTP,omitempty"`
@@ -443,7 +443,7 @@ type MCPServerStreamableHTTPTransport struct {
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="URL"
-	URL string `json:"url,omitempty"`
+	URL string `json:"url"`
 	// Timeout for the MCP server, default is 5 seconds
 	// +kubebuilder:default=5
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Timeout in seconds"
