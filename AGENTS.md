@@ -255,6 +255,9 @@ make run              # Run operator locally (auto-sets up RBAC & CRDs)
 > **💡 Testing Reminder**: The Makefile ensures proper test environment setup.
 > Always use `make test`, not `go test ./internal/...`
 
+> **💡 Testing Reminder**: The Makefile ensures proper test environment setup.
+> Always use `make test`, not `go test ./internal/...`
+
 ## Maintaining This Guide
 
 ### When to UPDATE AGENTS.md

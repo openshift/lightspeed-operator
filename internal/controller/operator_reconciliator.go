@@ -69,6 +69,11 @@ func (r *OLSConfigReconciler) generateServiceMonitorForOperator() (*monv1.Servic
 }
 
 func (r *OLSConfigReconciler) ReconcileServiceMonitorForOperator(ctx context.Context) error {
+	if !r.Options.PrometheusAvailable {
+		r.Logger.Info("Prometheus Operator not available, skipping operator ServiceMonitor reconciliation")
+		return nil
+	}
+
 	sm, err := r.generateServiceMonitorForOperator()
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateServiceMonitor, err)

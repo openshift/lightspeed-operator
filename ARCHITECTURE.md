@@ -71,8 +71,10 @@ The main `OLSConfigReconciler` orchestrates the reconciliation of all components
 - Coordinates reconciliation steps across components
 - Updates status conditions
 - Delegates LLM provider secret reconciliation to appserver or lcore package
-- Registers resource watchers (via `watchers` package) for automatic updates
+- Sets up resource watchers for automatic updates
 - **Selects backend**: Calls either `appserver.ReconcileAppServer()` OR `lcore.ReconcileLCore()` based on `--enable-lcore` flag
+- Delegates LLM provider secret reconciliation to appserver or lcore package
+- Registers resource watchers (via `watchers` package) for automatic updates
 
 **Key Responsibilities:**
 - Overall reconciliation coordination
@@ -109,8 +111,9 @@ type Reconciler interface {
 Manages Kubernetes resource watching and automatic reconciliation triggers.
 
 **Main Components:**
-- `SecretWatcherFilter()` - Watches Secrets with watcher annotations or telemetry pull secret
-- `ConfigMapWatcherFilter()` - Watches ConfigMaps with watcher annotations or OpenShift default certs
+- `SecretWatcherFilter()` - Watches Secrets with watcher annotations
+- `TelemetryPullSecretWatcherFilter()` - Watches telemetry pull secret
+- `ConfigMapWatcherFilter()` - Watches ConfigMaps and triggers backend restarts
 
 **Note**: Annotation helpers (`AnnotateSecretWatcher`, `AnnotateConfigMapWatcher`) are provided by the `utils` package and used directly by component packages.
 
@@ -161,8 +164,8 @@ Manages the OpenShift Lightspeed application server lifecycle.
 - Service (ClusterIP for internal access)
 - ServiceAccount & RBAC (cluster roles and bindings)
 - ConfigMap (application configuration)
-- Service Monitor (Prometheus monitoring)
-- Prometheus Rules (alerting)
+- Service Monitor (Prometheus monitoring - conditionally created if Prometheus Operator is available)
+- Prometheus Rules (alerting - conditionally created if Prometheus Operator is available)
 - Network Policy (security)
 - Secrets (TLS certificates, metrics tokens)
 
@@ -204,7 +207,7 @@ Manages the Lightspeed Core (LCS) and Llama Stack server lifecycle. This compone
 - Service (ClusterIP for LCS access on port 8443)
 - ServiceAccount & RBAC (cluster roles and bindings for metrics)
 - ConfigMaps (Llama Stack config, LCore config, Additional CA, Proxy CA)
-- Service Monitor (Prometheus monitoring with user-workload support)
+- Service Monitor (Prometheus monitoring with user-workload support - conditionally created if Prometheus Operator is available)
 - Network Policy (security)
 - Secrets (TLS certificates, metrics tokens, LLM provider API keys)
 
@@ -300,8 +303,8 @@ Provides shared functionality across all components.
        ├── Service
        ├── TLS Secret
        ├── Deployment
-       ├── Service Monitor
-       ├── Prometheus Rules
+       ├── Service Monitor (conditional - only if Prometheus Operator available)
+       ├── Prometheus Rules (conditional - only if Prometheus Operator available)
        └── Network Policy
    
    OPTION B: Reconcile Lightspeed Core (NEW)
@@ -346,9 +349,10 @@ deployment.Spec.Template.Annotations[OLSConfigHashKey] = configHash
 
 The operator uses the `watchers` package to watch for changes in:
 - **OLSConfig CR**: Main configuration resource (owned resource)
-- **Secrets**: LLM provider credentials, TLS certificates, telemetry pull secret (watched via `SecretWatcherFilter`)
-- **ConfigMaps**: Additional CA certificates, configuration overrides, OpenShift default certs (watched via `ConfigMapWatcherFilter`)
+- **Secrets**: LLM provider credentials, TLS certificates (watched via `SecretWatcherFilter`)
+- **ConfigMaps**: Additional CA certificates, configuration overrides (watched via `ConfigMapWatcherFilter`)
 - **Deployments**: Status monitoring for readiness (owned resource)
+- **Telemetry Pull Secret**: Special watcher for `openshift-config/pull-secret` (via `TelemetryPullSecretWatcherFilter`)
 
 **Watcher Annotations:**
 

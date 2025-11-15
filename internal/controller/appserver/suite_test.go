@@ -131,11 +131,12 @@ var _ = BeforeSuite(func() {
 		utils.OLSNamespaceDefault,
 	)
 
-	// Set default images for test reconciler (can be overridden in specific tests)
+	// Set default images and flags for test reconciler (can be overridden in specific tests)
 	if tr, ok := testReconcilerInstance.(*utils.TestReconciler); ok {
 		tr.AppServerImage = utils.OLSAppServerImageDefault
 		tr.DataverseExporter = utils.DataverseExporterImageDefault
 		tr.McpServerImage = utils.OpenShiftMCPServerImageDefault
+		tr.PrometheusAvailable = true
 	}
 
 	cr = utils.GetDefaultOLSConfigCR()

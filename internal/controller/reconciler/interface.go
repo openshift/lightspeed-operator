@@ -65,4 +65,7 @@ type Reconciler interface {
 
 	// GetLCoreImage returns the LCore image to use
 	GetLCoreImage() string
+
+	// IsPrometheusAvailable returns whether Prometheus Operator CRDs are available
+	IsPrometheusAvailable() bool
 }
