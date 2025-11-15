@@ -494,13 +494,59 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 		existingDeployment.Annotations[utils.OLSConfigHashKey] != r.GetStateCache()[utils.OLSConfigHashStateCacheKey] ||
 		existingDeployment.Annotations[utils.OLSAppTLSHashKey] != r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey] ||
 		existingDeployment.Annotations[utils.LLMProviderHashKey] != r.GetStateCache()[utils.LLMProviderHashStateCacheKey] ||
-		existingDeployment.Annotations[utils.PostgresSecretHashKey] != r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] {
+		existingDeployment.Annotations[utils.PostgresSecretHashKey] != r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] ||
+		existingDeployment.Annotations[utils.PostgresCAHashKey] != r.GetStateCache()[utils.PostgresCAHashStateCacheKey] {
+
+		// Check if PostgreSQL-related hashes changed - if so, verify PostgreSQL deployment is ready before restarting app-server
+		// Only check if the existing annotations are not empty (to avoid blocking initial deployment)
+		existingCAHash := existingDeployment.Annotations[utils.PostgresCAHashKey]
+		newCAHash := r.GetStateCache()[utils.PostgresCAHashStateCacheKey]
+		existingSecretHash := existingDeployment.Annotations[utils.PostgresSecretHashKey]
+		newSecretHash := r.GetStateCache()[utils.PostgresSecretHashStateCacheKey]
+
+		postgresCAHashChanged := existingCAHash != newCAHash && (existingCAHash != "" || newCAHash != "")
+		postgresSecretHashChanged := existingSecretHash != newSecretHash && (existingSecretHash != "" || newSecretHash != "")
+
+		// Only wait for postgres if we're updating from one non-empty hash to another (actual certificate rotation)
+		shouldWaitForPostgres := false
+		if postgresCAHashChanged && existingCAHash != "" && newCAHash != "" {
+			shouldWaitForPostgres = true
+		}
+		if postgresSecretHashChanged && existingSecretHash != "" && newSecretHash != "" {
+			shouldWaitForPostgres = true
+		}
+
+		if shouldWaitForPostgres {
+			postgresDeployment := &appsv1.Deployment{}
+			err := r.Get(ctx, client.ObjectKey{Name: utils.PostgresDeploymentName, Namespace: r.GetNamespace()}, postgresDeployment)
+			if err == nil {
+				// PostgreSQL deployment exists, check if it's ready
+				if postgresDeployment.Status.ReadyReplicas != *postgresDeployment.Spec.Replicas {
+					// PostgreSQL is not ready yet, skip app-server update to avoid readiness failures
+					changeType := ""
+					if postgresCAHashChanged && postgresSecretHashChanged {
+						changeType = "PostgreSQL CA and secret"
+					} else if postgresCAHashChanged {
+						changeType = "PostgreSQL CA"
+					} else {
+						changeType = "PostgreSQL secret"
+					}
+					r.GetLogger().Info("PostgreSQL deployment is not ready yet after "+changeType+" change, skipping app-server update to prevent readiness failures",
+						"postgres_ready_replicas", postgresDeployment.Status.ReadyReplicas,
+						"postgres_desired_replicas", *postgresDeployment.Spec.Replicas)
+					return nil
+				}
+				r.GetLogger().Info("PostgreSQL deployment is ready, proceeding with app-server update")
+			}
+		}
+
 		utils.UpdateDeploymentAnnotations(existingDeployment, map[string]string{
 			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
 			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],
 			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
 			utils.AdditionalCAHashKey:   r.GetStateCache()[utils.AdditionalCAHashStateCacheKey],
 			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
+			utils.PostgresCAHashKey:     r.GetStateCache()[utils.PostgresCAHashStateCacheKey],
 		})
 		// update the deployment template annotation triggers the rolling update
 		utils.UpdateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
@@ -509,6 +555,7 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
 			utils.AdditionalCAHashKey:   r.GetStateCache()[utils.AdditionalCAHashStateCacheKey],
 			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
+			utils.PostgresCAHashKey:     r.GetStateCache()[utils.PostgresCAHashStateCacheKey],
 		})
 		changed = true
 	}
