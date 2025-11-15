@@ -3,7 +3,7 @@ kind: ClusterServiceVersion
 metadata:
   annotations:
     alm-examples: '[]'
-    capabilities: Basic Install
+    capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
