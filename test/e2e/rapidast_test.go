@@ -22,6 +22,8 @@ var _ = Describe("Rapidast", Ordered, Label("Rapidast"), func() {
 
 	AfterAll(func() {
 		By("Cleaning up OLS test environment with CR deletion")
+		err = mustGather("rapidast_test")
+		Expect(err).NotTo(HaveOccurred())
 		err = CleanupOLSTestEnvironmentWithCRDeletion(env, "rapidast_test")
 		Expect(err).NotTo(HaveOccurred())
 	})
