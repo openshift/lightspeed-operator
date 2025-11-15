@@ -504,10 +504,19 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 		existingSecretHash := existingDeployment.Annotations[utils.PostgresSecretHashKey]
 		newSecretHash := r.GetStateCache()[utils.PostgresSecretHashStateCacheKey]
 
-		postgresCAHashChanged := existingCAHash != "" && existingCAHash != newCAHash
-		postgresSecretHashChanged := existingSecretHash != "" && existingSecretHash != newSecretHash
+		postgresCAHashChanged := existingCAHash != newCAHash && (existingCAHash != "" || newCAHash != "")
+		postgresSecretHashChanged := existingSecretHash != newSecretHash && (existingSecretHash != "" || newSecretHash != "")
 
-		if postgresCAHashChanged || postgresSecretHashChanged {
+		// Only wait for postgres if we're updating from one non-empty hash to another (actual certificate rotation)
+		shouldWaitForPostgres := false
+		if postgresCAHashChanged && existingCAHash != "" && newCAHash != "" {
+			shouldWaitForPostgres = true
+		}
+		if postgresSecretHashChanged && existingSecretHash != "" && newSecretHash != "" {
+			shouldWaitForPostgres = true
+		}
+
+		if shouldWaitForPostgres {
 			postgresDeployment := &appsv1.Deployment{}
 			err := r.Get(ctx, client.ObjectKey{Name: utils.PostgresDeploymentName, Namespace: r.GetNamespace()}, postgresDeployment)
 			if err == nil {
