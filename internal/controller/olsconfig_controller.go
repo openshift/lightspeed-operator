@@ -61,10 +61,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -241,62 +239,115 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	r.Logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
 
-	// Reconcile LLM secrets first
-	err = appserver.ReconcileLLMSecrets(r, ctx, olsconfig)
+	// Validate external secrets (LLM provider credentials and MCP server headers)
+	err = utils.ValidateExternalSecrets(r, ctx, olsconfig)
 	if err != nil {
-		r.Logger.Error(err, "Failed to reconcile LLM secrets")
+		r.Logger.Error(err, "Failed to validate external secrets")
 		r.UpdateStatusCondition(ctx, olsconfig, utils.TypeCRReconciled, false, "Failed", err)
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 
-	// Define reconciliation steps for all deployments with their associated status conditions
-	reconcileSteps := []utils.ReconcileSteps{
-		{Name: "console UI", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-			return console.ReconcileConsoleUI(r, ctx, cr)
+	// Phase 1: Reconcile independent resources for all components
+	// This phase creates ConfigMaps, Secrets, ServiceAccounts, Roles, NetworkPolicies, etc.
+	// These resources are independent and can be reconciled in any order without race conditions.
+	// We use a continue-on-error pattern here to reconcile as many resources as possible,
+	// even if some fail, to maximize progress in each reconciliation loop.
+	resourceSteps := []utils.ReconcileSteps{
+		{Name: "console UI resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return console.ReconcileConsoleUIResources(r, ctx, cr)
+		}},
+		{Name: "postgres resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return postgres.ReconcilePostgresResources(r, ctx, cr)
+		}},
+	}
+
+	// Conditionally add either LCore or AppServer resource reconciliation
+	if r.Options.UseLCore {
+		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
+			Name: "LCore resources",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return lcore.ReconcileLCoreResources(r, ctx, cr)
+			},
+		})
+	} else {
+		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
+			Name: "application server resources",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return appserver.ReconcileAppServerResources(r, ctx, cr)
+			},
+		})
+	}
+
+	// Reconcile all independent resources (continue on error to reconcile as many as possible)
+	resourceFailures := make(map[string]error)
+	for _, step := range resourceSteps {
+		if err := step.Fn(ctx, olsconfig); err != nil {
+			r.Logger.Error(err, "Resource reconciliation failed", "resource", step.Name)
+			resourceFailures[step.Name] = err
+		}
+	}
+
+	if len(resourceFailures) > 0 {
+		taskNames := make([]string, 0, len(resourceFailures))
+		for taskName := range resourceFailures {
+			taskNames = append(taskNames, taskName)
+		}
+		return ctrl.Result{}, fmt.Errorf("failed to reconcile resources: %v", taskNames)
+	}
+
+	// Phase 2: Reconcile deployments and their dependent resources
+	// This phase creates Deployments, Services, TLS certificates, ServiceMonitors, etc.
+	// These resources depend on Phase 1 resources being available (e.g., Services must exist
+	// before TLS certificates can be created by service-ca-operator, ConfigMaps must exist
+	// before Deployments can mount them). We use a fail-fast pattern here because deployment
+	// failures should stop the reconciliation and update status conditions appropriately.
+	deploymentSteps := []utils.ReconcileSteps{
+		{Name: "console UI deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return console.ReconcileConsoleUIDeploymentAndPlugin(r, ctx, cr)
 		}, ConditionType: utils.TypeConsolePluginReady, Deployment: utils.ConsoleUIDeploymentName},
-		{Name: "postgres server", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-			return postgres.ReconcilePostgres(r, ctx, cr)
+		{Name: "postgres deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return postgres.ReconcilePostgresDeployment(r, ctx, cr)
 		}, ConditionType: utils.TypeCacheReady, Deployment: utils.PostgresDeploymentName},
 	}
 
-	// Conditionally add either LCore or AppServer reconciliation
+	// Conditionally add either LCore or AppServer deployment reconciliation
 	if r.Options.UseLCore {
-		reconcileSteps = append(reconcileSteps, utils.ReconcileSteps{
-			Name: "LCore server",
+		deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
+			Name: "LCore deployment",
 			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-				return lcore.ReconcileLCore(r, ctx, cr)
+				return lcore.ReconcileLCoreDeployment(r, ctx, cr)
 			},
 			ConditionType: utils.TypeApiReady,
 			Deployment:    "lightspeed-stack-deployment",
 		})
 	} else {
-		reconcileSteps = append(reconcileSteps, utils.ReconcileSteps{
-			Name: "application server",
+		deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
+			Name: "application server deployment",
 			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-				return appserver.ReconcileAppServer(r, ctx, cr)
+				return appserver.ReconcileAppServerDeployment(r, ctx, cr)
 			},
 			ConditionType: utils.TypeApiReady,
 			Deployment:    utils.OLSAppServerDeploymentName,
 		})
 	}
 
-	// Execute deployments reconcile
-	var overallError error
-	overallError = nil
+	// Execute deployment reconciliation (fail-fast on errors)
+	failedTasks := make(map[string]error)
 	progressing := false
-	for _, step := range reconcileSteps {
+
+	for _, step := range deploymentSteps {
 		err := step.Fn(ctx, olsconfig)
 		if err != nil {
 			r.Logger.Error(err, fmt.Sprintf("Failed to reconcile %s", step.Name))
 			r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, "Failed", err)
-			overallError = err
+			failedTasks[step.Name] = err
 		} else {
 			// Get corresponding deployment
 			deployment := &appsv1.Deployment{}
 			err := r.Get(ctx, client.ObjectKey{Name: step.Deployment, Namespace: r.Options.Namespace}, deployment)
 			if err != nil {
 				r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, "Failed", err)
-				overallError = err
+				failedTasks[step.Name] = err
 			} else {
 				message, err := r.checkDeploymentStatus(deployment)
 				if err != nil {
@@ -307,7 +358,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					} else {
 						// Deployment failed
 						r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, "Failed", err)
-						overallError = err
+						failedTasks[step.Name] = err
 					}
 				} else {
 					// Update status condition for successful reconciliation
@@ -317,9 +368,13 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 
-	if overallError != nil {
+	if len(failedTasks) > 0 {
 		// One of the deployment reconciliations failed
-		return ctrl.Result{}, overallError
+		taskNames := make([]string, 0, len(failedTasks))
+		for taskName := range failedTasks {
+			taskNames = append(taskNames, taskName)
+		}
+		return ctrl.Result{}, fmt.Errorf("failed deployment reconciliation tasks: %v", taskNames)
 	}
 	if progressing {
 		return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
@@ -435,10 +490,9 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.StateCache = make(map[string]string)
 	r.NextReconcileTime = time.Now()
 
-	generationChanged := builder.WithPredicates(predicate.GenerationChangedPredicate{})
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olsv1alpha1.OLSConfig{}).
-		Owns(&appsv1.Deployment{}, generationChanged).
+		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.ClusterRole{}).
 		Owns(&rbacv1.ClusterRoleBinding{}).

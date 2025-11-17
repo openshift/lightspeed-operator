@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"context"
 	"os"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -10,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
@@ -791,6 +794,199 @@ cNHlzbRSivTDuHmXJdCYIdd8cnH6EbPm3zNg0jU5Au6OrvDZYifP+DtuiLmJct4=
 			err := ValidateCertificateFormat(certWithWhitespace)
 
 			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Describe("ValidateExternalSecrets", func() {
+		var testClient client.Client
+		var testReconciler *TestReconciler
+		var ctx context.Context
+		var testSecret *corev1.Secret
+
+		BeforeEach(func() {
+			testClient = k8sClient
+			ctx = context.Background()
+			logger := logr.Discard()
+			testReconciler = NewTestReconciler(testClient, logger, nil, OLSNamespaceDefault)
+
+			// Create a test secret for LLM provider credentials
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"apitoken": []byte("test-token-123"),
+				},
+			}
+			Expect(testClient.Create(ctx, testSecret)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			_ = testClient.Delete(ctx, testSecret)
+		})
+
+		It("should validate LLM provider credentials successfully", func() {
+			cr := GetDefaultOLSConfigCR()
+			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-llm-secret"
+
+			err := ValidateExternalSecrets(testReconciler, ctx, cr)
+
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify the secret was annotated
+			foundSecret := &corev1.Secret{}
+			err = testClient.Get(ctx, client.ObjectKey{Name: "test-llm-secret", Namespace: OLSNamespaceDefault}, foundSecret)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(foundSecret.Annotations).To(HaveKey(WatcherAnnotationKey))
+			Expect(foundSecret.Annotations[WatcherAnnotationKey]).To(Equal(OLSConfigName))
+		})
+
+		It("should return error for missing LLM provider credential secret", func() {
+			cr := GetDefaultOLSConfigCR()
+			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "non-existent-secret"
+
+			err := ValidateExternalSecrets(testReconciler, ctx, cr)
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("LLM provider credential secret not found"))
+			Expect(err.Error()).To(ContainSubstring("non-existent-secret"))
+		})
+
+		It("should validate MCP server header secrets successfully", func() {
+			// Create MCP header secret
+			mcpSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mcp-header-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"Authorization": []byte("Bearer token123"),
+				},
+			}
+			Expect(testClient.Create(ctx, mcpSecret)).To(Succeed())
+			defer testClient.Delete(ctx, mcpSecret)
+
+			cr := GetDefaultOLSConfigCR()
+			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-llm-secret"
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+				{
+					Name: "test-mcp-server",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL: "https://example.com",
+						Headers: map[string]string{
+							"Authorization": "mcp-header-secret",
+						},
+					},
+				},
+			}
+
+			err := ValidateExternalSecrets(testReconciler, ctx, cr)
+
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify both secrets were annotated
+			foundSecret := &corev1.Secret{}
+			err = testClient.Get(ctx, client.ObjectKey{Name: "test-llm-secret", Namespace: OLSNamespaceDefault}, foundSecret)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(foundSecret.Annotations).To(HaveKey(WatcherAnnotationKey))
+
+			err = testClient.Get(ctx, client.ObjectKey{Name: "mcp-header-secret", Namespace: OLSNamespaceDefault}, foundSecret)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(foundSecret.Annotations).To(HaveKey(WatcherAnnotationKey))
+		})
+
+		It("should skip kubernetes token in MCP server headers", func() {
+			cr := GetDefaultOLSConfigCR()
+			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-llm-secret"
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+				{
+					Name: "test-mcp-server",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL: "https://example.com",
+						Headers: map[string]string{
+							"Authorization": "kubernetes", // Special case - should be skipped
+						},
+					},
+				},
+			}
+
+			err := ValidateExternalSecrets(testReconciler, ctx, cr)
+
+			// Should succeed even though "kubernetes" secret doesn't exist
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return error for missing MCP server header secret", func() {
+			cr := GetDefaultOLSConfigCR()
+			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-llm-secret"
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+				{
+					Name: "test-mcp-server",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL: "https://example.com",
+						Headers: map[string]string{
+							"Authorization": "non-existent-mcp-secret",
+						},
+					},
+				},
+			}
+
+			err := ValidateExternalSecrets(testReconciler, ctx, cr)
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("MCP server header secret not found"))
+			Expect(err.Error()).To(ContainSubstring("test-mcp-server"))
+			Expect(err.Error()).To(ContainSubstring("Authorization"))
+		})
+
+		It("should handle CR with no MCP servers", func() {
+			cr := GetDefaultOLSConfigCR()
+			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-llm-secret"
+			cr.Spec.MCPServers = nil
+
+			err := ValidateExternalSecrets(testReconciler, ctx, cr)
+
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should validate multiple LLM providers", func() {
+			// Create second provider secret
+			secondSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "second-provider-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"apitoken": []byte("token789"),
+				},
+			}
+			Expect(testClient.Create(ctx, secondSecret)).To(Succeed())
+			defer testClient.Delete(ctx, secondSecret)
+
+			cr := GetDefaultOLSConfigCR()
+			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-llm-secret"
+			cr.Spec.LLMConfig.Providers = append(cr.Spec.LLMConfig.Providers, olsv1alpha1.ProviderSpec{
+				Name: "second-provider",
+				CredentialsSecretRef: corev1.LocalObjectReference{
+					Name: "second-provider-secret",
+				},
+				Type: "openai",
+			})
+
+			err := ValidateExternalSecrets(testReconciler, ctx, cr)
+
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify both secrets were annotated
+			foundSecret := &corev1.Secret{}
+			err = testClient.Get(ctx, client.ObjectKey{Name: "test-llm-secret", Namespace: OLSNamespaceDefault}, foundSecret)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(foundSecret.Annotations).To(HaveKey(WatcherAnnotationKey))
+
+			err = testClient.Get(ctx, client.ObjectKey{Name: "second-provider-secret", Namespace: OLSNamespaceDefault}, foundSecret)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(foundSecret.Annotations).To(HaveKey(WatcherAnnotationKey))
 		})
 	})
 })

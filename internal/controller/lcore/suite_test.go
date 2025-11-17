@@ -184,6 +184,21 @@ var _ = BeforeSuite(func() {
 	})
 	err = k8sClient.Create(ctx, secret)
 	Expect(err).NotTo(HaveOccurred())
+
+	By("Create the TLS secret for LCore")
+	tlsSecret, _ := utils.GenerateRandomTLSSecret()
+	tlsSecret.Name = utils.OLSCertsSecretName
+	tlsSecret.Namespace = utils.OLSNamespaceDefault
+	tlsSecret.SetOwnerReferences([]metav1.OwnerReference{
+		{
+			Kind:       "Secret",
+			APIVersion: "v1",
+			UID:        "ownerUID",
+			Name:       utils.OLSCertsSecretName,
+		},
+	})
+	err = k8sClient.Create(ctx, tlsSecret)
+	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

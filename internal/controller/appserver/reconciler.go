@@ -36,8 +36,10 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-func ReconcileAppServer(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
-	r.GetLogger().Info("reconcileAppServer starts")
+// ReconcileAppServerResources reconciles all resources except the deployment (Phase 1)
+// Uses continue-on-error pattern since these resources are independent
+func ReconcileAppServerResources(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileAppServerResources starts")
 	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile ServiceAccount",
@@ -56,36 +58,12 @@ func ReconcileAppServer(r reconciler.Reconciler, ctx context.Context, olsconfig 
 			Task: reconcileOLSConfigMap,
 		},
 		{
-			Name: "reconcile Exporter ConfigMap",
-			Task: reconcileExporterConfigMap,
-		},
-		{
 			Name: "reconcile Additional CA ConfigMap",
 			Task: reconcileOLSAdditionalCAConfigMap,
 		},
 		{
-			Name: "reconcile App Service",
-			Task: reconcileService,
-		},
-		{
-			Name: "reconcile App TLS Certs",
-			Task: ReconcileTLSSecret,
-		},
-		{
-			Name: "reconcile App Deployment",
-			Task: reconcileDeployment,
-		},
-		{
 			Name: "reconcile Metrics Reader Secret",
 			Task: reconcileMetricsReaderSecret,
-		},
-		{
-			Name: "reconcile App ServiceMonitor",
-			Task: reconcileServiceMonitor,
-		},
-		{
-			Name: "reconcile App PrometheusRule",
-			Task: reconcilePrometheusRule,
 		},
 		{
 			Name: "reconcile App NetworkPolicy",
@@ -97,16 +75,69 @@ func ReconcileAppServer(r reconciler.Reconciler, ctx context.Context, olsconfig 
 		},
 	}
 
+	failedTasks := make(map[string]error)
+
 	for _, task := range tasks {
 		err := task.Task(r, ctx, olsconfig)
 		if err != nil {
-			r.GetLogger().Error(err, "reconcileAppServer error", "task", task.Name)
+			r.GetLogger().Error(err, "reconcileAppServerResources error", "task", task.Name)
+			failedTasks[task.Name] = err
+		}
+	}
+
+	if len(failedTasks) > 0 {
+		taskNames := make([]string, 0, len(failedTasks))
+		for taskName, err := range failedTasks {
+			taskNames = append(taskNames, taskName)
+			r.GetLogger().Error(err, "Task failed in reconcileAppServerResources", "task", taskName)
+		}
+		return fmt.Errorf("failed tasks: %v", taskNames)
+	}
+
+	r.GetLogger().Info("reconcileAppServerResources completes")
+	return nil
+}
+
+// ReconcileAppServerDeployment reconciles the deployment and related resources (Phase 2)
+func ReconcileAppServerDeployment(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileAppServerDeployment starts")
+
+	tasks := []utils.ReconcileTask{
+		{
+			Name: "reconcile Exporter ConfigMap",
+			Task: reconcileExporterConfigMap,
+		},
+		{
+			Name: "reconcile App Deployment",
+			Task: reconcileDeployment,
+		},
+		{
+			Name: "reconcile App Service",
+			Task: reconcileService,
+		},
+		{
+			Name: "reconcile App TLS Certs",
+			Task: ReconcileTLSSecret,
+		},
+		{
+			Name: "reconcile App ServiceMonitor",
+			Task: reconcileServiceMonitor,
+		},
+		{
+			Name: "reconcile App PrometheusRule",
+			Task: reconcilePrometheusRule,
+		},
+	}
+
+	for _, task := range tasks {
+		err := task.Task(r, ctx, olsconfig)
+		if err != nil {
+			r.GetLogger().Error(err, "reconcileAppServerDeployment error", "task", task.Name)
 			return fmt.Errorf("failed to %s: %w", task.Name, err)
 		}
 	}
 
-	r.GetLogger().Info("reconcileAppServer completes")
-
+	r.GetLogger().Info("reconcileAppServerDeployment completes")
 	return nil
 }
 
@@ -413,36 +444,6 @@ func reconcileService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alp
 	return nil
 }
 
-func ReconcileLLMSecrets(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	providerCredentials := ""
-	for _, provider := range cr.Spec.LLMConfig.Providers {
-		foundSecret := &corev1.Secret{}
-		secretValues, err := utils.GetAllSecretContent(r, provider.CredentialsSecretRef.Name, r.GetNamespace(), foundSecret)
-		if err != nil {
-			return fmt.Errorf("secret token not found for provider: %s. error: %w", provider.Name, err)
-		}
-		for key, value := range secretValues {
-			providerCredentials += key + "=" + value + "\n"
-		}
-		utils.AnnotateSecretWatcher(foundSecret)
-		err = r.Update(ctx, foundSecret)
-		if err != nil {
-			return fmt.Errorf("%s: %s error: %w", utils.ErrUpdateProviderSecret, foundSecret.Name, err)
-		}
-	}
-	foundProviderCredentialsHash, err := utils.HashBytes([]byte(providerCredentials))
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateProviderCredentialsHash, err)
-	}
-	if foundProviderCredentialsHash == r.GetStateCache()[utils.LLMProviderHashStateCacheKey] {
-		r.GetLogger().Info("OLS llm secrets reconciliation skipped", "hash", foundProviderCredentialsHash)
-		return nil
-	}
-	r.GetStateCache()[utils.LLMProviderHashStateCacheKey] = foundProviderCredentialsHash
-	r.GetLogger().Info("OLS llm secrets reconciled", "hash", foundProviderCredentialsHash)
-	return nil
-}
-
 func reconcileMetricsReaderSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	secret, err := GenerateMetricsReaderSecret(r, cr)
 	if err != nil {
@@ -611,5 +612,31 @@ func reconcileAppServerNetworkPolicy(r reconciler.Reconciler, ctx context.Contex
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAppServerNetworkPolicy, err)
 	}
 	r.GetLogger().Info("OLS app server network policy reconciled", "networkPolicy", networkPolicy.Name)
+	return nil
+}
+
+// =============================================================================
+// Test Helper Functions
+// =============================================================================
+// The following functions are convenience wrappers used primarily by unit tests.
+// Production code should call ReconcileAppServerResources and ReconcileAppServerDeployment directly.
+
+// ReconcileAppServer reconciles all app server resources in the original order.
+// This function is maintained for backward compatibility with existing tests.
+// New code should call ReconcileAppServerResources and ReconcileAppServerDeployment separately.
+func ReconcileAppServer(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileAppServer starts")
+
+	// Call Resources phase
+	if err := ReconcileAppServerResources(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	// Call Deployment phase
+	if err := ReconcileAppServerDeployment(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	r.GetLogger().Info("reconcileAppServer completes")
 	return nil
 }

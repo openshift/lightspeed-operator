@@ -17,6 +17,7 @@ package lcore
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
@@ -27,14 +28,16 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
-// ReconcileLCore orchestrates the reconciliation of all LCore resources
-func ReconcileLCore(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
-	r.GetLogger().Info("reconcileLCore starts")
+// ReconcileLCoreResources reconciles all resources except the deployment (Phase 1)
+// Uses continue-on-error pattern since these resources are independent
+func ReconcileLCoreResources(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileLCoreResources starts")
 	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile LCore ServiceAccount",
@@ -65,16 +68,54 @@ func ReconcileLCore(r reconciler.Reconciler, ctx context.Context, olsconfig *ols
 			Task: reconcileProxyCAConfigMap,
 		},
 		{
-			Name: "reconcile LCore Service",
-			Task: reconcileService,
+			Name: "reconcile Metrics Reader Secret",
+			Task: reconcileMetricsReaderSecret,
 		},
+		{
+			Name: "reconcile LCore NetworkPolicy",
+			Task: reconcileNetworkPolicy,
+		},
+	}
+
+	failedTasks := make(map[string]error)
+
+	for _, task := range tasks {
+		err := task.Task(r, ctx, olsconfig)
+		if err != nil {
+			r.GetLogger().Error(err, "reconcileLCoreResources error", "task", task.Name)
+			failedTasks[task.Name] = err
+		}
+	}
+
+	if len(failedTasks) > 0 {
+		taskNames := make([]string, 0, len(failedTasks))
+		for taskName, err := range failedTasks {
+			taskNames = append(taskNames, taskName)
+			r.GetLogger().Error(err, "Task failed in reconcileLCoreResources", "task", taskName)
+		}
+		return fmt.Errorf("failed tasks: %v", taskNames)
+	}
+
+	r.GetLogger().Info("reconcileLCoreResources completes")
+	return nil
+}
+
+// ReconcileLCoreDeployment reconciles the deployment and related resources (Phase 2)
+func ReconcileLCoreDeployment(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileLCoreDeployment starts")
+
+	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile LCore Deployment",
 			Task: reconcileDeployment,
 		},
 		{
-			Name: "reconcile Metrics Reader Secret",
-			Task: reconcileMetricsReaderSecret,
+			Name: "reconcile LCore Service",
+			Task: reconcileService,
+		},
+		{
+			Name: "reconcile LCore TLS Certs",
+			Task: reconcileTLSSecret,
 		},
 		{
 			Name: "reconcile LCore ServiceMonitor",
@@ -84,22 +125,17 @@ func ReconcileLCore(r reconciler.Reconciler, ctx context.Context, olsconfig *ols
 			Name: "reconcile LCore PrometheusRule",
 			Task: reconcilePrometheusRule,
 		},
-		{
-			Name: "reconcile LCore NetworkPolicy",
-			Task: reconcileNetworkPolicy,
-		},
 	}
 
 	for _, task := range tasks {
 		err := task.Task(r, ctx, olsconfig)
 		if err != nil {
-			r.GetLogger().Error(err, "reconcileLCore error", "task", task.Name)
+			r.GetLogger().Error(err, "reconcileLCoreDeployment error", "task", task.Name)
 			return fmt.Errorf("failed to %s: %w", task.Name, err)
 		}
 	}
 
-	r.GetLogger().Info("reconcileLCore completes")
-
+	r.GetLogger().Info("reconcileLCoreDeployment completes")
 	return nil
 }
 
@@ -512,6 +548,45 @@ func reconcilePrometheusRule(r reconciler.Reconciler, ctx context.Context, cr *o
 	return nil
 }
 
+func reconcileTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	var lastErr error
+	foundSecret := &corev1.Secret{}
+	var secretValues map[string]string
+	secretName := utils.OLSCertsSecretName
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		secretName = cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
+	}
+	err := wait.PollUntilContextTimeout(ctx, 1*time.Second, utils.ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
+		var getErr error
+		secretValues, getErr = utils.GetSecretContent(r, secretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
+		if getErr != nil {
+			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", secretName, getErr)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("%s -%s - wait err %w; last error: %w", utils.ErrGetTLSSecret, utils.OLSCertsSecretName, err, lastErr)
+	}
+
+	utils.AnnotateSecretWatcher(foundSecret)
+	err = r.Update(ctx, foundSecret)
+	if err != nil {
+		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
+	}
+	foundTLSSecretHash, err := utils.HashBytes([]byte(secretValues["tls.key"] + secretValues["tls.crt"]))
+	if err != nil {
+		return fmt.Errorf("failed to generate LCore TLS certs hash %w", err)
+	}
+	if foundTLSSecretHash == r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey] {
+		r.GetLogger().Info("LCore TLS secret reconciliation skipped", "secret", secretName, "hash", foundTLSSecretHash)
+	} else {
+		r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey] = foundTLSSecretHash
+		r.GetLogger().Info("LCore TLS secret reconciled", "secret", secretName, "hash", foundTLSSecretHash)
+	}
+	return nil
+}
+
 func reconcileNetworkPolicy(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	np, err := GenerateAppServerNetworkPolicy(r, cr)
 	if err != nil {
@@ -539,5 +614,31 @@ func reconcileNetworkPolicy(r reconciler.Reconciler, ctx context.Context, cr *ol
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAppServerNetworkPolicy, err)
 	}
 	r.GetLogger().Info("NetworkPolicy reconciled", "NetworkPolicy", np.Name)
+	return nil
+}
+
+// =============================================================================
+// Test Helper Functions
+// =============================================================================
+// The following functions are convenience wrappers used primarily by unit tests.
+// Production code should call ReconcileLCoreResources and ReconcileLCoreDeployment directly.
+
+// ReconcileLCore reconciles all LCore resources in the original order.
+// This function is maintained for backward compatibility with existing tests.
+// New code should call ReconcileLCoreResources and ReconcileLCoreDeployment separately.
+func ReconcileLCore(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileLCore starts")
+
+	// Call Resources phase
+	if err := ReconcileLCoreResources(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	// Call Deployment phase
+	if err := ReconcileLCoreDeployment(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	r.GetLogger().Info("reconcileLCore completes")
 	return nil
 }

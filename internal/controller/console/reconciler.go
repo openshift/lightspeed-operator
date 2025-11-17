@@ -39,12 +39,52 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
-func ReconcileConsoleUI(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
-	r.GetLogger().Info("reconcileConsoleUI starts")
+// ReconcileConsoleUIResources reconciles all resources except the deployment (Phase 1)
+// Uses continue-on-error pattern since these resources are independent
+func ReconcileConsoleUIResources(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileConsoleUIResources starts")
 	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile Console Plugin ConfigMap",
 			Task: reconcileConsoleUIConfigMap,
+		},
+		{
+			Name: "reconcile Console Plugin NetworkPolicy",
+			Task: reconcileConsoleNetworkPolicy,
+		},
+	}
+
+	failedTasks := make(map[string]error)
+
+	for _, task := range tasks {
+		err := task.Task(r, ctx, olsconfig)
+		if err != nil {
+			r.GetLogger().Error(err, "reconcileConsoleUIResources error", "task", task.Name)
+			failedTasks[task.Name] = err
+		}
+	}
+
+	if len(failedTasks) > 0 {
+		taskNames := make([]string, 0, len(failedTasks))
+		for taskName, err := range failedTasks {
+			taskNames = append(taskNames, taskName)
+			r.GetLogger().Error(err, "Task failed in reconcileConsoleUIResources", "task", taskName)
+		}
+		return fmt.Errorf("failed tasks: %v", taskNames)
+	}
+
+	r.GetLogger().Info("reconcileConsoleUIResources completes")
+	return nil
+}
+
+// ReconcileConsoleUIDeploymentAndPlugin reconciles the deployment and related resources (Phase 2)
+func ReconcileConsoleUIDeploymentAndPlugin(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileConsoleUIDeploymentAndPlugin starts")
+
+	tasks := []utils.ReconcileTask{
+		{
+			Name: "reconcile Console Plugin Deployment",
+			Task: ReconcileConsoleUIDeployment,
 		},
 		{
 			Name: "reconcile Console Plugin Service",
@@ -55,10 +95,6 @@ func ReconcileConsoleUI(r reconciler.Reconciler, ctx context.Context, olsconfig 
 			Task: reconcileConsoleTLSSecret,
 		},
 		{
-			Name: "reconcile Console Plugin Deployment",
-			Task: ReconcileConsoleUIDeployment,
-		},
-		{
 			Name: "reconcile Console Plugin",
 			Task: reconcileConsoleUIPlugin,
 		},
@@ -66,22 +102,17 @@ func ReconcileConsoleUI(r reconciler.Reconciler, ctx context.Context, olsconfig 
 			Name: "activate Console Plugin",
 			Task: activateConsoleUI,
 		},
-		{
-			Name: "reconcile Console Plugin NetworkPolicy",
-			Task: reconcileConsoleNetworkPolicy,
-		},
 	}
 
 	for _, task := range tasks {
 		err := task.Task(r, ctx, olsconfig)
 		if err != nil {
-			r.GetLogger().Error(err, "reconcileConsoleUI error", "task", task.Name)
+			r.GetLogger().Error(err, "reconcileConsoleUIDeploymentAndPlugin error", "task", task.Name)
 			return fmt.Errorf("failed to %s: %w", task.Name, err)
 		}
 	}
 
-	r.GetLogger().Info("reconcileConsoleUI completed")
-
+	r.GetLogger().Info("reconcileConsoleUIDeploymentAndPlugin completes")
 	return nil
 }
 
@@ -394,4 +425,30 @@ func reconcileConsoleNetworkPolicy(r reconciler.Reconciler, ctx context.Context,
 	r.GetLogger().Info("Console NetworkPolicy reconciled", "networkpolicy", utils.ConsoleUINetworkPolicyName)
 	return nil
 
+}
+
+// =============================================================================
+// Test Helper Functions
+// =============================================================================
+// The following functions are convenience wrappers used primarily by unit tests.
+// Production code should call ReconcileConsoleUIResources and ReconcileConsoleUIDeploymentAndPlugin directly.
+
+// ReconcileConsoleUI reconciles all Console UI resources in the original order.
+// This function is maintained for backward compatibility with existing tests.
+// New code should call ReconcileConsoleUIResources and ReconcileConsoleUIDeploymentAndPlugin separately.
+func ReconcileConsoleUI(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileConsoleUI starts")
+
+	// Call Resources phase
+	if err := ReconcileConsoleUIResources(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	// Call Deployment phase
+	if err := ReconcileConsoleUIDeploymentAndPlugin(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	r.GetLogger().Info("reconcileConsoleUI completed")
+	return nil
 }

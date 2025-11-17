@@ -34,6 +34,9 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 )
 
 // updateDeploymentAnnotations updates the annotations in a given deployment.
@@ -529,4 +532,49 @@ func IsPrometheusOperatorAvailable(ctx context.Context, c client.Client) bool {
 	}
 
 	return true
+}
+
+// ValidateExternalSecrets validates that all external secrets referenced in the CR exist and are accessible.
+// This includes LLM provider credentials and MCP server headers.
+// It also annotates the secrets for watching.
+func ValidateExternalSecrets(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	// Validate LLM provider credentials
+	for _, provider := range cr.Spec.LLMConfig.Providers {
+		foundSecret := &corev1.Secret{}
+		_, err := GetAllSecretContent(r, provider.CredentialsSecretRef.Name, r.GetNamespace(), foundSecret)
+		if err != nil {
+			return fmt.Errorf("LLM provider credential secret not found for provider %s: %w", provider.Name, err)
+		}
+		AnnotateSecretWatcher(foundSecret)
+		err = r.Update(ctx, foundSecret)
+		if err != nil {
+			return fmt.Errorf("failed to update LLM provider secret %s: %w", foundSecret.Name, err)
+		}
+	}
+
+	// Validate MCP server headers (if any)
+	if cr.Spec.MCPServers != nil {
+		for _, mcpServer := range cr.Spec.MCPServers {
+			if mcpServer.StreamableHTTP != nil && mcpServer.StreamableHTTP.Headers != nil {
+				for headerName, secretName := range mcpServer.StreamableHTTP.Headers {
+					// Skip the special "kubernetes" token case
+					if secretName == "kubernetes" {
+						continue
+					}
+					foundSecret := &corev1.Secret{}
+					_, err := GetAllSecretContent(r, secretName, r.GetNamespace(), foundSecret)
+					if err != nil {
+						return fmt.Errorf("MCP server header secret not found for server %s, header %s: %w", mcpServer.Name, headerName, err)
+					}
+					AnnotateSecretWatcher(foundSecret)
+					err = r.Update(ctx, foundSecret)
+					if err != nil {
+						return fmt.Errorf("failed to update MCP server header secret %s: %w", foundSecret.Name, err)
+					}
+				}
+			}
+		}
+	}
+
+	return nil
 }

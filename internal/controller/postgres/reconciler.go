@@ -32,9 +32,10 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-// ReconcilePostgres reconciles the Postgres server component
-func ReconcilePostgres(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
-	r.GetLogger().Info("reconcilePostgresServer starts")
+// ReconcilePostgresResources reconciles all resources except the deployment (Phase 1)
+// Uses continue-on-error pattern since these resources are independent
+func ReconcilePostgresResources(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcilePostgresResources starts")
 	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile Postgres ConfigMap",
@@ -49,9 +50,39 @@ func ReconcilePostgres(r reconciler.Reconciler, ctx context.Context, olsconfig *
 			Task: reconcilePostgresSecret,
 		},
 		{
-			Name: "reconcile Postgres Service",
-			Task: reconcilePostgresService,
+			Name: "generate Postgres Network Policy",
+			Task: reconcilePostgresNetworkPolicy,
 		},
+	}
+
+	failedTasks := make(map[string]error)
+
+	for _, task := range tasks {
+		err := task.Task(r, ctx, olsconfig)
+		if err != nil {
+			r.GetLogger().Error(err, "reconcilePostgresResources error", "task", task.Name)
+			failedTasks[task.Name] = err
+		}
+	}
+
+	if len(failedTasks) > 0 {
+		taskNames := make([]string, 0, len(failedTasks))
+		for taskName, err := range failedTasks {
+			taskNames = append(taskNames, taskName)
+			r.GetLogger().Error(err, "Task failed in reconcilePostgresResources", "task", taskName)
+		}
+		return fmt.Errorf("failed tasks: %v", taskNames)
+	}
+
+	r.GetLogger().Info("reconcilePostgresResources completes")
+	return nil
+}
+
+// ReconcilePostgresDeployment reconciles the deployment and related resources (Phase 2)
+func ReconcilePostgresDeployment(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcilePostgresDeployment starts")
+
+	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile Postgres PVC",
 			Task: reconcilePostgresPVC,
@@ -61,21 +92,20 @@ func ReconcilePostgres(r reconciler.Reconciler, ctx context.Context, olsconfig *
 			Task: reconcilePostgresDeployment,
 		},
 		{
-			Name: "generate Postgres Network Policy",
-			Task: reconcilePostgresNetworkPolicy,
+			Name: "reconcile Postgres Service",
+			Task: reconcilePostgresService,
 		},
 	}
 
 	for _, task := range tasks {
 		err := task.Task(r, ctx, olsconfig)
 		if err != nil {
-			r.GetLogger().Error(err, "reconcilePostgresServer error", "task", task.Name)
+			r.GetLogger().Error(err, "reconcilePostgresDeployment error", "task", task.Name)
 			return fmt.Errorf("failed to %s: %w", task.Name, err)
 		}
 	}
 
-	r.GetLogger().Info("reconcilePostgresServer completed")
-
+	r.GetLogger().Info("reconcilePostgresDeployment completes")
 	return nil
 }
 
@@ -289,5 +319,31 @@ func reconcilePostgresNetworkPolicy(r reconciler.Reconciler, ctx context.Context
 		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresNetworkPolicy, err)
 	}
 	r.GetLogger().Info("OLS postgres network policy reconciled", "network policy", networkPolicy.Name)
+	return nil
+}
+
+// =============================================================================
+// Test Helper Functions
+// =============================================================================
+// The following functions are convenience wrappers used primarily by unit tests.
+// Production code should call ReconcilePostgresResources and ReconcilePostgresDeployment directly.
+
+// ReconcilePostgres reconciles all Postgres resources in the original order.
+// This function is maintained for backward compatibility with existing tests.
+// New code should call ReconcilePostgresResources and ReconcilePostgresDeployment separately.
+func ReconcilePostgres(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcilePostgresServer starts")
+
+	// Call Resources phase
+	if err := ReconcilePostgresResources(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	// Call Deployment phase
+	if err := ReconcilePostgresDeployment(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	r.GetLogger().Info("reconcilePostgresServer completed")
 	return nil
 }
