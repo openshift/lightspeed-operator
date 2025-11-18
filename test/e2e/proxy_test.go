@@ -400,7 +400,8 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 	})
 
 	AfterAll(func() {
-
+		err = mustGather("proxy_test")
+		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR")
 		if cr != nil {
 			client.Delete(cr)

@@ -141,7 +141,8 @@ var _ = Describe("Database Persistency", Ordered, Label("Database-Persistency"),
 	})
 
 	AfterAll(func() {
-
+		err = mustGather("database_test")
+		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR")
 		if cr != nil {
 			client.Delete(cr)
