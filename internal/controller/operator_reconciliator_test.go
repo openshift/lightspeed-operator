@@ -35,7 +35,7 @@ var _ = Describe("App server assets", func() {
 			r = &OLSConfigReconciler{
 				Options: *rOptions,
 				Logger:  logf.Log.WithName("olsconfig.reconciler"),
-				Client:  k8sClient, StateCache: make(map[string]string),
+				Client:  k8sClient,
 			}
 
 			operatorDeployment = &appsv1.Deployment{
@@ -167,7 +167,7 @@ var _ = Describe("App server assets", func() {
 			r = &OLSConfigReconciler{
 				Options: *rOptions,
 				Logger:  logf.Log.WithName("olsconfig.reconciler"),
-				Client:  k8sClient, StateCache: make(map[string]string),
+				Client:  k8sClient,
 			}
 		})
 
@@ -237,10 +237,9 @@ var _ = Describe("Main Reconcile Loop", func() {
 
 		// Setup reconciler
 		reconciler = &OLSConfigReconciler{
-			Client:     k8sClient,
-			Options:    getDefaultReconcilerOptions(testNamespace),
-			Logger:     logf.Log.WithName("test.reconciler"),
-			StateCache: make(map[string]string),
+			Client:  k8sClient,
+			Options: getDefaultReconcilerOptions(testNamespace),
+			Logger:  logf.Log.WithName("test.reconciler"),
 		}
 
 		// Create the operator deployment (required for ReconcileServiceMonitorForOperator)

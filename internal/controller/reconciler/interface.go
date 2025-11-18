@@ -36,9 +36,6 @@ type Reconciler interface {
 	// GetLogger returns the logger instance
 	GetLogger() logr.Logger
 
-	// GetStateCache returns the state cache for hash-based change detection
-	GetStateCache() map[string]string
-
 	// GetNamespace returns the operator's namespace
 	GetNamespace() string
 

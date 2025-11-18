@@ -150,9 +150,6 @@ var _ = Describe("App server assets", func() {
 
 			Expect(olsconfigGenerated).To(Equal(olsConfigExpected))
 
-			cmHash, err := utils.HashBytes([]byte(cm.Data[utils.OLSConfigFilename]))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.ObjectMeta.Annotations[utils.OLSConfigHashKey]).To(Equal(cmHash))
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
 
@@ -1780,6 +1777,7 @@ func get7RequiredVolumes() []corev1.Volume {
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{Name: utils.OLSCAConfigMap},
+					DefaultMode:          &defaultVolumeMode,
 				},
 			},
 		},

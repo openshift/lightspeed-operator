@@ -191,12 +191,6 @@ func ReconcileConsoleUIDeployment(r reconciler.Reconciler, ctx context.Context, 
 	foundDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, client.ObjectKey{Name: utils.ConsoleUIDeploymentName, Namespace: r.GetNamespace()}, foundDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		utils.UpdateDeploymentAnnotations(deployment, map[string]string{
-			utils.OLSConsoleTLSHashKey: r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey],
-		})
-		utils.UpdateDeploymentTemplateAnnotations(deployment, map[string]string{
-			utils.OLSConsoleTLSHashKey: r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey],
-		})
 		r.GetLogger().Info("creating Console UI deployment", "deployment", deployment.Name)
 		err = r.Create(ctx, deployment)
 		if err != nil {
@@ -210,21 +204,18 @@ func ReconcileConsoleUIDeployment(r reconciler.Reconciler, ctx context.Context, 
 
 	// fill in the default values for the deployment for comparison
 	utils.SetDefaults_Deployment(deployment)
-	if utils.DeploymentSpecEqual(&foundDeployment.Spec, &deployment.Spec) &&
-		foundDeployment.Annotations[utils.OLSConsoleTLSHashKey] == r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey] &&
-		foundDeployment.Spec.Template.Annotations[utils.OLSConsoleTLSHashKey] == r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey] {
-		r.GetLogger().Info("Console UI deployment unchanged, reconciliation skipped", "deployment", deployment.Name)
+
+	// Check if deployment spec has changed
+	// Note: TLS secret changes are handled by watchers, not here
+	if utils.DeploymentSpecEqual(&foundDeployment.Spec, &deployment.Spec) {
 		return nil
 	}
 
+	// Apply the desired spec to the existing deployment
 	foundDeployment.Spec = deployment.Spec
-	utils.UpdateDeploymentAnnotations(foundDeployment, map[string]string{
-		utils.OLSConsoleTLSHashKey: r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey],
-	})
-	utils.UpdateDeploymentTemplateAnnotations(foundDeployment, map[string]string{
-		utils.OLSConsoleTLSHashKey: r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey],
-	})
-	err = r.Update(ctx, foundDeployment)
+
+	r.GetLogger().Info("Updating Console UI deployment", "deployment", foundDeployment.Name)
+	err = RestartConsoleUI(r, ctx, foundDeployment)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateConsolePluginDeployment, err)
 	}
@@ -365,9 +356,8 @@ func deactivateConsoleUI(r reconciler.Reconciler, ctx context.Context) error {
 func reconcileConsoleTLSSecret(r reconciler.Reconciler, ctx context.Context, _ *olsv1alpha1.OLSConfig) error {
 	foundSecret := &corev1.Secret{}
 	var err, lastErr error
-	var secretValues map[string]string
 	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, utils.ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
-		secretValues, err = utils.GetSecretContent(r, utils.ConsoleUIServiceCertSecretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
+		_, err = utils.GetSecretContent(r, utils.ConsoleUIServiceCertSecretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
 		if err != nil {
 			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", utils.ConsoleUIServiceCertSecretName, err)
 			return false, nil
@@ -377,22 +367,12 @@ func reconcileConsoleTLSSecret(r reconciler.Reconciler, ctx context.Context, _ *
 	if err != nil {
 		return fmt.Errorf("failed to get TLS key and cert - wait err %w; last error: %w", err, lastErr)
 	}
-	// TODO: Annotate secret for watcher if needed
-	// utils.AnnotateSecretWatcher(foundSecret)
+	utils.AnnotateSecretWatcher(foundSecret)
 	err = r.Update(ctx, foundSecret)
 	if err != nil {
 		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
 	}
-	foundTLSSecretHash, err := utils.HashBytes([]byte(secretValues["tls.key"] + secretValues["tls.crt"]))
-	if err != nil {
-		return fmt.Errorf("failed to generate OLS console tls certs hash %w", err)
-	}
-	if foundTLSSecretHash == r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey] {
-		r.GetLogger().Info("OLS console tls secret reconciliation skipped", "hash", foundTLSSecretHash)
-		return nil
-	}
-	r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey] = foundTLSSecretHash
-	r.GetLogger().Info("OLS console tls secret reconciled", "hash", foundTLSSecretHash)
+	r.GetLogger().Info("OLS console tls secret reconciled")
 	return nil
 }
 
@@ -425,6 +405,44 @@ func reconcileConsoleNetworkPolicy(r reconciler.Reconciler, ctx context.Context,
 	r.GetLogger().Info("Console NetworkPolicy reconciled", "networkpolicy", utils.ConsoleUINetworkPolicyName)
 	return nil
 
+}
+
+// RestartConsoleUI triggers a rolling restart of the Console UI deployment by updating its pod template annotation.
+// This is useful when configuration changes require a pod restart (e.g., ConfigMap or Secret updates).
+func RestartConsoleUI(r reconciler.Reconciler, ctx context.Context, deployment ...*appsv1.Deployment) error {
+	var dep *appsv1.Deployment
+	var err error
+
+	// If deployment is provided, use it; otherwise fetch it
+	if len(deployment) > 0 && deployment[0] != nil {
+		dep = deployment[0]
+	} else {
+		// Get the Console UI deployment
+		dep = &appsv1.Deployment{}
+		err = r.Get(ctx, client.ObjectKey{Name: utils.ConsoleUIDeploymentName, Namespace: r.GetNamespace()}, dep)
+		if err != nil {
+			r.GetLogger().Info("failed to get deployment", "deploymentName", utils.ConsoleUIDeploymentName, "error", err)
+			return err
+		}
+	}
+
+	// Initialize annotations map if empty
+	if dep.Spec.Template.Annotations == nil {
+		dep.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	// Bump the annotation to trigger a rolling update (new template hash)
+	dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey] = time.Now().Format(time.RFC3339Nano)
+
+	// Update the deployment
+	r.GetLogger().Info("triggering Console UI rolling restart", "deployment", dep.Name)
+	err = r.Update(ctx, dep)
+	if err != nil {
+		r.GetLogger().Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
+		return err
+	}
+
+	return nil
 }
 
 // =============================================================================

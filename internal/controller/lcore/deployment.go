@@ -102,12 +102,18 @@ func buildLlamaStackEnvVars(cr *olsv1alpha1.OLSConfig) []corev1.EnvVar {
 
 // GenerateLCoreDeployment generates the Deployment for LCore (llama-stack + lightspeed-stack)
 func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
+	ctx := context.Background()
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := int32(420)
 
 	replicas := getLCoreReplicas(cr)
 	llamaStackResources := getLlamaStackResources(cr)
 	lightspeedStackResources := getLightspeedStackResources(cr)
+
+	// Get ResourceVersions for tracking - these resources should already exist
+	// If they don't exist, we'll get empty strings which is fine for initial creation
+	lcoreConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LCoreConfigCmName)
+	llamaStackConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LlamaStackConfigCmName)
 
 	// Labels for the deployment
 	labels := map[string]string{
@@ -376,6 +382,10 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			Name:      "lightspeed-stack-deployment",
 			Namespace: r.GetNamespace(),
 			Labels:    labels,
+			Annotations: map[string]string{
+				utils.LCoreConfigMapResourceVersionAnnotation:      lcoreConfigMapResourceVersion,
+				utils.LlamaStackConfigMapResourceVersionAnnotation: llamaStackConfigMapResourceVersion,
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: replicas,
@@ -418,13 +428,21 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 
 // RestartLCore triggers a rolling restart of the LCore deployment by updating its pod template annotation.
 // This is useful when configuration changes require a pod restart (e.g., ConfigMap or Secret updates).
-func RestartLCore(r reconciler.Reconciler, ctx context.Context) error {
-	// Get the LCore deployment
-	dep := &appsv1.Deployment{}
-	err := r.Get(ctx, client.ObjectKey{Name: utils.LCoreDeploymentName, Namespace: r.GetNamespace()}, dep)
-	if err != nil {
-		r.GetLogger().Info("failed to get deployment", "deploymentName", utils.LCoreDeploymentName, "error", err)
-		return err
+func RestartLCore(r reconciler.Reconciler, ctx context.Context, deployment ...*appsv1.Deployment) error {
+	var dep *appsv1.Deployment
+	var err error
+
+	// If deployment is provided, use it; otherwise fetch it
+	if len(deployment) > 0 && deployment[0] != nil {
+		dep = deployment[0]
+	} else {
+		// Get the LCore deployment
+		dep = &appsv1.Deployment{}
+		err = r.Get(ctx, client.ObjectKey{Name: utils.LCoreDeploymentName, Namespace: r.GetNamespace()}, dep)
+		if err != nil {
+			r.GetLogger().Info("failed to get deployment", "deploymentName", utils.LCoreDeploymentName, "error", err)
+			return err
+		}
 	}
 
 	// Initialize annotations map if empty
@@ -440,6 +458,56 @@ func RestartLCore(r reconciler.Reconciler, ctx context.Context) error {
 	err = r.Update(ctx, dep)
 	if err != nil {
 		r.GetLogger().Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
+		return err
+	}
+
+	return nil
+}
+
+// updateLCoreDeployment updates the LCore deployment based on CustomResource configuration
+func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existingDeployment, desiredDeployment *appsv1.Deployment) error {
+	// Step 1: Check if deployment spec has changed
+	utils.SetDefaults_Deployment(desiredDeployment)
+	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec)
+
+	// Step 2: Check ConfigMap ResourceVersions
+	// Check if LCore ConfigMap ResourceVersion has changed
+	currentLCoreConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.LCoreConfigCmName)
+	if err != nil {
+		r.GetLogger().Info("failed to get LCore ConfigMap ResourceVersion", "error", err)
+		changed = true
+	} else {
+		storedLCoreConfigMapVersion := existingDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation]
+		if storedLCoreConfigMapVersion != currentLCoreConfigMapVersion {
+			changed = true
+		}
+	}
+
+	// Check if Llama Stack ConfigMap ResourceVersion has changed
+	currentLlamaStackConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.LlamaStackConfigCmName)
+	if err != nil {
+		r.GetLogger().Info("failed to get Llama Stack ConfigMap ResourceVersion", "error", err)
+		changed = true
+	} else {
+		storedLlamaStackConfigMapVersion := existingDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation]
+		if storedLlamaStackConfigMapVersion != currentLlamaStackConfigMapVersion {
+			changed = true
+		}
+	}
+
+	// If nothing changed, skip update
+	if !changed {
+		return nil
+	}
+
+	// Apply changes - always update spec and annotations since something changed
+	existingDeployment.Spec = desiredDeployment.Spec
+	existingDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation]
+	existingDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation]
+
+	r.GetLogger().Info("updating LCore deployment", "name", existingDeployment.Name)
+
+	if err := RestartLCore(r, ctx, existingDeployment); err != nil {
 		return err
 	}
 

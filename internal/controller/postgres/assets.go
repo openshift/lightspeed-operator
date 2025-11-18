@@ -22,7 +22,15 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
+func getPostgresSecretName(cr *olsv1alpha1.OLSConfig) string {
+	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
+		return cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
+	}
+	return utils.PostgresSecretName
+}
+
 func GetPostgresCAConfigVolume() corev1.Volume {
+	volumeDefaultMode := int32(420)
 	return corev1.Volume{
 		Name: utils.PostgresCAVolume,
 		VolumeSource: corev1.VolumeSource{
@@ -30,6 +38,7 @@ func GetPostgresCAConfigVolume() corev1.Volume {
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: utils.OLSCAConfigMap,
 				},
+				DefaultMode: &volumeDefaultMode,
 			},
 		},
 	}
@@ -43,13 +52,10 @@ func GetPostgresCAVolumeMount(mountPath string) corev1.VolumeMount {
 	}
 }
 
-func GeneratePostgresDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
+func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	cacheReplicas := int32(1)
 	revisionHistoryLimit := int32(1)
-	postgresSecretName := utils.PostgresSecretName
-	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
-		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
-	}
+	postgresSecretName := getPostgresSecretName(cr)
 
 	passwordMap, err := utils.GetSecretContent(r, postgresSecretName, r.GetNamespace(), []string{utils.OLSComponentPasswordFileName}, &corev1.Secret{})
 	if err != nil {
@@ -80,11 +86,13 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConf
 			},
 		},
 	}
+	volumeDefaultMode := int32(420)
 	configVolume := corev1.Volume{
 		Name: utils.PostgresConfigMap,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{Name: utils.PostgresConfigMap},
+				DefaultMode:          &volumeDefaultMode,
 			},
 		},
 	}
@@ -160,11 +168,20 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConf
 
 	databaseResources := getDatabaseResources(cr)
 
+	// Get ResourceVersions for tracking - these resources should already exist
+	// If they don't exist, we'll get empty strings which is fine for initial creation
+	configMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.PostgresConfigMap)
+	secretResourceVersion, _ := utils.GetSecretResourceVersion(r, ctx, postgresSecretName)
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.PostgresDeploymentName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GeneratePostgresSelectorLabels(),
+			Annotations: map[string]string{
+				utils.PostgresConfigMapResourceVersionAnnotation: configMapResourceVersion,
+				utils.PostgresSecretResourceVersionAnnotation:    secretResourceVersion,
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &cacheReplicas,
@@ -243,37 +260,53 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConf
 }
 
 // updatePostgresDeployment updates the deployment based on CustomResource configuration.
-func UpdatePostgresDeployment(r reconciler.Reconciler, ctx context.Context, existingDeployment, desiredDeployment *appsv1.Deployment) error {
-	changed := false
+func UpdatePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, existingDeployment, desiredDeployment *appsv1.Deployment) error {
+	// Get the actual secret name from the CR (can be customized)
+	postgresSecretName := getPostgresSecretName(cr)
 
-	// Validate deployment annotations.
-	if existingDeployment.Annotations == nil ||
-		existingDeployment.Annotations[utils.PostgresConfigHashKey] != r.GetStateCache()[utils.PostgresConfigHashStateCacheKey] ||
-		existingDeployment.Annotations[utils.PostgresSecretHashKey] != r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] {
-		utils.UpdateDeploymentAnnotations(existingDeployment, map[string]string{
-			utils.PostgresConfigHashKey: r.GetStateCache()[utils.PostgresConfigHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
-		// update the deployment template annotation triggers the rolling update
-		utils.UpdateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			utils.PostgresConfigHashKey: r.GetStateCache()[utils.PostgresConfigHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
+	// Step 1: Check if deployment spec has changed
+	utils.SetDefaults_Deployment(desiredDeployment)
+	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec)
 
-		if _, err := utils.SetDeploymentContainerEnvs(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].Env, utils.PostgresDeploymentName); err != nil {
-			return err
-		}
-
+	// Step 2: Check ConfigMap and Secret ResourceVersions
+	// Check if ConfigMap ResourceVersion has changed
+	currentConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.PostgresConfigMap)
+	if err != nil {
+		r.GetLogger().Info("failed to get ConfigMap ResourceVersion", "error", err)
 		changed = true
+	} else {
+		storedConfigMapVersion := existingDeployment.Annotations[utils.PostgresConfigMapResourceVersionAnnotation]
+		if storedConfigMapVersion != currentConfigMapVersion {
+			changed = true
+		}
 	}
 
-	if changed {
-		r.GetLogger().Info("updating OLS postgres deployment", "name", existingDeployment.Name)
-		if err := r.Update(ctx, existingDeployment); err != nil {
-			return err
-		}
+	// Check if Secret ResourceVersion has changed (using the actual secret name from CR)
+	currentSecretVersion, err := utils.GetSecretResourceVersion(r, ctx, postgresSecretName)
+	if err != nil {
+		r.GetLogger().Info("failed to get Secret ResourceVersion", "error", err)
+		changed = true
 	} else {
-		r.GetLogger().Info("OLS postgres deployment reconciliation skipped", "deployment", existingDeployment.Name, "olsconfig hash", existingDeployment.Annotations[utils.PostgresConfigHashKey])
+		storedSecretVersion := existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
+		if storedSecretVersion != currentSecretVersion {
+			changed = true
+		}
+	}
+
+	// If nothing changed, skip update
+	if !changed {
+		return nil
+	}
+
+	// Apply changes - always update spec and annotations since something changed
+	existingDeployment.Spec = desiredDeployment.Spec
+	existingDeployment.Annotations[utils.PostgresConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.PostgresConfigMapResourceVersionAnnotation]
+	existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation] = desiredDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
+
+	r.GetLogger().Info("updating OLS postgres deployment", "name", existingDeployment.Name)
+
+	if err := RestartPostgres(r, ctx, existingDeployment); err != nil {
+		return err
 	}
 
 	return nil
@@ -311,10 +344,7 @@ func GeneratePostgresService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 }
 
 func GeneratePostgresSecret(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Secret, error) {
-	postgresSecretName := utils.PostgresSecretName
-	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
-		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
-	}
+	postgresSecretName := getPostgresSecretName(cr)
 	randomPassword := make([]byte, 12)
 	_, err := rand.Read(randomPassword)
 	if err != nil {
@@ -322,18 +352,11 @@ func GeneratePostgresSecret(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) 
 	}
 	// Encode the password to base64
 	encodedPassword := base64.StdEncoding.EncodeToString(randomPassword)
-	passwordHash, err := utils.HashBytes([]byte(encodedPassword))
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate OLS postgres password hash %w", err)
-	}
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      postgresSecretName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GeneratePostgresSelectorLabels(),
-			Annotations: map[string]string{
-				utils.PostgresSecretHashKey: passwordHash,
-			},
 		},
 		Data: map[string][]byte{
 			utils.PostgresSecretKeyName: []byte(encodedPassword),

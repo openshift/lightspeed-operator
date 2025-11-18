@@ -874,21 +874,12 @@ func GenerateLcoreConfigMap(r reconciler.Reconciler, ctx context.Context, cr *ol
 		return nil, fmt.Errorf("failed to build OLS config YAML: %w", err)
 	}
 
-	// Calculate hash for change detection
-	hash, err := utils.HashBytes([]byte(lcoreConfigYAML))
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate config hash: %w", err)
-	}
-
 	// Create ConfigMap
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.LCoreConfigCmName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GenerateAppServerSelectorLabels(),
-			Annotations: map[string]string{
-				utils.OLSConfigHashKey: hash,
-			},
 		},
 		Data: map[string]string{
 			"lightspeed-stack.yaml": lcoreConfigYAML,

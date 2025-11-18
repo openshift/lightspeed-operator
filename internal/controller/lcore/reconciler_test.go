@@ -122,6 +122,40 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should return error when the LLM provider token secret does not have required keys", func() {
+			By("General provider: the token secret miss 'apitoken' key")
+			secret, _ := utils.GenerateRandomSecret()
+			// delete the required key "apitoken"
+			delete(secret.Data, "apitoken")
+			err := k8sClient.Update(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+			testCR := cr.DeepCopy()
+			// LCore requires supported Llama Stack provider types
+			testCR.Spec.LLMConfig.Providers[0].Type = "openai"
+			err = ReconcileLCore(testReconcilerInstance, ctx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("reconcile LCore ConfigMap"))
+
+			By("AzureOpenAI provider: the token secret miss 'client_id', 'tenant_id', 'client_secret' key")
+			secret, _ = utils.GenerateRandomSecret()
+			delete(secret.Data, "client_id")
+			delete(secret.Data, "tenant_id")
+			delete(secret.Data, "client_secret")
+			delete(secret.Data, "apitoken")
+			err = k8sClient.Update(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+			crAzure := cr.DeepCopy()
+			crAzure.Spec.LLMConfig.Providers[0].Type = "azure_openai"
+			err = ReconcileLCore(testReconcilerInstance, ctx, crAzure)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("reconcile LCore ConfigMap"))
+
+			By("Restore the secret to valid state")
+			secret, _ = utils.GenerateRandomSecret()
+			err = k8sClient.Update(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 	})
 
 	Context("LLM Credentials Validation", func() {

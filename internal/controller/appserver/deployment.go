@@ -74,6 +74,7 @@ func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequire
 }
 
 func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
+	ctx := context.Background()
 	// mount points of API key secret
 	const OLSConfigMountPath = "/etc/ols"
 	const OLSConfigVolumeName = "cm-olsconfig"
@@ -349,11 +350,20 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	data_collector_resources := getOLSDataCollectorResources(cr)
 	mcp_server_resources := getOLSMCPServerResources(cr)
 
+	// Get ResourceVersions for tracking - these resources should already exist
+	// If they don't exist, we'll get empty strings which is fine for initial creation
+	configMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
+	secretResourceVersion, _ := utils.GetSecretResourceVersion(r, ctx, postgresSecretName)
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OLSAppServerDeploymentName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GenerateAppServerSelectorLabels(),
+			Annotations: map[string]string{
+				utils.OLSConfigMapResourceVersionAnnotation:   configMapResourceVersion,
+				utils.PostgresSecretResourceVersionAnnotation: secretResourceVersion,
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: replicas,
@@ -487,92 +497,49 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 
 // updateOLSDeployment updates the deployment based on CustomResource configuration.
 func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingDeployment, desiredDeployment *appsv1.Deployment) error {
-	changed := false
+	// Step 1: Check if deployment spec has changed
+	utils.SetDefaults_Deployment(desiredDeployment)
+	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec)
 
-	// Validate deployment annotations.
-	if existingDeployment.Annotations == nil ||
-		existingDeployment.Annotations[utils.OLSConfigHashKey] != r.GetStateCache()[utils.OLSConfigHashStateCacheKey] ||
-		existingDeployment.Annotations[utils.OLSAppTLSHashKey] != r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey] ||
-		existingDeployment.Annotations[utils.LLMProviderHashKey] != r.GetStateCache()[utils.LLMProviderHashStateCacheKey] ||
-		existingDeployment.Annotations[utils.PostgresSecretHashKey] != r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] {
-		utils.UpdateDeploymentAnnotations(existingDeployment, map[string]string{
-			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],
-			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
-			utils.AdditionalCAHashKey:   r.GetStateCache()[utils.AdditionalCAHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
-		// update the deployment template annotation triggers the rolling update
-		utils.UpdateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],
-			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
-			utils.AdditionalCAHashKey:   r.GetStateCache()[utils.AdditionalCAHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
+	// Step 2: Check ConfigMap and Secret ResourceVersions
+	// Check if OLS ConfigMap ResourceVersion has changed
+	currentConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
+	if err != nil {
+		r.GetLogger().Info("failed to get ConfigMap ResourceVersion", "error", err)
 		changed = true
-	}
-
-	// Validate deployment replicas.
-	if utils.SetDeploymentReplicas(existingDeployment, *desiredDeployment.Spec.Replicas) {
-		changed = true
-	}
-
-	//validate deployment Tolerations
-	if utils.SetTolerations(existingDeployment, desiredDeployment.Spec.Template.Spec.Tolerations) {
-		changed = true
-	}
-
-	if utils.SetNodeSelector(existingDeployment, desiredDeployment.Spec.Template.Spec.NodeSelector) {
-		changed = true
-	}
-
-	// Validate deployment volumes.
-	if utils.SetVolumes(existingDeployment, desiredDeployment.Spec.Template.Spec.Volumes) {
-		changed = true
-	}
-
-	// Validate volume mounts for a specific container in deployment.
-	if volumeMountsChanged, err := utils.SetVolumeMounts(existingDeployment, desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts, "lightspeed-service-api"); err != nil {
-		return err
-	} else if volumeMountsChanged {
-		changed = true
-	}
-
-	// Validate deployment resources.
-	if resourcesChanged, err := utils.SetDeploymentContainerResources(existingDeployment, &desiredDeployment.Spec.Template.Spec.Containers[0].Resources, "lightspeed-service-api"); err != nil {
-		return err
-	} else if resourcesChanged {
-		changed = true
-	}
-
-	// validate volumes including token secrets and application config map
-	if !utils.PodVolumeEqual(existingDeployment.Spec.Template.Spec.Volumes, desiredDeployment.Spec.Template.Spec.Volumes) {
-		changed = true
-		existingDeployment.Spec.Template.Spec.Volumes = desiredDeployment.Spec.Template.Spec.Volumes
-		_, err := utils.SetDeploymentContainerVolumeMounts(existingDeployment, "lightspeed-service-api", desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts)
-		if err != nil {
-			return err
-		}
-	}
-
-	// validate container specs
-	if !utils.ContainersEqual(existingDeployment.Spec.Template.Spec.Containers, desiredDeployment.Spec.Template.Spec.Containers) {
-		changed = true
-		existingDeployment.Spec.Template.Spec.Containers = desiredDeployment.Spec.Template.Spec.Containers
-	}
-	if !utils.ContainersEqual(existingDeployment.Spec.Template.Spec.InitContainers, desiredDeployment.Spec.Template.Spec.InitContainers) {
-		changed = true
-		existingDeployment.Spec.Template.Spec.InitContainers = desiredDeployment.Spec.Template.Spec.InitContainers
-	}
-
-	if changed {
-		r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
-		if err := r.Update(ctx, existingDeployment); err != nil {
-			return err
-		}
 	} else {
-		r.GetLogger().Info("OLS deployment reconciliation skipped", "deployment", existingDeployment.Name, "olsconfig hash", existingDeployment.Annotations[utils.OLSConfigHashKey])
+		storedConfigMapVersion := existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
+		if storedConfigMapVersion != currentConfigMapVersion {
+			changed = true
+		}
+	}
+
+	// Check if Postgres Secret ResourceVersion has changed
+	currentSecretVersion, err := utils.GetSecretResourceVersion(r, ctx, utils.PostgresSecretName)
+	if err != nil {
+		r.GetLogger().Info("failed to get Secret ResourceVersion", "error", err)
+		changed = true
+	} else {
+		storedSecretVersion := existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
+		if storedSecretVersion != currentSecretVersion {
+			changed = true
+		}
+	}
+
+	// If nothing changed, skip update
+	if !changed {
+		return nil
+	}
+
+	// Apply changes - always update spec and annotations since something changed
+	existingDeployment.Spec = desiredDeployment.Spec
+	existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
+	existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation] = desiredDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
+
+	r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
+
+	if err := RestartAppServer(r, ctx, existingDeployment); err != nil {
+		return err
 	}
 
 	return nil
@@ -621,13 +588,21 @@ func dataCollectorEnabled(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (b
 
 // RestartAppServer triggers a rolling restart of the app server deployment by updating its pod template annotation.
 // This is useful when configuration changes require a pod restart (e.g., ConfigMap or Secret updates).
-func RestartAppServer(r reconciler.Reconciler, ctx context.Context) error {
-	// Get the app server deployment
-	dep := &appsv1.Deployment{}
-	err := r.Get(ctx, client.ObjectKey{Name: utils.OLSAppServerDeploymentName, Namespace: r.GetNamespace()}, dep)
-	if err != nil {
-		r.GetLogger().Info("failed to get deployment", "deploymentName", utils.OLSAppServerDeploymentName, "error", err)
-		return err
+func RestartAppServer(r reconciler.Reconciler, ctx context.Context, deployment ...*appsv1.Deployment) error {
+	var dep *appsv1.Deployment
+	var err error
+
+	// If deployment is provided, use it; otherwise fetch it
+	if len(deployment) > 0 && deployment[0] != nil {
+		dep = deployment[0]
+	} else {
+		// Get the app server deployment
+		dep = &appsv1.Deployment{}
+		err = r.Get(ctx, client.ObjectKey{Name: utils.OLSAppServerDeploymentName, Namespace: r.GetNamespace()}, dep)
+		if err != nil {
+			r.GetLogger().Info("failed to get deployment", "deploymentName", utils.OLSAppServerDeploymentName, "error", err)
+			return err
+		}
 	}
 
 	// Initialize annotations map if empty

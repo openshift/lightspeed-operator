@@ -216,21 +216,13 @@ func reconcileLlamaStackConfigMap(r reconciler.Reconciler, ctx context.Context, 
 		if err != nil {
 			return fmt.Errorf("%s: %w", utils.ErrCreateLlamaStackConfigMap, err)
 		}
-		r.GetStateCache()[utils.LlamaStackConfigHashKey] = cm.Annotations[utils.OLSConfigHashKey]
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetLlamaStackConfigMap, err)
 	}
 
-	foundCmHash, err := utils.HashBytes([]byte(foundCm.Data["run.yaml"]))
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateHash, err)
-	}
-
-	r.GetStateCache()[utils.LlamaStackConfigHashKey] = foundCmHash
-
-	if foundCmHash == cm.Annotations[utils.OLSConfigHashKey] {
-		r.GetLogger().Info("Llama Stack ConfigMap reconciliation skipped", "hash", foundCmHash)
+	if utils.ConfigMapEqual(foundCm, cm) {
+		r.GetLogger().Info("Llama Stack ConfigMap reconciliation skipped", "configmap", foundCm.Name)
 		return nil
 	}
 
@@ -241,7 +233,7 @@ func reconcileLlamaStackConfigMap(r reconciler.Reconciler, ctx context.Context, 
 		return fmt.Errorf("%s: %w", utils.ErrUpdateLlamaStackConfigMap, err)
 	}
 
-	r.GetLogger().Info("Llama Stack ConfigMap reconciled", "ConfigMap", cm.Name, "hash", foundCmHash)
+	r.GetLogger().Info("Llama Stack ConfigMap reconciled", "ConfigMap", cm.Name)
 	return nil
 }
 
@@ -265,21 +257,13 @@ func reconcileLcoreConfigMap(r reconciler.Reconciler, ctx context.Context, cr *o
 		if err != nil {
 			return fmt.Errorf("%s: %w", utils.ErrCreateAPIConfigmap, err)
 		}
-		r.GetStateCache()[utils.OLSConfigHashStateCacheKey] = cm.Annotations[utils.OLSConfigHashKey]
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetAPIConfigmap, err)
 	}
 
-	foundCmHash, err := utils.HashBytes([]byte(foundCm.Data["lightspeed-stack.yaml"]))
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateHash, err)
-	}
-
-	r.GetStateCache()[utils.OLSConfigHashStateCacheKey] = foundCmHash
-
-	if foundCmHash == cm.Annotations[utils.OLSConfigHashKey] {
-		r.GetLogger().Info("LCore ConfigMap reconciliation skipped", "hash", foundCmHash)
+	if utils.ConfigMapEqual(foundCm, cm) {
+		r.GetLogger().Info("LCore ConfigMap reconciliation skipped", "configmap", foundCm.Name)
 		return nil
 	}
 
@@ -290,7 +274,7 @@ func reconcileLcoreConfigMap(r reconciler.Reconciler, ctx context.Context, cr *o
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAPIConfigmap, err)
 	}
 
-	r.GetLogger().Info("LCore ConfigMap reconciled", "ConfigMap", cm.Name, "hash", foundCmHash)
+	r.GetLogger().Info("LCore ConfigMap reconciled", "ConfigMap", cm.Name)
 	return nil
 }
 
@@ -317,23 +301,7 @@ func reconcileOLSAdditionalCAConfigMap(r reconciler.Reconciler, ctx context.Cont
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAdditionalCACM, err)
 	}
 
-	certBytes := []byte{}
-	for key, value := range cm.Data {
-		certBytes = append(certBytes, []byte(key)...)
-		certBytes = append(certBytes, []byte(value)...)
-	}
-
-	foundCmHash, err := utils.HashBytes(certBytes)
-	if err != nil {
-		return fmt.Errorf("failed to generate additional CA certs hash %w", err)
-	}
-	if foundCmHash == r.GetStateCache()[utils.AdditionalCAHashStateCacheKey] {
-		r.GetLogger().Info("Additional CA reconciliation skipped", "hash", foundCmHash)
-		return nil
-	}
-	r.GetStateCache()[utils.AdditionalCAHashStateCacheKey] = foundCmHash
-
-	r.GetLogger().Info("additional CA configmap reconciled", "configmap", cm.Name, "hash", foundCmHash)
+	r.GetLogger().Info("additional CA configmap reconciled", "configmap", cm.Name)
 	return nil
 }
 
@@ -401,15 +369,7 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, client.ObjectKey{Name: "lightspeed-stack-deployment", Namespace: r.GetNamespace()}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		utils.UpdateDeploymentAnnotations(desiredDeployment, map[string]string{
-			utils.OLSConfigHashKey:        r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-			utils.LlamaStackConfigHashKey: r.GetStateCache()[utils.LlamaStackConfigHashKey],
-		})
-		utils.UpdateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			utils.OLSConfigHashKey:        r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-			utils.LlamaStackConfigHashKey: r.GetStateCache()[utils.LlamaStackConfigHashKey],
-		})
-		r.GetLogger().Info("creating a new Deployment", "Deployment", desiredDeployment.Name)
+		r.GetLogger().Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
 			return fmt.Errorf("%s: %w", utils.ErrCreateAPIDeployment, err)
@@ -419,32 +379,11 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		return fmt.Errorf("%s: %w", utils.ErrGetAPIDeployment, err)
 	}
 
-	// fill in the default values for the deployment for comparison
-	utils.SetDefaults_Deployment(desiredDeployment)
-	if utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec) &&
-		existingDeployment.Annotations[utils.OLSConfigHashKey] == r.GetStateCache()[utils.OLSConfigHashStateCacheKey] &&
-		existingDeployment.Annotations[utils.LlamaStackConfigHashKey] == r.GetStateCache()[utils.LlamaStackConfigHashKey] &&
-		existingDeployment.Spec.Template.Annotations[utils.OLSConfigHashKey] == r.GetStateCache()[utils.OLSConfigHashStateCacheKey] &&
-		existingDeployment.Spec.Template.Annotations[utils.LlamaStackConfigHashKey] == r.GetStateCache()[utils.LlamaStackConfigHashKey] {
-		r.GetLogger().Info("Deployment reconciliation skipped", "Deployment", desiredDeployment.Name)
-		return nil
-	}
-
-	existingDeployment.Spec = desiredDeployment.Spec
-	utils.UpdateDeploymentAnnotations(existingDeployment, map[string]string{
-		utils.OLSConfigHashKey:        r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-		utils.LlamaStackConfigHashKey: r.GetStateCache()[utils.LlamaStackConfigHashKey],
-	})
-	utils.UpdateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-		utils.OLSConfigHashKey:        r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-		utils.LlamaStackConfigHashKey: r.GetStateCache()[utils.LlamaStackConfigHashKey],
-	})
-	err = r.Update(ctx, existingDeployment)
+	err = updateLCoreDeployment(r, ctx, existingDeployment, desiredDeployment)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAPIDeployment, err)
 	}
 
-	r.GetLogger().Info("Deployment reconciled", "Deployment", desiredDeployment.Name)
 	return nil
 }
 
@@ -551,14 +490,13 @@ func reconcilePrometheusRule(r reconciler.Reconciler, ctx context.Context, cr *o
 func reconcileTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	var lastErr error
 	foundSecret := &corev1.Secret{}
-	var secretValues map[string]string
 	secretName := utils.OLSCertsSecretName
 	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
 		secretName = cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
 	}
 	err := wait.PollUntilContextTimeout(ctx, 1*time.Second, utils.ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
 		var getErr error
-		secretValues, getErr = utils.GetSecretContent(r, secretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
+		_, getErr = utils.GetSecretContent(r, secretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
 		if getErr != nil {
 			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", secretName, getErr)
 			return false, nil
@@ -574,16 +512,7 @@ func reconcileTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 	if err != nil {
 		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
 	}
-	foundTLSSecretHash, err := utils.HashBytes([]byte(secretValues["tls.key"] + secretValues["tls.crt"]))
-	if err != nil {
-		return fmt.Errorf("failed to generate LCore TLS certs hash %w", err)
-	}
-	if foundTLSSecretHash == r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey] {
-		r.GetLogger().Info("LCore TLS secret reconciliation skipped", "secret", secretName, "hash", foundTLSSecretHash)
-	} else {
-		r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey] = foundTLSSecretHash
-		r.GetLogger().Info("LCore TLS secret reconciled", "secret", secretName, "hash", foundTLSSecretHash)
-	}
+	r.GetLogger().Info("LCore TLS secret reconciled", "secret", secretName)
 	return nil
 }
 

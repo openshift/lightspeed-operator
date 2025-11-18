@@ -15,7 +15,6 @@ type TestReconciler struct {
 	client.Client
 	logger              logr.Logger
 	scheme              *runtime.Scheme
-	StateCache          map[string]string
 	namespace           string
 	PostgresImage       string
 	ConsoleImage        string
@@ -34,10 +33,6 @@ func (r *TestReconciler) GetScheme() *runtime.Scheme {
 
 func (r *TestReconciler) GetLogger() logr.Logger {
 	return r.logger
-}
-
-func (r *TestReconciler) GetStateCache() map[string]string {
-	return r.StateCache
 }
 
 func (r *TestReconciler) GetNamespace() string {
@@ -91,7 +86,6 @@ func NewTestReconciler(
 		Client:              client,
 		logger:              logger,
 		scheme:              scheme,
-		StateCache:          make(map[string]string),
 		namespace:           namespace,
 		PostgresImage:       PostgresServerImageDefault,
 		ConsoleImage:        ConsoleUIImageDefault,

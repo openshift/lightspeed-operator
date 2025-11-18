@@ -27,7 +27,6 @@ limitations under the License.
 //   - Manage status conditions and CR status updates
 //   - Delegate LLM provider secret reconciliation to appserver package
 //   - Set up resource watchers for automatic updates (secrets, configmaps)
-//   - Implement hash-based change detection for configuration updates
 //   - Manage operator-level resources (service monitors, network policies)
 //
 // The main reconciliation flow:
@@ -78,7 +77,6 @@ import (
 type OLSConfigReconciler struct {
 	client.Client
 	Logger            logr.Logger
-	StateCache        map[string]string
 	Options           utils.OLSConfigReconcilerOptions
 	NextReconcileTime time.Time
 }
@@ -90,10 +88,6 @@ func (r *OLSConfigReconciler) GetScheme() *runtime.Scheme {
 
 func (r *OLSConfigReconciler) GetLogger() logr.Logger {
 	return r.Logger
-}
-
-func (r *OLSConfigReconciler) GetStateCache() map[string]string {
-	return r.StateCache
 }
 
 func (r *OLSConfigReconciler) GetNamespace() string {
@@ -487,7 +481,6 @@ func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deploymen
 // SetupWithManager sets up the controller with the Manager.
 func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Logger = ctrl.Log.WithName("Reconciler")
-	r.StateCache = make(map[string]string)
 	r.NextReconcileTime = time.Now()
 
 	return ctrl.NewControllerManagedBy(mgr).

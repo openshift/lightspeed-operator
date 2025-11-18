@@ -361,30 +361,11 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		return nil, fmt.Errorf("failed to generate OLS config file %w", err)
 	}
 
-	postgresConfigFileBytes, err := yaml.Marshal(conversationCache.Postgres)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate OLS postgres config bytes %w", err)
-	}
-
-	configFileHash, err := utils.HashBytes(configFileBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate OLS config file hash %w", err)
-	}
-
-	postgresConfigHash, err := utils.HashBytes(postgresConfigFileBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate OLS postgres config hash %w", err)
-	}
-
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OLSConfigCmName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GenerateAppServerSelectorLabels(),
-			Annotations: map[string]string{
-				utils.OLSConfigHashKey:      configFileHash,
-				utils.PostgresConfigHashKey: postgresConfigHash,
-			},
 		},
 		Data: map[string]string{
 			utils.OLSConfigFilename: string(configFileBytes),

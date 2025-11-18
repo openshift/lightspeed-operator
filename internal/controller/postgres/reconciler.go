@@ -18,6 +18,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -110,7 +111,7 @@ func ReconcilePostgresDeployment(r reconciler.Reconciler, ctx context.Context, o
 }
 
 func reconcilePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	desiredDeployment, err := GeneratePostgresDeployment(r, cr)
+	desiredDeployment, err := GeneratePostgresDeployment(r, ctx, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGeneratePostgresDeployment, err)
 	}
@@ -118,14 +119,6 @@ func reconcilePostgresDeployment(r reconciler.Reconciler, ctx context.Context, c
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, client.ObjectKey{Name: utils.PostgresDeploymentName, Namespace: r.GetNamespace()}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		utils.UpdateDeploymentAnnotations(desiredDeployment, map[string]string{
-			utils.PostgresConfigHashKey: r.GetStateCache()[utils.PostgresConfigHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
-		utils.UpdateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			utils.PostgresConfigHashKey: r.GetStateCache()[utils.PostgresConfigHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
 		r.GetLogger().Info("creating a new OLS postgres deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
@@ -136,7 +129,7 @@ func reconcilePostgresDeployment(r reconciler.Reconciler, ctx context.Context, c
 		return fmt.Errorf("%s: %w", utils.ErrGetPostgresDeployment, err)
 	}
 
-	err = UpdatePostgresDeployment(r, ctx, existingDeployment, desiredDeployment)
+	err = UpdatePostgresDeployment(r, ctx, cr, existingDeployment, desiredDeployment)
 
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresDeployment, err)
@@ -247,27 +240,24 @@ func reconcilePostgresSecret(r reconciler.Reconciler, ctx context.Context, cr *o
 		if err != nil {
 			return fmt.Errorf("%s: %w", utils.ErrCreatePostgresSecret, err)
 		}
-		r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] = secret.Annotations[utils.PostgresSecretHashKey]
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetPostgresSecret, err)
 	}
-	foundSecretHash, err := utils.HashBytes(foundSecret.Data[utils.PostgresSecretKeyName])
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGeneratePostgresSecretHash, err)
-	}
-	if foundSecretHash == r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] {
-		r.GetLogger().Info("OLS postgres secret reconciliation skipped", "secret", foundSecret.Name, "hash", foundSecret.Annotations[utils.PostgresSecretHashKey])
+
+	// Check if secret data has changed
+	if string(foundSecret.Data[utils.PostgresSecretKeyName]) == string(secret.Data[utils.PostgresSecretKeyName]) {
+		r.GetLogger().Info("OLS postgres secret reconciliation skipped", "secret", foundSecret.Name)
 		return nil
 	}
-	r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] = foundSecretHash
-	secret.Annotations[utils.PostgresSecretHashKey] = foundSecretHash
+
 	secret.Data[utils.PostgresSecretKeyName] = foundSecret.Data[utils.PostgresSecretKeyName]
+	utils.AnnotateSecretWatcher(secret)
 	err = r.Update(ctx, secret)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresSecret, err)
 	}
-	r.GetLogger().Info("OLS postgres reconciled", "secret", secret.Name, "hash", secret.Annotations[utils.PostgresSecretHashKey])
+	r.GetLogger().Info("OLS postgres secret reconciled", "secret", secret.Name)
 	return nil
 }
 
@@ -319,6 +309,44 @@ func reconcilePostgresNetworkPolicy(r reconciler.Reconciler, ctx context.Context
 		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresNetworkPolicy, err)
 	}
 	r.GetLogger().Info("OLS postgres network policy reconciled", "network policy", networkPolicy.Name)
+	return nil
+}
+
+// RestartPostgres triggers a rolling restart of the Postgres deployment by updating its pod template annotation.
+// This is useful when configuration changes require a pod restart (e.g., ConfigMap or Secret updates).
+func RestartPostgres(r reconciler.Reconciler, ctx context.Context, deployment ...*appsv1.Deployment) error {
+	var dep *appsv1.Deployment
+	var err error
+
+	// If deployment is provided, use it; otherwise fetch it
+	if len(deployment) > 0 && deployment[0] != nil {
+		dep = deployment[0]
+	} else {
+		// Get the Postgres deployment
+		dep = &appsv1.Deployment{}
+		err = r.Get(ctx, client.ObjectKey{Name: utils.PostgresDeploymentName, Namespace: r.GetNamespace()}, dep)
+		if err != nil {
+			r.GetLogger().Info("failed to get deployment", "deploymentName", utils.PostgresDeploymentName, "error", err)
+			return err
+		}
+	}
+
+	// Initialize annotations map if empty
+	if dep.Spec.Template.Annotations == nil {
+		dep.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	// Bump the annotation to trigger a rolling update (new template hash)
+	dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey] = time.Now().Format(time.RFC3339Nano)
+
+	// Update the deployment
+	r.GetLogger().Info("triggering Postgres rolling restart", "deployment", dep.Name)
+	err = r.Update(ctx, dep)
+	if err != nil {
+		r.GetLogger().Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
+		return err
+	}
+
 	return nil
 }
 

@@ -79,7 +79,6 @@ The main `OLSConfigReconciler` orchestrates the reconciliation of all components
 **Key Responsibilities:**
 - Overall reconciliation coordination
 - Status management
-- Hash-based change detection
 - Error handling and retries
 - Component orchestration (calls console, postgres, watchers, and either appserver OR lcore reconcilers)
 
@@ -96,7 +95,6 @@ type Reconciler interface {
     client.Client  // Embedded Kubernetes client
     GetScheme() *runtime.Scheme
     GetLogger() logr.Logger
-    GetStateCache() map[string]string
     GetNamespace() string
     GetPostgresImage() string
     GetConsoleUIImage() string
@@ -215,7 +213,7 @@ Manages the Lightspeed Core (LCS) and Llama Stack server lifecycle. This compone
 The lcore package is **completely independent** from appserver, following the same patterns:
 - Task-based reconciliation
 - Interface-based dependency injection via `reconciler.Reconciler`
-- Hash-based change detection
+- ResourceVersion-based change detection
 - Separate test suite with comprehensive coverage (75.7%)
 - No shared code or imports between lcore and appserver (ensures clean separation)
 
@@ -327,22 +325,25 @@ Provides shared functionality across all components.
 
 ## Change Detection & Updates
 
-The operator uses **hash-based change detection** to trigger updates:
+The operator uses **ResourceVersion-based change detection** to trigger updates:
 
-1. **Configuration Hashes**: ConfigMaps are hashed and stored in state cache
-2. **Secret Hashes**: LLM provider secrets are hashed
-3. **Annotation-based Triggers**: Hashes are added to deployment annotations
-4. **Automatic Updates**: When hashes change, deployments are updated with new annotations, triggering pod restarts
+1. **Direct Spec Comparison**: Deployments are compared using `DeploymentSpecEqual()` utility
+2. **ResourceVersion Tracking**: ConfigMaps and Secrets track their ResourceVersion in deployment annotations
+3. **Annotation-based Triggers**: ResourceVersions are stored in deployment annotations
+4. **Automatic Updates**: When ResourceVersions change, deployments are updated, triggering pod restarts
 
 Example:
 ```go
-// Hash is computed
-configHash := computeHash(configMap.Data)
+// Get current ResourceVersion
+currentVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, configMapName)
 
-// Stored in deployment annotations
-deployment.Spec.Template.Annotations[OLSConfigHashKey] = configHash
+// Store in deployment annotations
+deployment.Annotations[OLSConfigMapResourceVersionAnnotation] = currentVersion
 
-// Change detected: hash differs -> update deployment -> pod restart
+// Change detected: ResourceVersion differs -> update deployment -> pod restart
+if storedVersion != currentVersion {
+    // Update deployment
+}
 ```
 
 ## Resource Watching
@@ -401,7 +402,7 @@ The codebase employs a comprehensive testing strategy with strong coverage:
 - Main reconciliation loop (OLSConfig handling, error cases)
 - Component-specific reconcilers (appserver, postgres, console)
 - Resource generation and validation
-- Hash-based change detection
+- ResourceVersion-based change detection
 - Status condition updates
 - Deployment status checking
 - Secret and ConfigMap operations
@@ -472,17 +473,27 @@ if err := r.Create(ctx, deployment); err != nil {
 }
 ```
 
-### 4. Hash-Based Change Detection
-State cache tracks resource hashes to detect changes:
+### 4. Change Detection
 
-```go
-newHash := computeHash(resource)
-oldHash := r.GetStateCache()[resourceKey]
-if newHash != oldHash {
-    // Trigger update
-    r.GetStateCache()[resourceKey] = newHash
-}
-```
+The operator uses multiple strategies for detecting changes:
+
+**For Deployments:**
+- Direct spec comparison using `DeploymentSpecEqual()` utility
+- ResourceVersion tracking for mounted ConfigMaps and Secrets
+- Annotations store ResourceVersions of dependent resources
+
+**For External Resources (Secrets/ConfigMaps not owned by operator):**
+- Watcher annotations (`watchers.openshift.io/watch`) mark resources for monitoring
+- Watchers detect changes and trigger deployment restarts via `Restart*()` functions
+
+**For External Resources Owned by Kubernetes/Other Applications:**
+- Watched by name (e.g., telemetry pull secret `pull-secret` in `openshift-config` namespace)
+- Special watchers monitor specific named resources
+- Changes trigger reconciliation without ownership or annotations
+
+**For Owned Resources:**
+- Direct equality comparison (e.g., `ConfigMapEqual()`)
+- Kubernetes ownership triggers automatic reconciliation
 
 ## Key Design Decisions
 
@@ -497,10 +508,11 @@ if newHash != oldHash {
 - **Clean Testing**: Easy to create test implementations
 - **Flexibility**: Main controller can evolve without breaking components
 
-### ✅ Why Hash-Based Detection?
-- **Efficiency**: Only update when configuration actually changes
-- **Reliability**: Guaranteed consistency between config and running state
-- **Auditability**: Can track what changed by comparing hashes
+### ✅ Why ResourceVersion-Based Detection?
+- **Efficiency**: Only update when resources actually change (tracked via Kubernetes ResourceVersion)
+- **Reliability**: Leverages Kubernetes' built-in change tracking mechanism
+- **Simplicity**: No custom hash computation or state management needed
+- **Correctness**: Kubernetes guarantees ResourceVersion changes on every modification
 
 ## Contributing Guidelines for Developers
 

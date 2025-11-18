@@ -359,9 +359,8 @@ func main() {
 	}
 
 	if err = (&controller.OLSConfigReconciler{
-		Client:     mgr.GetClient(),
-		Logger:     ctrl.Log.WithName("controller").WithName("OLSConfig"),
-		StateCache: make(map[string]string),
+		Client: mgr.GetClient(),
+		Logger: ctrl.Log.WithName("controller").WithName("OLSConfig"),
 		Options: utils.OLSConfigReconcilerOptions{
 			OpenShiftMajor:                 major,
 			OpenshiftMinor:                 minor,
