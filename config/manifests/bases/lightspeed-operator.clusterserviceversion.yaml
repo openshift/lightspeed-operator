@@ -110,6 +110,8 @@ spec:
           a string "kubernetes" instead of the secret name
         displayName: Headers
         path: mcpServers[0].streamableHTTP.headers
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:keyValue
       - description: SSE Read Timeout, default is 10 seconds
         displayName: SSE Read Timeout in seconds
         path: mcpServers[0].streamableHTTP.sseReadTimeout
