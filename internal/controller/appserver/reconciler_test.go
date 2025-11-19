@@ -780,11 +780,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/ca-cert-1.crt"))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
 
-			By("check the additional CA configmap has watcher annotation")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: cmCACert1Name, Namespace: utils.OLSNamespaceDefault}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
-
 			By("Get app deployment and check the volume mount")
 			deployment := &appsv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, deployment)
@@ -1117,11 +1112,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Data).To(HaveKey(utils.OLSConfigFilename))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring(fmt.Sprintf("proxy_ca_cert_path: %s", path.Join(utils.OLSAppCertsMountRoot, utils.ProxyCACertVolumeName, utils.ProxyCACertFileName))))
-
-			By("check the proxy CA configmap has watcher annotation")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: cmCACertName, Namespace: utils.OLSNamespaceDefault}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
 
 			By("Get app deployment and check the volume mount")
 			deployment := &appsv1.Deployment{}

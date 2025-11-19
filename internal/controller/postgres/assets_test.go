@@ -125,7 +125,8 @@ var _ = Describe("App postgres server assets", func() {
 				Name: "secret-" + utils.PostgresBootstrapSecretName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: utils.PostgresBootstrapSecretName,
+						SecretName:  utils.PostgresBootstrapSecretName,
+						DefaultMode: &defaultPermission,
 					},
 				},
 			},

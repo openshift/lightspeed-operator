@@ -82,7 +82,8 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 		Name: "secret-" + utils.PostgresBootstrapSecretName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: utils.PostgresBootstrapSecretName,
+				SecretName:  utils.PostgresBootstrapSecretName,
+				DefaultMode: &defaultPermission,
 			},
 		},
 	}

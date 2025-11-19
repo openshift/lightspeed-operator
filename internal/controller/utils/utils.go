@@ -156,6 +156,12 @@ func PodVolumeEqual(a, b []corev1.Volume) bool {
 				}
 				continue
 			}
+			if aVolume.PersistentVolumeClaim != nil && bVolume.PersistentVolumeClaim != nil {
+				if aVolume.PersistentVolumeClaim.ClaimName != bVolume.PersistentVolumeClaim.ClaimName {
+					return false
+				}
+				continue
+			}
 
 			return false
 		}
@@ -513,7 +519,7 @@ func ValidateExternalSecrets(r reconciler.Reconciler, ctx context.Context, cr *o
 			if mcpServer.StreamableHTTP != nil && mcpServer.StreamableHTTP.Headers != nil {
 				for headerName, secretName := range mcpServer.StreamableHTTP.Headers {
 					// Skip the special "kubernetes" token case
-					if secretName == "kubernetes" {
+					if secretName == KUBERNETES_PLACEHOLDER {
 						continue
 					}
 					foundSecret := &corev1.Secret{}

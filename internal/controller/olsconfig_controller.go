@@ -60,9 +60,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
@@ -78,6 +79,7 @@ type OLSConfigReconciler struct {
 	client.Client
 	Logger            logr.Logger
 	Options           utils.OLSConfigReconcilerOptions
+	WatcherConfig     *utils.WatcherConfig
 	NextReconcileTime time.Time
 }
 
@@ -128,6 +130,70 @@ func (r *OLSConfigReconciler) GetLCoreImage() string {
 
 func (r *OLSConfigReconciler) IsPrometheusAvailable() bool {
 	return r.Options.PrometheusAvailable
+}
+
+func (r *OLSConfigReconciler) GetWatcherConfig() interface{} {
+	return r.WatcherConfig
+}
+
+func (r *OLSConfigReconciler) UseLCore() bool {
+	return r.Options.UseLCore
+}
+
+// shouldWatchSecret is a predicate that determines if a secret should be watched.
+// This provides performance optimization by filtering at the watch level, preventing
+// unnecessary reconciliation triggers for secrets the operator doesn't care about.
+// Returns true if:
+// 1. The secret has the watcher annotation (annotated by operator for change tracking)
+// 2. The secret is configured as a system resource (external resource like pull-secret)
+func (r *OLSConfigReconciler) shouldWatchSecret(obj client.Object) bool {
+	// Check 1: Has watcher annotation?
+	annotations := obj.GetAnnotations()
+	if annotations != nil {
+		if _, exists := annotations[utils.WatcherAnnotationKey]; exists {
+			return true
+		}
+	}
+
+	// Check 2: Is it a configured system secret?
+	if r.WatcherConfig != nil {
+		for _, systemSecret := range r.WatcherConfig.Secrets.SystemResources {
+			if obj.GetNamespace() == systemSecret.Namespace &&
+				obj.GetName() == systemSecret.Name {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// shouldWatchConfigMap is a predicate that determines if a configmap should be watched.
+// This provides performance optimization by filtering at the watch level, preventing
+// unnecessary reconciliation triggers for configmaps the operator doesn't care about.
+// Returns true if:
+// 1. The configmap has the watcher annotation (annotated by operator for change tracking)
+// 2. The configmap is configured as a system resource (external resource like CA bundle)
+func (r *OLSConfigReconciler) shouldWatchConfigMap(obj client.Object) bool {
+	// Check 1: Has watcher annotation?
+	annotations := obj.GetAnnotations()
+	if annotations != nil {
+		if _, exists := annotations[utils.WatcherAnnotationKey]; exists {
+			return true
+		}
+	}
+
+	// Check 2: Is it a configured system configmap?
+	if r.WatcherConfig != nil {
+		for _, systemConfigMap := range r.WatcherConfig.ConfigMaps.SystemResources {
+			if obj.GetNamespace() == systemConfigMap.Namespace &&
+				obj.GetName() == systemConfigMap.Name {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -239,6 +305,15 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.Logger.Error(err, "Failed to validate external secrets")
 		r.UpdateStatusCondition(ctx, olsconfig, utils.TypeCRReconciled, false, "Failed", err)
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
+	}
+
+	// Annotation Step: Annotate external resources between Phase 1 and Phase 2
+	// This ensures all user-provided external resources (secrets, configmaps) are properly
+	// annotated for watching before we reconcile deployments that depend on them.
+	if err := r.annotateExternalResources(ctx, olsconfig); err != nil {
+		r.Logger.Error(err, "Failed to annotate external resources")
+		// Non-fatal: continue with deployment reconciliation
+		// The resources will be picked up on the next reconciliation
 	}
 
 	// Phase 1: Reconcile independent resources for all components
@@ -478,6 +553,128 @@ func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deploymen
 	return "", nil
 }
 
+// annotateExternalResources annotates all external resources (secrets and configmaps)
+// that the operator watches for changes. This centralizes annotation logic between
+// Phase 1 (resource reconciliation) and Phase 2 (deployment reconciliation).
+func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
+	cr *olsv1alpha1.OLSConfig) error {
+
+	var errs []error
+
+	// 1. Annotate LLM provider secrets
+	for _, provider := range cr.Spec.LLMConfig.Providers {
+		secretName := provider.CredentialsSecretRef.Name
+		if err := r.annotateSecretIfNeeded(ctx, secretName, r.Options.Namespace); err != nil {
+			r.Logger.Error(err, "Failed to annotate LLM provider secret",
+				"provider", provider.Name, "secret", secretName)
+			errs = append(errs, err)
+		}
+	}
+
+	// 2. Annotate user-provided TLS secret (if configured)
+	if cr.Spec.OLSConfig.TLSConfig != nil &&
+		cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		secretName := cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
+		if err := r.annotateSecretIfNeeded(ctx, secretName, r.Options.Namespace); err != nil {
+			r.Logger.Error(err, "Failed to annotate TLS secret", "secret", secretName)
+			errs = append(errs, err)
+		}
+	}
+
+	// Note: Postgres secret is operator-owned, not external, so we don't annotate it
+
+	// 3. Annotate AdditionalCAConfigMapRef (if configured)
+	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
+		cmName := cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name
+		if err := r.annotateConfigMapIfNeeded(ctx, cmName, r.Options.Namespace); err != nil {
+			r.Logger.Error(err, "Failed to annotate AdditionalCA", "configmap", cmName)
+			errs = append(errs, err)
+		}
+	}
+
+	// 4. Annotate ProxyCACertificateRef (if configured)
+	if cr.Spec.OLSConfig.ProxyConfig != nil &&
+		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil {
+		cmName := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name
+		if err := r.annotateConfigMapIfNeeded(ctx, cmName, r.Options.Namespace); err != nil {
+			r.Logger.Error(err, "Failed to annotate ProxyCA", "configmap", cmName)
+			errs = append(errs, err)
+		}
+	}
+
+	// 5. Annotate MCP server header secrets (if any)
+	if cr.Spec.MCPServers != nil {
+		for _, mcpServer := range cr.Spec.MCPServers {
+			if mcpServer.StreamableHTTP != nil && mcpServer.StreamableHTTP.Headers != nil {
+				for _, secretName := range mcpServer.StreamableHTTP.Headers {
+					// Skip the special "kubernetes" token case
+					if secretName == utils.KUBERNETES_PLACEHOLDER {
+						continue
+					}
+					if err := r.annotateSecretIfNeeded(ctx, secretName, r.Options.Namespace); err != nil {
+						r.Logger.Error(err, "Failed to annotate MCP header secret",
+							"mcpServer", mcpServer.Name, "secret", secretName)
+						errs = append(errs, err)
+					}
+				}
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to annotate %d external resources", len(errs))
+	}
+	return nil
+}
+
+// annotateSecretIfNeeded annotates a secret with the watcher annotation if it doesn't already have it.
+// Returns nil if the secret doesn't exist (will be picked up on next reconciliation).
+func (r *OLSConfigReconciler) annotateSecretIfNeeded(ctx context.Context, name, namespace string) error {
+	secret := &corev1.Secret{}
+	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, secret)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil // Resource will be picked up on next reconciliation
+		}
+		return err
+	}
+
+	if secret.Annotations == nil {
+		secret.Annotations = make(map[string]string)
+	}
+
+	if _, exists := secret.Annotations[utils.WatcherAnnotationKey]; exists {
+		return nil // Already annotated
+	}
+
+	secret.Annotations[utils.WatcherAnnotationKey] = utils.OLSConfigName
+	return r.Update(ctx, secret)
+}
+
+// annotateConfigMapIfNeeded annotates a configmap with the watcher annotation if it doesn't already have it.
+// Returns nil if the configmap doesn't exist (will be picked up on next reconciliation).
+func (r *OLSConfigReconciler) annotateConfigMapIfNeeded(ctx context.Context, name, namespace string) error {
+	cm := &corev1.ConfigMap{}
+	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, cm)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil // Resource will be picked up on next reconciliation
+		}
+		return err
+	}
+
+	if cm.Annotations == nil {
+		cm.Annotations = make(map[string]string)
+	}
+
+	if _, exists := cm.Annotations[utils.WatcherAnnotationKey]; exists {
+		return nil // Already annotated
+	}
+
+	cm.Annotations[utils.WatcherAnnotationKey] = utils.OLSConfigName
+	return r.Update(ctx, cm)
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Logger = ctrl.Log.WithName("Reconciler")
@@ -493,10 +690,40 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
-		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(watchers.SecretWatcherFilter)).
-		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			return watchers.ConfigMapWatcherFilter(r, ctx, obj, r.Options.UseLCore)
-		})).
+		Watches(&corev1.Secret{},
+			&watchers.SecretUpdateHandler{Reconciler: r},
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					// For Create events, allow all secrets in our namespace
+					// This handles recreated secrets that don't have annotations yet
+					return e.Object.GetNamespace() == r.Options.Namespace
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					// For Update events, use strict filtering
+					return r.shouldWatchSecret(e.ObjectNew)
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					// Ignore delete events - nothing to reconcile when resource is gone
+					return false
+				},
+			})).
+		Watches(&corev1.ConfigMap{},
+			&watchers.ConfigMapUpdateHandler{Reconciler: r},
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					// For Create events, allow all configmaps in our namespace
+					// This handles recreated configmaps that don't have annotations yet
+					return e.Object.GetNamespace() == r.Options.Namespace
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					// For Update events, use strict filtering
+					return r.shouldWatchConfigMap(e.ObjectNew)
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					// Ignore delete events - nothing to reconcile when resource is gone
+					return false
+				},
+			})).
 		Owns(&consolev1.ConsolePlugin{}).
 		Owns(&monv1.ServiceMonitor{}).
 		Owns(&monv1.PrometheusRule{}).

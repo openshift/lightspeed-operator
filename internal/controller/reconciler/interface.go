@@ -65,4 +65,10 @@ type Reconciler interface {
 
 	// IsPrometheusAvailable returns whether Prometheus Operator CRDs are available
 	IsPrometheusAvailable() bool
+
+	// GetWatcherConfig returns the watcher configuration for external resource monitoring
+	GetWatcherConfig() interface{}
+
+	// UseLCore returns whether LCore backend is enabled instead of AppServer
+	UseLCore() bool
 }

@@ -31,6 +31,42 @@ type OLSConfigReconcilerOptions struct {
 	PrometheusAvailable            bool
 }
 
+// SystemSecret represents a secret managed by Kubernetes or other applications
+// that the operator needs to watch for changes
+type SystemSecret struct {
+	Name                string
+	Namespace           string
+	Description         string
+	AffectedDeployments []string
+}
+
+// SystemConfigMap represents a configmap managed by Kubernetes or other applications
+// that the operator needs to watch for changes
+type SystemConfigMap struct {
+	Name                string
+	Namespace           string
+	Description         string
+	AffectedDeployments []string
+}
+
+// SecretWatcherConfig contains configuration for watching secrets
+type SecretWatcherConfig struct {
+	SystemResources []SystemSecret
+}
+
+// ConfigMapWatcherConfig contains configuration for watching configmaps
+type ConfigMapWatcherConfig struct {
+	SystemResources []SystemConfigMap
+}
+
+// WatcherConfig contains all watcher configuration
+type WatcherConfig struct {
+	Secrets                   SecretWatcherConfig
+	ConfigMaps                ConfigMapWatcherConfig
+	AnnotatedSecretMapping    map[string][]string
+	AnnotatedConfigMapMapping map[string][]string
+}
+
 /*** controller internal ***/
 type ReconcileFunc func(reconciler.Reconciler, context.Context, *olsv1alpha1.OLSConfig) error
 type ReconcileTask struct {

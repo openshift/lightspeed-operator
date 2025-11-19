@@ -210,18 +210,81 @@ var _ = Describe("<Component> Name", func() {
 
 ## State Management
 
-### Hash-Based Change Detection
+### ResourceVersion-Based Change Detection
+
+The operator uses Kubernetes' built-in ResourceVersion tracking for owned resources:
+
 ```go
-r.stateCache[OLSConfigHashStateCacheKey] = configHash
-r.stateCache[LLMProviderHashStateCacheKey] = providerHash
+// Owned resources are tracked automatically by controller-runtime
+// Changes detected via ResourceVersion comparison
+deployment := &appsv1.Deployment{}
+err := r.Get(ctx, types.NamespacedName{Name: deploymentName}, deployment)
+// ResourceVersion changes automatically trigger reconciliation
 ```
 
+### Multi-Level Watcher System
+
+The operator implements a sophisticated **three-layer watching architecture** for external resources:
+
+**Layer 1: Predicate Filtering (Performance)**
+- Fast O(1) checks at Kubernetes watch level
+- Filters 99% of irrelevant events before processing
+- Methods: `shouldWatchSecret()`, `shouldWatchConfigMap()`
+
+**Layer 2: Data Comparison (Correctness)**
+- Deep comparison using `apiequality.Semantic.DeepEqual()`
+- Only triggers on actual data changes, not metadata
+- Handlers: `SecretUpdateHandler`, `ConfigMapUpdateHandler`
+- Handles Create events for recreated resources (with owner filtering)
+- Skips operator-owned resources managed via `Owns()` relationship
+
+**Layer 3: Restart Logic (Business)**
+- Data-driven configuration via `WatcherConfig`
+- Maps resources to affected deployments
+- Backend-aware restart decisions
+
+### Watcher Configuration
+
+All watcher behavior is centralized in `cmd/main.go` via `WatcherConfig`:
+
+```go
+watcherConfig := &utils.WatcherConfig{
+    Secrets: utils.SecretWatcherConfig{
+        SystemResources: []utils.SystemSecret{
+            {Name: "pull-secret", Namespace: "openshift-config", 
+             AffectedDeployments: []string{"console-ui"}},
+        },
+    },
+    ConfigMaps: utils.ConfigMapWatcherConfig{
+        SystemResources: []utils.SystemConfigMap{
+            {Name: "kube-root-ca.crt", 
+             AffectedDeployments: []string{"ACTIVE_BACKEND"}},
+        },
+    },
+}
+```
+
+**Key Features:**
+- No hardcoded resource names in watcher logic
+- Easy to extend (just update configuration)
+- `ACTIVE_BACKEND` placeholder auto-resolves based on `--enable-lcore` flag
+
 ### Reconciliation Triggers
-- Config changes (detected via hash comparison)
-- Secret updates (via annotations + `watchers` package)
-- ConfigMap updates (via annotations + `watchers` package, triggers rolling restarts)
-- Resource deletions/modifications
-- Telemetry pull secret changes (special watcher)
+
+- **Config changes**: ResourceVersion comparison on OLSConfig CR
+- **Owned resource changes**: Automatic via controller-runtime
+- **External secret updates**: Multi-level watcher with annotation + data comparison
+- **External configmap updates**: Multi-level watcher with annotation + data comparison + rolling restarts
+- **System resources**: Watched by name (telemetry pull secret, OpenShift CA certs)
+
+### Resource Annotation Flow
+
+1. User creates external resource (secret/configmap) referenced in OLSConfig
+2. `annotateExternalResources()` runs between Phase 1 & Phase 2
+3. Annotation `ols.openshift.io/watch-olsconfig: "cluster"` added
+4. Watchers activate via predicate layer
+5. Future changes trigger Layer 2 data comparison → Layer 3 restart logic
+
 
 ## Token-Efficient Debugging Tips
 

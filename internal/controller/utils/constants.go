@@ -6,6 +6,10 @@ const (
 	/*** Operator Settings ***/
 	// OLSConfigName is the name of the OLSConfig Custom Resource
 	OLSConfigName = "cluster"
+	// OLSConfigKind is the Kind of the OLSConfig Custom Resource
+	OLSConfigKind = "OLSConfig"
+	// OLSConfigAPIVersion is the APIVersion of the OLSConfig Custom Resource
+	OLSConfigAPIVersion = "ols.openshift.io/v1alpha1"
 	// DefaultReconcileInterval is the default interval for reconciliation
 	DefaultReconcileInterval = 120
 	// OperatorCertDirDefault is the default directory for storing the operator certificate
@@ -163,6 +167,7 @@ const (
 	// PostgresConfigMapResourceVersionAnnotation is the annotation key for tracking ConfigMap ResourceVersion
 	PostgresConfigMapResourceVersionAnnotation = "ols.openshift.io/postgres-configmap-version"
 	// PostgresSecretResourceVersionAnnotation is the annotation key for tracking Secret ResourceVersion
+	//nolint:gosec // G101: This is an annotation key name, not a credential
 	PostgresSecretResourceVersionAnnotation = "ols.openshift.io/postgres-secret-version"
 	// PostgresServiceName is the name of OLS application Postgres server service
 	PostgresServiceName = "lightspeed-postgres-server"

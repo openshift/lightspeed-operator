@@ -252,7 +252,6 @@ func reconcilePostgresSecret(r reconciler.Reconciler, ctx context.Context, cr *o
 	}
 
 	secret.Data[utils.PostgresSecretKeyName] = foundSecret.Data[utils.PostgresSecretKeyName]
-	utils.AnnotateSecretWatcher(secret)
 	err = r.Update(ctx, secret)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresSecret, err)

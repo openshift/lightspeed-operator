@@ -188,20 +188,11 @@ func reconcileOLSAdditionalCAConfigMap(r reconciler.Reconciler, ctx context.Cont
 		return nil
 	}
 
-	// annotate the configmap for watcher
+	// Verify the configmap exists (annotation is handled by main controller)
 	cm := &corev1.ConfigMap{}
-
 	err := r.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.GetNamespace()}, cm)
-
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetAdditionalCACM, err)
-	}
-
-	utils.AnnotateConfigMapWatcher(cm)
-
-	err = r.Update(ctx, cm)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdateAdditionalCACM, err)
 	}
 
 	r.GetLogger().Info("additional CA configmap reconciled", "configmap", cm.Name)
@@ -264,7 +255,6 @@ func reconcileProxyCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr 
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetProxyCACM, err)
 	}
-	utils.AnnotateConfigMapWatcher(cm)
 	err = r.Update(ctx, cm)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateProxyCACM, err)
@@ -528,7 +518,6 @@ func ReconcileTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 		return fmt.Errorf("%s -%s - wait err %w; last error: %w", utils.ErrGetTLSSecret, utils.OLSCertsSecretName, err, lastErr)
 	}
 
-	utils.AnnotateSecretWatcher(foundSecret)
 	err = r.Update(ctx, foundSecret)
 	if err != nil {
 		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)

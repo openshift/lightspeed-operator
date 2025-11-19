@@ -367,7 +367,6 @@ func reconcileConsoleTLSSecret(r reconciler.Reconciler, ctx context.Context, _ *
 	if err != nil {
 		return fmt.Errorf("failed to get TLS key and cert - wait err %w; last error: %w", err, lastErr)
 	}
-	utils.AnnotateSecretWatcher(foundSecret)
 	err = r.Update(ctx, foundSecret)
 	if err != nil {
 		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)

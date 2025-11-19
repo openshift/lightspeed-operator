@@ -25,6 +25,8 @@ type TestReconciler struct {
 	openShiftMajor      string
 	openShiftMinor      string
 	PrometheusAvailable bool
+	watcherConfig       interface{}
+	useLCore            bool
 }
 
 func (r *TestReconciler) GetScheme() *runtime.Scheme {
@@ -73,6 +75,22 @@ func (r *TestReconciler) GetLCoreImage() string {
 
 func (r *TestReconciler) IsPrometheusAvailable() bool {
 	return r.PrometheusAvailable
+}
+
+func (r *TestReconciler) GetWatcherConfig() interface{} {
+	return r.watcherConfig
+}
+
+func (r *TestReconciler) UseLCore() bool {
+	return r.useLCore
+}
+
+func (r *TestReconciler) SetWatcherConfig(config interface{}) {
+	r.watcherConfig = config
+}
+
+func (r *TestReconciler) SetUseLCore(useLCore bool) {
+	r.useLCore = useLCore
 }
 
 // NewTestReconciler creates a new TestReconciler instance with the provided parameters
