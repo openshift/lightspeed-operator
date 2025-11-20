@@ -211,7 +211,7 @@ spec:
                 value: "$(params.commit)"
               - name: CYPRESS_BUNDLE_IMAGE
                 value: "$(params.bundle-image)"
-            image: cypress/browsers:24.11.1
+            image: cypress/browsers:24.11.0
             script: |
               echo "---------------------------------------------"
               echo "${CYPRESS_BASE_URL}"
@@ -261,7 +261,7 @@ spec:
               echo "---------------------------------------------"
               echo "npm version: $(npm -v)"
               echo "---------------------------------------------"
-              NODE_OPTIONS=--max-old-space-size=4096 npm install npm ci --omit=optional --no-fund
+              NODE_OPTIONS=--max-old-space-size=4096 npm ci --omit=optional --no-fund
               echo "---------------------------------------------"
               export CYPRESS_LOGIN_PASSWORD=$(cat ${PASSWORD_PATH})
               set +e
