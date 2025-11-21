@@ -2,6 +2,7 @@ package watchers
 
 import (
 	"context"
+	"fmt"
 
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -20,55 +21,28 @@ import (
 
 // isSecretReferencedInCR checks if a secret is referenced in the OLSConfig CR
 func isSecretReferencedInCR(cr *olsv1alpha1.OLSConfig, secretName string) bool {
-	// Check LLM provider secrets
-	for _, provider := range cr.Spec.LLMConfig.Providers {
-		if provider.CredentialsSecretRef.Name == secretName {
-			return true
+	found := false
+	_ = utils.ForEachExternalSecret(cr, func(name, source string) error {
+		if name == secretName {
+			found = true
+			return fmt.Errorf("stop") // Stop iteration
 		}
-	}
-
-	// Check TLS secret
-	if cr.Spec.OLSConfig.TLSConfig != nil &&
-		cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name == secretName {
-		return true
-	}
-
-	// Check MCP server header secrets
-	if cr.Spec.MCPServers != nil {
-		for _, mcpServer := range cr.Spec.MCPServers {
-			if mcpServer.StreamableHTTP != nil && mcpServer.StreamableHTTP.Headers != nil {
-				for _, headerSecret := range mcpServer.StreamableHTTP.Headers {
-					// Skip the special "kubernetes" token case
-					if headerSecret == utils.KUBERNETES_PLACEHOLDER {
-						continue
-					}
-					if headerSecret == secretName {
-						return true
-					}
-				}
-			}
-		}
-	}
-
-	return false
+		return nil
+	})
+	return found
 }
 
 // isConfigMapReferencedInCR checks if a configmap is referenced in the OLSConfig CR
 func isConfigMapReferencedInCR(cr *olsv1alpha1.OLSConfig, cmName string) bool {
-	// Check AdditionalCAConfigMapRef
-	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil &&
-		cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name == cmName {
-		return true
-	}
-
-	// Check ProxyCACertificateRef
-	if cr.Spec.OLSConfig.ProxyConfig != nil &&
-		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil &&
-		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name == cmName {
-		return true
-	}
-
-	return false
+	found := false
+	_ = utils.ForEachExternalConfigMap(cr, func(name, source string) error {
+		if name == cmName {
+			found = true
+			return fmt.Errorf("stop") // Stop iteration
+		}
+		return nil
+	})
+	return found
 }
 
 // SecretUpdateHandler handles update events for Secrets and triggers deployment restarts when data changes.

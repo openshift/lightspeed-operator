@@ -2,7 +2,9 @@ package lcore
 
 import (
 	"context"
+	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
@@ -37,6 +39,10 @@ func getLlamaStackResources(_ *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 	// It always gets default resources to ensure stable inference performance
 	// Users can configure the main API container (lightspeed-stack) via APIContainer.Resources
 	// Note: The pod must have enough resources to accommodate both containers
+	//
+	// TODO: Consider adding LlamaStackContainerConfig to the API in a future PR to allow
+	// users to configure llama-stack resources independently of the main API container.
+	// This would follow the same pattern as APIContainer, DataCollectorContainer, etc.
 	defaultResources := &corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceMemory: resource.MustParse("2Gi"),
@@ -54,57 +60,125 @@ func getLlamaStackResources(_ *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 // getLightspeedStackResources returns resource requirements for the lightspeed-stack container
 // This is the main API container serving user requests
 func getLightspeedStackResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
-	// Use custom resources from OLSConfig.DeploymentConfig.APIContainer if specified
-	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Resources != nil {
-		return cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Resources
-	}
-
-	// Default resources if not specified in CR
-	defaultResources := &corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("1Gi"),
-			corev1.ResourceCPU:    resource.MustParse("1000m"),
+	return utils.GetResourcesOrDefault(
+		cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Resources,
+		&corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("1Gi"),
+				corev1.ResourceCPU:    resource.MustParse("1000m"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+			Claims: []corev1.ResourceClaim{},
 		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("512Mi"),
-		},
-		Claims: []corev1.ResourceClaim{},
-	}
-	return defaultResources
+	)
 }
 
 // buildLlamaStackEnvVars builds environment variables for all LLM providers
-func buildLlamaStackEnvVars(cr *olsv1alpha1.OLSConfig) []corev1.EnvVar {
+// For Azure providers, it reads the secret to support both API key and client credentials
+func buildLlamaStackEnvVars(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) ([]corev1.EnvVar, error) {
 	envVars := []corev1.EnvVar{}
 
-	// Add environment variables for each provider
-	for _, provider := range cr.Spec.LLMConfig.Providers {
-		// Convert provider name to valid environment variable name
-		envVarName := utils.ProviderNameToEnvVarName(provider.Name) + "_API_KEY"
-
-		envVar := corev1.EnvVar{
-			Name: envVarName,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: provider.CredentialsSecretRef.Name,
-					},
-					Key: "apitoken",
-				},
-			},
+	// Add environment variables for each LLM provider secret using iterator
+	err := utils.ForEachExternalSecret(cr, func(name, source string) error {
+		if !strings.HasPrefix(source, "llm-provider-") {
+			return nil
 		}
-		envVars = append(envVars, envVar)
+
+		// Extract provider name from source (format: "llm-provider-<name>")
+		providerName := strings.TrimPrefix(source, "llm-provider-")
+		envVarBase := utils.ProviderNameToEnvVarName(providerName)
+
+		// Find the provider in the CR to check its type
+		var provider *olsv1alpha1.ProviderSpec
+		for i := range cr.Spec.LLMConfig.Providers {
+			if cr.Spec.LLMConfig.Providers[i].Name == providerName {
+				provider = &cr.Spec.LLMConfig.Providers[i]
+				break
+			}
+		}
+
+		// For Azure providers, read the secret to support both authentication methods
+		if provider != nil && provider.Type == "azure_openai" {
+			secret := &corev1.Secret{}
+			err := r.Get(ctx, client.ObjectKey{
+				Name:      name,
+				Namespace: r.GetNamespace(),
+			}, secret)
+			if err != nil {
+				return fmt.Errorf("failed to get secret %s: %w", name, err)
+			}
+
+			// Create environment variables for each key in the secret
+			// Azure supports both API key (apitoken) and client credentials (client_id, tenant_id, client_secret)
+			keyToEnvSuffix := map[string]string{
+				"apitoken":      "_API_KEY",
+				"client_id":     "_CLIENT_ID",
+				"tenant_id":     "_TENANT_ID",
+				"client_secret": "_CLIENT_SECRET",
+			}
+
+			for key := range secret.Data {
+				if suffix, ok := keyToEnvSuffix[key]; ok {
+					envVars = append(envVars, corev1.EnvVar{
+						Name: envVarBase + suffix,
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: name},
+								Key:                  key,
+							},
+						},
+					})
+				}
+			}
+
+			// LiteLLM requires api_key field to be present in the config for Azure
+			// even when using client credentials authentication. Check if we have an API_KEY env var,
+			// and if not, add one with a placeholder value to satisfy LiteLLM's Pydantic validation.
+			hasAPIKey := false
+			apiKeyEnvName := envVarBase + "_API_KEY"
+			for _, env := range envVars {
+				if env.Name == apiKeyEnvName {
+					hasAPIKey = true
+					break
+				}
+			}
+			if !hasAPIKey {
+				envVars = append(envVars, corev1.EnvVar{
+					Name:  apiKeyEnvName,
+					Value: "placeholder",
+				})
+			}
+		} else {
+			// For non-Azure providers, always use API key
+			envVars = append(envVars, corev1.EnvVar{
+				Name: envVarBase + "_API_KEY",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: name},
+						Key:                  "apitoken",
+					},
+				},
+			})
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
-	return envVars
+	return envVars, nil
 }
 
 // GenerateLCoreDeployment generates the Deployment for LCore (llama-stack + lightspeed-stack)
 func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	ctx := context.Background()
 	revisionHistoryLimit := int32(1)
-	volumeDefaultMode := int32(420)
+	volumeDefaultMode := utils.VolumeDefaultMode
 
 	replicas := getLCoreReplicas(cr)
 	llamaStackResources := getLlamaStackResources(cr)
@@ -176,20 +250,7 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 		},
 	}
 
-	// User provided additional CA certificates
-	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
-		volumes = append(volumes, corev1.Volume{
-			Name: utils.AdditionalCAVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: *cr.Spec.OLSConfig.AdditionalCAConfigMapRef,
-					DefaultMode:          &volumeDefaultMode,
-				},
-			},
-		})
-	}
-
-	// llama-stack container
+	// llama-stack container volume mounts
 	llamaStackVolumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "llama-stack-config",
@@ -209,13 +270,39 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 		},
 	}
 
-	// Mount additional CA if provided
-	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
+	// User provided CA certificates - create both volumes and volume mounts in single pass
+	_ = utils.ForEachExternalConfigMap(cr, func(name, source string) error {
+		var volumeName, llamaStackMountPath string
+		switch source {
+		case "additional-ca":
+			volumeName = utils.AdditionalCAVolumeName
+			llamaStackMountPath = "/etc/pki/ca-trust/source/anchors"
+		default:
+			return nil
+		}
+
+		volumes = append(volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: name},
+					DefaultMode:          &volumeDefaultMode,
+				},
+			},
+		})
+
 		llamaStackVolumeMounts = append(llamaStackVolumeMounts, corev1.VolumeMount{
-			Name:      utils.AdditionalCAVolumeName,
-			MountPath: "/etc/pki/ca-trust/source/anchors",
+			Name:      volumeName,
+			MountPath: llamaStackMountPath,
 			ReadOnly:  true,
 		})
+		return nil
+	})
+
+	// Build environment variables for LLM providers
+	llamaStackEnvVars, err := buildLlamaStackEnvVars(r, ctx, cr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build Llama Stack environment variables: %w", err)
 	}
 
 	llamaStackContainer := corev1.Container{
@@ -229,7 +316,7 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 				Protocol:      corev1.ProtocolTCP,
 			},
 		},
-		Env:          buildLlamaStackEnvVars(cr),
+		Env:          llamaStackEnvVars,
 		VolumeMounts: llamaStackVolumeMounts,
 		Command: []string{"bash", "-c", `
 			# Start llama stack in background

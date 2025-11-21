@@ -351,90 +351,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 		})
 
-		// TODO: Re-enable after annotation consolidation (Phase 2)
-		// This test relies on hash-based change detection which will be replaced by watcher annotations
-		// It("should trigger rolling update of the deployment when changing LLM secret content", func() {
-		// 	var err error
-
-		// 	By("Validate external secrets (LLM Provider)")
-		// 	olsConfig := &olsv1alpha1.OLSConfig{}
-		// 	err = utils.ValidateExternalSecrets(testReconcilerInstance, ctx, olsConfig)
-		// 	Expect(err).NotTo(HaveOccurred())
-
-		// 	By("Get the deployment")
-		// 	dep := &appsv1.Deployment{}
-		// 	err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// 	Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-		// 	oldHash := dep.Spec.Template.Annotations[utils.LLMProviderHashKey]
-		// 	By("Update the provider secret content")
-		// 	secret.Data["apitoken2"] = []byte("new-value")
-		// 	err = k8sClient.Update(ctx, secret)
-		// 	Expect(err).NotTo(HaveOccurred())
-
-		// 	By("Validate external secrets again (LLM Provider)")
-		// 	// Validate external secrets before testing
-		// 	err = utils.ValidateExternalSecrets(testReconcilerInstance, ctx, olsConfig)
-		// 	Expect(err).NotTo(HaveOccurred())
-
-		// 	// Reconcile the app server
-		// 	err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// 	By("Reconcile the app server")
-		// 	err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// 	By("Get the updated deployment")
-		// 	err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// 	Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-		// 	// Verify that the hash in deployment annotations has been updated
-		// 	Expect(dep.Spec.Template.Annotations[utils.LLMProviderHashKey]).NotTo(Equal(oldHash))
-		// })
-
-		// TODO: Re-enable after annotation consolidation (Phase 2)
-		// This test relies on hash-based change detection which will be replaced by watcher annotations
-		// It("should trigger rolling update of the deployment when recreating provider secret", func() {
-		// 	By("Get the deployment")
-		// 	dep := &appsv1.Deployment{}
-		// 	err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// 	Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-		// 	oldHash := dep.Spec.Template.Annotations[utils.LLMProviderHashKey]
-		// 	Expect(oldHash).NotTo(BeEmpty())
-		// 	By("Delete the provider secret")
-		// 	secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
-		// 	Expect(secretDeletionErr).NotTo(HaveOccurred())
-		// 	By("Recreate the provider secret")
-		// 	secret, _ = utils.GenerateRandomSecret()
-		// 	secret.SetOwnerReferences([]metav1.OwnerReference{
-		// 		{
-		// 			Kind:       "Secret",
-		// 			APIVersion: "v1",
-		// 			UID:        "ownerUID",
-		// 			Name:       "test-secret",
-		// 		},
-		// 	})
-
-		// 	secretCreationErr := testReconcilerInstance.Create(ctx, secret)
-		// 	Expect(secretCreationErr).NotTo(HaveOccurred())
-
-		// 	olsConfig := &olsv1alpha1.OLSConfig{}
-		// 	err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// 	By("Validate external secrets again (LLM Provider)")
-		// 	// Validate external secrets before testing
-		// 	err = utils.ValidateExternalSecrets(testReconcilerInstance, ctx, olsConfig)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// 	By("Reconcile the app server")
-		// 	err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// 	By("Get the deployment")
-		// 	err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// 	Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-		// 	Expect(dep.Spec.Template.Annotations[utils.LLMProviderHashKey]).NotTo(Equal(oldHash))
-		// })
-
 		It("should create a service monitor lightspeed-app-server-monitor", func() {
 			By("Get the service monitor")
 			sm := &monv1.ServiceMonitor{}
@@ -619,7 +535,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			dep := &appsv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
-			defaultSecretMode := int32(420)
+			defaultSecretMode := utils.VolumeDefaultMode
 			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
 				Name: "secret-new-token-secret",
 				VolumeSource: corev1.VolumeSource{
@@ -633,17 +549,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Delete the provider secret")
 			secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
-		})
-
-		It("should return error when the LLM provider token secret is not found", func() {
-			By("Validate external secrets after modifying the token secret")
-			originalSecretName := cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name
-			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: "non-existing-secret"}
-			err := utils.ValidateExternalSecrets(testReconcilerInstance, ctx, cr)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("secret not found: non-existing-secret"))
-			// Note: Status condition management is the responsibility of the main controller, not component reconcilers
-			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: originalSecretName}
 		})
 
 		It("should return error when the TLS secret is not found", func() {
@@ -663,7 +568,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 	Context("User CA Certs", Ordered, func() {
 		var secret *corev1.Secret
-		var volumeDefaultMode = int32(420)
+		var volumeDefaultMode = utils.VolumeDefaultMode
 		var cmCACert1 *corev1.ConfigMap
 		var cmCACert2 *corev1.ConfigMap
 		var configmap *corev1.ConfigMap
@@ -1014,7 +919,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 	Context("Proxy Settings", Ordered, func() {
 		var secret *corev1.Secret
-		var volumeDefaultMode = int32(420)
+		var volumeDefaultMode = utils.VolumeDefaultMode
 		var cmCACert *corev1.ConfigMap
 		var configmap *corev1.ConfigMap
 		const cmCACertName = "proxy-ca-cert"
@@ -1141,7 +1046,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 	})
 
 	Context("MCP Headers", Ordered, func() {
-		var volumeDefaultMode = int32(420)
+		var volumeDefaultMode = utils.VolumeDefaultMode
 		BeforeEach(func() {
 			By("Set OLSConfig CR to default")
 			err := k8sClient.Get(ctx, crNamespacedName, cr)

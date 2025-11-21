@@ -38,8 +38,8 @@ OLSConfigReconciler.Reconcile() →
 
 ### Resource Management
 - **Pattern**: Get → Check if exists → Create/Update with error wrapping
-- **Caching**: Uses `r.stateCache` for hash-based change detection
 - **Annotations**: Extensive use for watching/change detection
+- **Utilities**: Common helpers in `utils/` for resource requirements, volume permissions, etc.
 
 ## Testing Conventions
 
@@ -98,6 +98,10 @@ var _ = Describe("Component Name", func() {
 ### API & Types
 - `api/v1alpha1/olsconfig_types.go` - Main CRD struct definitions
 - Includes: `LLMSpec`, `OLSSpec`, `DeploymentConfig`, etc.
+
+### Entry Point & Configuration
+- `cmd/main.go` - Operator entry point with command-line flags and watcher configuration
+- Contains `WatcherConfig` - Declarative configuration for external resource watching
 
 ### Tests to Check
 - **Unit Tests** (co-located with source):
@@ -284,6 +288,45 @@ watcherConfig := &utils.WatcherConfig{
 3. Annotation `ols.openshift.io/watch-olsconfig: "cluster"` added
 4. Watchers activate via predicate layer
 5. Future changes trigger Layer 2 data comparison → Layer 3 restart logic
+
+### External Resource Iteration Pattern
+
+For processing external secrets and configmaps referenced in the CR, use iterator functions:
+
+```go
+// Iterate over all external secrets referenced in CR
+err := utils.ForEachExternalSecret(cr, func(name string, source string) error {
+    // Process secret: name = secret name, source = CR field path
+    return nil
+})
+
+// Iterate over all external configmaps referenced in CR
+err := utils.ForEachExternalConfigMap(cr, func(name string, source string) error {
+    // Process configmap: name = configmap name, source = CR field path
+    return nil
+})
+```
+
+**Benefits:**
+- Centralizes CR traversal logic
+- Prevents duplicate code across watchers, annotation, and asset generation
+- Supports early termination via error return
+- Provides source tracking for debugging
+
+## Common Utility Functions
+
+### Volume Permissions
+```go
+utils.VolumeDefaultMode = int32(420)     // 0644 - Standard readable permissions
+utils.VolumeRestrictedMode = int32(0600) // 0600 - Secure, owner-only access
+```
+
+### Resource Requirements
+```go
+// Returns custom resources from CR if specified, otherwise returns defaults
+resources := utils.GetResourcesOrDefault(cr.Spec.Component.Resources, defaultResources)
+```
+
 
 
 ## Token-Efficient Debugging Tips

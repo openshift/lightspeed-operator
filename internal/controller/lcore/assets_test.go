@@ -2,12 +2,17 @@ package lcore
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/yaml"
 )
 
@@ -112,6 +117,35 @@ func TestBuildLlamaStackYAML_UnsupportedProvider(t *testing.T) {
 }
 
 func TestBuildLlamaStackYAML_AzureProvider(t *testing.T) {
+	// Create a fake secret with API token for Azure provider
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "azure-secret",
+			Namespace: "test-namespace",
+		},
+		Data: map[string][]byte{
+			"apitoken": []byte("test-api-key"),
+		},
+	}
+
+	// Create a fake client with the secret
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = olsv1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(secret).
+		Build()
+
+	// Create a test reconciler
+	logger := zap.New(zap.UseDevMode(true))
+	testReconciler := utils.NewTestReconciler(
+		fakeClient,
+		logger,
+		scheme,
+		"test-namespace",
+	)
+
 	// Create a test CR with Azure OpenAI provider
 	cr := &olsv1alpha1.OLSConfig{
 		Spec: olsv1alpha1.OLSConfigSpec{
@@ -140,7 +174,7 @@ func TestBuildLlamaStackYAML_AzureProvider(t *testing.T) {
 
 	// Build the YAML
 	ctx := context.Background()
-	yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+	yamlOutput, err := buildLlamaStackYAML(testReconciler, ctx, cr)
 	if err != nil {
 		t.Fatalf("buildLlamaStackYAML returned error for Azure provider: %v", err)
 	}
@@ -191,20 +225,31 @@ func TestBuildLlamaStackYAML_AzureProvider(t *testing.T) {
 		t.Fatalf("provider config not found or invalid type")
 	}
 
-	// Verify expected fields are present
-	expectedFields := []string{"api_key", "api_base", "api_version", "deployment_name", "api_type"}
-	for _, field := range expectedFields {
+	// Verify Azure-specific fields are present
+	// Note: Config always includes api_key (required by LiteLLM) plus client credentials fields
+	// The client credentials fields will have empty defaults if not used
+	requiredFields := []string{
+		"api_key",         // Always present (required by LiteLLM's Pydantic validation)
+		"client_id",       // Always present (with empty default if not using client credentials)
+		"tenant_id",       // Always present (with empty default if not using client credentials)
+		"client_secret",   // Always present (with empty default if not using client credentials)
+		"api_base",        // Azure endpoint
+		"api_version",     // Azure API version
+		"deployment_name", // Azure deployment
+	}
+	for _, field := range requiredFields {
 		if _, exists := config[field]; !exists {
 			t.Errorf("Expected field '%s' not found in Azure provider config", field)
 		}
 	}
 
-	// Verify api_type has the correct format
-	apiType, ok := config["api_type"].(string)
-	if !ok {
-		t.Errorf("api_type is not a string: %v", config["api_type"])
-	} else if !contains(apiType, "${env.") || !contains(apiType, "_API_TYPE:=}") {
-		t.Errorf("api_type doesn't match expected pattern '${env.*_API_TYPE:=}', got: %s", apiType)
+	// Verify api_key has the correct env var format
+	if apiKey, ok := config["api_key"].(string); ok && apiKey != "" {
+		if !strings.HasPrefix(apiKey, "${env.") || !strings.HasSuffix(apiKey, "_API_KEY}") {
+			t.Errorf("api_key doesn't have correct env var format, got: %s", apiKey)
+		}
+	} else {
+		t.Errorf("api_key field is missing or empty")
 	}
 
 	t.Logf("Successfully validated Llama Stack YAML with Azure provider (%d bytes)", len(yamlOutput))

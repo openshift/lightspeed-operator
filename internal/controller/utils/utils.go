@@ -89,6 +89,27 @@ func ProviderNameToEnvVarName(providerName string) string {
 	return strings.ToUpper(envVarName)
 }
 
+// GetResourcesOrDefault returns custom resources from CR if specified, otherwise returns defaults.
+// This is a common pattern used across all component resource getters to avoid repetitive
+// null-checking logic. It provides a consistent way to handle user-configurable container resources
+// with sensible defaults.
+//
+// Example usage:
+//
+//	return GetResourcesOrDefault(
+//	    cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Resources,
+//	    &corev1.ResourceRequirements{
+//	        Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("4Gi")},
+//	        Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m")},
+//	    },
+//	)
+func GetResourcesOrDefault(customResources *corev1.ResourceRequirements, defaultResources *corev1.ResourceRequirements) *corev1.ResourceRequirements {
+	if customResources != nil {
+		return customResources
+	}
+	return defaultResources
+}
+
 func GetSecretContent(rclient client.Client, secretName string, namespace string, secretFields []string, foundSecret *corev1.Secret) (map[string]string, error) {
 	ctx := context.Background()
 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
@@ -495,51 +516,6 @@ func IsPrometheusOperatorAvailable(ctx context.Context, c client.Client) bool {
 	return true
 }
 
-// ValidateExternalSecrets validates that all external secrets referenced in the CR exist and are accessible.
-// This includes LLM provider credentials and MCP server headers.
-// It also annotates the secrets for watching.
-func ValidateExternalSecrets(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	// Validate LLM provider credentials
-	for _, provider := range cr.Spec.LLMConfig.Providers {
-		foundSecret := &corev1.Secret{}
-		_, err := GetAllSecretContent(r, provider.CredentialsSecretRef.Name, r.GetNamespace(), foundSecret)
-		if err != nil {
-			return fmt.Errorf("LLM provider credential secret not found for provider %s: %w", provider.Name, err)
-		}
-		AnnotateSecretWatcher(foundSecret)
-		err = r.Update(ctx, foundSecret)
-		if err != nil {
-			return fmt.Errorf("failed to update LLM provider secret %s: %w", foundSecret.Name, err)
-		}
-	}
-
-	// Validate MCP server headers (if any)
-	if cr.Spec.MCPServers != nil {
-		for _, mcpServer := range cr.Spec.MCPServers {
-			if mcpServer.StreamableHTTP != nil && mcpServer.StreamableHTTP.Headers != nil {
-				for headerName, secretName := range mcpServer.StreamableHTTP.Headers {
-					// Skip the special "kubernetes" token case
-					if secretName == KUBERNETES_PLACEHOLDER {
-						continue
-					}
-					foundSecret := &corev1.Secret{}
-					_, err := GetAllSecretContent(r, secretName, r.GetNamespace(), foundSecret)
-					if err != nil {
-						return fmt.Errorf("MCP server header secret not found for server %s, header %s: %w", mcpServer.Name, headerName, err)
-					}
-					AnnotateSecretWatcher(foundSecret)
-					err = r.Update(ctx, foundSecret)
-					if err != nil {
-						return fmt.Errorf("failed to update MCP server header secret %s: %w", foundSecret.Name, err)
-					}
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 // GetConfigMapResourceVersion returns the ResourceVersion of a ConfigMap.
 func GetConfigMapResourceVersion(r reconciler.Reconciler, ctx context.Context, configMapName string) (string, error) {
 	configMap := &corev1.ConfigMap{}
@@ -558,4 +534,94 @@ func GetSecretResourceVersion(r reconciler.Reconciler, ctx context.Context, secr
 		return "", err
 	}
 	return secret.ResourceVersion, nil
+}
+
+// ForEachExternalSecret calls fn for each external secret referenced in the OLSConfig CR.
+// The callback function receives:
+//   - name: the secret name
+//   - source: a descriptive identifier of where the secret is used (e.g., "llm-provider-openai", "tls", "mcp-myserver")
+//
+// If fn returns an error, iteration stops immediately and that error is returned.
+// Returns nil if all iterations complete successfully.
+//
+// Example usage:
+//
+//	err := ForEachExternalSecret(cr, func(name, source string) error {
+//	    return validateSecret(name)
+//	})
+func ForEachExternalSecret(cr *olsv1alpha1.OLSConfig, fn func(name string, source string) error) error {
+	// 1. LLM provider credentials
+	for _, provider := range cr.Spec.LLMConfig.Providers {
+		secretName := provider.CredentialsSecretRef.Name
+		if secretName == "" {
+			continue
+		}
+		if err := fn(secretName, "llm-provider-"+provider.Name); err != nil {
+			return err
+		}
+	}
+
+	// 2. TLS certificate secret
+	if cr.Spec.OLSConfig.TLSConfig != nil &&
+		cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		secretName := cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
+		if err := fn(secretName, "tls"); err != nil {
+			return err
+		}
+	}
+
+	// 3. MCP server header secrets
+	if cr.Spec.MCPServers != nil {
+		for _, mcpServer := range cr.Spec.MCPServers {
+			if mcpServer.StreamableHTTP != nil && mcpServer.StreamableHTTP.Headers != nil {
+				for _, secretName := range mcpServer.StreamableHTTP.Headers {
+					// Skip the special "kubernetes" token placeholder
+					if secretName == KUBERNETES_PLACEHOLDER || secretName == "" {
+						continue
+					}
+					if err := fn(secretName, "mcp-"+mcpServer.Name); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// ForEachExternalConfigMap calls fn for each external configmap referenced in the OLSConfig CR.
+// The callback function receives:
+//   - name: the configmap name
+//   - source: a descriptive identifier of where the configmap is used (e.g., "additional-ca", "proxy-ca")
+//
+// If fn returns an error, iteration stops immediately and that error is returned.
+// Returns nil if all iterations complete successfully.
+//
+// Example usage:
+//
+//	err := ForEachExternalConfigMap(cr, func(name, source string) error {
+//	    return validateConfigMap(name)
+//	})
+func ForEachExternalConfigMap(cr *olsv1alpha1.OLSConfig, fn func(name string, source string) error) error {
+	// 1. Additional CA certificates
+	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil &&
+		cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name != "" {
+		cmName := cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name
+		if err := fn(cmName, "additional-ca"); err != nil {
+			return err
+		}
+	}
+
+	// 2. Proxy CA certificate
+	if cr.Spec.OLSConfig.ProxyConfig != nil &&
+		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil &&
+		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name != "" {
+		cmName := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name
+		if err := fn(cmName, "proxy-ca"); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

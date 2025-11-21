@@ -22,15 +22,8 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-func getPostgresSecretName(cr *olsv1alpha1.OLSConfig) string {
-	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
-		return cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
-	}
-	return utils.PostgresSecretName
-}
-
 func GetPostgresCAConfigVolume() corev1.Volume {
-	volumeDefaultMode := int32(420)
+	volumeDefaultMode := utils.VolumeDefaultMode
 	return corev1.Volume{
 		Name: utils.PostgresCAVolume,
 		VolumeSource: corev1.VolumeSource{
@@ -55,7 +48,12 @@ func GetPostgresCAVolumeMount(mountPath string) corev1.VolumeMount {
 func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	cacheReplicas := int32(1)
 	revisionHistoryLimit := int32(1)
-	postgresSecretName := getPostgresSecretName(cr)
+
+	// Get postgres secret name (can be customized via CR or use default)
+	postgresSecretName := utils.PostgresSecretName
+	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
+		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
+	}
 
 	passwordMap, err := utils.GetSecretContent(r, postgresSecretName, r.GetNamespace(), []string{utils.OLSComponentPasswordFileName}, &corev1.Secret{})
 	if err != nil {
@@ -68,7 +66,13 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 	if cr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections == 0 {
 		cr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections = utils.PostgresMaxConnections
 	}
-	defaultPermission := int32(0600)
+
+	// Initialize volumes and volume mounts slices
+	volumes := []corev1.Volume{}
+	volumeMounts := []corev1.VolumeMount{}
+
+	// TLS certs volume and mount (for secure postgres connection)
+	defaultPermission := utils.VolumeRestrictedMode
 	tlsCertsVolume := corev1.Volume{
 		Name: "secret-" + utils.PostgresCertsSecretName,
 		VolumeSource: corev1.VolumeSource{
@@ -78,6 +82,15 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 			},
 		},
 	}
+	postgresTLSVolumeMount := corev1.VolumeMount{
+		Name:      "secret-" + utils.PostgresCertsSecretName,
+		MountPath: utils.OLSAppCertsMountRoot,
+		ReadOnly:  true,
+	}
+	volumes = append(volumes, tlsCertsVolume)
+	volumeMounts = append(volumeMounts, postgresTLSVolumeMount)
+
+	// Bootstrap script volume and mount (for creating postgres extensions)
 	bootstrapVolume := corev1.Volume{
 		Name: "secret-" + utils.PostgresBootstrapSecretName,
 		VolumeSource: corev1.VolumeSource{
@@ -87,7 +100,17 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 			},
 		},
 	}
-	volumeDefaultMode := int32(420)
+	bootstrapVolumeMount := corev1.VolumeMount{
+		Name:      "secret-" + utils.PostgresBootstrapSecretName,
+		MountPath: utils.PostgresBootstrapVolumeMountPath,
+		SubPath:   utils.PostgresExtensionScript,
+		ReadOnly:  true,
+	}
+	volumes = append(volumes, bootstrapVolume)
+	volumeMounts = append(volumeMounts, bootstrapVolumeMount)
+
+	// Config volume and mount (postgres configuration file)
+	volumeDefaultMode := utils.VolumeDefaultMode
 	configVolume := corev1.Volume{
 		Name: utils.PostgresConfigMap,
 		VolumeSource: corev1.VolumeSource{
@@ -97,7 +120,15 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 			},
 		},
 	}
+	configVolumeMount := corev1.VolumeMount{
+		Name:      utils.PostgresConfigMap,
+		MountPath: utils.PostgresConfigVolumeMountPath,
+		SubPath:   utils.PostgresConfig,
+	}
+	volumes = append(volumes, configVolume)
+	volumeMounts = append(volumeMounts, configVolumeMount)
 
+	// Data volume and mount (postgres data directory - PVC or emptyDir)
 	dataVolume := corev1.Volume{
 		Name: utils.PostgresDataVolume,
 	}
@@ -112,60 +143,44 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		}
 	}
+	dataVolumeMount := corev1.VolumeMount{
+		Name:      utils.PostgresDataVolume,
+		MountPath: utils.PostgresDataVolumeMountPath,
+	}
+	volumes = append(volumes, dataVolume)
+	volumeMounts = append(volumeMounts, dataVolumeMount)
 
+	// Postgres CA volume and mount (for TLS certificate verification)
+	volumes = append(volumes, GetPostgresCAConfigVolume())
+	volumeMounts = append(volumeMounts, GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, utils.PostgresCAVolume)))
+
+	// Var run volume and mount (writable directory for postgres runtime files)
 	varRunVolume := corev1.Volume{
 		Name: utils.PostgresVarRunVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
+	varRunVolumeMount := corev1.VolumeMount{
+		Name:      utils.PostgresVarRunVolumeName,
+		MountPath: utils.PostgresVarRunVolumeMountPath,
+	}
+	volumes = append(volumes, varRunVolume)
+	volumeMounts = append(volumeMounts, varRunVolumeMount)
 
+	// Tmp volume and mount (writable temporary directory)
 	tmpVolume := corev1.Volume{
 		Name: utils.TmpVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
-
-	volumes := []corev1.Volume{tlsCertsVolume, bootstrapVolume, configVolume, dataVolume, GetPostgresCAConfigVolume(), varRunVolume, tmpVolume}
-	postgresTLSVolumeMount := corev1.VolumeMount{
-		Name:      "secret-" + utils.PostgresCertsSecretName,
-		MountPath: utils.OLSAppCertsMountRoot,
-		ReadOnly:  true,
-	}
-	bootstrapVolumeMount := corev1.VolumeMount{
-		Name:      "secret-" + utils.PostgresBootstrapSecretName,
-		MountPath: utils.PostgresBootstrapVolumeMountPath,
-		SubPath:   utils.PostgresExtensionScript,
-		ReadOnly:  true,
-	}
-	configVolumeMount := corev1.VolumeMount{
-		Name:      utils.PostgresConfigMap,
-		MountPath: utils.PostgresConfigVolumeMountPath,
-		SubPath:   utils.PostgresConfig,
-	}
-	dataVolumeMount := corev1.VolumeMount{
-		Name:      utils.PostgresDataVolume,
-		MountPath: utils.PostgresDataVolumeMountPath,
-	}
-	varRunVolumeMount := corev1.VolumeMount{
-		Name:      utils.PostgresVarRunVolumeName,
-		MountPath: utils.PostgresVarRunVolumeMountPath,
-	}
 	tmpVolumeMount := corev1.VolumeMount{
 		Name:      utils.TmpVolumeName,
 		MountPath: utils.TmpVolumeMountPath,
 	}
-
-	volumeMounts := []corev1.VolumeMount{
-		postgresTLSVolumeMount,
-		bootstrapVolumeMount,
-		configVolumeMount,
-		dataVolumeMount,
-		GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, utils.PostgresCAVolume)),
-		varRunVolumeMount,
-		tmpVolumeMount,
-	}
+	volumes = append(volumes, tmpVolume)
+	volumeMounts = append(volumeMounts, tmpVolumeMount)
 
 	databaseResources := getDatabaseResources(cr)
 
@@ -262,8 +277,11 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 
 // updatePostgresDeployment updates the deployment based on CustomResource configuration.
 func UpdatePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, existingDeployment, desiredDeployment *appsv1.Deployment) error {
-	// Get the actual secret name from the CR (can be customized)
-	postgresSecretName := getPostgresSecretName(cr)
+	// Get the actual secret name from the CR (can be customized via CR or use default)
+	postgresSecretName := utils.PostgresSecretName
+	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
+		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
+	}
 
 	// Step 1: Check if deployment spec has changed
 	utils.SetDefaults_Deployment(desiredDeployment)
@@ -345,7 +363,12 @@ func GeneratePostgresService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 }
 
 func GeneratePostgresSecret(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Secret, error) {
-	postgresSecretName := getPostgresSecretName(cr)
+	// Get postgres secret name (can be customized via CR or use default)
+	postgresSecretName := utils.PostgresSecretName
+	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
+		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
+	}
+
 	randomPassword := make([]byte, 12)
 	_, err := rand.Read(randomPassword)
 	if err != nil {
@@ -501,18 +524,16 @@ func GeneratePostgresPVC(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*c
 }
 
 func getDatabaseResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
-	if cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.Resources != nil {
-		return cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.Resources
-	}
-	defaultResources := &corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("30m"),
-			corev1.ResourceMemory: resource.MustParse("300Mi"),
+	return utils.GetResourcesOrDefault(
+		cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.Resources,
+		&corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("30m"),
+				corev1.ResourceMemory: resource.MustParse("300Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
+			},
 		},
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("2Gi"),
-		},
-	}
-
-	return defaultResources
+	)
 }

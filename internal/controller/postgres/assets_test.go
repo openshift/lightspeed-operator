@@ -24,8 +24,8 @@ var _ = Describe("App postgres server assets", func() {
 	validatePostgresDeployment := func(dep *appsv1.Deployment, password string, with_pvc bool) {
 		replicas := int32(1)
 		revisionHistoryLimit := int32(1)
-		defaultPermission := int32(0600)
-		volumeDefaultMode := int32(420)
+		defaultPermission := utils.VolumeRestrictedMode
+		volumeDefaultMode := utils.VolumeDefaultMode
 		Expect(dep.Name).To(Equal(utils.PostgresDeploymentName))
 		Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
 		Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.PostgresServerImageDefault))

@@ -534,11 +534,10 @@ Example:
 // Get current ResourceVersion
 currentVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, configMapName)
 
-// Store in deployment annotations
-deployment.Annotations[OLSConfigMapResourceVersionAnnotation] = currentVersion
-
 // Change detected: ResourceVersion differs -> update deployment -> pod restart
 if storedVersion != currentVersion {
+    // Store in deployment annotations
+    deployment.Annotations[OLSConfigMapResourceVersionAnnotation] = currentVersion
     // Update deployment
 }
 ```

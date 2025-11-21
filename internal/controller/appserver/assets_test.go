@@ -23,7 +23,7 @@ import (
 )
 
 var testURL = "https://testURL"
-var defaultVolumeMode = int32(420)
+var defaultVolumeMode = utils.VolumeDefaultMode
 
 var _ = Describe("App server assets", func() {
 	var cr *olsv1alpha1.OLSConfig

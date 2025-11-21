@@ -299,21 +299,14 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	r.Logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
 
-	// Validate external secrets (LLM provider credentials and MCP server headers)
-	err = utils.ValidateExternalSecrets(r, ctx, olsconfig)
-	if err != nil {
-		r.Logger.Error(err, "Failed to validate external secrets")
-		r.UpdateStatusCondition(ctx, olsconfig, utils.TypeCRReconciled, false, "Failed", err)
-		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
-	}
-
-	// Annotation Step: Annotate external resources between Phase 1 and Phase 2
+	// Annotation Step: Annotate external resources and validate they exist
 	// This ensures all user-provided external resources (secrets, configmaps) are properly
 	// annotated for watching before we reconcile deployments that depend on them.
+	// This also validates that the resources exist (fail fast if they're missing).
 	if err := r.annotateExternalResources(ctx, olsconfig); err != nil {
 		r.Logger.Error(err, "Failed to annotate external resources")
-		// Non-fatal: continue with deployment reconciliation
-		// The resources will be picked up on the next reconciliation
+		r.UpdateStatusCondition(ctx, olsconfig, utils.TypeCRReconciled, false, "Failed", err)
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
 	}
 
 	// Phase 1: Reconcile independent resources for all components
@@ -561,64 +554,28 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 
 	var errs []error
 
-	// 1. Annotate LLM provider secrets
-	for _, provider := range cr.Spec.LLMConfig.Providers {
-		secretName := provider.CredentialsSecretRef.Name
-		if err := r.annotateSecretIfNeeded(ctx, secretName, r.Options.Namespace); err != nil {
-			r.Logger.Error(err, "Failed to annotate LLM provider secret",
-				"provider", provider.Name, "secret", secretName)
+	// Annotate all external secrets
+	err := utils.ForEachExternalSecret(cr, func(name string, source string) error {
+		if err := r.annotateSecretIfNeeded(ctx, name, r.Options.Namespace); err != nil {
+			r.Logger.Error(err, "Failed to annotate secret", "source", source, "secret", name)
 			errs = append(errs, err)
 		}
+		return nil // Continue iteration even on error
+	})
+	if err != nil {
+		errs = append(errs, err)
 	}
 
-	// 2. Annotate user-provided TLS secret (if configured)
-	if cr.Spec.OLSConfig.TLSConfig != nil &&
-		cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
-		secretName := cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
-		if err := r.annotateSecretIfNeeded(ctx, secretName, r.Options.Namespace); err != nil {
-			r.Logger.Error(err, "Failed to annotate TLS secret", "secret", secretName)
+	// Annotate all external configmaps
+	err = utils.ForEachExternalConfigMap(cr, func(name string, source string) error {
+		if err := r.annotateConfigMapIfNeeded(ctx, name, r.Options.Namespace); err != nil {
+			r.Logger.Error(err, "Failed to annotate configmap", "source", source, "configmap", name)
 			errs = append(errs, err)
 		}
-	}
-
-	// Note: Postgres secret is operator-owned, not external, so we don't annotate it
-
-	// 3. Annotate AdditionalCAConfigMapRef (if configured)
-	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
-		cmName := cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name
-		if err := r.annotateConfigMapIfNeeded(ctx, cmName, r.Options.Namespace); err != nil {
-			r.Logger.Error(err, "Failed to annotate AdditionalCA", "configmap", cmName)
-			errs = append(errs, err)
-		}
-	}
-
-	// 4. Annotate ProxyCACertificateRef (if configured)
-	if cr.Spec.OLSConfig.ProxyConfig != nil &&
-		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil {
-		cmName := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name
-		if err := r.annotateConfigMapIfNeeded(ctx, cmName, r.Options.Namespace); err != nil {
-			r.Logger.Error(err, "Failed to annotate ProxyCA", "configmap", cmName)
-			errs = append(errs, err)
-		}
-	}
-
-	// 5. Annotate MCP server header secrets (if any)
-	if cr.Spec.MCPServers != nil {
-		for _, mcpServer := range cr.Spec.MCPServers {
-			if mcpServer.StreamableHTTP != nil && mcpServer.StreamableHTTP.Headers != nil {
-				for _, secretName := range mcpServer.StreamableHTTP.Headers {
-					// Skip the special "kubernetes" token case
-					if secretName == utils.KUBERNETES_PLACEHOLDER {
-						continue
-					}
-					if err := r.annotateSecretIfNeeded(ctx, secretName, r.Options.Namespace); err != nil {
-						r.Logger.Error(err, "Failed to annotate MCP header secret",
-							"mcpServer", mcpServer.Name, "secret", secretName)
-						errs = append(errs, err)
-					}
-				}
-			}
-		}
+		return nil // Continue iteration even on error
+	})
+	if err != nil {
+		errs = append(errs, err)
 	}
 
 	if len(errs) > 0 {

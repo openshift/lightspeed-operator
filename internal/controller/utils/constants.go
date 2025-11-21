@@ -3,6 +3,12 @@ package utils
 import "time"
 
 const (
+	/*** Volume Permissions ***/
+	// VolumeDefaultMode is the default permission for mounted volumes (0644 - read/write for owner, read-only for group/others)
+	VolumeDefaultMode = int32(420)
+	// VolumeRestrictedMode is for sensitive volumes like secrets (0600 - read/write for owner only)
+	VolumeRestrictedMode = int32(0600)
+
 	/*** Operator Settings ***/
 	// OLSConfigName is the name of the OLSConfig Custom Resource
 	OLSConfigName = "cluster"
