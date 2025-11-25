@@ -16,7 +16,7 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:7afec87917d1be19e2a39268fd88a217ce10fe0f1d7c38c10936d245f8bf21a3",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:65b288d147503bd66808eecf69deee8e71ec890752a70f83a9314061fe0d4420",
     "revision": "e5e1454f3fa8b19293200868684abcaf18f38097"
   },
   {
@@ -26,7 +26,7 @@
   },
   {
     "name": "lightspeed-to-dataverse-exporter",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:17ff570a69079936de2a70958b8c073e8456e3e9db79be2882c931eda931670f",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter@sha256:9ac780b43add0d38c42d9f7a506c860061ac1404b1b40c91e154d7c2b4ff71bb",
     "revision": "b5ea77aeb5ed0952c90b6e2e78c461c094aef125"
   },
   {
