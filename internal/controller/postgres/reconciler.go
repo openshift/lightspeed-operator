@@ -49,6 +49,10 @@ func ReconcilePostgres(r reconciler.Reconciler, ctx context.Context, olsconfig *
 			Task: reconcilePostgresSecret,
 		},
 		{
+			Name: "reconcile Postgres CA",
+			Task: reconcilePostgresCA,
+		},
+		{
 			Name: "reconcile Postgres Service",
 			Task: reconcilePostgresService,
 		},
@@ -88,14 +92,13 @@ func reconcilePostgresDeployment(r reconciler.Reconciler, ctx context.Context, c
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, client.ObjectKey{Name: utils.PostgresDeploymentName, Namespace: r.GetNamespace()}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		utils.UpdateDeploymentAnnotations(desiredDeployment, map[string]string{
+		annotations := map[string]string{
 			utils.PostgresConfigHashKey: r.GetStateCache()[utils.PostgresConfigHashStateCacheKey],
 			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
-		utils.UpdateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			utils.PostgresConfigHashKey: r.GetStateCache()[utils.PostgresConfigHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
+			utils.PostgresCAHashKey:     r.GetStateCache()[utils.PostgresCAHashStateCacheKey],
+		}
+		utils.UpdateDeploymentAnnotations(desiredDeployment, annotations)
+		utils.UpdateDeploymentTemplateAnnotations(desiredDeployment, annotations)
 		r.GetLogger().Info("creating a new OLS postgres deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
@@ -289,5 +292,63 @@ func reconcilePostgresNetworkPolicy(r reconciler.Reconciler, ctx context.Context
 		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresNetworkPolicy, err)
 	}
 	r.GetLogger().Info("OLS postgres network policy reconciled", "network policy", networkPolicy.Name)
+	return nil
+}
+
+func reconcilePostgresCA(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	certBytes := []byte{}
+
+	// Get service CA certificate from ConfigMap
+	tmpCM := &corev1.ConfigMap{}
+	err := r.Get(ctx, client.ObjectKey{Name: utils.OLSCAConfigMap, Namespace: r.GetNamespace()}, tmpCM)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to get %s ConfigMap: %w", utils.OLSCAConfigMap, err)
+		}
+		r.GetLogger().Info("CA ConfigMap not found, skipping CA bundle", "configmap", utils.OLSCAConfigMap)
+	} else {
+		if caCert, exists := tmpCM.Data[utils.PostgresServiceCACertKeyName]; exists {
+			certBytes = append(certBytes, []byte(utils.PostgresServiceCACertKeyName)...)
+			certBytes = append(certBytes, []byte(caCert)...)
+		}
+	}
+
+	// Get serving cert from Secret
+	tmpSec := &corev1.Secret{}
+	err = r.Get(ctx, client.ObjectKey{Name: utils.PostgresCertsSecretName, Namespace: r.GetNamespace()}, tmpSec)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to get %s Secret: %w", utils.PostgresCertsSecretName, err)
+		}
+		r.GetLogger().Info("serving cert Secret not found, skipping server certificate", "secret", utils.PostgresCertsSecretName)
+	} else {
+		if tlsCert, exists := tmpSec.Data[utils.PostgresTLSCertKeyName]; exists {
+			certBytes = append(certBytes, []byte(utils.PostgresTLSCertKeyName)...)
+			certBytes = append(certBytes, tlsCert...)
+		}
+	}
+
+	// Calculate hash based on available inputs
+	combinedHash := ""
+	if len(certBytes) > 0 {
+		var err error
+		if combinedHash, err = utils.HashBytes(certBytes); err != nil {
+			return fmt.Errorf("failed to generate Postgres CA hash: %w", err)
+		}
+	}
+
+	// Store existing hash before updating
+	existingHash := r.GetStateCache()[utils.PostgresCAHashStateCacheKey]
+
+	// Always update state cache to ensure it's set, even if value hasn't changed
+	r.GetStateCache()[utils.PostgresCAHashStateCacheKey] = combinedHash
+
+	// Check if hash changed (including changes to/from empty string)
+	if combinedHash == existingHash {
+		return nil
+	}
+
+	r.GetLogger().Info("Postgres CA hash updated, deployment will be updated via updatePostgresDeployment")
+
 	return nil
 }

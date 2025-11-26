@@ -494,22 +494,50 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 		existingDeployment.Annotations[utils.OLSConfigHashKey] != r.GetStateCache()[utils.OLSConfigHashStateCacheKey] ||
 		existingDeployment.Annotations[utils.OLSAppTLSHashKey] != r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey] ||
 		existingDeployment.Annotations[utils.LLMProviderHashKey] != r.GetStateCache()[utils.LLMProviderHashStateCacheKey] ||
-		existingDeployment.Annotations[utils.PostgresSecretHashKey] != r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] {
-		utils.UpdateDeploymentAnnotations(existingDeployment, map[string]string{
+		existingDeployment.Annotations[utils.PostgresSecretHashKey] != r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] ||
+		existingDeployment.Annotations[utils.PostgresCAHashKey] != r.GetStateCache()[utils.PostgresCAHashStateCacheKey] {
+
+		// Check if PostgreSQL-related hashes changed - if so, verify PostgreSQL deployment is ready before restarting app-server
+		existingCAHash := existingDeployment.Annotations[utils.PostgresCAHashKey]
+		newCAHash := r.GetStateCache()[utils.PostgresCAHashStateCacheKey]
+		existingSecretHash := existingDeployment.Annotations[utils.PostgresSecretHashKey]
+		newSecretHash := r.GetStateCache()[utils.PostgresSecretHashStateCacheKey]
+
+		postgresCAHashChanged := existingCAHash != newCAHash
+		postgresSecretHashChanged := existingSecretHash != newSecretHash
+		shouldWaitForPostgres := (postgresCAHashChanged || postgresSecretHashChanged) &&
+			!(existingCAHash == "" && existingSecretHash == "")
+
+		if shouldWaitForPostgres {
+			postgresDeployment := &appsv1.Deployment{}
+			err := r.Get(ctx, client.ObjectKey{Name: utils.PostgresDeploymentName, Namespace: r.GetNamespace()}, postgresDeployment)
+			if err == nil {
+				// PostgreSQL deployment exists, check if it's ready
+				if postgresDeployment.Status.ReadyReplicas != *postgresDeployment.Spec.Replicas {
+					// PostgreSQL is not ready yet, return error to trigger requeue
+					return fmt.Errorf("PostgreSQL deployment is not ready yet after certificate rotation (ready: %d, desired: %d), deferring app-server update",
+						postgresDeployment.Status.ReadyReplicas,
+						*postgresDeployment.Spec.Replicas)
+				}
+				r.GetLogger().Info("PostgreSQL deployment is ready, proceeding with app-server update")
+			} else if !apierrors.IsNotFound(err) {
+				// Handle unexpected errors (not NotFound)
+				return fmt.Errorf("failed to check PostgreSQL deployment status during app-server update: %w", err)
+			}
+			// If NotFound, continue - PostgreSQL will be recreated by its reconciler
+		}
+
+		annotations := map[string]string{
 			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
 			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],
 			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
 			utils.AdditionalCAHashKey:   r.GetStateCache()[utils.AdditionalCAHashStateCacheKey],
 			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
+			utils.PostgresCAHashKey:     r.GetStateCache()[utils.PostgresCAHashStateCacheKey],
+		}
+		utils.UpdateDeploymentAnnotations(existingDeployment, annotations)
 		// update the deployment template annotation triggers the rolling update
-		utils.UpdateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],
-			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
-			utils.AdditionalCAHashKey:   r.GetStateCache()[utils.AdditionalCAHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
+		utils.UpdateDeploymentTemplateAnnotations(existingDeployment, annotations)
 		changed = true
 	}
 
