@@ -16,7 +16,7 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:65b288d147503bd66808eecf69deee8e71ec890752a70f83a9314061fe0d4420",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:4e3f1f22a6019211a7f98816034cff3b47e8394303500f5bd2ba2a269ba6f9ab",
     "revision": "e5e1454f3fa8b19293200868684abcaf18f38097"
   },
   {
