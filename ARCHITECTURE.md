@@ -2,842 +2,190 @@
 
 This document describes the internal architecture of the OpenShift Lightspeed Operator codebase.
 
-> **💡 Want to add or modify a component?** See the [Contributing Guide](CONTRIBUTING.md) for step-by-step instructions.
-
 ## Overview
 
 The operator follows a modular, component-based architecture where each major component (application server, Lightspeed Core/Llama Stack, PostgreSQL, Console UI) is managed by its own dedicated package with independent reconciliation logic.
 
-## Directory Structure
-
-```
-internal/controller/
-├── reconciler/              # Interface definitions
-│   └── interface.go         # Reconciler interface contract
-├── appserver/              # Application server component
-│   ├── reconciler.go       # Main reconciliation logic
-│   ├── assets.go          # Resource generation (ConfigMaps, Services, etc.)
-│   ├── deployment.go      # Deployment-specific logic
-│   └── rag.go            # RAG (Retrieval-Augmented Generation) support
-├── lcore/                 # Lightspeed Core (Llama Stack) component
-│   ├── reconciler.go      # Main reconciliation logic
-│   ├── assets.go         # Resource generation (Llama Stack config, LCore config)
-│   └── deployment.go     # Deployment-specific logic
-├── postgres/              # PostgreSQL database component
-│   ├── reconciler.go     # Main reconciliation logic
-│   └── assets.go        # Resource generation
-├── console/              # Console UI plugin component
-│   ├── reconciler.go    # Main reconciliation logic
-│   └── assets.go       # Resource generation
-├── utils/               # Shared utilities and constants
-│   ├── utils.go        # Core utilities
-│   ├── types.go        # Shared type definitions
-│   └── test_helpers.go # Test helper functions
-└── olsconfig_controller.go  # Main operator controller
-
-cmd/
-└── main.go              # Operator entry point and initialization
-```
-
-## Component Architecture
-
-### Entry Point (`cmd/main.go`)
-
-The main package is the operator's entry point that initializes and starts the controller manager.
-
-**Key Responsibilities:**
-- Parse command-line flags for operator configuration
-- Set up Kubernetes schemes and API types
-- Configure controller manager (metrics, health probes, leader election)
-- Detect OpenShift version and select appropriate images
-- Configure TLS security for metrics server
-- Initialize and start the OLSConfigReconciler
-- Handle graceful shutdown
-
-**Configuration Options:**
-- Image overrides for all components (service, console, postgres, MCP server, lcore)
-- Namespace configuration
-- Reconciliation interval
-- Metrics and health probe addresses
-- TLS security settings
-- Leader election for HA deployments
-- **Backend selection**: `--enable-lcore` flag (default: false, uses appserver)
-
-### Main Controller (`olsconfig_controller.go`)
-
-The main `OLSConfigReconciler` orchestrates the reconciliation of all components. It:
-- Implements the `reconciler.Reconciler` interface
-- Manages the OLSConfig custom resource lifecycle
-- Coordinates reconciliation steps across components
-- Updates status conditions
-- Delegates LLM provider secret reconciliation to appserver or lcore package
-- Sets up resource watchers for automatic updates
-- **Selects backend**: Calls either `appserver.ReconcileAppServer()` OR `lcore.ReconcileLCore()` based on `--enable-lcore` flag
-- Delegates LLM provider secret reconciliation to appserver or lcore package
-- Registers resource watchers (via `watchers` package) for automatic updates
-
-**Key Responsibilities:**
-- Overall reconciliation coordination
-- Status management
-- Error handling and retries
-- Component orchestration (calls console, postgres, watchers, and either appserver OR lcore reconcilers)
-
-### Reconciler Interface (`internal/controller/reconciler`)
-
-The `Reconciler` interface provides a clean contract between the main controller and component packages, enabling:
-- **Dependency Injection**: Components receive only what they need
-- **Testability**: Easy to mock for unit testing
-- **No Circular Dependencies**: Components don't import the main controller
-- **Consistent Access**: Uniform way to access Kubernetes client and configuration
-
-```go
-type Reconciler interface {
-    client.Client  // Embedded Kubernetes client
-    GetScheme() *runtime.Scheme
-    GetLogger() logr.Logger
-    GetNamespace() string
-    GetPostgresImage() string
-    GetConsoleUIImage() string
-    GetAppServerImage() string
-    GetLCoreImage() string
-    // ... other configuration getters
-}
-```
-
-### Watchers Package (`internal/controller/watchers`)
-
-The watchers package implements a sophisticated **multi-level watching system** for Kubernetes resources, enabling intelligent change detection and targeted deployment restarts. The system uses a **data-driven configuration approach** for maximum flexibility and maintainability.
-
-#### Multi-Level Watching Architecture
-
-The watching system operates in **three distinct layers**, each serving a specific purpose:
-
-**Layer 1: Predicate-Based Filtering (Performance)**
-- **Purpose**: Fast, efficient filtering at the Kubernetes watch level
-- **Method**: `shouldWatchSecret()` and `shouldWatchConfigMap()` in main controller
-- **Checks**: Resource annotations OR system resource name matching
-- **Benefit**: Prevents 99% of irrelevant events from entering the system
-- **Performance**: O(1) lookup in most cases
-
-**Layer 2: Event Handler with Data Comparison (Correctness)**
-- **Purpose**: Deep comparison of actual resource data to detect meaningful changes
-- **Classes**: `SecretUpdateHandler` and `ConfigMapUpdateHandler`
-- **Comparison**: Uses `apiequality.Semantic.DeepEqual()` on `.Data` field for Update events
-- **Benefit**: Prevents false restarts when only metadata (e.g., annotations) changes
-- **Smart Logic**:
-  - `Create` events: Checks if resource is referenced in CR, annotates if needed, triggers restarts (handles recreated resources)
-  - `Update` events: Compares old vs new data, only restarts if data changed
-  - `Delete` events: Ignored (nothing to reconcile)
-- **Owner Filtering**: Skips operator-owned resources (managed via `Owns()` relationship)
-
-**Layer 3: Restart Decision (Business Logic)**
-- **Purpose**: Determines which deployments need restarting based on configuration
-- **Methods**: `SecretWatcherFilter()` and `ConfigMapWatcherFilter()`
-- **Logic**: Maps changed resources to affected deployments via `WatcherConfig`
-- **Execution**: Calls component-specific `Restart*()` functions
-- **Backend-Aware**: Resolves `ACTIVE_BACKEND` placeholder based on `useLCore` flag
-
-#### Data-Driven Watcher Configuration
-
-All watcher behavior is controlled by a centralized `WatcherConfig` struct populated in `cmd/main.go`:
-
-**Configuration Structure:**
-```go
-type WatcherConfig struct {
-    // System resources (managed by K8s/operators, not annotated)
-    Secrets    SecretWatcherConfig    // System secrets to watch
-    ConfigMaps ConfigMapWatcherConfig // System configmaps to watch
-    
-    // User resources (annotated by operator for watching)
-    AnnotatedSecretMapping    map[string][]string // Secret name → affected deployments
-    AnnotatedConfigMapMapping map[string][]string // ConfigMap name → affected deployments
-}
-
-type SecretWatcherConfig struct {
-    SystemResources []SystemSecret // Secrets watched by name
-}
-
-type SystemSecret struct {
-    Name                string   // Resource name
-    Namespace           string   // Resource namespace
-    Description         string   // Human-readable purpose
-    AffectedDeployments []string // Which deployments to restart
-}
-```
-
-**Example Configuration** (from `cmd/main.go`):
-```go
-watcherConfig := &utils.WatcherConfig{
-    Secrets: utils.SecretWatcherConfig{
-        SystemResources: []utils.SystemSecret{
-            {
-                Name:                utils.TelemetryPullSecretName,
-                Namespace:           utils.TelemetryPullSecretNamespace,
-                Description:         "OpenShift telemetry pull secret",
-                AffectedDeployments: []string{utils.ConsoleUIDeploymentName},
-            },
-        },
-    },
-    ConfigMaps: utils.ConfigMapWatcherConfig{
-        SystemResources: []utils.SystemConfigMap{
-            {
-                Name:                utils.DefaultOpenShiftCerts,
-                Description:         "OpenShift default CA bundle",
-                AffectedDeployments: []string{"ACTIVE_BACKEND"}, // Resolves to AppServer OR LCore
-            },
-        },
-    },
-    AnnotatedSecretMapping: map[string][]string{
-        // Dynamically built at runtime based on OLSConfig
-    },
-    AnnotatedConfigMapMapping: map[string][]string{
-        // Dynamically built at runtime based on OLSConfig
-    },
-}
-```
-
-**Key Features:**
-- **No Hardcoded Names**: All resource names in one place (`cmd/main.go`)
-- **Easy to Extend**: Add new watched resources without touching watcher logic
-- **Backend Flexibility**: `ACTIVE_BACKEND` placeholder auto-resolves to current backend
-- **Clear Documentation**: `Description` field explains purpose of each watch
-
-#### Watched Resource Types
-
-**1. System Resources (Watched by Name)**
-- OpenShift telemetry pull secret (`openshift-config/pull-secret`)
-- OpenShift default CA certificates (`kube-root-ca.crt`)
-- Console UI service certificates (auto-generated by service-ca operator)
-
-**2. Annotated Resources (User-Provided)**
-- LLM provider credential secrets (user creates, operator annotates)
-- User-provided TLS certificates (optional)
-- Additional CA ConfigMaps (optional, user-provided)
-- Proxy CA ConfigMaps (optional, user-provided)
-
-**Annotation Format:**
-```yaml
-metadata:
-  annotations:
-    ols.openshift.io/watch-olsconfig: "cluster"  # Added by operator
-```
-
-#### Resource Annotation Flow
-
-1. **User Creates Resource**: User creates secret/configmap referenced in OLSConfig
-2. **Validation**: `utils.ValidateExternalSecrets()` validates resource exists
-3. **Annotation**: `OLSConfigReconciler.annotateExternalResources()` adds watch annotation
-4. **Timing**: Runs between Phase 1 (resources) and Phase 2 (deployments)
-5. **Watchers Activate**: Predicate layer now includes this resource in watch
-
-**Annotation is centralized** in the main controller (`olsconfig_controller.go`):
-```go
-func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) {
-    // Phase 1: Reconcile resources
-    // ...
-    
-    // Annotation Step: Mark external resources for watching
-    if err := r.annotateExternalResources(ctx, olsconfig); err != nil {
-        r.Logger.Error(err, "Failed to annotate external resources")
-        // Non-fatal: continue with deployment reconciliation
-    }
-    
-    // Phase 2: Reconcile deployments
-    // ...
-}
-```
-
-#### Deployment Restart Logic
-
-When a watched resource changes, the system determines which deployments need restarting:
-
-**Restart Function Mapping:**
-```go
-func restartDeployment(r reconciler.Reconciler, ctx context.Context, 
-    affectedDeployments []string, namespace string, name string, useLCore bool) {
-    
-    for _, depName := range affectedDeployments {
-        // Resolve ACTIVE_BACKEND placeholder
-        if depName == "ACTIVE_BACKEND" {
-            if useLCore {
-                depName = utils.LCoreDeploymentName
-            } else {
-                depName = utils.OLSAppServerDeploymentName
-            }
-        }
-        
-        // Call component-specific restart function
-        switch depName {
-        case utils.OLSAppServerDeploymentName:
-            err = appserver.RestartAppServer(r, ctx)
-        case utils.LCoreDeploymentName:
-            err = lcore.RestartLCore(r, ctx)
-        case utils.PostgresDeploymentName:
-            err = postgres.RestartPostgres(r, ctx)
-        case utils.ConsoleUIDeploymentName:
-            err = console.RestartConsoleUI(r, ctx)
-        }
-    }
-}
-```
-
-**Restart Mechanism:**
-- Updates deployment annotation: `ols.openshift.io/force-reload: <timestamp>`
-- Kubernetes detects annotation change and triggers rolling update
-- Pods restart and mount latest secret/configmap data
-
-#### Integration with Main Controller
-
-The main controller sets up watchers using **predicates** and **custom handlers**:
-
-```go
-func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
-    return ctrl.NewControllerManagedBy(mgr).
-        For(&olsv1alpha1.OLSConfig{}).
-        Owns(&corev1.Secret{}).
-        // Watch secrets with predicate + custom handler
-        Watches(&corev1.Secret{},
-            &watchers.SecretUpdateHandler{Reconciler: r},
-            builder.WithPredicates(predicate.NewPredicateFuncs(r.shouldWatchSecret))).
-        // Watch configmaps with predicate + custom handler  
-        Watches(&corev1.ConfigMap{},
-            &watchers.ConfigMapUpdateHandler{Reconciler: r},
-            builder.WithPredicates(predicate.NewPredicateFuncs(r.shouldWatchConfigMap))).
-        Complete(r)
-}
-```
-
-**Predicate Helper Examples:**
-```go
-func (r *OLSConfigReconciler) shouldWatchSecret(obj client.Object) bool {
-    // Layer 1: Check annotation
-    annotations := obj.GetAnnotations()
-    if annotations != nil {
-        if _, exists := annotations[utils.WatcherAnnotationKey]; exists {
-            return true
-        }
-    }
-    
-    // Layer 1: Check system resources
-    if r.WatcherConfig != nil {
-        for _, systemSecret := range r.WatcherConfig.Secrets.SystemResources {
-            if obj.GetNamespace() == systemSecret.Namespace && 
-               obj.GetName() == systemSecret.Name {
-                return true
-            }
-        }
-    }
-    
-    return false
-}
-```
-
-**Benefits of This Architecture:**
-- ✅ **Performance**: 99% of events filtered at predicate level (O(1) checks)
-- ✅ **Correctness**: Deep data comparison prevents false restarts
-- ✅ **Maintainability**: All configuration in one place (`cmd/main.go`)
-- ✅ **Flexibility**: Easy to add new watched resources
-- ✅ **Backend-Agnostic**: Works with both AppServer and LCore
-- ✅ **Testability**: Each layer independently testable
-
-**Note**: Annotation helpers (`AnnotateSecretWatcher`, `AnnotateConfigMapWatcher`) are provided by the `utils` package but only called by the main controller's `annotateExternalResources()` method. Component packages do NOT annotate resources directly.
-
-
-### Application Server Package (`internal/controller/appserver`)
-
-Manages the OpenShift Lightspeed application server lifecycle.
-
-**Main Components:**
-- `ReconcileAppServer()` - Main entry point for reconciliation
-- `GenerateOLSConfigMap()` - Creates OLS configuration
-- `GenerateOLSDeployment()` - Creates application deployment
-- `ReconcileLLMSecrets()` - Handles LLM provider credentials
-- `ReconcileTLSSecret()` - Manages TLS certificates
-
-**Managed Resources:**
-- Deployment (app server pods)
-- Service (ClusterIP for internal access)
-- ServiceAccount & RBAC (cluster roles and bindings)
-- ConfigMap (application configuration)
-- Service Monitor (Prometheus monitoring - conditionally created if Prometheus Operator is available)
-- Prometheus Rules (alerting - conditionally created if Prometheus Operator is available)
-- Network Policy (security)
-- Secrets (TLS certificates, metrics tokens)
-
-### Lightspeed Core Package (`internal/controller/lcore`)
-
-Manages the Lightspeed Core (LCS) and Llama Stack server lifecycle. This component provides AI agent capabilities and MCP (Model Context Protocol) support.
-
-> **⚠️ Backend Selection**: LCore and AppServer are **mutually exclusive** backend implementations. Only one can be active at a time.
-> - The operator uses a feature flag (`--enable-lcore`) to determine which backend to reconcile
-> - **LCore (NEW)**: Agent-based architecture with Llama Stack integration, MCP support, and RAG capabilities
-> - **AppServer (LEGACY)**: Traditional LLM API proxy
-
-**Main Components:**
-- `ReconcileLCore()` - Main entry point for reconciliation
-- `GenerateLlamaStackConfigMap()` - Creates Llama Stack run configuration
-- `GenerateLcoreConfigMap()` - Creates Lightspeed Stack application configuration
-- `GenerateLCoreDeployment()` - Creates dual-container deployment (llama-stack + lightspeed-stack)
-
-**Key Features:**
-- **Dynamic LLM Configuration**: Automatically generates Llama Stack provider config from OLSConfig
-- **Supported Providers**: OpenAI, Azure OpenAI (with provider-specific fields like deployment name, API version)
-- **Unsupported Providers**: WatsonX, BAM, RHOAI vLLM, RHELAI vLLM (returns error with clear message)
-- **CA Certificate Support**: Mounts `kube-root-ca.crt` and optional `additionalCAConfigMapRef` for custom TLS
-- **RAG Support**: Vector database configuration for Retrieval-Augmented Generation
-- **MCP Integration**: Model Context Protocol for agent workflows
-- **Metrics & Monitoring**: Prometheus metrics with K8s authentication
-- **Configuration from OLSConfig**:
-  - `LogLevel`: Controls logging verbosity via `LOG_LEVEL` env var (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-  - `DefaultModel` & `DefaultProvider`: Default inference model and provider selection
-  - `UserDataCollection.{FeedbackDisabled, TranscriptsDisabled}`: Enable/disable data collection
-  - `DeploymentConfig.Replicas`: Pod replica count (default: 1)
-  - `DeploymentConfig.APIContainer.Resources`: CPU/memory limits for lightspeed-stack container
-  - `DeploymentConfig.APIContainer.NodeSelector`: Pod scheduling based on node labels
-  - `DeploymentConfig.APIContainer.Tolerations`: Pod toleration of node taints
-  - Note: llama-stack sidecar uses fixed resources (500m/512Mi requests, 1000m/1Gi limits)
-
-**Managed Resources:**
-- Deployment (dual-container: llama-stack + lightspeed-stack)
-- Service (ClusterIP for LCS access on port 8443)
-- ServiceAccount & RBAC (cluster roles and bindings for metrics)
-- ConfigMaps (Llama Stack config, LCore config, Additional CA, Proxy CA)
-- Service Monitor (Prometheus monitoring with user-workload support - conditionally created if Prometheus Operator is available)
-- Network Policy (security)
-- Secrets (TLS certificates, metrics tokens, LLM provider API keys)
-
-**Architecture:**
-The lcore package is **completely independent** from appserver, following the same patterns:
-- Task-based reconciliation
-- Interface-based dependency injection via `reconciler.Reconciler`
-- ResourceVersion-based change detection
-- Separate test suite with comprehensive coverage (75.7%)
-- No shared code or imports between lcore and appserver (ensures clean separation)
-
-### PostgreSQL Package (`internal/controller/postgres`)
-
-Manages the PostgreSQL database used for conversation cache storage.
-
-**Main Components:**
-- `ReconcilePostgres()` - Main entry point
-- Resource generation functions for all PostgreSQL components
-
-**Managed Resources:**
-- Deployment (PostgreSQL pods)
-- Service (database access)
-- PersistentVolumeClaim (data persistence)
-- ConfigMap (PostgreSQL configuration)
-- Secrets (database credentials, bootstrap)
-- Network Policy (database security)
-- CA Certificates (secure connections)
-
-### Console UI Package (`internal/controller/console`)
-
-Manages the OpenShift Console plugin for web UI integration.
-
-**Main Components:**
-- `ReconcileConsoleUI()` - Main entry point for setup
-- `RemoveConsoleUI()` - Cleanup when disabled
-- Console plugin integration logic
-
-**Managed Resources:**
-- ConsolePlugin CR (OpenShift console integration)
-- Deployment (UI plugin pods)
-- Service (plugin serving)
-- ConfigMap (Nginx configuration)
-- Network Policy (security)
-- TLS Certificates (secure connections)
-
-### Utilities Package (`internal/controller/utils`)
-
-Provides shared functionality across all components.
-
-**Contains:**
-- **Constants**: Resource names, labels, annotations, error messages
-- **Helper Functions**: Hash computation, resource comparison, equality checks
-- **Status Utilities**: Condition management functions
-- **Validation**: Certificate validation, version detection
-- **Test Helpers**: Shared test fixtures and utilities
-- **Types**: Configuration structures for OLS components
-
-## Reconciliation Flow
-
-```
-1. Main Controller receives reconciliation request
-   └── Validates OLSConfig CR exists
-   
-2. Reconcile LLM Secrets
-   └── appserver.ReconcileLLMSecrets() OR lcore.checkLLMCredentials()
-       ├── Validate provider credentials
-       ├── Hash provider credentials
-       └── Store hash in state cache
-   
-3. Reconcile Console UI (if enabled)
-   └── console.ReconcileConsoleUI()
-       ├── ConsolePlugin CR
-       ├── ConfigMap
-       ├── Service
-       ├── Deployment
-       └── Network Policy
-   
-4. Reconcile PostgreSQL (if conversation cache enabled)
-   └── postgres.ReconcilePostgres()
-       ├── ConfigMap
-       ├── Secrets (bootstrap, credentials)
-       ├── PVC
-       ├── Service
-       ├── Deployment
-       └── Network Policy
-   
-5. Reconcile Backend (MUTUALLY EXCLUSIVE - controlled by --enable-lcore flag)
-   
-   OPTION A: Reconcile Application Server (LEGACY)
-   └── appserver.ReconcileAppServer()
-       ├── ServiceAccount & RBAC
-       ├── ConfigMap (OLS config)
-       ├── Service
-       ├── TLS Secret
-       ├── Deployment
-       ├── Service Monitor (conditional - only if Prometheus Operator available)
-       ├── Prometheus Rules (conditional - only if Prometheus Operator available)
-       └── Network Policy
-   
-   OPTION B: Reconcile Lightspeed Core (NEW)
-   └── lcore.ReconcileLCore()
-       ├── ServiceAccount & RBAC
-       ├── ConfigMap (Llama Stack config)
-       ├── ConfigMap (LCore config)
-       ├── Additional CA ConfigMap (if specified)
-       ├── Proxy CA ConfigMap (if specified)
-       ├── Service
-       ├── TLS Secret
-       ├── Deployment (dual-container: llama-stack + lightspeed-stack)
-       ├── Service Monitor
-       ├── Metrics Reader Secret
-       └── Network Policy
-   
-6. Update Status Conditions
-   └── Set condition based on deployment readiness
-```
-
-## Change Detection & Updates
-
-The operator uses **ResourceVersion-based change detection** to trigger updates:
-
-1. **Direct Spec Comparison**: Deployments are compared using `DeploymentSpecEqual()` utility
-2. **ResourceVersion Tracking**: ConfigMaps and Secrets track their ResourceVersion in deployment annotations
-3. **Annotation-based Triggers**: ResourceVersions are stored in deployment annotations
-4. **Automatic Updates**: When ResourceVersions change, deployments are updated, triggering pod restarts
-
-Example:
-```go
-// Get current ResourceVersion
-currentVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, configMapName)
-
-// Change detected: ResourceVersion differs -> update deployment -> pod restart
-if storedVersion != currentVersion {
-    // Store in deployment annotations
-    deployment.Annotations[OLSConfigMapResourceVersionAnnotation] = currentVersion
-    // Update deployment
-}
-```
-
-## Resource Watching
-
-The operator uses the `watchers` package to watch for changes in:
-- **OLSConfig CR**: Main configuration resource (owned resource)
-- **Secrets**: LLM provider credentials, TLS certificates (watched via `SecretWatcherFilter`)
-- **ConfigMaps**: Additional CA certificates, configuration overrides (watched via `ConfigMapWatcherFilter`)
-- **Deployments**: Status monitoring for readiness (owned resource)
-- **Telemetry Pull Secret**: Special watcher for `openshift-config/pull-secret` (via `TelemetryPullSecretWatcherFilter`)
-
-**Watcher Annotations:**
-
-Resources are annotated to identify which ones should trigger reconciliation:
-```go
-annotations[utils.WatcherAnnotationKey] = "cluster"  // OLSConfig name
-// Key: "ols.openshift.io/watch-olsconfig"
-```
-
-**Automatic Restart Behavior:**
-
-When a watched ConfigMap changes (e.g., CA certificates), the watcher:
-1. Detects the change via annotation or special name matching
-2. Determines which backend is active (AppServer or LCore)
-3. Triggers a rolling restart of the appropriate deployment
-4. Returns a reconciliation request to update the OLSConfig
-
-This ensures that configuration changes are picked up without manual intervention.
-
-## Testing Strategy
-
-The codebase employs a comprehensive testing strategy with strong coverage:
-
-### Test Coverage Summary
-- **Main Controller**: 57.6% coverage
-- **Appserver**: 82.2% coverage  
-- **Console**: 70.5% coverage
-- **Postgres**: 58.8% coverage
-- **Utils**: 26.4% coverage
-
-### Unit Tests
-- **Location**: Co-located with source code in each package
-  - `internal/controller/*_test.go` - Main controller tests (Reconcile loop, status updates, deployment checks)
-  - `internal/controller/appserver/*_test.go` - App server component tests
-  - `internal/controller/lcore/*_test.go` - LCore component tests
-  - `internal/controller/postgres/*_test.go` - PostgreSQL component tests
-  - `internal/controller/console/*_test.go` - Console UI component tests
-  - `internal/controller/watchers/*_test.go` - Resource watcher tests (Secret/ConfigMap filters, annotations)
-  - `internal/controller/utils/*_test.go` - Utility function tests (hashing, secrets, volume comparison)
-
-- **Framework**: Ginkgo (BDD) + Gomega (assertions)
-- **Environment**: envtest (local Kubernetes API server with CRDs)
-- **Pattern**: Each package has its own test suite (`suite_test.go`) with mock reconciler implementing the `reconciler.Reconciler` interface
-
-**Key Test Areas:**
-- Main reconciliation loop (OLSConfig handling, error cases)
-- Component-specific reconcilers (appserver, postgres, console)
-- Resource generation and validation
-- ResourceVersion-based change detection
-- Status condition updates
-- Deployment status checking
-- Secret and ConfigMap operations
-- Volume and container comparison
-
-**Running Unit Tests:**
-```bash
-make test  # Runs all unit tests with coverage report
-```
-
-### Test Helpers
-- **Location**: `internal/controller/utils/test_helpers.go`
-- **Purpose**: Shared fixtures, CR generators, secret generators
-- **Benefits**: Consistency across test suites, reduced duplication
-- **Examples**: `GetDefaultOLSConfigCR()`, `GenerateRandomSecret()`, `GenerateRandomTLSSecret()`
-
-### E2E Tests
-- **Location**: `test/e2e/`
-- **Scope**: Full operator behavior on real OpenShift clusters
-- **Coverage**: Reconciliation, upgrades, database operations, TLS, metrics, BYOK, proxy support
-- **Requirements**: Running cluster, KUBECONFIG, LLM_TOKEN
-
-**Running E2E Tests:**
-```bash
-make test-e2e         # Full E2E test suite
-make test-e2e-local   # E2E tests without storage requirements
-make test-upgrade     # Upgrade scenario tests
-```
-
-## Design Patterns
-
-### 1. Interface-Based Dependency Injection
-Components receive a `reconciler.Reconciler` interface, not concrete types.
-
-**Benefits:**
-- Loose coupling
-- Easy mocking for tests
-- Clear contracts
-
-### 2. Task-Based Reconciliation
-Each component reconciles through a list of tasks:
-
-```go
-tasks := []ReconcileTask{
-    {Name: "reconcile ConfigMap", Task: reconcileConfigMap},
-    {Name: "reconcile Service", Task: reconcileService},
-    // ...
-}
-for _, task := range tasks {
-    if err := task.Task(ctx, cr); err != nil {
-        return err
-    }
-}
-```
-
-### 3. Generate-Then-Apply Pattern
-Resources are generated first, then applied:
-
-```go
-// Generate the desired resource
-deployment := GenerateDeployment(r, cr)
-
-// Apply to cluster
-if err := r.Create(ctx, deployment); err != nil {
-    if errors.IsAlreadyExists(err) {
-        // Update existing
-    }
-}
-```
-
-### 4. Change Detection
-
-The operator uses multiple strategies for detecting changes:
-
-**For Deployments:**
-- Direct spec comparison using `DeploymentSpecEqual()` utility
-- ResourceVersion tracking for mounted ConfigMaps and Secrets
-- Annotations store ResourceVersions of dependent resources
-
-**For External Resources (Secrets/ConfigMaps not owned by operator):**
-- Watcher annotations (`watchers.openshift.io/watch`) mark resources for monitoring
-- Watchers detect changes and trigger deployment restarts via `Restart*()` functions
-
-**For External Resources Owned by Kubernetes/Other Applications:**
-- Watched by name (e.g., telemetry pull secret `pull-secret` in `openshift-config` namespace)
-- Special watchers monitor specific named resources
-- Changes trigger reconciliation without ownership or annotations
-
-**For Owned Resources:**
-- Direct equality comparison (e.g., `ConfigMapEqual()`)
-- Kubernetes ownership triggers automatic reconciliation
-
 ## Key Design Decisions
 
-### ✅ Why Component Packages?
+### Why Component Packages?
 - **Modularity**: Each component is self-contained
 - **Maintainability**: Changes to one component don't affect others
 - **Testability**: Independent test suites per component
 - **Code Organization**: Clear boundaries and responsibilities
 
-### ✅ Why Reconciler Interface?
+### Why Reconciler Interface?
 - **Avoid Circular Dependencies**: Components don't import main controller
 - **Clean Testing**: Easy to create test implementations
 - **Flexibility**: Main controller can evolve without breaking components
 
-### ✅ Why ResourceVersion-Based Detection?
-- **Efficiency**: Only update when resources actually change (tracked via Kubernetes ResourceVersion)
-- **Reliability**: Leverages Kubernetes' built-in change tracking mechanism
-- **Simplicity**: No custom hash computation or state management needed
-- **Correctness**: Kubernetes guarantees ResourceVersion changes on every modification
+### Why Two Resource Watching Approaches?
+- **Owned Resources (ResourceVersion)**: Auto-cleanup on deletion, Kubernetes-native lifecycle
+- **External Resources (Data Comparison)**: Respects user ownership, supports cross-namespace sharing
+- **Right Tool for Job**: Operator resources need lifecycle management, user resources need change tracking without interference
 
-## Contributing Guidelines for Developers
+### Why ResourceVersion-Based Detection?
+- **Efficiency**: Only update when resources actually change
+- **Reliability**: Leverages Kubernetes' built-in change tracking
+- **Simplicity**: No custom hash computation or state management
+- **Correctness**: Kubernetes guarantees ResourceVersion changes on modification
 
-### Adding a New Resource to a Component
+## Component Overview
 
-1. **Create a generation function** in `assets.go`:
-   ```go
-   func GenerateMyResource(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*MyResourceType, error) {
-       // Generate resource
-   }
-   ```
+### Main Controller (`olsconfig_controller.go`, `olsconfig_helpers.go`, `operator_assets.go`)
 
-2. **Add reconciliation logic** in `reconciler.go`:
-   ```go
-   func reconcileMyResource(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-       resource, err := GenerateMyResource(r, cr)
-       // Apply resource
-   }
-   ```
+**Core Orchestration:**
+- Main `Reconcile()` method coordinates all reconciliation phases
+- `SetupWithManager()` configures controller watches and event handlers
+- Selects backend: calls either `appserver.ReconcileAppServer()` OR `lcore.ReconcileLCore()` based on `--enable-lcore` flag
 
-3. **Add to task list**:
-   ```go
-   tasks = append(tasks, ReconcileTask{
-       Name: "reconcile my resource",
-       Task: reconcileMyResource,
-   })
-   ```
+**Support Functions:**
+- Implements `reconciler.Reconciler` interface (provides config/images to components)
+- Watcher predicate helpers for filtering events
+- Status management and deployment health checks
+- External resource annotation for change tracking
 
-4. **Write tests** in `*_test.go`:
-   ```go
-   It("should create my resource", func() {
-       resource, err := GenerateMyResource(testReconcilerInstance, cr)
-       Expect(err).NotTo(HaveOccurred())
-       Expect(resource.Name).To(Equal("expected-name"))
-   })
-   ```
+**Operator Infrastructure:**
+- ServiceMonitor for operator metrics
+- NetworkPolicy for operator security
 
-### Adding a New Component Package
+### Entry Point (`cmd/main.go`)
 
-1. Create directory: `internal/controller/newcomponent/`
-2. Implement reconciliation: `reconciler.go` with `ReconcileNewComponent()` function
-3. Implement resource generation: `assets.go`
-4. Create test suite: `suite_test.go` with test reconciler
-5. Add tests: `*_test.go` files
-6. Update main controller: Call `newcomponent.ReconcileNewComponent(r, ctx, cr)`
+**Responsibilities:**
+- Parse command-line flags (images, namespace, reconcile interval, backend selection)
+- Initialize controller manager with TLS, metrics, health probes
+- **Configure WatcherConfig** - declarative setup defining all watched external resources (secrets, configmaps)
+- Detect OpenShift version and select appropriate images
+- Start controller and handle graceful shutdown
 
-### Code Style Guidelines
+**Key Flags:** `--enable-lcore` (backend selection), `--controller-namespace`, `--reconcile-interval-minutes`. See `cmd/main.go` for complete list.
 
-- **Error Messages**: Use constants from `utils` package
-- **Logging**: Use structured logging via `r.GetLogger()`
-- **Resource Names**: Define constants in `utils/constants.go`
-- **Labels**: Use generator functions like `GenerateAppServerSelectorLabels()`
-- **Testing**: Co-locate tests with source code, use shared test helpers
+### Reconciler Interface (`internal/controller/reconciler`)
 
-## Future Improvements
+Provides clean contract between main controller and component packages:
+- **Dependency Injection**: Components receive only what they need
+- **No Circular Dependencies**: Components don't import main controller
+- **Testability**: Easy to mock for unit tests
+- Exposes: Kubernetes client, logger, namespace, image getters, configuration
 
-Potential areas for enhancement:
-- Consolidate `ReconcileTask` and `DeleteTask` types into utils
-- Consider builder pattern for test reconcilers
-- Add integration test framework for cross-component testing
-- Enhance observability with more detailed metrics
-- Implement graceful degradation for optional components
+### Application Server Package (`internal/controller/appserver`)
+
+**Purpose:** Manages OpenShift Lightspeed application server (LEGACY backend - LLM API proxy)
+
+**Entry Point:** `ReconcileAppServer(reconciler.Reconciler, context, *OLSConfig)`
+
+### Lightspeed Core Package (`internal/controller/lcore`)
+
+**Purpose:** Manages Lightspeed Core + Llama Stack server (NEW backend - agent-based with MCP support)
+
+**Entry Point:** `ReconcileLCore(reconciler.Reconciler, context, *OLSConfig)`
+
+**Key Features:**
+- Dynamic LLM configuration (supports OpenAI, Azure OpenAI, others)
+- CA certificate support for custom TLS
+- RAG support with vector database
+- MCP (Model Context Protocol) integration
+- Metrics with K8s authentication
+
+### PostgreSQL Package (`internal/controller/postgres`)
+
+**Purpose:** Manages PostgreSQL database for conversation cache storage
+
+**Entry Point:** `ReconcilePostgres(reconciler.Reconciler, context, *OLSConfig)`
+
+### Console UI Package (`internal/controller/console`)
+
+**Purpose:** Manages OpenShift Console plugin for web UI integration
+
+**Entry Points:** `ReconcileConsoleUI()` (setup), `RemoveConsoleUI()` (cleanup when disabled)
+
+### Utilities Package (`internal/controller/utils`)
+
+**Purpose:** Shared functionality across all components
+
+**Contains:**
+- Constants (resource names, labels, annotations, error messages)
+- Helper functions (hash computation, resource comparison, equality checks)
+- Status utilities (condition management)
+- Validation (certificates, version detection)
+- Test helpers (shared fixtures, test reconciler, CR generators)
+
+### Watchers Package (`internal/controller/watchers`)
+
+**Purpose:** External resource watching with multi-level filtering
+
+**Architecture:**
+1. **Predicate Filtering** - Fast O(1) event filtering at watch level
+2. **Data Comparison** - Deep equality checks using `apiequality.Semantic.DeepEqual()`
+3. **Restart Logic** - Maps changed resources to affected deployments via WatcherConfig
+
+**Configuration:** All watcher behavior defined in `cmd/main.go` via `WatcherConfig` (data-driven, no hardcoded resource names)
+
+**Watches:** OpenShift system resources and user-provided resources referenced in OLSConfig.
+
+See `internal/controller/watchers/` and `cmd/main.go` for implementation details.
+
+## Reconciliation Flow
+
+High-level reconciliation sequence:
+
+```
+1. Validate OLSConfig CR exists
+2. Reconcile LLM Secrets (validate credentials)
+3. Reconcile Components:
+   - Console UI (if enabled)
+   - PostgreSQL (if conversation cache enabled)
+   - Backend (AppServer OR LCore - mutually exclusive, controlled by --enable-lcore flag)
+4. Update Status Conditions based on deployment readiness
+```
+
+## Resource Management
+
+**Implementation:** See `internal/controller/watchers/` for watcher logic, `cmd/main.go` for WatcherConfig, `olsconfig_helpers.go` for annotation logic.
+
+The operator uses two distinct approaches for different resource ownership models:
+
+### Owned Resources (Operator-Managed)
+
+Resources created and fully managed by the operator (Deployments, Services, operator-generated ConfigMaps/Secrets).
+
+**Change Detection:**
+- Uses Kubernetes owner references (`controllerutil.SetControllerReference`)
+- Monitored via `Owns()` in `SetupWithManager()`
+- Changes detected through ResourceVersion tracking in deployment annotations
+- Automatic reconciliation on modification/deletion
+
+**Benefits:** Auto-cleanup on CR deletion, Kubernetes-native lifecycle, efficient change detection
+
+### External Resources (User-Provided)
+
+Resources created by users, referenced but not owned by the operator (LLM credentials, user TLS certs, CA ConfigMaps, OpenShift system resources).
+
+**Change Detection:**
+- Uses watcher annotations (`ols.openshift.io/watch-olsconfig`) and name-based filtering
+- Monitored via `Watches()` with custom event handlers
+- Changes detected through data comparison (`apiequality.Semantic.DeepEqual`)
+- Targeted deployment restarts configured via `WatcherConfig` in `cmd/main.go`
+
+**Benefits:** Respects user ownership, supports cross-namespace sharing, fine-grained restart control
 
 ---
 
-## OLM Documentation
+## Testing & Documentation
 
-For operators deployed via Operator Lifecycle Manager (OLM), see our comprehensive OLM guide series:
+**Testing:** See [CONTRIBUTING.md](CONTRIBUTING.md) for testing strategy, test helpers, and running tests. Unit tests use Ginkgo/Gomega, E2E tests in `test/e2e/`. Always use `make test` (never `go test` directly).
 
-1. **[OLM Bundle Management](./docs/olm-bundle-management.md)** - Creating and managing operator bundles
-   - CSV (ClusterServiceVersion) structure and anatomy
-   - Bundle annotations and metadata
-   - Bundle generation workflow (`make bundle`)
-   - Related images management
-   - Version management and semantic versioning
+**OLM Documentation:** For operators deployed via OLM, see comprehensive guides in `docs/`:
+- [OLM Bundle Management](./docs/olm-bundle-management.md)
+- [OLM Catalog Management](./docs/olm-catalog-management.md)
+- [OLM Integration & Lifecycle](./docs/olm-integration-lifecycle.md)
+- [OLM Testing & Validation](./docs/olm-testing-validation.md)
+- [OLM RBAC & Security](./docs/olm-rbac-security.md)
 
-2. **[OLM Catalog Management](./docs/olm-catalog-management.md)** - Organizing bundles into catalogs
-   - File-Based Catalogs (FBC) structure
-   - Multi-version catalog strategy (see `lightspeed-catalog-*` directories)
-   - Channel management (alpha, beta, stable)
-   - Skip ranges and upgrade paths
-   - Catalog building and validation
+**Contributing:** For adding components or modifying existing ones, see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed step-by-step instructions.
 
-3. **[OLM Integration & Lifecycle](./docs/olm-integration-lifecycle.md)** - OLM integration and operator lifecycle
-   - OLM architecture and components
-   - Installation workflow (Subscription, InstallPlan, CSV)
-   - Upgrade mechanisms and strategies
-   - Dependency resolution
-   - RBAC and permissions management
-
-4. **[OLM Testing & Validation](./docs/olm-testing-validation.md)** - Testing strategies and validation
-   - Bundle and catalog validation
-   - Installation and upgrade testing
-   - E2E testing patterns (maps to `test/e2e/` implementation)
-   - Scorecard and Preflight testing
-   - CI/CD integration
-
-5. **[OLM RBAC & Security](./docs/olm-rbac-security.md)** - Security and RBAC best practices
-   - Operator RBAC permissions (see `config/rbac/` implementation)
-   - User roles and API access (viewer, editor, query-access)
-   - Security context configuration (see `config/manager/manager.yaml`)
-   - Secrets management patterns
-   - Network security and Pod Security Standards
-
-**Quick Reference for OLM Tasks:**
-- Generate bundle: `make bundle BUNDLE_TAG=x.y.z`
-- Build catalog: `make catalog-build VERSION=4.18`
-- Validate bundle: `operator-sdk bundle validate ./bundle`
-- Check implementation: See `bundle/`, `config/rbac/`, and `hack/` directories
+**Coding Conventions:** See [AGENTS.md](AGENTS.md) for coding conventions and patterns used in this codebase.
 
 ---
 
-## Contributing
-
-Want to add a new component or modify an existing one? The modular architecture makes this straightforward:
-
-- **Adding Components**: See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed step-by-step instructions
-- **Modifying Components**: Follow the patterns established in existing components (appserver, postgres, console)
-- **Testing**: Use the test helpers in `utils/test_helpers.go` for consistency
-
-Key benefits of the modular architecture:
-- **Isolated development**: Work on components independently
-- **Clear boundaries**: Interface-based contracts prevent tight coupling
-- **Easy testing**: Mock the reconciler interface for unit tests
-- **Consistent patterns**: Follow established conventions across all components
-
----
-
-For more information about the operator's functionality from a user perspective, see [README.md](README.md).
-
-For AI assistant guidelines when working with this codebase, see [CLAUDE.md](CLAUDE.md).
-
+For user-facing documentation, see [README.md](README.md).

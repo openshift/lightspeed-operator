@@ -60,8 +60,9 @@ const (
 	OLSComponentPasswordFileName = "password"
 	// OLSConfigFilename is the name of the application server configuration file
 	OLSConfigFilename = "olsconfig.yaml"
-	// Image of the OLS application server
-	// todo: image vesion should synchronize with the release version of the lightspeed-service-api image.
+	// Image of the OLS application server (default for testing only)
+	// TODO: Tests should use a pinned version instead of :latest for reproducibility.
+	// Production image is configured via environment variables in cmd/main.go.
 	OLSAppServerImageDefault = "quay.io/openshift-lightspeed/lightspeed-service-api:latest"
 	// AppServerServiceMonitorName is the name of the service monitor for the OLS application server
 	AppServerServiceMonitorName = "lightspeed-app-server-monitor"
