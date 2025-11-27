@@ -1,6 +1,7 @@
 package lcore
 
 import (
+	"context"
 	"testing"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -8,8 +9,11 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
@@ -51,6 +55,12 @@ func (m *mockReconciler) GetLCoreImage() string {
 		return utils.LlamaStackImageDefault
 	}
 	return m.image
+}
+
+func (m *mockReconciler) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	// Return NotFound error for all Get calls in tests
+	// This simulates the ConfigMaps not existing yet during deployment generation
+	return errors.NewNotFound(schema.GroupResource{}, key.Name)
 }
 
 func TestGenerateLCoreDeployment(t *testing.T) {

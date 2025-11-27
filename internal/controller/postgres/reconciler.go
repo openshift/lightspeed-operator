@@ -18,6 +18,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,9 +33,10 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-// ReconcilePostgres reconciles the Postgres server component
-func ReconcilePostgres(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
-	r.GetLogger().Info("reconcilePostgresServer starts")
+// ReconcilePostgresResources reconciles all resources except the deployment (Phase 1)
+// Uses continue-on-error pattern since these resources are independent
+func ReconcilePostgresResources(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcilePostgresResources starts")
 	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile Postgres ConfigMap",
@@ -49,9 +51,39 @@ func ReconcilePostgres(r reconciler.Reconciler, ctx context.Context, olsconfig *
 			Task: reconcilePostgresSecret,
 		},
 		{
-			Name: "reconcile Postgres Service",
-			Task: reconcilePostgresService,
+			Name: "generate Postgres Network Policy",
+			Task: reconcilePostgresNetworkPolicy,
 		},
+	}
+
+	failedTasks := make(map[string]error)
+
+	for _, task := range tasks {
+		err := task.Task(r, ctx, olsconfig)
+		if err != nil {
+			r.GetLogger().Error(err, "reconcilePostgresResources error", "task", task.Name)
+			failedTasks[task.Name] = err
+		}
+	}
+
+	if len(failedTasks) > 0 {
+		taskNames := make([]string, 0, len(failedTasks))
+		for taskName, err := range failedTasks {
+			taskNames = append(taskNames, taskName)
+			r.GetLogger().Error(err, "Task failed in reconcilePostgresResources", "task", taskName)
+		}
+		return fmt.Errorf("failed tasks: %v", taskNames)
+	}
+
+	r.GetLogger().Info("reconcilePostgresResources completes")
+	return nil
+}
+
+// ReconcilePostgresDeployment reconciles the deployment and related resources (Phase 2)
+func ReconcilePostgresDeployment(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcilePostgresDeployment starts")
+
+	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile Postgres PVC",
 			Task: reconcilePostgresPVC,
@@ -61,26 +93,25 @@ func ReconcilePostgres(r reconciler.Reconciler, ctx context.Context, olsconfig *
 			Task: reconcilePostgresDeployment,
 		},
 		{
-			Name: "generate Postgres Network Policy",
-			Task: reconcilePostgresNetworkPolicy,
+			Name: "reconcile Postgres Service",
+			Task: reconcilePostgresService,
 		},
 	}
 
 	for _, task := range tasks {
 		err := task.Task(r, ctx, olsconfig)
 		if err != nil {
-			r.GetLogger().Error(err, "reconcilePostgresServer error", "task", task.Name)
+			r.GetLogger().Error(err, "reconcilePostgresDeployment error", "task", task.Name)
 			return fmt.Errorf("failed to %s: %w", task.Name, err)
 		}
 	}
 
-	r.GetLogger().Info("reconcilePostgresServer completed")
-
+	r.GetLogger().Info("reconcilePostgresDeployment completes")
 	return nil
 }
 
 func reconcilePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	desiredDeployment, err := GeneratePostgresDeployment(r, cr)
+	desiredDeployment, err := GeneratePostgresDeployment(r, ctx, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGeneratePostgresDeployment, err)
 	}
@@ -88,14 +119,6 @@ func reconcilePostgresDeployment(r reconciler.Reconciler, ctx context.Context, c
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, client.ObjectKey{Name: utils.PostgresDeploymentName, Namespace: r.GetNamespace()}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		utils.UpdateDeploymentAnnotations(desiredDeployment, map[string]string{
-			utils.PostgresConfigHashKey: r.GetStateCache()[utils.PostgresConfigHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
-		utils.UpdateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			utils.PostgresConfigHashKey: r.GetStateCache()[utils.PostgresConfigHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
 		r.GetLogger().Info("creating a new OLS postgres deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
@@ -106,7 +129,7 @@ func reconcilePostgresDeployment(r reconciler.Reconciler, ctx context.Context, c
 		return fmt.Errorf("%s: %w", utils.ErrGetPostgresDeployment, err)
 	}
 
-	err = UpdatePostgresDeployment(r, ctx, existingDeployment, desiredDeployment)
+	err = UpdatePostgresDeployment(r, ctx, cr, existingDeployment, desiredDeployment)
 
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresDeployment, err)
@@ -217,27 +240,23 @@ func reconcilePostgresSecret(r reconciler.Reconciler, ctx context.Context, cr *o
 		if err != nil {
 			return fmt.Errorf("%s: %w", utils.ErrCreatePostgresSecret, err)
 		}
-		r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] = secret.Annotations[utils.PostgresSecretHashKey]
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetPostgresSecret, err)
 	}
-	foundSecretHash, err := utils.HashBytes(foundSecret.Data[utils.PostgresSecretKeyName])
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGeneratePostgresSecretHash, err)
-	}
-	if foundSecretHash == r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] {
-		r.GetLogger().Info("OLS postgres secret reconciliation skipped", "secret", foundSecret.Name, "hash", foundSecret.Annotations[utils.PostgresSecretHashKey])
+
+	// Check if secret data has changed
+	if string(foundSecret.Data[utils.PostgresSecretKeyName]) == string(secret.Data[utils.PostgresSecretKeyName]) {
+		r.GetLogger().Info("OLS postgres secret reconciliation skipped", "secret", foundSecret.Name)
 		return nil
 	}
-	r.GetStateCache()[utils.PostgresSecretHashStateCacheKey] = foundSecretHash
-	secret.Annotations[utils.PostgresSecretHashKey] = foundSecretHash
+
 	secret.Data[utils.PostgresSecretKeyName] = foundSecret.Data[utils.PostgresSecretKeyName]
 	err = r.Update(ctx, secret)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresSecret, err)
 	}
-	r.GetLogger().Info("OLS postgres reconciled", "secret", secret.Name, "hash", secret.Annotations[utils.PostgresSecretHashKey])
+	r.GetLogger().Info("OLS postgres secret reconciled", "secret", secret.Name)
 	return nil
 }
 
@@ -289,5 +308,69 @@ func reconcilePostgresNetworkPolicy(r reconciler.Reconciler, ctx context.Context
 		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresNetworkPolicy, err)
 	}
 	r.GetLogger().Info("OLS postgres network policy reconciled", "network policy", networkPolicy.Name)
+	return nil
+}
+
+// RestartPostgres triggers a rolling restart of the Postgres deployment by updating its pod template annotation.
+// This is useful when configuration changes require a pod restart (e.g., ConfigMap or Secret updates).
+func RestartPostgres(r reconciler.Reconciler, ctx context.Context, deployment ...*appsv1.Deployment) error {
+	var dep *appsv1.Deployment
+	var err error
+
+	// If deployment is provided, use it; otherwise fetch it
+	if len(deployment) > 0 && deployment[0] != nil {
+		dep = deployment[0]
+	} else {
+		// Get the Postgres deployment
+		dep = &appsv1.Deployment{}
+		err = r.Get(ctx, client.ObjectKey{Name: utils.PostgresDeploymentName, Namespace: r.GetNamespace()}, dep)
+		if err != nil {
+			r.GetLogger().Info("failed to get deployment", "deploymentName", utils.PostgresDeploymentName, "error", err)
+			return err
+		}
+	}
+
+	// Initialize annotations map if empty
+	if dep.Spec.Template.Annotations == nil {
+		dep.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	// Bump the annotation to trigger a rolling update (new template hash)
+	dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey] = time.Now().Format(time.RFC3339Nano)
+
+	// Update the deployment
+	r.GetLogger().Info("triggering Postgres rolling restart", "deployment", dep.Name)
+	err = r.Update(ctx, dep)
+	if err != nil {
+		r.GetLogger().Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
+		return err
+	}
+
+	return nil
+}
+
+// =============================================================================
+// Test Helper Functions
+// =============================================================================
+// The following functions are convenience wrappers used primarily by unit tests.
+// Production code should call ReconcilePostgresResources and ReconcilePostgresDeployment directly.
+
+// ReconcilePostgres reconciles all Postgres resources in the original order.
+// This function is maintained for backward compatibility with existing tests.
+// New code should call ReconcilePostgresResources and ReconcilePostgresDeployment separately.
+func ReconcilePostgres(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcilePostgresServer starts")
+
+	// Call Resources phase
+	if err := ReconcilePostgresResources(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	// Call Deployment phase
+	if err := ReconcilePostgresDeployment(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	r.GetLogger().Info("reconcilePostgresServer completed")
 	return nil
 }

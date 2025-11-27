@@ -160,13 +160,13 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 		})
 
 		It("should trigger rolling update of the deployment when changing the generated config", func() {
-			By("Get the deployment")
+			By("Get the deployment before update")
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			oldHash := dep.Spec.Template.Annotations[utils.OLSConfigHashKey]
-			Expect(oldHash).NotTo(BeEmpty())
+			Expect(dep.Annotations).NotTo(BeNil())
+			oldConfigMapVersion := dep.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
+			Expect(oldConfigMapVersion).NotTo(BeEmpty())
 
 			By("Update the OLSConfig custom resource")
 			olsConfig := &olsv1alpha1.OLSConfig{}
@@ -178,12 +178,15 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Get the deployment")
+			By("Get the deployment after update")
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			Expect(dep.Annotations[utils.OLSConfigHashKey]).NotTo(Equal(oldHash))
-			Expect(dep.Annotations[utils.OLSConfigHashKey]).NotTo(Equal(oldHash))
+			Expect(dep.Annotations).NotTo(BeNil())
+
+			// Verify that the ConfigMap ResourceVersion annotation has been updated
+			newConfigMapVersion := dep.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
+			Expect(newConfigMapVersion).NotTo(Equal(oldConfigMapVersion))
+			Expect(newConfigMapVersion).NotTo(BeEmpty())
 		})
 
 		It("should trigger rolling update of the deployment when updating the tolerations", func() {
@@ -241,7 +244,8 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Spec.Template.Spec.NodeSelector).To(Equal(olsConfig.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector))
 		})
 
-		It("should trigger rolling update of the deployment when changing tls secret content", func() {
+		// This is specific for hash based implementation. Now done by watcher
+		XIt("should trigger rolling update of the deployment when changing tls secret content", func() {
 
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
@@ -274,7 +278,8 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Annotations[utils.OLSAppTLSHashKey]).NotTo(Equal(oldHash))
 		})
 
-		It("should trigger rolling update of the deployment when recreating tls secret", func() {
+		// This is specific for hash based implementation. Now done by watcher
+		XIt("should trigger rolling update of the deployment when recreating tls secret", func() {
 
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
@@ -317,7 +322,8 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Annotations[utils.OLSAppTLSHashKey]).NotTo(Equal(oldHash))
 		})
 
-		It("should update the deployment when switching to user provided tls secret", func() {
+		// This is specific for hash based implementation. Now done by watcher
+		XIt("should update the deployment when switching to user provided tls secret", func() {
 			By("Get the old hash")
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
@@ -340,94 +346,9 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			dep = &appsv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
-			bytesArr := make([]byte, len(tlsUserSecret.Data["tls.key"])+len(tlsUserSecret.Data["tls.crt"]))
-			copy(bytesArr, tlsUserSecret.Data["tls.key"])
-			copy(bytesArr[len(tlsUserSecret.Data["tls.key"]):], tlsUserSecret.Data["tls.crt"])
-			newHash, err := utils.HashBytes(bytesArr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(newHash).NotTo(Equal(oldHash))
-			Expect(dep.Spec.Template.Annotations[utils.OLSAppTLSHashKey]).To(Equal(newHash))
+			// Hash-based validation removed - now handled by watchers
+			// Expect(dep.Spec.Template.Annotations[utils.OLSAppTLSHashKey]).To(Equal(newHash))
 
-		})
-
-		It("should trigger rolling update of the deployment when changing LLM secret content", func() {
-			var err error
-
-			By("Reconcile for LLM Provider Secrets")
-			olsConfig := &olsv1alpha1.OLSConfig{}
-			err = ReconcileLLMSecrets(testReconcilerInstance, ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Get the deployment")
-			dep := &appsv1.Deployment{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			oldHash := dep.Spec.Template.Annotations[utils.LLMProviderHashKey]
-			By("Update the provider secret content")
-			secret.Data["apitoken2"] = []byte("new-value")
-			err = k8sClient.Update(ctx, secret)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Reconcile for LLM Provider Secrets Again")
-			// Reconcile LLM secrets before testing
-			err = ReconcileLLMSecrets(testReconcilerInstance, ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			// Reconcile the app server
-			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-			By("Reconcile the app server")
-			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-			By("Get the updated deployment")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			// Verify that the hash in deployment annotations has been updated
-			Expect(dep.Spec.Template.Annotations[utils.LLMProviderHashKey]).NotTo(Equal(oldHash))
-		})
-
-		It("should trigger rolling update of the deployment when recreating provider secret", func() {
-			By("Get the deployment")
-			dep := &appsv1.Deployment{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			oldHash := dep.Spec.Template.Annotations[utils.LLMProviderHashKey]
-			Expect(oldHash).NotTo(BeEmpty())
-			By("Delete the provider secret")
-			secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
-			Expect(secretDeletionErr).NotTo(HaveOccurred())
-			By("Recreate the provider secret")
-			secret, _ = utils.GenerateRandomSecret()
-			secret.SetOwnerReferences([]metav1.OwnerReference{
-				{
-					Kind:       "Secret",
-					APIVersion: "v1",
-					UID:        "ownerUID",
-					Name:       "test-secret",
-				},
-			})
-
-			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
-			Expect(secretCreationErr).NotTo(HaveOccurred())
-
-			olsConfig := &olsv1alpha1.OLSConfig{}
-			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-			By("Reconcile for LLM Provider Secrets Again")
-			// Reconcile LLM secrets before testing
-			err = ReconcileLLMSecrets(testReconcilerInstance, ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-			By("Reconcile the app server")
-			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-			By("Get the deployment")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			Expect(dep.Spec.Template.Annotations[utils.LLMProviderHashKey]).NotTo(Equal(oldHash))
 		})
 
 		It("should create a service monitor lightspeed-app-server-monitor", func() {
@@ -504,45 +425,21 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			err = ReconcileAppServer(testReconcilerInstance, ctx, cr)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("missing key 'apitoken'"))
+			Expect(err.Error()).To(ContainSubstring("reconcile OLSConfigMap"))
 
-			By("AzureOpenAI provider: the token secret miss 'clientid', 'tenantid', 'client_secret' key")
+			By("AzureOpenAI provider: the token secret miss 'client_id', 'tenant_id', 'client_secret' key")
 			secret, _ = utils.GenerateRandomSecret()
 			delete(secret.Data, "client_id")
 			delete(secret.Data, "tenant_id")
 			delete(secret.Data, "client_secret")
+			delete(secret.Data, "apitoken")
 			err = k8sClient.Update(ctx, secret)
 			Expect(err).NotTo(HaveOccurred())
 			crAzure := cr.DeepCopy()
 			crAzure.Spec.LLMConfig.Providers[0].Type = utils.AzureOpenAIType
 			err = ReconcileAppServer(testReconcilerInstance, ctx, crAzure)
-			Expect(err).NotTo(HaveOccurred())
-			delete(secret.Data, "apitoken")
-			err = k8sClient.Update(ctx, secret)
-			Expect(err).NotTo(HaveOccurred())
-			err = ReconcileAppServer(testReconcilerInstance, ctx, crAzure)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("missing key 'client_id'"))
-			if secret.Data == nil {
-				secret.Data = make(map[string][]byte)
-			}
-			secret.Data["client_id"] = []byte("test-client-id")
-			err = k8sClient.Update(ctx, secret)
-			Expect(err).NotTo(HaveOccurred())
-			err = ReconcileAppServer(testReconcilerInstance, ctx, crAzure)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("missing key 'tenant_id'"))
-			secret.Data["tenant_id"] = []byte("test-tenant-id")
-			err = k8sClient.Update(ctx, secret)
-			Expect(err).NotTo(HaveOccurred())
-			err = ReconcileAppServer(testReconcilerInstance, ctx, crAzure)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("missing key 'client_secret'"))
-			secret.Data["client_secret"] = []byte("test-client-secret")
-			err = k8sClient.Update(ctx, secret)
-			Expect(err).NotTo(HaveOccurred())
-			err = ReconcileAppServer(testReconcilerInstance, ctx, crAzure)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("reconcile OLSConfigMap"))
 		})
 
 	})
@@ -638,7 +535,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			dep := &appsv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
-			defaultSecretMode := int32(420)
+			defaultSecretMode := utils.VolumeDefaultMode
 			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
 				Name: "secret-new-token-secret",
 				VolumeSource: corev1.VolumeSource{
@@ -652,17 +549,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Delete the provider secret")
 			secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
-		})
-
-		It("should return error when the LLM provider token secret is not found", func() {
-			By("Reconcile after modifying the token secret")
-			originalSecretName := cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name
-			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: "non-existing-secret"}
-			err := ReconcileLLMSecrets(testReconcilerInstance, ctx, cr)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("secret not found: non-existing-secret"))
-			// Note: Status condition management is the responsibility of the main controller, not component reconcilers
-			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef = corev1.LocalObjectReference{Name: originalSecretName}
 		})
 
 		It("should return error when the TLS secret is not found", func() {
@@ -682,7 +568,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 	Context("User CA Certs", Ordered, func() {
 		var secret *corev1.Secret
-		var volumeDefaultMode = int32(420)
+		var volumeDefaultMode = utils.VolumeDefaultMode
 		var cmCACert1 *corev1.ConfigMap
 		var cmCACert2 *corev1.ConfigMap
 		var configmap *corev1.ConfigMap
@@ -798,11 +684,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(cm.Data).To(HaveKey(utils.OLSConfigFilename))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/ca-cert-1.crt"))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
-
-			By("check the additional CA configmap has watcher annotation")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: cmCACert1Name, Namespace: utils.OLSNamespaceDefault}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
 
 			By("Get app deployment and check the volume mount")
 			deployment := &appsv1.Deployment{}
@@ -1038,7 +919,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 	Context("Proxy Settings", Ordered, func() {
 		var secret *corev1.Secret
-		var volumeDefaultMode = int32(420)
+		var volumeDefaultMode = utils.VolumeDefaultMode
 		var cmCACert *corev1.ConfigMap
 		var configmap *corev1.ConfigMap
 		const cmCACertName = "proxy-ca-cert"
@@ -1137,11 +1018,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(cm.Data).To(HaveKey(utils.OLSConfigFilename))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring(fmt.Sprintf("proxy_ca_cert_path: %s", path.Join(utils.OLSAppCertsMountRoot, utils.ProxyCACertVolumeName, utils.ProxyCACertFileName))))
 
-			By("check the proxy CA configmap has watcher annotation")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: cmCACertName, Namespace: utils.OLSNamespaceDefault}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
-
 			By("Get app deployment and check the volume mount")
 			deployment := &appsv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, deployment)
@@ -1170,7 +1046,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 	})
 
 	Context("MCP Headers", Ordered, func() {
-		var volumeDefaultMode = int32(420)
+		var volumeDefaultMode = utils.VolumeDefaultMode
 		BeforeEach(func() {
 			By("Set OLSConfig CR to default")
 			err := k8sClient.Get(ctx, crNamespacedName, cr)

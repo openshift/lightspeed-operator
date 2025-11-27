@@ -39,12 +39,52 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
-func ReconcileConsoleUI(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
-	r.GetLogger().Info("reconcileConsoleUI starts")
+// ReconcileConsoleUIResources reconciles all resources except the deployment (Phase 1)
+// Uses continue-on-error pattern since these resources are independent
+func ReconcileConsoleUIResources(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileConsoleUIResources starts")
 	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile Console Plugin ConfigMap",
 			Task: reconcileConsoleUIConfigMap,
+		},
+		{
+			Name: "reconcile Console Plugin NetworkPolicy",
+			Task: reconcileConsoleNetworkPolicy,
+		},
+	}
+
+	failedTasks := make(map[string]error)
+
+	for _, task := range tasks {
+		err := task.Task(r, ctx, olsconfig)
+		if err != nil {
+			r.GetLogger().Error(err, "reconcileConsoleUIResources error", "task", task.Name)
+			failedTasks[task.Name] = err
+		}
+	}
+
+	if len(failedTasks) > 0 {
+		taskNames := make([]string, 0, len(failedTasks))
+		for taskName, err := range failedTasks {
+			taskNames = append(taskNames, taskName)
+			r.GetLogger().Error(err, "Task failed in reconcileConsoleUIResources", "task", taskName)
+		}
+		return fmt.Errorf("failed tasks: %v", taskNames)
+	}
+
+	r.GetLogger().Info("reconcileConsoleUIResources completes")
+	return nil
+}
+
+// ReconcileConsoleUIDeploymentAndPlugin reconciles the deployment and related resources (Phase 2)
+func ReconcileConsoleUIDeploymentAndPlugin(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileConsoleUIDeploymentAndPlugin starts")
+
+	tasks := []utils.ReconcileTask{
+		{
+			Name: "reconcile Console Plugin Deployment",
+			Task: ReconcileConsoleUIDeployment,
 		},
 		{
 			Name: "reconcile Console Plugin Service",
@@ -55,10 +95,6 @@ func ReconcileConsoleUI(r reconciler.Reconciler, ctx context.Context, olsconfig 
 			Task: reconcileConsoleTLSSecret,
 		},
 		{
-			Name: "reconcile Console Plugin Deployment",
-			Task: ReconcileConsoleUIDeployment,
-		},
-		{
 			Name: "reconcile Console Plugin",
 			Task: reconcileConsoleUIPlugin,
 		},
@@ -66,22 +102,17 @@ func ReconcileConsoleUI(r reconciler.Reconciler, ctx context.Context, olsconfig 
 			Name: "activate Console Plugin",
 			Task: activateConsoleUI,
 		},
-		{
-			Name: "reconcile Console Plugin NetworkPolicy",
-			Task: reconcileConsoleNetworkPolicy,
-		},
 	}
 
 	for _, task := range tasks {
 		err := task.Task(r, ctx, olsconfig)
 		if err != nil {
-			r.GetLogger().Error(err, "reconcileConsoleUI error", "task", task.Name)
+			r.GetLogger().Error(err, "reconcileConsoleUIDeploymentAndPlugin error", "task", task.Name)
 			return fmt.Errorf("failed to %s: %w", task.Name, err)
 		}
 	}
 
-	r.GetLogger().Info("reconcileConsoleUI completed")
-
+	r.GetLogger().Info("reconcileConsoleUIDeploymentAndPlugin completes")
 	return nil
 }
 
@@ -160,12 +191,6 @@ func ReconcileConsoleUIDeployment(r reconciler.Reconciler, ctx context.Context, 
 	foundDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, client.ObjectKey{Name: utils.ConsoleUIDeploymentName, Namespace: r.GetNamespace()}, foundDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		utils.UpdateDeploymentAnnotations(deployment, map[string]string{
-			utils.OLSConsoleTLSHashKey: r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey],
-		})
-		utils.UpdateDeploymentTemplateAnnotations(deployment, map[string]string{
-			utils.OLSConsoleTLSHashKey: r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey],
-		})
 		r.GetLogger().Info("creating Console UI deployment", "deployment", deployment.Name)
 		err = r.Create(ctx, deployment)
 		if err != nil {
@@ -179,21 +204,18 @@ func ReconcileConsoleUIDeployment(r reconciler.Reconciler, ctx context.Context, 
 
 	// fill in the default values for the deployment for comparison
 	utils.SetDefaults_Deployment(deployment)
-	if utils.DeploymentSpecEqual(&foundDeployment.Spec, &deployment.Spec) &&
-		foundDeployment.Annotations[utils.OLSConsoleTLSHashKey] == r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey] &&
-		foundDeployment.Spec.Template.Annotations[utils.OLSConsoleTLSHashKey] == r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey] {
-		r.GetLogger().Info("Console UI deployment unchanged, reconciliation skipped", "deployment", deployment.Name)
+
+	// Check if deployment spec has changed
+	// Note: TLS secret changes are handled by watchers, not here
+	if utils.DeploymentSpecEqual(&foundDeployment.Spec, &deployment.Spec) {
 		return nil
 	}
 
+	// Apply the desired spec to the existing deployment
 	foundDeployment.Spec = deployment.Spec
-	utils.UpdateDeploymentAnnotations(foundDeployment, map[string]string{
-		utils.OLSConsoleTLSHashKey: r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey],
-	})
-	utils.UpdateDeploymentTemplateAnnotations(foundDeployment, map[string]string{
-		utils.OLSConsoleTLSHashKey: r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey],
-	})
-	err = r.Update(ctx, foundDeployment)
+
+	r.GetLogger().Info("Updating Console UI deployment", "deployment", foundDeployment.Name)
+	err = RestartConsoleUI(r, ctx, foundDeployment)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateConsolePluginDeployment, err)
 	}
@@ -334,9 +356,8 @@ func deactivateConsoleUI(r reconciler.Reconciler, ctx context.Context) error {
 func reconcileConsoleTLSSecret(r reconciler.Reconciler, ctx context.Context, _ *olsv1alpha1.OLSConfig) error {
 	foundSecret := &corev1.Secret{}
 	var err, lastErr error
-	var secretValues map[string]string
 	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, utils.ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
-		secretValues, err = utils.GetSecretContent(r, utils.ConsoleUIServiceCertSecretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
+		_, err = utils.GetSecretContent(r, utils.ConsoleUIServiceCertSecretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
 		if err != nil {
 			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", utils.ConsoleUIServiceCertSecretName, err)
 			return false, nil
@@ -346,22 +367,11 @@ func reconcileConsoleTLSSecret(r reconciler.Reconciler, ctx context.Context, _ *
 	if err != nil {
 		return fmt.Errorf("failed to get TLS key and cert - wait err %w; last error: %w", err, lastErr)
 	}
-	// TODO: Annotate secret for watcher if needed
-	// utils.AnnotateSecretWatcher(foundSecret)
 	err = r.Update(ctx, foundSecret)
 	if err != nil {
 		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
 	}
-	foundTLSSecretHash, err := utils.HashBytes([]byte(secretValues["tls.key"] + secretValues["tls.crt"]))
-	if err != nil {
-		return fmt.Errorf("failed to generate OLS console tls certs hash %w", err)
-	}
-	if foundTLSSecretHash == r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey] {
-		r.GetLogger().Info("OLS console tls secret reconciliation skipped", "hash", foundTLSSecretHash)
-		return nil
-	}
-	r.GetStateCache()[utils.OLSConsoleTLSHashStateCacheKey] = foundTLSSecretHash
-	r.GetLogger().Info("OLS console tls secret reconciled", "hash", foundTLSSecretHash)
+	r.GetLogger().Info("OLS console tls secret reconciled")
 	return nil
 }
 
@@ -394,4 +404,68 @@ func reconcileConsoleNetworkPolicy(r reconciler.Reconciler, ctx context.Context,
 	r.GetLogger().Info("Console NetworkPolicy reconciled", "networkpolicy", utils.ConsoleUINetworkPolicyName)
 	return nil
 
+}
+
+// RestartConsoleUI triggers a rolling restart of the Console UI deployment by updating its pod template annotation.
+// This is useful when configuration changes require a pod restart (e.g., ConfigMap or Secret updates).
+func RestartConsoleUI(r reconciler.Reconciler, ctx context.Context, deployment ...*appsv1.Deployment) error {
+	var dep *appsv1.Deployment
+	var err error
+
+	// If deployment is provided, use it; otherwise fetch it
+	if len(deployment) > 0 && deployment[0] != nil {
+		dep = deployment[0]
+	} else {
+		// Get the Console UI deployment
+		dep = &appsv1.Deployment{}
+		err = r.Get(ctx, client.ObjectKey{Name: utils.ConsoleUIDeploymentName, Namespace: r.GetNamespace()}, dep)
+		if err != nil {
+			r.GetLogger().Info("failed to get deployment", "deploymentName", utils.ConsoleUIDeploymentName, "error", err)
+			return err
+		}
+	}
+
+	// Initialize annotations map if empty
+	if dep.Spec.Template.Annotations == nil {
+		dep.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	// Bump the annotation to trigger a rolling update (new template hash)
+	dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey] = time.Now().Format(time.RFC3339Nano)
+
+	// Update the deployment
+	r.GetLogger().Info("triggering Console UI rolling restart", "deployment", dep.Name)
+	err = r.Update(ctx, dep)
+	if err != nil {
+		r.GetLogger().Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
+		return err
+	}
+
+	return nil
+}
+
+// =============================================================================
+// Test Helper Functions
+// =============================================================================
+// The following functions are convenience wrappers used primarily by unit tests.
+// Production code should call ReconcileConsoleUIResources and ReconcileConsoleUIDeploymentAndPlugin directly.
+
+// ReconcileConsoleUI reconciles all Console UI resources in the original order.
+// This function is maintained for backward compatibility with existing tests.
+// New code should call ReconcileConsoleUIResources and ReconcileConsoleUIDeploymentAndPlugin separately.
+func ReconcileConsoleUI(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileConsoleUI starts")
+
+	// Call Resources phase
+	if err := ReconcileConsoleUIResources(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	// Call Deployment phase
+	if err := ReconcileConsoleUIDeploymentAndPlugin(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	r.GetLogger().Info("reconcileConsoleUI completed")
+	return nil
 }

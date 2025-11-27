@@ -36,8 +36,10 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-func ReconcileAppServer(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
-	r.GetLogger().Info("reconcileAppServer starts")
+// ReconcileAppServerResources reconciles all resources except the deployment (Phase 1)
+// Uses continue-on-error pattern since these resources are independent
+func ReconcileAppServerResources(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileAppServerResources starts")
 	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile ServiceAccount",
@@ -56,36 +58,12 @@ func ReconcileAppServer(r reconciler.Reconciler, ctx context.Context, olsconfig 
 			Task: reconcileOLSConfigMap,
 		},
 		{
-			Name: "reconcile Exporter ConfigMap",
-			Task: reconcileExporterConfigMap,
-		},
-		{
 			Name: "reconcile Additional CA ConfigMap",
 			Task: reconcileOLSAdditionalCAConfigMap,
 		},
 		{
-			Name: "reconcile App Service",
-			Task: reconcileService,
-		},
-		{
-			Name: "reconcile App TLS Certs",
-			Task: ReconcileTLSSecret,
-		},
-		{
-			Name: "reconcile App Deployment",
-			Task: reconcileDeployment,
-		},
-		{
 			Name: "reconcile Metrics Reader Secret",
 			Task: reconcileMetricsReaderSecret,
-		},
-		{
-			Name: "reconcile App ServiceMonitor",
-			Task: reconcileServiceMonitor,
-		},
-		{
-			Name: "reconcile App PrometheusRule",
-			Task: reconcilePrometheusRule,
 		},
 		{
 			Name: "reconcile App NetworkPolicy",
@@ -97,16 +75,69 @@ func ReconcileAppServer(r reconciler.Reconciler, ctx context.Context, olsconfig 
 		},
 	}
 
+	failedTasks := make(map[string]error)
+
 	for _, task := range tasks {
 		err := task.Task(r, ctx, olsconfig)
 		if err != nil {
-			r.GetLogger().Error(err, "reconcileAppServer error", "task", task.Name)
+			r.GetLogger().Error(err, "reconcileAppServerResources error", "task", task.Name)
+			failedTasks[task.Name] = err
+		}
+	}
+
+	if len(failedTasks) > 0 {
+		taskNames := make([]string, 0, len(failedTasks))
+		for taskName, err := range failedTasks {
+			taskNames = append(taskNames, taskName)
+			r.GetLogger().Error(err, "Task failed in reconcileAppServerResources", "task", taskName)
+		}
+		return fmt.Errorf("failed tasks: %v", taskNames)
+	}
+
+	r.GetLogger().Info("reconcileAppServerResources completes")
+	return nil
+}
+
+// ReconcileAppServerDeployment reconciles the deployment and related resources (Phase 2)
+func ReconcileAppServerDeployment(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileAppServerDeployment starts")
+
+	tasks := []utils.ReconcileTask{
+		{
+			Name: "reconcile Exporter ConfigMap",
+			Task: reconcileExporterConfigMap,
+		},
+		{
+			Name: "reconcile App Deployment",
+			Task: reconcileDeployment,
+		},
+		{
+			Name: "reconcile App Service",
+			Task: reconcileService,
+		},
+		{
+			Name: "reconcile App TLS Certs",
+			Task: ReconcileTLSSecret,
+		},
+		{
+			Name: "reconcile App ServiceMonitor",
+			Task: reconcileServiceMonitor,
+		},
+		{
+			Name: "reconcile App PrometheusRule",
+			Task: reconcilePrometheusRule,
+		},
+	}
+
+	for _, task := range tasks {
+		err := task.Task(r, ctx, olsconfig)
+		if err != nil {
+			r.GetLogger().Error(err, "reconcileAppServerDeployment error", "task", task.Name)
 			return fmt.Errorf("failed to %s: %w", task.Name, err)
 		}
 	}
 
-	r.GetLogger().Info("reconcileAppServer completes")
-
+	r.GetLogger().Info("reconcileAppServerDeployment completes")
 	return nil
 }
 
@@ -129,33 +160,24 @@ func reconcileOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *ols
 		if err != nil {
 			return fmt.Errorf("%s: %w", utils.ErrCreateAPIConfigmap, err)
 		}
-		r.GetStateCache()[utils.OLSConfigHashStateCacheKey] = cm.Annotations[utils.OLSConfigHashKey]
-		r.GetStateCache()[utils.PostgresConfigHashStateCacheKey] = cm.Annotations[utils.PostgresConfigHashKey]
-
 		return nil
-
 	} else if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetAPIConfigmap, err)
 	}
-	foundCmHash, err := utils.HashBytes([]byte(foundCm.Data[utils.OLSConfigFilename]))
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateHash, err)
-	}
-	// update the state cache with the hash of the existing configmap.
-	// so that we can skip the reconciling the deployment if the configmap has not changed.
-	r.GetStateCache()[utils.OLSConfigHashStateCacheKey] = cm.Annotations[utils.OLSConfigHashKey]
-	r.GetStateCache()[utils.PostgresConfigHashStateCacheKey] = cm.Annotations[utils.PostgresConfigHashKey]
-	if foundCmHash == cm.Annotations[utils.OLSConfigHashKey] {
-		r.GetLogger().Info("OLS configmap reconciliation skipped", "configmap", foundCm.Name, "hash", foundCm.Annotations[utils.OLSConfigHashKey])
+
+	// Check if configmap needs update using direct comparison
+	if utils.ConfigMapEqual(foundCm, cm) {
+		r.GetLogger().Info("OLS configmap reconciliation skipped", "configmap", foundCm.Name)
 		return nil
 	}
+
 	foundCm.Data = cm.Data
 	foundCm.Annotations = cm.Annotations
 	err = r.Update(ctx, foundCm)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAPIConfigmap, err)
 	}
-	r.GetLogger().Info("OLS configmap reconciled", "configmap", cm.Name, "hash", cm.Annotations[utils.OLSConfigHashKey])
+	r.GetLogger().Info("OLS configmap reconciled", "configmap", cm.Name)
 	return nil
 }
 
@@ -166,39 +188,14 @@ func reconcileOLSAdditionalCAConfigMap(r reconciler.Reconciler, ctx context.Cont
 		return nil
 	}
 
-	// annotate the configmap for watcher
+	// Verify the configmap exists (annotation is handled by main controller)
 	cm := &corev1.ConfigMap{}
-
 	err := r.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.GetNamespace()}, cm)
-
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetAdditionalCACM, err)
 	}
 
-	utils.AnnotateConfigMapWatcher(cm)
-
-	err = r.Update(ctx, cm)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdateAdditionalCACM, err)
-	}
-
-	certBytes := []byte{}
-	for key, value := range cm.Data {
-		certBytes = append(certBytes, []byte(key)...)
-		certBytes = append(certBytes, []byte(value)...)
-	}
-
-	foundCmHash, err := utils.HashBytes(certBytes)
-	if err != nil {
-		return fmt.Errorf("failed to generate additional CA certs hash %w", err)
-	}
-	if foundCmHash == r.GetStateCache()[utils.AdditionalCAHashStateCacheKey] {
-		r.GetLogger().Info("Additional CA reconciliation skipped", "hash", foundCmHash)
-		return nil
-	}
-	r.GetStateCache()[utils.AdditionalCAHashStateCacheKey] = foundCmHash
-
-	r.GetLogger().Info("additional CA configmap reconciled", "configmap", cm.Name, "hash", foundCmHash)
+	r.GetLogger().Info("additional CA configmap reconciled", "configmap", cm.Name)
 	return nil
 }
 
@@ -258,7 +255,6 @@ func reconcileProxyCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr 
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetProxyCACM, err)
 	}
-	utils.AnnotateConfigMapWatcher(cm)
 	err = r.Update(ctx, cm)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateProxyCACM, err)
@@ -343,18 +339,6 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, client.ObjectKey{Name: utils.OLSAppServerDeploymentName, Namespace: r.GetNamespace()}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		utils.UpdateDeploymentAnnotations(desiredDeployment, map[string]string{
-			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],
-			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
-		utils.UpdateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			utils.OLSConfigHashKey:      r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-			utils.OLSAppTLSHashKey:      r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey],
-			utils.LLMProviderHashKey:    r.GetStateCache()[utils.LLMProviderHashStateCacheKey],
-			utils.PostgresSecretHashKey: r.GetStateCache()[utils.PostgresSecretHashStateCacheKey],
-		})
 		r.GetLogger().Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
@@ -410,36 +394,6 @@ func reconcileService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alp
 	}
 
 	r.GetLogger().Info("OLS service reconciled", "service", service.Name)
-	return nil
-}
-
-func ReconcileLLMSecrets(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	providerCredentials := ""
-	for _, provider := range cr.Spec.LLMConfig.Providers {
-		foundSecret := &corev1.Secret{}
-		secretValues, err := utils.GetAllSecretContent(r, provider.CredentialsSecretRef.Name, r.GetNamespace(), foundSecret)
-		if err != nil {
-			return fmt.Errorf("secret token not found for provider: %s. error: %w", provider.Name, err)
-		}
-		for key, value := range secretValues {
-			providerCredentials += key + "=" + value + "\n"
-		}
-		utils.AnnotateSecretWatcher(foundSecret)
-		err = r.Update(ctx, foundSecret)
-		if err != nil {
-			return fmt.Errorf("%s: %s error: %w", utils.ErrUpdateProviderSecret, foundSecret.Name, err)
-		}
-	}
-	foundProviderCredentialsHash, err := utils.HashBytes([]byte(providerCredentials))
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateProviderCredentialsHash, err)
-	}
-	if foundProviderCredentialsHash == r.GetStateCache()[utils.LLMProviderHashStateCacheKey] {
-		r.GetLogger().Info("OLS llm secrets reconciliation skipped", "hash", foundProviderCredentialsHash)
-		return nil
-	}
-	r.GetStateCache()[utils.LLMProviderHashStateCacheKey] = foundProviderCredentialsHash
-	r.GetLogger().Info("OLS llm secrets reconciled", "hash", foundProviderCredentialsHash)
 	return nil
 }
 
@@ -548,13 +502,12 @@ func reconcilePrometheusRule(r reconciler.Reconciler, ctx context.Context, cr *o
 func ReconcileTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	foundSecret := &corev1.Secret{}
 	var err, lastErr error
-	var secretValues map[string]string
 	secretName := utils.OLSCertsSecretName
 	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
 		secretName = cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
 	}
 	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, utils.ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
-		secretValues, err = utils.GetSecretContent(r, secretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
+		_, err = utils.GetSecretContent(r, secretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
 		if err != nil {
 			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", secretName, err)
 			return false, nil
@@ -565,21 +518,11 @@ func ReconcileTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 		return fmt.Errorf("%s -%s - wait err %w; last error: %w", utils.ErrGetTLSSecret, utils.OLSCertsSecretName, err, lastErr)
 	}
 
-	utils.AnnotateSecretWatcher(foundSecret)
 	err = r.Update(ctx, foundSecret)
 	if err != nil {
 		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
 	}
-	foundTLSSecretHash, err := utils.HashBytes([]byte(secretValues["tls.key"] + secretValues["tls.crt"]))
-	if err != nil {
-		return fmt.Errorf("failed to generate OLS app TLS certs hash %w", err)
-	}
-	if foundTLSSecretHash == r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey] {
-		r.GetLogger().Info("OLS app TLS secret reconciliation skipped", "hash", foundTLSSecretHash)
-		return nil
-	}
-	r.GetStateCache()[utils.OLSAppTLSHashStateCacheKey] = foundTLSSecretHash
-	r.GetLogger().Info("OLS app TLS secret reconciled", "hash", foundTLSSecretHash)
+	r.GetLogger().Info("OLS app TLS secret reconciled", "secret", foundSecret.Name)
 	return nil
 }
 
@@ -611,5 +554,31 @@ func reconcileAppServerNetworkPolicy(r reconciler.Reconciler, ctx context.Contex
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAppServerNetworkPolicy, err)
 	}
 	r.GetLogger().Info("OLS app server network policy reconciled", "networkPolicy", networkPolicy.Name)
+	return nil
+}
+
+// =============================================================================
+// Test Helper Functions
+// =============================================================================
+// The following functions are convenience wrappers used primarily by unit tests.
+// Production code should call ReconcileAppServerResources and ReconcileAppServerDeployment directly.
+
+// ReconcileAppServer reconciles all app server resources in the original order.
+// This function is maintained for backward compatibility with existing tests.
+// New code should call ReconcileAppServerResources and ReconcileAppServerDeployment separately.
+func ReconcileAppServer(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileAppServer starts")
+
+	// Call Resources phase
+	if err := ReconcileAppServerResources(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	// Call Deployment phase
+	if err := ReconcileAppServerDeployment(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	r.GetLogger().Info("reconcileAppServer completes")
 	return nil
 }

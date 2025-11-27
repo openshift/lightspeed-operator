@@ -358,10 +358,62 @@ func main() {
 		setupLog.Info("ServiceMonitor and PrometheusRule resources will be skipped")
 	}
 
+	// In our implementation we use 2 different approaches for updating deployments in
+	// cases when objects that deployments depend on change. For resources owned by the operator
+	// we check whether they change during deployment reconciliation, for external resources we
+	// use watchers, configured below
+	// Configure watcher for external resources. We use here declarative configuration,
+	// so that the code do not need to be changed if anything modified.
+	watcherConfig := &utils.WatcherConfig{
+		// list here "special" external secrets that we need to watch in addition to
+		// external secrets specified in CR. To watch for additional secrets, add them here
+		Secrets: utils.SecretWatcherConfig{
+			SystemResources: []utils.SystemSecret{
+				{
+					Name:                utils.TelemetryPullSecretName,
+					Namespace:           utils.TelemetryPullSecretNamespace,
+					Description:         "OpenShift telemetry pull secret",
+					AffectedDeployments: []string{"ACTIVE_BACKEND"},
+				},
+				{
+					Name:                utils.ConsoleUIServiceCertSecretName,
+					Namespace:           namespace,
+					Description:         "Console UI TLS certificate",
+					AffectedDeployments: []string{utils.ConsoleUIDeploymentName},
+				},
+			},
+		},
+		// list here "special" external config maps that we need to watch in addition to
+		// external config maps specified in CR. To watch for additional config maps, add them here
+		ConfigMaps: utils.ConfigMapWatcherConfig{
+			SystemResources: []utils.SystemConfigMap{
+				{
+					Name:                utils.DefaultOpenShiftCerts,
+					Namespace:           namespace,
+					Description:         "OpenShift default CA bundle",
+					AffectedDeployments: []string{"ACTIVE_BACKEND"},
+				},
+			},
+		},
+		// AnnotatedSecretMapping maps secret names to their affected deployments.
+		// These are secrets that the operator manages and annotates with watchers.openshift.io/watch.
+		// When these secrets change, the watcher will restart the listed deployments.
+		// Key: secret name, Value: list of deployment names (use "ACTIVE_BACKEND" for appserver/lcore).
+		// Only list secrets here that need to restart specific deployments beyond the active backend.
+		AnnotatedSecretMapping: map[string][]string{
+			utils.PostgresSecretName: {utils.PostgresDeploymentName, "ACTIVE_BACKEND"},
+		},
+		// AnnotatedConfigMapMapping maps configmap names to their affected deployments.
+		// These are configmaps that the operator manages and annotates with watchers.openshift.io/watch.
+		// When these configmaps change, the watcher will restart the listed deployments.
+		// Key: configmap name, Value: list of deployment names (use "ACTIVE_BACKEND" for appserver/lcore)
+		// Only list configmaps here that need to restart specific deployments beyond the active backend.
+		AnnotatedConfigMapMapping: map[string][]string{},
+	}
+
 	if err = (&controller.OLSConfigReconciler{
-		Client:     mgr.GetClient(),
-		Logger:     ctrl.Log.WithName("controller").WithName("OLSConfig"),
-		StateCache: make(map[string]string),
+		Client: mgr.GetClient(),
+		Logger: ctrl.Log.WithName("controller").WithName("OLSConfig"),
 		Options: utils.OLSConfigReconcilerOptions{
 			OpenShiftMajor:                 major,
 			OpenshiftMinor:                 minor,
@@ -376,6 +428,7 @@ func main() {
 			ReconcileInterval:              time.Duration(reconcilerIntervalMinutes) * time.Minute, // #nosec G115
 			PrometheusAvailable:            prometheusAvailable,
 		},
+		WatcherConfig: watcherConfig,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")
 		os.Exit(1)

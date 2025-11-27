@@ -703,7 +703,7 @@ OZFFxJxe3WtDF8XDysSO2vRCd2dhEV8oV9pO2+z9H+WR4mlKonEkzUYSyyjaO2DW
 ov653fup9YH68vWdS5IhjLDknEbcFo7s5MvnZX8cbtZn4ZIoOSffPf6KhkkQYJ7h
 UiTB+ZvDI7BO3bBErmNglQegjZkFshaNJ/uwRf1pcJWyPfMwlDQ391+YGbxPfYHo
 cNHlzbRSivTDuHmXJdCYIdd8cnH6EbPm3zNg0jU5Au6OrvDZYifP+DtuiLmJct4=
------END CERTIFICATE-----`)
+-----END CERTIFICATE-----`) // notsecret
 
 		It("should accept valid PEM certificate", func() {
 			err := ValidateCertificateFormat(validCert)
@@ -731,7 +731,7 @@ cNHlzbRSivTDuHmXJdCYIdd8cnH6EbPm3zNg0jU5Au6OrvDZYifP+DtuiLmJct4=
 			wrongBlockType := []byte(`-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDDVapWpmpWpmpW
 pmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpW
------END PRIVATE KEY-----`)
+-----END PRIVATE KEY-----`) // notsecret
 
 			err := ValidateCertificateFormat(wrongBlockType)
 
@@ -742,7 +742,7 @@ pmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpWpmpW
 		It("should reject malformed certificate data", func() {
 			malformedCert := []byte(`-----BEGIN CERTIFICATE-----
 This is not valid base64 encoded certificate data!
------END CERTIFICATE-----`)
+-----END CERTIFICATE-----`) // notsecret
 
 			err := ValidateCertificateFormat(malformedCert)
 
@@ -754,7 +754,7 @@ This is not valid base64 encoded certificate data!
 		It("should reject certificate with invalid base64", func() {
 			invalidBase64 := []byte(`-----BEGIN CERTIFICATE-----
 !!!INVALID BASE64!!!
------END CERTIFICATE-----`)
+-----END CERTIFICATE-----`) // notsecret
 
 			err := ValidateCertificateFormat(invalidBase64)
 
@@ -786,7 +786,7 @@ ov653fup9YH68vWdS5IhjLDknEbcFo7s5MvnZX8cbtZn4ZIoOSffPf6KhkkQYJ7h
 UiTB+ZvDI7BO3bBErmNglQegjZkFshaNJ/uwRf1pcJWyPfMwlDQ391+YGbxPfYHo
 cNHlzbRSivTDuHmXJdCYIdd8cnH6EbPm3zNg0jU5Au6OrvDZYifP+DtuiLmJct4=
 -----END CERTIFICATE-----
-`)
+`) // notsecret
 
 			err := ValidateCertificateFormat(certWithWhitespace)
 

@@ -35,7 +35,7 @@ var _ = Describe("App server assets", func() {
 			r = &OLSConfigReconciler{
 				Options: *rOptions,
 				Logger:  logf.Log.WithName("olsconfig.reconciler"),
-				Client:  k8sClient, StateCache: make(map[string]string),
+				Client:  k8sClient,
 			}
 
 			operatorDeployment = &appsv1.Deployment{
@@ -167,7 +167,7 @@ var _ = Describe("App server assets", func() {
 			r = &OLSConfigReconciler{
 				Options: *rOptions,
 				Logger:  logf.Log.WithName("olsconfig.reconciler"),
-				Client:  k8sClient, StateCache: make(map[string]string),
+				Client:  k8sClient,
 			}
 		})
 
@@ -237,10 +237,9 @@ var _ = Describe("Main Reconcile Loop", func() {
 
 		// Setup reconciler
 		reconciler = &OLSConfigReconciler{
-			Client:     k8sClient,
-			Options:    getDefaultReconcilerOptions(testNamespace),
-			Logger:     logf.Log.WithName("test.reconciler"),
-			StateCache: make(map[string]string),
+			Client:  k8sClient,
+			Options: getDefaultReconcilerOptions(testNamespace),
+			Logger:  logf.Log.WithName("test.reconciler"),
 		}
 
 		// Create the operator deployment (required for ReconcileServiceMonitorForOperator)
@@ -523,6 +522,207 @@ var _ = Describe("Main Reconcile Loop", func() {
 			message, err := reconciler.checkDeploymentStatus(deployment)
 			Expect(err).To(HaveOccurred())
 			Expect(message).To(Equal("Fail")) // Actual return value from code
+		})
+	})
+
+	Context("annotateExternalResources", func() {
+		var (
+			testCR       *olsv1alpha1.OLSConfig
+			llmSecret    *corev1.Secret
+			tlsSecret    *corev1.Secret
+			additionalCA *corev1.ConfigMap
+			proxyCA      *corev1.ConfigMap
+			mcpSecret    *corev1.Secret
+		)
+
+		BeforeEach(func() {
+			// Create test secrets and configmaps
+			llmSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm-secret",
+					Namespace: testNamespace,
+				},
+				Data: map[string][]byte{
+					"apitoken": []byte("test-token"),
+				},
+			}
+			Expect(k8sClient.Create(ctx, llmSecret)).To(Succeed())
+
+			tlsSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tls-secret",
+					Namespace: testNamespace,
+				},
+				Type: corev1.SecretTypeTLS,
+				Data: map[string][]byte{
+					"tls.crt": []byte("cert"),
+					"tls.key": []byte("key"),
+				},
+			}
+			Expect(k8sClient.Create(ctx, tlsSecret)).To(Succeed())
+
+			additionalCA = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-additional-ca",
+					Namespace: testNamespace,
+				},
+				Data: map[string]string{
+					"ca-bundle.crt": "ca-cert-data",
+				},
+			}
+			Expect(k8sClient.Create(ctx, additionalCA)).To(Succeed())
+
+			proxyCA = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-proxy-ca",
+					Namespace: testNamespace,
+				},
+				Data: map[string]string{
+					"ca-bundle.crt": "proxy-ca-data",
+				},
+			}
+			Expect(k8sClient.Create(ctx, proxyCA)).To(Succeed())
+
+			mcpSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-mcp-secret",
+					Namespace: testNamespace,
+				},
+				Data: map[string][]byte{
+					"token": []byte("mcp-token"),
+				},
+			}
+			Expect(k8sClient.Create(ctx, mcpSecret)).To(Succeed())
+
+			// Create CR with external resource references
+			testCR = &olsv1alpha1.OLSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-annotation-cr",
+				},
+				Spec: olsv1alpha1.OLSConfigSpec{
+					LLMConfig: olsv1alpha1.LLMSpec{
+						Providers: []olsv1alpha1.ProviderSpec{
+							{
+								Name: "test-provider",
+								CredentialsSecretRef: corev1.LocalObjectReference{
+									Name: "test-llm-secret",
+								},
+							},
+						},
+					},
+					OLSConfig: olsv1alpha1.OLSSpec{
+						TLSConfig: &olsv1alpha1.TLSConfig{
+							KeyCertSecretRef: corev1.LocalObjectReference{
+								Name: "test-tls-secret",
+							},
+						},
+						AdditionalCAConfigMapRef: &corev1.LocalObjectReference{
+							Name: "test-additional-ca",
+						},
+						ProxyConfig: &olsv1alpha1.ProxyConfig{
+							ProxyCACertificateRef: &corev1.LocalObjectReference{
+								Name: "test-proxy-ca",
+							},
+						},
+					},
+					MCPServers: []olsv1alpha1.MCPServer{
+						{
+							Name: "test-mcp-server",
+							StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+								URL: "http://test-mcp-server",
+								Headers: map[string]string{
+									"Authorization": "test-mcp-secret",
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		AfterEach(func() {
+			_ = k8sClient.Delete(ctx, llmSecret)
+			_ = k8sClient.Delete(ctx, tlsSecret)
+			_ = k8sClient.Delete(ctx, additionalCA)
+			_ = k8sClient.Delete(ctx, proxyCA)
+			_ = k8sClient.Delete(ctx, mcpSecret)
+		})
+
+		It("should annotate all external resources", func() {
+			err := reconciler.annotateExternalResources(ctx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify LLM secret is annotated
+			fetchedLLMSecret := &corev1.Secret{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-llm-secret", Namespace: testNamespace}, fetchedLLMSecret)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fetchedLLMSecret.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
+
+			// Verify TLS secret is annotated
+			fetchedTLSSecret := &corev1.Secret{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-tls-secret", Namespace: testNamespace}, fetchedTLSSecret)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fetchedTLSSecret.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
+
+			// Verify Additional CA configmap is annotated
+			fetchedAdditionalCA := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-additional-ca", Namespace: testNamespace}, fetchedAdditionalCA)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fetchedAdditionalCA.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
+
+			// Verify Proxy CA configmap is annotated
+			fetchedProxyCA := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-proxy-ca", Namespace: testNamespace}, fetchedProxyCA)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fetchedProxyCA.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
+
+			// Verify MCP secret is annotated
+			fetchedMCPSecret := &corev1.Secret{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-mcp-secret", Namespace: testNamespace}, fetchedMCPSecret)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fetchedMCPSecret.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
+		})
+
+		It("should handle missing resources gracefully", func() {
+			// Create CR with non-existent resource references
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "non-existent-secret"
+			testCR.Spec.OLSConfig.AdditionalCAConfigMapRef.Name = "non-existent-cm"
+
+			// Should not return error - missing resources are handled gracefully (returns nil)
+			err := reconciler.annotateExternalResources(ctx, testCR)
+			Expect(err).NotTo(HaveOccurred()) // Returns nil for missing resources (will be picked up on next reconciliation)
+		})
+
+		It("should skip annotation if already annotated", func() {
+			// Pre-annotate the LLM secret
+			llmSecret.Annotations = map[string]string{
+				utils.WatcherAnnotationKey: utils.OLSConfigName,
+			}
+			err := k8sClient.Update(ctx, llmSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Call annotateExternalResources
+			err = reconciler.annotateExternalResources(ctx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify annotation is still there (not duplicated or changed)
+			fetchedSecret := &corev1.Secret{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-llm-secret", Namespace: testNamespace}, fetchedSecret)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fetchedSecret.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
+		})
+
+		It("should skip MCP secrets with 'kubernetes' value", func() {
+			// Create CR with special "kubernetes" token case
+			testCR.Spec.MCPServers[0].StreamableHTTP.Headers = map[string]string{
+				"Authorization": "kubernetes", // Special case that should be skipped
+			}
+
+			err := reconciler.annotateExternalResources(ctx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+
+			// The "kubernetes" token should not have caused any lookup or annotation
+			// No assertion needed - just verifying no error occurred
 		})
 	})
 })

@@ -121,7 +121,8 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(console.Spec.Plugins).To(ContainElement(utils.ConsoleUIPluginName))
 		})
 
-		It("should trigger rolling update of the console deployment when changing tls secret content", func() {
+		// This is specific for hash based implementation. Now done by watcher
+		XIt("should trigger rolling update of the console deployment when changing tls secret content", func() {
 
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
@@ -158,7 +159,8 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(dep.Annotations[utils.OLSConsoleTLSHashKey]).NotTo(Equal(oldHash))
 		})
 
-		It("should trigger rolling update of the console deployment when recreating tls secret", func() {
+		// This test relies on hash-based change detection which will be replaced by watcher annotations
+		XIt("should trigger rolling update of the console deployment when recreating tls secret", func() {
 
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
@@ -289,8 +291,15 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 					Name:       utils.ConsoleUIServiceCertSecretName,
 				},
 			})
-			secretCreationErr := testReconcilerInstance.Create(ctx, tlsSecret)
-			Expect(secretCreationErr).NotTo(HaveOccurred())
+			// Check if secret already exists from previous tests
+			existingSecret := &corev1.Secret{}
+			err = testReconcilerInstance.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIServiceCertSecretName, Namespace: utils.OLSNamespaceDefault}, existingSecret)
+			if err != nil && errors.IsNotFound(err) {
+				secretCreationErr := testReconcilerInstance.Create(ctx, tlsSecret)
+				Expect(secretCreationErr).NotTo(HaveOccurred())
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+			}
 		})
 
 		AfterAll(func() {

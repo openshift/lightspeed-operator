@@ -56,108 +56,40 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 		}
 	})
 
-	Describe("UpdateDeploymentAnnotations", func() {
-		It("should add annotations to deployment", func() {
-			annotations := map[string]string{
-				"key1": "value1",
-				"key2": "value2",
-			}
-			UpdateDeploymentAnnotations(deployment, annotations)
+	Describe("DeploymentSpecEqual - Replicas", func() {
+		It("should detect when replicas are different", func() {
+			desiredDeployment := deployment.DeepCopy()
+			replicas := int32(3)
+			desiredDeployment.Spec.Replicas = &replicas
 
-			Expect(deployment.Annotations).To(HaveLen(2))
-			Expect(deployment.Annotations["key1"]).To(Equal("value1"))
-			Expect(deployment.Annotations["key2"]).To(Equal("value2"))
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+
+			Expect(equal).To(BeFalse())
 		})
 
-		It("should update existing annotations", func() {
-			deployment.Annotations = map[string]string{"existing": "old"}
-			annotations := map[string]string{"existing": "new", "key1": "value1"}
+		It("should detect when replicas are the same", func() {
+			desiredDeployment := deployment.DeepCopy()
 
-			UpdateDeploymentAnnotations(deployment, annotations)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
 
-			Expect(deployment.Annotations).To(HaveLen(2))
-			Expect(deployment.Annotations["existing"]).To(Equal("new"))
-			Expect(deployment.Annotations["key1"]).To(Equal("value1"))
+			Expect(equal).To(BeTrue())
 		})
 
-		It("should handle nil annotations map", func() {
-			deployment.Annotations = nil
-			annotations := map[string]string{"key1": "value1"}
+		It("should detect zero replicas difference", func() {
+			desiredDeployment := deployment.DeepCopy()
+			replicas := int32(0)
+			desiredDeployment.Spec.Replicas = &replicas
 
-			UpdateDeploymentAnnotations(deployment, annotations)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
 
-			Expect(deployment.Annotations).NotTo(BeNil())
-			Expect(deployment.Annotations["key1"]).To(Equal("value1"))
-		})
-
-		It("should handle empty annotations input", func() {
-			deployment.Annotations = map[string]string{"existing": "value"}
-			UpdateDeploymentAnnotations(deployment, map[string]string{})
-
-			Expect(deployment.Annotations).To(HaveLen(1))
-			Expect(deployment.Annotations["existing"]).To(Equal("value"))
+			Expect(equal).To(BeFalse())
 		})
 	})
 
-	Describe("UpdateDeploymentTemplateAnnotations", func() {
-		It("should add annotations to pod template", func() {
-			annotations := map[string]string{
-				"key1": "value1",
-				"key2": "value2",
-			}
-			UpdateDeploymentTemplateAnnotations(deployment, annotations)
-
-			Expect(deployment.Spec.Template.Annotations).To(HaveLen(2))
-			Expect(deployment.Spec.Template.Annotations["key1"]).To(Equal("value1"))
-			Expect(deployment.Spec.Template.Annotations["key2"]).To(Equal("value2"))
-		})
-
-		It("should update existing template annotations", func() {
-			deployment.Spec.Template.Annotations = map[string]string{"existing": "old"}
-			annotations := map[string]string{"existing": "new"}
-
-			UpdateDeploymentTemplateAnnotations(deployment, annotations)
-
-			Expect(deployment.Spec.Template.Annotations["existing"]).To(Equal("new"))
-		})
-
-		It("should handle nil template annotations", func() {
-			deployment.Spec.Template.Annotations = nil
-			annotations := map[string]string{"key1": "value1"}
-
-			UpdateDeploymentTemplateAnnotations(deployment, annotations)
-
-			Expect(deployment.Spec.Template.Annotations).NotTo(BeNil())
-			Expect(deployment.Spec.Template.Annotations["key1"]).To(Equal("value1"))
-		})
-	})
-
-	Describe("SetDeploymentReplicas", func() {
-		It("should update replicas when different", func() {
-			changed := SetDeploymentReplicas(deployment, 3)
-
-			Expect(changed).To(BeTrue())
-			Expect(*deployment.Spec.Replicas).To(Equal(int32(3)))
-		})
-
-		It("should not update when replicas are the same", func() {
-			changed := SetDeploymentReplicas(deployment, 1)
-
-			Expect(changed).To(BeFalse())
-			Expect(*deployment.Spec.Replicas).To(Equal(int32(1)))
-		})
-
-		It("should handle zero replicas", func() {
-			changed := SetDeploymentReplicas(deployment, 0)
-
-			Expect(changed).To(BeTrue())
-			Expect(*deployment.Spec.Replicas).To(Equal(int32(0)))
-		})
-	})
-
-	Describe("SetTolerations", func() {
-		It("should set tolerations when different", func() {
-			tolerations := []corev1.Toleration{
+	Describe("DeploymentSpecEqual - Tolerations", func() {
+		It("should detect when tolerations are different", func() {
+			desiredDeployment := deployment.DeepCopy()
+			desiredDeployment.Spec.Template.Spec.Tolerations = []corev1.Toleration{
 				{
 					Key:      "key1",
 					Operator: corev1.TolerationOpEqual,
@@ -165,65 +97,73 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 					Effect:   corev1.TaintEffectNoSchedule,
 				},
 			}
-			changed := SetTolerations(deployment, tolerations)
 
-			Expect(changed).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.Tolerations).To(Equal(tolerations))
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+
+			Expect(equal).To(BeFalse())
 		})
 
-		It("should not update when tolerations are the same", func() {
+		It("should detect when tolerations are the same", func() {
 			tolerations := []corev1.Toleration{
 				{Key: "key1", Operator: corev1.TolerationOpEqual, Value: "value1"},
 			}
 			deployment.Spec.Template.Spec.Tolerations = tolerations
+			desiredDeployment := deployment.DeepCopy()
 
-			changed := SetTolerations(deployment, tolerations)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
 
-			Expect(changed).To(BeFalse())
+			Expect(equal).To(BeTrue())
 		})
 
-		It("should handle empty tolerations", func() {
+		It("should detect empty tolerations difference", func() {
 			deployment.Spec.Template.Spec.Tolerations = []corev1.Toleration{{Key: "key1"}}
-			changed := SetTolerations(deployment, []corev1.Toleration{})
+			desiredDeployment := deployment.DeepCopy()
+			desiredDeployment.Spec.Template.Spec.Tolerations = []corev1.Toleration{}
 
-			Expect(changed).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.Tolerations).To(BeEmpty())
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+
+			Expect(equal).To(BeFalse())
 		})
 	})
 
-	Describe("SetNodeSelector", func() {
-		It("should set node selector when different", func() {
-			nodeSelector := map[string]string{
+	Describe("DeploymentSpecEqual - NodeSelector", func() {
+		It("should detect when node selector is different", func() {
+			desiredDeployment := deployment.DeepCopy()
+			desiredDeployment.Spec.Template.Spec.NodeSelector = map[string]string{
 				"disktype": "ssd",
 				"region":   "us-west",
 			}
-			changed := SetNodeSelector(deployment, nodeSelector)
 
-			Expect(changed).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.NodeSelector).To(Equal(nodeSelector))
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+
+			Expect(equal).To(BeFalse())
 		})
 
-		It("should not update when node selector is the same", func() {
+		It("should detect when node selector is the same", func() {
 			nodeSelector := map[string]string{"disktype": "ssd"}
 			deployment.Spec.Template.Spec.NodeSelector = nodeSelector
+			desiredDeployment := deployment.DeepCopy()
 
-			changed := SetNodeSelector(deployment, nodeSelector)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
 
-			Expect(changed).To(BeFalse())
+			Expect(equal).To(BeTrue())
 		})
 
-		It("should handle empty node selector", func() {
+		It("should detect empty node selector difference", func() {
 			deployment.Spec.Template.Spec.NodeSelector = map[string]string{"key": "value"}
-			changed := SetNodeSelector(deployment, map[string]string{})
+			desiredDeployment := deployment.DeepCopy()
+			desiredDeployment.Spec.Template.Spec.NodeSelector = map[string]string{}
 
-			Expect(changed).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.NodeSelector).To(BeEmpty())
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+
+			Expect(equal).To(BeFalse())
 		})
 	})
 
-	Describe("SetVolumes", func() {
-		It("should set volumes when different", func() {
-			newVolumes := []corev1.Volume{
+	Describe("DeploymentSpecEqual - Volumes", func() {
+		It("should detect when volumes are different", func() {
+			desiredDeployment := deployment.DeepCopy()
+			desiredDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
 				{
 					Name: "vol2",
 					VolumeSource: corev1.VolumeSource{
@@ -233,70 +173,65 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 					},
 				},
 			}
-			changed := SetVolumes(deployment, newVolumes)
 
-			Expect(changed).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.Volumes).To(Equal(newVolumes))
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+
+			Expect(equal).To(BeFalse())
 		})
 
-		It("should not update when volumes are the same", func() {
-			existingVolumes := deployment.Spec.Template.Spec.Volumes
-			changed := SetVolumes(deployment, existingVolumes)
+		It("should detect when volumes are the same", func() {
+			desiredDeployment := deployment.DeepCopy()
 
-			Expect(changed).To(BeFalse())
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+
+			Expect(equal).To(BeTrue())
 		})
 
 		It("should handle volume order differences", func() {
-			volumes := []corev1.Volume{
-				{Name: "vol-b", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-				{Name: "vol-a", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-			}
 			deployment.Spec.Template.Spec.Volumes = []corev1.Volume{
 				{Name: "vol-a", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 				{Name: "vol-b", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 			}
+			desiredDeployment := deployment.DeepCopy()
+			desiredDeployment.Spec.Template.Spec.Volumes = []corev1.Volume{
+				{Name: "vol-b", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+				{Name: "vol-a", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+			}
 
-			changed := SetVolumes(deployment, volumes)
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
 
-			// Should be false because after sorting they're the same
-			Expect(changed).To(BeFalse())
+			// Should be true because PodVolumeEqual sorts them
+			Expect(equal).To(BeTrue())
 		})
 	})
 
-	Describe("SetVolumeMounts", func() {
-		It("should set volume mounts when different", func() {
-			newMounts := []corev1.VolumeMount{
+	Describe("DeploymentSpecEqual - VolumeMounts", func() {
+		It("should detect when volume mounts are different", func() {
+			desiredDeployment := deployment.DeepCopy()
+			desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
 				{Name: "vol2", MountPath: "/config"},
 			}
-			changed, err := SetVolumeMounts(deployment, newMounts, "app-container")
 
-			Expect(err).NotTo(HaveOccurred())
-			Expect(changed).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(Equal(newMounts))
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+
+			Expect(equal).To(BeFalse())
 		})
 
-		It("should not update when volume mounts are the same", func() {
-			existingMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-			changed, err := SetVolumeMounts(deployment, existingMounts, "app-container")
+		It("should detect when volume mounts are the same", func() {
+			desiredDeployment := deployment.DeepCopy()
 
-			Expect(err).NotTo(HaveOccurred())
-			Expect(changed).To(BeFalse())
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+
+			Expect(equal).To(BeTrue())
 		})
 
-		It("should return error for non-existent container", func() {
-			mounts := []corev1.VolumeMount{{Name: "vol1", MountPath: "/data"}}
-			_, err := SetVolumeMounts(deployment, mounts, "non-existent")
+		It("should detect empty volume mounts difference", func() {
+			desiredDeployment := deployment.DeepCopy()
+			desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}
 
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("container non-existent not found"))
-		})
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
 
-		It("should handle empty volume mounts", func() {
-			changed, err := SetVolumeMounts(deployment, []corev1.VolumeMount{}, "app-container")
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(changed).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(BeEmpty())
+			Expect(equal).To(BeFalse())
 		})
 	})
 
@@ -338,35 +273,27 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 		})
 	})
 
-	Describe("SetDeploymentContainerResources", func() {
-		It("should set resources when different", func() {
-			newResources := &corev1.ResourceRequirements{
+	Describe("DeploymentSpecEqual - Resources", func() {
+		It("should detect when resources are different", func() {
+			desiredDeployment := deployment.DeepCopy()
+			desiredDeployment.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("2Gi"),
 					corev1.ResourceCPU:    resource.MustParse("1000m"),
 				},
 			}
-			changed, err := SetDeploymentContainerResources(deployment, newResources, "app-container")
 
-			Expect(err).NotTo(HaveOccurred())
-			Expect(changed).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.Containers[0].Resources).To(Equal(*newResources))
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
+
+			Expect(equal).To(BeFalse())
 		})
 
-		It("should not update when resources are the same", func() {
-			existingResources := &deployment.Spec.Template.Spec.Containers[0].Resources
-			changed, err := SetDeploymentContainerResources(deployment, existingResources, "app-container")
+		It("should detect when resources are the same", func() {
+			desiredDeployment := deployment.DeepCopy()
 
-			Expect(err).NotTo(HaveOccurred())
-			Expect(changed).To(BeFalse())
-		})
+			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec)
 
-		It("should return error for non-existent container", func() {
-			resources := &corev1.ResourceRequirements{}
-			_, err := SetDeploymentContainerResources(deployment, resources, "non-existent")
-
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("container non-existent not found"))
+			Expect(equal).To(BeTrue())
 		})
 	})
 

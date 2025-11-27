@@ -1,8 +1,6 @@
 package postgres
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -161,31 +159,37 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		// TODO: This test requires full reconciliation flow including app server
-		// which creates a circular dependency. Re-enable when we have proper integration tests.
-		PIt("should trigger a rolling deployment when there is an update in secret name", func() {
+		It("should trigger a rolling deployment when there is an update in secret name", func() {
 
-			By("create the test secret")
-			secret, _ = utils.GenerateRandomSecret()
-			secret.SetOwnerReferences([]metav1.OwnerReference{
-				{
-					Kind:       "Secret",
-					APIVersion: "v1",
-					UID:        "ownerUID1",
-					Name:       "test-secret",
+			By("create the test secret with new name")
+			dummySecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dummy-secret",
+					Namespace: utils.OLSNamespaceDefault,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							Kind:       "Secret",
+							APIVersion: "v1",
+							UID:        "ownerUID1",
+							Name:       "dummy-secret",
+						},
+					},
 				},
-			})
-			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
+				Data: map[string][]byte{
+					utils.OLSComponentPasswordFileName: []byte("test-password-123"),
+				},
+			}
+			secretCreationErr := testReconcilerInstance.Create(ctx, dummySecret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
 
-			By("Get the postgres deployment")
+			By("Get the postgres deployment before update")
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.PostgresDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			oldHash := dep.Spec.Template.Annotations[utils.PostgresConfigHashKey]
+			Expect(dep.Annotations).NotTo(BeNil())
+			oldSecretVersion := dep.Annotations[utils.PostgresSecretResourceVersionAnnotation]
 
-			By("Update the OLSConfig custom resource")
+			By("Update the OLSConfig custom resource to use new secret")
 			olsConfig := &olsv1alpha1.OLSConfig{}
 			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
@@ -195,12 +199,15 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 			err = ReconcilePostgres(testReconcilerInstance, ctx, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Get the postgres deployment")
+			By("Get the postgres deployment after update")
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.PostgresDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-			fmt.Printf("%v", dep)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Annotations).NotTo(BeNil())
-			Expect(dep.Spec.Template.Annotations[utils.PostgresConfigHashKey]).NotTo(Equal(oldHash))
+			Expect(dep.Annotations).NotTo(BeNil())
+
+			// Verify that the secret ResourceVersion annotation has been updated
+			newSecretVersion := dep.Annotations[utils.PostgresSecretResourceVersionAnnotation]
+			Expect(newSecretVersion).NotTo(Equal(oldSecretVersion))
+			Expect(newSecretVersion).NotTo(BeEmpty())
 		})
 	})
 })

@@ -4,7 +4,6 @@
 // This package contains:
 //   - Constants for resource names, labels, and annotations
 //   - Error constants for consistent error handling
-//   - Hash computation functions for change detection
 //   - Helper functions for Kubernetes resource operations
 //   - Status condition utilities
 //   - TLS certificate validation
@@ -18,12 +17,10 @@ package utils
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -34,91 +31,10 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 )
-
-// updateDeploymentAnnotations updates the annotations in a given deployment.
-func UpdateDeploymentAnnotations(deployment *appsv1.Deployment, annotations map[string]string) {
-	if deployment.Annotations == nil {
-		deployment.Annotations = make(map[string]string)
-	}
-	for k, v := range annotations {
-		deployment.Annotations[k] = v
-	}
-}
-
-func UpdateDeploymentTemplateAnnotations(deployment *appsv1.Deployment, annotations map[string]string) {
-	if deployment.Spec.Template.Annotations == nil {
-		deployment.Spec.Template.Annotations = make(map[string]string)
-	}
-	for k, v := range annotations {
-		deployment.Spec.Template.Annotations[k] = v
-	}
-}
-
-// setDeploymentReplicas sets the number of replicas in a given deployment.
-func SetDeploymentReplicas(deployment *appsv1.Deployment, replicas int32) bool {
-	if *deployment.Spec.Replicas != replicas {
-		*deployment.Spec.Replicas = replicas
-		return true
-	}
-
-	return false
-}
-
-func SetTolerations(deployment *appsv1.Deployment, tolerations []corev1.Toleration) bool {
-	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.Tolerations, tolerations) {
-		deployment.Spec.Template.Spec.Tolerations = tolerations
-		return true
-	}
-	return false
-}
-
-func SetNodeSelector(deployment *appsv1.Deployment, nodeSelector map[string]string) bool {
-	if !apiequality.Semantic.DeepEqual(deployment.Spec.Template.Spec.NodeSelector, nodeSelector) {
-		deployment.Spec.Template.Spec.NodeSelector = nodeSelector
-		return true
-	}
-	return false
-}
-
-// setVolumes sets the volumes for a given deployment.
-func SetVolumes(deployment *appsv1.Deployment, desiredVolumes []corev1.Volume) bool {
-	existingVolumes := deployment.Spec.Template.Spec.Volumes
-	sort.Slice(existingVolumes, func(i, j int) bool {
-		return existingVolumes[i].Name < existingVolumes[j].Name
-	})
-	sort.Slice(desiredVolumes, func(i, j int) bool {
-		return desiredVolumes[i].Name < desiredVolumes[j].Name
-	})
-
-	if !apiequality.Semantic.DeepEqual(existingVolumes, desiredVolumes) {
-		deployment.Spec.Template.Spec.Volumes = desiredVolumes
-		return true
-	}
-	return false
-}
-
-// setVolumeMounts sets the volumes mounts for a specific container in a given deployment.
-func SetVolumeMounts(deployment *appsv1.Deployment, desiredVolumeMounts []corev1.VolumeMount, containerName string) (bool, error) {
-	containerIndex, err := GetContainerIndex(deployment, containerName)
-	if err != nil {
-		return false, err
-	}
-
-	existingVolumeMounts := deployment.Spec.Template.Spec.Containers[containerIndex].VolumeMounts
-	sort.Slice(existingVolumeMounts, func(i, j int) bool {
-		return existingVolumeMounts[i].Name < existingVolumeMounts[j].Name
-	})
-	sort.Slice(desiredVolumeMounts, func(i, j int) bool {
-		return desiredVolumeMounts[i].Name < desiredVolumeMounts[j].Name
-	})
-
-	if !apiequality.Semantic.DeepEqual(existingVolumeMounts, desiredVolumeMounts) {
-		deployment.Spec.Template.Spec.Containers[containerIndex].VolumeMounts = desiredVolumeMounts
-		return true, nil
-	}
-	return false, nil
-}
 
 // setDeploymentContainerEnvs sets the envs for a specific container in a given deployment.
 func SetDeploymentContainerEnvs(deployment *appsv1.Deployment, desiredEnvs []corev1.EnvVar, containerName string) (bool, error) {
@@ -135,21 +51,6 @@ func SetDeploymentContainerEnvs(deployment *appsv1.Deployment, desiredEnvs []cor
 }
 
 // setDeploymentContainerResources sets the resource requirements for a specific container in a given deployment.
-func SetDeploymentContainerResources(deployment *appsv1.Deployment, resources *corev1.ResourceRequirements, containerName string) (bool, error) {
-	containerIndex, err := GetContainerIndex(deployment, containerName)
-	if err != nil {
-		return false, err
-	}
-	existingResources := &deployment.Spec.Template.Spec.Containers[containerIndex].Resources
-	desiredResources := *resources
-	if !apiequality.Semantic.DeepEqual(*existingResources, desiredResources) {
-		*existingResources = desiredResources
-		return true, nil
-	}
-
-	return false, nil
-}
-
 // setDeploymentContainerVolumeMounts sets the volume mounts for a specific container in a given deployment.
 func SetDeploymentContainerVolumeMounts(deployment *appsv1.Deployment, containerName string, volumeMounts []corev1.VolumeMount) (bool, error) {
 	containerIndex, err := GetContainerIndex(deployment, containerName)
@@ -175,15 +76,6 @@ func GetContainerIndex(deployment *appsv1.Deployment, containerName string) (int
 	return -1, fmt.Errorf("container %s not found in deployment %s", containerName, deployment.Name)
 }
 
-func HashBytes(sourceStr []byte) (string, error) {
-	hashFunc := sha256.New()
-	_, err := hashFunc.Write(sourceStr)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate hash %w", err)
-	}
-	return fmt.Sprintf("%x", hashFunc.Sum(nil)), nil
-}
-
 // ProviderNameToEnvVarName converts a provider name to a valid environment variable name.
 // Kubernetes resource names typically use hyphens (DNS-1123), but environment variable
 // names cannot contain hyphens. This function replaces hyphens with underscores and
@@ -195,6 +87,27 @@ func ProviderNameToEnvVarName(providerName string) string {
 	envVarName := strings.ReplaceAll(providerName, "-", "_")
 	// Convert to uppercase for standard environment variable convention
 	return strings.ToUpper(envVarName)
+}
+
+// GetResourcesOrDefault returns custom resources from CR if specified, otherwise returns defaults.
+// This is a common pattern used across all component resource getters to avoid repetitive
+// null-checking logic. It provides a consistent way to handle user-configurable container resources
+// with sensible defaults.
+//
+// Example usage:
+//
+//	return GetResourcesOrDefault(
+//	    cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Resources,
+//	    &corev1.ResourceRequirements{
+//	        Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("4Gi")},
+//	        Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m")},
+//	    },
+//	)
+func GetResourcesOrDefault(customResources *corev1.ResourceRequirements, defaultResources *corev1.ResourceRequirements) *corev1.ResourceRequirements {
+	if customResources != nil {
+		return customResources
+	}
+	return defaultResources
 }
 
 func GetSecretContent(rclient client.Client, secretName string, namespace string, secretFields []string, foundSecret *corev1.Secret) (map[string]string, error) {
@@ -264,6 +177,12 @@ func PodVolumeEqual(a, b []corev1.Volume) bool {
 				}
 				continue
 			}
+			if aVolume.PersistentVolumeClaim != nil && bVolume.PersistentVolumeClaim != nil {
+				if aVolume.PersistentVolumeClaim.ClaimName != bVolume.PersistentVolumeClaim.ClaimName {
+					return false
+				}
+				continue
+			}
 
 			return false
 		}
@@ -274,6 +193,12 @@ func PodVolumeEqual(a, b []corev1.Volume) bool {
 }
 
 // deploymentSpecEqual compares two appsv1.DeploymentSpec and returns true if they are equal.
+// ConfigMapEqual compares two ConfigMaps for equality, checking Data and BinaryData
+func ConfigMapEqual(a, b *corev1.ConfigMap) bool {
+	return apiequality.Semantic.DeepEqual(a.Data, b.Data) &&
+		apiequality.Semantic.DeepEqual(a.BinaryData, b.BinaryData)
+}
+
 func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec) bool {
 	if !apiequality.Semantic.DeepEqual(a.Template.Spec.NodeSelector, b.Template.Spec.NodeSelector) || // check node selector
 		!apiequality.Semantic.DeepEqual(a.Template.Spec.Tolerations, b.Template.Spec.Tolerations) || // check toleration
@@ -283,7 +208,17 @@ func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec) bool {
 		return false
 	}
 
-	return ContainersEqual(a.Template.Spec.Containers, b.Template.Spec.Containers)
+	// check containers
+	if !ContainersEqual(a.Template.Spec.Containers, b.Template.Spec.Containers) {
+		return false
+	}
+
+	// check init containers
+	if !ContainersEqual(a.Template.Spec.InitContainers, b.Template.Spec.InitContainers) {
+		return false
+	}
+
+	return true
 }
 
 // containerEqual compares two container arrays and returns true if they are equal.
@@ -306,15 +241,65 @@ func ContainerSpecEqual(a, b *corev1.Container) bool {
 	return (a.Name == b.Name && // check name
 		a.Image == b.Image && // check image
 		apiequality.Semantic.DeepEqual(a.Ports, b.Ports) && // check ports
-		apiequality.Semantic.DeepEqual(a.Env, b.Env) && // check env
+		EnvEqual(a.Env, b.Env) && // check env (order-insensitive)
 		apiequality.Semantic.DeepEqual(a.Args, b.Args) && // check arguments
-		apiequality.Semantic.DeepEqual(a.VolumeMounts, b.VolumeMounts) && // check volume mounts
+		VolumeMountsEqual(a.VolumeMounts, b.VolumeMounts) && // check volume mounts (order-insensitive)
 		apiequality.Semantic.DeepEqual(a.Resources, b.Resources) && // check resources
 		apiequality.Semantic.DeepEqual(a.SecurityContext, b.SecurityContext) && // check security context
 		a.ImagePullPolicy == b.ImagePullPolicy && // check image pull policy
 		ProbeEqual(a.LivenessProbe, b.LivenessProbe) && // check liveness probe
 		ProbeEqual(a.ReadinessProbe, b.ReadinessProbe) && // check readiness probe
 		ProbeEqual(a.StartupProbe, b.StartupProbe)) // check startup probe
+}
+
+// EnvEqual compares two EnvVar slices ignoring order
+func EnvEqual(a, b []corev1.EnvVar) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aEnvMap := make(map[string]corev1.EnvVar)
+	for _, env := range a {
+		aEnvMap[env.Name] = env
+	}
+	bEnvMap := make(map[string]corev1.EnvVar)
+	for _, env := range b {
+		bEnvMap[env.Name] = env
+	}
+	for name, aEnv := range aEnvMap {
+		bEnv, exist := bEnvMap[name]
+		if !exist {
+			return false
+		}
+		if !apiequality.Semantic.DeepEqual(aEnv, bEnv) {
+			return false
+		}
+	}
+	return true
+}
+
+// VolumeMountsEqual compares two VolumeMount slices ignoring order
+func VolumeMountsEqual(a, b []corev1.VolumeMount) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aVolumeMountMap := make(map[string]corev1.VolumeMount)
+	for _, vm := range a {
+		aVolumeMountMap[vm.Name] = vm
+	}
+	bVolumeMountMap := make(map[string]corev1.VolumeMount)
+	for _, vm := range b {
+		bVolumeMountMap[vm.Name] = vm
+	}
+	for name, aVolumeMount := range aVolumeMountMap {
+		bVolumeMount, exist := bVolumeMountMap[name]
+		if !exist {
+			return false
+		}
+		if !apiequality.Semantic.DeepEqual(aVolumeMount, bVolumeMount) {
+			return false
+		}
+	}
+	return true
 }
 
 func ProbeEqual(a, b *corev1.Probe) bool {
@@ -529,4 +514,114 @@ func IsPrometheusOperatorAvailable(ctx context.Context, c client.Client) bool {
 	}
 
 	return true
+}
+
+// GetConfigMapResourceVersion returns the ResourceVersion of a ConfigMap.
+func GetConfigMapResourceVersion(r reconciler.Reconciler, ctx context.Context, configMapName string) (string, error) {
+	configMap := &corev1.ConfigMap{}
+	err := r.Get(ctx, client.ObjectKey{Name: configMapName, Namespace: r.GetNamespace()}, configMap)
+	if err != nil {
+		return "", err
+	}
+	return configMap.ResourceVersion, nil
+}
+
+// GetSecretResourceVersion returns the ResourceVersion of a Secret.
+func GetSecretResourceVersion(r reconciler.Reconciler, ctx context.Context, secretName string) (string, error) {
+	secret := &corev1.Secret{}
+	err := r.Get(ctx, client.ObjectKey{Name: secretName, Namespace: r.GetNamespace()}, secret)
+	if err != nil {
+		return "", err
+	}
+	return secret.ResourceVersion, nil
+}
+
+// ForEachExternalSecret calls fn for each external secret referenced in the OLSConfig CR.
+// The callback function receives:
+//   - name: the secret name
+//   - source: a descriptive identifier of where the secret is used (e.g., "llm-provider-openai", "tls", "mcp-myserver")
+//
+// If fn returns an error, iteration stops immediately and that error is returned.
+// Returns nil if all iterations complete successfully.
+//
+// Example usage:
+//
+//	err := ForEachExternalSecret(cr, func(name, source string) error {
+//	    return validateSecret(name)
+//	})
+func ForEachExternalSecret(cr *olsv1alpha1.OLSConfig, fn func(name string, source string) error) error {
+	// 1. LLM provider credentials
+	for _, provider := range cr.Spec.LLMConfig.Providers {
+		secretName := provider.CredentialsSecretRef.Name
+		if secretName == "" {
+			continue
+		}
+		if err := fn(secretName, "llm-provider-"+provider.Name); err != nil {
+			return err
+		}
+	}
+
+	// 2. TLS certificate secret
+	if cr.Spec.OLSConfig.TLSConfig != nil &&
+		cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		secretName := cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
+		if err := fn(secretName, "tls"); err != nil {
+			return err
+		}
+	}
+
+	// 3. MCP server header secrets
+	if cr.Spec.MCPServers != nil {
+		for _, mcpServer := range cr.Spec.MCPServers {
+			if mcpServer.StreamableHTTP != nil && mcpServer.StreamableHTTP.Headers != nil {
+				for _, secretName := range mcpServer.StreamableHTTP.Headers {
+					// Skip the special "kubernetes" token placeholder
+					if secretName == KUBERNETES_PLACEHOLDER || secretName == "" {
+						continue
+					}
+					if err := fn(secretName, "mcp-"+mcpServer.Name); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// ForEachExternalConfigMap calls fn for each external configmap referenced in the OLSConfig CR.
+// The callback function receives:
+//   - name: the configmap name
+//   - source: a descriptive identifier of where the configmap is used (e.g., "additional-ca", "proxy-ca")
+//
+// If fn returns an error, iteration stops immediately and that error is returned.
+// Returns nil if all iterations complete successfully.
+//
+// Example usage:
+//
+//	err := ForEachExternalConfigMap(cr, func(name, source string) error {
+//	    return validateConfigMap(name)
+//	})
+func ForEachExternalConfigMap(cr *olsv1alpha1.OLSConfig, fn func(name string, source string) error) error {
+	// 1. Additional CA certificates
+	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil &&
+		cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name != "" {
+		cmName := cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name
+		if err := fn(cmName, "additional-ca"); err != nil {
+			return err
+		}
+	}
+
+	// 2. Proxy CA certificate
+	if cr.Spec.OLSConfig.ProxyConfig != nil &&
+		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil &&
+		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name != "" {
+		cmName := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name
+		if err := fn(cmName, "proxy-ca"); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

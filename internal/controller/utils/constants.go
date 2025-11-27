@@ -3,9 +3,19 @@ package utils
 import "time"
 
 const (
+	/*** Volume Permissions ***/
+	// VolumeDefaultMode is the default permission for mounted volumes (0644 - read/write for owner, read-only for group/others)
+	VolumeDefaultMode = int32(420)
+	// VolumeRestrictedMode is for sensitive volumes like secrets (0600 - read/write for owner only)
+	VolumeRestrictedMode = int32(0600)
+
 	/*** Operator Settings ***/
 	// OLSConfigName is the name of the OLSConfig Custom Resource
 	OLSConfigName = "cluster"
+	// OLSConfigKind is the Kind of the OLSConfig Custom Resource
+	OLSConfigKind = "OLSConfig"
+	// OLSConfigAPIVersion is the APIVersion of the OLSConfig Custom Resource
+	OLSConfigAPIVersion = "ols.openshift.io/v1alpha1"
 	// DefaultReconcileInterval is the default interval for reconciliation
 	DefaultReconcileInterval = 120
 	// OperatorCertDirDefault is the default directory for storing the operator certificate
@@ -103,13 +113,8 @@ const (
 	// Annotation key for serving certificate secret name
 	// #nosec G101
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
-	/*** state cache keys ***/
-	OLSConfigHashStateCacheKey   = "olsconfigmap-hash"
-	LLMProviderHashStateCacheKey = "llmprovider-hash"
 	// AzureOpenAIType is the name of the Azure OpenAI provider type
 	AzureOpenAIType = "azure_openai"
-	// AdditionalCAHashStateCacheKey is the key of the hash value of the additional CA certificates in the state cache
-	AdditionalCAHashStateCacheKey = "additionalca-hash"
 	// DeploymentInProgress message
 	DeploymentInProgress = "In Progress"
 
@@ -137,8 +142,6 @@ const (
 	// ConsoleProxyAlias is the alias of the console proxy
 	// The console backend exposes following proxy endpoint: /api/proxy/plugin/<plugin-name>/<proxy-alias>/<request-path>?<optional-query-parameters>
 	ConsoleProxyAlias = "ols"
-	// OLSConsoleTLSHashStateCacheKey is the key of the hash value of the OLS Console TLS certificates
-	OLSConsoleTLSHashStateCacheKey = "olsconsoletls-hash"
 	// ConsoleUINetworkPolicyName is the name of the network policy for the console UI plugin
 	ConsoleUINetworkPolicyName = "lightspeed-console-plugin"
 
@@ -167,6 +170,11 @@ const (
 	// PostgresSecretHashKey is the key of the hash value of OLS Postgres secret
 	// #nosec G101
 	PostgresSecretHashKey = "hash/postgres-secret"
+	// PostgresConfigMapResourceVersionAnnotation is the annotation key for tracking ConfigMap ResourceVersion
+	PostgresConfigMapResourceVersionAnnotation = "ols.openshift.io/postgres-configmap-version"
+	// PostgresSecretResourceVersionAnnotation is the annotation key for tracking Secret ResourceVersion
+	//nolint:gosec // G101: This is an annotation key name, not a credential
+	PostgresSecretResourceVersionAnnotation = "ols.openshift.io/postgres-secret-version"
 	// PostgresServiceName is the name of OLS application Postgres server service
 	PostgresServiceName = "lightspeed-postgres-server"
 	// PostgresSecretName is the name of OLS application Postgres secret
@@ -236,10 +244,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	// TmpVolumeMountPath is the path of the /tmp writable mount
 	TmpVolumeMountPath = "/tmp"
 
-	/*** state cache keys ***/
-	// OLSAppTLSHashStateCacheKey is the key of the hash value of the OLS App TLS certificates
-	OLSAppTLSHashStateCacheKey = "olsapptls-hash"
-	// OLSConfigHashStateCacheKey is the key of the hash value of the OLSConfig configmap
 	// TelemetryPullSecretNamespace "openshift-config" contains the telemetry pull secret to determine the enablement of telemetry
 	// #nosec G101
 	TelemetryPullSecretNamespace = "openshift-config"
@@ -250,11 +254,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	// OperatorServiceMonitorName is the name of the service monitor for scraping the operator metrics
 	OperatorServiceMonitorName = "controller-manager-metrics-monitor"
 	// OperatorDeploymentName is the name of the operator deployment
-	OperatorDeploymentName          = "lightspeed-operator-controller-manager"
-	OLSDefaultCacheType             = "postgres"
-	PostgresConfigHashStateCacheKey = "olspostgresconfig-hash"
-	// #nosec G101
-	PostgresSecretHashStateCacheKey = "olspostgressecret-hash"
+	OperatorDeploymentName = "lightspeed-operator-controller-manager"
+	OLSDefaultCacheType    = "postgres"
 	// OperatorNetworkPolicyName is the name of the network policy for the operator
 	OperatorNetworkPolicyName = "lightspeed-operator"
 	// OperatorMetricsPort is the port number of the operator metrics endpoint
@@ -351,4 +352,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AdditionalCAMountPath = "/etc/pki/ca-trust/source/anchors"
 	// LlamaStackHealthPath is the health check path for Llama Stack (used for testing)
 	LlamaStackHealthPath = "/v1/health"
+	// OLSConfigMapResourceVersionAnnotation is the annotation key for tracking OLS ConfigMap ResourceVersion
+	OLSConfigMapResourceVersionAnnotation = "ols.openshift.io/olsconfig-configmap-version"
+	// LlamaStackConfigMapResourceVersionAnnotation is the annotation key for tracking Llama Stack ConfigMap ResourceVersion
+	LlamaStackConfigMapResourceVersionAnnotation = "ols.openshift.io/llamastack-configmap-version"
+	// LCoreConfigMapResourceVersionAnnotation is the annotation key for tracking LCore ConfigMap ResourceVersion
+	LCoreConfigMapResourceVersionAnnotation = "ols.openshift.io/lcore-configmap-version"
 )

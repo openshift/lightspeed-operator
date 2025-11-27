@@ -184,7 +184,7 @@ func generateMyComponentConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSCo
 
 ### Step 4: Add Constants (if needed)
 
-**File**: `internal/controller/utils/utils.go`
+**File**: `internal/controller/utils/constants.go`
 
 ```go
 // MyComponent constants
@@ -388,16 +388,31 @@ func (r *OLSConfigReconciler) GetMyComponentImage() string {
 
 ### Step 9: Run Tests
 
+> **🚨 CRITICAL RULE: NEVER USE `go test` DIRECTLY! 🚨**
+> 
+> **ALWAYS use `make test` instead!**
+> 
+> Why? The Makefile handles essential setup that `go test` doesn't:
+> - Setting up test environment (`envtest`)
+> - Installing CRDs into the test cluster
+> - Proper build flags and timeout configuration
+> - Coverage reporting
+> - Correct working directory and dependencies
+>
+> Using `go test` directly will cause tests to fail or produce incorrect results.
+
 ```bash
-# Run unit tests for your component
-go test ./internal/controller/mycomponent/... -v
+# Run unit tests (ALWAYS use make test - NEVER use go test)
+make test
 
 # Run all tests
 make test
 
-# Check coverage
-go test ./internal/controller/mycomponent/... -coverprofile=coverage.out
-go tool cover -html=coverage.out
+# Run E2E tests (requires cluster)
+make test-e2e
+
+# Check coverage (after running make test)
+go tool cover -html=cover.out
 ```
 
 ### Step 10: Update Documentation
@@ -483,13 +498,109 @@ const (
 
 5. **Add tests** in `assets_test.go` and `reconciler_test.go`
 
+### Working with External Resources
+
+When your component needs to reference external secrets or configmaps (resources created by users, not owned by the operator):
+
+**1. Use Iterator Functions for Processing:**
+
+```go
+// In your reconciliation or asset generation function
+err := utils.ForEachExternalSecret(cr, func(name string, source string) error {
+    // Process each external secret
+    // name = secret name, source = CR field path (for debugging)
+    secret := &corev1.Secret{}
+    err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: r.GetNamespace()}, secret)
+    if err != nil {
+        return fmt.Errorf("failed to get secret %s from %s: %w", name, source, err)
+    }
+    // Use secret data...
+    return nil
+})
+if err != nil {
+    return err
+}
+
+// Similarly for configmaps
+err = utils.ForEachExternalConfigMap(cr, func(name string, source string) error {
+    // Process each external configmap
+    return nil
+})
+```
+
+**2. Configure Watchers (if needed):**
+
+If your component needs to watch system resources not referenced in the CR, add them to `cmd/main.go`:
+
+```go
+watcherConfig := &utils.WatcherConfig{
+    Secrets: utils.SecretWatcherConfig{
+        SystemResources: []utils.SystemSecret{
+            {
+                Name:                "my-system-secret",
+                Namespace:           namespace,
+                Description:         "Description for debugging",
+                AffectedDeployments: []string{"ACTIVE_BACKEND"}, // or specific deployment name
+            },
+        },
+    },
+}
+```
+
+**Benefits of This Pattern:**
+- Centralizes external resource traversal logic
+- Automatically handles annotation for watchers
+- Prevents duplicate code
+- Supports early termination via error return
+
+### Using Common Utility Functions
+
+The operator provides several utility functions to reduce code duplication:
+
+**Volume Permissions:**
+```go
+import "github.com/openshift/lightspeed-operator/internal/controller/utils"
+
+// Use named constants instead of magic numbers
+volume := corev1.Volume{
+    Name: "my-volume",
+    VolumeSource: corev1.VolumeSource{
+        Secret: &corev1.SecretVolumeSource{
+            SecretName:  "my-secret",
+            DefaultMode: &utils.VolumeDefaultMode,     // 420 (0644)
+            // OR for restricted access:
+            // DefaultMode: &utils.VolumeRestrictedMode, // 0600
+        },
+    },
+}
+```
+
+**Resource Requirements:**
+```go
+// Returns custom resources from CR if specified, otherwise returns defaults
+defaultResources := &corev1.ResourceRequirements{
+    Requests: corev1.ResourceList{
+        corev1.ResourceCPU:    resource.MustParse("100m"),
+        corev1.ResourceMemory: resource.MustParse("256Mi"),
+    },
+}
+
+resources := utils.GetResourcesOrDefault(cr.Spec.MyComponent.Resources, defaultResources)
+
+// Use in container spec
+container := corev1.Container{
+    Name:      "my-container",
+    Resources: *resources,
+}
+```
+
 ### Modifying Resource Generation
 
 When changing how a resource is generated:
 
 1. **Update the generate function** in `assets.go`
 2. **Add/update tests** to verify the new behavior
-3. **Consider hash-based updates** if the change should trigger pod restarts
+3. **Use utility helpers** for common patterns (e.g., `utils.GetResourcesOrDefault()`, volume permissions)
 4. **Document the change** in comments and commit messages
 
 ### Changing Reconciliation Logic
@@ -507,15 +618,25 @@ When modifying reconciliation flow:
 
 ### Unit Tests
 
+> **🚨 CRITICAL RULE: NEVER USE `go test` DIRECTLY! 🚨**
+> 
+> **ALWAYS use `make test` instead!**
+> 
+> Why? The Makefile handles essential setup that `go test` doesn't:
+> - Setting up test environment (`envtest`)
+> - Installing CRDs into the test cluster
+> - Proper build flags and timeout configuration
+> - Coverage reporting
+> - Correct working directory and dependencies
+>
+> Using `go test` directly will cause tests to fail or produce incorrect results.
+
 ```bash
-# Test specific component
-go test ./internal/controller/mycomponent/... -v
+# Run all unit tests (ALWAYS use this - NEVER use go test)
+make test
 
-# Test with coverage
-go test ./internal/controller/mycomponent/... -coverprofile=coverage.out
-
-# View coverage report
-go tool cover -html=coverage.out
+# View coverage report (after running make test)
+go tool cover -html=cover.out
 ```
 
 ### Integration Tests
@@ -591,6 +712,12 @@ oc get olsconfig cluster -o yaml
 
 ## Code Style and Conventions
 
+### File Organization
+
+- **Constants**: Define in `internal/controller/utils/constants.go`
+- **Utility Functions**: Place in `internal/controller/utils/utils.go`
+- **Component Logic**: Keep in component-specific packages (e.g., `appserver/`, `postgres/`)
+
 ### Naming Conventions
 
 - **Functions**: `reconcile<Resource>`, `generate<Resource>`
@@ -649,10 +776,79 @@ It("should do something", func() {
 - **Package docs**: Every package should have a doc comment explaining its purpose
 - **Function docs**: Public functions should have doc comments
 - **Complex logic**: Add inline comments explaining non-obvious behavior
+- **Utility helpers**: Document parameters and return values for reusable functions
+
+### Code Reuse
+
+Before implementing new functionality:
+1. Check `internal/controller/utils/` for existing helper functions
+2. Use iterator patterns (`ForEachExternalSecret`, `ForEachExternalConfigMap`) for CR traversal
+3. Use utility constants (`VolumeDefaultMode`, `VolumeRestrictedMode`) instead of magic numbers
+4. Leverage resource helpers (`GetResourcesOrDefault`) for common patterns
 
 ---
 
 ## Additional Resources
+
+### Watcher Configuration (`cmd/main.go`)
+
+The operator uses a declarative configuration system for watching external resources (secrets and configmaps that are not owned by the operator). This configuration is centralized in `cmd/main.go` to avoid hardcoding resource names in watcher logic.
+
+**When to Update WatcherConfig:**
+
+1. **Adding system secrets/configmaps** - Resources not referenced in the CR but needed by components (e.g., OpenShift CA bundle, telemetry pull secrets)
+2. **Mapping annotated resources to deployments** - When a user-provided secret/configmap should trigger specific deployment restarts
+
+**Configuration Structure:**
+
+```go
+watcherConfig := &utils.WatcherConfig{
+    // System secrets: watched by name, not from CR
+    Secrets: utils.SecretWatcherConfig{
+        SystemResources: []utils.SystemSecret{
+            {
+                Name:                "secret-name",
+                Namespace:           namespace,
+                Description:         "Human-readable description",
+                AffectedDeployments: []string{"ACTIVE_BACKEND"}, // or specific deployment
+            },
+        },
+    },
+    
+    // System configmaps: watched by name, not from CR
+    ConfigMaps: utils.ConfigMapWatcherConfig{
+        SystemResources: []utils.SystemConfigMap{
+            {
+                Name:                "configmap-name",
+                Namespace:           namespace,
+                Description:         "Human-readable description",
+                AffectedDeployments: []string{"ACTIVE_BACKEND"},
+            },
+        },
+    },
+    
+    // Mapping for annotated secrets (from CR) to specific deployments
+    // Most CR secrets already restart ACTIVE_BACKEND by default
+    // Only list here if you need ADDITIONAL deployments to restart
+    AnnotatedSecretMapping: map[string][]string{
+        "postgres-credentials": {utils.PostgresDeploymentName, "ACTIVE_BACKEND"},
+    },
+    
+    // Mapping for annotated configmaps (from CR) to specific deployments
+    AnnotatedConfigMapMapping: map[string][]string{},
+}
+```
+
+**Special Values:**
+- `"ACTIVE_BACKEND"` - Placeholder that resolves to either `appserver` or `lcore` based on `--use-lcore` flag
+- Deployment names from `utils/constants.go` (e.g., `utils.PostgresDeploymentName`)
+
+**Three-Layer Watch System:**
+1. **Predicate Layer** - Fast filtering at Kubernetes watch level
+2. **Data Comparison Layer** - Deep comparison to detect actual changes
+3. **Restart Logic Layer** - Uses WatcherConfig to determine which deployments to restart
+
+See `internal/controller/watchers/` for implementation details.
 
 ### General Resources
 

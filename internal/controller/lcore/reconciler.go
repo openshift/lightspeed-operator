@@ -17,6 +17,7 @@ package lcore
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
@@ -27,14 +28,16 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
-// ReconcileLCore orchestrates the reconciliation of all LCore resources
-func ReconcileLCore(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
-	r.GetLogger().Info("reconcileLCore starts")
+// ReconcileLCoreResources reconciles all resources except the deployment (Phase 1)
+// Uses continue-on-error pattern since these resources are independent
+func ReconcileLCoreResources(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileLCoreResources starts")
 	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile LCore ServiceAccount",
@@ -65,16 +68,54 @@ func ReconcileLCore(r reconciler.Reconciler, ctx context.Context, olsconfig *ols
 			Task: reconcileProxyCAConfigMap,
 		},
 		{
-			Name: "reconcile LCore Service",
-			Task: reconcileService,
+			Name: "reconcile Metrics Reader Secret",
+			Task: reconcileMetricsReaderSecret,
 		},
+		{
+			Name: "reconcile LCore NetworkPolicy",
+			Task: reconcileNetworkPolicy,
+		},
+	}
+
+	failedTasks := make(map[string]error)
+
+	for _, task := range tasks {
+		err := task.Task(r, ctx, olsconfig)
+		if err != nil {
+			r.GetLogger().Error(err, "reconcileLCoreResources error", "task", task.Name)
+			failedTasks[task.Name] = err
+		}
+	}
+
+	if len(failedTasks) > 0 {
+		taskNames := make([]string, 0, len(failedTasks))
+		for taskName, err := range failedTasks {
+			taskNames = append(taskNames, taskName)
+			r.GetLogger().Error(err, "Task failed in reconcileLCoreResources", "task", taskName)
+		}
+		return fmt.Errorf("failed tasks: %v", taskNames)
+	}
+
+	r.GetLogger().Info("reconcileLCoreResources completes")
+	return nil
+}
+
+// ReconcileLCoreDeployment reconciles the deployment and related resources (Phase 2)
+func ReconcileLCoreDeployment(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileLCoreDeployment starts")
+
+	tasks := []utils.ReconcileTask{
 		{
 			Name: "reconcile LCore Deployment",
 			Task: reconcileDeployment,
 		},
 		{
-			Name: "reconcile Metrics Reader Secret",
-			Task: reconcileMetricsReaderSecret,
+			Name: "reconcile LCore Service",
+			Task: reconcileService,
+		},
+		{
+			Name: "reconcile LCore TLS Certs",
+			Task: reconcileTLSSecret,
 		},
 		{
 			Name: "reconcile LCore ServiceMonitor",
@@ -84,22 +125,17 @@ func ReconcileLCore(r reconciler.Reconciler, ctx context.Context, olsconfig *ols
 			Name: "reconcile LCore PrometheusRule",
 			Task: reconcilePrometheusRule,
 		},
-		{
-			Name: "reconcile LCore NetworkPolicy",
-			Task: reconcileNetworkPolicy,
-		},
 	}
 
 	for _, task := range tasks {
 		err := task.Task(r, ctx, olsconfig)
 		if err != nil {
-			r.GetLogger().Error(err, "reconcileLCore error", "task", task.Name)
+			r.GetLogger().Error(err, "reconcileLCoreDeployment error", "task", task.Name)
 			return fmt.Errorf("failed to %s: %w", task.Name, err)
 		}
 	}
 
-	r.GetLogger().Info("reconcileLCore completes")
-
+	r.GetLogger().Info("reconcileLCoreDeployment completes")
 	return nil
 }
 
@@ -180,21 +216,13 @@ func reconcileLlamaStackConfigMap(r reconciler.Reconciler, ctx context.Context, 
 		if err != nil {
 			return fmt.Errorf("%s: %w", utils.ErrCreateLlamaStackConfigMap, err)
 		}
-		r.GetStateCache()[utils.LlamaStackConfigHashKey] = cm.Annotations[utils.OLSConfigHashKey]
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetLlamaStackConfigMap, err)
 	}
 
-	foundCmHash, err := utils.HashBytes([]byte(foundCm.Data["run.yaml"]))
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateHash, err)
-	}
-
-	r.GetStateCache()[utils.LlamaStackConfigHashKey] = foundCmHash
-
-	if foundCmHash == cm.Annotations[utils.OLSConfigHashKey] {
-		r.GetLogger().Info("Llama Stack ConfigMap reconciliation skipped", "hash", foundCmHash)
+	if utils.ConfigMapEqual(foundCm, cm) {
+		r.GetLogger().Info("Llama Stack ConfigMap reconciliation skipped", "configmap", foundCm.Name)
 		return nil
 	}
 
@@ -205,7 +233,7 @@ func reconcileLlamaStackConfigMap(r reconciler.Reconciler, ctx context.Context, 
 		return fmt.Errorf("%s: %w", utils.ErrUpdateLlamaStackConfigMap, err)
 	}
 
-	r.GetLogger().Info("Llama Stack ConfigMap reconciled", "ConfigMap", cm.Name, "hash", foundCmHash)
+	r.GetLogger().Info("Llama Stack ConfigMap reconciled", "ConfigMap", cm.Name)
 	return nil
 }
 
@@ -229,21 +257,13 @@ func reconcileLcoreConfigMap(r reconciler.Reconciler, ctx context.Context, cr *o
 		if err != nil {
 			return fmt.Errorf("%s: %w", utils.ErrCreateAPIConfigmap, err)
 		}
-		r.GetStateCache()[utils.OLSConfigHashStateCacheKey] = cm.Annotations[utils.OLSConfigHashKey]
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetAPIConfigmap, err)
 	}
 
-	foundCmHash, err := utils.HashBytes([]byte(foundCm.Data["lightspeed-stack.yaml"]))
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateHash, err)
-	}
-
-	r.GetStateCache()[utils.OLSConfigHashStateCacheKey] = foundCmHash
-
-	if foundCmHash == cm.Annotations[utils.OLSConfigHashKey] {
-		r.GetLogger().Info("LCore ConfigMap reconciliation skipped", "hash", foundCmHash)
+	if utils.ConfigMapEqual(foundCm, cm) {
+		r.GetLogger().Info("LCore ConfigMap reconciliation skipped", "configmap", foundCm.Name)
 		return nil
 	}
 
@@ -254,7 +274,7 @@ func reconcileLcoreConfigMap(r reconciler.Reconciler, ctx context.Context, cr *o
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAPIConfigmap, err)
 	}
 
-	r.GetLogger().Info("LCore ConfigMap reconciled", "ConfigMap", cm.Name, "hash", foundCmHash)
+	r.GetLogger().Info("LCore ConfigMap reconciled", "ConfigMap", cm.Name)
 	return nil
 }
 
@@ -265,39 +285,14 @@ func reconcileOLSAdditionalCAConfigMap(r reconciler.Reconciler, ctx context.Cont
 		return nil
 	}
 
-	// annotate the configmap for watcher
+	// Verify the configmap exists (annotation is handled by main controller)
 	cm := &corev1.ConfigMap{}
-
 	err := r.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.GetNamespace()}, cm)
-
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetAdditionalCACM, err)
 	}
 
-	utils.AnnotateConfigMapWatcher(cm)
-
-	err = r.Update(ctx, cm)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdateAdditionalCACM, err)
-	}
-
-	certBytes := []byte{}
-	for key, value := range cm.Data {
-		certBytes = append(certBytes, []byte(key)...)
-		certBytes = append(certBytes, []byte(value)...)
-	}
-
-	foundCmHash, err := utils.HashBytes(certBytes)
-	if err != nil {
-		return fmt.Errorf("failed to generate additional CA certs hash %w", err)
-	}
-	if foundCmHash == r.GetStateCache()[utils.AdditionalCAHashStateCacheKey] {
-		r.GetLogger().Info("Additional CA reconciliation skipped", "hash", foundCmHash)
-		return nil
-	}
-	r.GetStateCache()[utils.AdditionalCAHashStateCacheKey] = foundCmHash
-
-	r.GetLogger().Info("additional CA configmap reconciled", "configmap", cm.Name, "hash", foundCmHash)
+	r.GetLogger().Info("additional CA configmap reconciled", "configmap", cm.Name)
 	return nil
 }
 
@@ -313,7 +308,6 @@ func reconcileProxyCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr 
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetProxyCACM, err)
 	}
-	utils.AnnotateConfigMapWatcher(cm)
 	err = r.Update(ctx, cm)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateProxyCACM, err)
@@ -365,15 +359,7 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, client.ObjectKey{Name: "lightspeed-stack-deployment", Namespace: r.GetNamespace()}, existingDeployment)
 	if err != nil && errors.IsNotFound(err) {
-		utils.UpdateDeploymentAnnotations(desiredDeployment, map[string]string{
-			utils.OLSConfigHashKey:        r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-			utils.LlamaStackConfigHashKey: r.GetStateCache()[utils.LlamaStackConfigHashKey],
-		})
-		utils.UpdateDeploymentTemplateAnnotations(desiredDeployment, map[string]string{
-			utils.OLSConfigHashKey:        r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-			utils.LlamaStackConfigHashKey: r.GetStateCache()[utils.LlamaStackConfigHashKey],
-		})
-		r.GetLogger().Info("creating a new Deployment", "Deployment", desiredDeployment.Name)
+		r.GetLogger().Info("creating a new deployment", "deployment", desiredDeployment.Name)
 		err = r.Create(ctx, desiredDeployment)
 		if err != nil {
 			return fmt.Errorf("%s: %w", utils.ErrCreateAPIDeployment, err)
@@ -383,32 +369,11 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		return fmt.Errorf("%s: %w", utils.ErrGetAPIDeployment, err)
 	}
 
-	// fill in the default values for the deployment for comparison
-	utils.SetDefaults_Deployment(desiredDeployment)
-	if utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec) &&
-		existingDeployment.Annotations[utils.OLSConfigHashKey] == r.GetStateCache()[utils.OLSConfigHashStateCacheKey] &&
-		existingDeployment.Annotations[utils.LlamaStackConfigHashKey] == r.GetStateCache()[utils.LlamaStackConfigHashKey] &&
-		existingDeployment.Spec.Template.Annotations[utils.OLSConfigHashKey] == r.GetStateCache()[utils.OLSConfigHashStateCacheKey] &&
-		existingDeployment.Spec.Template.Annotations[utils.LlamaStackConfigHashKey] == r.GetStateCache()[utils.LlamaStackConfigHashKey] {
-		r.GetLogger().Info("Deployment reconciliation skipped", "Deployment", desiredDeployment.Name)
-		return nil
-	}
-
-	existingDeployment.Spec = desiredDeployment.Spec
-	utils.UpdateDeploymentAnnotations(existingDeployment, map[string]string{
-		utils.OLSConfigHashKey:        r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-		utils.LlamaStackConfigHashKey: r.GetStateCache()[utils.LlamaStackConfigHashKey],
-	})
-	utils.UpdateDeploymentTemplateAnnotations(existingDeployment, map[string]string{
-		utils.OLSConfigHashKey:        r.GetStateCache()[utils.OLSConfigHashStateCacheKey],
-		utils.LlamaStackConfigHashKey: r.GetStateCache()[utils.LlamaStackConfigHashKey],
-	})
-	err = r.Update(ctx, existingDeployment)
+	err = updateLCoreDeployment(r, ctx, existingDeployment, desiredDeployment)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAPIDeployment, err)
 	}
 
-	r.GetLogger().Info("Deployment reconciled", "Deployment", desiredDeployment.Name)
 	return nil
 }
 
@@ -512,6 +477,34 @@ func reconcilePrometheusRule(r reconciler.Reconciler, ctx context.Context, cr *o
 	return nil
 }
 
+func reconcileTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	var lastErr error
+	foundSecret := &corev1.Secret{}
+	secretName := utils.OLSCertsSecretName
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		secretName = cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
+	}
+	err := wait.PollUntilContextTimeout(ctx, 1*time.Second, utils.ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
+		var getErr error
+		_, getErr = utils.GetSecretContent(r, secretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
+		if getErr != nil {
+			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", secretName, getErr)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("%s -%s - wait err %w; last error: %w", utils.ErrGetTLSSecret, utils.OLSCertsSecretName, err, lastErr)
+	}
+
+	err = r.Update(ctx, foundSecret)
+	if err != nil {
+		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
+	}
+	r.GetLogger().Info("LCore TLS secret reconciled", "secret", secretName)
+	return nil
+}
+
 func reconcileNetworkPolicy(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	np, err := GenerateAppServerNetworkPolicy(r, cr)
 	if err != nil {
@@ -539,5 +532,31 @@ func reconcileNetworkPolicy(r reconciler.Reconciler, ctx context.Context, cr *ol
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAppServerNetworkPolicy, err)
 	}
 	r.GetLogger().Info("NetworkPolicy reconciled", "NetworkPolicy", np.Name)
+	return nil
+}
+
+// =============================================================================
+// Test Helper Functions
+// =============================================================================
+// The following functions are convenience wrappers used primarily by unit tests.
+// Production code should call ReconcileLCoreResources and ReconcileLCoreDeployment directly.
+
+// ReconcileLCore reconciles all LCore resources in the original order.
+// This function is maintained for backward compatibility with existing tests.
+// New code should call ReconcileLCoreResources and ReconcileLCoreDeployment separately.
+func ReconcileLCore(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	r.GetLogger().Info("reconcileLCore starts")
+
+	// Call Resources phase
+	if err := ReconcileLCoreResources(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	// Call Deployment phase
+	if err := ReconcileLCoreDeployment(r, ctx, olsconfig); err != nil {
+		return err
+	}
+
+	r.GetLogger().Info("reconcileLCore completes")
 	return nil
 }

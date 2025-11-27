@@ -25,17 +25,14 @@ func GenerateConsoleUILabels() map[string]string {
 }
 
 func getConsoleUIResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
-	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Resources != nil {
-		return cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Resources
-	}
-	// default resources.
-	defaultResources := &corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("50Mi")},
-		Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("100Mi")},
-		Claims:   []corev1.ResourceClaim{},
-	}
-
-	return defaultResources
+	return utils.GetResourcesOrDefault(
+		cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Resources,
+		&corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("50Mi")},
+			Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("100Mi")},
+			Claims:   []corev1.ResourceClaim{},
+		},
+	)
 }
 
 func GenerateConsoleUIConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
@@ -112,7 +109,7 @@ func GenerateConsoleUIService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig
 func GenerateConsoleUIDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	const certVolumeName = "lightspeed-console-plugin-cert"
 	val_true := true
-	volumeDefaultMode := int32(420)
+	volumeDefaultMode := utils.VolumeDefaultMode
 	resources := getConsoleUIResources(cr)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

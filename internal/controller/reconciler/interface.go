@@ -36,9 +36,6 @@ type Reconciler interface {
 	// GetLogger returns the logger instance
 	GetLogger() logr.Logger
 
-	// GetStateCache returns the state cache for hash-based change detection
-	GetStateCache() map[string]string
-
 	// GetNamespace returns the operator's namespace
 	GetNamespace() string
 
@@ -68,4 +65,10 @@ type Reconciler interface {
 
 	// IsPrometheusAvailable returns whether Prometheus Operator CRDs are available
 	IsPrometheusAvailable() bool
+
+	// GetWatcherConfig returns the watcher configuration for external resource monitoring
+	GetWatcherConfig() interface{}
+
+	// UseLCore returns whether LCore backend is enabled instead of AppServer
+	UseLCore() bool
 }

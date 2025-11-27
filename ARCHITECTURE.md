@@ -79,7 +79,6 @@ The main `OLSConfigReconciler` orchestrates the reconciliation of all components
 **Key Responsibilities:**
 - Overall reconciliation coordination
 - Status management
-- Hash-based change detection
 - Error handling and retries
 - Component orchestration (calls console, postgres, watchers, and either appserver OR lcore reconcilers)
 
@@ -96,7 +95,6 @@ type Reconciler interface {
     client.Client  // Embedded Kubernetes client
     GetScheme() *runtime.Scheme
     GetLogger() logr.Logger
-    GetStateCache() map[string]string
     GetNamespace() string
     GetPostgresImage() string
     GetConsoleUIImage() string
@@ -108,45 +106,242 @@ type Reconciler interface {
 
 ### Watchers Package (`internal/controller/watchers`)
 
-Manages Kubernetes resource watching and automatic reconciliation triggers.
+The watchers package implements a sophisticated **multi-level watching system** for Kubernetes resources, enabling intelligent change detection and targeted deployment restarts. The system uses a **data-driven configuration approach** for maximum flexibility and maintainability.
 
-**Main Components:**
-- `SecretWatcherFilter()` - Watches Secrets with watcher annotations
-- `TelemetryPullSecretWatcherFilter()` - Watches telemetry pull secret
-- `ConfigMapWatcherFilter()` - Watches ConfigMaps and triggers backend restarts
+#### Multi-Level Watching Architecture
 
-**Note**: Annotation helpers (`AnnotateSecretWatcher`, `AnnotateConfigMapWatcher`) are provided by the `utils` package and used directly by component packages.
+The watching system operates in **three distinct layers**, each serving a specific purpose:
 
-**Key Features:**
-- **Backend-aware**: Caller passes `useLCore` flag to determine which backend to restart
-- **Rolling restarts**: Triggers deployment restarts when watched ConfigMaps change (e.g., CA certificates)
-- **Annotation-based**: Uses `ols.openshift.io/watch-olsconfig` annotation to identify watched resources
-- **Special cases**: Watches OpenShift default certs ConfigMap (`kube-root-ca.crt`) automatically
+**Layer 1: Predicate-Based Filtering (Performance)**
+- **Purpose**: Fast, efficient filtering at the Kubernetes watch level
+- **Method**: `shouldWatchSecret()` and `shouldWatchConfigMap()` in main controller
+- **Checks**: Resource annotations OR system resource name matching
+- **Benefit**: Prevents 99% of irrelevant events from entering the system
+- **Performance**: O(1) lookup in most cases
 
-**Watched Resources:**
-- Secrets with watcher annotations (LLM credentials, TLS certificates)
-- Telemetry pull secret (`openshift-config/pull-secret`)
-- ConfigMaps with watcher annotations (CA certificates, configuration)
-- OpenShift default certificates ConfigMap
+**Layer 2: Event Handler with Data Comparison (Correctness)**
+- **Purpose**: Deep comparison of actual resource data to detect meaningful changes
+- **Classes**: `SecretUpdateHandler` and `ConfigMapUpdateHandler`
+- **Comparison**: Uses `apiequality.Semantic.DeepEqual()` on `.Data` field for Update events
+- **Benefit**: Prevents false restarts when only metadata (e.g., annotations) changes
+- **Smart Logic**:
+  - `Create` events: Checks if resource is referenced in CR, annotates if needed, triggers restarts (handles recreated resources)
+  - `Update` events: Compares old vs new data, only restarts if data changed
+  - `Delete` events: Ignored (nothing to reconcile)
+- **Owner Filtering**: Skips operator-owned resources (managed via `Owns()` relationship)
 
-**Usage in Main Controller:**
+**Layer 3: Restart Decision (Business Logic)**
+- **Purpose**: Determines which deployments need restarting based on configuration
+- **Methods**: `SecretWatcherFilter()` and `ConfigMapWatcherFilter()`
+- **Logic**: Maps changed resources to affected deployments via `WatcherConfig`
+- **Execution**: Calls component-specific `Restart*()` functions
+- **Backend-Aware**: Resolves `ACTIVE_BACKEND` placeholder based on `useLCore` flag
+
+#### Data-Driven Watcher Configuration
+
+All watcher behavior is controlled by a centralized `WatcherConfig` struct populated in `cmd/main.go`:
+
+**Configuration Structure:**
 ```go
-Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(
-    func(ctx context.Context, obj client.Object) []reconcile.Request {
-        return watchers.ConfigMapWatcherFilter(r, ctx, obj, r.Options.UseLCore)
-    }
-))
-```
+type WatcherConfig struct {
+    // System resources (managed by K8s/operators, not annotated)
+    Secrets    SecretWatcherConfig    // System secrets to watch
+    ConfigMaps ConfigMapWatcherConfig // System configmaps to watch
+    
+    // User resources (annotated by operator for watching)
+    AnnotatedSecretMapping    map[string][]string // Secret name → affected deployments
+    AnnotatedConfigMapMapping map[string][]string // ConfigMap name → affected deployments
+}
 
-**Restart Logic:**
-```go
-// Inside ConfigMapWatcherFilter
-if useLCore {
-    lcore.RestartLCore(r, ctx)  // Restart LCore deployment
-} else {
-    appserver.RestartAppServer(r, ctx)  // Restart AppServer deployment
+type SecretWatcherConfig struct {
+    SystemResources []SystemSecret // Secrets watched by name
+}
+
+type SystemSecret struct {
+    Name                string   // Resource name
+    Namespace           string   // Resource namespace
+    Description         string   // Human-readable purpose
+    AffectedDeployments []string // Which deployments to restart
 }
 ```
+
+**Example Configuration** (from `cmd/main.go`):
+```go
+watcherConfig := &utils.WatcherConfig{
+    Secrets: utils.SecretWatcherConfig{
+        SystemResources: []utils.SystemSecret{
+            {
+                Name:                utils.TelemetryPullSecretName,
+                Namespace:           utils.TelemetryPullSecretNamespace,
+                Description:         "OpenShift telemetry pull secret",
+                AffectedDeployments: []string{utils.ConsoleUIDeploymentName},
+            },
+        },
+    },
+    ConfigMaps: utils.ConfigMapWatcherConfig{
+        SystemResources: []utils.SystemConfigMap{
+            {
+                Name:                utils.DefaultOpenShiftCerts,
+                Description:         "OpenShift default CA bundle",
+                AffectedDeployments: []string{"ACTIVE_BACKEND"}, // Resolves to AppServer OR LCore
+            },
+        },
+    },
+    AnnotatedSecretMapping: map[string][]string{
+        // Dynamically built at runtime based on OLSConfig
+    },
+    AnnotatedConfigMapMapping: map[string][]string{
+        // Dynamically built at runtime based on OLSConfig
+    },
+}
+```
+
+**Key Features:**
+- **No Hardcoded Names**: All resource names in one place (`cmd/main.go`)
+- **Easy to Extend**: Add new watched resources without touching watcher logic
+- **Backend Flexibility**: `ACTIVE_BACKEND` placeholder auto-resolves to current backend
+- **Clear Documentation**: `Description` field explains purpose of each watch
+
+#### Watched Resource Types
+
+**1. System Resources (Watched by Name)**
+- OpenShift telemetry pull secret (`openshift-config/pull-secret`)
+- OpenShift default CA certificates (`kube-root-ca.crt`)
+- Console UI service certificates (auto-generated by service-ca operator)
+
+**2. Annotated Resources (User-Provided)**
+- LLM provider credential secrets (user creates, operator annotates)
+- User-provided TLS certificates (optional)
+- Additional CA ConfigMaps (optional, user-provided)
+- Proxy CA ConfigMaps (optional, user-provided)
+
+**Annotation Format:**
+```yaml
+metadata:
+  annotations:
+    ols.openshift.io/watch-olsconfig: "cluster"  # Added by operator
+```
+
+#### Resource Annotation Flow
+
+1. **User Creates Resource**: User creates secret/configmap referenced in OLSConfig
+2. **Validation**: `utils.ValidateExternalSecrets()` validates resource exists
+3. **Annotation**: `OLSConfigReconciler.annotateExternalResources()` adds watch annotation
+4. **Timing**: Runs between Phase 1 (resources) and Phase 2 (deployments)
+5. **Watchers Activate**: Predicate layer now includes this resource in watch
+
+**Annotation is centralized** in the main controller (`olsconfig_controller.go`):
+```go
+func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) {
+    // Phase 1: Reconcile resources
+    // ...
+    
+    // Annotation Step: Mark external resources for watching
+    if err := r.annotateExternalResources(ctx, olsconfig); err != nil {
+        r.Logger.Error(err, "Failed to annotate external resources")
+        // Non-fatal: continue with deployment reconciliation
+    }
+    
+    // Phase 2: Reconcile deployments
+    // ...
+}
+```
+
+#### Deployment Restart Logic
+
+When a watched resource changes, the system determines which deployments need restarting:
+
+**Restart Function Mapping:**
+```go
+func restartDeployment(r reconciler.Reconciler, ctx context.Context, 
+    affectedDeployments []string, namespace string, name string, useLCore bool) {
+    
+    for _, depName := range affectedDeployments {
+        // Resolve ACTIVE_BACKEND placeholder
+        if depName == "ACTIVE_BACKEND" {
+            if useLCore {
+                depName = utils.LCoreDeploymentName
+            } else {
+                depName = utils.OLSAppServerDeploymentName
+            }
+        }
+        
+        // Call component-specific restart function
+        switch depName {
+        case utils.OLSAppServerDeploymentName:
+            err = appserver.RestartAppServer(r, ctx)
+        case utils.LCoreDeploymentName:
+            err = lcore.RestartLCore(r, ctx)
+        case utils.PostgresDeploymentName:
+            err = postgres.RestartPostgres(r, ctx)
+        case utils.ConsoleUIDeploymentName:
+            err = console.RestartConsoleUI(r, ctx)
+        }
+    }
+}
+```
+
+**Restart Mechanism:**
+- Updates deployment annotation: `ols.openshift.io/force-reload: <timestamp>`
+- Kubernetes detects annotation change and triggers rolling update
+- Pods restart and mount latest secret/configmap data
+
+#### Integration with Main Controller
+
+The main controller sets up watchers using **predicates** and **custom handlers**:
+
+```go
+func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
+    return ctrl.NewControllerManagedBy(mgr).
+        For(&olsv1alpha1.OLSConfig{}).
+        Owns(&corev1.Secret{}).
+        // Watch secrets with predicate + custom handler
+        Watches(&corev1.Secret{},
+            &watchers.SecretUpdateHandler{Reconciler: r},
+            builder.WithPredicates(predicate.NewPredicateFuncs(r.shouldWatchSecret))).
+        // Watch configmaps with predicate + custom handler  
+        Watches(&corev1.ConfigMap{},
+            &watchers.ConfigMapUpdateHandler{Reconciler: r},
+            builder.WithPredicates(predicate.NewPredicateFuncs(r.shouldWatchConfigMap))).
+        Complete(r)
+}
+```
+
+**Predicate Helper Examples:**
+```go
+func (r *OLSConfigReconciler) shouldWatchSecret(obj client.Object) bool {
+    // Layer 1: Check annotation
+    annotations := obj.GetAnnotations()
+    if annotations != nil {
+        if _, exists := annotations[utils.WatcherAnnotationKey]; exists {
+            return true
+        }
+    }
+    
+    // Layer 1: Check system resources
+    if r.WatcherConfig != nil {
+        for _, systemSecret := range r.WatcherConfig.Secrets.SystemResources {
+            if obj.GetNamespace() == systemSecret.Namespace && 
+               obj.GetName() == systemSecret.Name {
+                return true
+            }
+        }
+    }
+    
+    return false
+}
+```
+
+**Benefits of This Architecture:**
+- ✅ **Performance**: 99% of events filtered at predicate level (O(1) checks)
+- ✅ **Correctness**: Deep data comparison prevents false restarts
+- ✅ **Maintainability**: All configuration in one place (`cmd/main.go`)
+- ✅ **Flexibility**: Easy to add new watched resources
+- ✅ **Backend-Agnostic**: Works with both AppServer and LCore
+- ✅ **Testability**: Each layer independently testable
+
+**Note**: Annotation helpers (`AnnotateSecretWatcher`, `AnnotateConfigMapWatcher`) are provided by the `utils` package but only called by the main controller's `annotateExternalResources()` method. Component packages do NOT annotate resources directly.
+
 
 ### Application Server Package (`internal/controller/appserver`)
 
@@ -215,7 +410,7 @@ Manages the Lightspeed Core (LCS) and Llama Stack server lifecycle. This compone
 The lcore package is **completely independent** from appserver, following the same patterns:
 - Task-based reconciliation
 - Interface-based dependency injection via `reconciler.Reconciler`
-- Hash-based change detection
+- ResourceVersion-based change detection
 - Separate test suite with comprehensive coverage (75.7%)
 - No shared code or imports between lcore and appserver (ensures clean separation)
 
@@ -327,22 +522,24 @@ Provides shared functionality across all components.
 
 ## Change Detection & Updates
 
-The operator uses **hash-based change detection** to trigger updates:
+The operator uses **ResourceVersion-based change detection** to trigger updates:
 
-1. **Configuration Hashes**: ConfigMaps are hashed and stored in state cache
-2. **Secret Hashes**: LLM provider secrets are hashed
-3. **Annotation-based Triggers**: Hashes are added to deployment annotations
-4. **Automatic Updates**: When hashes change, deployments are updated with new annotations, triggering pod restarts
+1. **Direct Spec Comparison**: Deployments are compared using `DeploymentSpecEqual()` utility
+2. **ResourceVersion Tracking**: ConfigMaps and Secrets track their ResourceVersion in deployment annotations
+3. **Annotation-based Triggers**: ResourceVersions are stored in deployment annotations
+4. **Automatic Updates**: When ResourceVersions change, deployments are updated, triggering pod restarts
 
 Example:
 ```go
-// Hash is computed
-configHash := computeHash(configMap.Data)
+// Get current ResourceVersion
+currentVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, configMapName)
 
-// Stored in deployment annotations
-deployment.Spec.Template.Annotations[OLSConfigHashKey] = configHash
-
-// Change detected: hash differs -> update deployment -> pod restart
+// Change detected: ResourceVersion differs -> update deployment -> pod restart
+if storedVersion != currentVersion {
+    // Store in deployment annotations
+    deployment.Annotations[OLSConfigMapResourceVersionAnnotation] = currentVersion
+    // Update deployment
+}
 ```
 
 ## Resource Watching
@@ -401,7 +598,7 @@ The codebase employs a comprehensive testing strategy with strong coverage:
 - Main reconciliation loop (OLSConfig handling, error cases)
 - Component-specific reconcilers (appserver, postgres, console)
 - Resource generation and validation
-- Hash-based change detection
+- ResourceVersion-based change detection
 - Status condition updates
 - Deployment status checking
 - Secret and ConfigMap operations
@@ -472,17 +669,27 @@ if err := r.Create(ctx, deployment); err != nil {
 }
 ```
 
-### 4. Hash-Based Change Detection
-State cache tracks resource hashes to detect changes:
+### 4. Change Detection
 
-```go
-newHash := computeHash(resource)
-oldHash := r.GetStateCache()[resourceKey]
-if newHash != oldHash {
-    // Trigger update
-    r.GetStateCache()[resourceKey] = newHash
-}
-```
+The operator uses multiple strategies for detecting changes:
+
+**For Deployments:**
+- Direct spec comparison using `DeploymentSpecEqual()` utility
+- ResourceVersion tracking for mounted ConfigMaps and Secrets
+- Annotations store ResourceVersions of dependent resources
+
+**For External Resources (Secrets/ConfigMaps not owned by operator):**
+- Watcher annotations (`watchers.openshift.io/watch`) mark resources for monitoring
+- Watchers detect changes and trigger deployment restarts via `Restart*()` functions
+
+**For External Resources Owned by Kubernetes/Other Applications:**
+- Watched by name (e.g., telemetry pull secret `pull-secret` in `openshift-config` namespace)
+- Special watchers monitor specific named resources
+- Changes trigger reconciliation without ownership or annotations
+
+**For Owned Resources:**
+- Direct equality comparison (e.g., `ConfigMapEqual()`)
+- Kubernetes ownership triggers automatic reconciliation
 
 ## Key Design Decisions
 
@@ -497,10 +704,11 @@ if newHash != oldHash {
 - **Clean Testing**: Easy to create test implementations
 - **Flexibility**: Main controller can evolve without breaking components
 
-### ✅ Why Hash-Based Detection?
-- **Efficiency**: Only update when configuration actually changes
-- **Reliability**: Guaranteed consistency between config and running state
-- **Auditability**: Can track what changed by comparing hashes
+### ✅ Why ResourceVersion-Based Detection?
+- **Efficiency**: Only update when resources actually change (tracked via Kubernetes ResourceVersion)
+- **Reliability**: Leverages Kubernetes' built-in change tracking mechanism
+- **Simplicity**: No custom hash computation or state management needed
+- **Correctness**: Kubernetes guarantees ResourceVersion changes on every modification
 
 ## Contributing Guidelines for Developers
 

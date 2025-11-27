@@ -222,7 +222,7 @@ func buildLlamaStackEvalProviders(_ reconciler.Reconciler, _ *olsv1alpha1.OLSCon
 }
 */
 
-func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) ([]interface{}, error) {
+func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Context, cr *olsv1alpha1.OLSConfig) ([]interface{}, error) {
 	providers := []interface{}{
 		// Always include sentence-transformers for embeddings
 		map[string]interface{}{
@@ -262,8 +262,14 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, cr *olsv1alpha1.
 			providerConfig["provider_type"] = "remote::azure"
 			config := map[string]interface{}{}
 
-			// Set environment variable name for API key
+			// Azure supports both API key and client credentials authentication
+			// Always include api_key (required by LiteLLM's Pydantic validation)
 			config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+
+			// Also include client credentials fields (will be empty if not using client credentials)
+			config["client_id"] = fmt.Sprintf("${env.%s_CLIENT_ID:=}", envVarName)
+			config["tenant_id"] = fmt.Sprintf("${env.%s_TENANT_ID:=}", envVarName)
+			config["client_secret"] = fmt.Sprintf("${env.%s_CLIENT_SECRET:=}", envVarName)
 
 			// Azure-specific fields
 			if provider.AzureDeploymentName != "" {
@@ -275,9 +281,6 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, cr *olsv1alpha1.
 			if provider.URL != "" {
 				config["api_base"] = provider.URL
 			}
-			// Match LCore's configuration pattern: set api_type with empty default
-			// This allows the environment variable to override if needed
-			config["api_type"] = fmt.Sprintf("${env.%s_API_TYPE:=}", envVarName)
 			providerConfig["config"] = config
 
 		case "watsonx", "rhoai_vllm", "rhelai_vllm", "bam":
@@ -534,12 +537,12 @@ func buildLlamaStackToolGroups(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig
 }
 
 // buildLlamaStackYAML assembles the complete Llama Stack configuration and converts to YAML
-func buildLlamaStackYAML(r reconciler.Reconciler, _ context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
+func buildLlamaStackYAML(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	// Build the complete config as a map
 	config := buildLlamaStackCoreConfig(r, cr)
 
 	// Build inference providers with error handling
-	inferenceProviders, err := buildLlamaStackInferenceProviders(r, cr)
+	inferenceProviders, err := buildLlamaStackInferenceProviders(r, ctx, cr)
 	if err != nil {
 		return "", fmt.Errorf("failed to build inference providers: %w", err)
 	}
@@ -874,21 +877,12 @@ func GenerateLcoreConfigMap(r reconciler.Reconciler, ctx context.Context, cr *ol
 		return nil, fmt.Errorf("failed to build OLS config YAML: %w", err)
 	}
 
-	// Calculate hash for change detection
-	hash, err := utils.HashBytes([]byte(lcoreConfigYAML))
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate config hash: %w", err)
-	}
-
 	// Create ConfigMap
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.LCoreConfigCmName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GenerateAppServerSelectorLabels(),
-			Annotations: map[string]string{
-				utils.OLSConfigHashKey: hash,
-			},
 		},
 		Data: map[string]string{
 			"lightspeed-stack.yaml": lcoreConfigYAML,

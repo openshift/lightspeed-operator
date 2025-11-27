@@ -122,6 +122,40 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should return error when the LLM provider token secret does not have required keys", func() {
+			By("General provider: the token secret miss 'apitoken' key")
+			secret, _ := utils.GenerateRandomSecret()
+			// delete the required key "apitoken"
+			delete(secret.Data, "apitoken")
+			err := k8sClient.Update(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+			testCR := cr.DeepCopy()
+			// LCore requires supported Llama Stack provider types
+			testCR.Spec.LLMConfig.Providers[0].Type = "openai"
+			err = ReconcileLCore(testReconcilerInstance, ctx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("reconcile LCore ConfigMap"))
+
+			By("AzureOpenAI provider: the token secret miss 'client_id', 'tenant_id', 'client_secret' key")
+			secret, _ = utils.GenerateRandomSecret()
+			delete(secret.Data, "client_id")
+			delete(secret.Data, "tenant_id")
+			delete(secret.Data, "client_secret")
+			delete(secret.Data, "apitoken")
+			err = k8sClient.Update(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+			crAzure := cr.DeepCopy()
+			crAzure.Spec.LLMConfig.Providers[0].Type = "azure_openai"
+			err = ReconcileLCore(testReconcilerInstance, ctx, crAzure)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("reconcile LCore ConfigMap"))
+
+			By("Restore the secret to valid state")
+			secret, _ = utils.GenerateRandomSecret()
+			err = k8sClient.Update(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 	})
 
 	Context("LLM Credentials Validation", func() {
@@ -180,7 +214,7 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			_ = k8sClient.Delete(ctx, cm)
 		})
 
-		It("should annotate additional CA configmap with watcher annotation", func() {
+		It("should reconcile additional CA configmap", func() {
 			By("Set up an additional CA cert in CR")
 			err := k8sClient.Get(ctx, crNamespacedName, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -196,11 +230,11 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Check the additional CA configmap has watcher annotation")
+			By("Verify the additional CA configmap exists")
 			cm := &corev1.ConfigMap{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: additionalCACMName, Namespace: utils.OLSNamespaceDefault}, cm)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
+			// Note: Annotation is now handled by main controller, not component reconciler
 		})
 
 		It("should skip reconciliation when additional CA is not configured", func() {
@@ -208,6 +242,8 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			err := k8sClient.Get(ctx, crNamespacedName, cr)
 			Expect(err).NotTo(HaveOccurred())
 			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = nil
+			// LCore requires supported Llama Stack provider types
+			cr.Spec.LLMConfig.Providers[0].Type = "openai"
 			err = k8sClient.Update(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -223,6 +259,8 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
 				Name: additionalCACMName,
 			}
+			// LCore requires supported Llama Stack provider types
+			cr.Spec.LLMConfig.Providers[0].Type = "openai"
 			err = k8sClient.Update(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -286,11 +324,11 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Check the proxy CA configmap has watcher annotation")
+			By("Verify the proxy CA configmap exists")
 			cm := &corev1.ConfigMap{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: proxyCACMName, Namespace: utils.OLSNamespaceDefault}, cm)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
+			// Note: Annotation is now handled by main controller, not component reconciler
 		})
 
 		It("should skip reconciliation when proxy CA is not configured", func() {
