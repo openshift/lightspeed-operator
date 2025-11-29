@@ -211,7 +211,7 @@ spec:
                 value: "$(params.commit)"
               - name: CYPRESS_BUNDLE_IMAGE
                 value: "$(params.bundle-image)"
-            image: cypress/browsers:24.11.0
+            image: cypress/browsers:25.0.0
             script: |
               echo "---------------------------------------------"
               echo "${CYPRESS_BASE_URL}"
