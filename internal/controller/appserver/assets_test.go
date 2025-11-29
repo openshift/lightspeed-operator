@@ -1145,8 +1145,6 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate the olsconfig config map", func() {
-			// todo: this test is not complete
-			// generateOLSConfigMap should return an error if the CR is missing required fields
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
 			major, minor, err := utils.GetOpenshiftVersion(k8sClient, ctx)
 			Expect(err).NotTo(HaveOccurred())
@@ -1281,7 +1279,6 @@ user_data_collector_config: {}
 		})
 
 		It("should generate the OLS deployment", func() {
-			// todo: update this test after updating the test for generateOLSConfigMap
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
 			defer utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)

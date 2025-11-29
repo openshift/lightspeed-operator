@@ -19,22 +19,27 @@ limitations under the License.
 //
 // This package contains the OLSConfigReconciler, which is the central orchestrator
 // for the entire operator. It coordinates reconciliation across all components
-// (appserver, postgres, console) and manages the OLSConfig custom resource.
+// (appserver/lcore, postgres, console) and manages the OLSConfig custom resource.
+//
+// The controller code is organized into multiple files:
+//   - olsconfig_controller.go: Core type definition, Reconcile(), and SetupWithManager()
+//   - olsconfig_helpers.go: Interface implementations, status management, and annotation logic
+//   - olsconfig_watchers.go: Watcher predicate helpers for secrets and configmaps
+//   - operator_assets.go: Operator infrastructure resources (ServiceMonitor, NetworkPolicy)
 //
 // Key Responsibilities:
 //   - Reconcile the OLSConfig custom resource
-//   - Coordinate component reconciliation (appserver, postgres, console)
+//   - Coordinate component reconciliation (console, postgres, appserver/lcore)
 //   - Manage status conditions and CR status updates
-//   - Delegate LLM provider secret reconciliation to appserver package
 //   - Set up resource watchers for automatic updates (secrets, configmaps)
 //   - Manage operator-level resources (service monitors, network policies)
 //
 // The main reconciliation flow:
 //  1. Reconcile operator-level resources (service monitor, network policy)
-//  2. Delegate LLM provider secret reconciliation to appserver.ReconcileLLMSecrets()
-//  3. Reconcile PostgreSQL database (if conversation cache enabled)
-//  4. Reconcile Console UI plugin
-//  5. Reconcile application server components
+//  2. Fetch and validate OLSConfig CR
+//  3. Annotate external resources for change tracking
+//  4. Phase 1: Reconcile independent resources (ConfigMaps, Secrets, ServiceAccounts, etc.)
+//  5. Phase 2: Reconcile deployments and dependent resources (Services, TLS certs, etc.)
 //  6. Update status conditions based on deployment readiness
 //
 // The OLSConfigReconciler implements the reconciler.Reconciler interface,
@@ -55,10 +60,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -81,119 +82,6 @@ type OLSConfigReconciler struct {
 	Options           utils.OLSConfigReconcilerOptions
 	WatcherConfig     *utils.WatcherConfig
 	NextReconcileTime time.Time
-}
-
-// Implement reconciler.Reconciler interface
-func (r *OLSConfigReconciler) GetScheme() *runtime.Scheme {
-	return r.Scheme()
-}
-
-func (r *OLSConfigReconciler) GetLogger() logr.Logger {
-	return r.Logger
-}
-
-func (r *OLSConfigReconciler) GetNamespace() string {
-	return r.Options.Namespace
-}
-
-func (r *OLSConfigReconciler) GetPostgresImage() string {
-	return r.Options.LightspeedServicePostgresImage
-}
-
-func (r *OLSConfigReconciler) GetConsoleUIImage() string {
-	return r.Options.ConsoleUIImage
-}
-
-func (r *OLSConfigReconciler) GetOpenShiftMajor() string {
-	return r.Options.OpenShiftMajor
-}
-
-func (r *OLSConfigReconciler) GetOpenshiftMinor() string {
-	return r.Options.OpenshiftMinor
-}
-
-func (r *OLSConfigReconciler) GetAppServerImage() string {
-	return r.Options.LightspeedServiceImage
-}
-
-func (r *OLSConfigReconciler) GetOpenShiftMCPServerImage() string {
-	return r.Options.OpenShiftMCPServerImage
-}
-
-func (r *OLSConfigReconciler) GetDataverseExporterImage() string {
-	return r.Options.DataverseExporterImage
-}
-
-func (r *OLSConfigReconciler) GetLCoreImage() string {
-	return r.Options.LightspeedCoreImage
-}
-
-func (r *OLSConfigReconciler) IsPrometheusAvailable() bool {
-	return r.Options.PrometheusAvailable
-}
-
-func (r *OLSConfigReconciler) GetWatcherConfig() interface{} {
-	return r.WatcherConfig
-}
-
-func (r *OLSConfigReconciler) UseLCore() bool {
-	return r.Options.UseLCore
-}
-
-// shouldWatchSecret is a predicate that determines if a secret should be watched.
-// This provides performance optimization by filtering at the watch level, preventing
-// unnecessary reconciliation triggers for secrets the operator doesn't care about.
-// Returns true if:
-// 1. The secret has the watcher annotation (annotated by operator for change tracking)
-// 2. The secret is configured as a system resource (external resource like pull-secret)
-func (r *OLSConfigReconciler) shouldWatchSecret(obj client.Object) bool {
-	// Check 1: Has watcher annotation?
-	annotations := obj.GetAnnotations()
-	if annotations != nil {
-		if _, exists := annotations[utils.WatcherAnnotationKey]; exists {
-			return true
-		}
-	}
-
-	// Check 2: Is it a configured system secret?
-	if r.WatcherConfig != nil {
-		for _, systemSecret := range r.WatcherConfig.Secrets.SystemResources {
-			if obj.GetNamespace() == systemSecret.Namespace &&
-				obj.GetName() == systemSecret.Name {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-// shouldWatchConfigMap is a predicate that determines if a configmap should be watched.
-// This provides performance optimization by filtering at the watch level, preventing
-// unnecessary reconciliation triggers for configmaps the operator doesn't care about.
-// Returns true if:
-// 1. The configmap has the watcher annotation (annotated by operator for change tracking)
-// 2. The configmap is configured as a system resource (external resource like CA bundle)
-func (r *OLSConfigReconciler) shouldWatchConfigMap(obj client.Object) bool {
-	// Check 1: Has watcher annotation?
-	annotations := obj.GetAnnotations()
-	if annotations != nil {
-		if _, exists := annotations[utils.WatcherAnnotationKey]; exists {
-			return true
-		}
-	}
-
-	// Check 2: Is it a configured system configmap?
-	if r.WatcherConfig != nil {
-		for _, systemConfigMap := range r.WatcherConfig.ConfigMaps.SystemResources {
-			if obj.GetNamespace() == systemConfigMap.Namespace &&
-				obj.GetName() == systemConfigMap.Name {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -454,182 +342,6 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	r.NextReconcileTime = time.Now().Add(r.Options.ReconcileInterval)
 	r.Logger.Info("Next automatic reconciliation scheduled at", "nextReconcileTime", r.NextReconcileTime)
 	return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
-}
-
-// updateStatusCondition updates the status condition of the OLSConfig Custom Resource instance.
-// TODO: Should we support Unknown status and ObservedGeneration?
-// TODO: conditionType must be metav1.Condition?
-func (r *OLSConfigReconciler) UpdateStatusCondition(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig, conditionType string, status bool, message string, err error, inCluster ...bool) {
-	// Set default value for inCluster
-	inClusterValue := true
-	if len(inCluster) > 0 {
-		inClusterValue = inCluster[0]
-	}
-
-	condition := metav1.Condition{
-		Type:               conditionType,
-		Status:             metav1.ConditionUnknown,
-		LastTransitionTime: metav1.Time{},
-		Reason:             "Reconciling",
-	}
-
-	if status {
-		condition.Status = metav1.ConditionTrue
-	} else {
-		condition.Status = metav1.ConditionFalse
-	}
-
-	if err != nil {
-		condition.Message = fmt.Sprintf("%s: %v", message, err)
-	} else {
-		condition.Message = message
-	}
-
-	if inClusterValue {
-		// Retry status update on conflicts, refetching latest version each time
-		if updateErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			// Get latest version for status update
-			currentOLSConfig := &olsv1alpha1.OLSConfig{}
-			if getErr := r.Get(ctx, client.ObjectKey{Name: olsconfig.Name, Namespace: olsconfig.Namespace}, currentOLSConfig); getErr != nil {
-				if apierrors.IsNotFound(getErr) {
-					r.Logger.V(1).Info("OLSConfig not found during status update, skipping", "name", olsconfig.Name)
-					return nil // Don't retry NotFound errors
-				}
-				return getErr
-			}
-
-			// Apply the condition to the current version
-			meta.SetStatusCondition(&currentOLSConfig.Status.Conditions, condition)
-
-			// Attempt status update
-			return r.Status().Update(ctx, currentOLSConfig)
-		}); updateErr != nil {
-			if !apierrors.IsNotFound(updateErr) {
-				r.Logger.Error(updateErr, utils.ErrUpdateCRStatusCondition, "name", olsconfig.Name)
-			}
-		}
-	} else {
-		meta.SetStatusCondition(&olsconfig.Status.Conditions, condition)
-		if updateErr := r.Status().Update(ctx, olsconfig); updateErr != nil {
-			r.Logger.Error(updateErr, utils.ErrUpdateCRStatusCondition)
-		}
-	}
-}
-
-// checkDeploymentStatus checks if the deployment is ready and available
-func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deployment) (string, error) {
-
-	// Check if deployment has the expected number of replicas ready
-	if deployment.Status.ReadyReplicas != *deployment.Spec.Replicas {
-		return utils.DeploymentInProgress, fmt.Errorf("deployment not ready: %d replicas available",
-			deployment.Status.ReadyReplicas)
-	}
-
-	// Check deployment conditions
-	for _, condition := range deployment.Status.Conditions {
-		switch condition.Type {
-		case appsv1.DeploymentAvailable:
-			if condition.Status != corev1.ConditionTrue {
-				return utils.DeploymentInProgress, fmt.Errorf("deployment not available: %s - %s", condition.Reason, condition.Message)
-			}
-		case appsv1.DeploymentProgressing:
-			if condition.Status == corev1.ConditionFalse {
-				return utils.DeploymentInProgress, fmt.Errorf("deployment not progressing: %s - %s", condition.Reason, condition.Message)
-			}
-		case appsv1.DeploymentReplicaFailure:
-			if condition.Status == corev1.ConditionTrue {
-				return "Fail", fmt.Errorf("deployment replica failure: %s - %s", condition.Reason, condition.Message)
-			}
-		}
-	}
-
-	return "", nil
-}
-
-// annotateExternalResources annotates all external resources (secrets and configmaps)
-// that the operator watches for changes. This centralizes annotation logic between
-// Phase 1 (resource reconciliation) and Phase 2 (deployment reconciliation).
-func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
-	cr *olsv1alpha1.OLSConfig) error {
-
-	var errs []error
-
-	// Annotate all external secrets
-	err := utils.ForEachExternalSecret(cr, func(name string, source string) error {
-		if err := r.annotateSecretIfNeeded(ctx, name, r.Options.Namespace); err != nil {
-			r.Logger.Error(err, "Failed to annotate secret", "source", source, "secret", name)
-			errs = append(errs, err)
-		}
-		return nil // Continue iteration even on error
-	})
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	// Annotate all external configmaps
-	err = utils.ForEachExternalConfigMap(cr, func(name string, source string) error {
-		if err := r.annotateConfigMapIfNeeded(ctx, name, r.Options.Namespace); err != nil {
-			r.Logger.Error(err, "Failed to annotate configmap", "source", source, "configmap", name)
-			errs = append(errs, err)
-		}
-		return nil // Continue iteration even on error
-	})
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("failed to annotate %d external resources", len(errs))
-	}
-	return nil
-}
-
-// annotateSecretIfNeeded annotates a secret with the watcher annotation if it doesn't already have it.
-// Returns nil if the secret doesn't exist (will be picked up on next reconciliation).
-func (r *OLSConfigReconciler) annotateSecretIfNeeded(ctx context.Context, name, namespace string) error {
-	secret := &corev1.Secret{}
-	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, secret)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil // Resource will be picked up on next reconciliation
-		}
-		return err
-	}
-
-	if secret.Annotations == nil {
-		secret.Annotations = make(map[string]string)
-	}
-
-	if _, exists := secret.Annotations[utils.WatcherAnnotationKey]; exists {
-		return nil // Already annotated
-	}
-
-	secret.Annotations[utils.WatcherAnnotationKey] = utils.OLSConfigName
-	return r.Update(ctx, secret)
-}
-
-// annotateConfigMapIfNeeded annotates a configmap with the watcher annotation if it doesn't already have it.
-// Returns nil if the configmap doesn't exist (will be picked up on next reconciliation).
-func (r *OLSConfigReconciler) annotateConfigMapIfNeeded(ctx context.Context, name, namespace string) error {
-	cm := &corev1.ConfigMap{}
-	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, cm)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil // Resource will be picked up on next reconciliation
-		}
-		return err
-	}
-
-	if cm.Annotations == nil {
-		cm.Annotations = make(map[string]string)
-	}
-
-	if _, exists := cm.Annotations[utils.WatcherAnnotationKey]; exists {
-		return nil // Already annotated
-	}
-
-	cm.Annotations[utils.WatcherAnnotationKey] = utils.OLSConfigName
-	return r.Update(ctx, cm)
 }
 
 // SetupWithManager sets up the controller with the Manager.
