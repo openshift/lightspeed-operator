@@ -280,18 +280,6 @@ type ConversationCacheSpec struct {
 
 // PostgresSpec defines the desired state of Postgres.
 type PostgresSpec struct {
-	// Postgres user name
-	// +kubebuilder:default="postgres"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="User Name"
-	User string `json:"user,omitempty"`
-	// Postgres database name
-	// +kubebuilder:default="postgres"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Name"
-	DbName string `json:"dbName,omitempty"`
-	// Secret that holds postgres credentials
-	// +kubebuilder:default="lightspeed-postgres-secret"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Credentials Secret"
-	CredentialsSecret string `json:"credentialsSecret,omitempty"`
 	// Postgres sharedbuffers
 	// +kubebuilder:validation:XIntOrString
 	// +kubebuilder:default="256MB"

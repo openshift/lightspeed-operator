@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
-	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
@@ -129,22 +128,18 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	})
 
 	// Postgres secret volume and mount (operator-owned, not external)
-	postgresSecretName := utils.PostgresSecretName
-	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
-		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
-	}
-	postgresCredentialsMountPath := path.Join(utils.CredentialsMountRoot, postgresSecretName)
+	postgresCredentialsMountPath := path.Join(utils.CredentialsMountRoot, utils.PostgresSecretName)
 	volumes = append(volumes, corev1.Volume{
-		Name: "secret-" + postgresSecretName,
+		Name: "secret-" + utils.PostgresSecretName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName:  postgresSecretName,
+				SecretName:  utils.PostgresSecretName,
 				DefaultMode: &volumeDefaultMode,
 			},
 		},
 	})
 	volumeMounts = append(volumeMounts, corev1.VolumeMount{
-		Name:      "secret-" + postgresSecretName,
+		Name:      "secret-" + utils.PostgresSecretName,
 		MountPath: postgresCredentialsMountPath,
 		ReadOnly:  true,
 	})
@@ -301,7 +296,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	}
 
 	// Postgres CA volume
-	volumes = append(volumes, postgres.GetPostgresCAConfigVolume())
+	volumes = append(volumes, utils.GetPostgresCAConfigVolume())
 
 	volumes = append(volumes,
 		corev1.Volume{
@@ -318,7 +313,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	}
 
 	volumeMounts = append(volumeMounts,
-		postgres.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, utils.PostgresCertsSecretName, utils.PostgresCAVolume)),
+		utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, utils.PostgresCertsSecretName, utils.PostgresCAVolume)),
 		corev1.VolumeMount{
 			Name:      utils.TmpVolumeName,
 			MountPath: utils.TmpVolumeMountPath,
@@ -360,7 +355,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Get ResourceVersions for tracking - these resources should already exist
 	// If they don't exist, we'll get empty strings which is fine for initial creation
 	configMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
-	secretResourceVersion, _ := utils.GetSecretResourceVersion(r, ctx, postgresSecretName)
+	secretResourceVersion, _ := utils.GetSecretResourceVersion(r, ctx, utils.PostgresSecretName)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

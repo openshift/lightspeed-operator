@@ -467,6 +467,31 @@ func GeneratePostgresSelectorLabels() map[string]string {
 	}
 }
 
+// GetPostgresCAConfigVolume returns the CA certificate volume for postgres TLS verification.
+func GetPostgresCAConfigVolume() corev1.Volume {
+	volumeDefaultMode := VolumeDefaultMode
+	return corev1.Volume{
+		Name: PostgresCAVolume,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: OLSCAConfigMap,
+				},
+				DefaultMode: &volumeDefaultMode,
+			},
+		},
+	}
+}
+
+// GetPostgresCAVolumeMount returns the CA certificate volume mount for postgres.
+func GetPostgresCAVolumeMount(mountPath string) corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      PostgresCAVolume,
+		MountPath: mountPath,
+		ReadOnly:  true,
+	}
+}
+
 // GenerateAppServerSelectorLabels returns selector labels for Application Server components
 func GenerateAppServerSelectorLabels() map[string]string {
 	return map[string]string{

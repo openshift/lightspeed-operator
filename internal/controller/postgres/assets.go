@@ -51,12 +51,6 @@ func GeneratePostgresService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 }
 
 func GeneratePostgresSecret(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Secret, error) {
-	// Get postgres secret name (can be customized via CR or use default)
-	postgresSecretName := utils.PostgresSecretName
-	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
-		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
-	}
-
 	randomPassword := make([]byte, 12)
 	_, err := rand.Read(randomPassword)
 	if err != nil {
@@ -66,7 +60,7 @@ func GeneratePostgresSecret(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) 
 	encodedPassword := base64.StdEncoding.EncodeToString(randomPassword)
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      postgresSecretName,
+			Name:      utils.PostgresSecretName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GeneratePostgresSelectorLabels(),
 		},

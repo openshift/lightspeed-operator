@@ -273,7 +273,23 @@ func TestBuildLCoreConfigYAML(t *testing.T) {
 	// Use a proper CR from test fixtures instead of nil
 	cr := utils.GetDefaultOLSConfigCR()
 
-	yamlOutput, err := buildLCoreConfigYAML(nil, nil, cr)
+	// Create a fake client and reconciler for the test
+	scheme := runtime.NewScheme()
+	_ = olsv1alpha1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		Build()
+	logger := zap.New(zap.UseDevMode(true))
+	testReconciler := utils.NewTestReconciler(
+		fakeClient,
+		logger,
+		scheme,
+		"test-namespace",
+	)
+
+	ctx := context.Background()
+	yamlOutput, err := buildLCoreConfigYAML(testReconciler, ctx, cr)
 	if err != nil {
 		t.Fatalf("buildLCoreConfigYAML returned error: %v", err)
 	}

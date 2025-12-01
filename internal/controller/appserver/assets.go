@@ -137,12 +137,7 @@ func checkLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 }
 
 func postgresCacheConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) utils.PostgresCacheConfig {
-	postgresSecretName := utils.PostgresSecretName
-	postgresConfig := cr.Spec.OLSConfig.ConversationCache.Postgres
-	if postgresConfig.CredentialsSecret != "" {
-		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
-	}
-	postgresPasswordPath := path.Join(utils.CredentialsMountRoot, postgresSecretName, utils.OLSComponentPasswordFileName)
+	postgresPasswordPath := path.Join(utils.CredentialsMountRoot, utils.PostgresSecretName, utils.OLSComponentPasswordFileName)
 	return utils.PostgresCacheConfig{
 		Host:         strings.Join([]string{utils.PostgresServiceName, r.GetNamespace(), "svc"}, "."),
 		Port:         utils.PostgresServicePort,

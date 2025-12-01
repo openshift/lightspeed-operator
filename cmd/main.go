@@ -381,6 +381,12 @@ func main() {
 					Description:         "Console UI TLS certificate",
 					AffectedDeployments: []string{utils.ConsoleUIDeploymentName},
 				},
+				{
+					Name:                utils.PostgresCertsSecretName,
+					Namespace:           namespace,
+					Description:         "PostgreSQL TLS certificate (created by Service CA Operator)",
+					AffectedDeployments: []string{utils.PostgresDeploymentName},
+				},
 			},
 		},
 		// list here "special" external config maps that we need to watch in addition to
@@ -393,6 +399,12 @@ func main() {
 					Description:         "OpenShift default CA bundle",
 					AffectedDeployments: []string{"ACTIVE_BACKEND"},
 				},
+				{
+					Name:                utils.OLSCAConfigMap,
+					Namespace:           namespace,
+					Description:         "OpenShift Service CA certificate bundle",
+					AffectedDeployments: []string{"ACTIVE_BACKEND", utils.PostgresDeploymentName},
+				},
 			},
 		},
 		// AnnotatedSecretMapping maps secret names to their affected deployments.
@@ -400,9 +412,7 @@ func main() {
 		// When these secrets change, the watcher will restart the listed deployments.
 		// Key: secret name, Value: list of deployment names (use "ACTIVE_BACKEND" for appserver/lcore).
 		// Only list secrets here that need to restart specific deployments beyond the active backend.
-		AnnotatedSecretMapping: map[string][]string{
-			utils.PostgresSecretName: {utils.PostgresDeploymentName, "ACTIVE_BACKEND"},
-		},
+		AnnotatedSecretMapping: map[string][]string{},
 		// AnnotatedConfigMapMapping maps configmap names to their affected deployments.
 		// These are configmaps that the operator manages and annotates with watchers.openshift.io/watch.
 		// When these configmaps change, the watcher will restart the listed deployments.

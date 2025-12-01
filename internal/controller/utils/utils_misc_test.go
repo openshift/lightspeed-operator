@@ -336,6 +336,49 @@ var _ = Describe("Utility Functions", func() {
 		})
 	})
 
+	Describe("GetPostgresCAConfigVolume", func() {
+		It("should return a volume with correct structure", func() {
+			volume := GetPostgresCAConfigVolume()
+
+			Expect(volume.Name).To(Equal(PostgresCAVolume))
+			Expect(volume.VolumeSource.ConfigMap).NotTo(BeNil())
+			Expect(volume.VolumeSource.ConfigMap.LocalObjectReference.Name).To(Equal(OLSCAConfigMap))
+			Expect(volume.VolumeSource.ConfigMap.DefaultMode).NotTo(BeNil())
+			Expect(*volume.VolumeSource.ConfigMap.DefaultMode).To(Equal(VolumeDefaultMode))
+		})
+
+		It("should return consistent volume across multiple calls", func() {
+			volume1 := GetPostgresCAConfigVolume()
+			volume2 := GetPostgresCAConfigVolume()
+
+			Expect(volume1.Name).To(Equal(volume2.Name))
+			Expect(volume1.VolumeSource.ConfigMap.LocalObjectReference.Name).To(Equal(volume2.VolumeSource.ConfigMap.LocalObjectReference.Name))
+		})
+	})
+
+	Describe("GetPostgresCAVolumeMount", func() {
+		It("should return a volume mount with correct structure", func() {
+			mountPath := "/test/path/to/ca"
+			volumeMount := GetPostgresCAVolumeMount(mountPath)
+
+			Expect(volumeMount.Name).To(Equal(PostgresCAVolume))
+			Expect(volumeMount.MountPath).To(Equal(mountPath))
+			Expect(volumeMount.ReadOnly).To(BeTrue())
+		})
+
+		It("should use the provided mount path", func() {
+			path1 := "/path/one"
+			path2 := "/path/two"
+
+			mount1 := GetPostgresCAVolumeMount(path1)
+			mount2 := GetPostgresCAVolumeMount(path2)
+
+			Expect(mount1.MountPath).To(Equal(path1))
+			Expect(mount2.MountPath).To(Equal(path2))
+			Expect(mount1.Name).To(Equal(mount2.Name)) // Same volume name
+		})
+	})
+
 	Describe("AnnotateSecretWatcher", func() {
 		It("should add watcher annotation to secret with nil annotations", func() {
 			secret := &corev1.Secret{

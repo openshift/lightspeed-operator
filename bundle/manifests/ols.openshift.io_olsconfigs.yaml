@@ -416,14 +416,6 @@ spec:
                       postgres:
                         description: PostgresSpec defines the desired state of Postgres.
                         properties:
-                          credentialsSecret:
-                            default: lightspeed-postgres-secret
-                            description: Secret that holds postgres credentials
-                            type: string
-                          dbName:
-                            default: postgres
-                            description: Postgres database name
-                            type: string
                           maxConnections:
                             default: 2000
                             description: 'Postgres maxconnections. Default: "2000"'
@@ -435,10 +427,6 @@ spec:
                             description: Postgres sharedbuffers
                             type: string
                             x-kubernetes-int-or-string: true
-                          user:
-                            default: postgres
-                            description: Postgres user name
-                            type: string
                         type: object
                       type:
                         default: postgres

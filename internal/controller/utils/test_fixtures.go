@@ -83,11 +83,8 @@ func GetDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 				ConversationCache: olsv1alpha1.ConversationCacheSpec{
 					Type: olsv1alpha1.Postgres,
 					Postgres: olsv1alpha1.PostgresSpec{
-						User:              PostgresDefaultUser,
-						DbName:            PostgresDefaultDbName,
-						SharedBuffers:     PostgresSharedBuffers,
-						MaxConnections:    PostgresMaxConnections,
-						CredentialsSecret: PostgresSecretName,
+						SharedBuffers:  PostgresSharedBuffers,
+						MaxConnections: PostgresMaxConnections,
 					},
 				},
 				DefaultModel:    "testModel",
@@ -122,11 +119,8 @@ func GetOLSConfigWithCacheCR() *olsv1alpha1.OLSConfig {
 				ConversationCache: olsv1alpha1.ConversationCacheSpec{
 					Type: olsv1alpha1.Postgres,
 					Postgres: olsv1alpha1.PostgresSpec{
-						User:              PostgresDefaultUser,
-						DbName:            PostgresDefaultDbName,
-						SharedBuffers:     PostgresSharedBuffers,
-						MaxConnections:    PostgresMaxConnections,
-						CredentialsSecret: PostgresSecretName,
+						SharedBuffers:  PostgresSharedBuffers,
+						MaxConnections: PostgresMaxConnections,
 					},
 				},
 			},

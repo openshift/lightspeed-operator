@@ -242,8 +242,8 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 
 	// Verify volume mounts in lightspeed-stack container
 	lightspeedStackMounts := lightspeedStackContainer.VolumeMounts
-	if len(lightspeedStackMounts) != 2 {
-		t.Errorf("Expected 2 volume mounts in lightspeed-stack container, got %d", len(lightspeedStackMounts))
+	if len(lightspeedStackMounts) != 3 {
+		t.Errorf("Expected 3 volume mounts in lightspeed-stack container, got %d", len(lightspeedStackMounts))
 	}
 	lightspeedStackMountNames := make(map[string]bool)
 	for _, mount := range lightspeedStackMounts {
@@ -254,6 +254,9 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 	}
 	if !lightspeedStackMountNames["secret-lightspeed-tls"] {
 		t.Error("Missing 'secret-lightspeed-tls' volume mount in lightspeed-stack container")
+	}
+	if !lightspeedStackMountNames[utils.PostgresCAVolume] {
+		t.Errorf("Missing '%s' volume mount in lightspeed-stack container", utils.PostgresCAVolume)
 	}
 
 	// Verify that deployment can be marshaled to YAML (valid k8s object)
