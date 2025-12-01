@@ -14,7 +14,9 @@ import (
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
+	"github.com/openshift/lightspeed-operator/internal/controller/console"
 	"github.com/openshift/lightspeed-operator/internal/controller/lcore"
+	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
@@ -374,13 +376,9 @@ func restartDeployment(r reconciler.Reconciler, ctx context.Context, affectedDep
 		case utils.LCoreDeploymentName:
 			err = lcore.RestartLCore(r, ctx)
 		case utils.PostgresDeploymentName:
-			// TODO: Import postgres package and implement
-			r.GetLogger().Info("postgres restart not yet implemented", "resource", name, "namespace", namespace)
-			continue
+			err = postgres.RestartPostgres(r, ctx)
 		case utils.ConsoleUIDeploymentName:
-			// TODO: Import console package and implement
-			r.GetLogger().Info("console restart not yet implemented", "resource", name, "namespace", namespace)
-			continue
+			err = console.RestartConsoleUI(r, ctx)
 		default:
 			r.GetLogger().Info("unknown deployment name", "deployment", depName)
 			continue
