@@ -809,37 +809,47 @@ func buildLCoreDatabaseConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig)
 // buildLCoreQuotaHandlersConfig configures token usage rate limiting
 // Controls how many tokens users or clusters can consume
 // Useful for cost management and preventing abuse
-//
-//func buildLCoreQuotaHandlersConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
-//	return map[string]interface{}{
-//		"limiters": []interface{}{
-//			// Per-user token limit
-//			map[string]interface{}{
-//				"type":           "user_limiter",
-//				"name":           "user_daily_tokens",
-//				"initial_quota":  10000,  // 10k tokens to start
-//				"quota_increase": 10000,  // Refill 10k tokens
-//				"period":         "1 day", // Every day
-//			},
-//			// Cluster-wide token limit
-//			map[string]interface{}{
-//				"type":           "cluster_limiter",
-//				"name":           "cluster_hourly_tokens",
-//				"initial_quota":  100000,   // 100k tokens total
-//				"quota_increase": 100000,   // Refill 100k tokens
-//				"period":         "1 hour", // Every hour
-//			},
-//		},
-//		"scheduler": map[string]interface{}{
-//			"period": 1, // Check quotas every 1 second
-//		},
-//		"enable_token_history": false, // Set to true to track token usage history
-//		// Database configuration for quota storage (optional, uses main database if not specified)
-//		// "sqlite": map[string]interface{}{
-//		//     "db_path": "/app-root/data/quota.db",
-//		// },
-//	}
-//}
+func buildLCoreQuotaHandlersConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) map[string]interface{} {
+	// Only enable if limiters are configured
+	if cr.Spec.OLSConfig.QuotaHandlersConfig == nil ||
+		len(cr.Spec.OLSConfig.QuotaHandlersConfig.LimitersConfig) == 0 {
+		return nil
+	}
+
+	// Build limiters from CR config
+	limiters := []interface{}{}
+	for _, limiter := range cr.Spec.OLSConfig.QuotaHandlersConfig.LimitersConfig {
+		limiters = append(limiters, map[string]interface{}{
+			"type":           limiter.Type,
+			"name":           limiter.Name,
+			"initial_quota":  limiter.InitialQuota,
+			"quota_increase": limiter.QuotaIncrease,
+			"period":         limiter.Period,
+		})
+	}
+
+	config := map[string]interface{}{
+		"limiters": limiters,
+		"scheduler": map[string]interface{}{
+			"period": 60, // Check quotas every 60 seconds
+		},
+		"enable_token_history": cr.Spec.OLSConfig.QuotaHandlersConfig.EnableTokenHistory,
+		// Use PostgreSQL for quota storage (same instance, separate schema)
+		"postgres": map[string]interface{}{
+			"host":         utils.PostgresServiceName + "." + r.GetNamespace() + ".svc",
+			"port":         utils.PostgresServicePort,
+			"db":           utils.PostgresDefaultDbName,
+			"user":         utils.PostgresDefaultUser,
+			"password":     "${env.POSTGRES_PASSWORD}",
+			"ssl_mode":     utils.PostgresDefaultSSLMode,
+			"gss_encmode":  "disable",
+			"ca_cert_path": "/etc/certs/" + utils.PostgresCertsSecretName + "/" + utils.PostgresCAVolume + "/service-ca.crt",
+			"namespace":    "lcore_quota", // Separate schema for quota tables
+		},
+	}
+
+	return config
+}
 
 // buildLCoreConfigYAML assembles the complete Lightspeed Core Service configuration and converts to YAML
 func buildLCoreConfigYAML(r reconciler.Reconciler, _ context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
@@ -859,7 +869,11 @@ func buildLCoreConfigYAML(r reconciler.Reconciler, _ context.Context, cr *olsv1a
 		// "customization":      buildLCoreCustomizationConfig(r, cr),      // System prompt customization
 		// "conversation_cache": buildLCoreConversationCacheConfig(r, cr),  // Chat history caching
 		// "byok_rag":           buildLCoreByokRagConfig(r, cr),            // Custom RAG sources
-		// "quota_handlers":     buildLCoreQuotaHandlersConfig(r, cr),      // Token rate limiting
+	}
+
+	// Add quota_handlers only if configured (avoid nil in YAML)
+	if quotaHandlers := buildLCoreQuotaHandlersConfig(r, cr); quotaHandlers != nil {
+		config["quota_handlers"] = quotaHandlers
 	}
 
 	// Convert to YAML
