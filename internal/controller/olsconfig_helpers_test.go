@@ -634,14 +634,23 @@ var _ = Describe("Helper Functions", func() {
 			Expect(fetchedMCPSecret.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
 		})
 
-		It("should handle missing resources gracefully", func() {
-			// Create CR with non-existent resource references
+		It("should fail when LLM credentials secret is missing", func() {
+			// Create CR with non-existent LLM secret reference
 			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "non-existent-secret"
+
+			// Should return error - LLM credential validation happens first and fails fast
+			err := reconciler.annotateExternalResources(ctx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("LLM credentials validation failed"))
+		})
+
+		It("should handle missing configmap resources gracefully", func() {
+			// Create CR with non-existent configmap reference (but valid LLM secret)
 			testCR.Spec.OLSConfig.AdditionalCAConfigMapRef.Name = "non-existent-cm"
 
-			// Should not return error - missing resources are handled gracefully (returns nil)
+			// Should not return error - missing configmaps are handled gracefully
 			err := reconciler.annotateExternalResources(ctx, testCR)
-			Expect(err).NotTo(HaveOccurred()) // Returns nil for missing resources (will be picked up on next reconciliation)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should skip annotation if already annotated", func() {

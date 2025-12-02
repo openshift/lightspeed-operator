@@ -972,6 +972,10 @@ spec:
                           type: string
                       type: object
                     type: array
+                  querySystemPrompt:
+                    description: Custom system prompt for LLM queries. If not specified,
+                      uses the default OpenShift Lightspeed prompt.
+                    type: string
                   quotaHandlersConfig:
                     description: LLM Token Quota Configuration
                     properties:

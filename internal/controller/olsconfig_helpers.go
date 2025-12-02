@@ -183,8 +183,14 @@ func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deploymen
 // annotateExternalResources annotates all external resources (secrets and configmaps)
 // that the operator watches for changes. This centralizes annotation logic between
 // Phase 1 (resource reconciliation) and Phase 2 (deployment reconciliation).
+// It also validates LLM credentials before proceeding with annotation.
 func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	cr *olsv1alpha1.OLSConfig) error {
+
+	// Validate LLM credentials first (fail fast)
+	if err := utils.ValidateLLMCredentials(r, ctx, cr); err != nil {
+		return fmt.Errorf("LLM credentials validation failed: %w", err)
+	}
 
 	var errs []error
 

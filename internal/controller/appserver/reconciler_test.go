@@ -416,31 +416,8 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
 
-		It("should return error when the LLM provider token secret does not have required keys", func() {
-			By("General provider: the token secret miss 'apitoken' key")
-			secret, _ := utils.GenerateRandomSecret()
-			// delete the required key "apitoken"
-			delete(secret.Data, "apitoken")
-			err := k8sClient.Update(ctx, secret)
-			Expect(err).NotTo(HaveOccurred())
-			err = ReconcileAppServer(testReconcilerInstance, ctx, cr)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("reconcile OLSConfigMap"))
-
-			By("AzureOpenAI provider: the token secret miss 'client_id', 'tenant_id', 'client_secret' key")
-			secret, _ = utils.GenerateRandomSecret()
-			delete(secret.Data, "client_id")
-			delete(secret.Data, "tenant_id")
-			delete(secret.Data, "client_secret")
-			delete(secret.Data, "apitoken")
-			err = k8sClient.Update(ctx, secret)
-			Expect(err).NotTo(HaveOccurred())
-			crAzure := cr.DeepCopy()
-			crAzure.Spec.LLMConfig.Providers[0].Type = utils.AzureOpenAIType
-			err = ReconcileAppServer(testReconcilerInstance, ctx, crAzure)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("reconcile OLSConfigMap"))
-		})
+		// Note: LLM credential validation is now done in annotateExternalResources
+		// and tested in utils_misc_test.go and olsconfig_helpers_test.go
 
 	})
 

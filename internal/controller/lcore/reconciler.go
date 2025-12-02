@@ -238,12 +238,6 @@ func reconcileLlamaStackConfigMap(r reconciler.Reconciler, ctx context.Context, 
 }
 
 func reconcileLcoreConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	// Validate LLM credentials before generating config
-	err := checkLLMCredentials(r, ctx, cr)
-	if err != nil {
-		return fmt.Errorf("failed to validate LLM provider credential settings: %w", err)
-	}
-
 	cm, err := GenerateLcoreConfigMap(r, ctx, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateAPIConfigmap, err)
