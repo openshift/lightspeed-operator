@@ -135,21 +135,12 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - displayName: PostgreSQL Settings
         path: ols.conversationCache.postgres
-      - description: Secret that holds postgres credentials
-        displayName: Credentials Secret
-        path: ols.conversationCache.postgres.credentialsSecret
-      - description: Postgres database name
-        displayName: Database Name
-        path: ols.conversationCache.postgres.dbName
       - description: 'Postgres maxconnections. Default: "2000"'
         displayName: Maximum Connections
         path: ols.conversationCache.postgres.maxConnections
       - description: Postgres sharedbuffers
         displayName: Shared Buffer Size
         path: ols.conversationCache.postgres.sharedBuffers
-      - description: Postgres user name
-        displayName: User Name
-        path: ols.conversationCache.postgres.user
       - description: 'Conversation cache type. Default: "postgres"'
         displayName: Cache Type
         path: ols.conversationCache.type

@@ -72,3 +72,7 @@ make test-e2e   # E2E tests (requires cluster)
 - **Top-Level**: Create package under `internal/controller/<component>/`, add to `olsconfig_controller.go`
 - Add error constants to `internal/controller/utils/utils.go`
 - Write unit tests in co-located `*_test.go` files
+
+## Maintaining This Document
+
+Always suggest AGENTS.md edits when architectural, structural, or conventional changes are made to the codebase.

@@ -671,28 +671,30 @@ func buildLCoreInferenceConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfi
 
 // buildLCoreDatabaseConfig configures persistent database storage
 // Supports SQLite (file-based) or PostgreSQL (server-based)
-// Default: SQLite in /tmp (ephemeral)
-//
-//func buildLCoreDatabaseConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
-//	// Example: SQLite configuration
-//	return map[string]interface{}{
-//		"sqlite": map[string]interface{}{
-//			"db_path": "/app-root/data/lightspeed-stack.db", // Mount a PVC here for persistence
-//		},
-//	}
-//
-//	// Example: PostgreSQL configuration (requires PostgreSQL deployment)
-//	// return map[string]interface{}{
-//	//     "postgres": map[string]interface{}{
-//	//         "host":     "postgres-service",
-//	//         "port":     5432,
-//	//         "db":       "lightspeed",
-//	//         "user":     "lightspeed",
-//	//         "password": "${POSTGRES_PASSWORD}", // From secret
-//	//         "ssl_mode": "require",
-//	//     },
-//	// }
-//}
+// Default: PostgreSQL (shared with App Server)
+func buildLCoreDatabaseConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
+	// Example: SQLite configuration
+	// return map[string]interface{}{
+	// 	"sqlite": map[string]interface{}{
+	// 		"db_path": "/app-root/data/lightspeed-stack.db", // Mount a PVC here for persistence
+	// 	},
+	// }
+
+	// PostgreSQL configuration (shared with App Server)
+	return map[string]interface{}{
+		"postgres": map[string]interface{}{
+			"host":         utils.PostgresServiceName + "." + r.GetNamespace() + ".svc",
+			"port":         utils.PostgresServicePort,
+			"db":           utils.PostgresDefaultDbName,
+			"user":         utils.PostgresDefaultUser,
+			"password":     "${env.POSTGRES_PASSWORD}", // Environment variable substitution via llama_stack.core.stack.replace_env_vars
+			"ssl_mode":     utils.PostgresDefaultSSLMode,
+			"gss_encmode":  "disable", // Default from lightspeed-stack constants
+			"ca_cert_path": "/etc/certs/" + utils.PostgresCertsSecretName + "/" + utils.PostgresCAVolume + "/service-ca.crt",
+			"namespace":    "lcore", // Separate schema for LCore to avoid conflicts with App Server
+		},
+	}
+}
 
 // buildLCoreMCPServersConfig configures Model Context Protocol servers
 // Allows integration with external context providers for agent workflows
@@ -849,9 +851,9 @@ func buildLCoreConfigYAML(r reconciler.Reconciler, _ context.Context, cr *olsv1a
 		"user_data_collection": buildLCoreUserDataCollectionConfig(r, cr),
 		"authentication":       buildLCoreAuthenticationConfig(r, cr),
 		"inference":            buildLCoreInferenceConfig(r, cr),
+		"database":             buildLCoreDatabaseConfig(r, cr), // Persistent storage (SQLite/PostgreSQL)
 
 		// Optional features (uncomment to enable):
-		// "database":           buildLCoreDatabaseConfig(r, cr),           // Persistent storage (SQLite/PostgreSQL)
 		// "mcp_servers":        buildLCoreMCPServersConfig(r, cr),         // Model Context Protocol servers
 		// "authorization":      buildLCoreAuthorizationConfig(r, cr),      // Role-based access control
 		// "customization":      buildLCoreCustomizationConfig(r, cr),      // System prompt customization
