@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"time"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
@@ -27,7 +26,6 @@ type OLSConfigReconcilerOptions struct {
 	LightspeedCoreImage            string
 	UseLCore                       bool
 	Namespace                      string
-	ReconcileInterval              time.Duration
 	PrometheusAvailable            bool
 }
 

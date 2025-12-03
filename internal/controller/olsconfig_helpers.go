@@ -102,13 +102,19 @@ func (r *OLSConfigReconciler) UpdateStatusCondition(ctx context.Context, olsconf
 		Status:             metav1.ConditionUnknown,
 		ObservedGeneration: olsconfig.Generation,
 		LastTransitionTime: metav1.Time{},
-		Reason:             "Reconciling",
 	}
 
 	if status {
 		condition.Status = metav1.ConditionTrue
+		condition.Reason = "Available"
 	} else {
 		condition.Status = metav1.ConditionFalse
+		// Determine reason based on message
+		if message == utils.DeploymentInProgress {
+			condition.Reason = "Progressing"
+		} else {
+			condition.Reason = "Failed"
+		}
 	}
 
 	if err != nil {

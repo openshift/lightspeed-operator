@@ -16,8 +16,6 @@ const (
 	OLSConfigKind = "OLSConfig"
 	// OLSConfigAPIVersion is the APIVersion of the OLSConfig Custom Resource
 	OLSConfigAPIVersion = "ols.openshift.io/v1alpha1"
-	// DefaultReconcileInterval is the default interval for reconciliation
-	DefaultReconcileInterval = 120
 	// OperatorCertDirDefault is the default directory for storing the operator certificate
 	OperatorCertDirDefault = "/etc/tls/private"
 	// OperatorCertNameDefault is the default name of the operator certificate

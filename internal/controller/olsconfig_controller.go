@@ -51,7 +51,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -75,13 +74,18 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/watchers"
 )
 
-// OLSConfigReconciler reconciles a OLSConfig object
+// OLSConfigReconciler reconciles a OLSConfig object.
+// This controller is fully event-driven and does not use periodic reconciliation.
+// All changes are detected via watches:
+//   - Owned resources (Deployments, Services, etc.) via Owns()
+//   - External resources (Secrets, ConfigMaps) via Watches() with custom predicates
+//
+// Controller-runtime handles error retries with exponential backoff.
 type OLSConfigReconciler struct {
 	client.Client
-	Logger            logr.Logger
-	Options           utils.OLSConfigReconcilerOptions
-	WatcherConfig     *utils.WatcherConfig
-	NextReconcileTime time.Time
+	Logger        logr.Logger
+	Options       utils.OLSConfigReconcilerOptions
+	WatcherConfig *utils.WatcherConfig
 }
 
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -182,8 +186,9 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		// Controller-runtime handles error retries with exponential backoff.
 		r.Logger.Error(err, "Failed to get olsconfig")
-		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
+		return ctrl.Result{}, err
 	}
 	r.Logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
 
@@ -192,9 +197,10 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// annotated for watching before we reconcile deployments that depend on them.
 	// This also validates that the resources exist (fail fast if they're missing).
 	if err := r.annotateExternalResources(ctx, olsconfig); err != nil {
+		// Controller-runtime handles error retries with exponential backoff.
 		r.Logger.Error(err, "Failed to annotate external resources")
 		r.UpdateStatusCondition(ctx, olsconfig, utils.TypeCRReconciled, false, "Failed", err)
-		return ctrl.Result{RequeueAfter: 1 * time.Second}, err
+		return ctrl.Result{}, err
 	}
 
 	// Phase 1: Reconcile independent resources for all components
@@ -302,7 +308,8 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				message, err := r.checkDeploymentStatus(deployment)
 				if err != nil {
 					if message == utils.DeploymentInProgress {
-						// Deployment is not ready
+						// Deployment is not ready yet - status will be updated on next reconciliation
+						// triggered by deployment watch
 						r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, message, nil)
 						progressing = true
 					} else {
@@ -311,8 +318,8 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 						failedTasks[step.Name] = err
 					}
 				} else {
-					// Update status condition for successful reconciliation
-					r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, true, "All components are successfully deployed", nil)
+					// Deployment is ready
+					r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, true, "Ready", nil)
 				}
 			}
 		}
@@ -326,28 +333,30 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		return ctrl.Result{}, fmt.Errorf("failed deployment reconciliation tasks: %v", taskNames)
 	}
+
 	if progressing {
-		return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
+		// Don't mark CR as fully reconciled yet - deployments are still rolling out.
+		// The deployment watch will trigger reconciliation when they become ready.
+		r.Logger.Info("reconciliation in progress, waiting for deployments to become ready")
+		return ctrl.Result{}, nil
 	}
 
 	r.Logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
 
 	// Update status condition for Custom Resource
-	r.UpdateStatusCondition(ctx, olsconfig, utils.TypeCRReconciled, true, "Custom resource successfully reconciled", nil)
+	// Only reached when all deployments are ready (not failed, not progressing)
+	r.UpdateStatusCondition(ctx, olsconfig, utils.TypeCRReconciled, true, "All components are available", nil)
 
-	// Requeue if no reconciliation is scheduled in future.
-	if r.NextReconcileTime.After(time.Now()) {
-		return ctrl.Result{}, nil
-	}
-	r.NextReconcileTime = time.Now().Add(r.Options.ReconcileInterval)
-	r.Logger.Info("Next automatic reconciliation scheduled at", "nextReconcileTime", r.NextReconcileTime)
-	return ctrl.Result{RequeueAfter: r.Options.ReconcileInterval}, nil
+	// No periodic requeue needed - reconciliation is triggered by watches on:
+	// - OLSConfig CR changes (For)
+	// - Owned resource changes like Deployments (Owns)
+	// - External Secret/ConfigMap changes (Watches with predicates)
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Logger = ctrl.Log.WithName("Reconciler")
-	r.NextReconcileTime = time.Now()
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olsv1alpha1.OLSConfig{}).

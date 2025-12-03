@@ -58,7 +58,7 @@ The operator follows a modular, component-based architecture where each major co
 - Detect OpenShift version and select appropriate images
 - Start controller and handle graceful shutdown
 
-**Key Flags:** `--enable-lcore` (backend selection), `--controller-namespace`, `--reconcile-interval-minutes`. See `cmd/main.go` for complete list.
+**Key Flags:** `--enable-lcore` (backend selection), `--controller-namespace`. See `cmd/main.go` for complete list.
 
 ### Reconciler Interface (`internal/controller/reconciler`)
 
