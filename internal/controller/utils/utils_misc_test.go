@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
@@ -833,6 +834,122 @@ cNHlzbRSivTDuHmXJdCYIdd8cnH6EbPm3zNg0jU5Au6OrvDZYifP+DtuiLmJct4=
 
 			err := ValidateCertificateFormat(certWithWhitespace)
 
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Describe("ValidateLLMCredentials", func() {
+		var testReconciler *TestReconciler
+		var testSecret *corev1.Secret
+
+		BeforeEach(func() {
+			testReconciler = NewTestReconciler(
+				k8sClient,
+				logf.Log.WithName("test"),
+				k8sClient.Scheme(),
+				OLSNamespaceDefault,
+			)
+		})
+
+		AfterEach(func() {
+			if testSecret != nil {
+				_ = k8sClient.Delete(testCtx, testSecret)
+				testSecret = nil
+			}
+		})
+
+		It("should validate LLM credentials exist", func() {
+			By("Create a test secret with apitoken")
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"apitoken": []byte("test-token"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Create a test CR with LLM provider")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-llm-secret"
+
+			By("Check LLM credentials - should succeed")
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should fail when LLM credentials secret is missing", func() {
+			By("Create a test CR with non-existent secret")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "non-existent-secret"
+
+			By("Check LLM credentials - should fail")
+			err := ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("credential secret non-existent-secret not found"))
+		})
+
+		It("should fail when provider is missing credentials secret name", func() {
+			By("Create a test CR with empty secret name")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = ""
+
+			By("Check LLM credentials - should fail")
+			err := ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("missing credentials secret"))
+		})
+
+		It("should fail when secret is missing apitoken key", func() {
+			By("Create a test secret without apitoken")
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm-secret-no-token",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"wrongkey": []byte("test-value"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Create a test CR with the secret")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-llm-secret-no-token"
+
+			By("Check LLM credentials - should fail")
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("missing key 'apitoken'"))
+		})
+
+		It("should accept Azure OpenAI secret with client credentials", func() {
+			By("Create a test secret with Azure client credentials")
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-azure-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"client_id":     []byte("test-client-id"),
+					"tenant_id":     []byte("test-tenant-id"),
+					"client_secret": []byte("test-client-secret"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Create a test CR with Azure OpenAI provider")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].Type = AzureOpenAIType
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-azure-secret"
+
+			By("Check LLM credentials - should succeed")
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -490,6 +491,41 @@ func GetPostgresCAVolumeMount(mountPath string) corev1.VolumeMount {
 		MountPath: mountPath,
 		ReadOnly:  true,
 	}
+}
+
+// ValidateLLMCredentials validates that all LLM provider credentials are present and valid.
+// It checks that each provider's credential secret exists and contains the required keys.
+func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	for _, provider := range cr.Spec.LLMConfig.Providers {
+		if provider.CredentialsSecretRef.Name == "" {
+			return fmt.Errorf("provider %s missing credentials secret", provider.Name)
+		}
+		secret := &corev1.Secret{}
+		err := r.Get(ctx, client.ObjectKey{Name: provider.CredentialsSecretRef.Name, Namespace: r.GetNamespace()}, secret)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return fmt.Errorf("LLM provider %s credential secret %s not found", provider.Name, provider.CredentialsSecretRef.Name)
+			}
+			return fmt.Errorf("failed to get LLM provider %s credential secret %s: %w", provider.Name, provider.CredentialsSecretRef.Name, err)
+		}
+		if provider.Type == AzureOpenAIType {
+			// Azure OpenAI secret must contain "apitoken" or 3 keys named "client_id", "tenant_id", "client_secret"
+			if _, ok := secret.Data["apitoken"]; ok {
+				continue
+			}
+			for _, key := range []string{"client_id", "tenant_id", "client_secret"} {
+				if _, ok := secret.Data[key]; !ok {
+					return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, key)
+				}
+			}
+		} else {
+			// Other providers (e.g. WatsonX, OpenAI) must contain a key named "apitoken"
+			if _, ok := secret.Data["apitoken"]; !ok {
+				return fmt.Errorf("LLM provider %s credential secret %s missing key 'apitoken'", provider.Name, provider.CredentialsSecretRef.Name)
+			}
+		}
+	}
+	return nil
 }
 
 // GenerateAppServerSelectorLabels returns selector labels for Application Server components

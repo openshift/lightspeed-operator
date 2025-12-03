@@ -103,40 +103,7 @@ func generateSARClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 	return &rb, nil
 }
 
-func checkLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	for _, provider := range cr.Spec.LLMConfig.Providers {
-		if provider.CredentialsSecretRef.Name == "" {
-			return fmt.Errorf("provider %s missing credentials secret", provider.Name)
-		}
-		secret := &corev1.Secret{}
-		err := r.Get(ctx, client.ObjectKey{Name: provider.CredentialsSecretRef.Name, Namespace: r.GetNamespace()}, secret)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return fmt.Errorf("LLM provider %s credential secret %s not found", provider.Name, provider.CredentialsSecretRef.Name)
-			}
-			return fmt.Errorf("failed to get LLM provider %s credential secret %s: %w", provider.Name, provider.CredentialsSecretRef.Name, err)
-		}
-		if provider.Type == utils.AzureOpenAIType {
-			// Azure OpenAI secret must contain "apitoken" or 3 keys named "client_id", "tenant_id", "client_secret"
-			if _, ok := secret.Data["apitoken"]; ok {
-				continue
-			}
-			for _, key := range []string{"client_id", "tenant_id", "client_secret"} {
-				if _, ok := secret.Data[key]; !ok {
-					return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, key)
-				}
-			}
-		} else {
-			// Other providers (e.g. WatsonX, OpenAI) must contain a key named "apikey"
-			if _, ok := secret.Data["apitoken"]; !ok {
-				return fmt.Errorf("LLM provider %s credential secret %s missing key 'apitoken'", provider.Name, provider.CredentialsSecretRef.Name)
-			}
-		}
-	}
-	return nil
-}
-
-func postgresCacheConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) utils.PostgresCacheConfig {
+func postgresCacheConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) utils.PostgresCacheConfig {
 	postgresPasswordPath := path.Join(utils.CredentialsMountRoot, utils.PostgresSecretName, utils.OLSComponentPasswordFileName)
 	return utils.PostgresCacheConfig{
 		Host:         strings.Join([]string{utils.PostgresServiceName, r.GetNamespace(), "svc"}, "."),

@@ -124,6 +124,10 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Only use BYOK RAG sources",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	ByokRAGOnly bool `json:"byokRAGOnly,omitempty"`
+	// Custom system prompt for LLM queries. If not specified, uses the default OpenShift Lightspeed prompt.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Query System Prompt",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	QuerySystemPrompt string `json:"querySystemPrompt,omitempty"`
 }
 
 // Persistent Storage Configuration
