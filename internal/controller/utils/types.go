@@ -93,8 +93,7 @@ type ProviderConfig struct {
 	// Provider API URL
 	URL string `json:"url,omitempty"`
 	// Path to the file containing API provider credentials in the app server container.
-	// default to "bam_api_key.txt"
-	CredentialsPath string `json:"credentials_path,omitempty" default:"bam_api_key.txt"`
+	CredentialsPath string `json:"credentials_path,omitempty"`
 	// List of models from the provider
 	Models []ModelConfig `json:"models,omitempty"`
 	// Provider type
