@@ -61,7 +61,7 @@ func GetDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 				Providers: []olsv1alpha1.ProviderSpec{
 					{
 						Name: "testProvider",
-						Type: "bam",
+						Type: "openai",
 						URL:  "https://testURL",
 						Models: []olsv1alpha1.ModelSpec{
 							{

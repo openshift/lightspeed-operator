@@ -242,14 +242,30 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Contex
 			}
 			providerConfig["config"] = config
 
-		case "watsonx", "rhoai_vllm", "rhelai_vllm", "bam":
-			// These providers are not supported by Llama Stack
+		case "watsonx":
+			providerConfig["provider_type"] = "remote::watsonx"
+			config := map[string]interface{}{}
+
+			// Set environment variable name for API key
+			config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+
+			// Watsonx-specific fields
+			if provider.WatsonProjectID != "" {
+				config["project_id"] = provider.WatsonProjectID
+			}
+			if provider.URL != "" {
+				config["base_url"] = provider.URL
+			}
+			providerConfig["config"] = config
+
+		case "rhoai_vllm", "rhelai_vllm":
+			// These providers are not currently supported by Llama Stack
 			// They are handled directly by lightspeed-stack (LCS), not Llama Stack
-			return nil, fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai", provider.Type, provider.Name)
+			return nil, fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai, watsonx", provider.Type, provider.Name)
 
 		default:
 			// Unknown provider type
-			return nil, fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai", provider.Type, provider.Name)
+			return nil, fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai, watsonx", provider.Type, provider.Name)
 		}
 
 		providers = append(providers, providerConfig)

@@ -315,7 +315,6 @@ spec:
                           description: Provider type
                           enum:
                           - azure_openai
-                          - bam
                           - openai
                           - watsonx
                           - rhoai_vllm

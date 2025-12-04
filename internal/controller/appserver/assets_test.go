@@ -129,7 +129,7 @@ var _ = Describe("App server assets", func() {
 						Name:            "testProvider",
 						URL:             testURL,
 						CredentialsPath: "/etc/apikeys/test-secret",
-						Type:            "bam",
+						Type:            "openai",
 						Models: []utils.ModelConfig{
 							{
 								Name: "testModel",

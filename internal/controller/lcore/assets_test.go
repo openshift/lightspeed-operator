@@ -66,7 +66,7 @@ func TestBuildLlamaStackYAML_SupportedProvider(t *testing.T) {
 
 func TestBuildLlamaStackYAML_UnsupportedProvider(t *testing.T) {
 	// Test unsupported providers
-	unsupportedProviders := []string{"watsonx", "bam", "rhoai_vllm", "rhelai_vllm"}
+	unsupportedProviders := []string{"rhoai_vllm", "rhelai_vllm"}
 
 	for _, providerType := range unsupportedProviders {
 		t.Run(providerType, func(t *testing.T) {
@@ -253,6 +253,147 @@ func TestBuildLlamaStackYAML_AzureProvider(t *testing.T) {
 	}
 
 	t.Logf("Successfully validated Llama Stack YAML with Azure provider (%d bytes)", len(yamlOutput))
+}
+
+func TestBuildLlamaStackYAML_WatsonxProvider(t *testing.T) {
+	// Create a fake secret with API token for Watsonx provider
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "watsonx-secret",
+			Namespace: "test-namespace",
+		},
+		Data: map[string][]byte{
+			"apitoken": []byte("test-api-key"),
+		},
+	}
+
+	// Create a fake client with the secret
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = olsv1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(secret).
+		Build()
+
+	// Create a test reconciler
+	logger := zap.New(zap.UseDevMode(true))
+	testReconciler := utils.NewTestReconciler(
+		fakeClient,
+		logger,
+		scheme,
+		"test-namespace",
+	)
+
+	// Create a test CR with Watsonx provider
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name:            "watsonx",
+						Type:            "watsonx",
+						URL:             "https://us-south.ml.cloud.ibm.com",
+						WatsonProjectID: "my-project-id",
+						Models: []olsv1alpha1.ModelSpec{
+							{
+								Name:              "ibm/granite-13b-chat-v2",
+								ContextWindowSize: 8192,
+							},
+						},
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "watsonx-secret",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Build the YAML
+	ctx := context.Background()
+	yamlOutput, err := buildLlamaStackYAML(testReconciler, ctx, cr)
+	if err != nil {
+		t.Fatalf("buildLlamaStackYAML returned error for Watsonx provider: %v", err)
+	}
+
+	// Verify it's valid YAML
+	var result map[string]interface{}
+	err = yaml.Unmarshal([]byte(yamlOutput), &result)
+	if err != nil {
+		t.Fatalf("buildLlamaStackYAML produced invalid YAML: %v", err)
+	}
+
+	// Verify Watsonx provider configuration
+	providers, ok := result["providers"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("providers section not found or invalid type")
+	}
+
+	inference, ok := providers["inference"].([]interface{})
+	if !ok || len(inference) == 0 {
+		t.Fatalf("inference providers not found or empty")
+	}
+
+	// Find the Watsonx provider (not the sentence-transformers one)
+	var watsonxProvider map[string]interface{}
+	for _, provider := range inference {
+		p, ok := provider.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if p["provider_type"] == "remote::watsonx" {
+			watsonxProvider = p
+			break
+		}
+	}
+
+	if watsonxProvider == nil {
+		t.Fatalf("Watsonx provider not found in inference providers")
+	}
+
+	// Check provider_type
+	if watsonxProvider["provider_type"] != "remote::watsonx" {
+		t.Errorf("Expected provider_type 'remote::watsonx', got '%v'", watsonxProvider["provider_type"])
+	}
+
+	// Check config fields
+	config, ok := watsonxProvider["config"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("provider config not found or invalid type")
+	}
+
+	// Verify Watsonx-specific fields are present
+	requiredFields := []string{
+		"api_key",    // API key
+		"project_id", // Watsonx project ID
+		"base_url",   // Watsonx endpoint (Llama Stack uses base_url not url)
+	}
+	for _, field := range requiredFields {
+		if _, exists := config[field]; !exists {
+			t.Errorf("Expected field '%s' not found in Watsonx provider config", field)
+		}
+	}
+
+	// Verify api_key has the correct env var format
+	if apiKey, ok := config["api_key"].(string); ok && apiKey != "" {
+		if !strings.HasPrefix(apiKey, "${env.") || !strings.HasSuffix(apiKey, "_API_KEY}") {
+			t.Errorf("api_key doesn't have correct env var format, got: %s", apiKey)
+		}
+	} else {
+		t.Errorf("api_key field is missing or empty")
+	}
+
+	// Verify project_id is set correctly
+	if projectID, ok := config["project_id"].(string); ok {
+		if projectID != "my-project-id" {
+			t.Errorf("Expected project_id 'my-project-id', got '%s'", projectID)
+		}
+	} else {
+		t.Errorf("project_id field is missing or invalid type")
+	}
+
+	t.Logf("Successfully validated Llama Stack YAML with Watsonx provider (%d bytes)", len(yamlOutput))
 }
 
 // Helper function to check if a string contains a substring
