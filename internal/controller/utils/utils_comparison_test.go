@@ -231,44 +231,44 @@ var _ = Describe("Resource Comparison Functions", func() {
 		})
 
 		It("should return true for identical deployment specs", func() {
-			Expect(DeploymentSpecEqual(deployment1, deployment2)).To(BeTrue())
+			Expect(DeploymentSpecEqual(deployment1, deployment2, true)).To(BeTrue())
 		})
 
 		It("should return false when replicas differ", func() {
 			newReplicas := int32(3)
 			deployment2.Replicas = &newReplicas
 
-			Expect(DeploymentSpecEqual(deployment1, deployment2)).To(BeFalse())
+			Expect(DeploymentSpecEqual(deployment1, deployment2, true)).To(BeFalse())
 		})
 
 		It("should return false when node selector differs", func() {
 			deployment2.Template.Spec.NodeSelector = map[string]string{"disktype": "hdd"}
 
-			Expect(DeploymentSpecEqual(deployment1, deployment2)).To(BeFalse())
+			Expect(DeploymentSpecEqual(deployment1, deployment2, true)).To(BeFalse())
 		})
 
 		It("should return false when tolerations differ", func() {
 			deployment2.Template.Spec.Tolerations = []corev1.Toleration{}
 
-			Expect(DeploymentSpecEqual(deployment1, deployment2)).To(BeFalse())
+			Expect(DeploymentSpecEqual(deployment1, deployment2, true)).To(BeFalse())
 		})
 
 		It("should return false when strategy differs", func() {
 			deployment2.Strategy.Type = appsv1.RecreateDeploymentStrategyType
 
-			Expect(DeploymentSpecEqual(deployment1, deployment2)).To(BeFalse())
+			Expect(DeploymentSpecEqual(deployment1, deployment2, true)).To(BeFalse())
 		})
 
 		It("should return false when volumes differ", func() {
 			deployment2.Template.Spec.Volumes = []corev1.Volume{}
 
-			Expect(DeploymentSpecEqual(deployment1, deployment2)).To(BeFalse())
+			Expect(DeploymentSpecEqual(deployment1, deployment2, true)).To(BeFalse())
 		})
 
 		It("should return false when containers differ", func() {
 			deployment2.Template.Spec.Containers[0].Image = "myapp:v2"
 
-			Expect(DeploymentSpecEqual(deployment1, deployment2)).To(BeFalse())
+			Expect(DeploymentSpecEqual(deployment1, deployment2, true)).To(BeFalse())
 		})
 	})
 

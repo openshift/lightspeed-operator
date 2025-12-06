@@ -1,13 +1,29 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	origImage1           = "docker://quay.io/openshift-lightspeed-test/assisted-installer-guide:2025-1"
+	origImage2           = "docker://quay.io/openshift-lightspeed-test/assisted-installer-guide:2025-2"
+	registryDefaultRoute = "default-route-openshift-image-registry.apps-crc.testing"
+	imageName            = "assisted-installer-guide"
+	imageTag             = "latest"
+	imageNameAndTag      = imageName + ":" + imageTag
+	latestImageName      = registryDefaultRoute + "/" + utils.OLSNamespaceDefault + "/" + imageNameAndTag
+	dstUserName          = "kubeamin"
 )
 
 var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
@@ -16,10 +32,30 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 
 	BeforeAll(func() {
 		By("Setting up OLS test environment with RAG configuration")
+		ctx := context.Background()
+		client, err := GetClient(nil)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = CopyImageToRegistry(
+			ctx,
+			origImage1,
+			registryDefaultRoute,
+			utils.OLSNamespaceDefault,
+			imageNameAndTag,
+			"",
+			"",
+			dstUserName,
+			client.config.BearerToken,
+			false,
+			true,
+			os.Stdout,
+			15*time.Minute,
+		)
+		Expect(err).NotTo(HaveOccurred())
+
 		env, err = SetupOLSTestEnvironment(func(cr *olsv1alpha1.OLSConfig) {
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
-					Image: "quay.io/openshift-lightspeed-test/assisted-installer-guide:2025-1",
+					Image: latestImageName,
 				},
 			}
 			cr.Spec.OLSConfig.ByokRAGOnly = true
@@ -81,5 +117,55 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 		fmt.Println(string(body))
 
 		Expect(string(body)).NotTo(ContainSubstring("Related documentation"))
+	})
+
+	It("should check that BYOK image update propagates to the OLS", func() {
+		appServerDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AppServerDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err := env.Client.Get(appServerDeployment)
+		Expect(err).NotTo(HaveOccurred())
+		oldGeneration := appServerDeployment.Generation
+
+		By("Copying a BYOK image to the internal image registry")
+		ctx := context.Background()
+		digest, err := CopyImageToRegistry(
+			ctx,
+			origImage2,
+			registryDefaultRoute,
+			utils.OLSNamespaceDefault,
+			imageNameAndTag,
+			"",
+			"",
+			dstUserName,
+			env.Client.config.BearerToken,
+			false,
+			true,
+			os.Stdout,
+			15*time.Minute,
+		)
+		Expect(err).NotTo(HaveOccurred())
+		err = AddImageStreamImport(env.Client, utils.OLSNamespaceDefault, imageTag, latestImageName)
+		Expect(err).NotTo(HaveOccurred())
+		err = env.Client.WaitForDeploymentNextGeneration(appServerDeployment, oldGeneration)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = env.Client.WaitForDeploymentRollout(appServerDeployment)
+		Expect(err).NotTo(HaveOccurred())
+
+		appServerDeployment = &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AppServerDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = env.Client.Get(appServerDeployment)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(appServerDeployment.Spec.Template.Spec.InitContainers[0].Image).To(
+			Equal(registryDefaultRoute + "/" + utils.OLSNamespaceDefault + "/" + imageName + "@" + digest),
+		)
 	})
 })
