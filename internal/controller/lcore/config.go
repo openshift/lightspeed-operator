@@ -74,15 +74,16 @@ func buildLlamaStackCoreConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig
 	return map[string]interface{}{
 		"version":    "2",
 		"image_name": "minimal-viable-llama-stack-configuration",
-		// Minimal APIs for RAG + MCP: agents (for MCP), files, inference, safety (required by agents), tool_runtime, vector_io
-		// Commented out: datasetio, eval, post_training, scoring, telemetry (not available in this Llama Stack version)
-		"apis":                   []string{"agents" /* "datasetio", "eval", */, "files", "inference" /* , "post_training", */, "safety" /* , "scoring", "telemetry" */, "tool_runtime", "vector_io"},
+		// Minimal APIs for RAG + MCP: agents (for MCP), files, inference, safety (required by agents), telemetry, tool_runtime, vector_io
+		// Commented out: datasetio, eval, post_training, scoring (not needed for basic RAG + MCP)
+		// Commented out: datasetio, eval, post_training, prompts, scoring, telemetry
+		"apis":                   []string{"agents" /* "datasetio", "eval", */, "files", "inference" /* , "post_training", */, "safety" /* , "scoring", "telemetry"*/, "tool_runtime", "vector_io"},
 		"benchmarks":             []interface{}{},
 		"container_image":        nil,
 		"datasets":               []interface{}{},
 		"external_providers_dir": nil,
 		"inference_store": map[string]interface{}{
-			"db_path": "/tmp/llama-stack/inference_store.db",
+			"db_path": ".llama/distributions/ollama/inference_store.db",
 			"type":    "sqlite",
 		},
 		"logging": nil,
@@ -205,15 +206,23 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Contex
 		envVarName := utils.ProviderNameToEnvVarName(provider.Name)
 
 		// Map OLSConfig provider types to Llama Stack provider types
-		// Note: Only providers supported by Llama Stack are included
 		switch provider.Type {
-		case "openai":
-			providerConfig["provider_type"] = "remote::openai"
+		case "openai", "rhoai_vllm", "rhelai_vllm":
 			config := map[string]interface{}{}
-
-			// Set environment variable name for API key
-			// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
-			config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+			// Determine the appropriate Llama Stack provider type
+			// - OpenAI uses remote::openai (validates against OpenAI model whitelist)
+			// - vLLM uses remote::vllm (accepts any custom model names)
+			if provider.Type == "openai" {
+				providerConfig["provider_type"] = "remote::openai"
+				// Set API key from environment variable
+				// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
+				config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+			} else {
+				providerConfig["provider_type"] = "remote::vllm"
+				// Set API key from environment variable
+				// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
+				config["api_token"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+			}
 
 			// Add custom URL if specified
 			if provider.URL != "" {
@@ -246,14 +255,14 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Contex
 			}
 			providerConfig["config"] = config
 
-		case "watsonx", "rhoai_vllm", "rhelai_vllm", "bam":
+		case "watsonx", "bam":
 			// These providers are not supported by Llama Stack
 			// They are handled directly by lightspeed-stack (LCS), not Llama Stack
-			return nil, fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai", provider.Type, provider.Name)
+			return nil, fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
 
 		default:
 			// Unknown provider type
-			return nil, fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai", provider.Type, provider.Name)
+			return nil, fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
 		}
 
 		providers = append(providers, providerConfig)
