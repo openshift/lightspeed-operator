@@ -3,6 +3,30 @@
 ## Project Overview
 Kubernetes operator managing OpenShift Lightspeed (AI-powered Virtual Assistant). Go + controller-runtime/kubebuilder + Ginkgo v2/Gomega testing.
 
+## Version Management
+
+### Version Update Process
+When updating the operator version for a release, you **MUST** update version numbers in **TWO** files:
+
+1. **`bundle.Dockerfile`** - Bundle container labels (lines 63 and 66)
+   ```dockerfile
+   LABEL release=X.Y.Z
+   LABEL version=X.Y.Z
+   ```
+
+2. **`bundle/manifests/lightspeed-operator.clusterserviceversion.yaml`** - CSV metadata (lines 58 and 715)
+   ```yaml
+   name: lightspeed-operator.vX.Y.Z
+   # ... line 715:
+   version: X.Y.Z
+   ```
+
+**Important Notes:**
+- Both files MUST have matching versions
+- The CSV `name` field includes a `v` prefix (e.g., `lightspeed-operator.v1.0.8`)
+- The CSV `version` field does NOT have a prefix (e.g., `1.0.8`)
+- After version changes, regenerate bundle using `make bundle` or `hack/update_bundle.sh -v X.Y.Z`
+
 ## Architecture Quick Reference
 
 ### Core Components
