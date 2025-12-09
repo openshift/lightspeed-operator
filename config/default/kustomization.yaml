@@ -1,32 +1,28 @@
 # Adds namespace to all resources.
 namespace: openshift-lightspeed
-
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
 namePrefix: lightspeed-operator-
-
 # Labels to add to all resources and selectors.
 #labels:
 #- includeSelectors: true
 #  pairs:
 #    someName: someValue
-
 resources:
-- ../crd
-- ../rbac
-- ../manager
-- ../user-access
-# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
-# crd/kustomization.yaml
-#- ../webhook
-# [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
-#- ../certmanager
-# [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
-- ../prometheus
-
+  - ../crd
+  - ../rbac
+  - ../manager
+  - ../user-access
+  # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
+  # crd/kustomization.yaml
+  #- ../webhook
+  # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
+  #- ../certmanager
+  # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
+  - ../prometheus
 patches:
   # set image of lightspeed-service-api
   # todo: sync with the release version of openshift/lightspeed-service-api
@@ -60,7 +56,6 @@ patches:
       version: v1
       kind: Deployment
       name: controller-manager
-
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
 #- manager_webhook_patch.yaml

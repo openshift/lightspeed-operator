@@ -209,7 +209,7 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Contex
 
 			// Set environment variable name for API key
 			// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
-			config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+			config["api_token"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
 
 			// Add custom URL if specified
 			if provider.URL != "" {
@@ -495,6 +495,43 @@ func buildLlamaStackToolGroups(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig
 	}
 }
 
+// Safety API - Required by agents provider (for MCP)
+// Note: You can configure excluded_categories if needed
+func buildLlamaStackStorage(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
+	return map[string]interface{}{
+		"backends": map[string]interface{}{
+			"kv_default": map[string]interface{}{
+				"type":    "kv_sqlite",
+				"db_path": "${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/kv_store.db",
+			},
+			"sql_default": map[string]interface{}{
+				"type":    "sql_sqlite",
+				"db_path": "${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/sql_store.db",
+			},
+		},
+		"stores": map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"namespace": "registry",
+				"backend":   "kv_default",
+			},
+			"inference": map[string]interface{}{
+				"table_name":           "inference_store",
+				"backend":              "sql_default",
+				"max_write_queue_size": 10000,
+				"num_writers":          4,
+			},
+			"conversations": map[string]interface{}{
+				"table_name": "openai_conversations",
+				"backend":    "sql_default",
+			},
+			"prompts": map[string]interface{}{
+				"namespace": "prompts",
+				"backend":   "kv_default",
+			},
+		},
+	}
+}
+
 // buildLlamaStackYAML assembles the complete Llama Stack configuration and converts to YAML
 func buildLlamaStackYAML(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	// Build the complete config as a map
@@ -524,6 +561,7 @@ func buildLlamaStackYAML(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	config["vector_dbs"] = buildLlamaStackVectorDBs(r, cr)
 	config["models"] = buildLlamaStackModels(r, cr)
 	config["tool_groups"] = buildLlamaStackToolGroups(r, cr)
+	config["storage"] = buildLlamaStackStorage(r, cr) // Mandatory from llama-stack 0.3.0
 
 	// Convert to YAML
 	yamlBytes, err := yaml.Marshal(config)
