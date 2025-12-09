@@ -217,7 +217,6 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	// If they don't exist, we'll get empty strings which is fine for initial creation
 	lcoreConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LCoreConfigCmName)
 	llamaStackConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LlamaStackConfigCmName)
-	postgresSecretResourceVersion, _ := utils.GetSecretResourceVersion(r, ctx, utils.PostgresSecretName)
 
 	// Labels for the deployment
 	labels := map[string]string{
@@ -454,7 +453,7 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 				ReadOnly:  true,
 			},
 			// PostgreSQL CA ConfigMap (service-ca.crt for OpenShift CA)
-			utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, utils.PostgresCertsSecretName, utils.PostgresCAVolume)),
+			utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, "postgres-ca")),
 		},
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
@@ -497,7 +496,6 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			Annotations: map[string]string{
 				utils.LCoreConfigMapResourceVersionAnnotation:      lcoreConfigMapResourceVersion,
 				utils.LlamaStackConfigMapResourceVersionAnnotation: llamaStackConfigMapResourceVersion,
-				utils.PostgresSecretResourceVersionAnnotation:      postgresSecretResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -608,18 +606,6 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existin
 		}
 	}
 
-	// Check if PostgreSQL Secret ResourceVersion has changed
-	currentPostgresSecretVersion, err := utils.GetSecretResourceVersion(r, ctx, utils.PostgresSecretName)
-	if err != nil {
-		r.GetLogger().Info("failed to get PostgreSQL Secret ResourceVersion", "error", err)
-		changed = true
-	} else {
-		storedPostgresSecretVersion := existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
-		if storedPostgresSecretVersion != currentPostgresSecretVersion {
-			changed = true
-		}
-	}
-
 	// If nothing changed, skip update
 	if !changed {
 		return nil
@@ -629,7 +615,6 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existin
 	existingDeployment.Spec = desiredDeployment.Spec
 	existingDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation]
-	existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation] = desiredDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
 
 	r.GetLogger().Info("updating LCore deployment", "name", existingDeployment.Name)
 

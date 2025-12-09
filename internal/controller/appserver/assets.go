@@ -112,7 +112,7 @@ func postgresCacheConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) util
 		DbName:       utils.PostgresDefaultDbName,
 		PasswordPath: postgresPasswordPath,
 		SSLMode:      utils.PostgresDefaultSSLMode,
-		CACertPath:   path.Join(utils.OLSAppCertsMountRoot, utils.PostgresCertsSecretName, utils.PostgresCAVolume, "service-ca.crt"),
+		CACertPath:   path.Join(utils.OLSAppCertsMountRoot, "postgres-ca", "service-ca.crt"),
 	}
 }
 

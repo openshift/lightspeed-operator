@@ -385,7 +385,7 @@ func main() {
 					Name:                utils.PostgresCertsSecretName,
 					Namespace:           namespace,
 					Description:         "PostgreSQL TLS certificate (created by Service CA Operator)",
-					AffectedDeployments: []string{utils.PostgresDeploymentName},
+					AffectedDeployments: []string{utils.PostgresDeploymentName, "ACTIVE_BACKEND"},
 				},
 			},
 		},
