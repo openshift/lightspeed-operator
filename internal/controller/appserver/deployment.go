@@ -313,7 +313,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	}
 
 	volumeMounts = append(volumeMounts,
-		utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, utils.PostgresCertsSecretName, utils.PostgresCAVolume)),
+		utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, "postgres-ca")),
 		corev1.VolumeMount{
 			Name:      utils.TmpVolumeName,
 			MountPath: utils.TmpVolumeMountPath,
@@ -355,7 +355,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Get ResourceVersions for tracking - these resources should already exist
 	// If they don't exist, we'll get empty strings which is fine for initial creation
 	configMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
-	secretResourceVersion, _ := utils.GetSecretResourceVersion(r, ctx, utils.PostgresSecretName)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -363,8 +362,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GenerateAppServerSelectorLabels(),
 			Annotations: map[string]string{
-				utils.OLSConfigMapResourceVersionAnnotation:   configMapResourceVersion,
-				utils.PostgresSecretResourceVersionAnnotation: secretResourceVersion,
+				utils.OLSConfigMapResourceVersionAnnotation: configMapResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -503,8 +501,7 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 	utils.SetDefaults_Deployment(desiredDeployment)
 	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec)
 
-	// Step 2: Check ConfigMap and Secret ResourceVersions
-	// Check if OLS ConfigMap ResourceVersion has changed
+	// Step 2: Check if OLS ConfigMap ResourceVersion has changed
 	currentConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
 	if err != nil {
 		r.GetLogger().Info("failed to get ConfigMap ResourceVersion", "error", err)
@@ -512,18 +509,6 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 	} else {
 		storedConfigMapVersion := existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
 		if storedConfigMapVersion != currentConfigMapVersion {
-			changed = true
-		}
-	}
-
-	// Check if Postgres Secret ResourceVersion has changed
-	currentSecretVersion, err := utils.GetSecretResourceVersion(r, ctx, utils.PostgresSecretName)
-	if err != nil {
-		r.GetLogger().Info("failed to get Secret ResourceVersion", "error", err)
-		changed = true
-	} else {
-		storedSecretVersion := existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
-		if storedSecretVersion != currentSecretVersion {
 			changed = true
 		}
 	}
@@ -536,7 +521,6 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 	// Apply changes - always update spec and annotations since something changed
 	existingDeployment.Spec = desiredDeployment.Spec
 	existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
-	existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation] = desiredDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
 
 	r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
 

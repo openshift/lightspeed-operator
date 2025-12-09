@@ -1156,7 +1156,7 @@ var _ = Describe("App server assets", func() {
 ols_config:
   conversation_cache:
     postgres:
-      ca_cert_path: /etc/certs/lightspeed-postgres-certs/cm-olspostgresca/service-ca.crt
+      ca_cert_path: /etc/certs/postgres-ca/service-ca.crt
       dbname: postgres
       host: lightspeed-postgres-server.openshift-lightspeed.svc
       password_path: /etc/credentials/lightspeed-postgres-secret/password
@@ -1216,7 +1216,7 @@ user_data_collector_config:
 ols_config:
   conversation_cache:
     postgres:
-      ca_cert_path: /etc/certs/lightspeed-postgres-certs/cm-olspostgresca/service-ca.crt
+      ca_cert_path: /etc/certs/postgres-ca/service-ca.crt
       dbname: postgres
       host: lightspeed-postgres-server.openshift-lightspeed.svc
       password_path: /etc/credentials/lightspeed-postgres-secret/password
@@ -1693,7 +1693,7 @@ func get7RequiredVolumeMounts() []corev1.VolumeMount {
 		{
 			Name:      utils.PostgresCAVolume,
 			ReadOnly:  true,
-			MountPath: "/etc/certs/lightspeed-postgres-certs/cm-olspostgresca",
+			MountPath: "/etc/certs/postgres-ca",
 		},
 		{
 			Name:      utils.TmpVolumeName,

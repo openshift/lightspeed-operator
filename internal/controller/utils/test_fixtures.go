@@ -441,6 +441,6 @@ func GetTestPostgresCacheConfig() PostgresCacheConfig {
 		DbName:       PostgresDefaultDbName,
 		PasswordPath: path.Join(CredentialsMountRoot, PostgresSecretName, OLSComponentPasswordFileName),
 		SSLMode:      PostgresDefaultSSLMode,
-		CACertPath:   path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
+		CACertPath:   path.Join(OLSAppCertsMountRoot, "postgres-ca", "service-ca.crt"),
 	}
 }

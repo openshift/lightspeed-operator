@@ -74,20 +74,20 @@ func buildLlamaStackCoreConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig
 	return map[string]interface{}{
 		"version":    "2",
 		"image_name": "minimal-viable-llama-stack-configuration",
-		// Minimal APIs for RAG + MCP: agents (for MCP), files, inference, safety (required by agents), telemetry, tool_runtime, vector_io
-		// Commented out: datasetio, eval, post_training, scoring (not needed for basic RAG + MCP)
-		"apis":                   []string{"agents" /* "datasetio", "eval", */, "files", "inference" /* , "post_training", */, "safety" /* , "scoring" */, "telemetry", "tool_runtime", "vector_io"},
+		// Minimal APIs for RAG + MCP: agents (for MCP), files, inference, safety (required by agents), tool_runtime, vector_io
+		// Commented out: datasetio, eval, post_training, scoring, telemetry (not available in this Llama Stack version)
+		"apis":                   []string{"agents" /* "datasetio", "eval", */, "files", "inference" /* , "post_training", */, "safety" /* , "scoring", "telemetry" */, "tool_runtime", "vector_io"},
 		"benchmarks":             []interface{}{},
 		"container_image":        nil,
 		"datasets":               []interface{}{},
 		"external_providers_dir": nil,
 		"inference_store": map[string]interface{}{
-			"db_path": ".llama/distributions/ollama/inference_store.db",
+			"db_path": "/tmp/llama-stack/inference_store.db",
 			"type":    "sqlite",
 		},
 		"logging": nil,
 		"metadata_store": map[string]interface{}{
-			"db_path":   ".llama/distributions/ollama/registry.db",
+			"db_path":   "/tmp/llama-stack/registry.db",
 			"namespace": nil,
 			"type":      "sqlite",
 		},
@@ -102,8 +102,9 @@ func buildLlamaStackFileProviders(_ reconciler.Reconciler, _ *olsv1alpha1.OLSCon
 			"config": map[string]interface{}{
 				"storage_dir": "/tmp/llama-stack-files",
 				"metadata_store": map[string]interface{}{
-					"type":    "sqlite",
-					"db_path": ".llama/distributions/ollama/files_metadata.db",
+					"backend":    "sql_default",
+					"namespace":  "files_metadata",
+					"table_name": "files_metadata",
 				},
 			},
 		},
@@ -116,14 +117,17 @@ func buildLlamaStackAgentProviders(_ reconciler.Reconciler, _ *olsv1alpha1.OLSCo
 			"provider_id":   "meta-reference",
 			"provider_type": "inline::meta-reference",
 			"config": map[string]interface{}{
-				"persistence_store": map[string]interface{}{
-					"db_path":   ".llama/distributions/ollama/agents_store.db",
-					"namespace": nil,
-					"type":      "sqlite",
-				},
-				"responses_store": map[string]interface{}{
-					"db_path": ".llama/distributions/ollama/responses_store.db",
-					"type":    "sqlite",
+				"persistence": map[string]interface{}{
+					"agent_state": map[string]interface{}{
+						"backend":    "kv_default",
+						"table_name": "agent_state",
+						"namespace":  "agent_state",
+					},
+					"responses": map[string]interface{}{
+						"backend":    "sql_default",
+						"table_name": "agent_responses",
+						"namespace":  "agent_responces",
+					},
 				},
 			},
 		},
@@ -140,7 +144,7 @@ func buildLlamaStackDatasetIOProviders(_ reconciler.Reconciler, _ *olsv1alpha1.O
 			"provider_type": "remote::huggingface",
 			"config": map[string]interface{}{
 				"kvstore": map[string]interface{}{
-					"db_path":   ".llama/distributions/ollama/huggingface_datasetio.db",
+					"db_path":   "/tmp/llama-stack/huggingface_datasetio.db",
 					"namespace": nil,
 					"type":      "sqlite",
 				},
@@ -151,7 +155,7 @@ func buildLlamaStackDatasetIOProviders(_ reconciler.Reconciler, _ *olsv1alpha1.O
 			"provider_type": "inline::localfs",
 			"config": map[string]interface{}{
 				"kvstore": map[string]interface{}{
-					"db_path":   ".llama/distributions/ollama/localfs_datasetio.db",
+					"db_path":   "/tmp/llama-stack/localfs_datasetio.db",
 					"namespace": nil,
 					"type":      "sqlite",
 				},
@@ -171,7 +175,7 @@ func buildLlamaStackEvalProviders(_ reconciler.Reconciler, _ *olsv1alpha1.OLSCon
 			"provider_type": "inline::meta-reference",
 			"config": map[string]interface{}{
 				"kvstore": map[string]interface{}{
-					"db_path":   ".llama/distributions/ollama/meta_reference_eval.db",
+					"db_path":   "/tmp/llama-stack/meta_reference_eval.db",
 					"namespace": nil,
 					"type":      "sqlite",
 				},
@@ -317,19 +321,32 @@ func buildLlamaStackScoring(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) [
 }
 */
 
+// Telemetry provider - commented out as the API doesn't exist in this Llama Stack version
+// Uncomment and enable in apis list when telemetry API becomes available
+/*
 func buildLlamaStackTelemetry(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []interface{} {
+	// Console telemetry provider - logs to stdout
 	return []interface{}{
 		map[string]interface{}{
-			"provider_id":   "meta-reference",
-			"provider_type": "inline::meta-reference",
+			"provider_id":   "console",
+			"provider_type": "inline::console",
 			"config": map[string]interface{}{
-				"service_name":   "lightspeed-stack-telemetry",
-				"sinks":          "sqlite",
-				"sqlite_db_path": ".llama/distributions/ollama/trace_store.db",
+				"service_name": "lightspeed-stack",
+				"sinks":        []string{"console"},
 			},
 		},
 	}
+
+	// Alternative options (change return statement above):
+	// SQLite telemetry provider - stores traces in SQLite:
+	//   provider_id: "sqlite", provider_type: "inline::meta-reference"
+	//   config: {service_name, sinks: "sqlite", sqlite_db_path: "/tmp/llama-stack/trace_store.db"}
+	//
+	// OTLP telemetry provider - sends traces to Jaeger/OTLP endpoint:
+	//   provider_id: "otlp", provider_type: "inline::otlp"
+	//   config: {service_name, sinks: "otlp", otlp_endpoint: "http://jaeger:4317"}
 }
+*/
 
 func buildLlamaStackToolRuntime(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []interface{} {
 	return []interface{}{
@@ -353,9 +370,12 @@ func buildLlamaStackVectorDB(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) 
 			"provider_type": "inline::faiss",
 			"config": map[string]interface{}{
 				"kvstore": map[string]interface{}{
-					"db_path":   ".llama/distributions/ollama/faiss_store.db",
-					"namespace": nil,
-					"type":      "sqlite",
+					"backend":    "sql_default",
+					"table_name": "vector_store",
+				},
+				"persistence": map[string]interface{}{
+					"backend":   "kv_default",
+					"namespace": "vector_persistence",
 				},
 			},
 		},
@@ -495,6 +515,57 @@ func buildLlamaStackToolGroups(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig
 	}
 }
 
+// buildLlamaStackStorage configures persistent storage for Llama Stack
+// This defines storage backends and how different data types use them
+func buildLlamaStackStorage(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
+	// Define storage backends - SQL only
+	backends := map[string]interface{}{
+		"sql_default": map[string]interface{}{
+			"type":    "sql_sqlite",
+			"db_path": "/tmp/llama-stack/sql_store.db",
+		},
+		"kv_default": map[string]interface{}{
+			"type":    "kv_sqlite",
+			"db_path": "/tmp/llama-stack/kv_store.db",
+		},
+	}
+
+	// Map data stores to backends - all use SQL with table_name
+	stores := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"namespace": "registry",
+			"backend":   "kv_default",
+		},
+		"inference": map[string]interface{}{
+			"table_name": "inference_store",
+			"backend":    "sql_default",
+		},
+		"conversations": map[string]interface{}{
+			"table_name": "openai_conversations",
+			"backend":    "sql_default",
+		},
+	}
+
+	return map[string]interface{}{
+		"backends": backends,
+		"stores":   stores,
+	}
+
+	// Future: PostgreSQL backend configuration
+	// When moving to PostgreSQL for Llama Stack storage:
+	// "backends": map[string]interface{}{
+	//     "postgres_backend": map[string]interface{}{
+	//         "type":     "sql_postgres",
+	//         "host":     "lightspeed-postgres-server.openshift-lightspeed.svc",
+	//         "port":     5432,
+	//         "database": "postgres",
+	//         "user":     "postgres",
+	//         "password": "${env.POSTGRES_PASSWORD}",
+	//     },
+	// },
+	// Then update stores to use "postgres_backend" instead of "sql_default"
+}
+
 // buildLlamaStackYAML assembles the complete Llama Stack configuration and converts to YAML
 func buildLlamaStackYAML(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	// Build the complete config as a map
@@ -507,12 +578,13 @@ func buildLlamaStackYAML(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	}
 
 	// Build providers map - only include providers for enabled APIs
+	// Note: telemetry provider commented out as the API doesn't exist in this Llama Stack version
 	config["providers"] = map[string]interface{}{
-		"files":        buildLlamaStackFileProviders(r, cr),
-		"agents":       buildLlamaStackAgentProviders(r, cr), // Required for MCP
-		"inference":    inferenceProviders,
-		"telemetry":    buildLlamaStackTelemetry(r, cr),
-		"safety":       buildLlamaStackSafety(r, cr),      // Required by agents provider
+		"files":     buildLlamaStackFileProviders(r, cr),
+		"agents":    buildLlamaStackAgentProviders(r, cr), // Required for MCP
+		"inference": inferenceProviders,
+		"safety":    buildLlamaStackSafety(r, cr), // Required by agents provider
+		// "telemetry":    buildLlamaStackTelemetry(r, cr),   // Telemetry and tracing
 		"tool_runtime": buildLlamaStackToolRuntime(r, cr), // Required for RAG
 		"vector_io":    buildLlamaStackVectorDB(r, cr),    // Required for RAG
 	}
@@ -520,10 +592,14 @@ func buildLlamaStackYAML(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	// Add top-level fields
 	config["scoring_fns"] = []interface{}{} // Keep empty for now
 	config["server"] = buildLlamaStackServerConfig(r, cr)
+	config["storage"] = buildLlamaStackStorage(r, cr) // Persistent storage configuration
 	// config["shields"] = buildLlamaStackShields(r, cr) // Commented out - not needed without safety API
 	config["vector_dbs"] = buildLlamaStackVectorDBs(r, cr)
 	config["models"] = buildLlamaStackModels(r, cr)
 	config["tool_groups"] = buildLlamaStackToolGroups(r, cr)
+	config["telemetry"] = map[string]interface{}{
+		"enabled": false,
+	}
 
 	// Convert to YAML
 	yamlBytes, err := yaml.Marshal(config)
@@ -626,7 +702,7 @@ func buildLCoreDatabaseConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig)
 			"password":     "${env.POSTGRES_PASSWORD}", // Environment variable substitution via llama_stack.core.stack.replace_env_vars
 			"ssl_mode":     utils.PostgresDefaultSSLMode,
 			"gss_encmode":  "disable", // Default from lightspeed-stack constants
-			"ca_cert_path": "/etc/certs/" + utils.PostgresCertsSecretName + "/" + utils.PostgresCAVolume + "/service-ca.crt",
+			"ca_cert_path": "/etc/certs/postgres-ca/service-ca.crt",
 			"namespace":    "lcore", // Separate schema for LCore to avoid conflicts with App Server
 		},
 	}
@@ -694,36 +770,32 @@ func buildLCoreCustomizationConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSC
 // buildLCoreConversationCacheConfig configures chat history caching
 // Options: noop (disabled), memory (in-memory), sqlite (file), postgres (database)
 // Useful for maintaining conversation context across requests
-//
-//func buildLCoreConversationCacheConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
-//	// Example: In-memory cache
-//	return map[string]interface{}{
-//		"type": "memory",
-//		"memory": map[string]interface{}{
-//			"max_entries": 1000,
-//		},
-//	}
-//
-//	// Example: SQLite cache (requires persistent volume)
-//	// return map[string]interface{}{
-//	//     "type": "sqlite",
-//	//     "sqlite": map[string]interface{}{
-//	//         "db_path": "/app-root/data/conversation_cache.db",
-//	//     },
-//	// }
-//
-//	// Example: PostgreSQL cache (requires PostgreSQL deployment)
-//	// return map[string]interface{}{
-//	//     "type": "postgres",
-//	//     "postgres": map[string]interface{}{
-//	//         "host": "postgres-service",
-//	//         "port": 5432,
-//	//         "db":   "conversation_cache",
-//	//         "user": "lightspeed",
-//	//         "password": "${POSTGRES_PASSWORD}",
-//	//     },
-//	// }
-//}
+func buildLCoreConversationCacheConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
+	// PostgreSQL cache (shared with App Server)
+	return map[string]interface{}{
+		"type": "postgres",
+		"postgres": map[string]interface{}{
+			"host":         utils.PostgresServiceName + "." + r.GetNamespace() + ".svc",
+			"port":         utils.PostgresServicePort,
+			"db":           utils.PostgresDefaultDbName,
+			"user":         utils.PostgresDefaultUser,
+			"password":     "${env.POSTGRES_PASSWORD}", // Environment variable substitution
+			"ssl_mode":     utils.PostgresDefaultSSLMode,
+			"gss_encmode":  "disable",
+			"ca_cert_path": "/etc/certs/postgres-ca/service-ca.crt",
+			"namespace":    "conversation_cache", // Separate schema for conversation cache
+		},
+	}
+
+	// Example: SQLite cache (requires persistent volume)
+	// return map[string]interface{}{
+	//     "type": "sqlite",
+	//     "sqlite": map[string]interface{}{
+	//         "db_path": "/app-root/data/conversation_cache.db",
+	//     },
+	// }
+
+}
 
 // buildLCoreByokRagConfig configures Bring Your Own Knowledge RAG sources
 // Allows adding custom document collections beyond default RAG databases
@@ -786,13 +858,13 @@ func buildLCoreConfigYAML(r reconciler.Reconciler, _ context.Context, cr *olsv1a
 		"user_data_collection": buildLCoreUserDataCollectionConfig(r, cr),
 		"authentication":       buildLCoreAuthenticationConfig(r, cr),
 		"inference":            buildLCoreInferenceConfig(r, cr),
-		"database":             buildLCoreDatabaseConfig(r, cr),      // Persistent storage (SQLite/PostgreSQL)
-		"customization":        buildLCoreCustomizationConfig(r, cr), // Same system prompt as lightspeed-service
+		"database":             buildLCoreDatabaseConfig(r, cr),          // Persistent storage (SQLite/PostgreSQL)
+		"customization":        buildLCoreCustomizationConfig(r, cr),     // Same system prompt as lightspeed-service
+		"conversation_cache":   buildLCoreConversationCacheConfig(r, cr), // Chat history caching (PostgreSQL)
 
 		// Optional features (uncomment to enable):
 		// "mcp_servers":        buildLCoreMCPServersConfig(r, cr),         // Model Context Protocol servers
 		// "authorization":      buildLCoreAuthorizationConfig(r, cr),      // Role-based access control
-		// "conversation_cache": buildLCoreConversationCacheConfig(r, cr),  // Chat history caching
 		// "byok_rag":           buildLCoreByokRagConfig(r, cr),            // Custom RAG sources
 		// "quota_handlers":     buildLCoreQuotaHandlersConfig(r, cr),      // Token rate limiting
 	}
