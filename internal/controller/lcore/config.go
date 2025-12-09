@@ -209,7 +209,7 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Contex
 
 			// Set environment variable name for API key
 			// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
-			config["api_token"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+			config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
 
 			// Add custom URL if specified
 			if provider.URL != "" {
