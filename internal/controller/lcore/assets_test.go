@@ -65,8 +65,9 @@ func TestBuildLlamaStackYAML_SupportedProvider(t *testing.T) {
 }
 
 func TestBuildLlamaStackYAML_UnsupportedProvider(t *testing.T) {
-	// Test unsupported providers
-	unsupportedProviders := []string{"watsonx", "bam", "rhoai_vllm", "rhelai_vllm"}
+	// Test unsupported providers (watsonx, bam are not supported)
+	// Note: rhoai_vllm and rhelai_vllm are now supported via OpenAI compatibility
+	unsupportedProviders := []string{"watsonx", "bam"}
 
 	for _, providerType := range unsupportedProviders {
 		t.Run(providerType, func(t *testing.T) {
@@ -112,6 +113,94 @@ func TestBuildLlamaStackYAML_UnsupportedProvider(t *testing.T) {
 			}
 
 			t.Logf("Correctly rejected unsupported provider '%s' with error: %v", providerType, err)
+		})
+	}
+}
+
+func TestBuildLlamaStackYAML_OpenAICompatibleProviders(t *testing.T) {
+	// Test that vLLM providers (rhoai_vllm, rhelai_vllm) use remote::vllm provider type
+	vllmProviders := []string{"rhoai_vllm", "rhelai_vllm"}
+
+	for _, providerType := range vllmProviders {
+		t.Run(providerType, func(t *testing.T) {
+			// Create a test CR with vLLM provider
+			cr := &olsv1alpha1.OLSConfig{
+				Spec: olsv1alpha1.OLSConfigSpec{
+					LLMConfig: olsv1alpha1.LLMSpec{
+						Providers: []olsv1alpha1.ProviderSpec{
+							{
+								Name: "test-provider",
+								Type: providerType,
+								URL:  "https://test-vllm-endpoint.com/v1",
+								Models: []olsv1alpha1.ModelSpec{
+									{Name: "test-model"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			// Build the YAML - should succeed
+			ctx := context.Background()
+			yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+
+			// Verify no error is returned
+			if err != nil {
+				t.Fatalf("Unexpected error for supported provider '%s': %v", providerType, err)
+			}
+
+			// Verify it's valid YAML
+			var result map[string]interface{}
+			err = yaml.Unmarshal([]byte(yamlOutput), &result)
+			if err != nil {
+				t.Fatalf("buildLlamaStackYAML produced invalid YAML for '%s': %v", providerType, err)
+			}
+
+			// Verify provider is configured as remote::vllm
+			providers, ok := result["providers"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("providers section not found or invalid type")
+			}
+
+			inference, ok := providers["inference"].([]interface{})
+			if !ok || len(inference) == 0 {
+				t.Fatalf("inference providers not found or empty")
+			}
+
+			// Find the test provider (not the sentence-transformers one)
+			var testProvider map[string]interface{}
+			for _, provider := range inference {
+				p, ok := provider.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if p["provider_id"] == "test-provider" {
+					testProvider = p
+					break
+				}
+			}
+
+			if testProvider == nil {
+				t.Fatalf("Test provider not found in inference providers")
+			}
+
+			// Verify it's configured as vLLM (not OpenAI)
+			if testProvider["provider_type"] != "remote::vllm" {
+				t.Errorf("Expected provider_type 'remote::vllm' for %s, got '%v'", providerType, testProvider["provider_type"])
+			}
+
+			// Verify URL is present in config
+			config, ok := testProvider["config"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("provider config not found or invalid type")
+			}
+
+			if url, ok := config["url"].(string); !ok || url == "" {
+				t.Errorf("Expected URL to be configured for %s provider", providerType)
+			}
+
+			t.Logf("Successfully validated '%s' provider uses remote::vllm", providerType)
 		})
 	}
 }
