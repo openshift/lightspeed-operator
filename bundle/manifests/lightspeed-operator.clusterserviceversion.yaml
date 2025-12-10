@@ -590,6 +590,8 @@ spec:
                       - --metrics-bind-address=:8443
                       - --secure-metrics-server
                       - --cert-dir=/etc/tls/private
+                      - --lcore-image=quay.io/openshift-lightspeed/lightspeed-stack:latest
+                      - --use-lcore=false
                       - --service-image=quay.io/openshift-lightspeed/lightspeed-service-api:latest
                       - --console-image=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
                       - --console-image-pf5=quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest
