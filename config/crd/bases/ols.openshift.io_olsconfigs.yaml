@@ -1307,6 +1307,9 @@ spec:
             description: OLSConfigStatus defines the observed state of OLS deployment.
             properties:
               conditions:
+                description: |-
+                  Conditions represent the state of individual components
+                  Always populated after first reconciliation
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -1362,8 +1365,85 @@ spec:
                   - type
                   type: object
                 type: array
+              diagnosticInfo:
+                description: |-
+                  DiagnosticInfo provides detailed troubleshooting information when deployments fail.
+                  Each entry contains pod-level error details for a specific component.
+                  This array is automatically populated when deployments fail and cleared when they recover.
+                  Only present during deployment failures.
+                items:
+                  description: PodDiagnostic describes a pod-level issue
+                  properties:
+                    containerName:
+                      description: |-
+                        ContainerName is the container within the pod that failed
+                        Empty if the issue is at the pod level (e.g., scheduling)
+                      type: string
+                    exitCode:
+                      description: ExitCode for terminated containers (only set for
+                        container failures)
+                      format: int32
+                      type: integer
+                    failedComponent:
+                      description: |-
+                        FailedComponent identifies which component this diagnostic relates to,
+                        using the same type as the Conditions field (e.g., "ApiReady", "CacheReady")
+                        This allows easy correlation between condition status and diagnostic details.
+                      type: string
+                    lastUpdated:
+                      description: LastUpdated is the timestamp when this diagnostic
+                        was collected
+                      format: date-time
+                      type: string
+                    message:
+                      description: Message provides detailed error information from
+                        Kubernetes
+                      type: string
+                    podName:
+                      description: PodName is the name of the pod with issues
+                      type: string
+                    reason:
+                      description: |-
+                        Reason is the failure reason
+                        Examples: ImagePullBackOff, CrashLoopBackOff, Unschedulable, OOMKilled
+                      type: string
+                    type:
+                      allOf:
+                      - enum:
+                        - ContainerWaiting
+                        - ContainerTerminated
+                        - PodScheduling
+                        - PodCondition
+                      - enum:
+                        - ContainerWaiting
+                        - ContainerTerminated
+                        - PodScheduling
+                        - PodCondition
+                      description: Type indicates the diagnostic type
+                      type: string
+                  required:
+                  - failedComponent
+                  - lastUpdated
+                  - message
+                  - podName
+                  - reason
+                  - type
+                  type: object
+                type: array
+              overallStatus:
+                description: |-
+                  OverallStatus provides a high-level summary of the entire system's health.
+                  Aggregates all component conditions into a single status value.
+                  - Ready: All components are healthy
+                  - NotReady: At least one component is not ready (check conditions for details)
+                  Always set after first reconciliation
+                enum:
+                - Ready
+                - NotReady
+                type: string
             required:
             - conditions
+            - overallStatus
             type: object
         required:
         - spec

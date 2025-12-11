@@ -59,6 +59,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -93,6 +94,8 @@ type OLSConfigReconciler struct {
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/finalizers,verbs=update
 // RBAC for managing deployments of OLS application server
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// RBAC for reading pod status for diagnostics
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 // Service for exposing lightspeed service API endpoints
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // ServiceAccount to run OLS application server
@@ -113,8 +116,11 @@ type OLSConfigReconciler struct {
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks;consoleplugins;consoleplugins/finalizers,verbs=get;create;update;delete
 // Modify console CR to activate console plugin
 // +kubebuilder:rbac:groups=operator.openshift.io,resources=consoles,verbs=watch;list;get;update
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=list;create;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=get;list;create;update;patch;watch
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=openshift-lightspeed,resources=roles;rolebindings,verbs=*
+// NonResourceURLs for Lightspeed access control and metrics
+// +kubebuilder:rbac:urls=/ls-access,verbs=get
+// +kubebuilder:rbac:urls=/ols-metrics-access,verbs=get
 
 // RBAC for application server to authorize user for API access
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
@@ -199,7 +205,6 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err := r.annotateExternalResources(ctx, olsconfig); err != nil {
 		// Controller-runtime handles error retries with exponential backoff.
 		r.Logger.Error(err, "Failed to annotate external resources")
-		r.UpdateStatusCondition(ctx, olsconfig, utils.TypeCRReconciled, false, "Failed", err)
 		return ctrl.Result{}, err
 	}
 
@@ -288,70 +293,119 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Execute deployment reconciliation (fail-fast on errors)
+	// Create status structure to populate as we check each deployment
 	failedTasks := make(map[string]error)
-	progressing := false
+	newStatus := olsv1alpha1.OLSConfigStatus{
+		Conditions:     []metav1.Condition{},
+		OverallStatus:  olsv1alpha1.OverallStatusReady,
+		DiagnosticInfo: []olsv1alpha1.PodDiagnostic{},
+	}
 
 	for _, step := range deploymentSteps {
 		err := step.Fn(ctx, olsconfig)
 		if err != nil {
 			r.Logger.Error(err, fmt.Sprintf("Failed to reconcile %s", step.Name))
-			r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, "Failed", err)
+			// Add condition to status structure
+			condition := metav1.Condition{
+				Type:               step.ConditionType,
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: olsconfig.Generation,
+				Reason:             "Failed",
+				Message:            fmt.Sprintf("Failed: %v", err),
+				LastTransitionTime: metav1.Now(),
+			}
+			newStatus.Conditions = append(newStatus.Conditions, condition)
 			failedTasks[step.Name] = err
+			newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
 		} else {
 			// Get corresponding deployment
 			deployment := &appsv1.Deployment{}
 			err := r.Get(ctx, client.ObjectKey{Name: step.Deployment, Namespace: r.Options.Namespace}, deployment)
 			if err != nil {
-				r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, "Failed", err)
+				// Add condition to status structure
+				condition := metav1.Condition{
+					Type:               step.ConditionType,
+					Status:             metav1.ConditionFalse,
+					ObservedGeneration: olsconfig.Generation,
+					Reason:             "Failed",
+					Message:            fmt.Sprintf("Failed: %v", err),
+					LastTransitionTime: metav1.Now(),
+				}
+				newStatus.Conditions = append(newStatus.Conditions, condition)
 				failedTasks[step.Name] = err
+				newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
 			} else {
-				message, err := r.checkDeploymentStatus(deployment)
-				if err != nil {
-					if message == utils.DeploymentInProgress {
-						// Deployment is not ready yet - status will be updated on next reconciliation
-						// triggered by deployment watch
-						r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, message, nil)
-						progressing = true
-					} else {
-						// Deployment failed
-						r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, false, "Failed", err)
-						failedTasks[step.Name] = err
-					}
-				} else {
+				status, diagnostics, err := r.checkDeploymentStatus(ctx, deployment, step.ConditionType)
+				// Append diagnostics from this deployment (will be empty for Ready/Progressing)
+				newStatus.DiagnosticInfo = append(newStatus.DiagnosticInfo, diagnostics...)
+
+				switch status {
+				case string(olsv1alpha1.DeploymentStatusReady):
 					// Deployment is ready
-					r.UpdateStatusCondition(ctx, olsconfig, step.ConditionType, true, "Ready", nil)
+					condition := metav1.Condition{
+						Type:               step.ConditionType,
+						Status:             metav1.ConditionTrue,
+						ObservedGeneration: olsconfig.Generation,
+						Reason:             "Available",
+						Message:            "Ready",
+						LastTransitionTime: metav1.Now(),
+					}
+					newStatus.Conditions = append(newStatus.Conditions, condition)
+				case string(olsv1alpha1.DeploymentStatusProgressing):
+					// Deployment is not ready yet - status will be updated on next reconciliation
+					// triggered by deployment watch
+					condition := metav1.Condition{
+						Type:               step.ConditionType,
+						Status:             metav1.ConditionFalse,
+						ObservedGeneration: olsconfig.Generation,
+						Reason:             "Progressing",
+						Message:            status,
+						LastTransitionTime: metav1.Now(),
+					}
+					newStatus.Conditions = append(newStatus.Conditions, condition)
+					newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
+				default:
+					// Deployment failed
+					condition := metav1.Condition{
+						Type:               step.ConditionType,
+						Status:             metav1.ConditionFalse,
+						ObservedGeneration: olsconfig.Generation,
+						Reason:             "Failed",
+						Message:            fmt.Sprintf("Failed: %v", err),
+						LastTransitionTime: metav1.Now(),
+					}
+					newStatus.Conditions = append(newStatus.Conditions, condition)
+					failedTasks[step.Name] = err
+					newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
 				}
 			}
 		}
 	}
 
-	if len(failedTasks) > 0 {
-		// One of the deployment reconciliations failed
-		taskNames := make([]string, 0, len(failedTasks))
-		for taskName := range failedTasks {
-			taskNames = append(taskNames, taskName)
-		}
-		return ctrl.Result{}, fmt.Errorf("failed deployment reconciliation tasks: %v", taskNames)
+	// Update status once, regardless of outcome (with retry on conflict)
+	if updateErr := r.UpdateStatusCondition(ctx, olsconfig, newStatus); updateErr != nil {
+		r.Logger.Error(updateErr, "Failed to update status")
+		return ctrl.Result{}, updateErr
 	}
 
-	if progressing {
-		// Don't mark CR as fully reconciled yet - deployments are still rolling out.
-		// The deployment watch will trigger reconciliation when they become ready.
+	// Determine reconciliation result based on deployment status
+	var reconcileErr error
+
+	// If we have diagnostics, return error to trigger exponential backoff retry
+	if len(newStatus.DiagnosticInfo) > 0 {
+		r.Logger.Info("deployment has pod failures, will retry with exponential backoff",
+			"diagnosticCount", len(newStatus.DiagnosticInfo))
+		reconcileErr = fmt.Errorf("deployment has failing pods (count: %d), see status.diagnosticInfo for details",
+			len(newStatus.DiagnosticInfo))
+	} else if newStatus.OverallStatus == olsv1alpha1.OverallStatusReady {
+		r.Logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
+	} else {
+		// Deployments are progressing - keep checking to detect issues early
 		r.Logger.Info("reconciliation in progress, waiting for deployments to become ready")
-		return ctrl.Result{}, nil
+		reconcileErr = fmt.Errorf("deployments not ready yet, retrying")
 	}
 
-	r.Logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
-
-	// Update status condition for Custom Resource
-	// Only reached when all deployments are ready (not failed, not progressing)
-	r.UpdateStatusCondition(ctx, olsconfig, utils.TypeCRReconciled, true, "All components are available", nil)
-
-	// No periodic requeue needed - reconciliation is triggered by watches on:
-	// - OLSConfig CR changes (For)
-	// - Owned resource changes like Deployments (Owns)
-	// - External Secret/ConfigMap changes (Watches with predicates)
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, reconcileErr
 }
 
 // SetupWithManager sets up the controller with the Manager.

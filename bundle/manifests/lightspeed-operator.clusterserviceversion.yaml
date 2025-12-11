@@ -376,8 +376,26 @@ spec:
             displayName: Log level
             path: olsDataCollector.logLevel
         statusDescriptors:
-          - displayName: Conditions
+          - description: |-
+              Conditions represent the state of individual components
+              Always populated after first reconciliation
+            displayName: Conditions
             path: conditions
+          - description: |-
+              DiagnosticInfo provides detailed troubleshooting information when deployments fail.
+              Each entry contains pod-level error details for a specific component.
+              This array is automatically populated when deployments fail and cleared when they recover.
+              Only present during deployment failures.
+            displayName: Diagnostic Info
+            path: diagnosticInfo
+          - description: |-
+              OverallStatus provides a high-level summary of the entire system's health.
+              Aggregates all component conditions into a single status value.
+              - Ready: All components are healthy
+              - NotReady: At least one component is not ready (check conditions for details)
+              Always set after first reconciliation
+            displayName: Overall Status
+            path: overallStatus
         version: v1alpha1
   description: |-
     OpenShift Lightspeed Operator provides generative AI-based virtual assistant which integrates into the OpenShift web console. OpenShift Lightspeed can answer natural language questions related to OpenShift Container Platform.
@@ -399,6 +417,11 @@ spec:
     spec:
       clusterPermissions:
         - rules:
+            - nonResourceURLs:
+                - /ls-access
+                - /ols-metrics-access
+              verbs:
+                - get
             - apiGroups:
                 - ""
               resources:
@@ -413,6 +436,14 @@ spec:
                 - list
                 - patch
                 - update
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - pods
+              verbs:
+                - get
+                - list
                 - watch
             - apiGroups:
                 - ""
@@ -549,7 +580,10 @@ spec:
                 - clusterroles
               verbs:
                 - create
+                - get
                 - list
+                - patch
+                - update
                 - watch
             - apiGroups:
                 - storage.k8s.io
@@ -590,7 +624,7 @@ spec:
                       - --metrics-bind-address=:8443
                       - --secure-metrics-server
                       - --cert-dir=/etc/tls/private
-                      - --lcore-image=quay.io/openshift-lightspeed/lightspeed-stack:latest
+                      - --lcore-image=quay.io/lightspeed-core/lightspeed-stack:dev-latest
                       - --use-lcore=false
                       - --service-image=quay.io/openshift-lightspeed/lightspeed-service-api:latest
                       - --console-image=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest

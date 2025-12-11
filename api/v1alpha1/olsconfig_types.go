@@ -50,9 +50,90 @@ type FeatureGate string
 
 // OLSConfigStatus defines the observed state of OLS deployment.
 type OLSConfigStatus struct {
+	// Conditions represent the state of individual components
+	// Always populated after first reconciliation
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Conditions []metav1.Condition `json:"conditions"`
+
+	// OverallStatus provides a high-level summary of the entire system's health.
+	// Aggregates all component conditions into a single status value.
+	// - Ready: All components are healthy
+	// - NotReady: At least one component is not ready (check conditions for details)
+	// Always set after first reconciliation
+	// +kubebuilder:validation:Enum=Ready;NotReady
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	OverallStatus OverallStatus `json:"overallStatus"`
+
+	// DiagnosticInfo provides detailed troubleshooting information when deployments fail.
+	// Each entry contains pod-level error details for a specific component.
+	// This array is automatically populated when deployments fail and cleared when they recover.
+	// Only present during deployment failures.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	DiagnosticInfo []PodDiagnostic `json:"diagnosticInfo,omitempty"`
 }
+
+// PodDiagnostic describes a pod-level issue
+type PodDiagnostic struct {
+	// FailedComponent identifies which component this diagnostic relates to,
+	// using the same type as the Conditions field (e.g., "ApiReady", "CacheReady")
+	// This allows easy correlation between condition status and diagnostic details.
+	FailedComponent string `json:"failedComponent"`
+
+	// PodName is the name of the pod with issues
+	PodName string `json:"podName"`
+
+	// ContainerName is the container within the pod that failed
+	// Empty if the issue is at the pod level (e.g., scheduling)
+	// +optional
+	ContainerName string `json:"containerName,omitempty"`
+
+	// Reason is the failure reason
+	// Examples: ImagePullBackOff, CrashLoopBackOff, Unschedulable, OOMKilled
+	Reason string `json:"reason"`
+
+	// Message provides detailed error information from Kubernetes
+	Message string `json:"message"`
+
+	// ExitCode for terminated containers (only set for container failures)
+	// +optional
+	ExitCode *int32 `json:"exitCode,omitempty"`
+
+	// Type indicates the diagnostic type
+	// +kubebuilder:validation:Enum=ContainerWaiting;ContainerTerminated;PodScheduling;PodCondition
+	Type DiagnosticType `json:"type"`
+
+	// LastUpdated is the timestamp when this diagnostic was collected
+	LastUpdated metav1.Time `json:"lastUpdated"`
+}
+
+// DiagnosticType categorizes the type of diagnostic
+// +kubebuilder:validation:Enum=ContainerWaiting;ContainerTerminated;PodScheduling;PodCondition
+type DiagnosticType string
+
+const (
+	DiagnosticTypeContainerWaiting    DiagnosticType = "ContainerWaiting"
+	DiagnosticTypeContainerTerminated DiagnosticType = "ContainerTerminated"
+	DiagnosticTypePodScheduling       DiagnosticType = "PodScheduling"
+	DiagnosticTypePodCondition        DiagnosticType = "PodCondition"
+)
+
+// DeploymentStatus represents the status of a deployment check
+type DeploymentStatus string
+
+const (
+	DeploymentStatusReady       DeploymentStatus = "Ready"
+	DeploymentStatusProgressing DeploymentStatus = "Progressing"
+	DeploymentStatusFailed      DeploymentStatus = "Failed"
+)
+
+// OverallStatus represents the aggregate status of the entire system
+type OverallStatus string
+
+const (
+	OverallStatusReady    OverallStatus = "Ready"
+	OverallStatusNotReady OverallStatus = "NotReady"
+)
 
 // LLMSpec defines the desired state of the large language model (LLM).
 type LLMSpec struct {
