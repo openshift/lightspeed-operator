@@ -1,38 +1,38 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:650613194b3d11d1df7705e8af442f70c31280e0d22af12ee487270cb9439dfd",
-    "revision": "c089610d611154e079cf081cde7f00bb1f52ff09"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:c9cd5a1a14a310ee25de231208b7ebd7c9dbcd16205caa03b96a379d7988d022",
+    "revision": "e737d7d85986a08ae0a698fe6920619ba3487df1"
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:b5ddabc5e127d43cefe3d691b86786a558dffabebf6b62aef20cc16f96ed1beb",
-    "revision": "351ef0abcc038c3657432ba810b7cf935ec1aa78"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:830d900d133947ff0041bb0f8ad66d77db78483331a73278e47d89eece76eb9a",
+    "revision": "a3d21458f877c93ca2a32963006317e0594615ba"
   },
   {
     "name": "lightspeed-console-plugin-pf5",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-pf5@sha256:9ad1fabd0a7051fbd7ec30dbac5c8f9693c43fca28ca1ffafd70c9b4e9894003",
-    "revision": "253afb20162959d287ba6421b122ee11f87fe945"
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-pf5@sha256:555d429aecb1ea2f91e5eeaf71492a6b2fb4d39bfa4a313135cdccaf2cfa76b9",
+    "revision": "8c00fa899ed55c7f051373f81276157ab6af0978"
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:22f706ace843a04a51ebc2628c3af479b7bf027500425ccdd80d6622a73b9f96",
-    "revision": "006bd4b1a992c225ed43b6f49dc4694c6cb8601b"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:477acc1afc8df694c5d661f0da917b65c58a21ca3f9b115979278a6ae475b9ee",
+    "revision": "62b08895d36546917bc299bc0d147521a79153bf"
   },
   {
     "name": "openshift-mcp-server",
-    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:3958fa5e48e7f35d2e195628ca635dcd6ae8adbc6766792d1d8f010436301d96",
-    "revision": "461bf58cf7f94063f0b8cd3094b0f5553d90c8da"
+    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:d8f0081fcabbdaa9e5aa4fce5ed15e2a3222a277f6ef55f5a05583480d92dda3",
+    "revision": "732ec3853b902b64252644bf937b1c4fb4e59196"
   },
   {
     "name": "lightspeed-to-dataverse-exporter",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:d387ea0f578b85bf08b07aacd7e0d76aa37f70b55fab02f10d0d408d1fa151b3",
-    "revision": "92fe2428bc2069220f51e8859591995567156ff2"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:d4f3fa25a0dc60de849658ee59d900fcdf314984b27f4c07bdfb667f22001053",
+    "revision": "558d01ba9356ce052c99b4ad33090ab367e1c7f0"
   },
   {
     "name": "lightspeed-ocp-rag",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:3f4934d9e7349cfc38d4d4b3639712efd6711899fcc16638c886c7bf017b8eca",
-    "revision": "fe9920cacc7e1581c631d72cf1e6b9ff00ad5b02"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:3b73a841b0388f659f5a6f8f40a2b903e17ee4a7a57f074aa396b9e050cccc97",
+    "revision": "0aa8fbf1adfd9ebb5c9180d581dc0381ea9384e0"
   },
   {
     "name": "lightspeed-postgresql",
