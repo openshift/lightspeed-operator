@@ -4,6 +4,11 @@ kind: ClusterRole
 metadata:
   name: manager-role
 rules:
+- nonResourceURLs:
+  - /ls-access
+  - /ols-metrics-access
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:
@@ -154,7 +159,10 @@ rules:
   - clusterroles
   verbs:
   - create
+  - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - storage.k8s.io

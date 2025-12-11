@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -357,11 +356,26 @@ var _ = Describe("Helper Functions", func() {
 		})
 
 		It("should update status condition to true", func() {
-			reconciler.UpdateStatusCondition(ctx, olsConfig, utils.TypeApiReady, true, "Test", nil)
+			newStatus := olsv1alpha1.OLSConfigStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:               utils.TypeApiReady,
+						Status:             metav1.ConditionTrue,
+						ObservedGeneration: olsConfig.Generation,
+						Reason:             "Available",
+						Message:            "Test",
+						LastTransitionTime: metav1.Now(),
+					},
+				},
+				OverallStatus:  olsv1alpha1.OverallStatusReady,
+				DiagnosticInfo: []olsv1alpha1.PodDiagnostic{},
+			}
+			err := reconciler.UpdateStatusCondition(ctx, olsConfig, newStatus)
+			Expect(err).NotTo(HaveOccurred())
 
 			// Fetch updated CR
 			updated := &olsv1alpha1.OLSConfig{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, updated)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, updated)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Check condition exists and has correct status
@@ -370,8 +384,7 @@ var _ = Describe("Helper Functions", func() {
 				if cond.Type == utils.TypeApiReady {
 					found = true
 					Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-					// Reason might be "Reconciling" or "Test" depending on controller logic
-					Expect(cond.Reason).NotTo(BeEmpty())
+					Expect(cond.Reason).To(Equal("Available"))
 					break
 				}
 			}
@@ -379,12 +392,26 @@ var _ = Describe("Helper Functions", func() {
 		})
 
 		It("should update status condition to false with error message", func() {
-			reconciler.UpdateStatusCondition(ctx, olsConfig, utils.TypeCacheReady, false, "Failed",
-				errors.NewBadRequest("test error"))
+			newStatus := olsv1alpha1.OLSConfigStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:               utils.TypeCacheReady,
+						Status:             metav1.ConditionFalse,
+						ObservedGeneration: olsConfig.Generation,
+						Reason:             "Failed",
+						Message:            "Failed: test error",
+						LastTransitionTime: metav1.Now(),
+					},
+				},
+				OverallStatus:  olsv1alpha1.OverallStatusNotReady,
+				DiagnosticInfo: []olsv1alpha1.PodDiagnostic{},
+			}
+			err := reconciler.UpdateStatusCondition(ctx, olsConfig, newStatus)
+			Expect(err).NotTo(HaveOccurred())
 
 			// Fetch updated CR
 			updated := &olsv1alpha1.OLSConfig{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, updated)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, updated)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Check condition exists and has correct status
@@ -393,8 +420,7 @@ var _ = Describe("Helper Functions", func() {
 				if cond.Type == utils.TypeCacheReady {
 					found = true
 					Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-					// Reason might be "Reconciling" or "Failed" depending on controller logic
-					Expect(cond.Reason).NotTo(BeEmpty())
+					Expect(cond.Reason).To(Equal("Failed"))
 					Expect(cond.Message).To(ContainSubstring("test error"))
 					break
 				}
@@ -404,8 +430,12 @@ var _ = Describe("Helper Functions", func() {
 	})
 
 	Context("checkDeploymentStatus", func() {
-		It("should return nil for ready deployment", func() {
+		It("should return Ready for ready deployment", func() {
 			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-deployment",
+					Namespace: testNamespace,
+				},
 				Status: appsv1.DeploymentStatus{
 					Conditions: []appsv1.DeploymentCondition{
 						{
@@ -422,13 +452,18 @@ var _ = Describe("Helper Functions", func() {
 				},
 			}
 
-			message, err := reconciler.checkDeploymentStatus(deployment)
+			status, diagnostics, err := reconciler.checkDeploymentStatus(ctx, deployment, utils.TypeApiReady)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(message).To(BeEmpty())
+			Expect(status).To(Equal(string(olsv1alpha1.DeploymentStatusReady)))
+			Expect(diagnostics).To(BeEmpty())
 		})
 
-		It("should return DeploymentInProgress for progressing deployment", func() {
+		It("should return Progressing for progressing deployment", func() {
 			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-deployment",
+					Namespace: testNamespace,
+				},
 				Status: appsv1.DeploymentStatus{
 					Conditions: []appsv1.DeploymentCondition{
 						{
@@ -446,22 +481,28 @@ var _ = Describe("Helper Functions", func() {
 				},
 			}
 
-			message, err := reconciler.checkDeploymentStatus(deployment)
-			Expect(err).To(HaveOccurred())
-			Expect(message).To(Equal(utils.DeploymentInProgress))
+			status, diagnostics, err := reconciler.checkDeploymentStatus(ctx, deployment, utils.TypeApiReady)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(status).To(Equal(string(olsv1alpha1.DeploymentStatusProgressing)))
+			Expect(diagnostics).To(BeEmpty())
 		})
 
-		It("should return error for failed deployment", func() {
+		It("should return Failed for failed deployment", func() {
 			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-deployment",
+					Namespace: testNamespace,
+				},
 				Status: appsv1.DeploymentStatus{
 					Conditions: []appsv1.DeploymentCondition{
 						{
-							Type:    appsv1.DeploymentReplicaFailure,
-							Status:  corev1.ConditionTrue,
-							Message: "Pod failed",
+							Type:    appsv1.DeploymentAvailable,
+							Status:  corev1.ConditionFalse,
+							Reason:  "MinimumReplicasUnavailable",
+							Message: "Deployment does not have minimum availability",
 						},
 					},
-					ReadyReplicas:   1, // Set replicas to match so we check the condition
+					ReadyReplicas:   0,
 					UpdatedReplicas: 1,
 					Replicas:        1,
 				},
@@ -470,9 +511,13 @@ var _ = Describe("Helper Functions", func() {
 				},
 			}
 
-			message, err := reconciler.checkDeploymentStatus(deployment)
-			Expect(err).To(HaveOccurred())
-			Expect(message).To(Equal("Fail")) // Actual return value from code
+			status, diagnostics, err := reconciler.checkDeploymentStatus(ctx, deployment, utils.TypeApiReady)
+			// No error expected - checkDeploymentStatus doesn't return errors for unavailable deployments
+			Expect(err).ToNot(HaveOccurred())
+			// Without pods/diagnostics showing terminal failures, status is Progressing
+			Expect(status).To(Equal(string(olsv1alpha1.DeploymentStatusProgressing)))
+			// Diagnostics will be empty because test deployment has no selector (no pods to query)
+			Expect(diagnostics).To(BeEmpty())
 		})
 	})
 

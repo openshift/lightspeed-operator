@@ -3,12 +3,12 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
@@ -87,40 +87,28 @@ func (r *OLSConfigReconciler) UseLCore() bool {
 
 // Status management
 
-// UpdateStatusCondition updates the status condition of the OLSConfig Custom Resource instance.
-// The condition's ObservedGeneration is set to the current CR generation to track which spec version
-// the status reflects, following Kubernetes API conventions.
-func (r *OLSConfigReconciler) UpdateStatusCondition(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig, conditionType string, status bool, message string, err error, inCluster ...bool) {
+// UpdateStatusCondition updates the complete status of the OLSConfig Custom Resource instance.
+// Uses retry with conflict handling to ensure the update succeeds even under concurrent modifications.
+func (r *OLSConfigReconciler) UpdateStatusCondition(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig, newStatus olsv1alpha1.OLSConfigStatus, inCluster ...bool) error {
 	// Set default value for inCluster
 	inClusterValue := true
 	if len(inCluster) > 0 {
 		inClusterValue = inCluster[0]
 	}
 
-	condition := metav1.Condition{
-		Type:               conditionType,
-		Status:             metav1.ConditionUnknown,
-		ObservedGeneration: olsconfig.Generation,
-		LastTransitionTime: metav1.Time{},
-	}
-
-	if status {
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = "Available"
-	} else {
-		condition.Status = metav1.ConditionFalse
-		// Determine reason based on message
-		if message == utils.DeploymentInProgress {
-			condition.Reason = "Progressing"
-		} else {
-			condition.Reason = "Failed"
+	// Helper to preserve LastTransitionTime for unchanged conditions
+	preserveTransitionTimes := func(newStatus *olsv1alpha1.OLSConfigStatus, existingConditions []metav1.Condition) {
+		for i := range newStatus.Conditions {
+			for _, existing := range existingConditions {
+				if newStatus.Conditions[i].Type == existing.Type &&
+					newStatus.Conditions[i].Status == existing.Status &&
+					newStatus.Conditions[i].Reason == existing.Reason {
+					// Condition hasn't changed, preserve the transition time
+					newStatus.Conditions[i].LastTransitionTime = existing.LastTransitionTime
+					break
+				}
+			}
 		}
-	}
-
-	if err != nil {
-		condition.Message = fmt.Sprintf("%s: %v", message, err)
-	} else {
-		condition.Message = message
 	}
 
 	if inClusterValue {
@@ -136,8 +124,11 @@ func (r *OLSConfigReconciler) UpdateStatusCondition(ctx context.Context, olsconf
 				return getErr
 			}
 
-			// Apply the condition to the current version
-			meta.SetStatusCondition(&currentOLSConfig.Status.Conditions, condition)
+			// Preserve LastTransitionTime for conditions that haven't changed
+			preserveTransitionTimes(&newStatus, currentOLSConfig.Status.Conditions)
+
+			// Apply the new status to the current version
+			currentOLSConfig.Status = newStatus
 
 			// Attempt status update
 			return r.Status().Update(ctx, currentOLSConfig)
@@ -145,43 +136,223 @@ func (r *OLSConfigReconciler) UpdateStatusCondition(ctx context.Context, olsconf
 			if !apierrors.IsNotFound(updateErr) {
 				r.Logger.Error(updateErr, utils.ErrUpdateCRStatusCondition, "name", olsconfig.Name)
 			}
+			return updateErr
 		}
+		return nil
 	} else {
-		meta.SetStatusCondition(&olsconfig.Status.Conditions, condition)
+		// Apply the new status directly (for tests)
+		// Preserve LastTransitionTime for conditions that haven't changed
+		preserveTransitionTimes(&newStatus, olsconfig.Status.Conditions)
+
+		olsconfig.Status = newStatus
 		if updateErr := r.Status().Update(ctx, olsconfig); updateErr != nil {
 			r.Logger.Error(updateErr, utils.ErrUpdateCRStatusCondition)
+			return updateErr
 		}
+		return nil
 	}
 }
 
-// checkDeploymentStatus checks if the deployment is ready and available
-func (r *OLSConfigReconciler) checkDeploymentStatus(deployment *appsv1.Deployment) (string, error) {
+// checkDeploymentStatus checks if the deployment is ready and collects diagnostics on failure.
+// Returns the status (Ready/Progressing/Failed), diagnostics array, and error.
+func (r *OLSConfigReconciler) checkDeploymentStatus(
+	ctx context.Context,
+	deployment *appsv1.Deployment,
+	conditionType string,
+) (string, []olsv1alpha1.PodDiagnostic, error) {
 
-	// Check if deployment has the expected number of replicas ready
-	if deployment.Status.ReadyReplicas != *deployment.Spec.Replicas {
-		return utils.DeploymentInProgress, fmt.Errorf("deployment not ready: %d replicas available",
-			deployment.Status.ReadyReplicas)
+	// Check if deployment is Available
+	for _, condition := range deployment.Status.Conditions {
+		if condition.Type == appsv1.DeploymentAvailable && condition.Status == corev1.ConditionTrue {
+			return string(olsv1alpha1.DeploymentStatusReady), nil, nil
+		}
 	}
 
-	// Check deployment conditions
-	for _, condition := range deployment.Status.Conditions {
-		switch condition.Type {
-		case appsv1.DeploymentAvailable:
-			if condition.Status != corev1.ConditionTrue {
-				return utils.DeploymentInProgress, fmt.Errorf("deployment not available: %s - %s", condition.Reason, condition.Message)
-			}
-		case appsv1.DeploymentProgressing:
-			if condition.Status == corev1.ConditionFalse {
-				return utils.DeploymentInProgress, fmt.Errorf("deployment not progressing: %s - %s", condition.Reason, condition.Message)
-			}
-		case appsv1.DeploymentReplicaFailure:
-			if condition.Status == corev1.ConditionTrue {
-				return "Fail", fmt.Errorf("deployment replica failure: %s - %s", condition.Reason, condition.Message)
+	// Deployment is not Available - check pod status for diagnostics
+	diagnostics := r.collectDeploymentDiagnostics(ctx, deployment, conditionType)
+
+	// If we found pod problems, check if they're terminal failures
+	if len(diagnostics) > 0 {
+		for _, diag := range diagnostics {
+			// These are terminal/recurring failures - mark as Failed
+			if diag.Reason == "CrashLoopBackOff" ||
+				diag.Reason == "ImagePullBackOff" ||
+				diag.Reason == "ErrImagePull" ||
+				diag.Reason == "OOMKilled" ||
+				strings.HasPrefix(diag.Reason, "PreviousCrash:") {
+				return string(olsv1alpha1.DeploymentStatusFailed), diagnostics,
+					fmt.Errorf("deployment has failing pods: %s", diag.Reason)
 			}
 		}
 	}
 
-	return "", nil
+	// No terminal failures, still progressing
+	return string(olsv1alpha1.DeploymentStatusProgressing), diagnostics, nil
+}
+
+// collectDeploymentDiagnostics collects pod-level diagnostics for a failed deployment.
+// Returns a slice of PodDiagnostic entries describing what went wrong with each pod.
+func (r *OLSConfigReconciler) collectDeploymentDiagnostics(
+	ctx context.Context,
+	deployment *appsv1.Deployment,
+	conditionType string,
+) []olsv1alpha1.PodDiagnostic {
+
+	// Return empty diagnostics if selector is not set (shouldn't happen in real deployments)
+	if deployment.Spec.Selector == nil || len(deployment.Spec.Selector.MatchLabels) == 0 {
+		return nil
+	}
+
+	pods := &corev1.PodList{}
+	err := r.List(ctx, pods,
+		client.InNamespace(deployment.Namespace),
+		client.MatchingLabels(deployment.Spec.Selector.MatchLabels))
+
+	if err != nil {
+		r.Logger.Error(err, "failed to list pods for diagnostics",
+			"deployment", deployment.Name)
+		return nil
+	}
+
+	var diagnostics []olsv1alpha1.PodDiagnostic
+	now := metav1.Now()
+	// Track pods that have container-level diagnostics to avoid redundant PodCondition entries
+	podsWithContainerDiags := make(map[string]bool)
+
+	for _, pod := range pods.Items {
+		// Check container statuses for issues
+		// Note: Don't skip Running pods - they can have containers in CrashLoopBackOff
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			// Skip containers that are running and ready - they're healthy
+			if containerStatus.State.Running != nil && containerStatus.Ready {
+				continue
+			}
+
+			// Waiting state (ImagePullBackOff, ContainerCreating, etc.)
+			if containerStatus.State.Waiting != nil {
+				waiting := containerStatus.State.Waiting
+				diagnostics = append(diagnostics, olsv1alpha1.PodDiagnostic{
+					FailedComponent: conditionType,
+					PodName:         pod.Name,
+					ContainerName:   containerStatus.Name,
+					Reason:          waiting.Reason,
+					Message:         messageOrDefault(waiting.Message, "Container waiting - check pod status for details"),
+					Type:            olsv1alpha1.DiagnosticTypeContainerWaiting,
+					LastUpdated:     now,
+				})
+				podsWithContainerDiags[pod.Name] = true
+			}
+
+			// Terminated state with non-zero exit code
+			if containerStatus.State.Terminated != nil &&
+				containerStatus.State.Terminated.ExitCode != 0 {
+				term := containerStatus.State.Terminated
+				exitCode := term.ExitCode
+				diagnostics = append(diagnostics, olsv1alpha1.PodDiagnostic{
+					FailedComponent: conditionType,
+					PodName:         pod.Name,
+					ContainerName:   containerStatus.Name,
+					Reason:          term.Reason,
+					Message:         messageOrDefault(term.Message, "Container terminated - check pod logs for details"),
+					ExitCode:        &exitCode,
+					Type:            olsv1alpha1.DiagnosticTypeContainerTerminated,
+					LastUpdated:     now,
+				})
+				podsWithContainerDiags[pod.Name] = true
+			}
+
+			// Last termination state (for CrashLoopBackOff context)
+			// Only collect this if current state is Waiting (not Terminated) to avoid duplicate diagnostics
+			if containerStatus.State.Waiting != nil &&
+				containerStatus.LastTerminationState.Terminated != nil {
+				term := containerStatus.LastTerminationState.Terminated
+				exitCode := term.ExitCode
+				diagnostics = append(diagnostics, olsv1alpha1.PodDiagnostic{
+					FailedComponent: conditionType,
+					PodName:         pod.Name,
+					ContainerName:   containerStatus.Name,
+					Reason:          fmt.Sprintf("PreviousCrash: %s", term.Reason),
+					Message:         messageOrDefault(term.Message, "Previous container crash - check pod logs for details"),
+					ExitCode:        &exitCode,
+					Type:            olsv1alpha1.DiagnosticTypeContainerTerminated,
+					LastUpdated:     now,
+				})
+				podsWithContainerDiags[pod.Name] = true
+			}
+		}
+
+		// Check init container statuses
+		for _, containerStatus := range pod.Status.InitContainerStatuses {
+			if containerStatus.State.Waiting != nil {
+				waiting := containerStatus.State.Waiting
+				diagnostics = append(diagnostics, olsv1alpha1.PodDiagnostic{
+					FailedComponent: conditionType,
+					PodName:         pod.Name,
+					ContainerName:   fmt.Sprintf("init/%s", containerStatus.Name),
+					Reason:          waiting.Reason,
+					Message:         messageOrDefault(waiting.Message, "Init container waiting - check pod status for details"),
+					Type:            olsv1alpha1.DiagnosticTypeContainerWaiting,
+					LastUpdated:     now,
+				})
+				podsWithContainerDiags[pod.Name] = true
+			}
+		}
+
+		// Check pod conditions (scheduling, readiness issues)
+		for _, condition := range pod.Status.Conditions {
+			// Pod scheduling failures
+			if condition.Type == corev1.PodScheduled &&
+				condition.Status == corev1.ConditionFalse {
+				diagnostics = append(diagnostics, olsv1alpha1.PodDiagnostic{
+					FailedComponent: conditionType,
+					PodName:         pod.Name,
+					Reason:          condition.Reason,
+					Message:         condition.Message,
+					Type:            olsv1alpha1.DiagnosticTypePodScheduling,
+					LastUpdated:     now,
+				})
+			}
+
+			// Pod readiness failures (after being scheduled)
+			// Only add this if we don't already have more specific container diagnostics
+			if condition.Type == corev1.PodReady &&
+				condition.Status == corev1.ConditionFalse &&
+				pod.Status.Phase == corev1.PodRunning &&
+				!podsWithContainerDiags[pod.Name] {
+				diagnostics = append(diagnostics, olsv1alpha1.PodDiagnostic{
+					FailedComponent: conditionType,
+					PodName:         pod.Name,
+					Reason:          condition.Reason,
+					Message:         condition.Message,
+					Type:            olsv1alpha1.DiagnosticTypePodCondition,
+					LastUpdated:     now,
+				})
+			}
+		}
+
+		// Pod phase issues (non-Running, non-Pending, non-Succeeded)
+		if pod.Status.Phase == corev1.PodFailed ||
+			pod.Status.Phase == corev1.PodUnknown {
+			diagnostics = append(diagnostics, olsv1alpha1.PodDiagnostic{
+				FailedComponent: conditionType,
+				PodName:         pod.Name,
+				Reason:          string(pod.Status.Phase),
+				Message:         pod.Status.Message,
+				Type:            olsv1alpha1.DiagnosticTypePodCondition,
+				LastUpdated:     now,
+			})
+		}
+	}
+
+	return diagnostics
+}
+
+// messageOrDefault returns the provided message if non-empty, otherwise returns the default message
+func messageOrDefault(message, defaultMessage string) string {
+	if message == "" {
+		return defaultMessage
+	}
+	return message
 }
 
 // External resource annotation
