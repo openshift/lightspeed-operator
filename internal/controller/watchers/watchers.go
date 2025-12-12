@@ -3,10 +3,13 @@ package watchers
 import (
 	"context"
 	"fmt"
+	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -154,7 +157,24 @@ func (h *ConfigMapUpdateHandler) Create(ctx context.Context, evt event.CreateEve
 		}
 	}
 
-	// Fetch the OLSConfig CR to check if this configmap should be watched
+	// FIRST: Check if this is a system ConfigMap (before checking CR reference)
+	// This handles cases where system ConfigMaps like openshift-service-ca.crt are recreated
+	watcherConfig, _ := h.Reconciler.GetWatcherConfig().(*utils.WatcherConfig)
+	if watcherConfig != nil {
+		for _, systemCM := range watcherConfig.ConfigMaps.SystemResources {
+			if cm.GetNamespace() == systemCM.Namespace && cm.GetName() == systemCM.Name {
+				// This is a system ConfigMap - trigger restart directly
+				h.Reconciler.GetLogger().Info("Detected system configmap recreation",
+					"configmap", systemCM.Name,
+					"namespace", systemCM.Namespace,
+					"description", systemCM.Description)
+				ConfigMapWatcherFilter(h.Reconciler, ctx, obj)
+				return
+			}
+		}
+	}
+
+	// SECOND: Check if this configmap is referenced in the CR (for user-provided configmaps)
 	cr := &olsv1alpha1.OLSConfig{}
 	err := h.Reconciler.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, cr)
 	if err != nil {
@@ -356,41 +376,165 @@ func ConfigMapWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj cl
 	// Not a watched configmap - no reconciliation needed. Should never happen
 }
 
-// restart corresponding deployment
-func restartDeployment(r reconciler.Reconciler, ctx context.Context, affectedDeployments []string, namespace string, name string, useLCore bool) {
+// waitForDeploymentReady waits for a deployment to become ready after restart
+func waitForDeploymentReady(r reconciler.Reconciler, ctx context.Context, deploymentName string, timeout time.Duration) error {
+	return wait.PollUntilContextTimeout(ctx, 2*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		deployment := &appsv1.Deployment{}
+		err := r.Get(ctx, client.ObjectKey{Name: deploymentName, Namespace: r.GetNamespace()}, deployment)
+		if err != nil {
+			return false, err
+		}
 
-	for _, depName := range affectedDeployments {
-		// Resolve ACTIVE_BACKEND to actual deployment name
-		if depName == "ACTIVE_BACKEND" {
-			if useLCore {
-				depName = utils.LCoreDeploymentName
-			} else {
-				depName = utils.OLSAppServerDeploymentName
+		// Check if deployment is ready
+		if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas &&
+			deployment.Status.UpdatedReplicas == *deployment.Spec.Replicas &&
+			deployment.Status.UnavailableReplicas == 0 {
+			// Check Available condition
+			for _, condition := range deployment.Status.Conditions {
+				if condition.Type == appsv1.DeploymentAvailable && condition.Status == v1.ConditionTrue {
+					return true, nil
+				}
 			}
 		}
-		// Restart the deployment
-		var err error
+		return false, nil
+	})
+}
+
+// restartDeployment restarts affected deployments. When conversationCache uses postgres,
+// it ensures Postgres restarts first and waits for it to be ready before restarting app server.
+func restartDeployment(r reconciler.Reconciler, ctx context.Context, affectedDeployments []string, namespace string, name string, useLCore bool) {
+	// Resolve ACTIVE_BACKEND to actual deployment name and build deployment list
+	resolvedDeployments := make([]string, 0, len(affectedDeployments))
+	for _, depName := range affectedDeployments {
+		if depName == "ACTIVE_BACKEND" {
+			if useLCore {
+				resolvedDeployments = append(resolvedDeployments, utils.LCoreDeploymentName)
+			} else {
+				resolvedDeployments = append(resolvedDeployments, utils.OLSAppServerDeploymentName)
+			}
+		} else {
+			resolvedDeployments = append(resolvedDeployments, depName)
+		}
+	}
+
+	// Check if conversationCache uses postgres to determine restart strategy
+	cr := &olsv1alpha1.OLSConfig{}
+	usesPostgresCache := false
+	getErr := r.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, cr)
+	if getErr == nil {
+		usesPostgresCache = cr.Spec.OLSConfig.ConversationCache.Type == olsv1alpha1.Postgres
+	}
+
+	// Separate deployments into categories
+	var postgresDeployments []string
+	var appServerDeployments []string
+	var otherDeployments []string
+
+	for _, depName := range resolvedDeployments {
 		switch depName {
-		case utils.OLSAppServerDeploymentName:
-			err = appserver.RestartAppServer(r, ctx)
-		case utils.LCoreDeploymentName:
-			err = lcore.RestartLCore(r, ctx)
 		case utils.PostgresDeploymentName:
-			err = postgres.RestartPostgres(r, ctx)
-		case utils.ConsoleUIDeploymentName:
-			err = console.RestartConsoleUI(r, ctx)
+			postgresDeployments = append(postgresDeployments, depName)
+		case utils.OLSAppServerDeploymentName, utils.LCoreDeploymentName:
+			appServerDeployments = append(appServerDeployments, depName)
 		default:
-			r.GetLogger().Info("unknown deployment name", "deployment", depName)
-			continue
+			otherDeployments = append(otherDeployments, depName)
+		}
+	}
+
+	// If conversationCache uses postgres and both postgres and app server need restart,
+	// handle postgres first, then wait, then app server
+	if usesPostgresCache && len(postgresDeployments) > 0 && len(appServerDeployments) > 0 {
+		// Step 1: Restart Postgres first
+		for _, depName := range postgresDeployments {
+			err := postgres.RestartPostgres(r, ctx)
+			if err != nil {
+				r.GetLogger().Error(err, "failed to restart postgres deployment",
+					"deployment", depName, "resource", name, "namespace", namespace)
+			} else {
+				r.GetLogger().Info("restarted postgres deployment",
+					"deployment", depName, "resource", name, "namespace", namespace)
+			}
 		}
 
-		if err != nil {
-			r.GetLogger().Error(err, "failed to restart deployment",
-				"deployment", depName, "resource", name, "namespace", namespace)
-			// Continue with other deployments
-		} else {
-			r.GetLogger().Info("restarted deployment",
-				"deployment", depName, "resource", name, "namespace", namespace)
+		// Step 2: Restart other deployments (not postgres, not app server)
+		for _, depName := range otherDeployments {
+			restartSingleDeployment(r, ctx, depName, name, namespace)
 		}
+
+		// Step 3: Wait for Postgres to be ready
+		r.GetLogger().Info("waiting for PostgreSQL deployment to be ready before restarting app server",
+			"timeout", "5 minutes")
+		err := waitForDeploymentReady(r, ctx, utils.PostgresDeploymentName, 5*time.Minute)
+		if err != nil {
+			r.GetLogger().Error(err, "PostgreSQL deployment did not become ready within timeout",
+				"deployment", utils.PostgresDeploymentName)
+			// Continue anyway - app server restart will be retried on next reconciliation
+		} else {
+			r.GetLogger().Info("PostgreSQL deployment is ready, proceeding with app server restart")
+		}
+
+		// Step 4: Restart app server after postgres is ready
+		for _, depName := range appServerDeployments {
+			r.GetLogger().Info("restarting app server after postgres is ready",
+				"deployment", depName, "reason", "refresh connection pool and reload CA certificates")
+			restartSingleDeployment(r, ctx, depName, name, namespace)
+		}
+
+		return
+	}
+
+	// If conversationCache does NOT use postgres, or only one type needs restart,
+	// restart all deployments in order (no special handling needed)
+	allDeployments := append(postgresDeployments, append(appServerDeployments, otherDeployments...)...)
+	for _, depName := range allDeployments {
+		restartSingleDeployment(r, ctx, depName, name, namespace)
+	}
+
+	// If postgres was restarted and conversationCache uses postgres (but app server wasn't in list),
+	// we still need to restart app server to refresh connection pool
+	if usesPostgresCache && len(postgresDeployments) > 0 && len(appServerDeployments) == 0 {
+		r.GetLogger().Info("postgres restarted and conversationCache uses postgres, restarting app server to refresh connection pool",
+			"resource", name, "namespace", namespace)
+		// Wait for postgres first
+		r.GetLogger().Info("waiting for PostgreSQL deployment to be ready before restarting app server",
+			"timeout", "5 minutes")
+		err := waitForDeploymentReady(r, ctx, utils.PostgresDeploymentName, 5*time.Minute)
+		if err != nil {
+			r.GetLogger().Error(err, "PostgreSQL deployment did not become ready within timeout",
+				"deployment", utils.PostgresDeploymentName)
+		} else {
+			// Restart app server
+			if useLCore {
+				restartSingleDeployment(r, ctx, utils.LCoreDeploymentName, name, namespace)
+			} else {
+				restartSingleDeployment(r, ctx, utils.OLSAppServerDeploymentName, name, namespace)
+			}
+		}
+	}
+}
+
+// restartSingleDeployment restarts a single deployment by name
+func restartSingleDeployment(r reconciler.Reconciler, ctx context.Context, depName, resourceName, namespace string) {
+	var err error
+	switch depName {
+	case utils.OLSAppServerDeploymentName:
+		err = appserver.RestartAppServer(r, ctx)
+	case utils.LCoreDeploymentName:
+		err = lcore.RestartLCore(r, ctx)
+	case utils.PostgresDeploymentName:
+		err = postgres.RestartPostgres(r, ctx)
+	case utils.ConsoleUIDeploymentName:
+		err = console.RestartConsoleUI(r, ctx)
+	default:
+		r.GetLogger().Info("unknown deployment name", "deployment", depName)
+		return 
+	}
+
+	if err != nil {
+		r.GetLogger().Error(err, "failed to restart deployment",
+			"deployment", depName, "resource", resourceName, "namespace", namespace)
+	} else {
+		r.GetLogger().Info("restarted deployment",
+			"deployment", depName, "resource", resourceName, "namespace", namespace)
 	}
 }
