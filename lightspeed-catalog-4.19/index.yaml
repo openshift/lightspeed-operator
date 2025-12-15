@@ -6,8 +6,8 @@ icon:
 name: lightspeed-operator
 schema: olm.package
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:40a7705ef702d9839ae6f7e6019d76451dd8d817822c58fbaaaf7e3bdfe87d1a
-name: lightspeed-operator.v1.0.7
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:6ddfddfd63d7b8b1fc59c7d8062562b9c1e0dbfaa7b6126db3c6bdc19342a6d6
+name: lightspeed-operator.v1.0.8
 package: lightspeed-operator
 properties:
   - type: olm.gvk
@@ -18,7 +18,7 @@ properties:
   - type: olm.package
     value:
       packageName: lightspeed-operator
-      version: 1.0.7
+      version: 1.0.8
   - type: olm.csv.metadata
     value:
       annotations:
@@ -185,21 +185,12 @@ properties:
                   - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
               - displayName: PostgreSQL Settings
                 path: ols.conversationCache.postgres
-              - description: Secret that holds postgres credentials
-                displayName: Credentials Secret
-                path: ols.conversationCache.postgres.credentialsSecret
-              - description: Postgres database name
-                displayName: Database Name
-                path: ols.conversationCache.postgres.dbName
               - description: 'Postgres maxconnections. Default: "2000"'
                 displayName: Maximum Connections
                 path: ols.conversationCache.postgres.maxConnections
               - description: Postgres sharedbuffers
                 displayName: Shared Buffer Size
                 path: ols.conversationCache.postgres.sharedBuffers
-              - description: Postgres user name
-                displayName: User Name
-                path: ols.conversationCache.postgres.user
               - description: 'Conversation cache type. Default: "postgres"'
                 displayName: Cache Type
                 path: ols.conversationCache.type
@@ -320,6 +311,11 @@ properties:
               - description: Replacement for the matched pattern.
                 displayName: Replace With
                 path: ols.queryFilters[0].replaceWith
+              - description: Custom system prompt for LLM queries. If not specified, uses the default OpenShift Lightspeed prompt.
+                displayName: Query System Prompt
+                path: ols.querySystemPrompt
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
               - description: LLM Token Quota Configuration
                 displayName: LLM Token Quota Configuration
                 path: ols.quotaHandlersConfig
@@ -437,33 +433,35 @@ properties:
         url: https://github.com/openshift/lightspeed-service
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:ecb6174fe137b7401b10e3a54d79615dd50ecddca21f0edd79583cd86689e6d8
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:c9cd5a1a14a310ee25de231208b7ebd7c9dbcd16205caa03b96a379d7988d022
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:7f518602609484e768780edd706b2be1aedb695a9e23e082ae21a8582f98d205
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:830d900d133947ff0041bb0f8ad66d77db78483331a73278e47d89eece76eb9a
   - name: lightspeed-console-plugin-pf5
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:725cd5a43d587a974cdf957cfcd4ce6bcf100fb526eb99dfdf7821e0b4ba0672
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:555d429aecb1ea2f91e5eeaf71492a6b2fb4d39bfa4a313135cdccaf2cfa76b9
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:7afec87917d1be19e2a39268fd88a217ce10fe0f1d7c38c10936d245f8bf21a3
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:477acc1afc8df694c5d661f0da917b65c58a21ca3f9b115979278a6ae475b9ee
   - name: openshift-mcp-server
-    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:b72038962341e27fca063d9082bf04069daae00094ebba10ea3db58ec423e47d
+    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:d8f0081fcabbdaa9e5aa4fce5ed15e2a3222a277f6ef55f5a05583480d92dda3
   - name: lightspeed-to-dataverse-exporter
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:17ff570a69079936de2a70958b8c073e8456e3e9db79be2882c931eda931670f
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:d4f3fa25a0dc60de849658ee59d900fcdf314984b27f4c07bdfb667f22001053
+  - name: lightspeed-ocp-rag
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:3b73a841b0388f659f5a6f8f40a2b903e17ee4a7a57f074aa396b9e050cccc97
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:40a7705ef702d9839ae6f7e6019d76451dd8d817822c58fbaaaf7e3bdfe87d1a
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:6ddfddfd63d7b8b1fc59c7d8062562b9c1e0dbfaa7b6126db3c6bdc19342a6d6
 schema: olm.bundle
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: stable
 entries:
-  - name: lightspeed-operator.v1.0.7
-    skipRange: ">=0.1.0 <1.0.7"
+  - name: lightspeed-operator.v1.0.8
+    skipRange: ">=0.1.0 <1.0.8"
 ---
 schema: olm.channel
 package: lightspeed-operator
 name: alpha
 entries:
-  - name: lightspeed-operator.v1.0.7
-    skipRange: ">=0.1.0 <1.0.7"
+  - name: lightspeed-operator.v1.0.8
+    skipRange: ">=0.1.0 <1.0.8"
