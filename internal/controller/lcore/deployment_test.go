@@ -157,9 +157,10 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 	if len(llamaStackContainer.Ports) != 1 || llamaStackContainer.Ports[0].ContainerPort != utils.LlamaStackContainerPort {
 		t.Errorf("Expected llama-stack container port %d, got %v", utils.LlamaStackContainerPort, llamaStackContainer.Ports)
 	}
-	// Verify env vars are generated for all providers
-	if len(llamaStackContainer.Env) != len(cr.Spec.LLMConfig.Providers) {
-		t.Errorf("Expected %d env vars (one per provider), got %d", len(cr.Spec.LLMConfig.Providers), len(llamaStackContainer.Env))
+	// Verify env vars are generated for all providers + POSTGRES_PASSWORD
+	expectedEnvVars := len(cr.Spec.LLMConfig.Providers) + 1 // +1 for POSTGRES_PASSWORD
+	if len(llamaStackContainer.Env) != expectedEnvVars {
+		t.Errorf("Expected %d env vars (one per provider + POSTGRES_PASSWORD), got %d", expectedEnvVars, len(llamaStackContainer.Env))
 	}
 	// Check first provider's env var
 	if len(llamaStackContainer.Env) > 0 {
