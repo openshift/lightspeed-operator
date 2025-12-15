@@ -171,6 +171,17 @@ func buildLlamaStackEnvVars(r reconciler.Reconciler, ctx context.Context, cr *ol
 		return nil, err
 	}
 
+	// Add PostgreSQL password environment variable
+	envVars = append(envVars, corev1.EnvVar{
+		Name: "POSTGRES_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: utils.PostgresSecretName},
+				Key:                  utils.OLSComponentPasswordFileName,
+			},
+		},
+	})
+
 	return envVars, nil
 }
 
@@ -300,6 +311,8 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			MountPath: "/etc/pki/ca-trust/extracted/pem",
 			ReadOnly:  true,
 		},
+		// PostgreSQL CA ConfigMap (service-ca.crt for TLS verification)
+		utils.GetPostgresCAVolumeMount("/etc/certs/postgres-ca"),
 	}
 
 	// User provided CA certificates - create both volumes and volume mounts in single pass

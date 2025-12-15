@@ -72,8 +72,10 @@ practices.`
 
 func buildLlamaStackCoreConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
 	return map[string]interface{}{
-		"version":    "2",
-		"image_name": "minimal-viable-llama-stack-configuration",
+		"version": "2",
+		// image_name is a semantic identifier for the llama-stack configuration
+		// Note: Does NOT affect PostgreSQL database name (llama-stack uses hardcoded "llamastack")
+		"image_name": "openshift-lightspeed-configuration",
 		// Minimal APIs for RAG + MCP: agents (for MCP), files, inference, safety (required by agents), telemetry, tool_runtime, vector_io
 		// Commented out: datasetio, eval, post_training, scoring (not needed for basic RAG + MCP)
 		// Commented out: datasetio, eval, post_training, prompts, scoring, telemetry
@@ -537,6 +539,18 @@ func buildLlamaStackStorage(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) m
 			"type":    "kv_sqlite",
 			"db_path": "/tmp/llama-stack/kv_store.db",
 		},
+		"postgres_backend": map[string]interface{}{
+			"type":     "sql_postgres",
+			"host":     "lightspeed-postgres-server.openshift-lightspeed.svc",
+			"port":     5432,
+			"user":     "postgres",
+			"password": "${env.POSTGRES_PASSWORD}",
+			// Note: Database name is HARDCODED to "llamastack" in llama-stack's postgres adapter
+			// Not configurable - llama-stack ignores image_name for database selection
+			"ssl_mode":     "require",
+			"ca_cert_path": "/etc/certs/postgres-ca/service-ca.crt",
+			"gss_encmode":  "disable",
+		},
 	}
 
 	// Map data stores to backends - all use SQL with table_name
@@ -550,8 +564,8 @@ func buildLlamaStackStorage(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) m
 			"backend":    "sql_default",
 		},
 		"conversations": map[string]interface{}{
-			"table_name": "openai_conversations",
-			"backend":    "sql_default",
+			"table_name": "openai_conversations", // Required by config schema but ignored - llama-stack uses hardcoded names
+			"backend":    "postgres_backend",
 		},
 	}
 
@@ -559,20 +573,6 @@ func buildLlamaStackStorage(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) m
 		"backends": backends,
 		"stores":   stores,
 	}
-
-	// Future: PostgreSQL backend configuration
-	// When moving to PostgreSQL for Llama Stack storage:
-	// "backends": map[string]interface{}{
-	//     "postgres_backend": map[string]interface{}{
-	//         "type":     "sql_postgres",
-	//         "host":     "lightspeed-postgres-server.openshift-lightspeed.svc",
-	//         "port":     5432,
-	//         "database": "postgres",
-	//         "user":     "postgres",
-	//         "password": "${env.POSTGRES_PASSWORD}",
-	//     },
-	// },
-	// Then update stores to use "postgres_backend" instead of "sql_default"
 }
 
 // buildLlamaStackYAML assembles the complete Llama Stack configuration and converts to YAML

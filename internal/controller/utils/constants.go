@@ -210,16 +210,27 @@ const (
 	// PostgresDefaultSSLMode is the default ssl mode for postgres
 	PostgresDefaultSSLMode = "require"
 	// PostgresBootStrapScriptContent is the postgres's bootstrap script content
+	// NOTE: Database name must match LlamaStackDatabaseName constant (hardcoded by llama-stack)
 	PostgresBootStrapScriptContent = `
 #!/bin/bash
 
 cat /var/lib/pgsql/data/userdata/postgresql.conf
 
-echo "attempting to create pg_trgm extension if it does not exist"
+echo "attempting to create llama-stack database and pg_trgm extension if they do not exist"
 
 _psql () { psql --set ON_ERROR_STOP=1 "$@" ; }
 
+# Create database for llama-stack conversation storage
+# Database name is hardcoded by llama-stack internally (value from LlamaStackDatabaseName: ` + LlamaStackDatabaseName + `)
+DB_NAME="` + LlamaStackDatabaseName + `"
+
+echo "SELECT 'CREATE DATABASE $DB_NAME' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DB_NAME')\gexec" | _psql -d $POSTGRESQL_DATABASE
+
+# Create pg_trgm extension in default database (for OLS conversation cache)
 echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $POSTGRESQL_DATABASE
+
+# Create pg_trgm extension in llama-stack database (for text search if needed)
+echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $DB_NAME
 `
 	// PostgresConfigMapContent is the postgres's config content
 	PostgresConfigMapContent = `
@@ -357,4 +368,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	LlamaStackConfigMapResourceVersionAnnotation = "ols.openshift.io/llamastack-configmap-version"
 	// LCoreConfigMapResourceVersionAnnotation is the annotation key for tracking LCore ConfigMap ResourceVersion
 	LCoreConfigMapResourceVersionAnnotation = "ols.openshift.io/lcore-configmap-version"
+	// LlamaStackDatabaseName is the PostgreSQL database name for llama-stack conversation storage.
+	// CRITICAL: This value is HARDCODED in llama-stack's internal PostgreSQL adapter.
+	// DO NOT CHANGE THIS VALUE UNDER ANY CIRCUMSTANCES - llama-stack expects exactly "llamastack".
+	// Changing this will break llama-stack's database connectivity.
+	// This database is created in PostgresBootStrapScriptContent.
+	LlamaStackDatabaseName = "llamastack"
 )
