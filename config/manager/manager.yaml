@@ -71,7 +71,7 @@ spec:
         - "--metrics-bind-address=:8443"
         - --secure-metrics-server
         - "--cert-dir=/etc/tls/private"
-        - "--lcore-image=quay.io/openshift-lightspeed/lightspeed-stack:latest"
+        - "--lcore-image=quay.io/lightspeed-core/lightspeed-stack:dev-latest"
         - "--use-lcore=false"
         image: quay.io/openshift-lightspeed/lightspeed-operator:latest
         imagePullPolicy: Always
