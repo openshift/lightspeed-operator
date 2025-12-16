@@ -40,7 +40,7 @@
   },
   {
     "name": "lightspeed-operator-bundle",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:40a7705ef702d9839ae6f7e6019d76451dd8d817822c58fbaaaf7e3bdfe87d1a",
-    "revision": "a05c04544d4e6501fa23aa216bd58225c50b48bd"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:6ddfddfd63d7b8b1fc59c7d8062562b9c1e0dbfaa7b6126db3c6bdc19342a6d6",
+    "revision": "ba91c4cd25169bbc91afef1c06283d43ce0e2fc5"
   }
 ]
