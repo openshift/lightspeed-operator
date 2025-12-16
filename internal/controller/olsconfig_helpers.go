@@ -360,19 +360,42 @@ func messageOrDefault(message, defaultMessage string) string {
 // annotateExternalResources annotates all external resources (secrets and configmaps)
 // that the operator watches for changes. This centralizes annotation logic between
 // Phase 1 (resource reconciliation) and Phase 2 (deployment reconciliation).
-// It also validates LLM credentials before proceeding with annotation.
+// It validates external secrets (LLM credentials, TLS) before proceeding with annotation.
 func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	cr *olsv1alpha1.OLSConfig) error {
 
-	// Validate LLM credentials first (fail fast)
+	// Validate external secrets first (fail fast)
 	if err := utils.ValidateLLMCredentials(r, ctx, cr); err != nil {
 		return fmt.Errorf("LLM credentials validation failed: %w", err)
+	}
+
+	// Validate TLS secret if custom TLS is configured
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		if err := utils.ValidateTLSSecret(r, ctx, cr); err != nil {
+			return fmt.Errorf("TLS secret validation failed: %w", err)
+		}
+	}
+
+	// Clear the mappings before repopulating them
+	// This ensures that resources removed from CR are also removed from mappings
+	if r.WatcherConfig != nil {
+		r.WatcherConfig.AnnotatedConfigMapMapping = make(map[string][]string)
+		r.WatcherConfig.AnnotatedSecretMapping = make(map[string][]string)
 	}
 
 	var errs []error
 
 	// Annotate all external secrets
 	err := utils.ForEachExternalSecret(cr, func(name string, source string) error {
+		// TLS secrets affect both console (CA cert) and backend (server cert)
+		// All other secrets use the default behavior (ACTIVE_BACKEND only)
+		if r.WatcherConfig != nil && source == "tls" {
+			r.WatcherConfig.AnnotatedSecretMapping[name] = []string{
+				utils.ConsoleUIDeploymentName,
+				"ACTIVE_BACKEND",
+			}
+		}
+
 		if err := r.annotateSecretIfNeeded(ctx, name, r.Options.Namespace); err != nil {
 			r.Logger.Error(err, "Failed to annotate secret", "source", source, "secret", name)
 			errs = append(errs, err)
@@ -384,6 +407,7 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	}
 
 	// Annotate all external configmaps
+	// All external ConfigMaps use the default behavior (restart ACTIVE_BACKEND only)
 	err = utils.ForEachExternalConfigMap(cr, func(name string, source string) error {
 		if err := r.annotateConfigMapIfNeeded(ctx, name, r.Options.Namespace); err != nil {
 			r.Logger.Error(err, "Failed to annotate configmap", "source", source, "configmap", name)

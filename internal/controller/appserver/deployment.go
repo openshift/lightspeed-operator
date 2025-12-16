@@ -23,15 +23,6 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-func getOLSServerReplicas(cr *olsv1alpha1.OLSConfig) *int32 {
-	if cr.Spec.OLSConfig.DeploymentConfig.Replicas != nil && *cr.Spec.OLSConfig.DeploymentConfig.Replicas >= 0 {
-		return cr.Spec.OLSConfig.DeploymentConfig.Replicas
-	}
-	// default number of replicas.
-	defaultReplicas := int32(1)
-	return &defaultReplicas
-}
-
 func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
 	return utils.GetResourcesOrDefault(
 		cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Resources,
@@ -97,18 +88,14 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	volumes := []corev1.Volume{}
 	volumeMounts := []corev1.VolumeMount{}
 
-	// Add external LLM provider and TLS secrets - create both volumes and volume mounts in single pass
+	// Add external LLM provider secrets - create both volumes and volume mounts in single pass
 	_ = utils.ForEachExternalSecret(cr, func(name, source string) error {
-		var mountPath string
-		if strings.HasPrefix(source, "llm-provider-") {
-			mountPath = path.Join(utils.APIKeyMountRoot, name)
-		} else if source == "tls" {
-			mountPath = path.Join(utils.OLSAppCertsMountRoot, name)
-		} else {
-			// MCP header secrets are handled separately below
+		if !strings.HasPrefix(source, "llm-provider-") {
+			// TLS and MCP header secrets are handled separately below
 			return nil
 		}
 
+		mountPath := path.Join(utils.APIKeyMountRoot, name)
 		volumes = append(volumes, corev1.Volume{
 			Name: "secret-" + name,
 			VolumeSource: corev1.VolumeSource{
@@ -144,12 +131,30 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		ReadOnly:  true,
 	})
 
-	// TLS secret volume and mount - handle operator-generated cert if no user cert provided
-	if cr.Spec.OLSConfig.TLSConfig == nil || cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name == "" {
-		// Use operator-generated certificate
-		tlsMountPath := path.Join(utils.OLSAppCertsMountRoot, utils.OLSCertsSecretName)
+	// TLS certificate volume and mount
+	// If user provides custom TLS, mount it; otherwise use service-ca generated secret
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		// User provided custom TLS secret
+		tlsMountPath := path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls")
 		volumes = append(volumes, corev1.Volume{
-			Name: "secret-" + utils.OLSCertsSecretName,
+			Name: "secret-lightspeed-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name,
+					DefaultMode: &volumeDefaultMode,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "secret-lightspeed-tls",
+			MountPath: tlsMountPath,
+			ReadOnly:  true,
+		})
+	} else {
+		// Use service-ca generated secret
+		tlsMountPath := path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls")
+		volumes = append(volumes, corev1.Volume{
+			Name: "secret-lightspeed-tls",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  utils.OLSCertsSecretName,
@@ -158,7 +163,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			},
 		})
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "secret-" + utils.OLSCertsSecretName,
+			Name:      "secret-lightspeed-tls",
 			MountPath: tlsMountPath,
 			ReadOnly:  true,
 		})
@@ -347,7 +352,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		initContainers = append(initContainers, ragInitContainers...)
 	}
 
-	replicas := getOLSServerReplicas(cr)
 	ols_server_resources := getOLSServerResources(cr)
 	data_collector_resources := getOLSDataCollectorResources(cr)
 	mcp_server_resources := getOLSMCPServerResources(cr)
@@ -366,7 +370,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: utils.GenerateAppServerSelectorLabels(),
 			},
@@ -428,12 +431,8 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		},
 	}
 
-	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector != nil {
-		deployment.Spec.Template.Spec.NodeSelector = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector
-	}
-	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations != nil {
-		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations
-	}
+	// Apply pod-level scheduling constraints (replicas configurable for appserver)
+	utils.ApplyPodDeploymentConfig(&deployment, cr.Spec.OLSConfig.DeploymentConfig.APIContainer, true)
 
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {
 		return nil, err

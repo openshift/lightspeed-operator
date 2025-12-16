@@ -1,6 +1,8 @@
 package console
 
 import (
+	"fmt"
+
 	consolev1 "github.com/openshift/api/console/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -130,9 +132,17 @@ func GenerateConsoleUIPlugin(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 		},
 	}
 
-	// Conditionally add the CA certificate if provided in the CR
-	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate != "" {
-		plugin.Spec.Proxy[0].CACertificate = cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate
+	// Conditionally add the CA certificate if user provides custom TLS
+	// If TLSConfig.KeyCertSecretRef is set, try to fetch the CA cert from that Secret
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		caCert, err := utils.GetCAFromSecret(r, r.GetNamespace(), cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get CA certificate from Secret %s: %w", cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name, err)
+		}
+		// Only set CA certificate if one was found in the secret
+		if caCert != "" {
+			plugin.Spec.Proxy[0].CACertificate = caCert
+		}
 	}
 
 	if err := controllerutil.SetControllerReference(cr, plugin, r.GetScheme()); err != nil {

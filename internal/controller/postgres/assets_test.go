@@ -302,7 +302,7 @@ var _ = Describe("App postgres server assets", func() {
 			nodeSelector := map[string]string{
 				"test-node-selector-key": "test-node-selector-value",
 			}
-			testCr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer = olsv1alpha1.DatabaseContainerConfig{
+			testCr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer = olsv1alpha1.Config{
 				Resources:    resources,
 				Tolerations:  tolerations,
 				NodeSelector: nodeSelector,
