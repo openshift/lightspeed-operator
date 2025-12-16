@@ -168,14 +168,11 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 
 	dataCollectorEnabled, _ := dataCollectorEnabled(r, cr)
 
+	// TLS config always uses /etc/certs/lightspeed-tls/ path
+	// regardless of whether it's service-ca generated or user-provided
 	tlsConfig := utils.TLSConfig{
-		TLSCertificatePath: path.Join(utils.OLSAppCertsMountRoot, utils.OLSCertsSecretName, "tls.crt"),
-		TLSKeyPath:         path.Join(utils.OLSAppCertsMountRoot, utils.OLSCertsSecretName, "tls.key"),
-	}
-
-	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
-		tlsConfig.TLSCertificatePath = path.Join(utils.OLSAppCertsMountRoot, cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name, "tls.crt")
-		tlsConfig.TLSKeyPath = path.Join(utils.OLSAppCertsMountRoot, cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name, "tls.key")
+		TLSCertificatePath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.crt"),
+		TLSKeyPath:         path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.key"),
 	}
 
 	var proxyConfig *utils.ProxyConfig
@@ -419,11 +416,9 @@ func validateCertificateInConfigMap(r reconciler.Reconciler, ctx context.Context
 func GenerateService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
 	annotations := map[string]string{}
 
-	// Let service-ca operator generate a TLS certificate if the user does not provide one
-	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate == "" {
+	// Let service-ca operator generate a TLS certificate if the user does not provide their own
+	if cr.Spec.OLSConfig.TLSConfig == nil || cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name == "" {
 		annotations[utils.ServingCertSecretAnnotationKey] = utils.OLSCertsSecretName
-	} else {
-		delete(annotations, utils.ServingCertSecretAnnotationKey)
 	}
 
 	service := corev1.Service{

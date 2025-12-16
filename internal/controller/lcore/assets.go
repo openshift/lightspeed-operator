@@ -109,11 +109,9 @@ func generateSARClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 func GenerateService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
 	annotations := map[string]string{}
 
-	// Let service-ca operator generate a TLS certificate if the user does not provide one
-	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate == "" {
+	// Let service-ca operator generate a TLS certificate if the user does not provide their own
+	if cr.Spec.OLSConfig.TLSConfig == nil || cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name == "" {
 		annotations[utils.ServingCertSecretAnnotationKey] = utils.OLSCertsSecretName
-	} else {
-		delete(annotations, utils.ServingCertSecretAnnotationKey)
 	}
 
 	service := corev1.Service{
