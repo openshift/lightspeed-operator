@@ -428,6 +428,10 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		},
 	}
 
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
+		deployment.Annotations[utils.OLSAppServerImageStreamTriggerAnnotation] = generateImageStreamTriggers(cr)
+	}
+
 	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector != nil {
 		deployment.Spec.Template.Spec.NodeSelector = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector
 	}
@@ -499,7 +503,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingDeployment, desiredDeployment *appsv1.Deployment) error {
 	// Step 1: Check if deployment spec has changed
 	utils.SetDefaults_Deployment(desiredDeployment)
-	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec)
+	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec, false)
 
 	// Step 2: Check if OLS ConfigMap ResourceVersion has changed
 	currentConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
