@@ -231,6 +231,16 @@ echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $POSTGRESQL_DATABASE
 
 # Create pg_trgm extension in llama-stack database (for text search if needed)
 echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $DB_NAME
+
+# Create schemas for isolating different components' data
+# lcore schema: main lightspeed-stack data (conversation cache, etc.)
+echo "CREATE SCHEMA IF NOT EXISTS lcore;" | _psql -d $POSTGRESQL_DATABASE
+
+# quota schema: token quota tracking and limits
+echo "CREATE SCHEMA IF NOT EXISTS quota;" | _psql -d $POSTGRESQL_DATABASE
+
+# conversation_cache schema: conversation history storage
+echo "CREATE SCHEMA IF NOT EXISTS conversation_cache;" | _psql -d $POSTGRESQL_DATABASE
 `
 	// PostgresConfigMapContent is the postgres's config content
 	PostgresConfigMapContent = `

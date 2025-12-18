@@ -826,36 +826,46 @@ func buildLCoreConversationCacheConfig(r reconciler.Reconciler, _ *olsv1alpha1.O
 // buildLCoreQuotaHandlersConfig configures token usage rate limiting
 // Controls how many tokens users or clusters can consume
 // Useful for cost management and preventing abuse
-//func buildLCoreQuotaHandlersConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
-//	return map[string]interface{}{
-//		"limiters": []interface{}{
-//			// Per-user token limit
-//			map[string]interface{}{
-//				"type":           "user_limiter",
-//				"name":           "user_daily_tokens",
-//				"initial_quota":  10000,  // 10k tokens to start
-//				"quota_increase": 10000,  // Refill 10k tokens
-//				"period":         "1 day", // Every day
-//			},
-//			// Cluster-wide token limit
-//			map[string]interface{}{
-//				"type":           "cluster_limiter",
-//				"name":           "cluster_hourly_tokens",
-//				"initial_quota":  100000,   // 100k tokens total
-//				"quota_increase": 100000,   // Refill 100k tokens
-//				"period":         "1 hour", // Every hour
-//			},
-//		},
-//		"scheduler": map[string]interface{}{
-//			"period": 1, // Check quotas every 1 second
-//		},
-//		"enable_token_history": false, // Set to true to track token usage history
-//		// Database configuration for quota storage (optional, uses main database if not specified)
-//		// "sqlite": map[string]interface{}{
-//		//     "db_path": "/app-root/data/quota.db",
-//		// },
-//	}
-//}
+func buildLCoreQuotaHandlersConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) map[string]interface{} {
+	// If no quota config in CR, return nil (disabled)
+	if cr.Spec.OLSConfig.QuotaHandlersConfig == nil || len(cr.Spec.OLSConfig.QuotaHandlersConfig.LimitersConfig) == 0 {
+		return nil
+	}
+
+	quotaConfig := cr.Spec.OLSConfig.QuotaHandlersConfig
+
+	// Build limiters array from CR configuration
+	limiters := []interface{}{}
+	for _, limiter := range quotaConfig.LimitersConfig {
+		limiters = append(limiters, map[string]interface{}{
+			"type":           limiter.Type, // "user_limiter" or "cluster_limiter"
+			"name":           limiter.Name,
+			"initial_quota":  limiter.InitialQuota,
+			"quota_increase": limiter.QuotaIncrease,
+			"period":         limiter.Period, // e.g., "1 day", "1 hour"
+		})
+	}
+
+	return map[string]interface{}{
+		"limiters": limiters,
+		"scheduler": map[string]interface{}{
+			"period": 1, // Check quotas every 1 second
+		},
+		"enable_token_history": quotaConfig.EnableTokenHistory,
+		// PostgreSQL configuration at top level - quota system expects postgres/sqlite at this level
+		"postgres": map[string]interface{}{
+			"host":         utils.PostgresServiceName + "." + r.GetNamespace() + ".svc",
+			"port":         utils.PostgresServicePort,
+			"db":           utils.PostgresDefaultDbName,
+			"user":         utils.PostgresDefaultUser,
+			"password":     "${env.POSTGRES_PASSWORD}", // Environment variable substitution
+			"ssl_mode":     utils.PostgresDefaultSSLMode,
+			"gss_encmode":  "disable",
+			"ca_cert_path": "/etc/certs/postgres-ca/service-ca.crt",
+			"namespace":    "quota", // Separate schema for quota data
+		},
+	}
+}
 
 // buildLCoreConfigYAML assembles the complete Lightspeed Core Service configuration and converts to YAML
 func buildLCoreConfigYAML(r reconciler.Reconciler, _ context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
@@ -870,13 +880,17 @@ func buildLCoreConfigYAML(r reconciler.Reconciler, _ context.Context, cr *olsv1a
 		"database":             buildLCoreDatabaseConfig(r, cr),          // Persistent storage (SQLite/PostgreSQL)
 		"customization":        buildLCoreCustomizationConfig(r, cr),     // Same system prompt as lightspeed-service
 		"conversation_cache":   buildLCoreConversationCacheConfig(r, cr), // Chat history caching (PostgreSQL)
-
-		// Optional features (uncomment to enable):
-		// "mcp_servers":        buildLCoreMCPServersConfig(r, cr),         // Model Context Protocol servers
-		// "authorization":      buildLCoreAuthorizationConfig(r, cr),      // Role-based access control
-		// "byok_rag":           buildLCoreByokRagConfig(r, cr),            // Custom RAG sources
-		// "quota_handlers":     buildLCoreQuotaHandlersConfig(r, cr),      // Token rate limiting
 	}
+
+	// Optional features - only add if configured/enabled
+	if quotaConfig := buildLCoreQuotaHandlersConfig(r, cr); quotaConfig != nil {
+		config["quota_handlers"] = quotaConfig // Token rate limiting
+	}
+
+	// Optional features (uncomment to enable):
+	// "mcp_servers":        buildLCoreMCPServersConfig(r, cr),         // Model Context Protocol servers
+	// "authorization":      buildLCoreAuthorizationConfig(r, cr),      // Role-based access control
+	// "byok_rag":           buildLCoreByokRagConfig(r, cr),            // Custom RAG sources
 
 	// Convert to YAML
 	yamlBytes, err := yaml.Marshal(config)
