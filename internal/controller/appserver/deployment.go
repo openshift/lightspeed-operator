@@ -357,15 +357,21 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Get ResourceVersions for tracking - these resources should already exist
 	// If they don't exist, we'll get empty strings which is fine for initial creation
 	configMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
+	secretResourceVersion, _ := utils.GetSecretResourceVersion(r, ctx, utils.PostgresSecretName)
+	postgresCertsSecretVersion, _ := utils.GetSecretResourceVersion(r, ctx, utils.PostgresCertsSecretName)
+
+	annotations := map[string]string{
+		utils.OLSConfigMapResourceVersionAnnotation:        configMapResourceVersion,
+		utils.PostgresSecretResourceVersionAnnotation:      secretResourceVersion,
+		utils.PostgresCertsSecretResourceVersionAnnotation: postgresCertsSecretVersion,
+	}
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.OLSAppServerDeploymentName,
-			Namespace: r.GetNamespace(),
-			Labels:    utils.GenerateAppServerSelectorLabels(),
-			Annotations: map[string]string{
-				utils.OLSConfigMapResourceVersionAnnotation: configMapResourceVersion,
-			},
+			Name:        utils.OLSAppServerDeploymentName,
+			Namespace:   r.GetNamespace(),
+			Labels:      utils.GenerateAppServerSelectorLabels(),
+			Annotations: annotations,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -516,6 +522,35 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 		}
 	}
 
+	// Step 3: Check if Postgres Secret ResourceVersion has changed
+	currentSecretVersion, err := utils.GetSecretResourceVersion(r, ctx, utils.PostgresSecretName)
+	if err != nil {
+		r.GetLogger().Info("failed to get Postgres Secret ResourceVersion", "error", err)
+		changed = true
+	} else {
+		storedSecretVersion := existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
+		if storedSecretVersion != currentSecretVersion {
+			changed = true
+		}
+	}
+
+	// Step 4: Check if Postgres TLS Certificate Secret ResourceVersion has changed
+	// This enables smooth rotation when service-ca-operator regenerates certificates
+	currentPostgresCertsVersion, err := utils.GetSecretResourceVersion(r, ctx, utils.PostgresCertsSecretName)
+	if err != nil {
+		r.GetLogger().Info("failed to get Postgres TLS Certificate Secret ResourceVersion", "error", err)
+		// Don't set changed = true here - TLS cert secret might not exist yet (service-ca-operator creates it)
+		// We'll track it when it becomes available
+	} else {
+		storedPostgresCertsVersion := existingDeployment.Annotations[utils.PostgresCertsSecretResourceVersionAnnotation]
+		if storedPostgresCertsVersion != currentPostgresCertsVersion {
+			r.GetLogger().Info("Postgres TLS certificate secret ResourceVersion changed, triggering app server restart",
+				"oldVersion", storedPostgresCertsVersion,
+				"newVersion", currentPostgresCertsVersion)
+			changed = true
+		}
+	}
+
 	// If nothing changed, skip update
 	if !changed {
 		return nil
@@ -524,6 +559,11 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 	// Apply changes - always update spec and annotations since something changed
 	existingDeployment.Spec = desiredDeployment.Spec
 	existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
+	existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation] = desiredDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
+	// Update TLS cert secret ResourceVersion if it exists in desired deployment
+	if postgresCertsVersion, ok := desiredDeployment.Annotations[utils.PostgresCertsSecretResourceVersionAnnotation]; ok {
+		existingDeployment.Annotations[utils.PostgresCertsSecretResourceVersionAnnotation] = postgresCertsVersion
+	}
 
 	r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
 

@@ -3,11 +3,14 @@ package watchers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -155,7 +158,24 @@ func (h *ConfigMapUpdateHandler) Create(ctx context.Context, evt event.CreateEve
 		}
 	}
 
-	// Fetch the OLSConfig CR to check if this configmap should be watched
+	// FIRST: Check if this is a system ConfigMap (before checking CR reference)
+	// This handles cases where system ConfigMaps like openshift-service-ca.crt are recreated
+	watcherConfig, _ := h.Reconciler.GetWatcherConfig().(*utils.WatcherConfig)
+	if watcherConfig != nil {
+		for _, systemCM := range watcherConfig.ConfigMaps.SystemResources {
+			if cm.GetNamespace() == systemCM.Namespace && cm.GetName() == systemCM.Name {
+				// This is a system ConfigMap - trigger restart directly
+				h.Reconciler.GetLogger().Info("Detected system configmap recreation",
+					"configmap", systemCM.Name,
+					"namespace", systemCM.Namespace,
+					"description", systemCM.Description)
+				ConfigMapWatcherFilter(h.Reconciler, ctx, obj)
+				return
+			}
+		}
+	}
+
+	// SECOND: Check if this configmap is referenced in the CR (for user-provided configmaps)
 	cr := &olsv1alpha1.OLSConfig{}
 	err := h.Reconciler.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, cr)
 	if err != nil {
@@ -368,20 +388,202 @@ var restartFuncs = map[string]RestartFunc{
 	utils.ConsoleUIDeploymentName:    console.RestartConsoleUI,
 }
 
-// restart corresponding deployment
-func restartDeployment(r reconciler.Reconciler, ctx context.Context, affectedDeployments []string, namespace string, name string, useLCore bool) {
+// deploymentExistsAndReady checks if a deployment exists and is in a stable state (not being created or updated)
+// Returns true if deployment exists and the controller has observed the current generation
+func deploymentExistsAndReady(r reconciler.Reconciler, ctx context.Context, deploymentName string) bool {
+	deployment := &appsv1.Deployment{}
+	err := r.Get(ctx, client.ObjectKey{Name: deploymentName, Namespace: r.GetNamespace()}, deployment)
+	if err != nil || errors.IsNotFound(err) {
+		return false
+	}
+	// Check if deployment is in a stable state (not being created or updated)
+	// Deployment is considered ready if the controller has observed the current generation
+	// ObservedGeneration == Generation means the deployment is stable
+	return deployment.Status.ObservedGeneration == deployment.Generation
+}
 
-	for _, depName := range affectedDeployments {
-		// Resolve ACTIVE_BACKEND to actual deployment name
-		if depName == "ACTIVE_BACKEND" {
-			if useLCore {
-				depName = utils.LCoreDeploymentName
-			} else {
-				depName = utils.OLSAppServerDeploymentName
+// waitForDeploymentReady waits for a deployment to become ready after restart.
+// Uses adaptive polling: starts at 2s intervals, increases to 5s after initial fast checks.
+// This balances responsiveness (quick restarts detected fast) with API server load (longer waits later).
+// The timeout parameter enforces maximum wait time to prevent indefinite blocking.
+func waitForDeploymentReady(r reconciler.Reconciler, ctx context.Context, deploymentName string, timeout time.Duration) error {
+	// Create a context with timeout to enforce maximum wait time
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Use adaptive polling: fast at first (2s), then slower (5s) after 30 seconds
+	// This catches quick restarts while reducing load during longer waits
+	startTime := time.Now()
+	fastPollDuration := 30 * time.Second
+	fastInterval := 2 * time.Second
+	slowInterval := 5 * time.Second
+
+	return wait.PollUntilContextCancel(timeoutCtx, fastInterval, true, func(ctx context.Context) (bool, error) {
+		// Switch to slower polling after initial fast period
+		elapsed := time.Since(startTime)
+		if elapsed > fastPollDuration {
+			// Note: PollUntilContextCancel doesn't support changing interval mid-poll,
+			// but we can add a small sleep to effectively slow down polling
+			time.Sleep(slowInterval - fastInterval)
+		}
+
+		deployment := &appsv1.Deployment{}
+		err := r.Get(ctx, client.ObjectKey{Name: deploymentName, Namespace: r.GetNamespace()}, deployment)
+		if err != nil {
+			r.GetLogger().V(1).Info("waiting for deployment", "deployment", deploymentName, "error", err)
+			return false, nil // Transient error, keep retrying
+		}
+
+		// Check if deployment is ready with all replicas available
+		if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas &&
+			deployment.Status.UpdatedReplicas == *deployment.Spec.Replicas &&
+			deployment.Status.UnavailableReplicas == 0 {
+			// Verify Available condition is True
+			for _, condition := range deployment.Status.Conditions {
+				if condition.Type == appsv1.DeploymentAvailable && condition.Status == v1.ConditionTrue {
+					r.GetLogger().Info("deployment is ready after certificate rotation",
+						"deployment", deploymentName,
+						"waitTime", time.Since(startTime).Round(time.Second))
+					return true, nil
+				}
 			}
 		}
 
-		// Restart the deployment using the appropriate function
+		r.GetLogger().V(1).Info("deployment not ready yet",
+			"deployment", deploymentName,
+			"readyReplicas", deployment.Status.ReadyReplicas,
+			"desiredReplicas", *deployment.Spec.Replicas,
+			"elapsed", elapsed.Round(time.Second))
+		return false, nil
+	})
+}
+
+// restartDeployment restarts affected deployments. When conversationCache uses postgres,
+// it ensures Postgres restarts first and waits for it to be ready before restarting app server.
+func restartDeployment(r reconciler.Reconciler, ctx context.Context, affectedDeployments []string, namespace string, name string, useLCore bool) {
+	// Resolve ACTIVE_BACKEND to actual deployment name and build deployment list
+	resolvedDeployments := make([]string, 0, len(affectedDeployments))
+	for _, depName := range affectedDeployments {
+		if depName == "ACTIVE_BACKEND" {
+			if useLCore {
+				resolvedDeployments = append(resolvedDeployments, utils.LCoreDeploymentName)
+			} else {
+				resolvedDeployments = append(resolvedDeployments, utils.OLSAppServerDeploymentName)
+			}
+		} else {
+			resolvedDeployments = append(resolvedDeployments, depName)
+		}
+	}
+
+	// Check if conversationCache uses postgres to determine restart strategy
+	cr := &olsv1alpha1.OLSConfig{}
+	usesPostgresCache := false
+	getErr := r.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, cr)
+	if getErr == nil {
+		usesPostgresCache = cr.Spec.OLSConfig.ConversationCache.Type == olsv1alpha1.Postgres
+	}
+
+	// Separate deployments into categories
+	var postgresDeployments []string
+	var appServerDeployments []string
+	var otherDeployments []string
+
+	for _, depName := range resolvedDeployments {
+		switch depName {
+		case utils.PostgresDeploymentName:
+			postgresDeployments = append(postgresDeployments, depName)
+		case utils.OLSAppServerDeploymentName, utils.LCoreDeploymentName:
+			appServerDeployments = append(appServerDeployments, depName)
+		default:
+			otherDeployments = append(otherDeployments, depName)
+		}
+	}
+
+	// If conversationCache uses postgres and both postgres and app server need restart,
+	// handle postgres first, then wait, then app server
+	if usesPostgresCache && len(postgresDeployments) > 0 && len(appServerDeployments) > 0 {
+		// Check if deployments exist and are in a stable state before trying to restart them
+		// During initial setup, deployments might not exist yet or might still be being created
+		postgresReady := deploymentExistsAndReady(r, ctx, utils.PostgresDeploymentName)
+		appServerReady := false
+		for _, depName := range appServerDeployments {
+			if deploymentExistsAndReady(r, ctx, depName) {
+				appServerReady = true
+				break
+			}
+		}
+
+		if !postgresReady || !appServerReady {
+			r.GetLogger().Info("skipping restart - deployments not ready yet",
+				"postgresReady", postgresReady,
+				"appServerReady", appServerReady,
+				"resource", name, "namespace", namespace)
+			return
+		}
+
+		// Step 1: Restart Postgres first
+		for _, pgDepName := range postgresDeployments {
+			err := postgres.RestartPostgres(r, ctx)
+			if err != nil {
+				r.GetLogger().Error(err, "failed to restart postgres deployment",
+					"deployment", pgDepName, "resource", name, "namespace", namespace)
+				return
+			}
+		}
+
+		// Step 2: Wait for Postgres to be ready before restarting app server
+		waitErr := waitForDeploymentReady(r, ctx, utils.PostgresDeploymentName, utils.PostgresReadyTimeout)
+		if waitErr != nil {
+			r.GetLogger().Error(waitErr, "postgres deployment did not become ready in time",
+				"resource", name, "namespace", namespace)
+			return
+		}
+
+		// Step 3: Restart app server deployments after postgres is ready
+		for _, appDepName := range appServerDeployments {
+			var err error
+			switch appDepName {
+			case utils.OLSAppServerDeploymentName:
+				err = appserver.RestartAppServer(r, ctx)
+			case utils.LCoreDeploymentName:
+				err = lcore.RestartLCore(r, ctx)
+			default:
+				r.GetLogger().Info("unknown app server deployment name", "deployment", appDepName)
+				continue
+			}
+
+			if err != nil {
+				r.GetLogger().Error(err, "failed to restart deployment",
+					"deployment", appDepName, "resource", name, "namespace", namespace)
+			} else {
+				r.GetLogger().Info("restarted deployment",
+					"deployment", appDepName, "resource", name, "namespace", namespace)
+			}
+		}
+
+		// Step 4: Restart other deployments (e.g., ConsoleUI)
+		for _, otherDepName := range otherDeployments {
+			restartFunc, exists := restartFuncs[otherDepName]
+			if !exists {
+				r.GetLogger().Info("unknown deployment name", "deployment", otherDepName)
+				continue
+			}
+
+			err := restartFunc(r, ctx)
+			if err != nil {
+				r.GetLogger().Error(err, "failed to restart deployment",
+					"deployment", otherDepName, "resource", name, "namespace", namespace)
+			} else {
+				r.GetLogger().Info("restarted deployment",
+					"deployment", otherDepName, "resource", name, "namespace", namespace)
+			}
+		}
+
+		return
+	}
+
+	// Normal case: restart all deployments without postgres dependency
+	for _, depName := range resolvedDeployments {
 		restartFunc, exists := restartFuncs[depName]
 		if !exists {
 			r.GetLogger().Info("unknown deployment name", "deployment", depName)
@@ -392,7 +594,6 @@ func restartDeployment(r reconciler.Reconciler, ctx context.Context, affectedDep
 		if err != nil {
 			r.GetLogger().Error(err, "failed to restart deployment",
 				"deployment", depName, "resource", name, "namespace", namespace)
-			// Continue with other deployments
 		} else {
 			r.GetLogger().Info("restarted deployment",
 				"deployment", depName, "resource", name, "namespace", namespace)
