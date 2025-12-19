@@ -345,6 +345,16 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	})
 
 	initContainers := []corev1.Container{}
+
+	// Add Postgres safety check if using Postgres cache
+	// This init container ensures Postgres is in a stable state before app server starts
+	// to prevent cache consistency issues during Postgres restarts
+	if cr.Spec.OLSConfig.ConversationCache.Type == olsv1alpha1.Postgres {
+		postgresSafetyCheck := generatePostgresSafetyCheckInitContainer(r)
+		initContainers = append(initContainers, postgresSafetyCheck)
+	}
+
+	// Add RAG init containers
 	if len(cr.Spec.OLSConfig.RAG) > 0 {
 		ragInitContainers := GenerateRAGInitContainers(cr)
 		initContainers = append(initContainers, ragInitContainers...)
