@@ -3,6 +3,7 @@ package e2e
 import (
 	"io"
 	"net/http"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,6 +13,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Test Design Notes:
+// - Uses Ordered to ensure serial execution (critical for test isolation)
+// - All tests share a single cluster-scoped OLSConfig CR
+// - Uses DeleteAndWait in AfterAll to prevent resource pollution between test suites
+// - FlakeAttempts(5) handles transient port-forwarding issues during pod restarts
 var _ = Describe("TLS activation - application", FlakeAttempts(5), Ordered, func() {
 	const serviceAnnotationKeyTLSSecret = "service.beta.openshift.io/serving-cert-secret-name"
 	const testSAName = "test-sa"
@@ -89,9 +95,9 @@ var _ = Describe("TLS activation - application", FlakeAttempts(5), Ordered, func
 
 		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
-		By("Deleting the OLSConfig CR")
+		By("Deleting the OLSConfig CR and waiting for cleanup")
 		Expect(cr).NotTo(BeNil())
-		err = client.Delete(cr)
+		err = client.DeleteAndWait(cr, 2*time.Minute)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

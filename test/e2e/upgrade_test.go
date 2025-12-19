@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -9,6 +11,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Test Design Notes:
+// - Uses Ordered to ensure serial execution (critical for test isolation)
+// - Tests operator upgrade scenario - CR persists across operator version changes
+// - Uses DeleteAndWait in AfterAll to prevent resource pollution between test suites
+// - CR is created before upgrade and should remain functional after upgrade
 var _ = Describe("Upgrade operator tests", Ordered, Label("Upgrade"), func() {
 	const testSAName = "test-sa"
 	const queryAccessClusterRole = "lightspeed-operator-query-access"
@@ -58,6 +65,16 @@ var _ = Describe("Upgrade operator tests", Ordered, Label("Upgrade"), func() {
 	AfterAll(func() {
 		err = mustGather("upgrade_test")
 		Expect(err).NotTo(HaveOccurred())
+
+		By("Deleting the OLSConfig CR and waiting for cleanup")
+		if cr != nil {
+			err = client.DeleteAndWait(cr, 2*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		for _, cleanUpFunc := range cleanUpFuncs {
+			cleanUpFunc()
+		}
 	})
 
 	It("should continue working after operator upgrade", func() {
