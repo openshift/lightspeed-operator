@@ -344,7 +344,7 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		return fmt.Errorf("%s: %w", utils.ErrGetAPIDeployment, err)
 	}
 
-	err = updateOLSDeployment(r, ctx, existingDeployment, desiredDeployment)
+	err = updateOLSDeployment(r, ctx, cr, existingDeployment, desiredDeployment)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAPIDeployment, err)
 	}
