@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -271,10 +272,9 @@ func CleanupOLSTestEnvironmentWithCRDeletion(env *OLSTestEnvironment, testName s
 		return err
 	}
 
-	// Delete the OLSConfig CR
+	// Delete the OLSConfig CR and wait for complete deletion
 	if env.CR != nil {
-		err = env.Client.Delete(env.CR)
-		if err != nil {
+		if err := env.Client.DeleteAndWait(env.CR, 2*time.Minute); err != nil {
 			return fmt.Errorf("failed to delete OLSConfig CR: %w", err)
 		}
 	}

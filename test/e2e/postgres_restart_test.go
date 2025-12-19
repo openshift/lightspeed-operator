@@ -11,6 +11,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func invokeOLS(env *OLSTestEnvironment, secret *corev1.Secret, query string, expected_success bool) {
@@ -39,15 +40,21 @@ func shutdownPostgres(env *OLSTestEnvironment) {
 			Namespace: OLSNameSpace,
 		},
 	}
-	err := env.Client.Get(deployment)
-	Expect(err).NotTo(HaveOccurred())
-	deployment.Spec.Replicas = Ptr(int32(0))
-	err = env.Client.Update(deployment)
+	err := env.Client.Update(deployment, func(obj ctrlclient.Object) error {
+		dep := obj.(*appsv1.Deployment)
+		dep.Spec.Replicas = Ptr(int32(0))
+		return nil
+	})
 	Expect(err).NotTo(HaveOccurred())
 	// Don't wait for 0 replicas - the operator will immediately reconcile it back to 1
 	// We just need the brief disruption to test the failure case
 }
 
+// Test Design Notes:
+// - Uses Ordered to ensure serial execution (critical for test isolation)
+// - Tests that OLS gracefully handles Postgres outages and automatic recovery
+// - Uses DeleteAndWait in cleanup to prevent resource pollution between test suites
+// - FlakeAttempts(5) handles timing issues with pod restarts
 var _ = Describe("Postgres restart", Ordered, Label("Postgres restart"), func() {
 	var env *OLSTestEnvironment
 	var err error

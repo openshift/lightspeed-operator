@@ -15,7 +15,6 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -29,6 +28,11 @@ const (
 	PostgresPVCName       = "lightspeed-postgres-pvc"
 )
 
+// Test Design Notes:
+// - Uses Ordered to ensure serial execution (critical for test isolation)
+// - All tests share a single cluster-scoped OLSConfig CR
+// - Uses DeleteAndWait in AfterAll to prevent resource pollution between test suites
+// - Tests database persistence across pod restarts using PVC
 var _ = Describe("Database Persistency", Ordered, Label("Database-Persistency"), func() {
 
 	var cr *olsv1alpha1.OLSConfig
@@ -143,9 +147,10 @@ var _ = Describe("Database Persistency", Ordered, Label("Database-Persistency"),
 	AfterAll(func() {
 		err = mustGather("database_test")
 		Expect(err).NotTo(HaveOccurred())
-		By("Deleting the OLSConfig CR")
+		By("Deleting the OLSConfig CR and waiting for cleanup")
 		if cr != nil {
-			client.Delete(cr)
+			err = client.DeleteAndWait(cr, 2*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
 		}
 
 		for _, cleanUpFunc := range cleanUpFuncs {
@@ -225,20 +230,9 @@ var _ = Describe("Database Persistency", Ordered, Label("Database-Persistency"),
 		Expect(err).NotTo(HaveOccurred())
 		Expect(count).To(BeNumerically(">", 0), "Expected to have at least 1 conversation record")
 
-		By("restart the database pod")
-		err = client.Delete(&databasePod)
+		By("restart the database pod by deleting it")
+		err = client.DeleteAndWait(&databasePod, 2*time.Minute)
 		Expect(err).NotTo(HaveOccurred())
-		// wait for the pod to be deleted
-		Eventually(func() bool {
-			pod := &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      databasePod.Name,
-					Namespace: OLSNameSpace,
-				},
-			}
-			err := client.Get(pod)
-			return k8serrors.IsNotFound(err)
-		}, 2*time.Minute, 2*time.Second).Should(BeTrue())
 
 		err = client.WaitForDeploymentRollout(deployment)
 		Expect(err).NotTo(HaveOccurred())

@@ -10,6 +10,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Test Design Notes:
+// - Uses Ordered to ensure serial execution (critical for test isolation)
+// - Tests Bring-Your-Own-Knowledge (BYOK) RAG functionality with custom vector database
+// - Uses DeleteAndWait in cleanup to prevent resource pollution between test suites
+// - FlakeAttempts(5) handles transient query timing and LLM response issues
 var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 	var env *OLSTestEnvironment
 	var err error
