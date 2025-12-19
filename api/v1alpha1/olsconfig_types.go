@@ -268,7 +268,7 @@ type LimiterConfig struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Token Quota Increase Step"
 	QuotaIncrease int `json:"quotaIncrease"`
 	// Period of time the token quota is for
-	// +kubebuilder:validation:Pattern=`^(1\s+(day|month|year|d|m|y)|([2-9][0-9]*|[1-9][0-9]{2,})\s+(days|months|years|d|m|y))$`
+	// +kubebuilder:validation:Pattern=`^(1\s+(second|minute|hour|day|month|year|s|min|h|d|m|y)|([2-9][0-9]*|[1-9][0-9]{2,})\s+(seconds|minutes|hours|days|months|years|s|min|h|d|m|y))$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Period of Time the Token Quota Is For"
 	Period string `json:"period"`
 }
