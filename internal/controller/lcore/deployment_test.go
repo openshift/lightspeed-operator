@@ -3,6 +3,7 @@ package lcore
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -704,5 +705,63 @@ func TestGetOLSMCPServerResources(t *testing.T) {
 		if memRequest.String() != expectedMem {
 			t.Errorf("Expected memory request '%s', got '%s'", expectedMem, memRequest.String())
 		}
+	}
+}
+
+func TestGenerateLCoreDeploymentWithRAG(t *testing.T) {
+	imagePullSecrets := []corev1.LocalObjectReference{
+		{
+			Name: "byok-image-pull-secret-1",
+		},
+		{
+			Name: "byok-image-pull-secret-2",
+		},
+	}
+
+	// Create an OLSConfig CR with additionalCAConfigMapRef
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "test-provider",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "test-secret",
+						},
+					},
+				},
+			},
+			OLSConfig: olsv1alpha1.OLSSpec{
+				ImagePullSecrets: imagePullSecrets,
+				RAG: []olsv1alpha1.RAGSpec{
+					{
+						Image:     "byok-rag-image-1",
+						IndexID:   "byok-index-id-1",
+						IndexPath: "byok-index-path-1",
+					},
+				},
+			},
+		},
+	}
+
+	// Create a mock reconciler
+	r := &mockReconciler{}
+
+	// Generate the deployment
+	deployment, err := GenerateLCoreDeployment(r, cr)
+	if err != nil {
+		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
+	}
+
+	// Verify deployment is not nil
+	if deployment == nil {
+		t.Fatal("GenerateLCoreDeployment returned nil deployment")
+	}
+
+	if !reflect.DeepEqual(deployment.Spec.Template.Spec.ImagePullSecrets, imagePullSecrets) {
+		t.Fatalf("Expected ImagePullSecrets: %+v, got %+v", imagePullSecrets, deployment.Spec.Template.Spec.ImagePullSecrets)
 	}
 }

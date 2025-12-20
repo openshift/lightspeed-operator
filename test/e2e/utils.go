@@ -26,8 +26,8 @@ type OLSTestEnvironment struct {
 	CleanUpFuncs []func()
 }
 
-// SetupOLSTestEnvironment sets up the common test environment for TLS tests
-func SetupOLSTestEnvironment(crModifier func(*olsv1alpha1.OLSConfig)) (*OLSTestEnvironment, error) {
+// SetupOLSTestEnvironment sets up the common test environment for OLS tests
+func SetupOLSTestEnvironment(crModifier func(*olsv1alpha1.OLSConfig), callback func(*OLSTestEnvironment) error) (*OLSTestEnvironment, error) {
 	env := &OLSTestEnvironment{
 		CleanUpFuncs: make([]func(), 0),
 	}
@@ -42,6 +42,12 @@ func SetupOLSTestEnvironment(crModifier func(*olsv1alpha1.OLSConfig)) (*OLSTestE
 	env.CR, err = generateOLSConfig()
 	if err != nil {
 		return nil, err
+	}
+
+	if callback != nil {
+		if err := callback(env); err != nil {
+			return nil, err
+		}
 	}
 
 	// Apply any modifications to the CR

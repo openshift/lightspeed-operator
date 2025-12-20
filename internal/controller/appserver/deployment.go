@@ -432,6 +432,12 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Apply pod-level scheduling constraints (replicas configurable for appserver)
 	utils.ApplyPodDeploymentConfig(&deployment, cr.Spec.OLSConfig.DeploymentConfig.APIContainer, true)
 
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
+		if cr.Spec.OLSConfig.ImagePullSecrets != nil {
+			deployment.Spec.Template.Spec.ImagePullSecrets = cr.Spec.OLSConfig.ImagePullSecrets
+		}
+	}
+
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {
 		return nil, err
 	}

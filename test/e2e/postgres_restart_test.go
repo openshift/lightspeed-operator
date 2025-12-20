@@ -61,7 +61,7 @@ var _ = Describe("Postgres restart", Ordered, Label("Postgres restart"), func() 
 
 	BeforeAll(func() {
 		By("Setting up OLS test environment")
-		env, err = SetupOLSTestEnvironment(nil)
+		env, err = SetupOLSTestEnvironment(nil, nil)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
