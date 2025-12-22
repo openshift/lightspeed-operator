@@ -89,7 +89,7 @@ func GetDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 				},
 				DefaultModel:    "testModel",
 				DefaultProvider: "testProvider",
-				LogLevel:        LogLevelInfo,
+				LogLevel:        olsv1alpha1.LogLevelInfo,
 			},
 		},
 	}

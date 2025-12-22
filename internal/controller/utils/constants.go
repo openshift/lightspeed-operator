@@ -233,7 +233,7 @@ echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $POSTGRESQL_DATABASE
 echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $DB_NAME
 
 # Create schemas for isolating different components' data
-# lcore schema: main lightspeed-stack data (conversation cache, etc.)
+# lcore schema: main lightspeed-stack data (general database operations)
 echo "CREATE SCHEMA IF NOT EXISTS lcore;" | _psql -d $POSTGRESQL_DATABASE
 
 # quota schema: token quota tracking and limits
@@ -330,16 +330,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	PostgresContainerName = "lightspeed-postgres-server"
 	// OpenShiftMCPServerContainerName is the name of the OpenShift MCP server container
 	OpenShiftMCPServerContainerName = "openshift-mcp-server"
-
-	/*** Log Levels (used for testing) ***/
-	// LogLevelInfo is the INFO log level
-	LogLevelInfo = "INFO"
-	// LogLevelDebug is the DEBUG log level
-	LogLevelDebug = "DEBUG"
-	// LogLevelWarning is the WARNING log level
-	LogLevelWarning = "WARNING"
-	// LogLevelError is the ERROR log level
-	LogLevelError = "ERROR"
 
 	/*** LCore specific Settings ***/
 	// LlamaStackConfigCmName name for the Llama stack config map

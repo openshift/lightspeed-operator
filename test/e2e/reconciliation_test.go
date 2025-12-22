@@ -154,10 +154,10 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		By("update LogLevel in the OLSConfig CR")
 		err = client.Update(cr, func(obj ctrlclient.Object) error {
 			cr := obj.(*olsv1alpha1.OLSConfig)
-			if cr.Spec.OLSConfig.LogLevel == "DEBUG" {
-				cr.Spec.OLSConfig.LogLevel = "INFO"
+			if cr.Spec.OLSConfig.LogLevel == olsv1alpha1.LogLevelDebug {
+				cr.Spec.OLSConfig.LogLevel = olsv1alpha1.LogLevelInfo
 			} else {
-				cr.Spec.OLSConfig.LogLevel = "DEBUG"
+				cr.Spec.OLSConfig.LogLevel = olsv1alpha1.LogLevelDebug
 			}
 			return nil
 		})
@@ -171,7 +171,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		}
 
 		By("wait for the app configmap to be updated")
-		err = client.WaitForConfigMapContainString(configMap, AppServerConfigMapKey, "app_log_level: "+cr.Spec.OLSConfig.LogLevel)
+		err = client.WaitForConfigMapContainString(configMap, AppServerConfigMapKey, "app_log_level: "+string(cr.Spec.OLSConfig.LogLevel))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("check the app deployment generation that should be inscreased")

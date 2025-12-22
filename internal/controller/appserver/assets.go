@@ -217,9 +217,9 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
 		DefaultProvider: cr.Spec.OLSConfig.DefaultProvider,
 		Logging: utils.LoggingConfig{
-			AppLogLevel:     cr.Spec.OLSConfig.LogLevel,
-			LibLogLevel:     cr.Spec.OLSConfig.LogLevel,
-			UvicornLogLevel: cr.Spec.OLSConfig.LogLevel,
+			AppLogLevel:     string(cr.Spec.OLSConfig.LogLevel),
+			LibLogLevel:     string(cr.Spec.OLSConfig.LogLevel),
+			UvicornLogLevel: string(cr.Spec.OLSConfig.LogLevel),
 		},
 		ConversationCache: conversationCache,
 		TLSConfig:         tlsConfig,
@@ -287,7 +287,7 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 	if dataCollectorEnabled {
 		appSrvConfigFile.UserDataCollectorConfig = utils.UserDataCollectorConfig{
 			DataStorage: "/app-root/ols-user-data",
-			LogLevel:    cr.Spec.OLSDataCollectorConfig.LogLevel,
+			LogLevel:    string(cr.Spec.OLSDataCollectorConfig.LogLevel),
 		}
 	}
 
