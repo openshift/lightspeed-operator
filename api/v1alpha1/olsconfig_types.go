@@ -135,6 +135,27 @@ const (
 	OverallStatusNotReady OverallStatus = "NotReady"
 )
 
+// LogLevel defines the logging level for components
+// +kubebuilder:validation:Enum=DEBUG;INFO;WARNING;ERROR;CRITICAL
+type LogLevel string
+
+const (
+	// LogLevelDebug enables debug-level logging (most verbose)
+	LogLevelDebug LogLevel = "DEBUG"
+
+	// LogLevelInfo enables info-level logging (default)
+	LogLevelInfo LogLevel = "INFO"
+
+	// LogLevelWarning enables warning-level logging
+	LogLevelWarning LogLevel = "WARNING"
+
+	// LogLevelError enables error-level logging
+	LogLevelError LogLevel = "ERROR"
+
+	// LogLevelCritical enables critical-level logging (least verbose)
+	LogLevelCritical LogLevel = "CRITICAL"
+)
+
 // LLMSpec defines the desired state of the large language model (LLM).
 type LLMSpec struct {
 	// +kubebuilder:validation:Required
@@ -152,10 +173,9 @@ type OLSSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,displayName="Deployment"
 	DeploymentConfig DeploymentConfig `json:"deployment,omitempty"`
 	// Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".
-	// +kubebuilder:validation:Enum=DEBUG;INFO;WARNING;ERROR;CRITICAL
 	// +kubebuilder:default=INFO
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Log level"
-	LogLevel string `json:"logLevel,omitempty"`
+	LogLevel LogLevel `json:"logLevel,omitempty"`
 	// Default model for usage
 	// +kubebuilder:validation:Required
 	// +required
@@ -473,10 +493,9 @@ type UserDataCollectionSpec struct {
 // OLSDataCollectorSpec defines allowed OLS data collector configuration.
 type OLSDataCollectorSpec struct {
 	// Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".
-	// +kubebuilder:validation:Enum=DEBUG;INFO;WARNING;ERROR;CRITICAL
 	// +kubebuilder:default=INFO
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Log level"
-	LogLevel string `json:"logLevel,omitempty"`
+	LogLevel LogLevel `json:"logLevel,omitempty"`
 }
 
 type TLSConfig struct {

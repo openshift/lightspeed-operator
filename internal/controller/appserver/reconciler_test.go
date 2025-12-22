@@ -172,7 +172,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			olsConfig := &olsv1alpha1.OLSConfig{}
 			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
-			olsConfig.Spec.OLSConfig.LogLevel = utils.LogLevelError
+			olsConfig.Spec.OLSConfig.LogLevel = olsv1alpha1.LogLevelError
 
 			By("Reconcile the app server")
 			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)

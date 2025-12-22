@@ -91,9 +91,9 @@ var _ = Describe("App server assets", func() {
 					DefaultModel:    "testModel",
 					DefaultProvider: "testProvider",
 					Logging: utils.LoggingConfig{
-						AppLogLevel:     utils.LogLevelInfo,
-						LibLogLevel:     utils.LogLevelInfo,
-						UvicornLogLevel: utils.LogLevelInfo,
+						AppLogLevel:     string(olsv1alpha1.LogLevelInfo),
+						LibLogLevel:     string(olsv1alpha1.LogLevelInfo),
+						UvicornLogLevel: string(olsv1alpha1.LogLevelInfo),
 					},
 					ConversationCache: utils.ConversationCacheConfig{
 						Type:     utils.OLSDefaultCacheType,
@@ -515,7 +515,7 @@ var _ = Describe("App server assets", func() {
 				"--config",
 				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
 				"--log-level",
-				utils.LogLevelInfo,
+				string(olsv1alpha1.LogLevelInfo),
 				"--data-dir",
 				utils.OLSUserDataMountPath,
 			}))
@@ -595,11 +595,11 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
 			// data collector container should be the second container
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(utils.LogLevelInfo))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelInfo)))
 
 			By("using DEBUG log level when configured")
 			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: utils.LogLevelDebug,
+				LogLevel: olsv1alpha1.LogLevelDebug,
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -611,40 +611,40 @@ var _ = Describe("App server assets", func() {
 				"--config",
 				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
 				"--log-level",
-				utils.LogLevelDebug,
+				string(olsv1alpha1.LogLevelDebug),
 				"--data-dir",
 				utils.OLSUserDataMountPath,
 			}))
 
 			By("using WARNING log level when configured")
 			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: utils.LogLevelWarning,
+				LogLevel: olsv1alpha1.LogLevelWarning,
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(utils.LogLevelWarning))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelWarning)))
 
 			By("using ERROR log level when configured")
 			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: utils.LogLevelError,
+				LogLevel: olsv1alpha1.LogLevelError,
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(utils.LogLevelError))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelError)))
 
 			By("using CRITICAL log level when configured")
 			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: "CRITICAL",
+				LogLevel: olsv1alpha1.LogLevelCritical,
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement("CRITICAL"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelCritical)))
 
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
@@ -801,7 +801,7 @@ var _ = Describe("App server assets", func() {
 				"--config",
 				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
 				"--log-level",
-				utils.LogLevelInfo,
+				string(olsv1alpha1.LogLevelInfo),
 				"--data-dir",
 				utils.OLSUserDataMountPath,
 			}))

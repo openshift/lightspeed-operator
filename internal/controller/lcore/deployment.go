@@ -192,9 +192,9 @@ func buildLightspeedStackEnvVars(_ reconciler.Reconciler, cr *olsv1alpha1.OLSCon
 			Name: "LOG_LEVEL",
 			Value: func() string {
 				if cr.Spec.OLSConfig.LogLevel != "" {
-					return cr.Spec.OLSConfig.LogLevel
+					return string(cr.Spec.OLSConfig.LogLevel)
 				}
-				return "INFO"
+				return string(olsv1alpha1.LogLevelInfo)
 			}(),
 		},
 		// PostgreSQL password for database configuration

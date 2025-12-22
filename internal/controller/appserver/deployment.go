@@ -447,7 +447,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		// Add data exporter container
 		logLevel := cr.Spec.OLSDataCollectorConfig.LogLevel
 		if logLevel == "" {
-			logLevel = "INFO"
+			logLevel = olsv1alpha1.LogLevelInfo
 		}
 		exporterContainer := corev1.Container{
 			Name:            "lightspeed-to-dataverse-exporter",
@@ -466,7 +466,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 				"--config",
 				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
 				"--log-level",
-				logLevel,
+				string(logLevel),
 				"--data-dir",
 				utils.OLSUserDataMountPath,
 			},

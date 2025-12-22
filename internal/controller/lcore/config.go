@@ -626,14 +626,14 @@ func buildLlamaStackYAML(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 func buildLCoreServiceConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) map[string]interface{} {
 	// Map LogLevel from OLSConfig
 	// Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL
-	// Default to INFO if not specified
-	logLevel := "INFO"
+	// Default to info if not specified
+	logLevel := olsv1alpha1.LogLevelInfo
 	if cr.Spec.OLSConfig.LogLevel != "" {
 		logLevel = cr.Spec.OLSConfig.LogLevel
 	}
 
 	// color_log: enable colored logs for DEBUG, disable for production (INFO+)
-	colorLog := logLevel == "DEBUG"
+	colorLog := logLevel == olsv1alpha1.LogLevelDebug
 
 	return map[string]interface{}{
 		"host":         "0.0.0.0",
@@ -849,7 +849,7 @@ func buildLCoreQuotaHandlersConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 	return map[string]interface{}{
 		"limiters": limiters,
 		"scheduler": map[string]interface{}{
-			"period": 1, // Check quotas every 1 second
+			"period": 300, // Check quotas every 300 seconds (5 minutes) - matches app server
 		},
 		"enable_token_history": quotaConfig.EnableTokenHistory,
 		// PostgreSQL configuration at top level - quota system expects postgres/sqlite at this level
