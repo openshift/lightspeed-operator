@@ -52,7 +52,7 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 	var secret *corev1.Secret
 
 	// Helper function to setup proxy configuration
-	setupProxyConfig := func(proxyURL string, proxyCACertRef *corev1.LocalObjectReference) {
+	setupProxyConfig := func(proxyURL string, proxyCACertRef *olsv1alpha1.ProxyCACertConfigMapRef) {
 		By("modifying the olsconfig to use proxy")
 		err = client.Update(cr, func(obj ctrlclient.Object) error {
 			cr := obj.(*olsv1alpha1.OLSConfig)
@@ -478,7 +478,7 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 	})
 
 	It("should be able to query the application server with https proxy", func() {
-		setupProxyConfig("https://"+squidHostname+":"+strconv.Itoa(httpsPort), &corev1.LocalObjectReference{
+		setupProxyConfig("https://"+squidHostname+":"+strconv.Itoa(httpsPort), &olsv1alpha1.ProxyCACertConfigMapRef{
 			Name: "proxy-ca",
 		})
 		waitForAppServerRollout()
