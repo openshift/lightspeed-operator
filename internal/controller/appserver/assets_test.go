@@ -1648,8 +1648,9 @@ user_data_collector_config: {}
 
 			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
 				ProxyURL: "https://proxy.example.com:8080",
-				ProxyCACertificateRef: &corev1.LocalObjectReference{
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
 					Name: caConfigMapName,
+					// No Key specified - tests backward compatibility
 				},
 			}
 
@@ -1668,6 +1669,12 @@ user_data_collector_config: {}
 								Name: caConfigMapName,
 							},
 							DefaultMode: &defaultVolumeMode,
+							Items: []corev1.KeyToPath{
+								{
+									Key:  utils.ProxyCACertFileName,
+									Path: utils.ProxyCACertFileName,
+								},
+							},
 						},
 					},
 				}))
@@ -1687,13 +1694,53 @@ user_data_collector_config: {}
 
 			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
 				ProxyURL: "https://proxy.example.com:8080",
-				ProxyCACertificateRef: &corev1.LocalObjectReference{
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
 					Name: caConfigMapName,
+					// No Key specified - tests backward compatibility
 				},
 			}
 			_, err = GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to validate proxy CA certificate"))
+		})
+
+		It("should support custom ConfigMap key for proxy CA certificate", func() {
+			customKey := "service-ca.crt"
+			proxyCACm.Data = map[string]string{
+				customKey: utils.TestCACert,
+			}
+			err := testReconcilerInstance.Update(ctx, proxyCACm)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
+				ProxyURL: "https://proxy.example.com:8080",
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
+					Name: caConfigMapName,
+					Key:  customKey,
+				},
+			}
+
+			// Test OLS ConfigMap has correct path with custom key
+			olsCm, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring(
+				fmt.Sprintf("proxy_ca_cert_path: /etc/certs/proxy-ca/%s", customKey)))
+
+			// Test deployment has Items projection with custom key
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var proxyCAVolume *corev1.Volume
+			for i := range dep.Spec.Template.Spec.Volumes {
+				if dep.Spec.Template.Spec.Volumes[i].Name == utils.ProxyCACertVolumeName {
+					proxyCAVolume = &dep.Spec.Template.Spec.Volumes[i]
+					break
+				}
+			}
+			Expect(proxyCAVolume).NotTo(BeNil())
+			Expect(proxyCAVolume.ConfigMap.Items).To(HaveLen(1))
+			Expect(proxyCAVolume.ConfigMap.Items[0].Key).To(Equal(customKey))
+			Expect(proxyCAVolume.ConfigMap.Items[0].Path).To(Equal(customKey))
 		})
 	})
 })
