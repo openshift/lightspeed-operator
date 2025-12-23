@@ -22,6 +22,7 @@ type TestReconciler struct {
 	McpServerImage      string
 	DataverseExporter   string
 	LCoreImage          string
+	OcpRagImage         string
 	openShiftMajor      string
 	openShiftMinor      string
 	PrometheusAvailable bool
@@ -73,6 +74,10 @@ func (r *TestReconciler) GetLCoreImage() string {
 	return r.LCoreImage
 }
 
+func (r *TestReconciler) GetOcpRagImage() string {
+	return r.OcpRagImage
+}
+
 func (r *TestReconciler) IsPrometheusAvailable() bool {
 	return r.PrometheusAvailable
 }
@@ -110,6 +115,7 @@ func NewTestReconciler(
 		AppServerImage:      OLSAppServerImageDefault,
 		McpServerImage:      OLSAppServerImageDefault,
 		LCoreImage:          LlamaStackImageDefault,
+		OcpRagImage:         OcpRagImageDefault,
 		DataverseExporter:   DataverseExporterImageDefault,
 		openShiftMajor:      "123",
 		openShiftMinor:      "456",
