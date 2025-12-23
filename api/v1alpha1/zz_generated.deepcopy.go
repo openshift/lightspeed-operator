@@ -583,8 +583,8 @@ func (in *ProxyConfig) DeepCopyInto(out *ProxyConfig) {
 	*out = *in
 	if in.ProxyCACertificateRef != nil {
 		in, out := &in.ProxyCACertificateRef, &out.ProxyCACertificateRef
-		*out = new(corev1.LocalObjectReference)
-		**out = **in
+		*out = new(corev1.ConfigMapKeySelector)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

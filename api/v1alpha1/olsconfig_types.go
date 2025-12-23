@@ -511,9 +511,9 @@ type ProxyConfig struct {
 	// +kubebuilder:validation:Pattern=`^https?://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy URL"
 	ProxyURL string `json:"proxyURL,omitempty"`
-	// The configmap holding proxy CA certificate
+	// The configmap and key holding proxy CA certificate
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy CA Certificate"
-	ProxyCACertificateRef *corev1.LocalObjectReference `json:"proxyCACertificate,omitempty"`
+	ProxyCACertificateRef *corev1.ConfigMapKeySelector `json:"proxyCACertificate,omitempty"`
 }
 
 // MCPServer defines the settings for a single MCP server.

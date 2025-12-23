@@ -616,8 +616,10 @@ var _ = Describe("Helper Functions", func() {
 							Name: "test-additional-ca",
 						},
 						ProxyConfig: &olsv1alpha1.ProxyConfig{
-							ProxyCACertificateRef: &corev1.LocalObjectReference{
-								Name: "test-proxy-ca",
+							ProxyCACertificateRef: &corev1.ConfigMapKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "test-proxy-ca",
+								},
 							},
 						},
 					},
