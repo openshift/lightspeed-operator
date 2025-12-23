@@ -429,6 +429,7 @@ func main() {
 			OpenShiftMCPServerImage:        imagesMap["openshift-mcp-server-image"],
 			DataverseExporterImage:         imagesMap["dataverse-exporter-image"],
 			LightspeedCoreImage:            imagesMap["lightspeed-core"],
+			OcpRagImage:                    imagesMap["ocp-rag-image"],
 			UseLCore:                       useLCore,
 			Namespace:                      namespace,
 			PrometheusAvailable:            prometheusAvailable,

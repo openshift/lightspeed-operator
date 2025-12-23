@@ -273,6 +273,9 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	// PostgreSQL CA ConfigMap volume (for TLS certificate verification)
 	volumes = append(volumes, utils.GetPostgresCAConfigVolume())
 
+	// RAG volume
+	volumes = append(volumes, utils.GenerateRAGVolume())
+
 	// Add external TLS secret if provided by user
 	var tlsVolumeMounts []corev1.VolumeMount
 	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
@@ -317,6 +320,9 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 		// PostgreSQL CA ConfigMap (service-ca.crt for TLS verification)
 		utils.GetPostgresCAVolumeMount("/etc/certs/postgres-ca"),
 	}
+
+	// RAG volume mount
+	llamaStackVolumeMounts = append(llamaStackVolumeMounts, utils.GenerateRAGVolumeMount())
 
 	// User provided CA certificates - create both volumes and volume mounts in single pass
 	_ = utils.ForEachExternalConfigMap(cr, func(name, source string) error {
@@ -526,6 +532,16 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	}
 	lightspeedStackContainer.Resources = *lightspeedStackResources
 
+	initContainers := []corev1.Container{}
+	ocpRagDirName := "ocp"
+	ocpRagDir := path.Join(utils.RAGVolumeMountPath, ocpRagDirName)
+	initContainers = append(initContainers, utils.GenerateRAGInitContainer(ocpRagDirName, r.GetOcpRagImage(), ocpRagDir, cr))
+
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
+		ragInitContainers := utils.GenerateRAGInitContainers(cr)
+		initContainers = append(initContainers, ragInitContainers...)
+	}
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "lightspeed-stack-deployment",
@@ -552,7 +568,8 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 						llamaStackContainer,
 						lightspeedStackContainer,
 					},
-					Volumes: volumes,
+					Volumes:        volumes,
+					InitContainers: initContainers,
 				},
 			},
 			RevisionHistoryLimit: &revisionHistoryLimit,

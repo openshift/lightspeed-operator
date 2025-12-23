@@ -73,6 +73,10 @@ func (r *OLSConfigReconciler) GetLCoreImage() string {
 	return r.Options.LightspeedCoreImage
 }
 
+func (r *OLSConfigReconciler) GetOcpRagImage() string {
+	return r.Options.OcpRagImage
+}
+
 func (r *OLSConfigReconciler) IsPrometheusAvailable() bool {
 	return r.Options.PrometheusAvailable
 }
