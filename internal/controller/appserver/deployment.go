@@ -355,15 +355,19 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Get ResourceVersions for tracking - these resources should already exist
 	// If they don't exist, we'll get empty strings which is fine for initial creation
 	configMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
+	secretResourceVersion, _ := utils.GetSecretResourceVersion(r, ctx, utils.PostgresSecretName)
+
+	annotations := map[string]string{
+		utils.OLSConfigMapResourceVersionAnnotation:   configMapResourceVersion,
+		utils.PostgresSecretResourceVersionAnnotation: secretResourceVersion,
+	}
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.OLSAppServerDeploymentName,
-			Namespace: r.GetNamespace(),
-			Labels:    utils.GenerateAppServerSelectorLabels(),
-			Annotations: map[string]string{
-				utils.OLSConfigMapResourceVersionAnnotation: configMapResourceVersion,
-			},
+			Name:        utils.OLSAppServerDeploymentName,
+			Namespace:   r.GetNamespace(),
+			Labels:      utils.GenerateAppServerSelectorLabels(),
+			Annotations: annotations,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: replicas,
@@ -496,7 +500,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 }
 
 // updateOLSDeployment updates the deployment based on CustomResource configuration.
-func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingDeployment, desiredDeployment *appsv1.Deployment) error {
+func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, existingDeployment, desiredDeployment *appsv1.Deployment) error {
 	// Step 1: Check if deployment spec has changed
 	utils.SetDefaults_Deployment(desiredDeployment)
 	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec)
