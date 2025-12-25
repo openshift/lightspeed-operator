@@ -244,12 +244,9 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 		},
 	}
 
-	if cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.Tolerations != nil {
-		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.Tolerations
-	}
-	if cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.NodeSelector != nil {
-		deployment.Spec.Template.Spec.NodeSelector = cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.NodeSelector
-	}
+	// Apply pod-level scheduling constraints (replicas not configurable for postgres)
+	utils.ApplyPodDeploymentConfig(&deployment, cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer, false)
+
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {
 		return nil, err
 	}
