@@ -435,6 +435,12 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations
 	}
 
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
+		if cr.Spec.OLSConfig.ImagePullSecrets != nil {
+			deployment.Spec.Template.Spec.ImagePullSecrets = cr.Spec.OLSConfig.ImagePullSecrets
+		}
+	}
+
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {
 		return nil, err
 	}

@@ -261,6 +261,9 @@ spec:
             path: ols.deployment.replicas
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:podCount
+          - description: Pull secrets for BYOK RAG images from image registries requiring authentication
+            displayName: Image Pull Secrets
+            path: ols.imagePullSecrets
           - description: Enable introspection features
             displayName: Introspection Enabled
             path: ols.introspectionEnabled
