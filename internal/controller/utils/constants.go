@@ -16,6 +16,8 @@ const (
 	OLSConfigKind = "OLSConfig"
 	// OLSConfigAPIVersion is the APIVersion of the OLSConfig Custom Resource
 	OLSConfigAPIVersion = "ols.openshift.io/v1alpha1"
+	// OLSConfigFinalizer is the finalizer for OLSConfig CR to ensure proper cleanup
+	OLSConfigFinalizer = "ols.openshift.io/finalizer"
 	// OperatorCertDirDefault is the default directory for storing the operator certificate
 	OperatorCertDirDefault = "/etc/tls/private"
 	// OperatorCertNameDefault is the default name of the operator certificate

@@ -334,6 +334,12 @@ func deactivateConsoleUI(r reconciler.Reconciler, ctx context.Context) error {
 		console := &openshiftv1.Console{}
 		err := r.Get(ctx, client.ObjectKey{Name: utils.ConsoleCRName}, console)
 		if err != nil {
+			// If Console CR doesn't exist, there's nothing to deactivate
+			// This can happen in non-OpenShift environments or test scenarios
+			if errors.IsNotFound(err) {
+				r.GetLogger().Info("Console CR not found, skipping plugin deactivation")
+				return nil
+			}
 			return fmt.Errorf("%s: %w", utils.ErrGetConsole, err)
 		}
 		if console.Spec.Plugins == nil {

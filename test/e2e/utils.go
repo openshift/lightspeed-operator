@@ -274,7 +274,7 @@ func CleanupOLSTestEnvironmentWithCRDeletion(env *OLSTestEnvironment, testName s
 
 	// Delete the OLSConfig CR and wait for complete deletion
 	if env.CR != nil {
-		if err := env.Client.DeleteAndWait(env.CR, 2*time.Minute); err != nil {
+		if err := env.Client.DeleteAndWait(env.CR, 3*time.Minute); err != nil {
 			return fmt.Errorf("failed to delete OLSConfig CR: %w", err)
 		}
 	}

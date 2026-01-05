@@ -352,7 +352,7 @@ var _ = Describe("Helper Functions", func() {
 		})
 
 		AfterEach(func() {
-			_ = k8sClient.Delete(ctx, olsConfig)
+			cleanupOLSConfig(ctx, olsConfig)
 		})
 
 		It("should update status condition to true", func() {

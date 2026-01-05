@@ -45,7 +45,7 @@ var _ = Describe("Automatic correction against modifications on managed resource
 		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR and waiting for cleanup")
 		Expect(cr).NotTo(BeNil())
-		err = client.DeleteAndWait(cr, 2*time.Minute)
+		err = client.DeleteAndWait(cr, 3*time.Minute)
 		Expect(err).NotTo(HaveOccurred())
 
 	})

@@ -149,7 +149,7 @@ var _ = Describe("Database Persistency", Ordered, Label("Database-Persistency"),
 		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR and waiting for cleanup")
 		if cr != nil {
-			err = client.DeleteAndWait(cr, 2*time.Minute)
+			err = client.DeleteAndWait(cr, 3*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 		}
 

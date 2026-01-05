@@ -20,6 +20,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,10 +30,13 @@ import (
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -159,3 +163,47 @@ var _ = AfterSuite(func() {
 	err = testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+// cleanupOLSConfig is a helper function to properly clean up an OLSConfig CR.
+// It handles finalizer removal and waits for complete deletion to prevent
+// "object is being deleted" errors in subsequent tests.
+// Use this in AfterEach blocks that delete OLSConfig CRs.
+func cleanupOLSConfig(ctx context.Context, olsConfig *olsv1alpha1.OLSConfig) {
+	if olsConfig == nil {
+		return
+	}
+
+	// Get the current state of the CR
+	currentCR := &olsv1alpha1.OLSConfig{}
+	err := k8sClient.Get(ctx, types.NamespacedName{Name: olsConfig.Name}, currentCR)
+	if apierrors.IsNotFound(err) {
+		// Already deleted, nothing to do
+		return
+	}
+	if err != nil {
+		// Unexpected error, but don't fail cleanup
+		logf.Log.Info("Error getting OLSConfig during cleanup", "error", err)
+		return
+	}
+
+	// Remove finalizer if present to allow deletion
+	if controllerutil.ContainsFinalizer(currentCR, utils.OLSConfigFinalizer) {
+		controllerutil.RemoveFinalizer(currentCR, utils.OLSConfigFinalizer)
+		err = k8sClient.Update(ctx, currentCR)
+		if err != nil && !apierrors.IsNotFound(err) {
+			logf.Log.Info("Error removing finalizer during cleanup", "error", err)
+		}
+	}
+
+	// Delete the CR
+	err = k8sClient.Delete(ctx, currentCR)
+	if err != nil && !apierrors.IsNotFound(err) {
+		logf.Log.Info("Error deleting OLSConfig during cleanup", "error", err)
+	}
+
+	// Wait for the CR to be fully deleted (up to 10 seconds)
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: olsConfig.Name}, &olsv1alpha1.OLSConfig{})
+		return apierrors.IsNotFound(err)
+	}, 10*time.Second, 500*time.Millisecond).Should(BeTrue(), "OLSConfig should be deleted within 10 seconds")
+}
