@@ -38,6 +38,8 @@ When updating the operator version for a release, you **MUST** update version nu
 ### Reconciliation Flow
 ```
 OLSConfigReconciler.Reconcile() →
+├── [Operator-level resources: ServiceMonitor, NetworkPolicy]
+├── [Finalizer logic: handle CR deletion if DeletionTimestamp set]
 ├── reconcileLLMSecrets()
 ├── reconcileConsoleUI()
 ├── reconcilePostgresServer()
@@ -70,18 +72,21 @@ make test-e2e   # E2E tests (requires cluster)
 ## Key File Locations
 
 ### Controllers
-- `internal/controller/olsconfig_controller.go` - Main reconciler
+- `internal/controller/olsconfig_controller.go` - Main reconciler with finalizer logic
 - `internal/controller/appserver/` - App server (LEGACY)
 - `internal/controller/lcore/` - Lightspeed Core (NEW)
 - `internal/controller/postgres/` - PostgreSQL
 - `internal/controller/console/` - Console UI
 - `internal/controller/watchers/` - External resource watching
 - `internal/controller/utils/` - Shared utilities, constants
+  - `constants.go` - Includes `OLSConfigFinalizer` constant
 
 ### Tests
 - `*_test.go` - Unit tests (co-located)
 - `test/e2e/` - E2E tests
 - `internal/controller/utils/testing.go` - Test utilities
+- `internal/controller/suite_test.go` - Test suite setup, shared helpers
+  - `cleanupOLSConfig()` - Reusable CR cleanup helper (removes finalizers, waits for deletion)
 
 ## State Management
 

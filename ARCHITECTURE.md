@@ -130,14 +130,62 @@ See `internal/controller/watchers/` and `cmd/main.go` for implementation details
 High-level reconciliation sequence:
 
 ```
-1. Validate OLSConfig CR exists
-2. Reconcile LLM Secrets (validate credentials)
-3. Reconcile Components:
+1. Reconcile operator-level resources (ServiceMonitor, NetworkPolicy)
+2. Check if CR is being deleted → run finalizer cleanup if needed
+3. Add finalizer if not present
+4. Validate OLSConfig CR exists
+5. Reconcile LLM Secrets (validate credentials)
+6. Reconcile Components:
    - Console UI (if enabled)
    - PostgreSQL (if conversation cache enabled)
    - Backend (AppServer OR LCore - mutually exclusive, controlled by --enable-lcore flag)
-4. Update Status Conditions based on deployment readiness
+7. Update Status Conditions based on deployment readiness
 ```
+
+### Finalizer Pattern
+
+The operator uses a finalizer (`ols.openshift.io/finalizer`) to ensure proper cleanup when `OLSConfig` CR is deleted.
+
+**Why Needed:**
+- **Console UI cleanup**: ConsolePlugin is cluster-scoped and not cascade-deleted by owner references
+- **PVC cleanup**: PersistentVolumeClaims can block deletion if not properly released
+- **Race condition prevention**: Ensures complete cleanup before CR can be recreated (important for tests and sequential deployments)
+
+**Implementation** (`internal/controller/olsconfig_controller.go`):
+
+```go
+// Finalizer is added on first reconciliation
+if !controllerutil.ContainsFinalizer(olsconfig, utils.OLSConfigFinalizer) {
+    controllerutil.AddFinalizer(olsconfig, utils.OLSConfigFinalizer)
+    r.Update(ctx, olsconfig)
+    return
+}
+
+// On deletion, run cleanup before removing finalizer
+if !olsconfig.DeletionTimestamp.IsZero() {
+    if controllerutil.ContainsFinalizer(olsconfig, utils.OLSConfigFinalizer) {
+        r.finalizeOLSConfig(ctx, olsconfig)  // Cleanup logic
+        controllerutil.RemoveFinalizer(olsconfig, utils.OLSConfigFinalizer)
+        r.Update(ctx, olsconfig)
+    }
+    return
+}
+```
+
+**Cleanup Sequence** (`finalizeOLSConfig`):
+1. **Remove Console UI**: Deactivate plugin from Console CR, delete ConsolePlugin CR
+2. **Wait for owned resources**: Poll for up to 3 minutes until deployments, services, PVCs are deleted (cascade deletion)
+3. **Remove finalizer**: Allows Kubernetes to remove CR from etcd
+
+**Error Handling:**
+- Cleanup errors are logged but don't block finalizer removal
+- Prevents CRs from being stuck in `Terminating` state
+- Console UI removal handles missing Console CR gracefully (test environments, non-OpenShift clusters)
+
+**Testing:**
+- Unit tests: `internal/controller/olsconfig_finalizer_test.go`
+- Test helper: `cleanupOLSConfig()` in `suite_test.go` (removes finalizers, waits for deletion)
+- E2E test timeout: 3 minutes for `DeleteAndWait()` to account for finalizer cleanup
 
 ## Resource Management
 

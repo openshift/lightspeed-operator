@@ -68,7 +68,7 @@ var _ = Describe("Upgrade operator tests", Ordered, Label("Upgrade"), func() {
 
 		By("Deleting the OLSConfig CR and waiting for cleanup")
 		if cr != nil {
-			err = client.DeleteAndWait(cr, 2*time.Minute)
+			err = client.DeleteAndWait(cr, 3*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 		}
 
