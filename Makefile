@@ -209,10 +209,10 @@ build: manifests generate fmt vet ## Build manager binary.
 
 LIGHTSPEED_SERVICE_IMG ?= quay.io/openshift-lightspeed/lightspeed-service-api:latest
 LIGHTSPEED_SERVICE_POSTGRES_IMG ?= registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-CONSOLE_PLUGIN_IMG ?= quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
-OPENSHIFT_MCP_SERVER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
-DATAVERSE_EXPORTER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
-OCP_RAG_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec
+CONSOLE_PLUGIN_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console:latest
+OPENSHIFT_MCP_SERVER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server:latest
+DATAVERSE_EXPORTER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter:latest
+OCP_RAG_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag:latest
 
 .PHONY: dev-setup
 dev-setup: manifests kustomize install ## Setup RBAC and resources for local development (idempotent, safe to run multiple times)

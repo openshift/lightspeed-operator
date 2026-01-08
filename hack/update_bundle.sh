@@ -127,7 +127,11 @@ else
   },
   {
       "name": "lightspeed-console-plugin",
-      "image": "quay.io/openshift-lightspeed/lightspeed-console-plugin:latest"
+      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console:latest"
+  },
+  {
+      "name": "lightspeed-console-plugin-pf5",
+      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-pf5:latest",
   },
   {
       "name": "lightspeed-operator",
@@ -135,15 +139,15 @@ else
   },
   {
       "name": "openshift-mcp-server",
-      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43"
+      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server:latest"
   },
   {
       "name": "lightspeed-to-dataverse-exporter",
-      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722"
+      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter:latest"
   }
   {
       "name": "lightspeed-ocp-rag",
-      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec"
+      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag:latest"
   }
 ]
 EOF
@@ -171,11 +175,11 @@ ${KUSTOMIZE} build config/manifests | ${OPERATOR_SDK} generate bundle ${BUNDLE_G
 ${OPERATOR_SDK} bundle validate ./bundle
 # set service, console, and openshift-mcp-server images for the operator
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/openshift-lightspeed/lightspeed-service-api:latest\", ${SERVICE_IMAGE}))" -i ${CSV_FILE}
-${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/openshift-lightspeed/lightspeed-console-plugin:latest\", ${CONSOLE_IMAGE}))" -i ${CSV_FILE}
-${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43\", ${OPENSHIFT_MCP_SERVER_IMAGE}))" -i ${CSV_FILE}
+${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console:latest\", ${CONSOLE_IMAGE}))" -i ${CSV_FILE}
+${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server:latest\", ${OPENSHIFT_MCP_SERVER_IMAGE}))" -i ${CSV_FILE}
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].image |= sub(\"quay.io/openshift-lightspeed/lightspeed-operator:latest\", ${OPERATOR_IMAGE}))" -i ${CSV_FILE}
-${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722\", ${DATAVERSE_EXPORTER_IMAGE}))" -i ${CSV_FILE}
-${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec\", ${OCP_RAG_IMAGE}))" -i ${CSV_FILE}
+${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter:latest\", ${DATAVERSE_EXPORTER_IMAGE}))" -i ${CSV_FILE}
+${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag:latest\", ${OCP_RAG_IMAGE}))" -i ${CSV_FILE}
 # set related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES}" ${CSV_FILE}
 # add compatibility labels to the annotations file

@@ -133,9 +133,9 @@ const (
 	// ConsoleUIDeploymentName is the name of the console UI deployment
 	ConsoleUIDeploymentName = "lightspeed-console-plugin"
 	// ConsoleUIImage is the image of the console UI plugin
-	ConsoleUIImageDefault = "quay.io/openshift-lightspeed/lightspeed-console-plugin:latest"
+	ConsoleUIImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console:latest"
 	// ConsoleUIImage is the image of the console UI plugin
-	ConsoleUIImagePF5Default = "quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest"
+	ConsoleUIImagePF5Default = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-pf5:latest"
 	// ConsoleUIHTTPSPort is the port number of the console UI service
 	ConsoleUIHTTPSPort = 9443
 	// ConsoleUIPluginName is the name of the console UI plugin
@@ -291,7 +291,7 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	// MetricsReaderServiceAccountName is the name of the service account for the metrics reader
 	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
 	// MCP server image
-	OpenShiftMCPServerImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43"
+	OpenShiftMCPServerImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server:latest"
 	// MCP server URL
 	OpenShiftMCPServerURL = "http://localhost:%d/mcp"
 	// MCP server port
@@ -313,7 +313,7 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 
 	/*** Data Exporter Constants ***/
 	// Dataverse exporter image
-	DataverseExporterImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722"
+	DataverseExporterImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter:latest"
 	// ExporterConfigCmName is the name of the exporter configmap
 	ExporterConfigCmName = "lightspeed-exporter-config"
 	// ExporterConfigVolumeName is the name of the volume for exporter configuration
