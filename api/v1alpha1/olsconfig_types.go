@@ -295,74 +295,60 @@ type LimiterConfig struct {
 
 // DeploymentConfig defines the schema for overriding deployment of OLS instance.
 type DeploymentConfig struct {
-	// Defines the number of desired OLS pods. Default: "1"
-	// +kubebuilder:default=1
-	// +kubebuilder:validation:Minimum=0
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
-	Replicas *int32 `json:"replicas,omitempty"`
 	// API container settings.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="API Container"
-	APIContainer APIContainerConfig `json:"api,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="API Deployment"
+	APIContainer Config `json:"api,omitempty"`
 	// Data Collector container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Data Collector Container"
-	DataCollectorContainer DataCollectorContainerConfig `json:"dataCollector,omitempty"`
-	// Console container settings.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Console Container"
-	ConsoleContainer ConsoleContainerConfig `json:"console,omitempty"`
-	// Database container settings.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Container"
-	DatabaseContainer DatabaseContainerConfig `json:"database,omitempty"`
+	DataCollectorContainer ContainerConfig `json:"dataCollector,omitempty"`
 	// MCP server container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Container"
-	MCPServerContainer MCPServerContainerConfig `json:"mcpServer,omitempty"`
+	MCPServerContainer ContainerConfig `json:"mcpServer,omitempty"`
+	// Llama Stack container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Llama Stack Container"
+	LlamaStackContainer ContainerConfig `json:"llamaStack,omitempty"`
+	// Console container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Console Deployment"
+	ConsoleContainer Config `json:"console,omitempty"`
+	// Database container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Deployment"
+	DatabaseContainer Config `json:"database,omitempty"`
 }
 
-type APIContainerConfig struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tolerations",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:tolerations"}
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Selector",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeSelector"}
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-}
-
-type DataCollectorContainerConfig struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-}
-
-type MCPServerContainerConfig struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-}
-
-type ConsoleContainerConfig struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tolerations",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:tolerations"}
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Selector",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeSelector"}
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// Defines the number of desired Console pods. Default: "1"
+// Config defines pod configuration using standard Kubernetes types
+type Config struct {
+	// Defines the number of desired OLS pods. Default: "1"
+	// Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+	// the number of replicas will always be set to 1.
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
-	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
-	// Certificate Authority (CA) certificate used by the console proxy endpoint.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="CA Certificate",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:caCertificate"}
-	// +kubebuilder:validation:Pattern=`^-----BEGIN CERTIFICATE-----([\s\S]*)-----END CERTIFICATE-----\s?$`
-	// +optional
-	CAcertificate string `json:"caCertificate,omitempty"`
+	// Resource requirements (CPU, memory)
+	// Uses standard corev1.ResourceRequirements
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// Tolerations for pod scheduling
+	// Uses standard corev1.Toleration
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
+	// Node selector constraints
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Affinity rules (can be added without API version bump)
+	// Uses standard corev1.Affinity
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+
+	// Topology spread constraints (can be added without API version bump)
+	// Uses standard corev1.TopologySpreadConstraint
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 
-type DatabaseContainerConfig struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+// ContainerConfig defines container configuration using standard Kubernetes types
+type ContainerConfig struct {
+	// Resource requirements (CPU, memory)
+	// Uses standard corev1.ResourceRequirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tolerations",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:tolerations"}
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Selector",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeSelector"}
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=postgres
@@ -499,8 +485,16 @@ type OLSDataCollectorSpec struct {
 }
 
 type TLSConfig struct {
-	// KeySecretRef is the secret that holds the TLS key.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Key Secret"
+	// KeyCertSecretRef references a Secret containing TLS certificate and key.
+	// The Secret must contain the following keys:
+	//   - tls.crt: Server certificate (PEM format) - REQUIRED
+	//   - tls.key: Private key (PEM format) - REQUIRED
+	//   - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
+	//
+	// If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
+	//
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Certificate Secret Reference"
+	// +optional
 	KeyCertSecretRef corev1.LocalObjectReference `json:"keyCertSecretRef,omitempty"`
 }
 

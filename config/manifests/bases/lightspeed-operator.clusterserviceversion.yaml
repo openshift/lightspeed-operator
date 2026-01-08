@@ -155,80 +155,47 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       - description: API container settings.
-        displayName: API Container
+        displayName: API Deployment
         path: ols.deployment.api
-      - displayName: Node Selector
-        path: ols.deployment.api.nodeSelector
+      - description: |-
+          Defines the number of desired OLS pods. Default: "1"
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+          the number of replicas will always be set to 1.
+        displayName: Number of replicas
+        path: ols.deployment.api.replicas
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:nodeSelector
-      - displayName: Resource Requirements
-        path: ols.deployment.api.resources
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-      - displayName: Tolerations
-        path: ols.deployment.api.tolerations
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:tolerations
+        - urn:alm:descriptor:com.tectonic.ui:podCount
       - description: Console container settings.
-        displayName: Console Container
+        displayName: Console Deployment
         path: ols.deployment.console
-      - description: Certificate Authority (CA) certificate used by the console proxy
-          endpoint.
-        displayName: CA Certificate
-        path: ols.deployment.console.caCertificate
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:caCertificate
-      - displayName: Node Selector
-        path: ols.deployment.console.nodeSelector
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:nodeSelector
-      - description: 'Defines the number of desired Console pods. Default: "1"'
+      - description: |-
+          Defines the number of desired OLS pods. Default: "1"
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+          the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.console.replicas
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podCount
-      - displayName: Resource Requirements
-        path: ols.deployment.console.resources
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-      - displayName: Tolerations
-        path: ols.deployment.console.tolerations
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:tolerations
       - description: Data Collector container settings.
         displayName: Data Collector Container
         path: ols.deployment.dataCollector
-      - displayName: Resource Requirements
-        path: ols.deployment.dataCollector.resources
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: Database container settings.
-        displayName: Database Container
+        displayName: Database Deployment
         path: ols.deployment.database
-      - displayName: Node Selector
-        path: ols.deployment.database.nodeSelector
+      - description: |-
+          Defines the number of desired OLS pods. Default: "1"
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+          the number of replicas will always be set to 1.
+        displayName: Number of replicas
+        path: ols.deployment.database.replicas
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:nodeSelector
-      - displayName: Resource Requirements
-        path: ols.deployment.database.resources
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-      - displayName: Tolerations
-        path: ols.deployment.database.tolerations
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:tolerations
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: Llama Stack container settings.
+        displayName: Llama Stack Container
+        path: ols.deployment.llamaStack
       - description: MCP server container settings.
         displayName: MCP Server Container
         path: ols.deployment.mcpServer
-      - displayName: Resource Requirements
-        path: ols.deployment.mcpServer.resources
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-      - description: 'Defines the number of desired OLS pods. Default: "1"'
-        displayName: Number of replicas
-        path: ols.deployment.replicas
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:podCount
       - description: Enable introspection features
         displayName: Introspection Enabled
         path: ols.introspectionEnabled
@@ -247,8 +214,9 @@ spec:
       - description: The configmap holding proxy CA certificate
         displayName: Proxy CA Certificate
         path: ols.proxyConfig.proxyCACertificate
-      - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified,
-          the cluster wide proxy will be used, though env var "https_proxy".
+      - description: |-
+          Proxy URL, e.g. https://proxy.example.com:8080
+          If not specified, the cluster wide proxy will be used, though env var "https_proxy".
         displayName: Proxy URL
         path: ols.proxyConfig.proxyURL
       - description: Query filters
@@ -326,8 +294,15 @@ spec:
       - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
         displayName: TLS Configuration
         path: ols.tlsConfig
-      - description: KeySecretRef is the secret that holds the TLS key.
-        displayName: Key Secret
+      - description: |-
+          KeyCertSecretRef references a Secret containing TLS certificate and key.
+          The Secret must contain the following keys:
+            - tls.crt: Server certificate (PEM format) - REQUIRED
+            - tls.key: Private key (PEM format) - REQUIRED
+            - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
+
+          If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
+        displayName: TLS Certificate Secret Reference
         path: ols.tlsConfig.keyCertSecretRef
       - description: TLS Security Profile used by API endpoints
         displayName: TLS Security Profile

@@ -114,26 +114,30 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 
 	It("should reconcile app deployment after changing deployment settings", func() {
 
-		By("update the replica number in the OLSConfig CR")
-		err = client.Update(cr, func(obj ctrlclient.Object) error {
-			cr := obj.(*olsv1alpha1.OLSConfig)
-			*cr.Spec.OLSConfig.DeploymentConfig.Replicas = *cr.Spec.OLSConfig.DeploymentConfig.Replicas + 1
-			return nil
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		By("check the replica number of the deployment that should be updated")
+		By("get current deployment replicas to determine new value")
 		deployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      AppServerDeploymentName,
 				Namespace: OLSNameSpace,
 			},
 		}
+		err = client.Get(deployment)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Increment from current deployment value
+		newReplicas := *deployment.Spec.Replicas + 1
+
+		By("update the replica number in the OLSConfig CR")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			olsConfig := obj.(*olsv1alpha1.OLSConfig)
+			olsConfig.Spec.OLSConfig.DeploymentConfig.APIContainer.Replicas = &newReplicas
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("check the replica number of the deployment that should be updated")
 		err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
-			if *dep.Spec.Replicas != *cr.Spec.OLSConfig.DeploymentConfig.Replicas {
-				return false, nil
-			}
-			return true, nil
+			return *dep.Spec.Replicas == newReplicas, nil
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
