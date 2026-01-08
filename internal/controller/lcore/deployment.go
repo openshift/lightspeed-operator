@@ -535,6 +535,12 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 		},
 	}
 
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
+		if cr.Spec.OLSConfig.ImagePullSecrets != nil {
+			deployment.Spec.Template.Spec.ImagePullSecrets = cr.Spec.OLSConfig.ImagePullSecrets
+		}
+	}
+
 	// Apply NodeSelector and Tolerations from APIContainer config if specified
 	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector != nil {
 		deployment.Spec.Template.Spec.NodeSelector = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector

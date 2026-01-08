@@ -3,6 +3,8 @@ package e2e
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -999,6 +1001,57 @@ func (c *Client) CreatePVC(name, storageClassName string, volumeSize resource.Qu
 		err := c.Delete(pv)
 		if err != nil {
 			logf.Log.Error(err, "Error deleting PersistentVolumeClaim")
+		}
+	}, nil
+}
+
+func (c *Client) CreateDockerRegistrySecret(namespace, name, server, username, password, email string) (func(), error) {
+	auth := base64.StdEncoding.EncodeToString(
+		[]byte(username + ":" + password),
+	)
+
+	dockerConfig := map[string]any{
+		"auths": map[string]any{
+			server: map[string]string{
+				"username": username,
+				"password": password,
+				"email":    email,
+				"auth":     auth,
+			},
+		},
+	}
+
+	dockerConfigJSON, err := json.Marshal(dockerConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			corev1.DockerConfigJsonKey: dockerConfigJSON,
+		},
+	}
+	if err := c.Create(secret); err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			logf.Log.Error(err, "Secret %s/%s already exists", namespace, name)
+		} else {
+			return nil, err
+		}
+	}
+
+	if err := c.WaitForSecretCreated(secret); err != nil {
+		return nil, err
+	}
+
+	return func() {
+		err := c.Delete(secret)
+		if err != nil {
+			logf.Log.Error(err, "Error deleting secret %s/%s", namespace, name)
 		}
 	}, nil
 }
