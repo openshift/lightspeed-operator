@@ -56,6 +56,8 @@ const (
 	CredentialsMountRoot = "/etc/credentials"
 	// OLSAppCertsMountRoot is the directory hosting the cert files in the container
 	OLSAppCertsMountRoot = "/etc/certs"
+	// OLSConfigMountRoot is the directory hosting the OLS configuration files in the container
+	OLSConfigMountRoot = "/etc/ols"
 	// OLSComponentPasswordFileName is the generic name of the password file for each of its components
 	OLSComponentPasswordFileName = "password"
 	// OLSConfigFilename is the name of the application server configuration file
@@ -118,6 +120,8 @@ const (
 	AzureOpenAIType = "azure_openai"
 	// DeploymentInProgress message
 	DeploymentInProgress = "In Progress"
+	// OLSSystemPromptFileName is the filename for the system prompt
+	OLSSystemPromptFileName = "system_prompt"
 
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap

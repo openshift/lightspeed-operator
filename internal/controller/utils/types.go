@@ -159,6 +159,8 @@ type OLSConfig struct {
 	ProxyConfig *ProxyConfig `json:"proxy_config,omitempty"`
 	// LLM Token Quota Configuration
 	QuotaHandlersConfig *QuotaHandlersConfig `json:"quota_handlers,omitempty"`
+	// User specified system prompt
+	SystemPromptPath string `json:"system_prompt_path,omitempty"`
 }
 
 // QuotaHandlersConfig defines the token quota configuration
