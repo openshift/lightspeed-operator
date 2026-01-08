@@ -36,10 +36,10 @@ patches:
         value: --service-image=quay.io/openshift-lightspeed/lightspeed-service-api:latest
       - op: add
         path: /spec/template/spec/containers/0/args/-
-        value: --console-image=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
+        value: --console-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:930a37683d9d856a4958841f6d449f9d5eb757247756a101b8836d9f05be2a90
       - op: add
         path: /spec/template/spec/containers/0/args/-
-        value: --console-image-pf5=quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest
+        value: --console-image-pf5=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-pf5@sha256:93415f5a0e567313bc177a0e6bf3a7370ed5691c99db6f692da8be14607c3b41
       - op: add
         path: /spec/template/spec/containers/0/args/-
         value: --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b

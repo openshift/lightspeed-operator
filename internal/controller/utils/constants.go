@@ -129,9 +129,9 @@ const (
 	// ConsoleUIDeploymentName is the name of the console UI deployment
 	ConsoleUIDeploymentName = "lightspeed-console-plugin"
 	// ConsoleUIImage is the image of the console UI plugin
-	ConsoleUIImageDefault = "quay.io/openshift-lightspeed/lightspeed-console-plugin:latest"
+	ConsoleUIImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:930a37683d9d856a4958841f6d449f9d5eb757247756a101b8836d9f05be2a90"
 	// ConsoleUIImage is the image of the console UI plugin
-	ConsoleUIImagePF5Default = "quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest"
+	ConsoleUIImagePF5Default = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-pf5@sha256:93415f5a0e567313bc177a0e6bf3a7370ed5691c99db6f692da8be14607c3b41"
 	// ConsoleUIHTTPSPort is the port number of the console UI service
 	ConsoleUIHTTPSPort = 9443
 	// ConsoleUIPluginName is the name of the console UI plugin

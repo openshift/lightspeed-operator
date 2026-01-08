@@ -127,7 +127,11 @@ else
   },
   {
       "name": "lightspeed-console-plugin",
-      "image": "quay.io/openshift-lightspeed/lightspeed-console-plugin:latest"
+      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:930a37683d9d856a4958841f6d449f9d5eb757247756a101b8836d9f05be2a90"
+  },
+  {
+      "name": "lightspeed-console-plugin-pf5",
+      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-pf5@sha256:93415f5a0e567313bc177a0e6bf3a7370ed5691c99db6f692da8be14607c3b41",
   },
   {
       "name": "lightspeed-operator",
@@ -171,7 +175,7 @@ ${KUSTOMIZE} build config/manifests | ${OPERATOR_SDK} generate bundle ${BUNDLE_G
 ${OPERATOR_SDK} bundle validate ./bundle
 # set service, console, and openshift-mcp-server images for the operator
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/openshift-lightspeed/lightspeed-service-api:latest\", ${SERVICE_IMAGE}))" -i ${CSV_FILE}
-${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/openshift-lightspeed/lightspeed-console-plugin:latest\", ${CONSOLE_IMAGE}))" -i ${CSV_FILE}
+${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:930a37683d9d856a4958841f6d449f9d5eb757247756a101b8836d9f05be2a90\", ${CONSOLE_IMAGE}))" -i ${CSV_FILE}
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43\", ${OPENSHIFT_MCP_SERVER_IMAGE}))" -i ${CSV_FILE}
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].image |= sub(\"quay.io/openshift-lightspeed/lightspeed-operator:latest\", ${OPERATOR_IMAGE}))" -i ${CSV_FILE}
 ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722\", ${DATAVERSE_EXPORTER_IMAGE}))" -i ${CSV_FILE}
