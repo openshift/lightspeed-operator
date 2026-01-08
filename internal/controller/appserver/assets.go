@@ -280,6 +280,10 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		olsConfig.QueryFilters = queryFilters
 	}
 
+	if cr.Spec.OLSConfig.QuerySystemPrompt != "" {
+		olsConfig.SystemPromptPath = path.Join(utils.OLSConfigMountRoot, utils.OLSSystemPromptFileName)
+	}
+
 	appSrvConfigFile := utils.AppSrvConfigFile{
 		LLMProviders: providerConfigs,
 		OLSConfig:    olsConfig,
@@ -323,15 +327,21 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		return nil, fmt.Errorf("failed to generate OLS config file %w", err)
 	}
 
+	data := map[string]string{
+		utils.OLSConfigFilename: string(configFileBytes),
+	}
+
+	if cr.Spec.OLSConfig.QuerySystemPrompt != "" {
+		data[utils.OLSSystemPromptFileName] = cr.Spec.OLSConfig.QuerySystemPrompt
+	}
+
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OLSConfigCmName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GenerateAppServerSelectorLabels(),
 		},
-		Data: map[string]string{
-			utils.OLSConfigFilename: string(configFileBytes),
-		},
+		Data: data,
 	}
 
 	if err := controllerutil.SetControllerReference(cr, &cm, r.GetScheme()); err != nil {
