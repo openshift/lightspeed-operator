@@ -35,8 +35,7 @@ func TestBuildLlamaStackYAML_SupportedProvider(t *testing.T) {
 	}
 
 	// Build the YAML
-	ctx := context.Background()
-	yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+	yamlOutput, err := buildLlamaStackYAML(createTestReconciler(), context.Background(), cr)
 	if err != nil {
 		t.Fatalf("buildLlamaStackYAML returned error for supported provider: %v", err)
 	}
@@ -89,8 +88,7 @@ func TestBuildLlamaStackYAML_UnsupportedProvider(t *testing.T) {
 			}
 
 			// Build the YAML - should return error
-			ctx := context.Background()
-			yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+			yamlOutput, err := buildLlamaStackYAML(createTestReconciler(), context.Background(), cr)
 
 			// Verify error is returned
 			if err == nil {
@@ -104,10 +102,10 @@ func TestBuildLlamaStackYAML_UnsupportedProvider(t *testing.T) {
 			}
 			if err.Error() != "" && len(err.Error()) > 0 {
 				// Check if error message contains expected text
-				if !contains(err.Error(), expectedErrMsg) {
+				if !strings.Contains(err.Error(), expectedErrMsg) {
 					t.Errorf("Error message '%s' doesn't contain expected text '%s'", err.Error(), expectedErrMsg)
 				}
-				if !contains(err.Error(), providerType) {
+				if !strings.Contains(err.Error(), providerType) {
 					t.Errorf("Error message '%s' doesn't mention provider type '%s'", err.Error(), providerType)
 				}
 			}
@@ -142,8 +140,7 @@ func TestBuildLlamaStackYAML_OpenAICompatibleProviders(t *testing.T) {
 			}
 
 			// Build the YAML - should succeed
-			ctx := context.Background()
-			yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+			yamlOutput, err := buildLlamaStackYAML(createTestReconciler(), context.Background(), cr)
 
 			// Verify no error is returned
 			if err != nil {
@@ -262,8 +259,7 @@ func TestBuildLlamaStackYAML_AzureProvider(t *testing.T) {
 	}
 
 	// Build the YAML
-	ctx := context.Background()
-	yamlOutput, err := buildLlamaStackYAML(testReconciler, ctx, cr)
+	yamlOutput, err := buildLlamaStackYAML(testReconciler, context.Background(), cr)
 	if err != nil {
 		t.Fatalf("buildLlamaStackYAML returned error for Azure provider: %v", err)
 	}
@@ -344,24 +340,7 @@ func TestBuildLlamaStackYAML_AzureProvider(t *testing.T) {
 	t.Logf("Successfully validated Llama Stack YAML with Azure provider (%d bytes)", len(yamlOutput))
 }
 
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
-func TestBuildLCoreConfigYAML(t *testing.T) {
-	// Use a proper CR from test fixtures instead of nil
-	cr := utils.GetDefaultOLSConfigCR()
-
+func createTestReconciler() *utils.TestReconciler {
 	// Create a fake client and reconciler for the test
 	scheme := runtime.NewScheme()
 	_ = olsv1alpha1.AddToScheme(scheme)
@@ -370,15 +349,19 @@ func TestBuildLCoreConfigYAML(t *testing.T) {
 		WithScheme(scheme).
 		Build()
 	logger := zap.New(zap.UseDevMode(true))
-	testReconciler := utils.NewTestReconciler(
+	return utils.NewTestReconciler(
 		fakeClient,
 		logger,
 		scheme,
 		"test-namespace",
 	)
+}
 
-	ctx := context.Background()
-	yamlOutput, err := buildLCoreConfigYAML(testReconciler, ctx, cr)
+func TestBuildLCoreConfigYAML(t *testing.T) {
+	// Use a proper CR from test fixtures instead of nil
+	cr := utils.GetDefaultOLSConfigCR()
+
+	yamlOutput, err := buildLCoreConfigYAML(createTestReconciler(), context.Background(), cr)
 	if err != nil {
 		t.Fatalf("buildLCoreConfigYAML returned error: %v", err)
 	}

@@ -24,6 +24,7 @@ type OLSConfigReconcilerOptions struct {
 	DataverseExporterImage         string
 	OpenShiftMCPServerImage        string
 	LightspeedCoreImage            string
+	OcpRagImage                    string
 	UseLCore                       bool
 	Namespace                      string
 	PrometheusAvailable            bool
