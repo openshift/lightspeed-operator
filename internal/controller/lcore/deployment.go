@@ -21,20 +21,9 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
-// getLCoreReplicas returns the number of replicas for the LCore deployment
-func getLCoreReplicas(cr *olsv1alpha1.OLSConfig) *int32 {
-	// Use replicas from OLSConfig if specified, otherwise default to 1
-	if cr.Spec.OLSConfig.DeploymentConfig.Replicas != nil {
-		return cr.Spec.OLSConfig.DeploymentConfig.Replicas
-	}
-	// default number of replicas.
-	defaultReplicas := int32(1)
-	return &defaultReplicas
-}
-
 // getLlamaStackResources returns resource requirements for the llama-stack container
 // This container runs the Llama Stack inference service (sidecar to lightspeed-stack)
-func getLlamaStackResources(_ *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+func getLlamaStackResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
 	// llama-stack is a sidecar inference backend with fixed resource requirements
 	// It always gets default resources to ensure stable inference performance
 	// Users can configure the main API container (lightspeed-stack) via APIContainer.Resources
@@ -54,7 +43,8 @@ func getLlamaStackResources(_ *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 		},
 		Claims: []corev1.ResourceClaim{},
 	}
-	return defaultResources
+
+	return utils.GetResourcesOrDefault(cr.Spec.OLSConfig.DeploymentConfig.LlamaStackContainer.Resources, defaultResources)
 }
 
 // getLightspeedStackResources returns resource requirements for the lightspeed-stack container
@@ -220,7 +210,6 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := utils.VolumeDefaultMode
 
-	replicas := getLCoreReplicas(cr)
 	llamaStackResources := getLlamaStackResources(cr)
 	lightspeedStackResources := getLightspeedStackResources(cr)
 
@@ -269,15 +258,6 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			},
 		},
 		{
-			Name: "secret-lightspeed-tls",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  utils.OLSCertsSecretName,
-					DefaultMode: &volumeDefaultMode,
-				},
-			},
-		},
-		{
 			Name: utils.OpenShiftCAVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -292,6 +272,29 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 
 	// PostgreSQL CA ConfigMap volume (for TLS certificate verification)
 	volumes = append(volumes, utils.GetPostgresCAConfigVolume())
+
+	// Add external TLS secret if provided by user
+	var tlsVolumeMounts []corev1.VolumeMount
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		// User provided custom TLS secret
+		volumes = append(volumes, corev1.Volume{
+			Name: "secret-lightspeed-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name,
+					DefaultMode: &volumeDefaultMode,
+				},
+			},
+		})
+
+		tlsVolumeMounts = []corev1.VolumeMount{
+			{
+				Name:      "secret-lightspeed-tls",
+				MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
+				ReadOnly:  true,
+			},
+		}
+	}
 
 	// llama-stack container volume mounts
 	llamaStackVolumeMounts := []corev1.VolumeMount{
@@ -454,52 +457,74 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			},
 		},
 		Env: buildLightspeedStackEnvVars(r, cr),
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "lightspeed-stack-config",
-				MountPath: "/app-root/lightspeed-stack.yaml",
-				SubPath:   "lightspeed-stack.yaml",
-			},
-			{
-				Name:      "secret-lightspeed-tls",
-				MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
-				ReadOnly:  true,
-			},
-			// PostgreSQL CA ConfigMap (service-ca.crt for OpenShift CA)
-			utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, "postgres-ca")),
-		},
-		LivenessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				Exec: &corev1.ExecAction{
-					Command: []string{
-						"sh",
-						"-c",
-						"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/liveness",
-					},
-				},
-			},
-			InitialDelaySeconds: 20,
-			PeriodSeconds:       10,
-			TimeoutSeconds:      5,
-			FailureThreshold:    3,
-		},
-		ReadinessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				Exec: &corev1.ExecAction{
-					Command: []string{
-						"sh",
-						"-c",
-						"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/readiness",
-					},
-				},
-			},
-			InitialDelaySeconds: 20,
-			PeriodSeconds:       10,
-			TimeoutSeconds:      5,
-			FailureThreshold:    3,
-		},
-		Resources: *lightspeedStackResources,
 	}
+
+	// Build lightspeed-stack volume mounts
+	lightspeedStackVolumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "lightspeed-stack-config",
+			MountPath: "/app-root/lightspeed-stack.yaml",
+			SubPath:   "lightspeed-stack.yaml",
+		},
+	}
+
+	// Add TLS volume mounts from external secrets
+	lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, tlsVolumeMounts...)
+
+	// TLS certificate volume and mount - only if using service-ca (not custom TLS)
+	// If user provides TLSConfig.KeyCertSecretRef, it's already mounted above via ForEachExternalSecret
+	if cr.Spec.OLSConfig.TLSConfig == nil || cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name == "" {
+		volumes = append(volumes, corev1.Volume{
+			Name: "secret-lightspeed-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  utils.OLSCertsSecretName,
+					DefaultMode: &volumeDefaultMode,
+				},
+			},
+		})
+		lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, corev1.VolumeMount{
+			Name:      "secret-lightspeed-tls",
+			MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
+			ReadOnly:  true,
+		})
+	}
+
+	// PostgreSQL CA ConfigMap (service-ca.crt for OpenShift CA)
+	lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, "postgres-ca")))
+
+	lightspeedStackContainer.VolumeMounts = lightspeedStackVolumeMounts
+	lightspeedStackContainer.LivenessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{
+					"sh",
+					"-c",
+					"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/liveness",
+				},
+			},
+		},
+		InitialDelaySeconds: 20,
+		PeriodSeconds:       10,
+		TimeoutSeconds:      5,
+		FailureThreshold:    3,
+	}
+	lightspeedStackContainer.ReadinessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{
+					"sh",
+					"-c",
+					"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/readiness",
+				},
+			},
+		},
+		InitialDelaySeconds: 20,
+		PeriodSeconds:       10,
+		TimeoutSeconds:      5,
+		FailureThreshold:    3,
+	}
+	lightspeedStackContainer.Resources = *lightspeedStackResources
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -512,7 +537,6 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": "lightspeed-stack",
@@ -535,13 +559,8 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 		},
 	}
 
-	// Apply NodeSelector and Tolerations from APIContainer config if specified
-	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector != nil {
-		deployment.Spec.Template.Spec.NodeSelector = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector
-	}
-	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations != nil {
-		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations
-	}
+	// Apply pod-level scheduling constraints (replicas configurable for lcore)
+	utils.ApplyPodDeploymentConfig(&deployment, cr.Spec.OLSConfig.DeploymentConfig.APIContainer, true)
 
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {
 		return nil, err

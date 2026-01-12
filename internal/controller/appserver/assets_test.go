@@ -828,24 +828,27 @@ var _ = Describe("App server assets", func() {
 			olsconfigGenerated := utils.AppSrvConfigFile{}
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSCertificatePath).To(Equal(path.Join(utils.OLSAppCertsMountRoot, tlsSecretName, "tls.crt")))
-			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSKeyPath).To(Equal(path.Join(utils.OLSAppCertsMountRoot, tlsSecretName, "tls.key")))
+			// Config always uses /etc/certs/lightspeed-tls/ path regardless of secret name
+			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSCertificatePath).To(Equal(path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.crt")))
+			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSKeyPath).To(Equal(path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.key")))
 
 			deployment, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
+			// Volume mount uses canonical name regardless of secret name
 			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(
 				corev1.VolumeMount{
-					Name:      "secret-" + tlsSecretName,
-					MountPath: path.Join(utils.OLSAppCertsMountRoot, tlsSecretName),
+					Name:      "secret-lightspeed-tls",
+					MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
 					ReadOnly:  true,
 				},
 			))
+			// Volume has canonical name but references the user's secret
 			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
 				corev1.Volume{
-					Name: "secret-" + tlsSecretName,
+					Name: "secret-lightspeed-tls",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName:  tlsSecretName,
+							SecretName:  tlsSecretName, // References user's secret
 							DefaultMode: &defaultVolumeMode,
 						},
 					},

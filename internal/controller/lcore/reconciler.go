@@ -330,9 +330,17 @@ func reconcileService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alp
 		return fmt.Errorf("%s: %w", utils.ErrGetAPIService, err)
 	}
 
-	if utils.ServiceEqual(foundService, service) {
-		r.GetLogger().Info("Service reconciliation skipped", "Service", service.Name)
-		return nil
+	if utils.ServiceEqual(foundService, service) && foundService.Annotations != nil {
+		// Check if service-ca annotation matches (or both absent for custom TLS mode)
+		if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+			// Custom TLS mode - no service-ca annotation expected
+			r.GetLogger().Info("Service reconciliation skipped", "Service", service.Name)
+			return nil
+		} else if foundService.Annotations[utils.ServingCertSecretAnnotationKey] == service.Annotations[utils.ServingCertSecretAnnotationKey] {
+			// Service-ca mode - check annotation matches
+			r.GetLogger().Info("Service reconciliation skipped", "Service", service.Name)
+			return nil
+		}
 	}
 
 	err = r.Update(ctx, service)

@@ -51,8 +51,6 @@ var _ = Describe("Console UI assets", func() {
 		})
 
 		It("should generate the console UI deployment", func() {
-			var replicas int32 = 2
-			cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Replicas = &replicas
 			dep, err := GenerateConsoleUIDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(utils.ConsoleUIDeploymentName))
@@ -71,7 +69,8 @@ var _ = Describe("Console UI assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Tolerations).To(BeNil())
 			Expect(dep.Spec.Template.Spec.NodeSelector).To(BeNil())
-			Expect(dep.Spec.Replicas).To(Equal(cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Replicas))
+			// Console always runs 1 replica (not configurable)
+			Expect(*dep.Spec.Replicas).To(Equal(int32(1)))
 		})
 
 		It("should generate the console UI plugin", func() {

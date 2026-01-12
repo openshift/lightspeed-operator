@@ -89,7 +89,9 @@ func generateOLSConfig() (*olsv1alpha1.OLSConfig, error) { // nolint:unused
 					DefaultProvider: llmProvider,
 					LogLevel:        olsv1alpha1.LogLevelInfo,
 					DeploymentConfig: olsv1alpha1.DeploymentConfig{
-						Replicas: &replicas,
+						APIContainer: olsv1alpha1.Config{
+							Replicas: &replicas,
+						},
 					},
 				},
 			},
@@ -128,7 +130,9 @@ func generateOLSConfig() (*olsv1alpha1.OLSConfig, error) { // nolint:unused
 				DefaultProvider: llmProvider,
 				LogLevel:        olsv1alpha1.LogLevelInfo,
 				DeploymentConfig: olsv1alpha1.DeploymentConfig{
-					Replicas: &replicas,
+					APIContainer: olsv1alpha1.Config{
+						Replicas: &replicas,
+					},
 				},
 			},
 		},
