@@ -90,6 +90,13 @@ func (r *OLSConfigReconciler) UseLCore() bool {
 // UpdateStatusCondition updates the complete status of the OLSConfig Custom Resource instance.
 // Uses retry with conflict handling to ensure the update succeeds even under concurrent modifications.
 func (r *OLSConfigReconciler) UpdateStatusCondition(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig, newStatus olsv1alpha1.OLSConfigStatus, inCluster ...bool) error {
+	// Validate that OverallStatus is set (required field since it doesn't have omitempty)
+	// Default to NotReady if somehow not set to prevent validation errors
+	if newStatus.OverallStatus == "" {
+		r.Logger.Info("OverallStatus not set in status update, defaulting to NotReady")
+		newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
+	}
+
 	// Set default value for inCluster
 	inClusterValue := true
 	if len(inCluster) > 0 {
