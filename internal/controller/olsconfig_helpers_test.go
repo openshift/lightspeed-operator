@@ -427,6 +427,37 @@ var _ = Describe("Helper Functions", func() {
 			}
 			Expect(found).To(BeTrue(), "TypeCacheReady condition should exist")
 		})
+
+		It("should default OverallStatus to NotReady when not set (safety check)", func() {
+			// Create a status without setting OverallStatus (empty string)
+			newStatus := olsv1alpha1.OLSConfigStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:               utils.TypeApiReady,
+						Status:             metav1.ConditionTrue,
+						ObservedGeneration: olsConfig.Generation,
+						Reason:             "Available",
+						Message:            "Test",
+						LastTransitionTime: metav1.Now(),
+					},
+				},
+				// OverallStatus intentionally not set (will be empty string)
+				DiagnosticInfo: []olsv1alpha1.PodDiagnostic{},
+			}
+
+			// The safety check should default it to NotReady
+			err := reconciler.UpdateStatusCondition(ctx, olsConfig, newStatus)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Fetch updated CR
+			updated := &olsv1alpha1.OLSConfig{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, updated)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify OverallStatus was defaulted to NotReady
+			Expect(updated.Status.OverallStatus).To(Equal(olsv1alpha1.OverallStatusNotReady),
+				"OverallStatus should be defaulted to NotReady when not set")
+		})
 	})
 
 	Context("checkDeploymentStatus", func() {

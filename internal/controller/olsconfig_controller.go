@@ -317,6 +317,31 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if len(resourceFailures) > 0 {
+		// Update status to show resource reconciliation failures
+		failureStatus := olsv1alpha1.OLSConfigStatus{
+			Conditions:     []metav1.Condition{},
+			OverallStatus:  olsv1alpha1.OverallStatusNotReady,
+			DiagnosticInfo: []olsv1alpha1.PodDiagnostic{},
+		}
+
+		// Add a condition for each failed resource
+		for taskName, err := range resourceFailures {
+			condition := metav1.Condition{
+				Type:               "ResourceReconciliation",
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: olsconfig.Generation,
+				Reason:             "Failed",
+				Message:            fmt.Sprintf("Failed to reconcile %s: %v", taskName, err),
+				LastTransitionTime: metav1.Now(),
+			}
+			failureStatus.Conditions = append(failureStatus.Conditions, condition)
+		}
+
+		// Update status before returning error
+		if updateErr := r.UpdateStatusCondition(ctx, olsconfig, failureStatus); updateErr != nil {
+			r.Logger.Error(updateErr, "Failed to update status after resource reconciliation failure")
+		}
+
 		taskNames := make([]string, 0, len(resourceFailures))
 		for taskName := range resourceFailures {
 			taskNames = append(taskNames, taskName)
