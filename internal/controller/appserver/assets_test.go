@@ -1117,6 +1117,28 @@ var _ = Describe("App server assets", func() {
 			}))
 		})
 
+		It("should generate exporter configmap with service_id 'ols' by default", func() {
+			cm, err := generateExporterConfigMap(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Name).To(Equal(utils.ExporterConfigCmName))
+			Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
+			Expect(cm.Data[utils.ExporterConfigFilename]).To(ContainSubstring(`service_id: "` + utils.ServiceIDOLS + `"`))
+		})
+
+		It("should generate exporter configmap with service_id 'rhos-lightspeed' when label is present", func() {
+			if cr.Labels == nil {
+				cr.Labels = make(map[string]string)
+			}
+
+			cr.Labels[utils.RHOSOLightspeedOwnerIDLabel] = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx"
+
+			cm, err := generateExporterConfigMap(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Name).To(Equal(utils.ExporterConfigCmName))
+			Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
+			Expect(cm.Data[utils.ExporterConfigFilename]).To(ContainSubstring(`service_id: "` + utils.ServiceIDRHOSO + `"`))
+		})
+
 	})
 
 	Context("empty custom resource", func() {
