@@ -58,8 +58,6 @@ func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequire
 
 func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	ctx := context.Background()
-	// mount points of API key secret
-	const OLSConfigMountPath = "/etc/ols"
 	const OLSConfigVolumeName = "cm-olsconfig"
 	const OLSUserDataVolumeName = "ols-user-data"
 
@@ -184,7 +182,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	volumes = append(volumes, olsConfigVolume)
 	olsConfigVolumeMount := corev1.VolumeMount{
 		Name:      OLSConfigVolumeName,
-		MountPath: OLSConfigMountPath,
+		MountPath: utils.OLSConfigMountRoot,
 		ReadOnly:  true,
 	}
 	volumeMounts = append(volumeMounts, olsConfigVolumeMount)
@@ -391,7 +389,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 							VolumeMounts: volumeMounts,
 							Env: append(utils.GetProxyEnvVars(), corev1.EnvVar{
 								Name:  "OLS_CONFIG_FILE",
-								Value: path.Join(OLSConfigMountPath, utils.OLSConfigFilename),
+								Value: path.Join(utils.OLSConfigMountRoot, utils.OLSConfigFilename),
 							}),
 							Resources: *ols_server_resources,
 							ReadinessProbe: &corev1.Probe{
