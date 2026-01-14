@@ -1,4 +1,4 @@
-package appserver
+package utils
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
-	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
 var _ = Describe("App server assets", func() {
@@ -16,7 +15,7 @@ var _ = Describe("App server assets", func() {
 
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
-			cr = utils.GetDefaultOLSConfigCR()
+			cr = GetDefaultOLSConfigCR()
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
 					Image:     "rag-image-1",
@@ -43,7 +42,7 @@ var _ = Describe("App server assets", func() {
 				"ImagePullPolicy": Equal(corev1.PullAlways),
 				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-0 && cp -a /path/to/index-1/. /rag-data/rag-0"}),
 				"VolumeMounts": ConsistOf(corev1.VolumeMount{
-					Name:      utils.RAGVolumeName,
+					Name:      RAGVolumeName,
 					MountPath: "/rag-data",
 				}),
 			}))
@@ -53,7 +52,7 @@ var _ = Describe("App server assets", func() {
 				"ImagePullPolicy": Equal(corev1.PullAlways),
 				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-1 && cp -a /path/to/index-2/. /rag-data/rag-1"}),
 				"VolumeMounts": ConsistOf(corev1.VolumeMount{
-					Name:      utils.RAGVolumeName,
+					Name:      RAGVolumeName,
 					MountPath: "/rag-data",
 				}),
 			}))

@@ -294,7 +294,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 
 	// RAG volume
 	if len(cr.Spec.OLSConfig.RAG) > 0 {
-		ragVolume := generateRAGVolume()
+		ragVolume := utils.GenerateRAGVolume()
 		volumes = append(volumes, ragVolume)
 	}
 
@@ -311,7 +311,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	)
 
 	if len(cr.Spec.OLSConfig.RAG) > 0 {
-		ragVolumeMounts := generateRAGVolumeMount()
+		ragVolumeMounts := utils.GenerateRAGVolumeMount()
 		volumeMounts = append(volumeMounts, ragVolumeMounts)
 	}
 
@@ -346,7 +346,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 
 	initContainers := []corev1.Container{}
 	if len(cr.Spec.OLSConfig.RAG) > 0 {
-		ragInitContainers := GenerateRAGInitContainers(cr)
+		ragInitContainers := utils.GenerateRAGInitContainers(cr)
 		initContainers = append(initContainers, ragInitContainers...)
 	}
 

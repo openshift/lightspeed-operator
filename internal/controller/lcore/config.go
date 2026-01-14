@@ -374,23 +374,47 @@ func buildLlamaStackToolRuntime(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfi
 	}
 }
 
-func buildLlamaStackVectorDB(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []interface{} {
-	return []interface{}{
-		map[string]interface{}{
-			"provider_id":   "faiss",
+func buildLlamaStackVectorIO(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) []interface{} {
+	vectorIOs := []interface{}{}
+	// Use RAG configuration from OLSConfig if available
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
+		for _, rag := range cr.Spec.OLSConfig.RAG {
+			id := "byok_rag_" + sanitizeID(rag.Image)
+			vectorIOs = append(vectorIOs, map[string]interface{}{
+				"provider_id":   id,
+				"provider_type": "inline::faiss",
+				"config": map[string]interface{}{
+					"kvstore": map[string]interface{}{
+						"db_path": "/rag-data/" + id + "/faiss_store.db",
+						"type":    "kv_sqlight",
+					},
+					"persistence": map[string]interface{}{
+						"backend":   "kv_default",
+						"namespace": "vector_io::faiss",
+					},
+				},
+			})
+		}
+	}
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		// OCP RAG database
+		vectorIOs = append(vectorIOs, map[string]interface{}{
+			"provider_id":   "ocp-rag",
 			"provider_type": "inline::faiss",
 			"config": map[string]interface{}{
 				"kvstore": map[string]interface{}{
-					"backend":    "sql_default",
-					"table_name": "vector_store",
+					"db_path": "/rag-data/ocp/vector_db/ocp_product_docs/" + r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor() + "/faiss_store.db",
+					"type":    "kv_sqlight",
 				},
 				"persistence": map[string]interface{}{
 					"backend":   "kv_default",
-					"namespace": "vector_persistence",
+					"namespace": "vector_io::faiss",
 				},
 			},
-		},
+		})
 	}
+
+	return vectorIOs
 }
 
 func buildLlamaStackServerConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
@@ -428,26 +452,19 @@ func buildLlamaStackVectorDBs(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig
 			vectorDB := map[string]interface{}{
 				"embedding_model":     "sentence-transformers/all-mpnet-base-v2",
 				"embedding_dimension": 768,
-				"provider_id":         "faiss",
+				"provider_id":         "byok_rag_" + sanitizeID(rag.Image),
+				"vector_db_id":        "byok_rag_" + sanitizeID(rag.Image),
 			}
-
-			// Use IndexID if specified, otherwise generate a default
-			if rag.IndexID != "" {
-				vectorDB["vector_db_id"] = rag.IndexID
-			} else {
-				// Generate a simple ID from the image name
-				vectorDB["vector_db_id"] = "rag_" + sanitizeID(rag.Image)
-			}
-
 			vectorDBs = append(vectorDBs, vectorDB)
 		}
-	} else {
-		// Default fallback if no RAG configured
+	}
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		// OCP RAG database
 		vectorDBs = append(vectorDBs, map[string]interface{}{
-			"vector_db_id":        "my_knowledge_base",
+			"vector_db_id":        "ocp-rag",
 			"embedding_model":     "sentence-transformers/all-mpnet-base-v2",
 			"embedding_dimension": 768,
-			"provider_id":         "faiss",
+			"provider_id":         "ocp-rag",
 		})
 	}
 
@@ -478,7 +495,7 @@ func buildLlamaStackModels(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) [
 			"model_id":          "sentence-transformers/all-mpnet-base-v2",
 			"model_type":        "embedding",
 			"provider_id":       "sentence-transformers",
-			"provider_model_id": "sentence-transformers/all-mpnet-base-v2",
+			"provider_model_id": "/rag-data/ocp/embeddings_model",
 			"metadata": map[string]interface{}{
 				"embedding_dimension": 768,
 			},
@@ -595,7 +612,7 @@ func buildLlamaStackYAML(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		"safety":    buildLlamaStackSafety(r, cr), // Required by agents provider
 		// "telemetry":    buildLlamaStackTelemetry(r, cr),   // Telemetry and tracing
 		"tool_runtime": buildLlamaStackToolRuntime(r, cr), // Required for RAG
-		"vector_io":    buildLlamaStackVectorDB(r, cr),    // Required for RAG
+		"vector_io":    buildLlamaStackVectorIO(r, cr),    // Required for RAG
 	}
 
 	// Add top-level fields

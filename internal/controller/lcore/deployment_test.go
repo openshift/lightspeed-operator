@@ -57,6 +57,13 @@ func (m *mockReconciler) GetLCoreImage() string {
 	return m.image
 }
 
+func (m *mockReconciler) GetOcpRagImage() string {
+	if m.image == "" {
+		return utils.OcpRagImageDefault
+	}
+	return m.image
+}
+
 func (m *mockReconciler) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	// Return NotFound error for all Get calls in tests
 	// This simulates the ConfigMaps not existing yet during deployment generation
@@ -203,6 +210,16 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 		t.Error("lightspeed-stack container missing readiness probe")
 	}
 
+	// Verify init containers
+	initContainers := deployment.Spec.Template.Spec.InitContainers
+	if len(initContainers) != 1 {
+		t.Fatalf("Expected 1 initContainer, got %d", len(initContainers))
+	}
+	ragInitContainer := initContainers[0]
+	if ragInitContainer.Name != "ocp" {
+		t.Errorf("Expected RAG initContainer name '%s', got '%s'", "ocp", ragInitContainer.Name)
+	}
+
 	// Verify volumes
 	volumes := deployment.Spec.Template.Spec.Volumes
 	expectedVolumes := map[string]bool{
@@ -210,6 +227,7 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 		utils.LCoreConfigCmName:      false,
 		utils.LlamaCacheVolumeName:   false,
 		"secret-lightspeed-tls":      false,
+		utils.RAGVolumeName:          false,
 	}
 	for _, vol := range volumes {
 		if _, expected := expectedVolumes[vol.Name]; expected {
@@ -224,8 +242,8 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 
 	// Verify volume mounts in llama-stack container
 	llamaStackMounts := llamaStackContainer.VolumeMounts
-	if len(llamaStackMounts) < 3 {
-		t.Errorf("Expected at least 3 volume mounts in llama-stack container (config, cache, CA), got %d", len(llamaStackMounts))
+	if len(llamaStackMounts) < 4 {
+		t.Errorf("Expected at least 3 volume mounts in llama-stack container (config, cache, CA, RAG), got %d", len(llamaStackMounts))
 	}
 	llamaStackMountNames := make(map[string]bool)
 	for _, mount := range llamaStackMounts {
@@ -239,6 +257,9 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 	}
 	if !llamaStackMountNames[utils.OpenShiftCAVolumeName] {
 		t.Errorf("Missing '%s' volume mount in llama-stack container", utils.OpenShiftCAVolumeName)
+	}
+	if !llamaStackMountNames[utils.RAGVolumeName] {
+		t.Errorf("Missing '%s' volume mount in llama-stack container", utils.RAGVolumeName)
 	}
 
 	// Verify volume mounts in lightspeed-stack container
@@ -397,3 +418,43 @@ func TestGenerateLCoreDeploymentWithAdditionalCA(t *testing.T) {
 
 	t.Logf("Successfully validated LCore Deployment with Additional CA")
 }
+
+/*
+func TestGenerateLCoreDeploymentWithRag(t *testing.T) {
+	// Create an OLSConfig CR with additionalCAConfigMapRef
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "test-provider",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "test-secret",
+						},
+					},
+				},
+			},
+			OLSConfig: olsv1alpha1.OLSSpec{
+				RAG: ,
+			},
+		},
+	}
+
+	// Create a mock reconciler
+	r := &mockReconciler{}
+
+	// Generate the deployment
+	deployment, err := GenerateLCoreDeployment(r, cr)
+	if err != nil {
+		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
+	}
+
+	// Verify deployment is not nil
+	if deployment == nil {
+		t.Fatal("GenerateLCoreDeployment returned nil deployment")
+	}
+}
+*/
