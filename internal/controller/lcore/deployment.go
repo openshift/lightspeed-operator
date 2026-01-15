@@ -218,6 +218,16 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	lcoreConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LCoreConfigCmName)
 	llamaStackConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LlamaStackConfigCmName)
 
+	// Get Proxy CA ConfigMap ResourceVersion if proxy is configured
+	var proxyCACMResourceVersion string
+	if cr.Spec.OLSConfig.ProxyConfig != nil {
+		proxyCACertRef := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef
+		cmName := utils.GetProxyCACertConfigMapName(proxyCACertRef)
+		if cmName != "" {
+			proxyCACMResourceVersion, _ = utils.GetConfigMapResourceVersion(r, ctx, cmName)
+		}
+	}
+
 	// Labels for the deployment
 	labels := map[string]string{
 		"app":                          "lightspeed-stack",
@@ -296,6 +306,30 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 		}
 	}
 
+	// Proxy CA ConfigMap volume (for proxy certificate verification)
+	if cr.Spec.OLSConfig.ProxyConfig != nil {
+		proxyCACertRef := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef
+		cmName := utils.GetProxyCACertConfigMapName(proxyCACertRef)
+		if cmName != "" {
+			certKey := utils.GetProxyCACertKey(proxyCACertRef)
+			volumes = append(volumes, corev1.Volume{
+				Name: utils.ProxyCACertVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{Name: cmName},
+						DefaultMode:          &volumeDefaultMode,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  certKey,
+								Path: certKey,
+							},
+						},
+					},
+				},
+			})
+		}
+	}
+
 	// llama-stack container volume mounts
 	llamaStackVolumeMounts := []corev1.VolumeMount{
 		{
@@ -316,6 +350,19 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 		},
 		// PostgreSQL CA ConfigMap (service-ca.crt for TLS verification)
 		utils.GetPostgresCAVolumeMount("/etc/certs/postgres-ca"),
+	}
+
+	// Proxy CA ConfigMap mount (for proxy certificate verification)
+	if cr.Spec.OLSConfig.ProxyConfig != nil {
+		proxyCACertRef := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef
+		cmName := utils.GetProxyCACertConfigMapName(proxyCACertRef)
+		if cmName != "" {
+			llamaStackVolumeMounts = append(llamaStackVolumeMounts, corev1.VolumeMount{
+				Name:      utils.ProxyCACertVolumeName,
+				MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.ProxyCACertVolumeName),
+				ReadOnly:  true,
+			})
+		}
 	}
 
 	// User provided CA certificates - create both volumes and volume mounts in single pass
@@ -526,6 +573,19 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	}
 	lightspeedStackContainer.Resources = *lightspeedStackResources
 
+	// Proxy CA ConfigMap mount (for proxy certificate verification)
+	if cr.Spec.OLSConfig.ProxyConfig != nil {
+		proxyCACertRef := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef
+		cmName := utils.GetProxyCACertConfigMapName(proxyCACertRef)
+		if cmName != "" {
+			lightspeedStackContainer.VolumeMounts = append(lightspeedStackContainer.VolumeMounts, corev1.VolumeMount{
+				Name:      utils.ProxyCACertVolumeName,
+				MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.ProxyCACertVolumeName),
+				ReadOnly:  true,
+			})
+		}
+	}
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "lightspeed-stack-deployment",
@@ -534,6 +594,7 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			Annotations: map[string]string{
 				utils.LCoreConfigMapResourceVersionAnnotation:      lcoreConfigMapResourceVersion,
 				utils.LlamaStackConfigMapResourceVersionAnnotation: llamaStackConfigMapResourceVersion,
+				utils.ProxyCACertHashKey:                           proxyCACMResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -638,6 +699,17 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existin
 		}
 	}
 
+	// Check if Proxy CA ConfigMap ResourceVersion has changed
+	// Get the proxy CA ConfigMap name from OLSConfig if proxy is configured
+	// We need to fetch the CR to get the proxy config
+	// For now, we'll check if the annotation exists and has a value
+	storedProxyCACMVersion := existingDeployment.Annotations[utils.ProxyCACertHashKey]
+	// Get current proxy CA ConfigMap ResourceVersion from the desired deployment annotations
+	currentProxyCACMVersion := desiredDeployment.Annotations[utils.ProxyCACertHashKey]
+	if storedProxyCACMVersion != currentProxyCACMVersion {
+		changed = true
+	}
+
 	// If nothing changed, skip update
 	if !changed {
 		return nil
@@ -645,8 +717,15 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existin
 
 	// Apply changes - always update spec and annotations since something changed
 	existingDeployment.Spec = desiredDeployment.Spec
+
+	// Initialize annotations if nil
+	if existingDeployment.Annotations == nil {
+		existingDeployment.Annotations = make(map[string]string)
+	}
+
 	existingDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation]
+	existingDeployment.Annotations[utils.ProxyCACertHashKey] = desiredDeployment.Annotations[utils.ProxyCACertHashKey]
 
 	r.GetLogger().Info("updating LCore deployment", "name", existingDeployment.Name)
 
