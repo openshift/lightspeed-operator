@@ -349,8 +349,15 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 }
 
 func generateExporterConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+	serviceID := utils.ServiceIDOLS
+	if cr.Labels != nil {
+		if _, hasRHOSLightspeedLabel := cr.Labels[utils.RHOSOLightspeedOwnerIDLabel]; hasRHOSLightspeedLabel {
+			serviceID = utils.ServiceIDRHOSO
+		}
+	}
+
 	// Collection interval is set to 300 seconds in production (5 minutes)
-	exporterConfigContent := `service_id: "ols"
+	exporterConfigContent := fmt.Sprintf(`service_id: "%s"
 ingress_server_url: "https://console.redhat.com/api/ingress/v1/upload"
 allowed_subdirs:
  - feedback
@@ -358,7 +365,7 @@ allowed_subdirs:
 # Collection settings
 collection_interval: 300
 cleanup_after_send: true
-ingress_connection_timeout: 30`
+ingress_connection_timeout: 30`, serviceID)
 
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
