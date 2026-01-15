@@ -16,7 +16,7 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:477acc1afc8df694c5d661f0da917b65c58a21ca3f9b115979278a6ae475b9ee",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:45bd37c88792e7a835dea980760550cc730d51b5537d82b01753afa1c13f538e",
     "revision": "62b08895d36546917bc299bc0d147521a79153bf"
   },
   {
