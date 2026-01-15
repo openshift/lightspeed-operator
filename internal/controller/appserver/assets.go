@@ -362,6 +362,7 @@ ingress_server_url: "https://console.redhat.com/api/ingress/v1/upload"
 allowed_subdirs:
  - feedback
  - transcripts
+ - config_status
 # Collection settings
 collection_interval: 300
 cleanup_after_send: true
