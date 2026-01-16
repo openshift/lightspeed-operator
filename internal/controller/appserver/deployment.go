@@ -357,15 +357,19 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Get ResourceVersions for tracking - these resources should already exist
 	// If they don't exist, we'll get empty strings which is fine for initial creation
 	configMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
+	secretResourceVersion, _ := utils.GetSecretResourceVersion(r, ctx, utils.PostgresSecretName)
+
+	annotations := map[string]string{
+		utils.OLSConfigMapResourceVersionAnnotation:   configMapResourceVersion,
+		utils.PostgresSecretResourceVersionAnnotation: secretResourceVersion,
+	}
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.OLSAppServerDeploymentName,
-			Namespace: r.GetNamespace(),
-			Labels:    utils.GenerateAppServerSelectorLabels(),
-			Annotations: map[string]string{
-				utils.OLSConfigMapResourceVersionAnnotation: configMapResourceVersion,
-			},
+			Name:        utils.OLSAppServerDeploymentName,
+			Namespace:   r.GetNamespace(),
+			Labels:      utils.GenerateAppServerSelectorLabels(),
+			Annotations: annotations,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
