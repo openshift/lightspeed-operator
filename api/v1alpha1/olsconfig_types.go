@@ -543,7 +543,7 @@ type MCPServerStreamableHTTPTransport struct {
 	// should contain a header path in the data containing a header value.
 	// A special case is usage of the kubernetes token in the header. to specify this use
 	// a string "kubernetes" instead of the secret name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Headers"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Headers",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:keyValue"}
 	Headers map[string]string `json:"headers,omitempty"`
 	// Enable Server Sent Events
 	// +kubebuilder:default=false
