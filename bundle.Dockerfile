@@ -22,6 +22,7 @@ RUN OPENSHIFT_MCP_SERVER_IMAGE=$(jq -r '.[] | select(.name == "openshift-mcp-ser
 RUN DATAVERSE_EXPORTER_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-to-dataverse-exporter") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${DATAVERSE_EXPORTER_IMAGE_ORIGINAL}|${DATAVERSE_EXPORTER_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 RUN OCP_RAG_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-ocp-rag") | .image' /${RELATED_IMAGE_FILE}) && sed -i "s|${OCP_RAG_IMAGE_ORIGINAL}|${OCP_RAG_IMAGE}|g" /manifests/lightspeed-operator.clusterserviceversion.yaml
 
+
 FROM registry.redhat.io/ubi9/ubi-minimal:9.7
 
 # Core bundle labels.
@@ -60,10 +61,10 @@ LABEL io.k8s.display-name="Openshift Lightspeed"
 LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
 LABEL name="openshift-lightspeed/lightspeed-operator-bundle"
 LABEL cpe="cpe:/a:redhat:openshift_lightspeed:1::el9"
-LABEL release=1.0.8
+LABEL release=1.0.9
 LABEL url="https://github.com/openshift/lightspeed-operator"
 LABEL vendor="Red Hat, Inc."
-LABEL version=1.0.8
+LABEL version=1.0.9
 LABEL summary="Red Hat OpenShift Lightspeed"
 
 # OCP compatibility labels
