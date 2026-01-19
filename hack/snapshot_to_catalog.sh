@@ -150,7 +150,7 @@ for snapshot in "${!SNAPSHOT_REFS[@]}"; do
     OPM_ARGS="--migrate-level=bundle-object-to-csv-metadata"
   fi
   ${OPM} render ${BUNDLE_IMAGE_ORIGIN} --output=yaml ${OPM_ARGS} >"${TEMP_BUNDLE_FILE}"
-  BUNDLE_VERSION=$(yq '.properties[]| select(.type=="olm.package")| select(.value.packageName=="lightspeed-operator") |.value.version' ${TEMP_BUNDLE_FILE})
+  BUNDLE_VERSION=$(${YQ} eval '.properties[]| select(.type=="olm.package")| select(.value.packageName=="lightspeed-operator") |.value.version' ${TEMP_BUNDLE_FILE})
   echo "Bundle version is ${BUNDLE_VERSION}"
   BUNDLE_VERSIONS+=("${BUNDLE_VERSION}")
   # restore bundle image to the catalog file
@@ -158,10 +158,31 @@ for snapshot in "${!SNAPSHOT_REFS[@]}"; do
   # restore bundle related images and the bundle itself to the catalog file
   ${YQ} eval -i '.relatedImages='"${RELATED_IMAGES}" "${TEMP_BUNDLE_FILE}"
 
-  cat ${TEMP_BUNDLE_FILE} >>"${CATALOG_FILE}"
+  # Create version-specific bundle file
+  BUNDLE_FILE="$(dirname "${CATALOG_FILE}")/bundle-v${BUNDLE_VERSION}.yaml"
+  echo "Writing bundle to ${BUNDLE_FILE}"
+  cat ${TEMP_BUNDLE_FILE} >>"${BUNDLE_FILE}"
 
 done
 echo "Bundle versions are ${BUNDLE_VERSIONS[@]}"
+
+# Collect all bundle versions from existing bundle-v*.yaml files in the catalog directory
+CATALOG_DIR="$(dirname "${CATALOG_FILE}")"
+echo "Scanning for existing bundle files in ${CATALOG_DIR}"
+ALL_BUNDLE_VERSIONS=()
+for bundle_file in "${CATALOG_DIR}"/bundle-v*.yaml; do
+  if [ -f "$bundle_file" ]; then
+    # Extract version from filename (bundle-v1.0.8.yaml -> 1.0.8)
+    version=$(basename "$bundle_file" | sed 's/bundle-v\(.*\)\.yaml/\1/')
+    ALL_BUNDLE_VERSIONS+=("$version")
+  fi
+done
+
+# Sort versions to ensure correct order
+IFS=$'\n' ALL_BUNDLE_VERSIONS=($(sort -V <<<"${ALL_BUNDLE_VERSIONS[*]}"))
+unset IFS
+
+echo "Found bundle versions from files: ${ALL_BUNDLE_VERSIONS[@]}"
 
 echo "Channel names are ${CHANNEL_NAMES}"
 for CHANNEL_NAME in $(echo ${CHANNEL_NAMES} | tr "," "\n"); do
@@ -174,7 +195,7 @@ name: ${CHANNEL_NAME}
 entries:
 EOF
   PREV_VERSION=""
-  for BUNDLE_VERSION in ${BUNDLE_VERSIONS[@]}; do
+  for BUNDLE_VERSION in ${ALL_BUNDLE_VERSIONS[@]}; do
     cat <<EOF >>"${CATALOG_FILE}"
   - name: lightspeed-operator.v${BUNDLE_VERSION}
 EOF
