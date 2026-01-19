@@ -150,7 +150,7 @@ for snapshot in "${!SNAPSHOT_REFS[@]}"; do
     OPM_ARGS="--migrate-level=bundle-object-to-csv-metadata"
   fi
   ${OPM} render ${BUNDLE_IMAGE_ORIGIN} --output=yaml ${OPM_ARGS} >"${TEMP_BUNDLE_FILE}"
-  BUNDLE_VERSION=$(yq '.properties[]| select(.type=="olm.package")| select(.value.packageName=="lightspeed-operator") |.value.version' ${TEMP_BUNDLE_FILE})
+  BUNDLE_VERSION=$(${YQ} eval '.properties[]| select(.type=="olm.package")| select(.value.packageName=="lightspeed-operator") |.value.version' ${TEMP_BUNDLE_FILE})
   echo "Bundle version is ${BUNDLE_VERSION}"
   BUNDLE_VERSIONS+=("${BUNDLE_VERSION}")
   # restore bundle image to the catalog file
