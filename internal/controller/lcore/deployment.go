@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -62,6 +64,18 @@ func getLightspeedStackResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequ
 				corev1.ResourceMemory: resource.MustParse("512Mi"),
 			},
 			Claims: []corev1.ResourceClaim{},
+		},
+	)
+}
+
+// getOLSMCPServerResources returns resource requirements for the OpenShift MCP server sidecar
+func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+	return utils.GetResourcesOrDefault(
+		cr.Spec.OLSConfig.DeploymentConfig.MCPServerContainer.Resources,
+		&corev1.ResourceRequirements{
+			Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
+			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
+			Claims:   []corev1.ResourceClaim{},
 		},
 	)
 }
@@ -202,6 +216,50 @@ func buildLightspeedStackEnvVars(_ reconciler.Reconciler, cr *olsv1alpha1.OLSCon
 	}
 
 	return envVars
+}
+
+// validateMCPHeaderSecret validates that a secret exists and has the required structure for MCP headers.
+// This provides fail-fast validation consistent with AppServer's approach.
+//
+// Parameters:
+//   - r: Reconciler for K8s API access and logging
+//   - ctx: Context for the K8s API call
+//   - secretRef: Name of the secret to validate
+//   - serverName: Name of the MCP server (for error messages)
+//   - headerName: Name of the header (for error messages)
+//
+// Returns:
+//   - error if secret doesn't exist or has incorrect structure
+func validateMCPHeaderSecret(r reconciler.Reconciler, ctx context.Context, secretRef, serverName, headerName string) error {
+	secret := &corev1.Secret{}
+	err := r.Get(ctx, client.ObjectKey{Name: secretRef, Namespace: r.GetNamespace()}, secret)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.GetLogger().Error(err, "MCP header secret not found",
+				"server", serverName,
+				"secret", secretRef,
+				"header", headerName)
+			return fmt.Errorf("MCP server %s header secret %s is not found", serverName, secretRef)
+		}
+		r.GetLogger().Error(err, "Failed to get MCP header secret",
+			"server", serverName,
+			"secret", secretRef,
+			"header", headerName)
+		return fmt.Errorf("failed to get secret %s for MCP server %s: %w", secretRef, serverName, err)
+	}
+
+	// Validate secret has the required "header" key (consistent with AppServer)
+	if _, ok := secret.Data[utils.MCPSECRETDATAPATH]; !ok {
+		err := fmt.Errorf("secret missing required key '%s'", utils.MCPSECRETDATAPATH)
+		r.GetLogger().Error(err, "MCP header secret has incorrect structure",
+			"server", serverName,
+			"secret", secretRef,
+			"header", headerName,
+			"requiredKey", utils.MCPSECRETDATAPATH)
+		return fmt.Errorf("header secret %s for MCP server %s is missing key '%s'", secretRef, serverName, utils.MCPSECRETDATAPATH)
+	}
+
+	return nil
 }
 
 // GenerateLCoreDeployment generates the Deployment for LCore (llama-stack + lightspeed-stack)
@@ -493,6 +551,45 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	// PostgreSQL CA ConfigMap (service-ca.crt for OpenShift CA)
 	lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, "postgres-ca")))
 
+	// Mount MCP server header secrets - only for HTTP-compatible servers
+	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer) {
+		// Filter to HTTP-only servers (no logging needed here, already logged in config)
+		filteredServers := FilterHTTPMCPServers(r, cr, cr.Spec.MCPServers)
+
+		for _, server := range filteredServers {
+			if server.StreamableHTTP != nil && server.StreamableHTTP.Headers != nil {
+				for headerName, secretRef := range server.StreamableHTTP.Headers {
+					// Skip special placeholders
+					if secretRef == utils.KUBERNETES_PLACEHOLDER || secretRef == "" {
+						continue
+					}
+
+					// Validate secret exists and has correct structure
+					// This provides fail-fast validation consistent with AppServer
+					if err := validateMCPHeaderSecret(r, ctx, secretRef, server.Name, headerName); err != nil {
+						return nil, err
+					}
+
+					volumes = append(volumes, corev1.Volume{
+						Name: "header-" + secretRef,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName:  secretRef,
+								DefaultMode: &volumeDefaultMode,
+							},
+						},
+					})
+
+					lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, corev1.VolumeMount{
+						Name:      "header-" + secretRef,
+						MountPath: path.Join(utils.MCPHeadersMountRoot, secretRef),
+						ReadOnly:  true,
+					})
+				}
+			}
+		}
+	}
+
 	lightspeedStackContainer.VolumeMounts = lightspeedStackVolumeMounts
 	lightspeedStackContainer.LivenessProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
@@ -564,6 +661,29 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {
 		return nil, err
+	}
+
+	// Add OpenShift MCP server sidecar container if introspection is enabled
+	if cr.Spec.OLSConfig.IntrospectionEnabled {
+		openshiftMCPServerContainer := corev1.Container{
+			Name:            utils.OpenShiftMCPServerContainerName,
+			Image:           r.GetOpenShiftMCPServerImage(),
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			SecurityContext: &corev1.SecurityContext{
+				AllowPrivilegeEscalation: &[]bool{false}[0],
+				ReadOnlyRootFilesystem:   &[]bool{true}[0],
+			},
+			Command: []string{
+				"/openshift-mcp-server",
+				"--read-only",
+				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
+			},
+			Resources: *getOLSMCPServerResources(cr),
+		}
+		deployment.Spec.Template.Spec.Containers = append(
+			deployment.Spec.Template.Spec.Containers,
+			openshiftMCPServerContainer,
+		)
 	}
 
 	return &deployment, nil

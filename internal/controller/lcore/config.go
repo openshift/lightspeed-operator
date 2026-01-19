@@ -3,7 +3,10 @@ package lcore
 import (
 	"context"
 	"fmt"
+	"path"
+	"slices"
 	"strings"
+	"sync"
 
 	"sigs.k8s.io/yaml"
 
@@ -11,6 +14,61 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
+
+// Package-level cache to track which MCP servers we've already warned about
+// Key format: "mcp-server-<name>-gen-<generation>"
+// This ensures we only log warnings once per CR generation (when spec changes, we log again)
+var mcpWarningCache = sync.Map{}
+
+// FilterHTTPMCPServers filters MCP servers to only include those with HTTP/HTTPS transport.
+// LCore only supports StreamableHTTP transport (not SSE or Stdio).
+// Logs a warning once per server per CR generation for filtered servers.
+//
+// Parameters:
+//   - r: Reconciler for logging
+//   - cr: OLSConfig CR (used for generation tracking)
+//   - servers: List of MCP servers to filter
+//
+// Returns:
+//   - Filtered list containing only servers with StreamableHTTP transport
+func FilterHTTPMCPServers(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig, servers []olsv1alpha1.MCPServer) []olsv1alpha1.MCPServer {
+	if len(servers) == 0 {
+		return servers
+	}
+
+	filtered := []olsv1alpha1.MCPServer{}
+
+	for _, server := range servers {
+		// LCore only supports HTTP/HTTPS transport (StreamableHTTP)
+		if server.StreamableHTTP != nil {
+			filtered = append(filtered, server)
+			continue
+		}
+
+		// Server doesn't have StreamableHTTP configured - log warning once per CR generation
+		warningKey := fmt.Sprintf("mcp-server-%s-gen-%d", server.Name, cr.Generation)
+		_, alreadyLogged := mcpWarningCache.LoadOrStore(warningKey, true)
+		if alreadyLogged {
+			// Already warned about this server in this generation, skip
+			continue
+		}
+
+		// First time seeing this misconfigured server in this generation - log warning
+		r.GetLogger().Error(
+			fmt.Errorf("unsupported MCP server configuration for LCore"),
+			"MCP server skipped - LCore requires streamableHTTP transport (HTTP/HTTPS)",
+			"server", server.Name,
+			"generation", cr.Generation,
+		)
+	}
+
+	return filtered
+}
+
+// ResetMCPWarningCache clears the warning cache. Useful for testing.
+func ResetMCPWarningCache() {
+	mcpWarningCache = sync.Map{}
+}
 
 // DefaultQuerySystemPrompt is the same system prompt as lightspeed-service
 // (ols/customize/ols/prompts.py QUERY_SYSTEM_INSTRUCTION)
@@ -719,26 +777,66 @@ func buildLCoreDatabaseConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig)
 
 // buildLCoreMCPServersConfig configures Model Context Protocol servers
 // Allows integration with external context providers for agent workflows
-//
-//func buildLCoreMCPServersConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []map[string]interface{} {
-//	return []map[string]interface{}{
-//		{
-//			"name":        "server1",
-//			"provider_id": "provider1",
-//			"url":         "http://url.com:1",
-//		},
-//		{
-//			"name":        "server2",
-//			"provider_id": "provider2",
-//			"url":         "http://url.com:2",
-//		},
-//		{
-//			"name":        "server3",
-//			"provider_id": "provider3",
-//			"url":         "http://url.com:3",
-//		},
-//	}
-//}
+// NOTE: LCore only supports HTTP/HTTPS transport (StreamableHTTP)
+// NOTE: Secret validation is performed separately during deployment generation
+func buildLCoreMCPServersConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) []map[string]interface{} {
+	mcpServers := []map[string]interface{}{}
+
+	// Add OpenShift MCP server if introspection is enabled
+	if cr.Spec.OLSConfig.IntrospectionEnabled {
+		mcpServers = append(mcpServers, map[string]interface{}{
+			"name": "openshift",
+			"url":  fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort),
+			// Authorization headers for K8s authentication
+			"authorization_headers": map[string]string{
+				utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
+			},
+		})
+	}
+
+	// Add user-defined MCP servers - filter to HTTP-only and log warnings
+	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer) {
+		// Filter to HTTP-only servers, log warnings for filtered servers
+		filteredServers := FilterHTTPMCPServers(r, cr, cr.Spec.MCPServers)
+
+		for _, server := range filteredServers {
+			// Build MCP server config
+			mcpServer := map[string]interface{}{
+				"name": server.Name,
+				"url":  server.StreamableHTTP.URL,
+			}
+
+			// Add timeout if specified (default is handled by lightspeed-stack)
+			if server.StreamableHTTP.Timeout > 0 {
+				mcpServer["timeout"] = server.StreamableHTTP.Timeout
+			}
+
+			// Add authorization headers if configured
+			if len(server.StreamableHTTP.Headers) > 0 {
+				headers := make(map[string]string)
+				for headerName, secretRef := range server.StreamableHTTP.Headers {
+					if secretRef == utils.KUBERNETES_PLACEHOLDER {
+						// Special case: use Kubernetes service account token
+						// Value "kubernetes" is preserved for runtime substitution
+						headers[headerName] = utils.KUBERNETES_PLACEHOLDER
+					} else if secretRef != "" {
+						// Use consistent path structure: /etc/mcp/headers/<secretName>/header
+						// This matches AppServer's approach and provides a clear contract
+						// Secret validation happens during deployment generation
+						headers[headerName] = path.Join(utils.MCPHeadersMountRoot, secretRef, utils.MCPSECRETDATAPATH)
+					}
+				}
+				if len(headers) > 0 {
+					mcpServer["authorization_headers"] = headers
+				}
+			}
+
+			mcpServers = append(mcpServers, mcpServer)
+		}
+	}
+
+	return mcpServers
+}
 
 // buildLCoreAuthorizationConfig configures role-based access control
 // Defines which actions different roles can perform
@@ -868,7 +966,7 @@ func buildLCoreQuotaHandlersConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 }
 
 // buildLCoreConfigYAML assembles the complete Lightspeed Core Service configuration and converts to YAML
-func buildLCoreConfigYAML(r reconciler.Reconciler, _ context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
+func buildLCoreConfigYAML(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (string, error) {
 	// Build the complete config as a map
 	config := map[string]interface{}{
 		"name":                 "Lightspeed Core Service (LCS)",
@@ -887,8 +985,12 @@ func buildLCoreConfigYAML(r reconciler.Reconciler, _ context.Context, cr *olsv1a
 		config["quota_handlers"] = quotaConfig // Token rate limiting
 	}
 
+	// MCP servers configuration (includes introspection + user-defined servers)
+	if mcpServers := buildLCoreMCPServersConfig(r, cr); len(mcpServers) > 0 {
+		config["mcp_servers"] = mcpServers // Model Context Protocol servers
+	}
+
 	// Optional features (uncomment to enable):
-	// "mcp_servers":        buildLCoreMCPServersConfig(r, cr),         // Model Context Protocol servers
 	// "authorization":      buildLCoreAuthorizationConfig(r, cr),      // Role-based access control
 	// "byok_rag":           buildLCoreByokRagConfig(r, cr),            // Custom RAG sources
 
