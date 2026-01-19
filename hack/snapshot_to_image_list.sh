@@ -185,7 +185,7 @@ if [ -z "${POSTGRES_IMAGE}" ] || [ "${POSTGRES_IMAGE}" == "null" ]; then
 fi
 
 if [ -z "${POSTGRES_IMAGE}" ] || [ "${POSTGRES_IMAGE}" == "null" ]; then
-    DEFAULT_POSTGRES_IMAGE=$(grep -o 'PostgresServerImageDefault = "registry[^"]*"' "${SCRIPT_DIR}/../internal/controller/constants.go" | sed 's/PostgresServerImageDefault = "\(.*\)"/\1/')
+    DEFAULT_POSTGRES_IMAGE=$(grep -o 'PostgresServerImageDefault = "registry[^"]*"' "${SCRIPT_DIR}/../internal/controller/utils/constants.go" | sed 's/PostgresServerImageDefault = "\(.*\)"/\1/')
     POSTGRES_IMAGE="${DEFAULT_POSTGRES_IMAGE}"
 fi
 
