@@ -377,8 +377,7 @@ func TestBuildLCoreConfigYAML(t *testing.T) {
 		"test-namespace",
 	)
 
-	ctx := context.Background()
-	yamlOutput, err := buildLCoreConfigYAML(testReconciler, ctx, cr)
+	yamlOutput, err := buildLCoreConfigYAML(testReconciler, cr)
 	if err != nil {
 		t.Fatalf("buildLCoreConfigYAML returned error: %v", err)
 	}

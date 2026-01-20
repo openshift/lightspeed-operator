@@ -400,7 +400,7 @@ func GenerateLlamaStackConfigMap(r reconciler.Reconciler, ctx context.Context, c
 // GenerateLcoreConfigMap generates the LCore configuration ConfigMap
 func GenerateLcoreConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
 	// Build OLS config YAML from components
-	lcoreConfigYAML, err := buildLCoreConfigYAML(r, ctx, cr)
+	lcoreConfigYAML, err := buildLCoreConfigYAML(r, cr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build OLS config YAML: %w", err)
 	}
