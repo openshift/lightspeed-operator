@@ -1034,28 +1034,33 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 		It("should create additional volumes and volume mounts when MCP headers are defined", func() {
 			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
-			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
 				{
-					Name: "testMCP",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL:            "https://testMCP.com",
-						Timeout:        10,
-						SSEReadTimeout: 10,
-						Headers: map[string]string{
-							"header1": "value1",
+					Name:    "testMCP",
+					URL:     "https://testMCP.com",
+					Timeout: 10,
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "header1",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{Name: "value1"},
+							},
 						},
 					},
 				},
 				{
-					Name: "testMCP2",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL:            "https://testMCP2.com",
-						Timeout:        10,
-						SSEReadTimeout: 10,
-						Headers: map[string]string{
-							"header2": "value2",
+					Name:    "testMCP2",
+					URL:     "https://testMCP2.com",
+					Timeout: 10,
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "header2",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{Name: "value2"},
+							},
 						},
-						EnableSSE: true,
 					},
 				},
 			}

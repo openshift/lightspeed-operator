@@ -94,33 +94,35 @@ spec:
       - description: MCP Server settings
         displayName: MCP Server Settings
         path: mcpServers
+      - description: |-
+          Headers to send to the MCP server
+          Each header can reference a secret or use a special source (kubernetes token, client token)
+        displayName: Headers
+        path: mcpServers[0].headers
+      - description: Name of the header (e.g., "Authorization", "X-API-Key")
+        displayName: Header Name
+        path: mcpServers[0].headers[0].name
+      - description: Source of the header value
+        displayName: Value Source
+        path: mcpServers[0].headers[0].valueFrom
+      - description: |-
+          Reference to a secret containing the header value.
+          Required when Type is "secret".
+          The secret must exist in the operator's namespace.
+        displayName: Secret Reference
+        path: mcpServers[0].headers[0].valueFrom.secretRef
+      - description: Type specifies the source type for the header value
+        displayName: Source Type
+        path: mcpServers[0].headers[0].valueFrom.type
       - description: Name of the MCP server
         displayName: Name
         path: mcpServers[0].name
-      - description: Streamable HTTP Transport settings
-        displayName: Streamable HTTP Transport
-        path: mcpServers[0].streamableHTTP
-      - description: Enable Server Sent Events
-        displayName: Enable Server Sent Events
-        path: mcpServers[0].streamableHTTP.enableSSE
-      - description: Headers to send to the MCP server the map contains the header
-          name and the name of the secret with the content of the header. This secret
-          should contain a header path in the data containing a header value. A special
-          case is usage of the kubernetes token in the header. to specify this use
-          a string "kubernetes" instead of the secret name
-        displayName: Headers
-        path: mcpServers[0].streamableHTTP.headers
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:keyValue
-      - description: SSE Read Timeout, default is 10 seconds
-        displayName: SSE Read Timeout in seconds
-        path: mcpServers[0].streamableHTTP.sseReadTimeout
-      - description: Timeout for the MCP server, default is 5 seconds
-        displayName: Timeout in seconds
-        path: mcpServers[0].streamableHTTP.timeout
-      - description: URL of the MCP server
+      - description: Timeout for the MCP server in seconds, default is 5
+        displayName: Timeout (seconds)
+        path: mcpServers[0].timeout
+      - description: URL of the MCP server (HTTP/HTTPS)
         displayName: URL
-        path: mcpServers[0].streamableHTTP.url
+        path: mcpServers[0].url
       - displayName: OLS Settings
         path: ols
       - description: Additional CA certificates for TLS communication between OLS
@@ -315,6 +317,25 @@ spec:
         path: ols.tlsSecurityProfile
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Tool filtering configuration for hybrid RAG retrieval. If not
+          specified, all tools are used.
+        displayName: Tool Filtering Configuration
+        path: ols.toolFilteringConfig
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Weight for dense vs sparse retrieval (1.0 = full dense, 0.0 =
+          full sparse)
+        displayName: Alpha Weight
+        path: ols.toolFilteringConfig.alpha
+      - description: Sentence transformer model for embeddings
+        displayName: Embedding Model
+        path: ols.toolFilteringConfig.embedModel
+      - description: Minimum similarity threshold for filtering results
+        displayName: Similarity Threshold
+        path: ols.toolFilteringConfig.threshold
+      - description: Number of tools to retrieve
+        displayName: Top K
+        path: ols.toolFilteringConfig.topK
       - description: User data collection switches
         displayName: User Data Collection
         path: ols.userDataCollection

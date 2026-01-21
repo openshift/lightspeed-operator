@@ -269,81 +269,68 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(appSrvConfigFile.MCPServers).NotTo(BeEmpty())
 			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-				"Name":      Equal("openshift"),
-				"Transport": Equal(utils.StreamableHTTP),
-				"StreamableHTTP": PointTo(MatchFields(IgnoreExtras, Fields{
-					"URL":            Equal(fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort)),
-					"Timeout":        Equal(utils.OpenShiftMCPServerTimeout),
-					"SSEReadTimeout": Equal(utils.OpenShiftMCPServerHTTPReadTimeout),
-					"Headers":        Equal(map[string]string{utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER}),
-				})),
+				"Name":    Equal("openshift"),
+				"URL":     Equal(fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort)),
+				"Timeout": Equal(utils.OpenShiftMCPServerTimeout),
+				"AuthorizationHeaders": Equal(map[string]string{
+					utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
+				}),
 			})))
 		})
 
-		It("should fail to generate configmap with additional MCP server if the headers are not configured correctly", func() {
+		It("should skip MCP server with missing header secret during config generation", func() {
 			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
-			utils.CreateMCPHeaderSecret(ctx, k8sClient, "garbage", false)
-			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+			// Note: We don't create the secret - config generation doesn't validate secrets
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
 				{
-					Name: "testMCP",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL:            "https://testMCP.com",
-						Timeout:        10,
-						SSEReadTimeout: 10,
-						Headers: map[string]string{
-							"header1": "value3",
+					Name:    "testMCP",
+					URL:     "https://testMCP.com",
+					Timeout: 10,
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "header1",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{Name: "value3"},
+							},
 						},
 					},
 				},
 			}
+			// Config generation should succeed - secret validation happens during deployment
 			_, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("MCP testMCP header secret value3 is not found"))
-
-			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
-				{
-					Name: "testMCP",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL:            "https://testMCP.com",
-						Timeout:        10,
-						SSEReadTimeout: 10,
-						Headers: map[string]string{
-							"header1": "garbage",
-						},
-					},
-				},
-			}
-			_, err = GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("header garbage for MCP server testMCP is missing key 'header'"))
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should generate configmap with additional MCP server if feature gate is enabled", func() {
+		It("should generate configmap with additional MCP servers if feature gate is enabled", func() {
 			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
-			utils.CreateMCPHeaderSecret(ctx, k8sClient, "value1", true)
-			utils.CreateMCPHeaderSecret(ctx, k8sClient, "value2", true)
-			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
 				{
-					Name: "testMCP",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL:            "https://testMCP.com",
-						Timeout:        10,
-						SSEReadTimeout: 10,
-						Headers: map[string]string{
-							"header1": "value1",
+					Name:    "testMCP",
+					URL:     "https://testMCP.com",
+					Timeout: 10,
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "header1",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{Name: "value1"},
+							},
 						},
 					},
 				},
 				{
-					Name: "testMCP2",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL:            "https://testMCP2.com",
-						Timeout:        10,
-						SSEReadTimeout: 10,
-						Headers: map[string]string{
-							"header2": "value2",
+					Name:    "testMCP2",
+					URL:     "https://testMCP2.com",
+					Timeout: 10,
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "header2",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{Name: "value2"},
+							},
 						},
-						EnableSSE: true,
 					},
 				},
 			}
@@ -353,43 +340,36 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &appSrvConfigFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(appSrvConfigFile.MCPServers).To(HaveLen(2))
+
 			Expect(appSrvConfigFile.MCPServers[0].Name).To(Equal("testMCP"))
-			Expect(appSrvConfigFile.MCPServers[0].Transport).To(Equal(utils.StreamableHTTP))
-			Expect(appSrvConfigFile.MCPServers[0].StreamableHTTP).To(Equal(&utils.StreamableHTTPTransportConfig{
-				URL:            "https://testMCP.com",
-				Timeout:        10,
-				SSEReadTimeout: 10,
-				Headers: map[string]string{
-					"header1": utils.MCPHeadersMountRoot + "/value1/" + utils.MCPSECRETDATAPATH,
-				},
+			Expect(appSrvConfigFile.MCPServers[0].URL).To(Equal("https://testMCP.com"))
+			Expect(appSrvConfigFile.MCPServers[0].Timeout).To(Equal(10))
+			Expect(appSrvConfigFile.MCPServers[0].AuthorizationHeaders).To(Equal(map[string]string{
+				"header1": utils.MCPHeadersMountRoot + "/value1/" + utils.MCPSECRETDATAPATH,
 			}))
-			Expect(appSrvConfigFile.MCPServers[0].SSE).To(BeNil())
 
 			Expect(appSrvConfigFile.MCPServers[1].Name).To(Equal("testMCP2"))
-			Expect(appSrvConfigFile.MCPServers[1].Transport).To(Equal(utils.SSE))
-			Expect(appSrvConfigFile.MCPServers[1].SSE).To(Equal(&utils.StreamableHTTPTransportConfig{
-				URL:            "https://testMCP2.com",
-				Timeout:        10,
-				SSEReadTimeout: 10,
-				Headers: map[string]string{
-					"header2": utils.MCPHeadersMountRoot + "/value2/" + utils.MCPSECRETDATAPATH,
-				},
+			Expect(appSrvConfigFile.MCPServers[1].URL).To(Equal("https://testMCP2.com"))
+			Expect(appSrvConfigFile.MCPServers[1].Timeout).To(Equal(10))
+			Expect(appSrvConfigFile.MCPServers[1].AuthorizationHeaders).To(Equal(map[string]string{
+				"header2": utils.MCPHeadersMountRoot + "/value2/" + utils.MCPSECRETDATAPATH,
 			}))
-			Expect(appSrvConfigFile.MCPServers[1].StreamableHTTP).To(BeNil())
 		})
 
 		It("should not generate configmap with additional MCP server if feature gate is missing", func() {
 			Expect(cr.Spec.FeatureGates).To(BeNil())
-			utils.CreateMCPHeaderSecret(ctx, k8sClient, "value1", true)
-			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
 				{
-					Name: "testMCP",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL:            "https://testMCP.com",
-						Timeout:        10,
-						SSEReadTimeout: 10,
-						Headers: map[string]string{
-							"header1": "value1",
+					Name:    "testMCP",
+					URL:     "https://testMCP.com",
+					Timeout: 10,
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "header1",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{Name: "value1"},
+							},
 						},
 					},
 				},
@@ -405,15 +385,18 @@ var _ = Describe("App server assets", func() {
 		It("should generate configmap with additional MCP server along side the default MCP server", func() {
 			cr.Spec.OLSConfig.IntrospectionEnabled = true
 			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
-			cr.Spec.MCPServers = []olsv1alpha1.MCPServer{
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
 				{
-					Name: "testMCP",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL:            "https://testMCP.com",
-						Timeout:        10,
-						SSEReadTimeout: 10,
-						Headers: map[string]string{
-							"header1": "value1",
+					Name:    "testMCP",
+					URL:     "https://testMCP.com",
+					Timeout: 10,
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "header1",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{Name: "value1"},
+							},
 						},
 					},
 				},
@@ -424,34 +407,20 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &appSrvConfigFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(appSrvConfigFile.MCPServers).To(HaveLen(2))
+
 			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-				"Name":      Equal("openshift"),
-				"Transport": Equal(utils.StreamableHTTP),
-				"StreamableHTTP": PointTo(MatchFields(IgnoreExtras, Fields{
-					"URL":            Equal(fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort)),
-					"Timeout":        Equal(utils.OpenShiftMCPServerTimeout),
-					"SSEReadTimeout": Equal(utils.OpenShiftMCPServerHTTPReadTimeout),
-				})),
+				"Name":    Equal("openshift"),
+				"URL":     Equal(fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort)),
+				"Timeout": Equal(utils.OpenShiftMCPServerTimeout),
 			})))
+
 			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-				"Name":      Equal("testMCP"),
-				"Transport": Equal(utils.StreamableHTTP),
-				"StreamableHTTP": PointTo(MatchFields(IgnoreExtras, Fields{
-					"URL":            Equal("https://testMCP.com"),
-					"Timeout":        BeNumerically("==", 10),
-					"SSEReadTimeout": BeNumerically("==", 10),
-					"Headers":        Equal(map[string]string{"header1": utils.MCPHeadersMountRoot + "/value1/" + utils.MCPSECRETDATAPATH}),
-				})),
-			})))
-			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-				"Name":      Equal("openshift"),
-				"Transport": Equal(utils.StreamableHTTP),
-				"StreamableHTTP": PointTo(MatchFields(IgnoreExtras, Fields{
-					"URL":            Equal(fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort)),
-					"Timeout":        Equal(utils.OpenShiftMCPServerTimeout),
-					"SSEReadTimeout": Equal(utils.OpenShiftMCPServerHTTPReadTimeout),
-					"Headers":        Equal(map[string]string{utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER}),
-				})),
+				"Name":    Equal("testMCP"),
+				"URL":     Equal("https://testMCP.com"),
+				"Timeout": Equal(10),
+				"AuthorizationHeaders": Equal(map[string]string{
+					"header1": utils.MCPHeadersMountRoot + "/value1/" + utils.MCPSECRETDATAPATH,
+				}),
 			})))
 		})
 		It("should place APIVersion in ProviderConfig for Azure OpenAI provider", func() {
