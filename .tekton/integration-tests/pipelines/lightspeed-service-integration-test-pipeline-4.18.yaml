@@ -254,6 +254,8 @@ spec:
             image: registry.access.redhat.com/ubi9/ubi-minimal
             script: |
               echo "---------------------------------------------"
+              cat $KUBECONFIG
+              echo "---------------------------------------------"
               echo "$KONFLUX_BOOL"
               echo "---------------------------------------------"
               echo "$BUNDLE_IMAGE"
