@@ -280,15 +280,6 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		olsConfig.SystemPromptPath = path.Join(utils.OLSConfigMountRoot, utils.OLSSystemPromptFileName)
 	}
 
-	if cr.Spec.OLSConfig.ToolFilteringConfig != nil {
-		olsConfig.ToolFiltering = &utils.ToolFilteringConfig{
-			EmbedModel: cr.Spec.OLSConfig.ToolFilteringConfig.EmbedModel,
-			Alpha:      cr.Spec.OLSConfig.ToolFilteringConfig.Alpha,
-			TopK:       cr.Spec.OLSConfig.ToolFilteringConfig.TopK,
-			Threshold:  cr.Spec.OLSConfig.ToolFilteringConfig.Threshold,
-		}
-	}
-
 	appSrvConfigFile := utils.AppSrvConfigFile{
 		LLMProviders: providerConfigs,
 		OLSConfig:    olsConfig,
@@ -307,6 +298,37 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 	}
 	if len(mcpServers) > 0 {
 		appSrvConfigFile.MCPServers = mcpServers
+	}
+
+	// Only add tool filtering if there are MCP servers to filter
+	if cr.Spec.OLSConfig.ToolFilteringConfig != nil {
+		if len(mcpServers) > 0 {
+			// Apply defaults for zero values (happens when user specifies toolFilteringConfig: {})
+			cfg := cr.Spec.OLSConfig.ToolFilteringConfig
+			alpha, topK, threshold := cfg.Alpha, cfg.TopK, cfg.Threshold
+			if alpha == 0.0 {
+				alpha = 0.8
+			}
+			if topK == 0 {
+				topK = 10
+			}
+			if threshold == 0.0 {
+				threshold = 0.01
+			}
+
+			appSrvConfigFile.OLSConfig.ToolFiltering = &utils.ToolFilteringConfig{
+				Alpha:     alpha,
+				TopK:      topK,
+				Threshold: threshold,
+			}
+		} else {
+			r.GetLogger().Info(
+				"ToolFilteringConfig specified but no MCP servers enabled. Tool filtering will be disabled.",
+				"IntrospectionEnabled", cr.Spec.OLSConfig.IntrospectionEnabled,
+				"MCPFeatureGate", slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer),
+				"MCPServersCount", len(cr.Spec.MCPServers),
+			)
+		}
 	}
 
 	configFileBytes, err := yaml.Marshal(appSrvConfigFile)
@@ -708,7 +730,7 @@ func generateMCPServerConfigs(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig
 			Name:    "openshift",
 			URL:     fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort),
 			Timeout: utils.OpenShiftMCPServerTimeout,
-			AuthorizationHeaders: map[string]string{
+			Headers: map[string]string{
 				utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
 			},
 		})
@@ -780,7 +802,7 @@ func generateMCPServerConfigs(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig
 				}
 
 				if len(headers) > 0 {
-					mcpServer.AuthorizationHeaders = headers
+					mcpServer.Headers = headers
 				}
 			}
 

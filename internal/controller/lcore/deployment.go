@@ -485,7 +485,7 @@ func addCustomTLSVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]core
 	}
 }
 
-// addMCPHeaderSecretVolumesAndMounts adds MCP header secret volumes and mounts for HTTP MCP servers
+// addMCPHeaderSecretVolumesAndMounts adds MCP header secret volumes and mounts for MCP servers
 // This validates and mounts header secrets at /etc/mcp/headers/<secretName>
 func addMCPHeaderSecretVolumesAndMounts(r reconciler.Reconciler, ctx context.Context, volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, cr *olsv1alpha1.OLSConfig, volumeDefaultMode *int32) error {
 	// Only add MCP header secrets if feature gate is enabled
@@ -493,41 +493,33 @@ func addMCPHeaderSecretVolumesAndMounts(r reconciler.Reconciler, ctx context.Con
 		return nil
 	}
 
-	// Filter to HTTP-only servers (no logging needed here, already logged in config)
-	filteredServers := FilterHTTPMCPServers(r, cr, cr.Spec.MCPServers)
-
-	for _, server := range filteredServers {
-		if server.StreamableHTTP != nil && server.StreamableHTTP.Headers != nil {
-			for headerName, secretRef := range server.StreamableHTTP.Headers {
-				// Skip special placeholders
-				if secretRef == utils.KUBERNETES_PLACEHOLDER || secretRef == "" {
-					continue
-				}
-
-				// Validate secret exists and has correct structure
-				// This provides fail-fast validation consistent with AppServer
-				if err := validateMCPHeaderSecret(r, ctx, secretRef, server.Name, headerName); err != nil {
-					return err
-				}
-
-				*volumes = append(*volumes, corev1.Volume{
-					Name: "header-" + secretRef,
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  secretRef,
-							DefaultMode: volumeDefaultMode,
-						},
-					},
-				})
-
-				*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
-					Name:      "header-" + secretRef,
-					MountPath: path.Join(utils.MCPHeadersMountRoot, secretRef),
-					ReadOnly:  true,
-				})
+	// Mount MCP header secrets using the same pattern as appserver
+	_ = utils.ForEachExternalSecret(cr, func(name, source string) error {
+		if strings.HasPrefix(source, "mcp-") {
+			// Validate secret exists and has correct structure
+			serverName := strings.TrimPrefix(source, "mcp-")
+			if err := validateMCPHeaderSecret(r, ctx, name, serverName, ""); err != nil {
+				return err
 			}
+
+			*volumes = append(*volumes, corev1.Volume{
+				Name: "header-" + name,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  name,
+						DefaultMode: volumeDefaultMode,
+					},
+				},
+			})
+
+			*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+				Name:      "header-" + name,
+				MountPath: path.Join(utils.MCPHeadersMountRoot, name),
+				ReadOnly:  true,
+			})
 		}
-	}
+		return nil
+	})
 
 	return nil
 }

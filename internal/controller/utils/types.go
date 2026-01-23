@@ -167,9 +167,8 @@ type OLSConfig struct {
 }
 
 // ToolFilteringConfig defines configuration for tool filtering using hybrid RAG retrieval
+// The embedding model is not exposed as it's handled by the container image
 type ToolFilteringConfig struct {
-	// Sentence transformer model for embeddings
-	EmbedModel string `json:"embed_model,omitempty"`
 	// Weight for dense vs sparse retrieval (1.0 = full dense, 0.0 = full sparse)
 	Alpha float64 `json:"alpha,omitempty"`
 	// Number of tools to retrieve
@@ -305,8 +304,8 @@ type MCPServerConfig struct {
 	Name string `json:"name"`
 	// MCP server URL
 	URL string `json:"url"`
-	// Authorization headers (map of header name to file path or placeholder)
-	AuthorizationHeaders map[string]string `json:"authorization_headers,omitempty"`
+	// Headers (map of header name to file path or placeholder)
+	Headers map[string]string `json:"headers,omitempty"`
 	// Timeout in seconds
 	Timeout int `json:"timeout,omitempty"`
 }

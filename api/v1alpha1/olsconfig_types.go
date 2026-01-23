@@ -521,14 +521,10 @@ type ProxyConfig struct {
 
 // ToolFilteringConfig defines configuration for tool filtering using hybrid RAG retrieval.
 // If this config is present, tool filtering is enabled. If absent, all tools are used.
+// The embedding model is not exposed as it's handled by the container image.
 // +kubebuilder:validation:XValidation:rule="self.alpha >= 0.0 && self.alpha <= 1.0",message="alpha must be between 0.0 and 1.0"
 // +kubebuilder:validation:XValidation:rule="self.threshold >= 0.0 && self.threshold <= 1.0",message="threshold must be between 0.0 and 1.0"
 type ToolFilteringConfig struct {
-	// Sentence transformer model for embeddings
-	// +kubebuilder:default="sentence-transformers/all-mpnet-base-v2"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Embedding Model"
-	EmbedModel string `json:"embedModel,omitempty"`
-
 	// Weight for dense vs sparse retrieval (1.0 = full dense, 0.0 = full sparse)
 	// +kubebuilder:default=0.8
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Alpha Weight"

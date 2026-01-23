@@ -4756,10 +4756,6 @@ spec:
                         description: Weight for dense vs sparse retrieval (1.0 = full
                           dense, 0.0 = full sparse)
                         type: number
-                      embedModel:
-                        default: sentence-transformers/all-mpnet-base-v2
-                        description: Sentence transformer model for embeddings
-                        type: string
                       threshold:
                         default: 0.01
                         description: Minimum similarity threshold for filtering results

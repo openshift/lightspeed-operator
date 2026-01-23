@@ -440,15 +440,15 @@ func (in *OLSSpec) DeepCopyInto(out *OLSSpec) {
 		*out = new(Storage)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.ToolFilteringConfig != nil {
-		in, out := &in.ToolFilteringConfig, &out.ToolFilteringConfig
-		*out = new(ToolFilteringConfig)
-		**out = **in
-	}
 	if in.ImagePullSecrets != nil {
 		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
 		*out = make([]corev1.LocalObjectReference, len(*in))
 		copy(*out, *in)
+	}
+	if in.ToolFilteringConfig != nil {
+		in, out := &in.ToolFilteringConfig, &out.ToolFilteringConfig
+		*out = new(ToolFilteringConfig)
+		**out = **in
 	}
 }
 

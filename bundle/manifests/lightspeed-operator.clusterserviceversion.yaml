@@ -352,9 +352,6 @@ spec:
           - description: Weight for dense vs sparse retrieval (1.0 = full dense, 0.0 = full sparse)
             displayName: Alpha Weight
             path: ols.toolFilteringConfig.alpha
-          - description: Sentence transformer model for embeddings
-            displayName: Embedding Model
-            path: ols.toolFilteringConfig.embedModel
           - description: Minimum similarity threshold for filtering results
             displayName: Similarity Threshold
             path: ols.toolFilteringConfig.threshold
