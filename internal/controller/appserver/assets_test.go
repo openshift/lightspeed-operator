@@ -272,7 +272,7 @@ var _ = Describe("App server assets", func() {
 				"Name":    Equal("openshift"),
 				"URL":     Equal(fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort)),
 				"Timeout": Equal(utils.OpenShiftMCPServerTimeout),
-				"AuthorizationHeaders": Equal(map[string]string{
+				"Headers": Equal(map[string]string{
 					utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
 				}),
 			})))
@@ -344,14 +344,14 @@ var _ = Describe("App server assets", func() {
 			Expect(appSrvConfigFile.MCPServers[0].Name).To(Equal("testMCP"))
 			Expect(appSrvConfigFile.MCPServers[0].URL).To(Equal("https://testMCP.com"))
 			Expect(appSrvConfigFile.MCPServers[0].Timeout).To(Equal(10))
-			Expect(appSrvConfigFile.MCPServers[0].AuthorizationHeaders).To(Equal(map[string]string{
+			Expect(appSrvConfigFile.MCPServers[0].Headers).To(Equal(map[string]string{
 				"header1": utils.MCPHeadersMountRoot + "/value1/" + utils.MCPSECRETDATAPATH,
 			}))
 
 			Expect(appSrvConfigFile.MCPServers[1].Name).To(Equal("testMCP2"))
 			Expect(appSrvConfigFile.MCPServers[1].URL).To(Equal("https://testMCP2.com"))
 			Expect(appSrvConfigFile.MCPServers[1].Timeout).To(Equal(10))
-			Expect(appSrvConfigFile.MCPServers[1].AuthorizationHeaders).To(Equal(map[string]string{
+			Expect(appSrvConfigFile.MCPServers[1].Headers).To(Equal(map[string]string{
 				"header2": utils.MCPHeadersMountRoot + "/value2/" + utils.MCPSECRETDATAPATH,
 			}))
 		})
@@ -418,7 +418,7 @@ var _ = Describe("App server assets", func() {
 				"Name":    Equal("testMCP"),
 				"URL":     Equal("https://testMCP.com"),
 				"Timeout": Equal(10),
-				"AuthorizationHeaders": Equal(map[string]string{
+				"Headers": Equal(map[string]string{
 					"header1": utils.MCPHeadersMountRoot + "/value1/" + utils.MCPSECRETDATAPATH,
 				}),
 			})))

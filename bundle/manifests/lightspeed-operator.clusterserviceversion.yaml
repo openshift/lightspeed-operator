@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Basic Install
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-01-21T19:20:54Z"
+    createdAt: "2026-01-23T15:14:40Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -349,9 +349,6 @@ spec:
           - description: Weight for dense vs sparse retrieval (1.0 = full dense, 0.0 = full sparse)
             displayName: Alpha Weight
             path: ols.toolFilteringConfig.alpha
-          - description: Sentence transformer model for embeddings
-            displayName: Embedding Model
-            path: ols.toolFilteringConfig.embedModel
           - description: Minimum similarity threshold for filtering results
             displayName: Similarity Threshold
             path: ols.toolFilteringConfig.threshold
