@@ -1,0 +1,449 @@
+---
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:ce36810a7453f4d45285a9566cd9ca2f78dd648013636c4a9cd0b0d3e234b462
+name: lightspeed-operator.v1.0.9
+package: lightspeed-operator
+properties:
+  - type: olm.gvk
+    value:
+      group: ols.openshift.io
+      kind: OLSConfig
+      version: v1alpha1
+  - type: olm.package
+    value:
+      packageName: lightspeed-operator
+      version: 1.0.9
+  - type: olm.csv.metadata
+    value:
+      annotations:
+        alm-examples: |-
+          [
+            {
+              "apiVersion": "ols.openshift.io/v1alpha1",
+              "kind": "OLSConfig",
+              "metadata": {
+                "labels": {
+                  "app.kubernetes.io/created-by": "lightspeed-operator",
+                  "app.kubernetes.io/instance": "olsconfig-sample",
+                  "app.kubernetes.io/managed-by": "kustomize",
+                  "app.kubernetes.io/name": "olsconfig",
+                  "app.kubernetes.io/part-of": "lightspeed-operator"
+                },
+                "name": "cluster"
+              },
+              "spec": {
+                "llm": {
+                  "providers": [
+                    {
+                      "credentialsSecretRef": {
+                        "name": "credentials"
+                      },
+                      "models": [
+                        {
+                          "name": "gpt-3.5-turbo-1106"
+                        }
+                      ],
+                      "name": "OpenAI"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        capabilities: Basic Install
+        console.openshift.io/operator-monitoring-default: "true"
+        createdAt: "2025-12-18T10:30:55Z"
+        features.operators.openshift.io/cnf: "false"
+        features.operators.openshift.io/cni: "false"
+        features.operators.openshift.io/csi: "false"
+        features.operators.openshift.io/disconnected: "true"
+        features.operators.openshift.io/fips-compliant: "true"
+        features.operators.openshift.io/proxy-aware: "false"
+        features.operators.openshift.io/tls-profiles: "false"
+        features.operators.openshift.io/token-auth-aws: "false"
+        features.operators.openshift.io/token-auth-azure: "false"
+        features.operators.openshift.io/token-auth-gcp: "false"
+        operatorframework.io/cluster-monitoring: "true"
+        operatorframework.io/suggested-namespace: openshift-lightspeed
+        operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift Platform Plus", "OpenShift Kubernetes Engine", "OpenShift Virtualization Engine"]'
+        operators.operatorframework.io/builder: operator-sdk-v1.33.0
+        operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
+        repository: https://github.com/openshift/lightspeed-operator
+      apiServiceDefinitions: {}
+      crdDescriptions:
+        owned:
+          - description: Red Hat OpenShift Lightspeed instance. OLSConfig is the Schema for the olsconfigs API
+            displayName: OLSConfig
+            kind: OLSConfig
+            name: olsconfigs.ols.openshift.io
+            specDescriptors:
+              - description: Provider name
+                displayName: Name
+                path: llm.providers[0].name
+              - description: OLS deployment settings
+                displayName: Deployment
+                path: ols.deployment
+              - description: Provider API URL
+                displayName: URL
+                path: llm.providers[0].url
+              - description: Conversation cache settings
+                displayName: Conversation Cache
+                path: ols.conversationCache
+              - description: The name of the secret object that stores API provider credentials
+                displayName: Credential Secret
+                path: llm.providers[0].credentialsSecretRef
+              - description: |-
+                  Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
+                  possible values: MCPServer
+                displayName: Feature Gates
+                path: featureGates
+              - displayName: LLM Settings
+                path: llm
+              - displayName: Providers
+                path: llm.providers
+              - description: API Version for Azure OpenAI provider
+                displayName: Azure OpenAI API Version
+                path: llm.providers[0].apiVersion
+              - description: Azure OpenAI deployment name
+                displayName: Azure OpenAI deployment name
+                path: llm.providers[0].deploymentName
+              - description: List of models from the provider
+                displayName: Models
+                path: llm.providers[0].models
+              - description: Defines the model's context window size, in tokens. The default is 128k tokens.
+                displayName: Context Window Size
+                path: llm.providers[0].models[0].contextWindowSize
+              - description: Model name
+                displayName: Name
+                path: llm.providers[0].models[0].name
+              - description: Model API parameters
+                displayName: Parameters
+                path: llm.providers[0].models[0].parameters
+              - description: Max tokens for response. The default is 2048 tokens.
+                displayName: Max Tokens For Response
+                path: llm.providers[0].models[0].parameters.maxTokensForResponse
+              - description: Model API URL
+                displayName: URL
+                path: llm.providers[0].models[0].url
+              - description: Watsonx Project ID
+                displayName: Watsonx Project ID
+                path: llm.providers[0].projectID
+              - description: TLS Security Profile used by connection to provider
+                displayName: TLS Security Profile
+                path: llm.providers[0].tlsSecurityProfile
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: Provider type
+                displayName: Provider Type
+                path: llm.providers[0].type
+              - description: MCP Server settings
+                displayName: MCP Server Settings
+                path: mcpServers
+              - description: Name of the MCP server
+                displayName: Name
+                path: mcpServers[0].name
+              - description: Streamable HTTP Transport settings
+                displayName: Streamable HTTP Transport
+                path: mcpServers[0].streamableHTTP
+              - description: Enable Server Sent Events
+                displayName: Enable Server Sent Events
+                path: mcpServers[0].streamableHTTP.enableSSE
+              - description: |-
+                  Headers to send to the MCP server
+                  the map contains the header name and the name of the secret with the content of the header. This secret
+                  should contain a header path in the data containing a header value.
+                  A special case is usage of the kubernetes token in the header. to specify this use
+                  a string "kubernetes" instead of the secret name
+                displayName: Headers
+                path: mcpServers[0].streamableHTTP.headers
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:keyValue
+              - description: SSE Read Timeout, default is 10 seconds
+                displayName: SSE Read Timeout in seconds
+                path: mcpServers[0].streamableHTTP.sseReadTimeout
+              - description: Timeout for the MCP server, default is 5 seconds
+                displayName: Timeout in seconds
+                path: mcpServers[0].streamableHTTP.timeout
+              - description: URL of the MCP server
+                displayName: URL
+                path: mcpServers[0].streamableHTTP.url
+              - displayName: OLS Settings
+                path: ols
+              - description: Additional CA certificates for TLS communication between OLS service and LLM Provider
+                displayName: Additional CA Configmap
+                path: ols.additionalCAConfigMapRef
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: Only use BYOK RAG sources, ignore the OpenShift documentation RAG
+                displayName: Only use BYOK RAG sources
+                path: ols.byokRAGOnly
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+              - displayName: PostgreSQL Settings
+                path: ols.conversationCache.postgres
+              - description: 'Postgres maxconnections. Default: "2000"'
+                displayName: Maximum Connections
+                path: ols.conversationCache.postgres.maxConnections
+              - description: Postgres sharedbuffers
+                displayName: Shared Buffer Size
+                path: ols.conversationCache.postgres.sharedBuffers
+              - description: 'Conversation cache type. Default: "postgres"'
+                displayName: Cache Type
+                path: ols.conversationCache.type
+              - description: Default model for usage
+                displayName: Default Model
+                path: ols.defaultModel
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:text
+              - description: Default provider for usage
+                displayName: Default Provider
+                path: ols.defaultProvider
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:text
+              - description: API container settings.
+                displayName: API Deployment
+                path: ols.deployment.api
+              - description: |-
+                  Defines the number of desired OLS pods. Default: "1"
+                  Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+                  the number of replicas will always be set to 1.
+                displayName: Number of replicas
+                path: ols.deployment.api.replicas
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:podCount
+              - description: Console container settings.
+                displayName: Console Deployment
+                path: ols.deployment.console
+              - description: |-
+                  Defines the number of desired OLS pods. Default: "1"
+                  Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+                  the number of replicas will always be set to 1.
+                displayName: Number of replicas
+                path: ols.deployment.console.replicas
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:podCount
+              - description: Data Collector container settings.
+                displayName: Data Collector Container
+                path: ols.deployment.dataCollector
+              - description: Database container settings.
+                displayName: Database Deployment
+                path: ols.deployment.database
+              - description: |-
+                  Defines the number of desired OLS pods. Default: "1"
+                  Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+                  the number of replicas will always be set to 1.
+                displayName: Number of replicas
+                path: ols.deployment.database.replicas
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:podCount
+              - description: Llama Stack container settings.
+                displayName: Llama Stack Container
+                path: ols.deployment.llamaStack
+              - description: MCP server container settings.
+                displayName: MCP Server Container
+                path: ols.deployment.mcpServer
+              - description: Enable introspection features
+                displayName: Introspection Enabled
+                path: ols.introspectionEnabled
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+              - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".'
+                displayName: Log level
+                path: ols.logLevel
+              - description: Proxy settings for connecting to external servers, such as LLM providers.
+                displayName: Proxy Settings
+                path: ols.proxyConfig
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: The configmap holding proxy CA certificate
+                displayName: Proxy CA Certificate
+                path: ols.proxyConfig.proxyCACertificate
+              - description: |-
+                  Proxy URL, e.g. https://proxy.example.com:8080
+                  If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+                displayName: Proxy URL
+                path: ols.proxyConfig.proxyURL
+              - description: Query filters
+                displayName: Query Filters
+                path: ols.queryFilters
+              - description: Filter name.
+                displayName: Filter Name
+                path: ols.queryFilters[0].name
+              - description: Filter pattern.
+                displayName: The pattern to replace
+                path: ols.queryFilters[0].pattern
+              - description: Replacement for the matched pattern.
+                displayName: Replace With
+                path: ols.queryFilters[0].replaceWith
+              - description: Custom system prompt for LLM queries. If not specified, uses the default OpenShift Lightspeed prompt.
+                displayName: Query System Prompt
+                path: ols.querySystemPrompt
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: LLM Token Quota Configuration
+                displayName: LLM Token Quota Configuration
+                path: ols.quotaHandlersConfig
+              - description: Enable token history
+                displayName: Enable Token History
+                path: ols.quotaHandlersConfig.enableTokenHistory
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+              - description: Token quota limiters
+                displayName: Token Quota Limiters
+                path: ols.quotaHandlersConfig.limitersConfig
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: Initial value of the token quota
+                displayName: Initial Token Quota
+                path: ols.quotaHandlersConfig.limitersConfig[0].initialQuota
+              - description: Name of the limiter
+                displayName: Limiter Name
+                path: ols.quotaHandlersConfig.limitersConfig[0].name
+              - description: Period of time the token quota is for
+                displayName: Period of Time the Token Quota Is For
+                path: ols.quotaHandlersConfig.limitersConfig[0].period
+              - description: Token quota increase step
+                displayName: Token Quota Increase Step
+                path: ols.quotaHandlersConfig.limitersConfig[0].quotaIncrease
+              - description: Type of the limiter
+                displayName: 'Limiter Type. Accepted Values: cluster_limiter, user_limiter.'
+                path: ols.quotaHandlersConfig.limitersConfig[0].type
+              - description: RAG databases
+                displayName: RAG Databases
+                path: ols.rag
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: The URL of the container image to use as a RAG source
+                displayName: Image
+                path: ols.rag[0].image
+              - description: The Index ID of the RAG database. Only needed if there are multiple indices in the database.
+                displayName: Index ID
+                path: ols.rag[0].indexID
+              - description: The path to the RAG database inside of the container image
+                displayName: Index Path in the Image
+                path: ols.rag[0].indexPath
+              - description: Persistent Storage Configuration
+                displayName: Persistent Storage Configuration
+                path: ols.storage
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: Storage class of the requested volume
+                displayName: Storage Class of the Requested Volume
+                path: ols.storage.class
+              - description: Size of the requested volume
+                displayName: Size of the Requested Volume
+                path: ols.storage.size
+              - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
+                displayName: TLS Configuration
+                path: ols.tlsConfig
+              - description: |-
+                  KeyCertSecretRef references a Secret containing TLS certificate and key.
+                  The Secret must contain the following keys:
+                    - tls.crt: Server certificate (PEM format) - REQUIRED
+                    - tls.key: Private key (PEM format) - REQUIRED
+                    - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
+
+                  If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
+                displayName: TLS Certificate Secret Reference
+                path: ols.tlsConfig.keyCertSecretRef
+              - description: TLS Security Profile used by API endpoints
+                displayName: TLS Security Profile
+                path: ols.tlsSecurityProfile
+                x-descriptors:
+                  - urn:alm:descriptor:com.tectonic.ui:advanced
+              - description: User data collection switches
+                displayName: User Data Collection
+                path: ols.userDataCollection
+              - displayName: Do Not Collect User Feedback
+                path: ols.userDataCollection.feedbackDisabled
+              - displayName: Do Not Collect Transcripts
+                path: ols.userDataCollection.transcriptsDisabled
+              - displayName: OLS Data Collector Settings
+                path: olsDataCollector
+              - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".'
+                displayName: Log level
+                path: olsDataCollector.logLevel
+            statusDescriptors:
+              - description: |-
+                  Conditions represent the state of individual components
+                  Always populated after first reconciliation
+                displayName: Conditions
+                path: conditions
+              - description: |-
+                  DiagnosticInfo provides detailed troubleshooting information when deployments fail.
+                  Each entry contains pod-level error details for a specific component.
+                  This array is automatically populated when deployments fail and cleared when they recover.
+                  Only present during deployment failures.
+                displayName: Diagnostic Info
+                path: diagnosticInfo
+              - description: |-
+                  OverallStatus provides a high-level summary of the entire system's health.
+                  Aggregates all component conditions into a single status value.
+                  - Ready: All components are healthy
+                  - NotReady: At least one component is not ready (check conditions for details)
+                  Always set after first reconciliation
+                displayName: Overall Status
+                path: overallStatus
+            version: v1alpha1
+      description: |-
+        OpenShift Lightspeed Operator provides generative AI-based virtual assistant which integrates into the OpenShift web console. OpenShift Lightspeed can answer natural language questions related to OpenShift Container Platform.
+
+        To configure the OpenShift Lightspeed Operator, you need a Large Language Model (LLM) . You can host the LLM using RHELAI or RHOAI or use one of the models from the following Software-as-a-Service providers:
+
+        - OpenAI
+        - Microsoft Azure OpenAI
+        - IBM WatsonX
+
+        For more information, see [About OpenShift Lightspeed](https://docs.redhat.com/en/documentation/red_hat_openshift_lightspeed/1.0tp1/html/about/ols-about-openshift-lightspeed) in the official product documentation.
+
+        Questions, comments, concerns, or just want to talk to the OpenShift Lightspeed team? [Email us](mailto:openshift-lightspeed-contact-requests@redhat.com)!
+      displayName: OpenShift Lightspeed Operator
+      installModes:
+        - supported: true
+          type: OwnNamespace
+        - supported: false
+          type: SingleNamespace
+        - supported: false
+          type: MultiNamespace
+        - supported: false
+          type: AllNamespaces
+      keywords:
+        - ai
+        - assistant
+        - openshift
+        - llm
+      links:
+        - name: Lightspeed Operator
+          url: https://github.com/openshift/lightspeed-operator
+      maturity: alpha
+      minKubeVersion: 1.28.0
+      provider:
+        name: Red Hat, Inc
+        url: https://github.com/openshift/lightspeed-service
+relatedImages:
+  - name: lightspeed-service-api
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:cdd819251936f1a6aa07d416ef33c519b33f7e69fb5c618a716563bc1db7884e
+    revision: 456957bb997bfdcf26c1de403418af5eb9c9d3a5
+  - name: lightspeed-console-plugin
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:44a5647f2066fe348f4c82d784e3038dd27e64a12b435cbf8b2b31561384130f
+    revision: 1599c2c74a25be8d35902ee818aaeff53917142f
+  - name: lightspeed-console-plugin-pf5
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:9573942a6d1628fb658b20fe487be0c549cc43cd2a0a4a2b8c5862b3999c521b
+    revision: 2816bf8732cbdc8d1a5da16d39fa63ba290d0a8a
+  - name: lightspeed-operator
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:55aaaeadc8be0a703d4dd36fdeb7cf996a468e9c81288e8833738e0d218aa110
+    revision: c32b7bb1ffa8375657b42ebcebbe5ec3091d11eb
+  - name: openshift-mcp-server
+    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:638dcef62c4c7e561707b9419bce2d61db885c0a8ea19bb512e41438fa19dc6d
+    revision: 18af0e1b8ead1aaf7c8467bceb2bdba37de2bd39
+  - name: lightspeed-to-dataverse-exporter
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:a37ead216f2cc69813a81b9d51f52da14efd359f133d980e9d1b2ae9935dfdbd
+    revision: 68622c76d8df8c2da2447d850f2a26c569d0d37f
+  - name: lightspeed-ocp-rag
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:59c5a345758b336d871dac05454291504893bff96c3c9c2860b36b5ba9551743
+    revision: 0e9ff9bed737d7afc4f39ca8e813d232a0e494bb
+  - name: lightspeed-postgresql
+    image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
+  - name: lightspeed-operator-bundle
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:ce36810a7453f4d45285a9566cd9ca2f78dd648013636c4a9cd0b0d3e234b462
+    revision: 07253f9ffb66f4df41a70b13a4c5ecfe6a591c16
+schema: olm.bundle
