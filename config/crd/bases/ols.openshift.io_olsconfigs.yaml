@@ -4346,19 +4346,24 @@ spec:
                       such as LLM providers.
                     properties:
                       proxyCACertificate:
-                        description: The configmap holding proxy CA certificate
+                        description: |-
+                          The configmap and key holding proxy CA certificate.
+                          The key is optional and defaults to "proxy-ca.crt" for backward compatibility.
+                          If you use a different key name in your ConfigMap, specify it in the ConfigMapKeySelector.
                         properties:
-                          name:
-                            default: ""
+                          key:
+                            default: proxy-ca.crt
                             description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              Key in the ConfigMap that contains the proxy CA certificate.
+                              Defaults to "proxy-ca.crt" if not specified.
                             type: string
+                          name:
+                            description: Name of the ConfigMap containing the proxy
+                              CA certificate
+                            type: string
+                        required:
+                        - name
                         type: object
-                        x-kubernetes-map-type: atomic
                       proxyURL:
                         description: |-
                           Proxy URL, e.g. https://proxy.example.com:8080
