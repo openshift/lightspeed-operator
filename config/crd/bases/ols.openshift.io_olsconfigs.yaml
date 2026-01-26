@@ -4860,7 +4860,6 @@ spec:
                 type: string
             required:
             - conditions
-            - overallStatus
             type: object
         required:
         - spec
