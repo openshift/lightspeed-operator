@@ -60,9 +60,10 @@ type OLSConfigStatus struct {
 	// - Ready: All components are healthy
 	// - NotReady: At least one component is not ready (check conditions for details)
 	// Always set after first reconciliation
+	// +optional
 	// +kubebuilder:validation:Enum=Ready;NotReady
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	OverallStatus OverallStatus `json:"overallStatus"`
+	OverallStatus OverallStatus `json:"overallStatus,omitempty"`
 
 	// DiagnosticInfo provides detailed troubleshooting information when deployments fail.
 	// Each entry contains pod-level error details for a specific component.
@@ -245,11 +246,11 @@ type Storage struct {
 // RAGSpec defines how to retrieve a RAG databases.
 type RAGSpec struct {
 	// The path to the RAG database inside of the container image
-	// +kubebuilder:default:="/rag/vector_db"
+	// +kubebuilder:default="/rag/vector_db"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index Path in the Image"
 	IndexPath string `json:"indexPath,omitempty"`
 	// The Index ID of the RAG database. Only needed if there are multiple indices in the database.
-	// +kubebuilder:default:=""
+	// +kubebuilder:default=""
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index ID"
 	IndexID string `json:"indexID,omitempty"`
 	// The URL of the container image to use as a RAG source
