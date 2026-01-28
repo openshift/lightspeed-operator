@@ -709,7 +709,6 @@ func GetSecretResourceVersion(r reconciler.Reconciler, ctx context.Context, secr
 	return secret.ResourceVersion, nil
 }
 
-// ForEachExternalSecret calls fn for each external secret referenced in the OLSConfig CR.
 // The callback function receives:
 //   - name: the secret name
 //   - source: a descriptive identifier of where the secret is used (e.g., "llm-provider-openai", "tls", "mcp-myserver")
@@ -743,19 +742,18 @@ func ForEachExternalSecret(cr *olsv1alpha1.OLSConfig, fn func(name string, sourc
 		}
 	}
 
-	// 3. MCP server header secrets
-	if cr.Spec.MCPServers != nil {
-		for _, mcpServer := range cr.Spec.MCPServers {
-			if mcpServer.StreamableHTTP != nil && mcpServer.StreamableHTTP.Headers != nil {
-				for _, secretName := range mcpServer.StreamableHTTP.Headers {
-					// Skip the special "kubernetes" token placeholder
-					if secretName == KUBERNETES_PLACEHOLDER || secretName == "" {
-						continue
-					}
-					if err := fn(secretName, "mcp-"+mcpServer.Name); err != nil {
-						return err
-					}
-				}
+	// 3. MCP server header secrets (only for type "secret")
+	for _, mcpServer := range cr.Spec.MCPServers {
+		for _, header := range mcpServer.Headers {
+			// Only process secret references
+			if header.ValueFrom.Type != olsv1alpha1.MCPHeaderSourceTypeSecret {
+				continue
+			}
+			if header.ValueFrom.SecretRef == nil || header.ValueFrom.SecretRef.Name == "" {
+				continue
+			}
+			if err := fn(header.ValueFrom.SecretRef.Name, "mcp-"+mcpServer.Name); err != nil {
+				return err
 			}
 		}
 	}

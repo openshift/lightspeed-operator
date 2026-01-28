@@ -652,13 +652,17 @@ var _ = Describe("Helper Functions", func() {
 							},
 						},
 					},
-					MCPServers: []olsv1alpha1.MCPServer{
+					MCPServers: []olsv1alpha1.MCPServerConfig{
 						{
 							Name: "test-mcp-server",
-							StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-								URL: "http://test-mcp-server",
-								Headers: map[string]string{
-									"Authorization": "test-mcp-secret",
+							URL:  "http://test-mcp-server",
+							Headers: []olsv1alpha1.MCPHeader{
+								{
+									Name: "Authorization",
+									ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+										Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+										SecretRef: &corev1.LocalObjectReference{Name: "test-mcp-secret"},
+									},
 								},
 							},
 						},
@@ -748,10 +752,15 @@ var _ = Describe("Helper Functions", func() {
 			Expect(fetchedSecret.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
 		})
 
-		It("should skip MCP secrets with 'kubernetes' value", func() {
-			// Create CR with special "kubernetes" token case
-			testCR.Spec.MCPServers[0].StreamableHTTP.Headers = map[string]string{
-				"Authorization": "kubernetes", // Special case that should be skipped
+		It("should skip MCP secrets with 'kubernetes' token value", func() {
+			// Update CR with kubernetes token
+			testCR.Spec.MCPServers[0].Headers = []olsv1alpha1.MCPHeader{
+				{
+					Name: "Authorization",
+					ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+						Type: olsv1alpha1.MCPHeaderSourceTypeKubernetes,
+					},
+				},
 			}
 
 			err := reconciler.annotateExternalResources(ctx, testCR)
