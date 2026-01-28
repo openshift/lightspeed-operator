@@ -65,7 +65,7 @@ relatedImages:
     image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:a37ead216f2cc69813a81b9d51f52da14efd359f133d980e9d1b2ae9935dfdbd
     revision: 68622c76d8df8c2da2447d850f2a26c569d0d37f
   - name: lightspeed-ocp-rag
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:59c5a345758b336d871dac05454291504893bff96c3c9c2860b36b5ba9551743
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:2994e8938525281d5444ca4e0fee846f42048bd687a20119747f0532b6623302
     revision: 0e9ff9bed737d7afc4f39ca8e813d232a0e494bb
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b

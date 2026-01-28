@@ -7,7 +7,7 @@ ARG CONSOLE_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-console-plugi
 ARG CONSOLE_IMAGE_ORIGINAL_PF5=quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest
 ARG OPENSHIFT_MCP_SERVER_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
 ARG DATAVERSE_EXPORTER_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
-ARG OCP_RAG_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:98b50164ee5662fd0e807c76a0f712553442798858ad81e26c2cb307ee3f47e9
+ARG OCP_RAG_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:2994e8938525281d5444ca4e0fee846f42048bd687a20119747f0532b6623302
 
 RUN microdnf install -y jq
 
