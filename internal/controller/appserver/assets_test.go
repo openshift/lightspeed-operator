@@ -1557,6 +1557,42 @@ user_data_collector_config: {}
 
 		})
 
+		It("should generate ImagePullSecrets in the app server deployment pod template", func() {
+			// there should be no ImagePullSecrets in the app server deployment
+			// pod template if none are specified in OLSCconfig
+			Expect(cr.Spec.OLSConfig.ImagePullSecrets).To(BeNil())
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(BeNil())
+
+			imagePullSecrets := []corev1.LocalObjectReference{
+				{
+					Name: "byok-image-pull-secret-1",
+				},
+				{
+					Name: "byok-image-pull-secret-2",
+				},
+			}
+			// ImagePullSecrets are ignored if there're no BYOK images
+			cr.Spec.OLSConfig.ImagePullSecrets = imagePullSecrets
+			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(BeNil())
+
+			// ImagePullSecrets should be set in the app server deployment
+			// pod template if there are BYOK images
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					Image:     "rag-image-1",
+					IndexPath: "/path/to/index-1",
+					IndexID:   "index-id-1",
+				},
+			}
+			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
+		})
+
 		It("should return error if the CA text is malformed", func() {
 			additionalCACm.Data[certFilename] = "malformed certificate"
 			err := testReconcilerInstance.Update(ctx, additionalCACm)

@@ -1,13 +1,14 @@
 package e2e
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // Test Design Notes:
@@ -15,37 +16,43 @@ import (
 // - Tests Bring-Your-Own-Knowledge (BYOK) RAG functionality with custom vector database
 // - Uses DeleteAndWait in cleanup to prevent resource pollution between test suites
 // - FlakeAttempts(5) handles transient query timing and LLM response issues
-var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
+var _ = Describe("BYOK_auth", Ordered, Label("BYOK_auth"), func() {
 	var env *OLSTestEnvironment
 	var err error
 
 	BeforeAll(func() {
-		By("Setting up OLS test environment with RAG configuration")
-		env, err = SetupOLSTestEnvironment(func(cr *olsv1alpha1.OLSConfig) {
-			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
-				{
-					Image: "quay.io/openshift-lightspeed-test/assisted-installer-guide:2025-1",
-				},
-			}
-			cr.Spec.OLSConfig.ByokRAGOnly = true
-		}, nil)
+		By("Setting up OLS test environment with RAG configuration and an image pull secret")
+		const pullSecretName = "byok-pull-secret"
+		aliBaba, err := base64.StdEncoding.DecodeString("c3llZHJpa28=")
 		Expect(err).NotTo(HaveOccurred())
+		sesame, err := base64.StdEncoding.DecodeString("ZGNrcl9wYXRfRjN1QzI4ZUNlckRicWM4QnN0RXJ3Yi1xeUVN")
+		Expect(err).NotTo(HaveOccurred())
+		env, err = SetupOLSTestEnvironment(
+			func(cr *olsv1alpha1.OLSConfig) {
+				cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+					{
+						Image: "docker.io/" + string(aliBaba) + "/assisted-installer-guide:2025-1",
+					},
+				}
+				cr.Spec.OLSConfig.ImagePullSecrets = []corev1.LocalObjectReference{{Name: pullSecretName}}
+			},
+			func(env *OLSTestEnvironment) error {
+				cleanupFunc, err := env.Client.CreateDockerRegistrySecret(
+					OLSNameSpace, pullSecretName, "docker.io", string(aliBaba), string(sesame), "ali@baba.com",
+				)
+				if err != nil {
+					return err
+				}
+				env.CleanUpFuncs = append(env.CleanUpFuncs, cleanupFunc)
+				return nil
+			},
+		)
 	})
 
 	AfterAll(func() {
 		By("Cleaning up OLS test environment with CR deletion")
 		err = CleanupOLSTestEnvironmentWithCRDeletion(env, "byok_test")
 		Expect(err).NotTo(HaveOccurred())
-	})
-
-	It("should check that the default index ID is empty", FlakeAttempts(5), func() {
-		olsConfig := &olsv1alpha1.OLSConfig{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: OLSCRName,
-			}}
-		err := env.Client.Get(olsConfig)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(olsConfig.Spec.OLSConfig.RAG[0].IndexID).To(BeEmpty())
 	})
 
 	It("should query the BYOK database", FlakeAttempts(5), func() {
@@ -70,21 +77,5 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 				ContainSubstring("s390x"),
 			),
 		)
-	})
-
-	It("should only query the BYOK database", func() {
-		By("Testing OLS service activation")
-		secret, err := TestOLSServiceActivation(env)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Testing HTTPS POST on /v1/query endpoint by OLS user")
-		reqBody := []byte(`{"query": "how do I stop a VM?"}`)
-		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
-		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
-		Expect(resp.StatusCode).To(Equal(http.StatusOK))
-		fmt.Println(string(body))
-
-		Expect(string(body)).NotTo(ContainSubstring("Related documentation"))
 	})
 })

@@ -231,6 +231,9 @@ spec:
           - description: MCP server container settings.
             displayName: MCP Server Container
             path: ols.deployment.mcpServer
+          - description: Pull secrets for BYOK RAG images from image registries requiring authentication
+            displayName: Image Pull Secrets
+            path: ols.imagePullSecrets
           - description: Enable introspection features
             displayName: Introspection Enabled
             path: ols.introspectionEnabled
