@@ -62,6 +62,7 @@ OPERATOR_SDK_VERSION ?= v1.33.0
 
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMAGE_TAG_BASE):$(VERSION)
+export IMG
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.27.1
 
@@ -207,13 +208,6 @@ lint-fix: ## Fix found issues (if it's supported by the linter).
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
-LIGHTSPEED_SERVICE_IMG ?= quay.io/openshift-lightspeed/lightspeed-service-api:latest
-LIGHTSPEED_SERVICE_POSTGRES_IMG ?= registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-CONSOLE_PLUGIN_IMG ?= quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
-OPENSHIFT_MCP_SERVER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
-DATAVERSE_EXPORTER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
-OCP_RAG_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec
-
 .PHONY: dev-setup
 dev-setup: manifests kustomize install ## Setup RBAC and resources for local development (idempotent, safe to run multiple times)
 	@echo "📦 Setting up local development environment..."
@@ -281,9 +275,40 @@ install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
+PATCH_FILE = config/default/deployment-patch.yaml
+
 .PHONY: deploy
-deploy: manifests kustomize yq ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(YQ) e -i ".patches[].patch |= sub(\"quay.io/openshift-lightspeed/lightspeed-operator:latest\", \"${IMG}\")" config/default/kustomization.yaml
+deploy: manifests kustomize jq ## Deploy controller to the K8s cluster specified in ~/.kube/config. Override operator image with: make deploy IMG=myregistry/my-operator:mytag
+	@OPERATOR_IMG="$(IMG)"; \
+	if [ ! -f "related_images.json" ]; then \
+		echo "error: related_images.json not found"; \
+		exit 1; \
+	fi; \
+	if [ ! -f "hack/image_placeholders.json" ]; then \
+		echo "error: hack/image_placeholders.json not found"; \
+		exit 1; \
+	fi; \
+	if [ ! -f "$(PATCH_FILE)" ]; then \
+		echo "error: $(PATCH_FILE) not found"; \
+		exit 1; \
+	fi; \
+	if [ -z "$$OPERATOR_IMG" ]; then \
+		OPERATOR_IMG=$$($(JQ) -r '.[] | select(.name=="lightspeed-operator") | .image' related_images.json); \
+	fi; \
+	if [ -z "$$OPERATOR_IMG" ] || [ "$$OPERATOR_IMG" = "null" ]; then \
+		echo "error: operator image not found in related_images.json; set IMG (e.g. make deploy IMG=myregistry/my-operator:mytag)"; \
+		exit 1; \
+	fi; \
+	sed -i "s|__REPLACE_LIGHTSPEED_OPERATOR__|$$OPERATOR_IMG|g" $(PATCH_FILE); \
+	sed -i "/path: \/spec\/template\/spec\/containers\/0\/image/{n;s|value: .*|value: $$OPERATOR_IMG|}" $(PATCH_FILE); \
+	$(JQ) -r '.[] | "\(.name)|\(.placeholder)"' hack/image_placeholders.json | while IFS='|' read -r name placeholder; do \
+		if [ "$$name" != "lightspeed-operator" ]; then \
+			img=$$($(JQ) -r --arg n "$$name" '.[] | select(.name==$$n) | .image' related_images.json); \
+			if [ -n "$$img" ] && [ "$$img" != "null" ]; then \
+				sed -i "s|$$placeholder|$$img|g" $(PATCH_FILE); \
+			fi; \
+		fi; \
+	done
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 
 .PHONY: undeploy
@@ -351,14 +376,9 @@ endif
 ## to set the bundle channels, use the CHANNELS variable
 ## to set the default channel, use the DEFAULT_CHANNEL variable
 ## to use image digests instead of version tag, set the USE_IMAGE_DIGESTS variable to true
-## to set the related images, use the RELATED_IMAGES_FILE variable
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
-ifdef RELATED_IMAGES_FILE
-	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i $(RELATED_IMAGES_FILE)
-else
-	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG)
-endif
+	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i related_images.json
 
 parking:
 	$(OPERATOR_SDK) generate kustomize manifests -q

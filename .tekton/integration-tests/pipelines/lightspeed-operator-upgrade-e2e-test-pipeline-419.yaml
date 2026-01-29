@@ -78,32 +78,6 @@ spec:
                 value: "$(steps.pick-version.results.version)"
               - name: instanceType
                 value: "m5.large"
-              - name: imageContentSources
-                value: |
-                  - source: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator
-                    mirrors:
-                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator
-                  - source: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle
-                    mirrors:
-                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/bundle
-                  - source: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9
-                    mirrors:
-                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service
-                  - source: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9
-                    mirrors:
-                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
-                  - source: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9
-                    mirrors:
-                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-pf5
-                  - source: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9
-                    mirrors:
-                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter
-                  - source: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9
-                    mirrors:
-                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server
-                  - source: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag
-                    mirrors:
-                      - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag
     - name: ols-install
       description: Task to install bundle onto ephemeral namespace
       runAfter:

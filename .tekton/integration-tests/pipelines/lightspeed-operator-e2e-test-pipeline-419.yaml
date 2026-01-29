@@ -246,6 +246,11 @@ spec:
               - name: credentials
                 value: credentials
           - name: run-e2e-tests
+            resources:
+              requests:
+                memory: "8Gi"
+              limits:
+                memory: "8Gi"
             onError: continue
             volumeMounts:
               - name: azure-openai-token
