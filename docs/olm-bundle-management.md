@@ -112,7 +112,7 @@ make bundle-push BUNDLE_IMG=quay.io/myorg/lightspeed-operator-bundle:v0.1.0
 
 ## Related Images Management
 
-**Purpose:** `related_images.json` tracks all container images for CSV updates, CI/CD promotion, and image mirroring.
+**Purpose:** `related_images.json` is the **single source of truth** for (component name, image) pairs. It drives CSV `spec.relatedImages` and deployment args/container image substitution. Placeholder strings used for substitution are defined in `hack/image_placeholders.json` (and must match `config/default/kustomization.yaml`).
 
 **Format:**
 ```json
