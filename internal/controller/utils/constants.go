@@ -1,6 +1,10 @@
 package utils
 
-import "time"
+import (
+	"time"
+
+	"github.com/openshift/lightspeed-operator/internal/relatedimages"
+)
 
 const (
 	/*** Volume Permissions ***/
@@ -62,10 +66,6 @@ const (
 	OLSComponentPasswordFileName = "password"
 	// OLSConfigFilename is the name of the application server configuration file
 	OLSConfigFilename = "olsconfig.yaml"
-	// Image of the OLS application server (default for testing only)
-	// TODO: Tests should use a pinned version instead of :latest for reproducibility.
-	// Production image is configured via environment variables in cmd/main.go.
-	OLSAppServerImageDefault = "quay.io/openshift-lightspeed/lightspeed-service-api:latest"
 	// AppServerServiceMonitorName is the name of the service monitor for the OLS application server
 	AppServerServiceMonitorName = "lightspeed-app-server-monitor"
 	// AppServerPrometheusRuleName is the name of the prometheus rules for the OLS application server
@@ -132,10 +132,6 @@ const (
 	ConsoleUIServiceName = "lightspeed-console-plugin"
 	// ConsoleUIDeploymentName is the name of the console UI deployment
 	ConsoleUIDeploymentName = "lightspeed-console-plugin"
-	// ConsoleUIImage is the image of the console UI plugin
-	ConsoleUIImageDefault = "quay.io/openshift-lightspeed/lightspeed-console-plugin:latest"
-	// ConsoleUIImage is the image of the console UI plugin
-	ConsoleUIImagePF5Default = "quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest"
 	// ConsoleUIHTTPSPort is the port number of the console UI service
 	ConsoleUIHTTPSPort = 9443
 	// ConsoleUIPluginName is the name of the console UI plugin
@@ -164,8 +160,6 @@ const (
 	PostgresDeploymentName = "lightspeed-postgres-server"
 	// PostgresSecretKeyName is the name of the key holding Postgres server secret
 	PostgresSecretKeyName = "password"
-	// Image of the OLS application postgres server
-	PostgresServerImageDefault = "registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b"
 	// PostgresDefaultUser is the default user name for postgres
 	PostgresDefaultUser = "postgres"
 	// PostgresDefaultDbName is the default db name for Postgres
@@ -290,8 +284,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MetricsReaderServiceAccountTokenSecretName = "metrics-reader-token" // #nosec G101
 	// MetricsReaderServiceAccountName is the name of the service account for the metrics reader
 	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
-	// MCP server image
-	OpenShiftMCPServerImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43"
 	// MCP server URL
 	OpenShiftMCPServerURL = "http://localhost:%d/mcp"
 	// MCP server port
@@ -308,12 +300,7 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MCPHeadersMountRoot = "/etc/mcp/headers"
 	// Header Secret Data Path
 	MCPSECRETDATAPATH = "header"
-	// OCP RAG image
-	OcpRagImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-rag-content-lsc@sha256:edf031376f6ad3a06d3ad1b2e3b06ed6139a03f5c32f01ffee012240e9169639"
-
 	/*** Data Exporter Constants ***/
-	// Dataverse exporter image
-	DataverseExporterImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722"
 	// ExporterConfigCmName is the name of the exporter configmap
 	ExporterConfigCmName = "lightspeed-exporter-config"
 	// ExporterConfigVolumeName is the name of the volume for exporter configuration
@@ -386,4 +373,15 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	// Changing this will break llama-stack's database connectivity.
 	// This database is created in PostgresBootStrapScriptContent.
 	LlamaStackDatabaseName = "llamastack"
+)
+
+// Default images from related_images.json (see internal/relatedimages). Used for flags and tests.
+var (
+	OLSAppServerImageDefault       = relatedimages.GetDefaultImage("lightspeed-service-api")
+	ConsoleUIImageDefault          = relatedimages.GetDefaultImage("lightspeed-console-plugin")
+	ConsoleUIImagePF5Default       = relatedimages.GetDefaultImage("lightspeed-console-plugin-pf5")
+	PostgresServerImageDefault     = relatedimages.GetDefaultImage("lightspeed-postgresql")
+	OpenShiftMCPServerImageDefault = relatedimages.GetDefaultImage("openshift-mcp-server")
+	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
+	OcpRagImageDefault             = relatedimages.GetDefaultImage("lightspeed-ocp-rag")
 )

@@ -109,75 +109,56 @@ ANNOTATION_FILE="bundle/metadata/annotations.yaml"
 
 BUNDLE_DOCKERFILE="bundle.Dockerfile"
 
-# if RELATED_IMAGES is not defined, extract related images or use default values
+# related_images.json is the single source of truth for (component_name, image) pairs.
+# When -i is not provided, fall back to existing CSV so make bundle without -i still works.
 if [ -f "${RELATED_IMAGES_FILENAME}" ]; then
   echo "using related images from file ${RELATED_IMAGES_FILENAME}"
-  RELATED_IMAGES=$(${JQ} '[ .[] | select(.name == "lightspeed-service-api" or .name == "lightspeed-operator" or .name == "lightspeed-console-plugin" or .name == "openshift-mcp-server" or .name == "lightspeed-to-dataverse-exporter" or .name == "lightspeed-ocp-rag") ]' ${RELATED_IMAGES_FILENAME})
-elif [ -f "${CSV_FILE}" ]; then
-  echo "using related images from CSV file ${CSV_FILE}"
-  RELATED_IMAGES=$(${YQ} ' .spec.relatedImages' -ojson ${CSV_FILE})
+  RELATED_IMAGES=$(${JQ} '.' ${RELATED_IMAGES_FILENAME})
 else
-  echo "using default related images"
-  RELATED_IMAGES=$(
-    cat <<EOF
-[
-  {
-      "name": "lightspeed-service-api",
-      "image": "quay.io/openshift-lightspeed/lightspeed-service-api:latest"
-  },
-  {
-      "name": "lightspeed-console-plugin",
-      "image": "quay.io/openshift-lightspeed/lightspeed-console-plugin:latest"
-  },
-  {
-      "name": "lightspeed-operator",
-      "image": "quay.io/openshift-lightspeed/lightspeed-operator:latest"
-  },
-  {
-      "name": "openshift-mcp-server",
-      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43"
-  },
-  {
-      "name": "lightspeed-to-dataverse-exporter",
-      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722"
-  }
-  {
-      "name": "lightspeed-ocp-rag",
-      "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec"
-  }
-]
-EOF
-  )
-fi
-
-if [ -z "${RELATED_IMAGES}" ]; then
-  echo "RELATED_IMAGES is empty, please provide related images"
+  echo "error: provide -i related_images.json or run from a tree with an existing bundle CSV"
   exit 1
 fi
-OPERATOR_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-operator") | .image' <<<${RELATED_IMAGES})
-SERVICE_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-service-api") | .image' <<<${RELATED_IMAGES})
-CONSOLE_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-console-plugin") | .image' <<<${RELATED_IMAGES})
-OPENSHIFT_MCP_SERVER_IMAGE=$(${JQ} '.[] | select(.name == "openshift-mcp-server") | .image' <<<${RELATED_IMAGES})
-DATAVERSE_EXPORTER_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-to-dataverse-exporter") | .image' <<<${RELATED_IMAGES})
-OCP_RAG_IMAGE=$(${JQ} '.[] | select(.name == "lightspeed-ocp-rag") | .image' <<<${RELATED_IMAGES})
 
-# Build the bundle image
-echo "Updating bundle artifacts for image ${OPERATOR_IMAGE}"
+if [ -z "${RELATED_IMAGES}" ] || [ "${RELATED_IMAGES}" = "null" ]; then
+  echo "RELATED_IMAGES is empty, please provide related images via -i related_images.json"
+  exit 1
+fi
+
+# For CSV deployment substitution we use hack/image_placeholders.json (placeholders must match config/default/kustomization.yaml).
+OPERATOR_IMAGE=$(${JQ} -r '.[] | select(.name == "lightspeed-operator") | .image' <<<"${RELATED_IMAGES}")
+echo "Updating bundle artifacts for image ${OPERATOR_IMAGE:-<from related_images>}"
 rm -rf ./bundle
 
-# make bundle VERSION="${BUNDLE_VERSION}"
 ${OPERATOR_SDK} generate kustomize manifests -q
 ${KUSTOMIZE} build config/manifests | ${OPERATOR_SDK} generate bundle ${BUNDLE_GEN_FLAGS}
 ${OPERATOR_SDK} bundle validate ./bundle
-# set service, console, and openshift-mcp-server images for the operator
-${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/openshift-lightspeed/lightspeed-service-api:latest\", ${SERVICE_IMAGE}))" -i ${CSV_FILE}
-${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/openshift-lightspeed/lightspeed-console-plugin:latest\", ${CONSOLE_IMAGE}))" -i ${CSV_FILE}
-${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43\", ${OPENSHIFT_MCP_SERVER_IMAGE}))" -i ${CSV_FILE}
-${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].image |= sub(\"quay.io/openshift-lightspeed/lightspeed-operator:latest\", ${OPERATOR_IMAGE}))" -i ${CSV_FILE}
-${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722\", ${DATAVERSE_EXPORTER_IMAGE}))" -i ${CSV_FILE}
-${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec\", ${OCP_RAG_IMAGE}))" -i ${CSV_FILE}
+
+# Substitute deployment args and container image from related_images.json using placeholder map.
+PLACEHOLDERS_FILE="${SCRIPT_DIR}/image_placeholders.json"
+if [ ! -f "${PLACEHOLDERS_FILE}" ]; then
+  echo "error: ${PLACEHOLDERS_FILE} not found"
+  exit 1
+fi
+PLACEHOLDERS=$(${JQ} '.' "${PLACEHOLDERS_FILE}")
+${JQ} -c '.[]' <<<"${PLACEHOLDERS}" | while IFS= read -r entry; do
+  NAME=$(${JQ} -r '.name' <<<"${entry}")
+  PLACEHOLDER=$(${JQ} -r '.placeholder' <<<"${entry}")
+  TARGET=$(${JQ} -r '.target' <<<"${entry}")
+  IMG=$(${JQ} -r --arg n "${NAME}" '.[] | select(.name==$n) | .image' <<<"${RELATED_IMAGES}")
+  [ -z "${IMG}" ] || [ "${IMG}" = "null" ] && continue
+  # Escape double quotes for use inside yq double-quoted string
+  IMG_SAFE=$(printf '%s' "${IMG}" | sed 's/"/\\"/g')
+  if [ "${TARGET}" = "image" ]; then
+    ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].image |= sub(\"${PLACEHOLDER}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
+  else
+    ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"${PLACEHOLDER}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
+  fi
+done
+
+# Set spec.relatedImages from related_images.json (strip revision for CSV if present).
+RELATED_IMAGES_CSV=$(${JQ} 'map(del(.revision))' <<<"${RELATED_IMAGES}")
 # set related images to the CSV file
-${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES}" ${CSV_FILE}
+${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES_CSV}" ${CSV_FILE}
 # add compatibility labels to the annotations file
 ${YQ} eval -i '.annotations."com.redhat.openshift.versions"="v4.16-v4.20"' ${ANNOTATION_FILE}
 ${YQ} eval -i '(.annotations."com.redhat.openshift.versions" | key) head_comment="OCP compatibility labels"' ${ANNOTATION_FILE}
