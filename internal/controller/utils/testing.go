@@ -27,6 +27,7 @@ type TestReconciler struct {
 	PrometheusAvailable bool
 	watcherConfig       interface{}
 	useLCore            bool
+	lcoreServerMode     bool
 }
 
 func (r *TestReconciler) GetScheme() *runtime.Scheme {
@@ -83,6 +84,14 @@ func (r *TestReconciler) GetWatcherConfig() interface{} {
 
 func (r *TestReconciler) UseLCore() bool {
 	return r.useLCore
+}
+
+func (r *TestReconciler) GetLCoreServerMode() bool {
+	return r.lcoreServerMode
+}
+
+func (r *TestReconciler) SetLCoreServerMode(lcoreServerMode bool) {
+	r.lcoreServerMode = lcoreServerMode
 }
 
 func (r *TestReconciler) SetWatcherConfig(config interface{}) {

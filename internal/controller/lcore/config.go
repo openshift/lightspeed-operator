@@ -681,7 +681,7 @@ func buildLlamaStackYAML(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 // LCore Config component builder functions (return maps for maintainability)
 // ============================================================================
 
-func buildLCoreServiceConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) map[string]interface{} {
+func buildLCoreServiceConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) map[string]interface{} {
 	// Map LogLevel from OLSConfig
 	// Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL
 	// Default to info if not specified
@@ -693,7 +693,7 @@ func buildLCoreServiceConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	// color_log: enable colored logs for DEBUG, disable for production (INFO+)
 	colorLog := logLevel == olsv1alpha1.LogLevelDebug
 
-	return map[string]interface{}{
+	serviceConfig := map[string]interface{}{
 		"host":         "0.0.0.0",
 		"port":         utils.OLSAppServerContainerPort,
 		"auth_enabled": false,
@@ -707,14 +707,27 @@ func buildLCoreServiceConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			"tls_key_path":         "/etc/certs/lightspeed-tls/tls.key",
 		},
 	}
+
+	return serviceConfig
 }
 
-func buildLCoreLlamaStackConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
-	return map[string]interface{}{
-		"use_as_library_client": false,
+func buildLCoreLlamaStackConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
+	// Server mode: llama-stack runs as a separate service (container)
+	// Library mode: llama-stack runs as an embedded library
+	isLibraryMode := r != nil && !r.GetLCoreServerMode()
+
+	llamaStackConfig := map[string]interface{}{
+		"use_as_library_client": isLibraryMode,
 		"url":                   "http://localhost:8321",
 		"api_key":               "xyzzy",
 	}
+
+	// In library mode, add path to llama-stack config file
+	if isLibraryMode {
+		llamaStackConfig["library_client_config_path"] = utils.LlamaStackConfigMountPath
+	}
+
+	return llamaStackConfig
 }
 
 func buildLCoreUserDataCollectionConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) map[string]interface{} {

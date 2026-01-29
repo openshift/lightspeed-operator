@@ -73,6 +73,7 @@ spec:
         - "--cert-dir=/etc/tls/private"
         - "--lcore-image=quay.io/lightspeed-core/lightspeed-stack:dev-latest"
         - "--use-lcore=false"
+        - "--lcore-server=true"
         image: quay.io/openshift-lightspeed/lightspeed-operator:latest
         imagePullPolicy: Always
         name: manager
