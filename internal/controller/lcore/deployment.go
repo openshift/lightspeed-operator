@@ -80,6 +80,35 @@ func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequire
 	)
 }
 
+// addOpenShiftMCPServerSidecar adds the OpenShift MCP server sidecar container to the deployment
+// if introspection is enabled in the CR. This modifies the deployment in place.
+func addOpenShiftMCPServerSidecar(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig, deployment *appsv1.Deployment) {
+	if !cr.Spec.OLSConfig.IntrospectionEnabled {
+		return
+	}
+
+	openshiftMCPServerContainer := corev1.Container{
+		Name:            utils.OpenShiftMCPServerContainerName,
+		Image:           r.GetOpenShiftMCPServerImage(),
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &[]bool{false}[0],
+			ReadOnlyRootFilesystem:   &[]bool{true}[0],
+		},
+		Command: []string{
+			"/openshift-mcp-server",
+			"--read-only",
+			"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
+		},
+		Resources: *getOLSMCPServerResources(cr),
+	}
+
+	deployment.Spec.Template.Spec.Containers = append(
+		deployment.Spec.Template.Spec.Containers,
+		openshiftMCPServerContainer,
+	)
+}
+
 // buildLlamaStackEnvVars builds environment variables for all LLM providers
 // For Azure providers, it reads the secret to support both API key and client credentials
 func buildLlamaStackEnvVars(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) ([]corev1.EnvVar, error) {
@@ -262,8 +291,322 @@ func validateMCPHeaderSecret(r reconciler.Reconciler, ctx context.Context, secre
 	return nil
 }
 
-// GenerateLCoreDeployment generates the Deployment for LCore (llama-stack + lightspeed-stack)
+// ============================================================================
+// Helper functions for building common deployment components
+// ============================================================================
+
+// buildCommonLabels returns the standard labels for LCore deployments
+func buildCommonLabels() map[string]string {
+	return map[string]string{
+		"app":                          "lightspeed-stack",
+		"app.kubernetes.io/component":  "application-server",
+		"app.kubernetes.io/managed-by": "lightspeed-operator",
+		"app.kubernetes.io/name":       "lightspeed-service-api",
+		"app.kubernetes.io/part-of":    "openshift-lightspeed",
+	}
+}
+
+// buildConfigVolumes creates the base config volumes for LCore (both server and library modes need both configs)
+// buildLCoreConfigVolumeAndMount creates both the volume and volume mount for lightspeed-stack config
+func buildLCoreConfigVolumeAndMount(volumeDefaultMode *int32) (corev1.Volume, corev1.VolumeMount) {
+	volume := corev1.Volume{
+		Name: "lightspeed-stack-config",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: utils.LCoreConfigCmName,
+				},
+				DefaultMode: volumeDefaultMode,
+			},
+		},
+	}
+
+	volumeMount := corev1.VolumeMount{
+		Name:      "lightspeed-stack-config",
+		MountPath: utils.LCoreConfigMountPath,
+		SubPath:   utils.LCoreConfigFilename,
+		ReadOnly:  true,
+	}
+
+	return volume, volumeMount
+}
+
+// buildLlamaStackConfigVolumeAndMount creates both the volume and volume mount for llama-stack config
+func buildLlamaStackConfigVolumeAndMount(volumeDefaultMode *int32) (corev1.Volume, corev1.VolumeMount) {
+	volume := corev1.Volume{
+		Name: "llama-stack-config",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: utils.LlamaStackConfigCmName,
+				},
+				DefaultMode: volumeDefaultMode,
+			},
+		},
+	}
+
+	volumeMount := corev1.VolumeMount{
+		Name:      "llama-stack-config",
+		MountPath: utils.LlamaStackConfigMountPath,
+		SubPath:   utils.LlamaStackConfigFilename,
+		ReadOnly:  true,
+	}
+
+	return volume, volumeMount
+}
+
+// addTLSVolumesAndMounts adds TLS certificate volumes and mounts if not using custom TLS
+func addTLSVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, cr *olsv1alpha1.OLSConfig, volumeDefaultMode *int32) {
+	usesCustomTLS := cr.Spec.OLSConfig.TLSSecurityProfile != nil && string(cr.Spec.OLSConfig.TLSSecurityProfile.Type) == "Custom"
+	if !usesCustomTLS {
+		*volumes = append(*volumes, corev1.Volume{
+			Name: "secret-lightspeed-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  utils.OLSCertsSecretName,
+					DefaultMode: volumeDefaultMode,
+				},
+			},
+		})
+		*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+			Name:      "secret-lightspeed-tls",
+			MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
+			ReadOnly:  true,
+		})
+	}
+}
+
+// addOpenShiftCAVolumesAndMounts adds OpenShift service CA bundle volumes and mounts
+func addOpenShiftCAVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, volumeDefaultMode *int32) {
+	*volumes = append(*volumes, corev1.Volume{
+		Name: "openshift-service-ca",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: utils.OLSCAConfigMap,
+				},
+				DefaultMode: volumeDefaultMode,
+			},
+		},
+	})
+	*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+		Name:      "openshift-service-ca",
+		MountPath: "/etc/certs/service-ca",
+		ReadOnly:  true,
+	})
+}
+
+// addOpenShiftRootCAVolumesAndMounts adds OpenShift root CA (kube-root-ca.crt) volumes and mounts
+func addOpenShiftRootCAVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, volumeDefaultMode *int32) {
+	*volumes = append(*volumes, corev1.Volume{
+		Name: utils.OpenShiftCAVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "kube-root-ca.crt",
+				},
+				DefaultMode: volumeDefaultMode,
+			},
+		},
+	})
+	*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+		Name:      utils.OpenShiftCAVolumeName,
+		MountPath: "/etc/pki/ca-trust/extracted/pem",
+		ReadOnly:  true,
+	})
+}
+
+// addLlamaCacheVolumesAndMounts adds llama-cache EmptyDir volume and mount for Llama Stack workspace
+func addLlamaCacheVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount) {
+	*volumes = append(*volumes, corev1.Volume{
+		Name: "llama-cache",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+	*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+		Name:      "llama-cache",
+		MountPath: "/app-root/.llama",
+		ReadOnly:  false,
+	})
+}
+
+// addPostgresCAVolumesAndMounts adds PostgreSQL CA ConfigMap volume and mount for TLS verification
+func addPostgresCAVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, mountPath string) {
+	*volumes = append(*volumes, utils.GetPostgresCAConfigVolume())
+	*volumeMounts = append(*volumeMounts, utils.GetPostgresCAVolumeMount(mountPath))
+}
+
+// addUserCAVolumesAndMounts adds user-provided CA certificate volumes and mounts
+// Mounts at /etc/pki/ca-trust/source/anchors (system trust store path)
+func addUserCAVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, cr *olsv1alpha1.OLSConfig, volumeDefaultMode *int32) {
+	_ = utils.ForEachExternalConfigMap(cr, func(name, source string) error {
+		if source != "additional-ca" {
+			return nil
+		}
+
+		*volumes = append(*volumes, corev1.Volume{
+			Name: utils.AdditionalCAVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: name,
+					},
+					DefaultMode: volumeDefaultMode,
+				},
+			},
+		})
+		*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+			Name:      utils.AdditionalCAVolumeName,
+			MountPath: "/etc/pki/ca-trust/source/anchors",
+			ReadOnly:  true,
+		})
+		return nil
+	})
+}
+
+// addCustomTLSVolumesAndMounts adds user-provided custom TLS certificate volumes and mounts if specified
+func addCustomTLSVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, cr *olsv1alpha1.OLSConfig, volumeDefaultMode *int32) {
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		*volumes = append(*volumes, corev1.Volume{
+			Name: "secret-lightspeed-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name,
+					DefaultMode: volumeDefaultMode,
+				},
+			},
+		})
+		*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+			Name:      "secret-lightspeed-tls",
+			MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
+			ReadOnly:  true,
+		})
+	}
+}
+
+// addMCPHeaderSecretVolumesAndMounts adds MCP header secret volumes and mounts for HTTP MCP servers
+// This validates and mounts header secrets at /etc/mcp/headers/<secretName>
+func addMCPHeaderSecretVolumesAndMounts(r reconciler.Reconciler, ctx context.Context, volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, cr *olsv1alpha1.OLSConfig, volumeDefaultMode *int32) error {
+	// Only add MCP header secrets if feature gate is enabled
+	if cr.Spec.FeatureGates == nil || !slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer) {
+		return nil
+	}
+
+	// Filter to HTTP-only servers (no logging needed here, already logged in config)
+	filteredServers := FilterHTTPMCPServers(r, cr, cr.Spec.MCPServers)
+
+	for _, server := range filteredServers {
+		if server.StreamableHTTP != nil && server.StreamableHTTP.Headers != nil {
+			for headerName, secretRef := range server.StreamableHTTP.Headers {
+				// Skip special placeholders
+				if secretRef == utils.KUBERNETES_PLACEHOLDER || secretRef == "" {
+					continue
+				}
+
+				// Validate secret exists and has correct structure
+				// This provides fail-fast validation consistent with AppServer
+				if err := validateMCPHeaderSecret(r, ctx, secretRef, server.Name, headerName); err != nil {
+					return err
+				}
+
+				*volumes = append(*volumes, corev1.Volume{
+					Name: "header-" + secretRef,
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  secretRef,
+							DefaultMode: volumeDefaultMode,
+						},
+					},
+				})
+
+				*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+					Name:      "header-" + secretRef,
+					MountPath: path.Join(utils.MCPHeadersMountRoot, secretRef),
+					ReadOnly:  true,
+				})
+			}
+		}
+	}
+
+	return nil
+}
+
+// buildLightspeedStackLivenessProbe creates the liveness probe for lightspeed-stack container
+func buildLightspeedStackLivenessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{
+					"sh",
+					"-c",
+					"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/liveness",
+				},
+			},
+		},
+		InitialDelaySeconds: 20,
+		PeriodSeconds:       10,
+		TimeoutSeconds:      5,
+		FailureThreshold:    3,
+	}
+}
+
+// buildLightspeedStackReadinessProbe creates the readiness probe for lightspeed-stack container
+func buildLightspeedStackReadinessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{
+					"sh",
+					"-c",
+					"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/readiness",
+				},
+			},
+		},
+		InitialDelaySeconds: 20,
+		PeriodSeconds:       10,
+		TimeoutSeconds:      5,
+		FailureThreshold:    3,
+	}
+}
+
+// buildLightspeedStackContainer creates the base lightspeed-stack container
+func buildLightspeedStackContainer(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar) corev1.Container {
+	lightspeedStackResources := getLightspeedStackResources(cr)
+
+	return corev1.Container{
+		Name:            "lightspeed-service-api",
+		Image:           r.GetLCoreImage(),
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: utils.OLSAppServerContainerPort,
+				Name:          "https",
+				Protocol:      corev1.ProtocolTCP,
+			},
+		},
+		Env:            envVars,
+		VolumeMounts:   volumeMounts,
+		Resources:      *lightspeedStackResources,
+		LivenessProbe:  buildLightspeedStackLivenessProbe(),
+		ReadinessProbe: buildLightspeedStackReadinessProbe(),
+	}
+}
+
+// ============================================================================
+// Deployment generation functions
+// ============================================================================
+
+// GenerateLCoreDeployment generates the Deployment for LCore based on the server mode
 func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
+	if r.GetLCoreServerMode() {
+		return generateLCoreServerDeployment(r, cr)
+	}
+	return generateLCoreLibraryDeployment(r, cr)
+}
+
+// generateLCoreServerDeployment generates the Deployment for LCore in server mode (llama-stack + lightspeed-stack)
+func generateLCoreServerDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	ctx := context.Background()
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := utils.VolumeDefaultMode
@@ -276,134 +619,56 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	lcoreConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LCoreConfigCmName)
 	llamaStackConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LlamaStackConfigCmName)
 
-	// Labels for the deployment
-	labels := map[string]string{
-		"app":                          "lightspeed-stack",
-		"app.kubernetes.io/component":  "application-server",
-		"app.kubernetes.io/managed-by": "lightspeed-operator",
-		"app.kubernetes.io/name":       "lightspeed-service-api",
-		"app.kubernetes.io/part-of":    "openshift-lightspeed",
-	}
+	// Use helper functions to build common components
+	labels := buildCommonLabels()
+
+	// Build config volumes and mounts using helper functions
+	llamaStackVolume, llamaStackConfigMount := buildLlamaStackConfigVolumeAndMount(&volumeDefaultMode)
+	lcoreVolume, lcoreConfigMount := buildLCoreConfigVolumeAndMount(&volumeDefaultMode)
 
 	// Define volumes
 	volumes := []corev1.Volume{
-		{
-			Name: "llama-stack-config",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: utils.LlamaStackConfigCmName,
-					},
-					DefaultMode: &volumeDefaultMode,
-				},
-			},
-		},
-		{
-			Name: "lightspeed-stack-config",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: utils.LCoreConfigCmName,
-					},
-					DefaultMode: &volumeDefaultMode,
-				},
-			},
-		},
-		{
-			Name: "llama-cache",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-		{
-			Name: utils.OpenShiftCAVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "kube-root-ca.crt",
-					},
-					DefaultMode: &volumeDefaultMode,
-				},
-			},
-		},
+		llamaStackVolume,
+		lcoreVolume,
 	}
 
-	// PostgreSQL CA ConfigMap volume (for TLS certificate verification)
-	volumes = append(volumes, utils.GetPostgresCAConfigVolume())
+	// Add PostgreSQL CA ConfigMap volume and mount (for TLS certificate verification)
+	var postgresCAMounts []corev1.VolumeMount
+	addPostgresCAVolumesAndMounts(&volumes, &postgresCAMounts, "/etc/certs/postgres-ca")
 
-	// Add external TLS secret if provided by user
+	// Add llama-cache EmptyDir for Llama Stack workspace
+	var llamaCacheMounts []corev1.VolumeMount
+	addLlamaCacheVolumesAndMounts(&volumes, &llamaCacheMounts)
+
+	// Add TLS volumes and mounts (custom if provided, default otherwise)
 	var tlsVolumeMounts []corev1.VolumeMount
-	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
-		// User provided custom TLS secret
-		volumes = append(volumes, corev1.Volume{
-			Name: "secret-lightspeed-tls",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name,
-					DefaultMode: &volumeDefaultMode,
-				},
-			},
-		})
-
-		tlsVolumeMounts = []corev1.VolumeMount{
-			{
-				Name:      "secret-lightspeed-tls",
-				MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
-				ReadOnly:  true,
-			},
-		}
+	addCustomTLSVolumesAndMounts(&volumes, &tlsVolumeMounts, cr, &volumeDefaultMode)
+	if len(tlsVolumeMounts) == 0 {
+		// No custom TLS, add default service-ca TLS
+		addTLSVolumesAndMounts(&volumes, &tlsVolumeMounts, cr, &volumeDefaultMode)
 	}
+
+	// Add OpenShift CA bundles (both service-ca and root CA)
+	var openShiftCAMounts []corev1.VolumeMount
+	addOpenShiftCAVolumesAndMounts(&volumes, &openShiftCAMounts, &volumeDefaultMode)
+	addOpenShiftRootCAVolumesAndMounts(&volumes, &openShiftCAMounts, &volumeDefaultMode)
 
 	// llama-stack container volume mounts
 	llamaStackVolumeMounts := []corev1.VolumeMount{
-		{
-			Name:      "llama-stack-config",
-			MountPath: "/app-root/run.yaml",
-			SubPath:   "run.yaml",
-			ReadOnly:  true,
-		},
-		{
-			Name:      "llama-cache",
-			MountPath: "/app-root/.llama",
-			ReadOnly:  false,
-		},
-		{
-			Name:      utils.OpenShiftCAVolumeName,
-			MountPath: "/etc/pki/ca-trust/extracted/pem",
-			ReadOnly:  true,
-		},
-		// PostgreSQL CA ConfigMap (service-ca.crt for TLS verification)
-		utils.GetPostgresCAVolumeMount("/etc/certs/postgres-ca"),
+		llamaStackConfigMount,
 	}
 
-	// User provided CA certificates - create both volumes and volume mounts in single pass
-	_ = utils.ForEachExternalConfigMap(cr, func(name, source string) error {
-		var volumeName, llamaStackMountPath string
-		switch source {
-		case "additional-ca":
-			volumeName = utils.AdditionalCAVolumeName
-			llamaStackMountPath = "/etc/pki/ca-trust/source/anchors"
-		default:
-			return nil
-		}
+	// Add PostgreSQL CA mount to llama-stack container
+	llamaStackVolumeMounts = append(llamaStackVolumeMounts, postgresCAMounts...)
 
-		volumes = append(volumes, corev1.Volume{
-			Name: volumeName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: name},
-					DefaultMode:          &volumeDefaultMode,
-				},
-			},
-		})
+	// Add llama-cache mount to llama-stack container
+	llamaStackVolumeMounts = append(llamaStackVolumeMounts, llamaCacheMounts...)
 
-		llamaStackVolumeMounts = append(llamaStackVolumeMounts, corev1.VolumeMount{
-			Name:      volumeName,
-			MountPath: llamaStackMountPath,
-			ReadOnly:  true,
-		})
-		return nil
-	})
+	// Add OpenShift CA mounts to llama-stack container
+	llamaStackVolumeMounts = append(llamaStackVolumeMounts, openShiftCAMounts...)
+
+	// Add user-provided CA certificates to llama-stack container
+	addUserCAVolumesAndMounts(&volumes, &llamaStackVolumeMounts, cr, &volumeDefaultMode)
 
 	// Build environment variables for LLM providers
 	llamaStackEnvVars, err := buildLlamaStackEnvVars(r, ctx, cr)
@@ -519,113 +784,28 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 
 	// Build lightspeed-stack volume mounts
 	lightspeedStackVolumeMounts := []corev1.VolumeMount{
-		{
-			Name:      "lightspeed-stack-config",
-			MountPath: "/app-root/lightspeed-stack.yaml",
-			SubPath:   "lightspeed-stack.yaml",
-		},
+		lcoreConfigMount,
 	}
 
 	// Add TLS volume mounts from external secrets
 	lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, tlsVolumeMounts...)
 
-	// TLS certificate volume and mount - only if using service-ca (not custom TLS)
-	// If user provides TLSConfig.KeyCertSecretRef, it's already mounted above via ForEachExternalSecret
-	if cr.Spec.OLSConfig.TLSConfig == nil || cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name == "" {
-		volumes = append(volumes, corev1.Volume{
-			Name: "secret-lightspeed-tls",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  utils.OLSCertsSecretName,
-					DefaultMode: &volumeDefaultMode,
-				},
-			},
-		})
-		lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, corev1.VolumeMount{
-			Name:      "secret-lightspeed-tls",
-			MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
-			ReadOnly:  true,
-		})
-	}
-
 	// PostgreSQL CA ConfigMap (service-ca.crt for OpenShift CA)
 	lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, "postgres-ca")))
 
 	// Mount MCP server header secrets - only for HTTP-compatible servers
-	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer) {
-		// Filter to HTTP-only servers (no logging needed here, already logged in config)
-		filteredServers := FilterHTTPMCPServers(r, cr, cr.Spec.MCPServers)
-
-		for _, server := range filteredServers {
-			if server.StreamableHTTP != nil && server.StreamableHTTP.Headers != nil {
-				for headerName, secretRef := range server.StreamableHTTP.Headers {
-					// Skip special placeholders
-					if secretRef == utils.KUBERNETES_PLACEHOLDER || secretRef == "" {
-						continue
-					}
-
-					// Validate secret exists and has correct structure
-					// This provides fail-fast validation consistent with AppServer
-					if err := validateMCPHeaderSecret(r, ctx, secretRef, server.Name, headerName); err != nil {
-						return nil, err
-					}
-
-					volumes = append(volumes, corev1.Volume{
-						Name: "header-" + secretRef,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName:  secretRef,
-								DefaultMode: &volumeDefaultMode,
-							},
-						},
-					})
-
-					lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, corev1.VolumeMount{
-						Name:      "header-" + secretRef,
-						MountPath: path.Join(utils.MCPHeadersMountRoot, secretRef),
-						ReadOnly:  true,
-					})
-				}
-			}
-		}
+	if err := addMCPHeaderSecretVolumesAndMounts(r, ctx, &volumes, &lightspeedStackVolumeMounts, cr, &volumeDefaultMode); err != nil {
+		return nil, err
 	}
 
 	lightspeedStackContainer.VolumeMounts = lightspeedStackVolumeMounts
-	lightspeedStackContainer.LivenessProbe = &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{
-					"sh",
-					"-c",
-					"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/liveness",
-				},
-			},
-		},
-		InitialDelaySeconds: 20,
-		PeriodSeconds:       10,
-		TimeoutSeconds:      5,
-		FailureThreshold:    3,
-	}
-	lightspeedStackContainer.ReadinessProbe = &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{
-					"sh",
-					"-c",
-					"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/readiness",
-				},
-			},
-		},
-		InitialDelaySeconds: 20,
-		PeriodSeconds:       10,
-		TimeoutSeconds:      5,
-		FailureThreshold:    3,
-	}
+	lightspeedStackContainer.LivenessProbe = buildLightspeedStackLivenessProbe()
+	lightspeedStackContainer.ReadinessProbe = buildLightspeedStackReadinessProbe()
 	lightspeedStackContainer.Resources = *lightspeedStackResources
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "lightspeed-stack-deployment",
+			Name:      utils.LCoreDeploymentName,
 			Namespace: r.GetNamespace(),
 			Labels:    labels,
 			Annotations: map[string]string{
@@ -670,27 +850,7 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	}
 
 	// Add OpenShift MCP server sidecar container if introspection is enabled
-	if cr.Spec.OLSConfig.IntrospectionEnabled {
-		openshiftMCPServerContainer := corev1.Container{
-			Name:            utils.OpenShiftMCPServerContainerName,
-			Image:           r.GetOpenShiftMCPServerImage(),
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &[]bool{false}[0],
-				ReadOnlyRootFilesystem:   &[]bool{true}[0],
-			},
-			Command: []string{
-				"/openshift-mcp-server",
-				"--read-only",
-				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
-			},
-			Resources: *getOLSMCPServerResources(cr),
-		}
-		deployment.Spec.Template.Spec.Containers = append(
-			deployment.Spec.Template.Spec.Containers,
-			openshiftMCPServerContainer,
-		)
-	}
+	addOpenShiftMCPServerSidecar(r, cr, &deployment)
 
 	return &deployment, nil
 }
@@ -781,4 +941,125 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existin
 	}
 
 	return nil
+}
+
+// generateLCoreLibraryDeployment generates the Deployment for LCore in library mode (single container)
+func generateLCoreLibraryDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
+	ctx := context.Background()
+	revisionHistoryLimit := int32(1)
+	volumeDefaultMode := utils.VolumeDefaultMode
+
+	// Get ResourceVersions for tracking
+	lcoreConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LCoreConfigCmName)
+	llamaStackConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LlamaStackConfigCmName)
+
+	// Use helper functions to build common components
+	labels := buildCommonLabels()
+
+	// Build config volumes and mounts using helper functions
+	llamaStackVolume, llamaStackConfigMount := buildLlamaStackConfigVolumeAndMount(&volumeDefaultMode)
+	lcoreVolume, lcoreConfigMount := buildLCoreConfigVolumeAndMount(&volumeDefaultMode)
+
+	// Library mode needs both volumes
+	volumes := []corev1.Volume{
+		llamaStackVolume,
+		lcoreVolume,
+	}
+
+	// Library mode container needs both config mounts
+	volumeMounts := []corev1.VolumeMount{
+		llamaStackConfigMount,
+		lcoreConfigMount,
+	}
+
+	// Add llama-cache EmptyDir for Llama Stack workspace
+	addLlamaCacheVolumesAndMounts(&volumes, &volumeMounts)
+
+	// Add TLS volumes and mounts (custom if provided, default otherwise)
+	var tlsVolumeMounts []corev1.VolumeMount
+	addCustomTLSVolumesAndMounts(&volumes, &tlsVolumeMounts, cr, &volumeDefaultMode)
+	if len(tlsVolumeMounts) == 0 {
+		// No custom TLS, add default service-ca TLS
+		addTLSVolumesAndMounts(&volumes, &tlsVolumeMounts, cr, &volumeDefaultMode)
+	}
+	volumeMounts = append(volumeMounts, tlsVolumeMounts...)
+
+	// Add OpenShift CA bundles (both service-ca and root CA)
+	addOpenShiftCAVolumesAndMounts(&volumes, &volumeMounts, &volumeDefaultMode)
+	addOpenShiftRootCAVolumesAndMounts(&volumes, &volumeMounts, &volumeDefaultMode)
+
+	// Add PostgreSQL CA ConfigMap (for database TLS verification)
+	addPostgresCAVolumesAndMounts(&volumes, &volumeMounts, "/etc/certs/postgres-ca")
+
+	// Add user CA certificates
+	addUserCAVolumesAndMounts(&volumes, &volumeMounts, cr, &volumeDefaultMode)
+
+	// Add MCP header secrets for HTTP MCP servers
+	if err := addMCPHeaderSecretVolumesAndMounts(r, ctx, &volumes, &volumeMounts, cr, &volumeDefaultMode); err != nil {
+		return nil, err
+	}
+
+	// Build environment variables for library mode
+	// Library mode needs env vars from both llama-stack and lightspeed-stack
+	llamaStackEnvVars, err := buildLlamaStackEnvVars(r, ctx, cr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build llama-stack env vars: %w", err)
+	}
+	lightspeedStackEnvVars := buildLightspeedStackEnvVars(r, cr)
+
+	// Combine env vars (llama-stack + lightspeed-stack)
+	combinedEnvVars := append(llamaStackEnvVars, lightspeedStackEnvVars...)
+
+	// Create the lightspeed-stack container using helper
+	lightspeedStackContainer := buildLightspeedStackContainer(r, cr, volumeMounts, combinedEnvVars)
+
+	deployment := appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.LCoreDeploymentName,
+			Namespace: r.GetNamespace(),
+			Labels:    labels,
+			Annotations: map[string]string{
+				utils.LCoreConfigMapResourceVersionAnnotation:      lcoreConfigMapResourceVersion,
+				utils.LlamaStackConfigMapResourceVersionAnnotation: llamaStackConfigMapResourceVersion,
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "lightspeed-stack",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: utils.OLSAppServerServiceAccountName,
+					Containers: []corev1.Container{
+						lightspeedStackContainer,
+					},
+					Volumes: volumes,
+				},
+			},
+			RevisionHistoryLimit: &revisionHistoryLimit,
+		},
+	}
+
+	// Apply pod-level scheduling constraints
+	utils.ApplyPodDeploymentConfig(&deployment, cr.Spec.OLSConfig.DeploymentConfig.APIContainer, true)
+
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
+		if cr.Spec.OLSConfig.ImagePullSecrets != nil {
+			deployment.Spec.Template.Spec.ImagePullSecrets = cr.Spec.OLSConfig.ImagePullSecrets
+		}
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {
+		return nil, err
+	}
+
+	// Add OpenShift MCP server sidecar container if introspection is enabled
+	addOpenShiftMCPServerSidecar(r, cr, &deployment)
+
+	return &deployment, nil
 }

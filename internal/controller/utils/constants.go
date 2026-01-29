@@ -349,7 +349,7 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	// LCoreConfigCmName name for the LCore config map
 	LCoreConfigCmName = "lightspeed-stack-config"
 	// LlamaStackImageDefault default image for Llama Stack
-	LlamaStackImageDefault = "quay.io/lightspeed-core/lightspeed-stack:dev-latest"
+	LlamaStackImageDefault = "quay.io/lightspeed-core/lightspeed-stack:dev-20260125-5f817cd"
 	// LlamaStackConfigHashKey is the key of the hash value of the Llama Stack configmap
 	LlamaStackConfigHashKey = "hash/llamastackconfig"
 	// LCoreDeploymentName is the name of the LCore deployment (used for testing)
@@ -368,6 +368,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	LlamaStackConfigFilename = "run.yaml"
 	// LCoreConfigFilename is the filename for LCore config (used for testing)
 	LCoreConfigFilename = "lightspeed-stack.yaml"
+	// LlamaStackConfigMountPath is the mount path for Llama Stack config file
+	LlamaStackConfigMountPath = "/app-root/run.yaml"
+	// LCoreConfigMountPath is the mount path for LCore config file
+	LCoreConfigMountPath = "/app-root/lightspeed-stack.yaml"
 	// KubeRootCAMountPath is the mount path for kube-root-ca.crt (used for testing)
 	KubeRootCAMountPath = "/etc/pki/ca-trust/extracted/pem"
 	// AdditionalCAMountPath is the mount path for additional CA certificates (used for testing)

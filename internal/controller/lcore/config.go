@@ -709,12 +709,23 @@ func buildLCoreServiceConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	}
 }
 
-func buildLCoreLlamaStackConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
-	return map[string]interface{}{
-		"use_as_library_client": false,
+func buildLCoreLlamaStackConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
+	// Server mode: llama-stack runs as a separate service (container)
+	// Library mode: llama-stack runs as an embedded library
+	isLibraryMode := r != nil && !r.GetLCoreServerMode()
+
+	llamaStackConfig := map[string]interface{}{
+		"use_as_library_client": isLibraryMode,
 		"url":                   "http://localhost:8321",
 		"api_key":               "xyzzy",
 	}
+
+	// In library mode, add path to llama-stack config file
+	if isLibraryMode {
+		llamaStackConfig["library_client_config_path"] = utils.LlamaStackConfigMountPath
+	}
+
+	return llamaStackConfig
 }
 
 func buildLCoreUserDataCollectionConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) map[string]interface{} {

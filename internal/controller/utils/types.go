@@ -25,6 +25,7 @@ type OLSConfigReconcilerOptions struct {
 	OpenShiftMCPServerImage        string
 	LightspeedCoreImage            string
 	UseLCore                       bool
+	LCoreServerMode                bool
 	Namespace                      string
 	PrometheusAvailable            bool
 }

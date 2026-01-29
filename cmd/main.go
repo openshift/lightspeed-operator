@@ -177,6 +177,7 @@ func main() {
 	var dataverseExporterImage string
 	var ocpRagImage string
 	var useLCore bool
+	var lcoreServerMode bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -197,6 +198,7 @@ func main() {
 	flag.StringVar(&dataverseExporterImage, "dataverse-exporter-image", utils.DataverseExporterImageDefault, "The image of the dataverse exporter container.")
 	flag.StringVar(&ocpRagImage, "ocp-rag-image", utils.OcpRagImageDefault, "The image with the OCP RAG databases.")
 	flag.BoolVar(&useLCore, "use-lcore", false, "Use LCore instead of AppServer for the application server deployment.")
+	flag.BoolVar(&lcoreServerMode, "lcore-server", true, "Use LCore in a server mode.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -219,6 +221,13 @@ func main() {
 	}
 	setupLog.Info("========================================")
 	setupLog.Info(">>> BACKEND CONFIGURATION <<<", "backendType", backendType)
+	if useLCore {
+		deploymentMode := "server"
+		if !lcoreServerMode {
+			deploymentMode = "library"
+		}
+		setupLog.Info(">>> LCORE DEPLOYMENT MODE <<<", "mode", deploymentMode)
+	}
 	setupLog.Info("========================================")
 
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
@@ -430,6 +439,7 @@ func main() {
 			DataverseExporterImage:         imagesMap["dataverse-exporter-image"],
 			LightspeedCoreImage:            imagesMap["lightspeed-core"],
 			UseLCore:                       useLCore,
+			LCoreServerMode:                lcoreServerMode,
 			Namespace:                      namespace,
 			PrometheusAvailable:            prometheusAvailable,
 		},
