@@ -207,13 +207,6 @@ lint-fix: ## Fix found issues (if it's supported by the linter).
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
-LIGHTSPEED_SERVICE_IMG ?= quay.io/openshift-lightspeed/lightspeed-service-api:latest
-LIGHTSPEED_SERVICE_POSTGRES_IMG ?= registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-CONSOLE_PLUGIN_IMG ?= quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
-OPENSHIFT_MCP_SERVER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
-DATAVERSE_EXPORTER_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
-OCP_RAG_IMG ?= quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec
-
 .PHONY: dev-setup
 dev-setup: manifests kustomize install ## Setup RBAC and resources for local development (idempotent, safe to run multiple times)
 	@echo "📦 Setting up local development environment..."
@@ -351,14 +344,9 @@ endif
 ## to set the bundle channels, use the CHANNELS variable
 ## to set the default channel, use the DEFAULT_CHANNEL variable
 ## to use image digests instead of version tag, set the USE_IMAGE_DIGESTS variable to true
-## to set the related images, use the RELATED_IMAGES_FILE variable
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
-ifdef RELATED_IMAGES_FILE
-	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i $(RELATED_IMAGES_FILE)
-else
-	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG)
-endif
+	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i related_images.json
 
 parking:
 	$(OPERATOR_SDK) generate kustomize manifests -q
