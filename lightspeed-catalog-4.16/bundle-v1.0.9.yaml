@@ -62,7 +62,7 @@ relatedImages:
     image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:638dcef62c4c7e561707b9419bce2d61db885c0a8ea19bb512e41438fa19dc6d
     revision: 18af0e1b8ead1aaf7c8467bceb2bdba37de2bd39
   - name: lightspeed-to-dataverse-exporter
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:a37ead216f2cc69813a81b9d51f52da14efd359f133d980e9d1b2ae9935dfdbd
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:e4c636d398654fa0cb60f13beec1cbfb8bc6498cc67c420f9b53edcb06f6ffaa
     revision: 68622c76d8df8c2da2447d850f2a26c569d0d37f
   - name: lightspeed-ocp-rag
     image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:59c5a345758b336d871dac05454291504893bff96c3c9c2860b36b5ba9551743
