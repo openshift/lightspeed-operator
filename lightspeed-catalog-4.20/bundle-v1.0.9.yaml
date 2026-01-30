@@ -433,7 +433,7 @@ relatedImages:
     image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:55aaaeadc8be0a703d4dd36fdeb7cf996a468e9c81288e8833738e0d218aa110
     revision: c32b7bb1ffa8375657b42ebcebbe5ec3091d11eb
   - name: openshift-mcp-server
-    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:638dcef62c4c7e561707b9419bce2d61db885c0a8ea19bb512e41438fa19dc6d
+    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:4bf3f7bf3168ea4b3c6513ec52c7396493e67a22bfd89cac09273da24828a207
     revision: 18af0e1b8ead1aaf7c8467bceb2bdba37de2bd39
   - name: lightspeed-to-dataverse-exporter
     image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:a37ead216f2cc69813a81b9d51f52da14efd359f133d980e9d1b2ae9935dfdbd
