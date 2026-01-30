@@ -693,7 +693,7 @@ func buildLCoreServiceConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	// color_log: enable colored logs for DEBUG, disable for production (INFO+)
 	colorLog := logLevel == olsv1alpha1.LogLevelDebug
 
-	return map[string]interface{}{
+	serviceConfig := map[string]interface{}{
 		"host":         "0.0.0.0",
 		"port":         utils.OLSAppServerContainerPort,
 		"auth_enabled": false,
@@ -707,6 +707,28 @@ func buildLCoreServiceConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			"tls_key_path":         "/etc/certs/lightspeed-tls/tls.key",
 		},
 	}
+
+	// Add proxy configuration if specified
+	if cr.Spec.OLSConfig.ProxyConfig != nil {
+		proxyConfigMap := map[string]interface{}{}
+
+		if cr.Spec.OLSConfig.ProxyConfig.ProxyURL != "" {
+			proxyConfigMap["proxy_url"] = cr.Spec.OLSConfig.ProxyConfig.ProxyURL
+		}
+
+		proxyCACertRef := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef
+		cmName := utils.GetProxyCACertConfigMapName(proxyCACertRef)
+		if cmName != "" {
+			certKey := utils.GetProxyCACertKey(proxyCACertRef)
+			proxyConfigMap["proxy_ca_cert_path"] = "/etc/certs/" + utils.ProxyCACertVolumeName + "/" + certKey
+		}
+
+		if len(proxyConfigMap) > 0 {
+			serviceConfig["proxy_config"] = proxyConfigMap
+		}
+	}
+
+	return serviceConfig
 }
 
 func buildLCoreLlamaStackConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {

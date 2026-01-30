@@ -510,9 +510,25 @@ type ProxyConfig struct {
 	// +kubebuilder:validation:Pattern=`^https?://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy URL"
 	ProxyURL string `json:"proxyURL,omitempty"`
-	// The configmap holding proxy CA certificate
+	// The configmap and key holding proxy CA certificate.
+	// The key is optional and defaults to "proxy-ca.crt" for backward compatibility.
+	// If you use a different key name in your ConfigMap, specify it in the ConfigMapKeySelector.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy CA Certificate"
-	ProxyCACertificateRef *corev1.LocalObjectReference `json:"proxyCACertificate,omitempty"`
+	ProxyCACertificateRef *ProxyCACertConfigMapRef `json:"proxyCACertificate,omitempty"`
+}
+
+// ProxyCACertConfigMapRef references a ConfigMap containing the proxy CA certificate.
+// Provides backward compatibility by making the key field optional with a default value.
+type ProxyCACertConfigMapRef struct {
+	// Name of the ConfigMap containing the proxy CA certificate
+	// +kubebuilder:validation:Required
+	// +required
+	Name string `json:"name"`
+	// Key in the ConfigMap that contains the proxy CA certificate.
+	// Defaults to "proxy-ca.crt" if not specified.
+	// +kubebuilder:default="proxy-ca.crt"
+	// +optional
+	Key string `json:"key,omitempty"`
 }
 
 // MCPServer defines the settings for a single MCP server.

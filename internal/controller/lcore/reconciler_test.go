@@ -222,12 +222,12 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			err = k8sClient.Update(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Create a proxy CA ConfigMap")
+			By("Create a proxy CA ConfigMap with default key")
 			cm := &corev1.ConfigMap{}
 			cm.Name = proxyCACMName
 			cm.Namespace = utils.OLSNamespaceDefault
 			cm.Data = map[string]string{
-				"ca-bundle.crt": "test-proxy-ca-cert-content",
+				utils.ProxyCACertFileName: "test-proxy-ca-cert-content",
 			}
 			err = k8sClient.Create(ctx, cm)
 			Expect(err).NotTo(HaveOccurred())
@@ -242,13 +242,14 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 		})
 
 		It("should annotate proxy CA configmap with watcher annotation", func() {
-			By("Set up a proxy CA cert in CR")
+			By("Set up a proxy CA cert in CR without specifying key (uses default)")
 			err := k8sClient.Get(ctx, crNamespacedName, cr)
 			Expect(err).NotTo(HaveOccurred())
 			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
 				ProxyURL: "https://proxy.example.com:8443",
-				ProxyCACertificateRef: &corev1.LocalObjectReference{
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
 					Name: proxyCACMName,
+					// Key is omitted - will default to "proxy-ca.crt" for backward compatibility
 				},
 			}
 			// LCore requires supported Llama Stack provider types
