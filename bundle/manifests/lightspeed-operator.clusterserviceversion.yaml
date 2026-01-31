@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-12-18T10:30:55Z"
+    createdAt: "2026-01-28T20:15:15Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -606,6 +606,7 @@ spec:
                       - --cert-dir=/etc/tls/private
                       - --lcore-image=quay.io/lightspeed-core/lightspeed-stack:dev-latest
                       - --use-lcore=false
+                      - --lcore-server=true
                       - --service-image=quay.io/openshift-lightspeed/lightspeed-service-api:latest
                       - --console-image=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
                       - --console-image-pf5=quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest
