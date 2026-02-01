@@ -1,0 +1,42 @@
+[
+  {
+    "name": "lightspeed-service-api",
+    "placeholder": "__REPLACE_LIGHTSPEED_SERVICE_API__",
+    "target": "args"
+  },
+  {
+    "name": "lightspeed-console-plugin",
+    "placeholder": "__REPLACE_LIGHTSPEED_CONSOLE_PLUGIN__",
+    "target": "args"
+  },
+  {
+    "name": "lightspeed-operator",
+    "placeholder": "__REPLACE_LIGHTSPEED_OPERATOR__",
+    "target": "image"
+  },
+  {
+    "name": "openshift-mcp-server",
+    "placeholder": "__REPLACE_OPENSHIFT_MCP_SERVER__",
+    "target": "args"
+  },
+  {
+    "name": "lightspeed-to-dataverse-exporter",
+    "placeholder": "__REPLACE_LIGHTSPEED_TO_DATAVERSE_EXPORTER__",
+    "target": "args"
+  },
+  {
+    "name": "lightspeed-ocp-rag",
+    "placeholder": "__REPLACE_LIGHTSPEED_OCP_RAG__",
+    "target": "args"
+  },
+  {
+    "name": "lightspeed-console-plugin-pf5",
+    "placeholder": "__REPLACE_LIGHTSPEED_CONSOLE_PLUGIN_PF5__",
+    "target": "args"
+  },
+  {
+    "name": "lightspeed-postgresql",
+    "placeholder": "__REPLACE_LIGHTSPEED_POSTGRESQL__",
+    "target": "args"
+  }
+]

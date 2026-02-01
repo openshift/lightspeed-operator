@@ -1,75 +1,43 @@
 # Adds namespace to all resources.
 namespace: openshift-lightspeed
-
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
 namePrefix: lightspeed-operator-
-
 # Labels to add to all resources and selectors.
 #labels:
 #- includeSelectors: true
 #  pairs:
 #    someName: someValue
-
 resources:
-- ../crd
-- ../rbac
-- ../manager
-- ../user-access
-# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
-# crd/kustomization.yaml
-#- ../webhook
-# [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
-#- ../certmanager
-# [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
-- ../prometheus
-
+  - ../crd
+  - ../rbac
+  - ../manager
+  - ../user-access
+  # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
+  # crd/kustomization.yaml
+  #- ../webhook
+  # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
+  #- ../certmanager
+  # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
+  - ../prometheus
 patches:
-  # set image of lightspeed-service-api
-  # todo: sync with the release version of openshift/lightspeed-service-api
-  - patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --service-image=quay.io/openshift-lightspeed/lightspeed-service-api:latest
-      - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --console-image=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
-      - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --console-image-pf5=quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest
-      - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-      - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --openshift-mcp-server-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
-      - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --dataverse-exporter-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
-      - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --ocp-rag-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:98b50164ee5662fd0e807c76a0f712553442798858ad81e26c2cb307ee3f47e9	
-      - op: replace
-        path: /spec/template/spec/containers/0/image
-        value: quay.io/openshift-lightspeed/lightspeed-operator:latest
+  # deployment-patch.yaml has placeholders (__REPLACE_*__); make deploy substitutes from related_images.json and IMG.
+  - path: deployment-patch.yaml
     target:
       group: apps
       version: v1
       kind: Deployment
       name: controller-manager
-
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
 #- manager_webhook_patch.yaml
-
 # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'.
 # Uncomment 'CERTMANAGER' sections in crd/kustomization.yaml to enable the CA injection in the admission webhooks.
 # 'CERTMANAGER' needs to be enabled to use ca injection
 #- webhookcainjection_patch.yaml
-
 # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER' prefix.
 # Uncomment the following replacements to add the cert-manager CA injection annotations
 #replacements:
