@@ -50,9 +50,112 @@ type FeatureGate string
 
 // OLSConfigStatus defines the observed state of OLS deployment.
 type OLSConfigStatus struct {
+	// Conditions represent the state of individual components
+	// Always populated after first reconciliation
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Conditions []metav1.Condition `json:"conditions"`
+
+	// OverallStatus provides a high-level summary of the entire system's health.
+	// Aggregates all component conditions into a single status value.
+	// - Ready: All components are healthy
+	// - NotReady: At least one component is not ready (check conditions for details)
+	// Always set after first reconciliation
+	// +optional
+	// +kubebuilder:validation:Enum=Ready;NotReady
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	OverallStatus OverallStatus `json:"overallStatus,omitempty"`
+
+	// DiagnosticInfo provides detailed troubleshooting information when deployments fail.
+	// Each entry contains pod-level error details for a specific component.
+	// This array is automatically populated when deployments fail and cleared when they recover.
+	// Only present during deployment failures.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	DiagnosticInfo []PodDiagnostic `json:"diagnosticInfo,omitempty"`
 }
+
+// PodDiagnostic describes a pod-level issue
+type PodDiagnostic struct {
+	// FailedComponent identifies which component this diagnostic relates to,
+	// using the same type as the Conditions field (e.g., "ApiReady", "CacheReady")
+	// This allows easy correlation between condition status and diagnostic details.
+	FailedComponent string `json:"failedComponent"`
+
+	// PodName is the name of the pod with issues
+	PodName string `json:"podName"`
+
+	// ContainerName is the container within the pod that failed
+	// Empty if the issue is at the pod level (e.g., scheduling)
+	// +optional
+	ContainerName string `json:"containerName,omitempty"`
+
+	// Reason is the failure reason
+	// Examples: ImagePullBackOff, CrashLoopBackOff, Unschedulable, OOMKilled
+	Reason string `json:"reason"`
+
+	// Message provides detailed error information from Kubernetes
+	Message string `json:"message"`
+
+	// ExitCode for terminated containers (only set for container failures)
+	// +optional
+	ExitCode *int32 `json:"exitCode,omitempty"`
+
+	// Type indicates the diagnostic type
+	// +kubebuilder:validation:Enum=ContainerWaiting;ContainerTerminated;PodScheduling;PodCondition
+	Type DiagnosticType `json:"type"`
+
+	// LastUpdated is the timestamp when this diagnostic was collected
+	LastUpdated metav1.Time `json:"lastUpdated"`
+}
+
+// DiagnosticType categorizes the type of diagnostic
+// +kubebuilder:validation:Enum=ContainerWaiting;ContainerTerminated;PodScheduling;PodCondition
+type DiagnosticType string
+
+const (
+	DiagnosticTypeContainerWaiting    DiagnosticType = "ContainerWaiting"
+	DiagnosticTypeContainerTerminated DiagnosticType = "ContainerTerminated"
+	DiagnosticTypePodScheduling       DiagnosticType = "PodScheduling"
+	DiagnosticTypePodCondition        DiagnosticType = "PodCondition"
+)
+
+// DeploymentStatus represents the status of a deployment check
+type DeploymentStatus string
+
+const (
+	DeploymentStatusReady       DeploymentStatus = "Ready"
+	DeploymentStatusProgressing DeploymentStatus = "Progressing"
+	DeploymentStatusFailed      DeploymentStatus = "Failed"
+)
+
+// OverallStatus represents the aggregate status of the entire system
+type OverallStatus string
+
+const (
+	OverallStatusReady    OverallStatus = "Ready"
+	OverallStatusNotReady OverallStatus = "NotReady"
+)
+
+// LogLevel defines the logging level for components
+// +kubebuilder:validation:Enum=DEBUG;INFO;WARNING;ERROR;CRITICAL
+type LogLevel string
+
+const (
+	// LogLevelDebug enables debug-level logging (most verbose)
+	LogLevelDebug LogLevel = "DEBUG"
+
+	// LogLevelInfo enables info-level logging (default)
+	LogLevelInfo LogLevel = "INFO"
+
+	// LogLevelWarning enables warning-level logging
+	LogLevelWarning LogLevel = "WARNING"
+
+	// LogLevelError enables error-level logging
+	LogLevelError LogLevel = "ERROR"
+
+	// LogLevelCritical enables critical-level logging (least verbose)
+	LogLevelCritical LogLevel = "CRITICAL"
+)
 
 // LLMSpec defines the desired state of the large language model (LLM).
 type LLMSpec struct {
@@ -71,10 +174,9 @@ type OLSSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,displayName="Deployment"
 	DeploymentConfig DeploymentConfig `json:"deployment,omitempty"`
 	// Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".
-	// +kubebuilder:validation:Enum=DEBUG;INFO;WARNING;ERROR;CRITICAL
 	// +kubebuilder:default=INFO
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Log level"
-	LogLevel string `json:"logLevel,omitempty"`
+	LogLevel LogLevel `json:"logLevel,omitempty"`
 	// Default model for usage
 	// +kubebuilder:validation:Required
 	// +required
@@ -124,6 +226,14 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Only use BYOK RAG sources",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	ByokRAGOnly bool `json:"byokRAGOnly,omitempty"`
+	// Custom system prompt for LLM queries. If not specified, uses the default OpenShift Lightspeed prompt.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Query System Prompt",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	QuerySystemPrompt string `json:"querySystemPrompt,omitempty"`
+	// Pull secrets for BYOK RAG images from image registries requiring authentication
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image Pull Secrets"
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
 // Persistent Storage Configuration
@@ -140,11 +250,11 @@ type Storage struct {
 // RAGSpec defines how to retrieve a RAG databases.
 type RAGSpec struct {
 	// The path to the RAG database inside of the container image
-	// +kubebuilder:default:="/rag/vector_db"
+	// +kubebuilder:default="/rag/vector_db"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index Path in the Image"
 	IndexPath string `json:"indexPath,omitempty"`
 	// The Index ID of the RAG database. Only needed if there are multiple indices in the database.
-	// +kubebuilder:default:=""
+	// +kubebuilder:default=""
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index ID"
 	IndexID string `json:"indexID,omitempty"`
 	// The URL of the container image to use as a RAG source
@@ -183,81 +293,67 @@ type LimiterConfig struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Token Quota Increase Step"
 	QuotaIncrease int `json:"quotaIncrease"`
 	// Period of time the token quota is for
-	// +kubebuilder:validation:Pattern=`^(1\s+(day|month|year|d|m|y)|([2-9][0-9]*|[1-9][0-9]{2,})\s+(days|months|years|d|m|y))$`
+	// +kubebuilder:validation:Pattern=`^(1\s+(second|minute|hour|day|month|year|s|min|h|d|m|y)|([2-9][0-9]*|[1-9][0-9]{2,})\s+(seconds|minutes|hours|days|months|years|s|min|h|d|m|y))$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Period of Time the Token Quota Is For"
 	Period string `json:"period"`
 }
 
 // DeploymentConfig defines the schema for overriding deployment of OLS instance.
 type DeploymentConfig struct {
-	// Defines the number of desired OLS pods. Default: "1"
-	// +kubebuilder:default=1
-	// +kubebuilder:validation:Minimum=0
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
-	Replicas *int32 `json:"replicas,omitempty"`
 	// API container settings.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="API Container"
-	APIContainer APIContainerConfig `json:"api,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="API Deployment"
+	APIContainer Config `json:"api,omitempty"`
 	// Data Collector container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Data Collector Container"
-	DataCollectorContainer DataCollectorContainerConfig `json:"dataCollector,omitempty"`
-	// Console container settings.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Console Container"
-	ConsoleContainer ConsoleContainerConfig `json:"console,omitempty"`
-	// Database container settings.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Container"
-	DatabaseContainer DatabaseContainerConfig `json:"database,omitempty"`
+	DataCollectorContainer ContainerConfig `json:"dataCollector,omitempty"`
 	// MCP server container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Container"
-	MCPServerContainer MCPServerContainerConfig `json:"mcpServer,omitempty"`
+	MCPServerContainer ContainerConfig `json:"mcpServer,omitempty"`
+	// Llama Stack container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Llama Stack Container"
+	LlamaStackContainer ContainerConfig `json:"llamaStack,omitempty"`
+	// Console container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Console Deployment"
+	ConsoleContainer Config `json:"console,omitempty"`
+	// Database container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Deployment"
+	DatabaseContainer Config `json:"database,omitempty"`
 }
 
-type APIContainerConfig struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tolerations",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:tolerations"}
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Selector",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeSelector"}
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-}
-
-type DataCollectorContainerConfig struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-}
-
-type MCPServerContainerConfig struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-}
-
-type ConsoleContainerConfig struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tolerations",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:tolerations"}
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Selector",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeSelector"}
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// Defines the number of desired Console pods. Default: "1"
+// Config defines pod configuration using standard Kubernetes types
+type Config struct {
+	// Defines the number of desired OLS pods. Default: "1"
+	// Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+	// the number of replicas will always be set to 1.
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
-	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
-	// Certificate Authority (CA) certificate used by the console proxy endpoint.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="CA Certificate",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:caCertificate"}
-	// +kubebuilder:validation:Pattern=`^-----BEGIN CERTIFICATE-----([\s\S]*)-----END CERTIFICATE-----\s?$`
-	// +optional
-	CAcertificate string `json:"caCertificate,omitempty"`
+	// Resource requirements (CPU, memory)
+	// Uses standard corev1.ResourceRequirements
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// Tolerations for pod scheduling
+	// Uses standard corev1.Toleration
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
+	// Node selector constraints
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Affinity rules (can be added without API version bump)
+	// Uses standard corev1.Affinity
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+
+	// Topology spread constraints (can be added without API version bump)
+	// Uses standard corev1.TopologySpreadConstraint
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 
-type DatabaseContainerConfig struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Resource Requirements",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+// ContainerConfig defines container configuration using standard Kubernetes types
+type ContainerConfig struct {
+	// Resource requirements (CPU, memory)
+	// Uses standard corev1.ResourceRequirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tolerations",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:tolerations"}
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Selector",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeSelector"}
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=postgres
@@ -280,18 +376,6 @@ type ConversationCacheSpec struct {
 
 // PostgresSpec defines the desired state of Postgres.
 type PostgresSpec struct {
-	// Postgres user name
-	// +kubebuilder:default="postgres"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="User Name"
-	User string `json:"user,omitempty"`
-	// Postgres database name
-	// +kubebuilder:default="postgres"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Name"
-	DbName string `json:"dbName,omitempty"`
-	// Secret that holds postgres credentials
-	// +kubebuilder:default="lightspeed-postgres-secret"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Credentials Secret"
-	CredentialsSecret string `json:"credentialsSecret,omitempty"`
 	// Postgres sharedbuffers
 	// +kubebuilder:validation:XIntOrString
 	// +kubebuilder:default="256MB"
@@ -400,15 +484,22 @@ type UserDataCollectionSpec struct {
 // OLSDataCollectorSpec defines allowed OLS data collector configuration.
 type OLSDataCollectorSpec struct {
 	// Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".
-	// +kubebuilder:validation:Enum=DEBUG;INFO;WARNING;ERROR;CRITICAL
 	// +kubebuilder:default=INFO
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Log level"
-	LogLevel string `json:"logLevel,omitempty"`
+	LogLevel LogLevel `json:"logLevel,omitempty"`
 }
 
 type TLSConfig struct {
-	// KeySecretRef is the secret that holds the TLS key.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Key Secret"
+	// KeyCertSecretRef references a Secret containing TLS certificate and key.
+	// The Secret must contain the following keys:
+	//   - tls.crt: Server certificate (PEM format) - REQUIRED
+	//   - tls.key: Private key (PEM format) - REQUIRED
+	//   - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
+	//
+	// If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
+	//
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Certificate Secret Reference"
+	// +optional
 	KeyCertSecretRef corev1.LocalObjectReference `json:"keyCertSecretRef,omitempty"`
 }
 
@@ -457,7 +548,7 @@ type MCPServerStreamableHTTPTransport struct {
 	// should contain a header path in the data containing a header value.
 	// A special case is usage of the kubernetes token in the header. to specify this use
 	// a string "kubernetes" instead of the secret name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Headers"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Headers",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:keyValue"}
 	Headers map[string]string `json:"headers,omitempty"`
 	// Enable Server Sent Events
 	// +kubebuilder:default=false

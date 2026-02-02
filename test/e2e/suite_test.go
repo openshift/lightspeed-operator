@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestE2E(t *testing.T) {
@@ -65,7 +66,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = client.Create(secret)
 	if errors.IsAlreadyExists(err) {
-		err = client.Update(secret)
+		err = client.Update(secret, func(obj ctrlclient.Object) error {
+			updatedSecret := obj.(*corev1.Secret)
+			updatedSecret.Data = secret.Data
+			return nil
+		})
 	}
 	Expect(err).NotTo(HaveOccurred())
 
@@ -73,7 +78,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = client.Create(secret)
 	if errors.IsAlreadyExists(err) {
-		err = client.Update(secret)
+		err = client.Update(secret, func(obj ctrlclient.Object) error {
+			updatedSecret := obj.(*corev1.Secret)
+			updatedSecret.Data = secret.Data
+			return nil
+		})
 	}
 	Expect(err).NotTo(HaveOccurred())
 

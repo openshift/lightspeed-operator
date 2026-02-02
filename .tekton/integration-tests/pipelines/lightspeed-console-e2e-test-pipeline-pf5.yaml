@@ -242,21 +242,8 @@ spec:
               echo "---------------------------------------------"
               cd /home
               rm -rf lightspeed-console
-              wget --no-verbose -O /usr/local/bin/jq https://github.com/jqlang/jq/releases/download/jq-1.8.0/jq-linux-amd64
-              chmod +x /usr/local/bin/jq
-              git clone https://github.com/openshift/lightspeed-operator.git
-              cd lightspeed-operator
-              git config --global user.email olsci@redhat.com
-              git config --global user.name olsci
-              git fetch origin ${BUNDLE_COMMIT_SHA}
-              git checkout ${BUNDLE_COMMIT_SHA}
-              export CONSOLE_SHA=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-console-plugin-pf5")' | jq '.revision' | tr -d '"' )
               git clone https://github.com/openshift/lightspeed-console.git
               cd lightspeed-console
-              git config --global user.email olsci@redhat.com
-              git config --global user.name olsci
-              git fetch origin ${CONSOLE_SHA}
-              git checkout ${CONSOLE_SHA}
               echo "---------------------------------------------"
               echo "npm version: $(npm -v)"
               echo "---------------------------------------------"

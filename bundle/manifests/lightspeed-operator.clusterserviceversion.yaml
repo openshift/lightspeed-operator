@@ -36,9 +36,9 @@ metadata:
           }
         }
       ]
-    capabilities: Basic Install
+    capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2025-10-10T17:31:05Z"
+    createdAt: "2025-12-18T10:30:55Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -55,7 +55,7 @@ metadata:
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
-  name: lightspeed-operator.v1.0.7
+  name: lightspeed-operator.v1.0.9
   namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
@@ -145,6 +145,8 @@ spec:
               a string "kubernetes" instead of the secret name
             displayName: Headers
             path: mcpServers[0].streamableHTTP.headers
+            x-descriptors:
+            - urn:alm:descriptor:com.tectonic.ui:keyValue
           - description: SSE Read Timeout, default is 10 seconds
             displayName: SSE Read Timeout in seconds
             path: mcpServers[0].streamableHTTP.sseReadTimeout
@@ -168,21 +170,12 @@ spec:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - displayName: PostgreSQL Settings
             path: ols.conversationCache.postgres
-          - description: Secret that holds postgres credentials
-            displayName: Credentials Secret
-            path: ols.conversationCache.postgres.credentialsSecret
-          - description: Postgres database name
-            displayName: Database Name
-            path: ols.conversationCache.postgres.dbName
           - description: 'Postgres maxconnections. Default: "2000"'
             displayName: Maximum Connections
             path: ols.conversationCache.postgres.maxConnections
           - description: Postgres sharedbuffers
             displayName: Shared Buffer Size
             path: ols.conversationCache.postgres.sharedBuffers
-          - description: Postgres user name
-            displayName: User Name
-            path: ols.conversationCache.postgres.user
           - description: 'Conversation cache type. Default: "postgres"'
             displayName: Cache Type
             path: ols.conversationCache.type
@@ -197,79 +190,50 @@ spec:
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:text
           - description: API container settings.
-            displayName: API Container
+            displayName: API Deployment
             path: ols.deployment.api
-          - displayName: Node Selector
-            path: ols.deployment.api.nodeSelector
+          - description: |-
+              Defines the number of desired OLS pods. Default: "1"
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+              the number of replicas will always be set to 1.
+            displayName: Number of replicas
+            path: ols.deployment.api.replicas
             x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:nodeSelector
-          - displayName: Resource Requirements
-            path: ols.deployment.api.resources
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-          - displayName: Tolerations
-            path: ols.deployment.api.tolerations
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:tolerations
+              - urn:alm:descriptor:com.tectonic.ui:podCount
           - description: Console container settings.
-            displayName: Console Container
+            displayName: Console Deployment
             path: ols.deployment.console
-          - description: Certificate Authority (CA) certificate used by the console proxy endpoint.
-            displayName: CA Certificate
-            path: ols.deployment.console.caCertificate
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:caCertificate
-          - displayName: Node Selector
-            path: ols.deployment.console.nodeSelector
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:nodeSelector
-          - description: 'Defines the number of desired Console pods. Default: "1"'
+          - description: |-
+              Defines the number of desired OLS pods. Default: "1"
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+              the number of replicas will always be set to 1.
             displayName: Number of replicas
             path: ols.deployment.console.replicas
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:podCount
-          - displayName: Resource Requirements
-            path: ols.deployment.console.resources
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-          - displayName: Tolerations
-            path: ols.deployment.console.tolerations
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:tolerations
           - description: Data Collector container settings.
             displayName: Data Collector Container
             path: ols.deployment.dataCollector
-          - displayName: Resource Requirements
-            path: ols.deployment.dataCollector.resources
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
           - description: Database container settings.
-            displayName: Database Container
+            displayName: Database Deployment
             path: ols.deployment.database
-          - displayName: Node Selector
-            path: ols.deployment.database.nodeSelector
+          - description: |-
+              Defines the number of desired OLS pods. Default: "1"
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+              the number of replicas will always be set to 1.
+            displayName: Number of replicas
+            path: ols.deployment.database.replicas
             x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:nodeSelector
-          - displayName: Resource Requirements
-            path: ols.deployment.database.resources
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-          - displayName: Tolerations
-            path: ols.deployment.database.tolerations
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:tolerations
+              - urn:alm:descriptor:com.tectonic.ui:podCount
+          - description: Llama Stack container settings.
+            displayName: Llama Stack Container
+            path: ols.deployment.llamaStack
           - description: MCP server container settings.
             displayName: MCP Server Container
             path: ols.deployment.mcpServer
-          - displayName: Resource Requirements
-            path: ols.deployment.mcpServer.resources
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-          - description: 'Defines the number of desired OLS pods. Default: "1"'
-            displayName: Number of replicas
-            path: ols.deployment.replicas
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:podCount
+          - description: Pull secrets for BYOK RAG images from image registries requiring authentication
+            displayName: Image Pull Secrets
+            path: ols.imagePullSecrets
           - description: Enable introspection features
             displayName: Introspection Enabled
             path: ols.introspectionEnabled
@@ -303,6 +267,11 @@ spec:
           - description: Replacement for the matched pattern.
             displayName: Replace With
             path: ols.queryFilters[0].replaceWith
+          - description: Custom system prompt for LLM queries. If not specified, uses the default OpenShift Lightspeed prompt.
+            displayName: Query System Prompt
+            path: ols.querySystemPrompt
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:advanced
           - description: LLM Token Quota Configuration
             displayName: LLM Token Quota Configuration
             path: ols.quotaHandlersConfig
@@ -359,8 +328,15 @@ spec:
           - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
             displayName: TLS Configuration
             path: ols.tlsConfig
-          - description: KeySecretRef is the secret that holds the TLS key.
-            displayName: Key Secret
+          - description: |-
+              KeyCertSecretRef references a Secret containing TLS certificate and key.
+              The Secret must contain the following keys:
+                - tls.crt: Server certificate (PEM format) - REQUIRED
+                - tls.key: Private key (PEM format) - REQUIRED
+                - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
+
+              If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
+            displayName: TLS Certificate Secret Reference
             path: ols.tlsConfig.keyCertSecretRef
           - description: TLS Security Profile used by API endpoints
             displayName: TLS Security Profile
@@ -380,8 +356,26 @@ spec:
             displayName: Log level
             path: olsDataCollector.logLevel
         statusDescriptors:
-          - displayName: Conditions
+          - description: |-
+              Conditions represent the state of individual components
+              Always populated after first reconciliation
+            displayName: Conditions
             path: conditions
+          - description: |-
+              DiagnosticInfo provides detailed troubleshooting information when deployments fail.
+              Each entry contains pod-level error details for a specific component.
+              This array is automatically populated when deployments fail and cleared when they recover.
+              Only present during deployment failures.
+            displayName: Diagnostic Info
+            path: diagnosticInfo
+          - description: |-
+              OverallStatus provides a high-level summary of the entire system's health.
+              Aggregates all component conditions into a single status value.
+              - Ready: All components are healthy
+              - NotReady: At least one component is not ready (check conditions for details)
+              Always set after first reconciliation
+            displayName: Overall Status
+            path: overallStatus
         version: v1alpha1
   description: |-
     OpenShift Lightspeed Operator provides generative AI-based virtual assistant which integrates into the OpenShift web console. OpenShift Lightspeed can answer natural language questions related to OpenShift Container Platform.
@@ -403,6 +397,11 @@ spec:
     spec:
       clusterPermissions:
         - rules:
+            - nonResourceURLs:
+                - /ls-access
+                - /ols-metrics-access
+              verbs:
+                - get
             - apiGroups:
                 - ""
               resources:
@@ -417,6 +416,14 @@ spec:
                 - list
                 - patch
                 - update
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - pods
+              verbs:
+                - get
+                - list
                 - watch
             - apiGroups:
                 - ""
@@ -553,7 +560,10 @@ spec:
                 - clusterroles
               verbs:
                 - create
+                - get
                 - list
+                - patch
+                - update
                 - watch
             - apiGroups:
                 - storage.k8s.io
@@ -594,13 +604,15 @@ spec:
                       - --metrics-bind-address=:8443
                       - --secure-metrics-server
                       - --cert-dir=/etc/tls/private
+                      - --lcore-image=quay.io/lightspeed-core/lightspeed-stack:dev-latest
+                      - --use-lcore=false
                       - --service-image=quay.io/openshift-lightspeed/lightspeed-service-api:latest
                       - --console-image=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
                       - --console-image-pf5=quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
                       - --openshift-mcp-server-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
                       - --dataverse-exporter-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
-                      - --ocp-rag-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec
+                      - --ocp-rag-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:98b50164ee5662fd0e807c76a0f712553442798858ad81e26c2cb307ee3f47e9
                     command:
                       - /manager
                     env:
@@ -716,7 +728,7 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
-  version: 1.0.7
+  version: 1.0.9
   relatedImages:
     - name: lightspeed-service-api
       image: quay.io/openshift-lightspeed/lightspeed-service-api:latest
@@ -731,4 +743,6 @@ spec:
     - name: lightspeed-to-dataverse-exporter
       image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
     - name: lightspeed-ocp-rag
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:db6349fd04308a05e803e00b0ed38249a84c5f0f294a1e95b49b9ac010f516ec
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:98b50164ee5662fd0e807c76a0f712553442798858ad81e26c2cb307ee3f47e9
+    - name: lightspeed-postgresql
+      image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b

@@ -248,14 +248,13 @@ var _ = Describe("App postgres server assets", func() {
 		if with_pvc {
 			testCr.Spec.OLSConfig.Storage = &olsv1alpha1.Storage{}
 		}
-		testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-1"
 		secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
 		secret.SetOwnerReferences([]metav1.OwnerReference{
 			{
 				Kind:       "Secret",
 				APIVersion: "v1",
 				UID:        "ownerUID",
-				Name:       "dummy-secret-1",
+				Name:       utils.PostgresSecretName,
 			},
 		})
 		secretCreationErr := testReconcilerInstance.Create(ctx, secret)
@@ -303,20 +302,19 @@ var _ = Describe("App postgres server assets", func() {
 			nodeSelector := map[string]string{
 				"test-node-selector-key": "test-node-selector-value",
 			}
-			testCr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer = olsv1alpha1.DatabaseContainerConfig{
+			testCr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer = olsv1alpha1.Config{
 				Resources:    resources,
 				Tolerations:  tolerations,
 				NodeSelector: nodeSelector,
 			}
 
-			testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-1"
 			secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
 			secret.SetOwnerReferences([]metav1.OwnerReference{
 				{
 					Kind:       "Secret",
 					APIVersion: "v1",
 					UID:        "ownerUID",
-					Name:       "dummy-secret-1",
+					Name:       utils.PostgresSecretName,
 				},
 			})
 			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
@@ -328,17 +326,19 @@ var _ = Describe("App postgres server assets", func() {
 			Expect(deployment.Spec.Template.Spec.Containers[0].Resources).To(Equal(*resources))
 			Expect(deployment.Spec.Template.Spec.Tolerations).To(Equal(tolerations))
 			Expect(deployment.Spec.Template.Spec.NodeSelector).To(Equal(nodeSelector))
+
+			secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
+			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
 		It("should work when no update in the OLS postgres deployment", func() {
-			testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-2"
 			secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
 			secret.SetOwnerReferences([]metav1.OwnerReference{
 				{
 					Kind:       "Secret",
 					APIVersion: "v1",
 					UID:        "ownerUID",
-					Name:       "dummy-secret-2",
+					Name:       utils.PostgresSecretName,
 				},
 			})
 			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
@@ -365,14 +365,13 @@ var _ = Describe("App postgres server assets", func() {
 		})
 
 		It("should work when there is an update in the OLS postgres deployment", func() {
-			testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-3"
 			secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
 			secret.SetOwnerReferences([]metav1.OwnerReference{
 				{
 					Kind:       "Secret",
 					APIVersion: "v1",
 					UID:        "ownerUID",
-					Name:       "dummy-secret-3",
+					Name:       utils.PostgresSecretName,
 				},
 			})
 			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
@@ -449,9 +448,6 @@ var _ = Describe("App postgres server assets", func() {
 		})
 
 		It("should generate the OLS postgres deployment", func() {
-			testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = "dummy-secret-4"
-			testCr.Spec.OLSConfig.ConversationCache.Postgres.User = utils.PostgresDefaultUser
-			testCr.Spec.OLSConfig.ConversationCache.Postgres.DbName = utils.PostgresDefaultDbName
 			testCr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers = utils.PostgresSharedBuffers
 			testCr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections = utils.PostgresMaxConnections
 			secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
@@ -460,7 +456,7 @@ var _ = Describe("App postgres server assets", func() {
 					Kind:       "Secret",
 					APIVersion: "v1",
 					UID:        "ownerUID",
-					Name:       "dummy-secret-4",
+					Name:       utils.PostgresSecretName,
 				},
 			})
 			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
@@ -493,7 +489,6 @@ var _ = Describe("App postgres server assets", func() {
 		})
 
 		It("should generate the OLS postgres secret", func() {
-			testCr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret = utils.PostgresSecretName
 			secret, err := GeneratePostgresSecret(testReconcilerInstance, testCr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Name).To(Equal(utils.PostgresSecretName))

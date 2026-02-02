@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -25,8 +26,8 @@ type OLSTestEnvironment struct {
 	CleanUpFuncs []func()
 }
 
-// SetupOLSTestEnvironment sets up the common test environment for TLS tests
-func SetupOLSTestEnvironment(crModifier func(*olsv1alpha1.OLSConfig)) (*OLSTestEnvironment, error) {
+// SetupOLSTestEnvironment sets up the common test environment for OLS tests
+func SetupOLSTestEnvironment(crModifier func(*olsv1alpha1.OLSConfig), callback func(*OLSTestEnvironment) error) (*OLSTestEnvironment, error) {
 	env := &OLSTestEnvironment{
 		CleanUpFuncs: make([]func(), 0),
 	}
@@ -41,6 +42,12 @@ func SetupOLSTestEnvironment(crModifier func(*olsv1alpha1.OLSConfig)) (*OLSTestE
 	env.CR, err = generateOLSConfig()
 	if err != nil {
 		return nil, err
+	}
+
+	if callback != nil {
+		if err := callback(env); err != nil {
+			return nil, err
+		}
 	}
 
 	// Apply any modifications to the CR
@@ -271,10 +278,9 @@ func CleanupOLSTestEnvironmentWithCRDeletion(env *OLSTestEnvironment, testName s
 		return err
 	}
 
-	// Delete the OLSConfig CR
+	// Delete the OLSConfig CR and wait for complete deletion
 	if env.CR != nil {
-		err = env.Client.Delete(env.CR)
-		if err != nil {
+		if err := env.Client.DeleteAndWait(env.CR, 3*time.Minute); err != nil {
 			return fmt.Errorf("failed to delete OLSConfig CR: %w", err)
 		}
 	}

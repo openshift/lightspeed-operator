@@ -20,18 +20,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
-	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
-
-func getOLSServerReplicas(cr *olsv1alpha1.OLSConfig) *int32 {
-	if cr.Spec.OLSConfig.DeploymentConfig.Replicas != nil && *cr.Spec.OLSConfig.DeploymentConfig.Replicas >= 0 {
-		return cr.Spec.OLSConfig.DeploymentConfig.Replicas
-	}
-	// default number of replicas.
-	defaultReplicas := int32(1)
-	return &defaultReplicas
-}
 
 func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
 	return utils.GetResourcesOrDefault(
@@ -68,8 +58,6 @@ func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequire
 
 func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	ctx := context.Background()
-	// mount points of API key secret
-	const OLSConfigMountPath = "/etc/ols"
 	const OLSConfigVolumeName = "cm-olsconfig"
 	const OLSUserDataVolumeName = "ols-user-data"
 
@@ -98,18 +86,14 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	volumes := []corev1.Volume{}
 	volumeMounts := []corev1.VolumeMount{}
 
-	// Add external LLM provider and TLS secrets - create both volumes and volume mounts in single pass
+	// Add external LLM provider secrets - create both volumes and volume mounts in single pass
 	_ = utils.ForEachExternalSecret(cr, func(name, source string) error {
-		var mountPath string
-		if strings.HasPrefix(source, "llm-provider-") {
-			mountPath = path.Join(utils.APIKeyMountRoot, name)
-		} else if source == "tls" {
-			mountPath = path.Join(utils.OLSAppCertsMountRoot, name)
-		} else {
-			// MCP header secrets are handled separately below
+		if !strings.HasPrefix(source, "llm-provider-") {
+			// TLS and MCP header secrets are handled separately below
 			return nil
 		}
 
+		mountPath := path.Join(utils.APIKeyMountRoot, name)
 		volumes = append(volumes, corev1.Volume{
 			Name: "secret-" + name,
 			VolumeSource: corev1.VolumeSource{
@@ -129,32 +113,46 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	})
 
 	// Postgres secret volume and mount (operator-owned, not external)
-	postgresSecretName := utils.PostgresSecretName
-	if cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret != "" {
-		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
-	}
-	postgresCredentialsMountPath := path.Join(utils.CredentialsMountRoot, postgresSecretName)
+	postgresCredentialsMountPath := path.Join(utils.CredentialsMountRoot, utils.PostgresSecretName)
 	volumes = append(volumes, corev1.Volume{
-		Name: "secret-" + postgresSecretName,
+		Name: "secret-" + utils.PostgresSecretName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName:  postgresSecretName,
+				SecretName:  utils.PostgresSecretName,
 				DefaultMode: &volumeDefaultMode,
 			},
 		},
 	})
 	volumeMounts = append(volumeMounts, corev1.VolumeMount{
-		Name:      "secret-" + postgresSecretName,
+		Name:      "secret-" + utils.PostgresSecretName,
 		MountPath: postgresCredentialsMountPath,
 		ReadOnly:  true,
 	})
 
-	// TLS secret volume and mount - handle operator-generated cert if no user cert provided
-	if cr.Spec.OLSConfig.TLSConfig == nil || cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name == "" {
-		// Use operator-generated certificate
-		tlsMountPath := path.Join(utils.OLSAppCertsMountRoot, utils.OLSCertsSecretName)
+	// TLS certificate volume and mount
+	// If user provides custom TLS, mount it; otherwise use service-ca generated secret
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		// User provided custom TLS secret
+		tlsMountPath := path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls")
 		volumes = append(volumes, corev1.Volume{
-			Name: "secret-" + utils.OLSCertsSecretName,
+			Name: "secret-lightspeed-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name,
+					DefaultMode: &volumeDefaultMode,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "secret-lightspeed-tls",
+			MountPath: tlsMountPath,
+			ReadOnly:  true,
+		})
+	} else {
+		// Use service-ca generated secret
+		tlsMountPath := path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls")
+		volumes = append(volumes, corev1.Volume{
+			Name: "secret-lightspeed-tls",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  utils.OLSCertsSecretName,
@@ -163,7 +161,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			},
 		})
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "secret-" + utils.OLSCertsSecretName,
+			Name:      "secret-lightspeed-tls",
 			MountPath: tlsMountPath,
 			ReadOnly:  true,
 		})
@@ -184,7 +182,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	volumes = append(volumes, olsConfigVolume)
 	olsConfigVolumeMount := corev1.VolumeMount{
 		Name:      OLSConfigVolumeName,
-		MountPath: OLSConfigMountPath,
+		MountPath: utils.OLSConfigMountRoot,
 		ReadOnly:  true,
 	}
 	volumeMounts = append(volumeMounts, olsConfigVolumeMount)
@@ -301,7 +299,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	}
 
 	// Postgres CA volume
-	volumes = append(volumes, postgres.GetPostgresCAConfigVolume())
+	volumes = append(volumes, utils.GetPostgresCAConfigVolume())
 
 	volumes = append(volumes,
 		corev1.Volume{
@@ -318,7 +316,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	}
 
 	volumeMounts = append(volumeMounts,
-		postgres.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, utils.PostgresCertsSecretName, utils.PostgresCAVolume)),
+		utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, "postgres-ca")),
 		corev1.VolumeMount{
 			Name:      utils.TmpVolumeName,
 			MountPath: utils.TmpVolumeMountPath,
@@ -352,7 +350,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		initContainers = append(initContainers, ragInitContainers...)
 	}
 
-	replicas := getOLSServerReplicas(cr)
 	ols_server_resources := getOLSServerResources(cr)
 	data_collector_resources := getOLSDataCollectorResources(cr)
 	mcp_server_resources := getOLSMCPServerResources(cr)
@@ -360,7 +357,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Get ResourceVersions for tracking - these resources should already exist
 	// If they don't exist, we'll get empty strings which is fine for initial creation
 	configMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
-	secretResourceVersion, _ := utils.GetSecretResourceVersion(r, ctx, postgresSecretName)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -368,12 +364,10 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GenerateAppServerSelectorLabels(),
 			Annotations: map[string]string{
-				utils.OLSConfigMapResourceVersionAnnotation:   configMapResourceVersion,
-				utils.PostgresSecretResourceVersionAnnotation: secretResourceVersion,
+				utils.OLSConfigMapResourceVersionAnnotation: configMapResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: utils.GenerateAppServerSelectorLabels(),
 			},
@@ -395,7 +389,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 							VolumeMounts: volumeMounts,
 							Env: append(utils.GetProxyEnvVars(), corev1.EnvVar{
 								Name:  "OLS_CONFIG_FILE",
-								Value: path.Join(OLSConfigMountPath, utils.OLSConfigFilename),
+								Value: path.Join(utils.OLSConfigMountRoot, utils.OLSConfigFilename),
 							}),
 							Resources: *ols_server_resources,
 							ReadinessProbe: &corev1.Probe{
@@ -435,11 +429,13 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		},
 	}
 
-	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector != nil {
-		deployment.Spec.Template.Spec.NodeSelector = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector
-	}
-	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations != nil {
-		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations
+	// Apply pod-level scheduling constraints (replicas configurable for appserver)
+	utils.ApplyPodDeploymentConfig(&deployment, cr.Spec.OLSConfig.DeploymentConfig.APIContainer, true)
+
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
+		if cr.Spec.OLSConfig.ImagePullSecrets != nil {
+			deployment.Spec.Template.Spec.ImagePullSecrets = cr.Spec.OLSConfig.ImagePullSecrets
+		}
 	}
 
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {
@@ -454,7 +450,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		// Add data exporter container
 		logLevel := cr.Spec.OLSDataCollectorConfig.LogLevel
 		if logLevel == "" {
-			logLevel = "INFO"
+			logLevel = olsv1alpha1.LogLevelInfo
 		}
 		exporterContainer := corev1.Container{
 			Name:            "lightspeed-to-dataverse-exporter",
@@ -473,7 +469,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 				"--config",
 				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
 				"--log-level",
-				logLevel,
+				string(logLevel),
 				"--data-dir",
 				utils.OLSUserDataMountPath,
 			},
@@ -508,8 +504,7 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 	utils.SetDefaults_Deployment(desiredDeployment)
 	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec)
 
-	// Step 2: Check ConfigMap and Secret ResourceVersions
-	// Check if OLS ConfigMap ResourceVersion has changed
+	// Step 2: Check if OLS ConfigMap ResourceVersion has changed
 	currentConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
 	if err != nil {
 		r.GetLogger().Info("failed to get ConfigMap ResourceVersion", "error", err)
@@ -517,18 +512,6 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 	} else {
 		storedConfigMapVersion := existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
 		if storedConfigMapVersion != currentConfigMapVersion {
-			changed = true
-		}
-	}
-
-	// Check if Postgres Secret ResourceVersion has changed
-	currentSecretVersion, err := utils.GetSecretResourceVersion(r, ctx, utils.PostgresSecretName)
-	if err != nil {
-		r.GetLogger().Info("failed to get Secret ResourceVersion", "error", err)
-		changed = true
-	} else {
-		storedSecretVersion := existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
-		if storedSecretVersion != currentSecretVersion {
 			changed = true
 		}
 	}
@@ -541,7 +524,6 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 	// Apply changes - always update spec and annotations since something changed
 	existingDeployment.Spec = desiredDeployment.Spec
 	existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
-	existingDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation] = desiredDeployment.Annotations[utils.PostgresSecretResourceVersionAnnotation]
 
 	r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
 

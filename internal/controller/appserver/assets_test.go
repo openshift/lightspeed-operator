@@ -91,9 +91,9 @@ var _ = Describe("App server assets", func() {
 					DefaultModel:    "testModel",
 					DefaultProvider: "testProvider",
 					Logging: utils.LoggingConfig{
-						AppLogLevel:     utils.LogLevelInfo,
-						LibLogLevel:     utils.LogLevelInfo,
-						UvicornLogLevel: utils.LogLevelInfo,
+						AppLogLevel:     string(olsv1alpha1.LogLevelInfo),
+						LibLogLevel:     string(olsv1alpha1.LogLevelInfo),
+						UvicornLogLevel: string(olsv1alpha1.LogLevelInfo),
 					},
 					ConversationCache: utils.ConversationCacheConfig{
 						Type:     utils.OLSDefaultCacheType,
@@ -515,7 +515,7 @@ var _ = Describe("App server assets", func() {
 				"--config",
 				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
 				"--log-level",
-				utils.LogLevelInfo,
+				string(olsv1alpha1.LogLevelInfo),
 				"--data-dir",
 				utils.OLSUserDataMountPath,
 			}))
@@ -595,11 +595,11 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
 			// data collector container should be the second container
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(utils.LogLevelInfo))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelInfo)))
 
 			By("using DEBUG log level when configured")
 			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: utils.LogLevelDebug,
+				LogLevel: olsv1alpha1.LogLevelDebug,
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -611,40 +611,40 @@ var _ = Describe("App server assets", func() {
 				"--config",
 				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
 				"--log-level",
-				utils.LogLevelDebug,
+				string(olsv1alpha1.LogLevelDebug),
 				"--data-dir",
 				utils.OLSUserDataMountPath,
 			}))
 
 			By("using WARNING log level when configured")
 			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: utils.LogLevelWarning,
+				LogLevel: olsv1alpha1.LogLevelWarning,
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(utils.LogLevelWarning))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelWarning)))
 
 			By("using ERROR log level when configured")
 			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: utils.LogLevelError,
+				LogLevel: olsv1alpha1.LogLevelError,
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(utils.LogLevelError))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelError)))
 
 			By("using CRITICAL log level when configured")
 			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: "CRITICAL",
+				LogLevel: olsv1alpha1.LogLevelCritical,
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement("CRITICAL"))
+			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelCritical)))
 
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
@@ -801,7 +801,7 @@ var _ = Describe("App server assets", func() {
 				"--config",
 				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
 				"--log-level",
-				utils.LogLevelInfo,
+				string(olsv1alpha1.LogLevelInfo),
 				"--data-dir",
 				utils.OLSUserDataMountPath,
 			}))
@@ -828,24 +828,27 @@ var _ = Describe("App server assets", func() {
 			olsconfigGenerated := utils.AppSrvConfigFile{}
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSCertificatePath).To(Equal(path.Join(utils.OLSAppCertsMountRoot, tlsSecretName, "tls.crt")))
-			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSKeyPath).To(Equal(path.Join(utils.OLSAppCertsMountRoot, tlsSecretName, "tls.key")))
+			// Config always uses /etc/certs/lightspeed-tls/ path regardless of secret name
+			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSCertificatePath).To(Equal(path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.crt")))
+			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSKeyPath).To(Equal(path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.key")))
 
 			deployment, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
+			// Volume mount uses canonical name regardless of secret name
 			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(
 				corev1.VolumeMount{
-					Name:      "secret-" + tlsSecretName,
-					MountPath: path.Join(utils.OLSAppCertsMountRoot, tlsSecretName),
+					Name:      "secret-lightspeed-tls",
+					MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
 					ReadOnly:  true,
 				},
 			))
+			// Volume has canonical name but references the user's secret
 			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
 				corev1.Volume{
-					Name: "secret-" + tlsSecretName,
+					Name: "secret-lightspeed-tls",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName:  tlsSecretName,
+							SecretName:  tlsSecretName, // References user's secret
 							DefaultMode: &defaultVolumeMode,
 						},
 					},
@@ -1114,6 +1117,28 @@ var _ = Describe("App server assets", func() {
 			}))
 		})
 
+		It("should generate exporter configmap with service_id 'ols' by default", func() {
+			cm, err := generateExporterConfigMap(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Name).To(Equal(utils.ExporterConfigCmName))
+			Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
+			Expect(cm.Data[utils.ExporterConfigFilename]).To(ContainSubstring(`service_id: "` + utils.ServiceIDOLS + `"`))
+		})
+
+		It("should generate exporter configmap with service_id 'rhos-lightspeed' when label is present", func() {
+			if cr.Labels == nil {
+				cr.Labels = make(map[string]string)
+			}
+
+			cr.Labels[utils.RHOSOLightspeedOwnerIDLabel] = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx"
+
+			cm, err := generateExporterConfigMap(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Name).To(Equal(utils.ExporterConfigCmName))
+			Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
+			Expect(cm.Data[utils.ExporterConfigFilename]).To(ContainSubstring(`service_id: "` + utils.ServiceIDRHOSO + `"`))
+		})
+
 	})
 
 	Context("empty custom resource", func() {
@@ -1156,7 +1181,7 @@ var _ = Describe("App server assets", func() {
 ols_config:
   conversation_cache:
     postgres:
-      ca_cert_path: /etc/certs/lightspeed-postgres-certs/cm-olspostgresca/service-ca.crt
+      ca_cert_path: /etc/certs/postgres-ca/service-ca.crt
       dbname: postgres
       host: lightspeed-postgres-server.openshift-lightspeed.svc
       password_path: /etc/credentials/lightspeed-postgres-secret/password
@@ -1216,7 +1241,7 @@ user_data_collector_config:
 ols_config:
   conversation_cache:
     postgres:
-      ca_cert_path: /etc/certs/lightspeed-postgres-certs/cm-olspostgresca/service-ca.crt
+      ca_cert_path: /etc/certs/postgres-ca/service-ca.crt
       dbname: postgres
       host: lightspeed-postgres-server.openshift-lightspeed.svc
       password_path: /etc/credentials/lightspeed-postgres-secret/password
@@ -1532,6 +1557,42 @@ user_data_collector_config: {}
 
 		})
 
+		It("should generate ImagePullSecrets in the app server deployment pod template", func() {
+			// there should be no ImagePullSecrets in the app server deployment
+			// pod template if none are specified in OLSCconfig
+			Expect(cr.Spec.OLSConfig.ImagePullSecrets).To(BeNil())
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(BeNil())
+
+			imagePullSecrets := []corev1.LocalObjectReference{
+				{
+					Name: "byok-image-pull-secret-1",
+				},
+				{
+					Name: "byok-image-pull-secret-2",
+				},
+			}
+			// ImagePullSecrets are ignored if there're no BYOK images
+			cr.Spec.OLSConfig.ImagePullSecrets = imagePullSecrets
+			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(BeNil())
+
+			// ImagePullSecrets should be set in the app server deployment
+			// pod template if there are BYOK images
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					Image:     "rag-image-1",
+					IndexPath: "/path/to/index-1",
+					IndexID:   "index-id-1",
+				},
+			}
+			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
+		})
+
 		It("should return error if the CA text is malformed", func() {
 			additionalCACm.Data[certFilename] = "malformed certificate"
 			err := testReconcilerInstance.Update(ctx, additionalCACm)
@@ -1693,7 +1754,7 @@ func get7RequiredVolumeMounts() []corev1.VolumeMount {
 		{
 			Name:      utils.PostgresCAVolume,
 			ReadOnly:  true,
-			MountPath: "/etc/certs/lightspeed-postgres-certs/cm-olspostgresca",
+			MountPath: "/etc/certs/postgres-ca",
 		},
 		{
 			Name:      utils.TmpVolumeName,

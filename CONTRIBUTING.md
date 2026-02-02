@@ -369,6 +369,33 @@ It("should do something", func() {
 })
 ```
 
+### Test Cleanup with Finalizers
+
+When writing tests that create/delete `OLSConfig` CRs, always use the `cleanupOLSConfig()` helper from `suite_test.go`:
+
+```go
+AfterEach(func() {
+    cleanupOLSConfig(ctx, cr)  // Removes finalizers and waits for deletion
+})
+```
+
+**Why:** The operator adds a finalizer to `OLSConfig` CRs. Without proper cleanup:
+- Tests will fail with "already exists" errors
+- CRs remain stuck in Terminating state
+- Race conditions between test suites
+
+**Don't:**
+```go
+_ = k8sClient.Delete(ctx, cr)  // ❌ Won't complete due to finalizer
+```
+
+**Do:**
+```go
+cleanupOLSConfig(ctx, cr)  // ✅ Removes finalizer, waits for deletion
+```
+
+**See:** `olsconfig_finalizer_test.go` for examples of testing finalizer behavior
+
 ### Code Reuse
 
 Before implementing new functionality:

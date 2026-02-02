@@ -10,13 +10,18 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// Test Design Notes:
+// - Uses Ordered to ensure serial execution (critical for test isolation)
+// - Tests OWASP ZAP security scanning via RapiDAST against OLS endpoints
+// - Uses CleanupOLSTestEnvironmentWithCRDeletion which includes DeleteAndWait
+// - Creates a Route to make OLS accessible for external security scanning
 var _ = Describe("Rapidast", Ordered, Label("Rapidast"), func() {
 	var env *OLSTestEnvironment
 	var err error
 
 	BeforeAll(func() {
 		By("Setting up OLS test environment")
-		env, err = SetupOLSTestEnvironment(nil)
+		env, err = SetupOLSTestEnvironment(nil, nil)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

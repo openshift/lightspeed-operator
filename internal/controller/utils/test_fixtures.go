@@ -83,16 +83,13 @@ func GetDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 				ConversationCache: olsv1alpha1.ConversationCacheSpec{
 					Type: olsv1alpha1.Postgres,
 					Postgres: olsv1alpha1.PostgresSpec{
-						User:              PostgresDefaultUser,
-						DbName:            PostgresDefaultDbName,
-						SharedBuffers:     PostgresSharedBuffers,
-						MaxConnections:    PostgresMaxConnections,
-						CredentialsSecret: PostgresSecretName,
+						SharedBuffers:  PostgresSharedBuffers,
+						MaxConnections: PostgresMaxConnections,
 					},
 				},
 				DefaultModel:    "testModel",
 				DefaultProvider: "testProvider",
-				LogLevel:        LogLevelInfo,
+				LogLevel:        olsv1alpha1.LogLevelInfo,
 			},
 		},
 	}
@@ -122,11 +119,8 @@ func GetOLSConfigWithCacheCR() *olsv1alpha1.OLSConfig {
 				ConversationCache: olsv1alpha1.ConversationCacheSpec{
 					Type: olsv1alpha1.Postgres,
 					Postgres: olsv1alpha1.PostgresSpec{
-						User:              PostgresDefaultUser,
-						DbName:            PostgresDefaultDbName,
-						SharedBuffers:     PostgresSharedBuffers,
-						MaxConnections:    PostgresMaxConnections,
-						CredentialsSecret: PostgresSecretName,
+						SharedBuffers:  PostgresSharedBuffers,
+						MaxConnections: PostgresMaxConnections,
 					},
 				},
 			},
@@ -447,6 +441,6 @@ func GetTestPostgresCacheConfig() PostgresCacheConfig {
 		DbName:       PostgresDefaultDbName,
 		PasswordPath: path.Join(CredentialsMountRoot, PostgresSecretName, OLSComponentPasswordFileName),
 		SSLMode:      PostgresDefaultSSLMode,
-		CACertPath:   path.Join(OLSAppCertsMountRoot, PostgresCertsSecretName, PostgresCAVolume, "service-ca.crt"),
+		CACertPath:   path.Join(OLSAppCertsMountRoot, "postgres-ca", "service-ca.crt"),
 	}
 }

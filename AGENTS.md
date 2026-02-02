@@ -3,6 +3,30 @@
 ## Project Overview
 Kubernetes operator managing OpenShift Lightspeed (AI-powered Virtual Assistant). Go + controller-runtime/kubebuilder + Ginkgo v2/Gomega testing.
 
+## Version Management
+
+### Version Update Process
+When updating the operator version for a release, you **MUST** update version numbers in **TWO** files:
+
+1. **`bundle.Dockerfile`** - Bundle container labels (lines 63 and 66)
+   ```dockerfile
+   LABEL release=X.Y.Z
+   LABEL version=X.Y.Z
+   ```
+
+2. **`bundle/manifests/lightspeed-operator.clusterserviceversion.yaml`** - CSV metadata (lines 58 and 715)
+   ```yaml
+   name: lightspeed-operator.vX.Y.Z
+   # ... line 715:
+   version: X.Y.Z
+   ```
+
+**Important Notes:**
+- Both files MUST have matching versions
+- The CSV `name` field includes a `v` prefix (e.g., `lightspeed-operator.v1.0.8`)
+- The CSV `version` field does NOT have a prefix (e.g., `1.0.8`)
+- After version changes, regenerate bundle using `make bundle` or `hack/update_bundle.sh -v X.Y.Z`
+
 ## Architecture Quick Reference
 
 ### Core Components
@@ -14,6 +38,8 @@ Kubernetes operator managing OpenShift Lightspeed (AI-powered Virtual Assistant)
 ### Reconciliation Flow
 ```
 OLSConfigReconciler.Reconcile() →
+├── [Operator-level resources: ServiceMonitor, NetworkPolicy]
+├── [Finalizer logic: handle CR deletion if DeletionTimestamp set]
 ├── reconcileLLMSecrets()
 ├── reconcileConsoleUI()
 ├── reconcilePostgresServer()
@@ -46,18 +72,21 @@ make test-e2e   # E2E tests (requires cluster)
 ## Key File Locations
 
 ### Controllers
-- `internal/controller/olsconfig_controller.go` - Main reconciler
+- `internal/controller/olsconfig_controller.go` - Main reconciler with finalizer logic
 - `internal/controller/appserver/` - App server (LEGACY)
 - `internal/controller/lcore/` - Lightspeed Core (NEW)
 - `internal/controller/postgres/` - PostgreSQL
 - `internal/controller/console/` - Console UI
 - `internal/controller/watchers/` - External resource watching
 - `internal/controller/utils/` - Shared utilities, constants
+  - `constants.go` - Includes `OLSConfigFinalizer` constant
 
 ### Tests
 - `*_test.go` - Unit tests (co-located)
 - `test/e2e/` - E2E tests
 - `internal/controller/utils/testing.go` - Test utilities
+- `internal/controller/suite_test.go` - Test suite setup, shared helpers
+  - `cleanupOLSConfig()` - Reusable CR cleanup helper (removes finalizers, waits for deletion)
 
 ## State Management
 
@@ -72,3 +101,7 @@ make test-e2e   # E2E tests (requires cluster)
 - **Top-Level**: Create package under `internal/controller/<component>/`, add to `olsconfig_controller.go`
 - Add error constants to `internal/controller/utils/utils.go`
 - Write unit tests in co-located `*_test.go` files
+
+## Maintaining This Document
+
+Always suggest AGENTS.md edits when architectural, structural, or conventional changes are made to the codebase.

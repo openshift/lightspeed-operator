@@ -2,6 +2,9 @@ package lcore
 
 import (
 	"context"
+	"fmt"
+	"reflect"
+	"strings"
 	"testing"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -55,6 +58,10 @@ func (m *mockReconciler) GetLCoreImage() string {
 		return utils.LlamaStackImageDefault
 	}
 	return m.image
+}
+
+func (m *mockReconciler) GetOpenShiftMCPServerImage() string {
+	return utils.OpenShiftMCPServerImageDefault
 }
 
 func (m *mockReconciler) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
@@ -157,9 +164,10 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 	if len(llamaStackContainer.Ports) != 1 || llamaStackContainer.Ports[0].ContainerPort != utils.LlamaStackContainerPort {
 		t.Errorf("Expected llama-stack container port %d, got %v", utils.LlamaStackContainerPort, llamaStackContainer.Ports)
 	}
-	// Verify env vars are generated for all providers
-	if len(llamaStackContainer.Env) != len(cr.Spec.LLMConfig.Providers) {
-		t.Errorf("Expected %d env vars (one per provider), got %d", len(cr.Spec.LLMConfig.Providers), len(llamaStackContainer.Env))
+	// Verify env vars are generated for all providers + POSTGRES_PASSWORD
+	expectedEnvVars := len(cr.Spec.LLMConfig.Providers) + 1 // +1 for POSTGRES_PASSWORD
+	if len(llamaStackContainer.Env) != expectedEnvVars {
+		t.Errorf("Expected %d env vars (one per provider + POSTGRES_PASSWORD), got %d", expectedEnvVars, len(llamaStackContainer.Env))
 	}
 	// Check first provider's env var
 	if len(llamaStackContainer.Env) > 0 {
@@ -242,8 +250,8 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 
 	// Verify volume mounts in lightspeed-stack container
 	lightspeedStackMounts := lightspeedStackContainer.VolumeMounts
-	if len(lightspeedStackMounts) != 2 {
-		t.Errorf("Expected 2 volume mounts in lightspeed-stack container, got %d", len(lightspeedStackMounts))
+	if len(lightspeedStackMounts) != 3 {
+		t.Errorf("Expected 3 volume mounts in lightspeed-stack container, got %d", len(lightspeedStackMounts))
 	}
 	lightspeedStackMountNames := make(map[string]bool)
 	for _, mount := range lightspeedStackMounts {
@@ -254,6 +262,9 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 	}
 	if !lightspeedStackMountNames["secret-lightspeed-tls"] {
 		t.Error("Missing 'secret-lightspeed-tls' volume mount in lightspeed-stack container")
+	}
+	if !lightspeedStackMountNames[utils.PostgresCAVolume] {
+		t.Errorf("Missing '%s' volume mount in lightspeed-stack container", utils.PostgresCAVolume)
 	}
 
 	// Verify that deployment can be marshaled to YAML (valid k8s object)
@@ -392,4 +403,365 @@ func TestGenerateLCoreDeploymentWithAdditionalCA(t *testing.T) {
 	}
 
 	t.Logf("Successfully validated LCore Deployment with Additional CA")
+}
+
+func TestGenerateLCoreDeploymentWithIntrospection(t *testing.T) {
+	// Create an OLSConfig CR with introspection enabled
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "test-provider",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "test-secret",
+						},
+					},
+				},
+			},
+			OLSConfig: olsv1alpha1.OLSSpec{
+				IntrospectionEnabled: true,
+			},
+		},
+	}
+
+	// Create a mock reconciler with OpenShift MCP server image
+	r := &mockReconciler{}
+
+	// Generate the deployment
+	deployment, err := GenerateLCoreDeployment(r, cr)
+	if err != nil {
+		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
+	}
+
+	// Verify deployment is not nil
+	if deployment == nil {
+		t.Fatal("GenerateLCoreDeployment returned nil deployment")
+	}
+
+	// Verify containers - should have 3: llama-stack, lightspeed-stack, openshift-mcp-server
+	containers := deployment.Spec.Template.Spec.Containers
+	if len(containers) != 3 {
+		t.Fatalf("Expected 3 containers (llama-stack, lightspeed-stack, openshift-mcp-server), got %d", len(containers))
+	}
+
+	// Find the OpenShift MCP server container
+	var openshiftMCPContainer *corev1.Container
+	for i := range containers {
+		if containers[i].Name == utils.OpenShiftMCPServerContainerName {
+			openshiftMCPContainer = &containers[i]
+			break
+		}
+	}
+
+	if openshiftMCPContainer == nil {
+		t.Fatal("OpenShift MCP server container not found in deployment")
+	}
+
+	// Verify container configuration
+	if openshiftMCPContainer.Image == "" {
+		t.Error("OpenShift MCP server container has empty image")
+	}
+
+	if openshiftMCPContainer.ImagePullPolicy != corev1.PullIfNotPresent {
+		t.Errorf("Expected ImagePullPolicy PullIfNotPresent, got %v", openshiftMCPContainer.ImagePullPolicy)
+	}
+
+	// Verify command includes port flag
+	if len(openshiftMCPContainer.Command) == 0 {
+		t.Error("OpenShift MCP server container has no command")
+	} else {
+		commandStr := strings.Join(openshiftMCPContainer.Command, " ")
+		expectedPort := fmt.Sprintf("%d", utils.OpenShiftMCPServerPort)
+		if !strings.Contains(commandStr, "--port") || !strings.Contains(commandStr, expectedPort) {
+			t.Errorf("Expected command to include '--port %s', got: %s", expectedPort, commandStr)
+		}
+		if !strings.Contains(commandStr, "--read-only") {
+			t.Error("Expected command to include '--read-only' flag")
+		}
+	}
+
+	// Verify security context
+	if openshiftMCPContainer.SecurityContext == nil {
+		t.Error("OpenShift MCP server container has no security context")
+	} else {
+		if openshiftMCPContainer.SecurityContext.AllowPrivilegeEscalation == nil ||
+			*openshiftMCPContainer.SecurityContext.AllowPrivilegeEscalation != false {
+			t.Error("Expected AllowPrivilegeEscalation to be false")
+		}
+		if openshiftMCPContainer.SecurityContext.ReadOnlyRootFilesystem == nil ||
+			*openshiftMCPContainer.SecurityContext.ReadOnlyRootFilesystem != true {
+			t.Error("Expected ReadOnlyRootFilesystem to be true")
+		}
+	}
+
+	// Verify resource requirements are set
+	if openshiftMCPContainer.Resources.Limits == nil || openshiftMCPContainer.Resources.Requests == nil {
+		t.Error("OpenShift MCP server container missing resource limits or requests")
+	}
+
+	t.Logf("Successfully validated LCore Deployment with OpenShift MCP server sidecar")
+}
+
+func TestGenerateLCoreDeploymentWithMCPHeaderSecrets(t *testing.T) {
+	// Create an OLSConfig CR with MCP servers that use KUBERNETES_PLACEHOLDER only
+	// (secrets will be validated in integration/e2e tests with real secrets)
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			FeatureGates: []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer},
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "test-provider",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "test-secret",
+						},
+					},
+				},
+			},
+			MCPServers: []olsv1alpha1.MCPServer{
+				{
+					Name: "external-mcp-kubernetes-auth",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL: "http://external1.example.com",
+						Headers: map[string]string{
+							"Authorization": utils.KUBERNETES_PLACEHOLDER,
+						},
+					},
+				},
+				{
+					Name: "external-mcp-mixed-auth",
+					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
+						URL: "https://external2.example.com",
+						Headers: map[string]string{
+							"Authorization": utils.KUBERNETES_PLACEHOLDER,
+							"X-Custom":      utils.KUBERNETES_PLACEHOLDER, // Test multiple placeholders
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Create a mock reconciler
+	r := &mockReconciler{}
+
+	// Generate the deployment
+	deployment, err := GenerateLCoreDeployment(r, cr)
+	if err != nil {
+		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
+	}
+
+	// Verify deployment is not nil
+	if deployment == nil {
+		t.Fatal("GenerateLCoreDeployment returned nil deployment")
+	}
+
+	// Verify volumes - should NOT have any MCP header secret volumes
+	// since we only use KUBERNETES_PLACEHOLDER
+	volumes := deployment.Spec.Template.Spec.Volumes
+	volumeNames := make(map[string]bool)
+	for _, vol := range volumes {
+		volumeNames[vol.Name] = true
+	}
+
+	// Should NOT have header secret volumes (only using KUBERNETES_PLACEHOLDER)
+	if volumeNames["header-mcp-auth-secret-1"] {
+		t.Error("Should not have volume for KUBERNETES_PLACEHOLDER")
+	}
+	if volumeNames["header-"+utils.KUBERNETES_PLACEHOLDER] {
+		t.Errorf("KUBERNETES_PLACEHOLDER should not create a volume, but found: header-%s", utils.KUBERNETES_PLACEHOLDER)
+	}
+
+	// Verify lightspeed-stack container has NO MCP header volume mounts
+	containers := deployment.Spec.Template.Spec.Containers
+	var lightspeedStackContainer *corev1.Container
+	for i := range containers {
+		if containers[i].Name == utils.LCoreContainerName {
+			lightspeedStackContainer = &containers[i]
+			break
+		}
+	}
+
+	if lightspeedStackContainer == nil {
+		t.Fatal("lightspeed-stack container not found")
+	}
+
+	// Check that no MCP header mounts exist (all use KUBERNETES_PLACEHOLDER)
+	for _, mount := range lightspeedStackContainer.VolumeMounts {
+		if strings.HasPrefix(mount.Name, "header-") {
+			t.Errorf("Should not have MCP header volume mount, found: %s", mount.Name)
+		}
+	}
+
+	t.Logf("Successfully validated LCore Deployment with KUBERNETES_PLACEHOLDER MCP headers (no secret volumes)")
+}
+
+func TestGenerateLCoreDeploymentWithoutIntrospection(t *testing.T) {
+	// Create an OLSConfig CR with introspection disabled
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "test-provider",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "test-secret",
+						},
+					},
+				},
+			},
+			OLSConfig: olsv1alpha1.OLSSpec{
+				IntrospectionEnabled: false,
+			},
+		},
+	}
+
+	// Create a mock reconciler
+	r := &mockReconciler{}
+
+	// Generate the deployment
+	deployment, err := GenerateLCoreDeployment(r, cr)
+	if err != nil {
+		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
+	}
+
+	// Verify deployment is not nil
+	if deployment == nil {
+		t.Fatal("GenerateLCoreDeployment returned nil deployment")
+	}
+
+	// Verify containers - should have 2: llama-stack, lightspeed-stack (NO openshift-mcp-server)
+	containers := deployment.Spec.Template.Spec.Containers
+	if len(containers) != 2 {
+		t.Fatalf("Expected 2 containers (llama-stack, lightspeed-stack), got %d", len(containers))
+	}
+
+	// Verify OpenShift MCP server container is NOT present
+	for i := range containers {
+		if containers[i].Name == utils.OpenShiftMCPServerContainerName {
+			t.Error("OpenShift MCP server container should not be present when introspection is disabled")
+		}
+	}
+
+	t.Logf("Successfully validated LCore Deployment without OpenShift MCP server sidecar")
+}
+
+func TestGetOLSMCPServerResources(t *testing.T) {
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+	}
+
+	resources := getOLSMCPServerResources(cr)
+
+	if resources == nil {
+		t.Fatal("getOLSMCPServerResources returned nil")
+	}
+
+	// Verify limits
+	if resources.Limits == nil {
+		t.Error("Resources limits is nil")
+	} else {
+		memLimit := resources.Limits[corev1.ResourceMemory]
+		if memLimit.IsZero() {
+			t.Error("Memory limit is not set")
+		}
+		expectedMemLimit := "200Mi"
+		if memLimit.String() != expectedMemLimit {
+			t.Errorf("Expected memory limit '%s', got '%s'", expectedMemLimit, memLimit.String())
+		}
+	}
+
+	// Verify requests
+	if resources.Requests == nil {
+		t.Error("Resources requests is nil")
+	} else {
+		cpuRequest := resources.Requests[corev1.ResourceCPU]
+		memRequest := resources.Requests[corev1.ResourceMemory]
+
+		if cpuRequest.IsZero() {
+			t.Error("CPU request is not set")
+		}
+		if memRequest.IsZero() {
+			t.Error("Memory request is not set")
+		}
+
+		expectedCPU := "50m"
+		expectedMem := "64Mi"
+		if cpuRequest.String() != expectedCPU {
+			t.Errorf("Expected CPU request '%s', got '%s'", expectedCPU, cpuRequest.String())
+		}
+		if memRequest.String() != expectedMem {
+			t.Errorf("Expected memory request '%s', got '%s'", expectedMem, memRequest.String())
+		}
+	}
+}
+
+func TestGenerateLCoreDeploymentWithRAG(t *testing.T) {
+	imagePullSecrets := []corev1.LocalObjectReference{
+		{
+			Name: "byok-image-pull-secret-1",
+		},
+		{
+			Name: "byok-image-pull-secret-2",
+		},
+	}
+
+	// Create an OLSConfig CR with additionalCAConfigMapRef
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "test-provider",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "test-secret",
+						},
+					},
+				},
+			},
+			OLSConfig: olsv1alpha1.OLSSpec{
+				ImagePullSecrets: imagePullSecrets,
+				RAG: []olsv1alpha1.RAGSpec{
+					{
+						Image:     "byok-rag-image-1",
+						IndexID:   "byok-index-id-1",
+						IndexPath: "byok-index-path-1",
+					},
+				},
+			},
+		},
+	}
+
+	// Create a mock reconciler
+	r := &mockReconciler{}
+
+	// Generate the deployment
+	deployment, err := GenerateLCoreDeployment(r, cr)
+	if err != nil {
+		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
+	}
+
+	// Verify deployment is not nil
+	if deployment == nil {
+		t.Fatal("GenerateLCoreDeployment returned nil deployment")
+	}
+
+	if !reflect.DeepEqual(deployment.Spec.Template.Spec.ImagePullSecrets, imagePullSecrets) {
+		t.Fatalf("Expected ImagePullSecrets: %+v, got %+v", imagePullSecrets, deployment.Spec.Template.Spec.ImagePullSecrets)
+	}
 }

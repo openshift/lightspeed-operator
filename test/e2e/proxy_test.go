@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -28,6 +29,12 @@ const (
 	proxyConfigmapName  = "proxy-ca"
 )
 
+// Test Design Notes:
+// - Uses Ordered to ensure serial execution (critical for test isolation)
+// - Tests OLS functionality when configured to use HTTP/HTTPS proxy
+// - Creates test infrastructure (squid proxy) and cleans up with DeleteAndWait
+// - All tests share a single cluster-scoped OLSConfig CR
+// - FlakeAttempts(5) handles transient network and port-forwarding issues
 var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func() {
 
 	var cr *olsv1alpha1.OLSConfig
@@ -47,18 +54,17 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 	// Helper function to setup proxy configuration
 	setupProxyConfig := func(proxyURL string, proxyCACertRef *corev1.LocalObjectReference) {
 		By("modifying the olsconfig to use proxy")
-		err = client.Get(cr)
-		Expect(err).NotTo(HaveOccurred())
-
-		proxyConfig := &olsv1alpha1.ProxyConfig{
-			ProxyURL: proxyURL,
-		}
-		if proxyCACertRef != nil {
-			proxyConfig.ProxyCACertificateRef = proxyCACertRef
-		}
-		cr.Spec.OLSConfig.ProxyConfig = proxyConfig
-
-		err = client.Update(cr)
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			cr := obj.(*olsv1alpha1.OLSConfig)
+			proxyConfig := &olsv1alpha1.ProxyConfig{
+				ProxyURL: proxyURL,
+			}
+			if proxyCACertRef != nil {
+				proxyConfig.ProxyCACertificateRef = proxyCACertRef
+			}
+			cr.Spec.OLSConfig.ProxyConfig = proxyConfig
+			return nil
+		})
 		Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -402,9 +408,10 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 	AfterAll(func() {
 		err = mustGather("proxy_test")
 		Expect(err).NotTo(HaveOccurred())
-		By("Deleting the OLSConfig CR")
+		By("Deleting the OLSConfig CR and waiting for cleanup")
 		if cr != nil {
-			client.Delete(cr)
+			err = client.DeleteAndWait(cr, 3*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
 		}
 
 		By("Deleting the proxy configmap")
@@ -414,7 +421,7 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.Delete(configmap)
+		err = client.DeleteAndWait(configmap, 30*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Deleting the squid-config configmap")
@@ -424,7 +431,7 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.Delete(configmap)
+		err = client.DeleteAndWait(configmap, 30*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Deleting the proxy service")
@@ -434,7 +441,7 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.Delete(service)
+		err = client.DeleteAndWait(service, 30*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Deleting the squid deployment")
@@ -444,7 +451,7 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.Delete(deployment)
+		err = client.DeleteAndWait(deployment, 1*time.Minute)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Deleting the PVC")
@@ -454,14 +461,9 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.Delete(PVC)
+		By("Deleting the PVC and waiting for cleanup")
+		err = client.DeleteAndWait(PVC, 5*time.Minute)
 		Expect(err).NotTo(HaveOccurred())
-
-		By("Waiting for PVC to be fully deleted")
-		Eventually(func() bool {
-			err := client.Get(PVC)
-			return err != nil
-		}).WithTimeout(5*time.Minute).WithPolling(5*time.Second).Should(BeTrue(), "PVC was not deleted in time")
 
 		for _, cleanUpFunc := range cleanUpFuncs {
 			cleanUpFunc()

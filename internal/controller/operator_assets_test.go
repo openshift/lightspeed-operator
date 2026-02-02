@@ -336,7 +336,7 @@ var _ = Describe("Main Reconcile Loop", func() {
 
 		AfterEach(func() {
 			// Delete OLSConfig
-			_ = k8sClient.Delete(ctx, olsConfig)
+			cleanupOLSConfig(ctx, olsConfig)
 		})
 
 		It("should successfully reconcile OLSConfig", func() {

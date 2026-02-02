@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -21,20 +23,9 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
-// getLCoreReplicas returns the number of replicas for the LCore deployment
-func getLCoreReplicas(cr *olsv1alpha1.OLSConfig) *int32 {
-	// Use replicas from OLSConfig if specified, otherwise default to 1
-	if cr.Spec.OLSConfig.DeploymentConfig.Replicas != nil {
-		return cr.Spec.OLSConfig.DeploymentConfig.Replicas
-	}
-	// default number of replicas.
-	defaultReplicas := int32(1)
-	return &defaultReplicas
-}
-
 // getLlamaStackResources returns resource requirements for the llama-stack container
 // This container runs the Llama Stack inference service (sidecar to lightspeed-stack)
-func getLlamaStackResources(_ *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+func getLlamaStackResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
 	// llama-stack is a sidecar inference backend with fixed resource requirements
 	// It always gets default resources to ensure stable inference performance
 	// Users can configure the main API container (lightspeed-stack) via APIContainer.Resources
@@ -54,7 +45,8 @@ func getLlamaStackResources(_ *olsv1alpha1.OLSConfig) *corev1.ResourceRequiremen
 		},
 		Claims: []corev1.ResourceClaim{},
 	}
-	return defaultResources
+
+	return utils.GetResourcesOrDefault(cr.Spec.OLSConfig.DeploymentConfig.LlamaStackContainer.Resources, defaultResources)
 }
 
 // getLightspeedStackResources returns resource requirements for the lightspeed-stack container
@@ -72,6 +64,18 @@ func getLightspeedStackResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequ
 				corev1.ResourceMemory: resource.MustParse("512Mi"),
 			},
 			Claims: []corev1.ResourceClaim{},
+		},
+	)
+}
+
+// getOLSMCPServerResources returns resource requirements for the OpenShift MCP server sidecar
+func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+	return utils.GetResourcesOrDefault(
+		cr.Spec.OLSConfig.DeploymentConfig.MCPServerContainer.Resources,
+		&corev1.ResourceRequirements{
+			Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
+			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
+			Claims:   []corev1.ResourceClaim{},
 		},
 	)
 }
@@ -171,7 +175,91 @@ func buildLlamaStackEnvVars(r reconciler.Reconciler, ctx context.Context, cr *ol
 		return nil, err
 	}
 
+	// Add PostgreSQL password environment variable
+	envVars = append(envVars, corev1.EnvVar{
+		Name: "POSTGRES_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: utils.PostgresSecretName},
+				Key:                  utils.OLSComponentPasswordFileName,
+			},
+		},
+	})
+
 	return envVars, nil
+}
+
+// buildLightspeedStackEnvVars builds environment variables for the lightspeed-stack container
+func buildLightspeedStackEnvVars(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) []corev1.EnvVar {
+	envVars := []corev1.EnvVar{
+		{
+			Name: "LOG_LEVEL",
+			Value: func() string {
+				if cr.Spec.OLSConfig.LogLevel != "" {
+					return string(cr.Spec.OLSConfig.LogLevel)
+				}
+				return string(olsv1alpha1.LogLevelInfo)
+			}(),
+		},
+		// PostgreSQL password for database configuration
+		{
+			Name: "POSTGRES_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: utils.PostgresSecretName,
+					},
+					Key: utils.OLSComponentPasswordFileName,
+				},
+			},
+		},
+	}
+
+	return envVars
+}
+
+// validateMCPHeaderSecret validates that a secret exists and has the required structure for MCP headers.
+// This provides fail-fast validation consistent with AppServer's approach.
+//
+// Parameters:
+//   - r: Reconciler for K8s API access and logging
+//   - ctx: Context for the K8s API call
+//   - secretRef: Name of the secret to validate
+//   - serverName: Name of the MCP server (for error messages)
+//   - headerName: Name of the header (for error messages)
+//
+// Returns:
+//   - error if secret doesn't exist or has incorrect structure
+func validateMCPHeaderSecret(r reconciler.Reconciler, ctx context.Context, secretRef, serverName, headerName string) error {
+	secret := &corev1.Secret{}
+	err := r.Get(ctx, client.ObjectKey{Name: secretRef, Namespace: r.GetNamespace()}, secret)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.GetLogger().Error(err, "MCP header secret not found",
+				"server", serverName,
+				"secret", secretRef,
+				"header", headerName)
+			return fmt.Errorf("MCP server %s header secret %s is not found", serverName, secretRef)
+		}
+		r.GetLogger().Error(err, "Failed to get MCP header secret",
+			"server", serverName,
+			"secret", secretRef,
+			"header", headerName)
+		return fmt.Errorf("failed to get secret %s for MCP server %s: %w", secretRef, serverName, err)
+	}
+
+	// Validate secret has the required "header" key (consistent with AppServer)
+	if _, ok := secret.Data[utils.MCPSECRETDATAPATH]; !ok {
+		err := fmt.Errorf("secret missing required key '%s'", utils.MCPSECRETDATAPATH)
+		r.GetLogger().Error(err, "MCP header secret has incorrect structure",
+			"server", serverName,
+			"secret", secretRef,
+			"header", headerName,
+			"requiredKey", utils.MCPSECRETDATAPATH)
+		return fmt.Errorf("header secret %s for MCP server %s is missing key '%s'", secretRef, serverName, utils.MCPSECRETDATAPATH)
+	}
+
+	return nil
 }
 
 // GenerateLCoreDeployment generates the Deployment for LCore (llama-stack + lightspeed-stack)
@@ -180,7 +268,6 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := utils.VolumeDefaultMode
 
-	replicas := getLCoreReplicas(cr)
 	llamaStackResources := getLlamaStackResources(cr)
 	lightspeedStackResources := getLightspeedStackResources(cr)
 
@@ -229,15 +316,6 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			},
 		},
 		{
-			Name: "secret-lightspeed-tls",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  utils.OLSCertsSecretName,
-					DefaultMode: &volumeDefaultMode,
-				},
-			},
-		},
-		{
 			Name: utils.OpenShiftCAVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -248,6 +326,32 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 				},
 			},
 		},
+	}
+
+	// PostgreSQL CA ConfigMap volume (for TLS certificate verification)
+	volumes = append(volumes, utils.GetPostgresCAConfigVolume())
+
+	// Add external TLS secret if provided by user
+	var tlsVolumeMounts []corev1.VolumeMount
+	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+		// User provided custom TLS secret
+		volumes = append(volumes, corev1.Volume{
+			Name: "secret-lightspeed-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name,
+					DefaultMode: &volumeDefaultMode,
+				},
+			},
+		})
+
+		tlsVolumeMounts = []corev1.VolumeMount{
+			{
+				Name:      "secret-lightspeed-tls",
+				MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
+				ReadOnly:  true,
+			},
+		}
 	}
 
 	// llama-stack container volume mounts
@@ -268,6 +372,8 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			MountPath: "/etc/pki/ca-trust/extracted/pem",
 			ReadOnly:  true,
 		},
+		// PostgreSQL CA ConfigMap (service-ca.crt for TLS verification)
+		utils.GetPostgresCAVolumeMount("/etc/certs/postgres-ca"),
 	}
 
 	// User provided CA certificates - create both volumes and volume mounts in single pass
@@ -408,61 +514,114 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 				Protocol:      corev1.ProtocolTCP,
 			},
 		},
-		Env: []corev1.EnvVar{
-			{
-				Name: "LOG_LEVEL",
-				Value: func() string {
-					if cr.Spec.OLSConfig.LogLevel != "" {
-						return cr.Spec.OLSConfig.LogLevel
-					}
-					return "INFO"
-				}(),
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "lightspeed-stack-config",
-				MountPath: "/app-root/lightspeed-stack.yaml",
-				SubPath:   "lightspeed-stack.yaml",
-			},
-			{
-				Name:      "secret-lightspeed-tls",
-				MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
-				ReadOnly:  true,
-			},
-		},
-		LivenessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				Exec: &corev1.ExecAction{
-					Command: []string{
-						"sh",
-						"-c",
-						"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/liveness",
-					},
-				},
-			},
-			InitialDelaySeconds: 20,
-			PeriodSeconds:       10,
-			TimeoutSeconds:      5,
-			FailureThreshold:    3,
-		},
-		ReadinessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				Exec: &corev1.ExecAction{
-					Command: []string{
-						"sh",
-						"-c",
-						"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/liveness",
-					},
-				},
-			},
-			InitialDelaySeconds: 20,
-			PeriodSeconds:       10,
-			TimeoutSeconds:      5,
-			FailureThreshold:    3,
-		},
-		Resources: *lightspeedStackResources,
+		Env: buildLightspeedStackEnvVars(r, cr),
 	}
+
+	// Build lightspeed-stack volume mounts
+	lightspeedStackVolumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "lightspeed-stack-config",
+			MountPath: "/app-root/lightspeed-stack.yaml",
+			SubPath:   "lightspeed-stack.yaml",
+		},
+	}
+
+	// Add TLS volume mounts from external secrets
+	lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, tlsVolumeMounts...)
+
+	// TLS certificate volume and mount - only if using service-ca (not custom TLS)
+	// If user provides TLSConfig.KeyCertSecretRef, it's already mounted above via ForEachExternalSecret
+	if cr.Spec.OLSConfig.TLSConfig == nil || cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name == "" {
+		volumes = append(volumes, corev1.Volume{
+			Name: "secret-lightspeed-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  utils.OLSCertsSecretName,
+					DefaultMode: &volumeDefaultMode,
+				},
+			},
+		})
+		lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, corev1.VolumeMount{
+			Name:      "secret-lightspeed-tls",
+			MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
+			ReadOnly:  true,
+		})
+	}
+
+	// PostgreSQL CA ConfigMap (service-ca.crt for OpenShift CA)
+	lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, "postgres-ca")))
+
+	// Mount MCP server header secrets - only for HTTP-compatible servers
+	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer) {
+		// Filter to HTTP-only servers (no logging needed here, already logged in config)
+		filteredServers := FilterHTTPMCPServers(r, cr, cr.Spec.MCPServers)
+
+		for _, server := range filteredServers {
+			if server.StreamableHTTP != nil && server.StreamableHTTP.Headers != nil {
+				for headerName, secretRef := range server.StreamableHTTP.Headers {
+					// Skip special placeholders
+					if secretRef == utils.KUBERNETES_PLACEHOLDER || secretRef == "" {
+						continue
+					}
+
+					// Validate secret exists and has correct structure
+					// This provides fail-fast validation consistent with AppServer
+					if err := validateMCPHeaderSecret(r, ctx, secretRef, server.Name, headerName); err != nil {
+						return nil, err
+					}
+
+					volumes = append(volumes, corev1.Volume{
+						Name: "header-" + secretRef,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName:  secretRef,
+								DefaultMode: &volumeDefaultMode,
+							},
+						},
+					})
+
+					lightspeedStackVolumeMounts = append(lightspeedStackVolumeMounts, corev1.VolumeMount{
+						Name:      "header-" + secretRef,
+						MountPath: path.Join(utils.MCPHeadersMountRoot, secretRef),
+						ReadOnly:  true,
+					})
+				}
+			}
+		}
+	}
+
+	lightspeedStackContainer.VolumeMounts = lightspeedStackVolumeMounts
+	lightspeedStackContainer.LivenessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{
+					"sh",
+					"-c",
+					"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/liveness",
+				},
+			},
+		},
+		InitialDelaySeconds: 20,
+		PeriodSeconds:       10,
+		TimeoutSeconds:      5,
+		FailureThreshold:    3,
+	}
+	lightspeedStackContainer.ReadinessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{
+					"sh",
+					"-c",
+					"curl -k --fail -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" https://localhost:8443/readiness",
+				},
+			},
+		},
+		InitialDelaySeconds: 20,
+		PeriodSeconds:       10,
+		TimeoutSeconds:      5,
+		FailureThreshold:    3,
+	}
+	lightspeedStackContainer.Resources = *lightspeedStackResources
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -475,7 +634,6 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": "lightspeed-stack",
@@ -498,16 +656,40 @@ func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 		},
 	}
 
-	// Apply NodeSelector and Tolerations from APIContainer config if specified
-	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector != nil {
-		deployment.Spec.Template.Spec.NodeSelector = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector
-	}
-	if cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations != nil {
-		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations
+	// Apply pod-level scheduling constraints (replicas configurable for lcore)
+	utils.ApplyPodDeploymentConfig(&deployment, cr.Spec.OLSConfig.DeploymentConfig.APIContainer, true)
+
+	if len(cr.Spec.OLSConfig.RAG) > 0 {
+		if cr.Spec.OLSConfig.ImagePullSecrets != nil {
+			deployment.Spec.Template.Spec.ImagePullSecrets = cr.Spec.OLSConfig.ImagePullSecrets
+		}
 	}
 
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {
 		return nil, err
+	}
+
+	// Add OpenShift MCP server sidecar container if introspection is enabled
+	if cr.Spec.OLSConfig.IntrospectionEnabled {
+		openshiftMCPServerContainer := corev1.Container{
+			Name:            utils.OpenShiftMCPServerContainerName,
+			Image:           r.GetOpenShiftMCPServerImage(),
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			SecurityContext: &corev1.SecurityContext{
+				AllowPrivilegeEscalation: &[]bool{false}[0],
+				ReadOnlyRootFilesystem:   &[]bool{true}[0],
+			},
+			Command: []string{
+				"/openshift-mcp-server",
+				"--read-only",
+				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
+			},
+			Resources: *getOLSMCPServerResources(cr),
+		}
+		deployment.Spec.Template.Spec.Containers = append(
+			deployment.Spec.Template.Spec.Containers,
+			openshiftMCPServerContainer,
+		)
 	}
 
 	return &deployment, nil

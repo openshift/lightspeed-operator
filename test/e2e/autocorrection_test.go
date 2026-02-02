@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,9 +14,14 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Test Design Notes:
+// - Uses Ordered to ensure serial execution (critical for test isolation)
+// - All tests share a single cluster-scoped OLSConfig CR
+// - Uses DeleteAndWait in AfterAll to prevent resource pollution between test suites
+// - Uses Update with automatic retry to handle concurrent operator reconciliation
 var _ = Describe("Automatic correction against modifications on managed resources", Ordered, func() {
 	var cr *olsv1alpha1.OLSConfig
 	var client *Client
@@ -37,9 +43,9 @@ var _ = Describe("Automatic correction against modifications on managed resource
 		Expect(err).NotTo(HaveOccurred())
 		err = mustGather("autocorrection_test")
 		Expect(err).NotTo(HaveOccurred())
-		By("Deleting the OLSConfig CR")
+		By("Deleting the OLSConfig CR and waiting for cleanup")
 		Expect(cr).NotTo(BeNil())
-		err = client.Delete(cr)
+		err = client.DeleteAndWait(cr, 3*time.Minute)
 		Expect(err).NotTo(HaveOccurred())
 
 	})
@@ -83,20 +89,11 @@ var _ = Describe("Automatic correction against modifications on managed resource
 		err = client.WaitForObjectCreated(deployment)
 		Expect(err).NotTo(HaveOccurred())
 		originDeployment := deployment.DeepCopy()
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			deployment := &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      ConsolePluginDeploymentName,
-					Namespace: OLSNameSpace,
-				},
-			}
-			err = client.Get(deployment)
-			if err != nil {
-				return fmt.Errorf("wait for deployment to be created: %w", err)
-			}
-
-			deployment.Spec.Replicas = Ptr(1 + *deployment.Spec.Replicas)
-			return client.Update(deployment)
+		By("restoring console plugin deployment")
+		err = client.Update(deployment, func(obj ctrlclient.Object) error {
+			dep := obj.(*appsv1.Deployment)
+			dep.Spec.Replicas = Ptr(1 + *dep.Spec.Replicas)
+			return nil
 		})
 		Expect(err).NotTo(HaveOccurred())
 		var lastErr error
@@ -121,22 +118,14 @@ var _ = Describe("Automatic correction against modifications on managed resource
 		err = client.Get(service)
 		Expect(err).NotTo(HaveOccurred())
 		originService := service.DeepCopy()
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			service := &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      ConsolePluginServiceName,
-					Namespace: OLSNameSpace,
-				},
-			}
-			err = client.Get(service)
-			if err != nil {
-				return fmt.Errorf("get service: %w", err)
-			}
-			service.Spec.Ports[0].Name = "wrong-port-name"
-			service.Spec.Selector = map[string]string{
+		By("restoring console plugin service")
+		err = client.Update(service, func(obj ctrlclient.Object) error {
+			svc := obj.(*corev1.Service)
+			svc.Spec.Ports[0].Name = "wrong-port-name"
+			svc.Spec.Selector = map[string]string{
 				"wrong": "label",
 			}
-			return client.Update(service)
+			return nil
 		})
 		Expect(err).NotTo(HaveOccurred())
 		err = wait.PollUntilContextTimeout(client.ctx, DefaultPollInterval, DefaultPollTimeout, true, func(ctx context.Context) (bool, error) {
@@ -160,18 +149,11 @@ var _ = Describe("Automatic correction against modifications on managed resource
 		err = client.Get(consoleplugin)
 		Expect(err).NotTo(HaveOccurred())
 		originConsolePlugin := consoleplugin.DeepCopy()
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			consoleplugin := &consolev1.ConsolePlugin{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: ConsoleUIPluginName,
-				},
-			}
-			err = client.Get(consoleplugin)
-			if err != nil {
-				return fmt.Errorf("get consoleplugin: %w", err)
-			}
-			consoleplugin.Spec.DisplayName = "New Console Plugin Name"
-			return client.Update(consoleplugin)
+		By("restoring console plugin CR")
+		err = client.Update(consoleplugin, func(obj ctrlclient.Object) error {
+			cp := obj.(*consolev1.ConsolePlugin)
+			cp.Spec.DisplayName = "New Console Plugin Name"
+			return nil
 		})
 		Expect(err).NotTo(HaveOccurred())
 		err = wait.PollUntilContextTimeout(client.ctx, DefaultPollInterval, DefaultPollTimeout, true, func(ctx context.Context) (bool, error) {
@@ -195,19 +177,10 @@ var _ = Describe("Automatic correction against modifications on managed resource
 		err = client.Get(configmap)
 		Expect(err).NotTo(HaveOccurred())
 		originConfigMap := configmap.DeepCopy()
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			configmap := &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      ConsoleUIConfigMapName,
-					Namespace: OLSNameSpace,
-				},
-			}
-			err = client.Get(configmap)
-			if err != nil {
-				return fmt.Errorf("get console configmap: %w", err)
-			}
-			configmap.Data["nginx.conf"] = "new-config"
-			return client.Update(configmap)
+		err = client.Update(configmap, func(obj ctrlclient.Object) error {
+			cm := obj.(*corev1.ConfigMap)
+			cm.Data["nginx.conf"] = "new-config"
+			return nil
 		})
 		Expect(err).NotTo(HaveOccurred())
 		err = wait.PollUntilContextTimeout(client.ctx, DefaultPollInterval, DefaultPollTimeout, true, func(ctx context.Context) (bool, error) {

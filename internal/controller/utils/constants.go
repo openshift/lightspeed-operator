@@ -16,8 +16,8 @@ const (
 	OLSConfigKind = "OLSConfig"
 	// OLSConfigAPIVersion is the APIVersion of the OLSConfig Custom Resource
 	OLSConfigAPIVersion = "ols.openshift.io/v1alpha1"
-	// DefaultReconcileInterval is the default interval for reconciliation
-	DefaultReconcileInterval = 120
+	// OLSConfigFinalizer is the finalizer for OLSConfig CR to ensure proper cleanup
+	OLSConfigFinalizer = "ols.openshift.io/finalizer"
 	// OperatorCertDirDefault is the default directory for storing the operator certificate
 	OperatorCertDirDefault = "/etc/tls/private"
 	// OperatorCertNameDefault is the default name of the operator certificate
@@ -56,6 +56,8 @@ const (
 	CredentialsMountRoot = "/etc/credentials"
 	// OLSAppCertsMountRoot is the directory hosting the cert files in the container
 	OLSAppCertsMountRoot = "/etc/certs"
+	// OLSConfigMountRoot is the directory hosting the OLS configuration files in the container
+	OLSConfigMountRoot = "/etc/ols"
 	// OLSComponentPasswordFileName is the generic name of the password file for each of its components
 	OLSComponentPasswordFileName = "password"
 	// OLSConfigFilename is the name of the application server configuration file
@@ -118,6 +120,8 @@ const (
 	AzureOpenAIType = "azure_openai"
 	// DeploymentInProgress message
 	DeploymentInProgress = "In Progress"
+	// OLSSystemPromptFileName is the filename for the system prompt
+	OLSSystemPromptFileName = "system_prompt"
 
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
@@ -212,16 +216,37 @@ const (
 	// PostgresDefaultSSLMode is the default ssl mode for postgres
 	PostgresDefaultSSLMode = "require"
 	// PostgresBootStrapScriptContent is the postgres's bootstrap script content
+	// NOTE: Database name must match LlamaStackDatabaseName constant (hardcoded by llama-stack)
 	PostgresBootStrapScriptContent = `
 #!/bin/bash
 
 cat /var/lib/pgsql/data/userdata/postgresql.conf
 
-echo "attempting to create pg_trgm extension if it does not exist"
+echo "attempting to create llama-stack database and pg_trgm extension if they do not exist"
 
 _psql () { psql --set ON_ERROR_STOP=1 "$@" ; }
 
+# Create database for llama-stack conversation storage
+# Database name is hardcoded by llama-stack internally (value from LlamaStackDatabaseName: ` + LlamaStackDatabaseName + `)
+DB_NAME="` + LlamaStackDatabaseName + `"
+
+echo "SELECT 'CREATE DATABASE $DB_NAME' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DB_NAME')\gexec" | _psql -d $POSTGRESQL_DATABASE
+
+# Create pg_trgm extension in default database (for OLS conversation cache)
 echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $POSTGRESQL_DATABASE
+
+# Create pg_trgm extension in llama-stack database (for text search if needed)
+echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $DB_NAME
+
+# Create schemas for isolating different components' data
+# lcore schema: main lightspeed-stack data (general database operations)
+echo "CREATE SCHEMA IF NOT EXISTS lcore;" | _psql -d $POSTGRESQL_DATABASE
+
+# quota schema: token quota tracking and limits
+echo "CREATE SCHEMA IF NOT EXISTS quota;" | _psql -d $POSTGRESQL_DATABASE
+
+# conversation_cache schema: conversation history storage
+echo "CREATE SCHEMA IF NOT EXISTS conversation_cache;" | _psql -d $POSTGRESQL_DATABASE
 `
 	// PostgresConfigMapContent is the postgres's config content
 	PostgresConfigMapContent = `
@@ -299,6 +324,12 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	ExporterConfigFilename = "config.yaml"
 	// OLSUserDataMountPath is the path where user data is mounted in the app server container
 	OLSUserDataMountPath = "/app-root/ols-user-data"
+	// ServiceIDOLS is the service ID used by the data exporter
+	ServiceIDOLS = "ols"
+	// RHOSOLightspeedOwnerIDLabel is the label used to identify RHOSO Lightspeed deployment
+	RHOSOLightspeedOwnerIDLabel = "openstack.org/lightspeed-owner-id"
+	// ServiceIDRHOSO is the service ID used by the data exporter when RHOSO Lightspeed is deployed
+	ServiceIDRHOSO = "rhos-lightspeed"
 
 	/*** Container Names (used for testing) ***/
 	// OLSAppServerContainerName is the name of the OLS application server container
@@ -311,16 +342,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	PostgresContainerName = "lightspeed-postgres-server"
 	// OpenShiftMCPServerContainerName is the name of the OpenShift MCP server container
 	OpenShiftMCPServerContainerName = "openshift-mcp-server"
-
-	/*** Log Levels (used for testing) ***/
-	// LogLevelInfo is the INFO log level
-	LogLevelInfo = "INFO"
-	// LogLevelDebug is the DEBUG log level
-	LogLevelDebug = "DEBUG"
-	// LogLevelWarning is the WARNING log level
-	LogLevelWarning = "WARNING"
-	// LogLevelError is the ERROR log level
-	LogLevelError = "ERROR"
 
 	/*** LCore specific Settings ***/
 	// LlamaStackConfigCmName name for the Llama stack config map
@@ -359,4 +380,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	LlamaStackConfigMapResourceVersionAnnotation = "ols.openshift.io/llamastack-configmap-version"
 	// LCoreConfigMapResourceVersionAnnotation is the annotation key for tracking LCore ConfigMap ResourceVersion
 	LCoreConfigMapResourceVersionAnnotation = "ols.openshift.io/lcore-configmap-version"
+	// LlamaStackDatabaseName is the PostgreSQL database name for llama-stack conversation storage.
+	// CRITICAL: This value is HARDCODED in llama-stack's internal PostgreSQL adapter.
+	// DO NOT CHANGE THIS VALUE UNDER ANY CIRCUMSTANCES - llama-stack expects exactly "llamastack".
+	// Changing this will break llama-stack's database connectivity.
+	// This database is created in PostgresBootStrapScriptContent.
+	LlamaStackDatabaseName = "llamastack"
 )

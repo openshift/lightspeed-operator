@@ -142,11 +142,6 @@ func ReconcileAppServerDeployment(r reconciler.Reconciler, ctx context.Context, 
 }
 
 func reconcileOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	err := checkLLMCredentials(r, ctx, cr)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrCheckLLMCredentials, err)
-	}
-
 	cm, err := GenerateOLSConfigMap(r, ctx, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateAPIConfigmap, err)
@@ -378,11 +373,13 @@ func reconcileService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alp
 	}
 
 	if utils.ServiceEqual(foundService, service) && foundService.Annotations != nil {
-		if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate != "" {
+		// Check if service-ca annotation matches (or both absent for custom TLS mode)
+		if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
+			// Custom TLS mode - no service-ca annotation expected
 			r.GetLogger().Info("OLS service unchanged, reconciliation skipped", "service", service.Name)
 			return nil
-
 		} else if foundService.Annotations[utils.ServingCertSecretAnnotationKey] == service.Annotations[utils.ServingCertSecretAnnotationKey] {
+			// Service-ca mode - check annotation matches
 			r.GetLogger().Info("OLS service unchanged, reconciliation skipped", "service", service.Name)
 			return nil
 		}

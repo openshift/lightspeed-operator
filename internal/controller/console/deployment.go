@@ -30,6 +30,7 @@ func GenerateConsoleUIDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSCon
 	val_true := true
 	volumeDefaultMode := utils.VolumeDefaultMode
 	resources := getConsoleUIResources(cr)
+	replicas := int32(1) // Console always runs 1 replica
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.ConsoleUIDeploymentName,
@@ -37,7 +38,7 @@ func GenerateConsoleUIDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSCon
 			Labels:    GenerateConsoleUILabels(),
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Replicas,
+			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: GenerateConsoleUILabels(),
 			},
@@ -122,12 +123,8 @@ func GenerateConsoleUIDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSCon
 		},
 	}
 
-	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.NodeSelector != nil {
-		deployment.Spec.Template.Spec.NodeSelector = cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.NodeSelector
-	}
-	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Tolerations != nil {
-		deployment.Spec.Template.Spec.Tolerations = cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.Tolerations
-	}
+	// Apply pod-level scheduling constraints (replicas not configurable for console)
+	utils.ApplyPodDeploymentConfig(deployment, cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer, false)
 
 	if err := controllerutil.SetControllerReference(cr, deployment, r.GetScheme()); err != nil {
 		return nil, err

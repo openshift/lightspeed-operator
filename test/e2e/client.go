@@ -3,6 +3,8 @@ package e2e
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -33,6 +35,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -137,16 +140,75 @@ func (c *Client) Get(o client.Object) (err error) {
 	return c.kClient.Get(ctx, nsName, o)
 }
 
-func (c *Client) Update(o client.Object) (err error) {
-	ctx, cancel := context.WithTimeout(c.ctx, c.timeout)
-	defer cancel()
-	return c.kClient.Update(ctx, o)
+// Update fetches the latest version of an object, applies modifications via the modifier function,
+// and automatically retries on conflicts. This handles the common race condition where the operator
+// reconciles while the test is updating the same resource.
+func (c *Client) Update(obj client.Object, modifier func(client.Object) error) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Get the latest version
+		ctx, cancel := context.WithTimeout(c.ctx, c.timeout)
+		defer cancel()
+
+		key := client.ObjectKeyFromObject(obj)
+		if err := c.kClient.Get(ctx, key, obj); err != nil {
+			return err
+		}
+
+		// Apply modifications
+		if err := modifier(obj); err != nil {
+			return err
+		}
+
+		// Update with fresh version
+		return c.kClient.Update(ctx, obj)
+	})
 }
 
 func (c *Client) Delete(o client.Object) (err error) {
 	ctx, cancel := context.WithTimeout(c.ctx, c.timeout)
 	defer cancel()
 	return c.kClient.Delete(ctx, o)
+}
+
+// DeleteAndWait deletes an object and waits for it to be fully removed from the cluster.
+// This ensures complete cleanup before tests proceed, preventing resource pollution from
+// resources with owner references that trigger cascade deletion (e.g., OLSConfig CR).
+// Returns nil if the object is already deleted (IsNotFound).
+func (c *Client) DeleteAndWait(obj client.Object, timeout time.Duration) error {
+	kind := obj.GetObjectKind().GroupVersionKind().Kind
+	namespace := obj.GetNamespace()
+	name := obj.GetName()
+
+	// Delete the object
+	if err := c.Delete(obj); err != nil {
+		if k8serrors.IsNotFound(err) {
+			// Already deleted, nothing to wait for
+			return nil
+		}
+		return fmt.Errorf("failed to delete %s %s/%s: %w", kind, namespace, name, err)
+	}
+
+	// Wait for complete deletion
+	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, timeout, true, func(ctx context.Context) (bool, error) {
+		err := c.Get(obj)
+		if k8serrors.IsNotFound(err) {
+			return true, nil
+		}
+		if err != nil {
+			// Unexpected error - keep polling
+			return false, nil
+		}
+		// Object still exists, keep waiting
+		return false, nil
+	})
+
+	if err != nil {
+		// Add more context when timeout occurs
+		return fmt.Errorf("timeout waiting for %s %s/%s to be deleted after %v: %w",
+			kind, namespace, name, timeout, err)
+	}
+
+	return nil
 }
 
 func (c *Client) List(o client.ObjectList, opts ...client.ListOption) (err error) {
@@ -939,6 +1001,57 @@ func (c *Client) CreatePVC(name, storageClassName string, volumeSize resource.Qu
 		err := c.Delete(pv)
 		if err != nil {
 			logf.Log.Error(err, "Error deleting PersistentVolumeClaim")
+		}
+	}, nil
+}
+
+func (c *Client) CreateDockerRegistrySecret(namespace, name, server, username, password, email string) (func(), error) {
+	auth := base64.StdEncoding.EncodeToString(
+		[]byte(username + ":" + password),
+	)
+
+	dockerConfig := map[string]any{
+		"auths": map[string]any{
+			server: map[string]string{
+				"username": username,
+				"password": password,
+				"email":    email,
+				"auth":     auth,
+			},
+		},
+	}
+
+	dockerConfigJSON, err := json.Marshal(dockerConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			corev1.DockerConfigJsonKey: dockerConfigJSON,
+		},
+	}
+	if err := c.Create(secret); err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			logf.Log.Error(err, "Secret %s/%s already exists", namespace, name)
+		} else {
+			return nil, err
+		}
+	}
+
+	if err := c.WaitForSecretCreated(secret); err != nil {
+		return nil, err
+	}
+
+	return func() {
+		err := c.Delete(secret)
+		if err != nil {
+			logf.Log.Error(err, "Error deleting secret %s/%s", namespace, name)
 		}
 	}, nil
 }

@@ -13,7 +13,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-// Try to retry test case multipletimes when failing.
+// Test Design Notes:
+// - Uses Ordered to ensure serial execution (critical for test isolation)
+// - All tests share a single cluster-scoped OLSConfig CR
+// - Uses DeleteAndWait in AfterAll to prevent resource pollution between test suites
+// - FlakeAttempts(5) handles transient Prometheus query timing issues
 var _ = Describe("Prometheus Metrics", FlakeAttempts(5), Ordered, func() {
 	const metricsViewerSAName = "metrics-viewer-sa"
 	const clusterMonitoringViewClusterRole = "cluster-monitoring-view"
@@ -90,9 +94,9 @@ var _ = Describe("Prometheus Metrics", FlakeAttempts(5), Ordered, func() {
 
 		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
-		By("Deleting the OLSConfig CR")
+		By("Deleting the OLSConfig CR and waiting for cleanup")
 		Expect(cr).NotTo(BeNil())
-		err = client.Delete(cr)
+		err = client.DeleteAndWait(cr, 3*time.Minute)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

@@ -103,46 +103,8 @@ func generateSARClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 	return &rb, nil
 }
 
-func checkLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	for _, provider := range cr.Spec.LLMConfig.Providers {
-		if provider.CredentialsSecretRef.Name == "" {
-			return fmt.Errorf("provider %s missing credentials secret", provider.Name)
-		}
-		secret := &corev1.Secret{}
-		err := r.Get(ctx, client.ObjectKey{Name: provider.CredentialsSecretRef.Name, Namespace: r.GetNamespace()}, secret)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return fmt.Errorf("LLM provider %s credential secret %s not found", provider.Name, provider.CredentialsSecretRef.Name)
-			}
-			return fmt.Errorf("failed to get LLM provider %s credential secret %s: %w", provider.Name, provider.CredentialsSecretRef.Name, err)
-		}
-		if provider.Type == utils.AzureOpenAIType {
-			// Azure OpenAI secret must contain "apitoken" or 3 keys named "client_id", "tenant_id", "client_secret"
-			if _, ok := secret.Data["apitoken"]; ok {
-				continue
-			}
-			for _, key := range []string{"client_id", "tenant_id", "client_secret"} {
-				if _, ok := secret.Data[key]; !ok {
-					return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, key)
-				}
-			}
-		} else {
-			// Other providers (e.g. WatsonX, OpenAI) must contain a key named "apikey"
-			if _, ok := secret.Data["apitoken"]; !ok {
-				return fmt.Errorf("LLM provider %s credential secret %s missing key 'apitoken'", provider.Name, provider.CredentialsSecretRef.Name)
-			}
-		}
-	}
-	return nil
-}
-
-func postgresCacheConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) utils.PostgresCacheConfig {
-	postgresSecretName := utils.PostgresSecretName
-	postgresConfig := cr.Spec.OLSConfig.ConversationCache.Postgres
-	if postgresConfig.CredentialsSecret != "" {
-		postgresSecretName = cr.Spec.OLSConfig.ConversationCache.Postgres.CredentialsSecret
-	}
-	postgresPasswordPath := path.Join(utils.CredentialsMountRoot, postgresSecretName, utils.OLSComponentPasswordFileName)
+func postgresCacheConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) utils.PostgresCacheConfig {
+	postgresPasswordPath := path.Join(utils.CredentialsMountRoot, utils.PostgresSecretName, utils.OLSComponentPasswordFileName)
 	return utils.PostgresCacheConfig{
 		Host:         strings.Join([]string{utils.PostgresServiceName, r.GetNamespace(), "svc"}, "."),
 		Port:         utils.PostgresServicePort,
@@ -150,7 +112,7 @@ func postgresCacheConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) uti
 		DbName:       utils.PostgresDefaultDbName,
 		PasswordPath: postgresPasswordPath,
 		SSLMode:      utils.PostgresDefaultSSLMode,
-		CACertPath:   path.Join(utils.OLSAppCertsMountRoot, utils.PostgresCertsSecretName, utils.PostgresCAVolume, "service-ca.crt"),
+		CACertPath:   path.Join(utils.OLSAppCertsMountRoot, "postgres-ca", "service-ca.crt"),
 	}
 }
 
@@ -206,14 +168,11 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 
 	dataCollectorEnabled, _ := dataCollectorEnabled(r, cr)
 
+	// TLS config always uses /etc/certs/lightspeed-tls/ path
+	// regardless of whether it's service-ca generated or user-provided
 	tlsConfig := utils.TLSConfig{
-		TLSCertificatePath: path.Join(utils.OLSAppCertsMountRoot, utils.OLSCertsSecretName, "tls.crt"),
-		TLSKeyPath:         path.Join(utils.OLSAppCertsMountRoot, utils.OLSCertsSecretName, "tls.key"),
-	}
-
-	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
-		tlsConfig.TLSCertificatePath = path.Join(utils.OLSAppCertsMountRoot, cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name, "tls.crt")
-		tlsConfig.TLSKeyPath = path.Join(utils.OLSAppCertsMountRoot, cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name, "tls.key")
+		TLSCertificatePath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.crt"),
+		TLSKeyPath:         path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.key"),
 	}
 
 	var proxyConfig *utils.ProxyConfig
@@ -255,9 +214,9 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
 		DefaultProvider: cr.Spec.OLSConfig.DefaultProvider,
 		Logging: utils.LoggingConfig{
-			AppLogLevel:     cr.Spec.OLSConfig.LogLevel,
-			LibLogLevel:     cr.Spec.OLSConfig.LogLevel,
-			UvicornLogLevel: cr.Spec.OLSConfig.LogLevel,
+			AppLogLevel:     string(cr.Spec.OLSConfig.LogLevel),
+			LibLogLevel:     string(cr.Spec.OLSConfig.LogLevel),
+			UvicornLogLevel: string(cr.Spec.OLSConfig.LogLevel),
 		},
 		ConversationCache: conversationCache,
 		TLSConfig:         tlsConfig,
@@ -318,6 +277,10 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		olsConfig.QueryFilters = queryFilters
 	}
 
+	if cr.Spec.OLSConfig.QuerySystemPrompt != "" {
+		olsConfig.SystemPromptPath = path.Join(utils.OLSConfigMountRoot, utils.OLSSystemPromptFileName)
+	}
+
 	appSrvConfigFile := utils.AppSrvConfigFile{
 		LLMProviders: providerConfigs,
 		OLSConfig:    olsConfig,
@@ -325,7 +288,7 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 	if dataCollectorEnabled {
 		appSrvConfigFile.UserDataCollectorConfig = utils.UserDataCollectorConfig{
 			DataStorage: "/app-root/ols-user-data",
-			LogLevel:    cr.Spec.OLSDataCollectorConfig.LogLevel,
+			LogLevel:    string(cr.Spec.OLSDataCollectorConfig.LogLevel),
 		}
 	}
 
@@ -361,15 +324,21 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		return nil, fmt.Errorf("failed to generate OLS config file %w", err)
 	}
 
+	data := map[string]string{
+		utils.OLSConfigFilename: string(configFileBytes),
+	}
+
+	if cr.Spec.OLSConfig.QuerySystemPrompt != "" {
+		data[utils.OLSSystemPromptFileName] = cr.Spec.OLSConfig.QuerySystemPrompt
+	}
+
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OLSConfigCmName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GenerateAppServerSelectorLabels(),
 		},
-		Data: map[string]string{
-			utils.OLSConfigFilename: string(configFileBytes),
-		},
+		Data: data,
 	}
 
 	if err := controllerutil.SetControllerReference(cr, &cm, r.GetScheme()); err != nil {
@@ -380,16 +349,24 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 }
 
 func generateExporterConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+	serviceID := utils.ServiceIDOLS
+	if cr.Labels != nil {
+		if _, hasRHOSLightspeedLabel := cr.Labels[utils.RHOSOLightspeedOwnerIDLabel]; hasRHOSLightspeedLabel {
+			serviceID = utils.ServiceIDRHOSO
+		}
+	}
+
 	// Collection interval is set to 300 seconds in production (5 minutes)
-	exporterConfigContent := `service_id: "ols"
+	exporterConfigContent := fmt.Sprintf(`service_id: "%s"
 ingress_server_url: "https://console.redhat.com/api/ingress/v1/upload"
 allowed_subdirs:
  - feedback
  - transcripts
+ - config_status
 # Collection settings
 collection_interval: 300
 cleanup_after_send: true
-ingress_connection_timeout: 30`
+ingress_connection_timeout: 30`, serviceID)
 
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -457,11 +434,9 @@ func validateCertificateInConfigMap(r reconciler.Reconciler, ctx context.Context
 func GenerateService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
 	annotations := map[string]string{}
 
-	// Let service-ca operator generate a TLS certificate if the user does not provide one
-	if cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer.CAcertificate == "" {
+	// Let service-ca operator generate a TLS certificate if the user does not provide their own
+	if cr.Spec.OLSConfig.TLSConfig == nil || cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name == "" {
 		annotations[utils.ServingCertSecretAnnotationKey] = utils.OLSCertsSecretName
-	} else {
-		delete(annotations, utils.ServingCertSecretAnnotationKey)
 	}
 
 	service := corev1.Service{

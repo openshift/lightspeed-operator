@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -108,6 +109,45 @@ func GetResourcesOrDefault(customResources *corev1.ResourceRequirements, default
 		return customResources
 	}
 	return defaultResources
+}
+
+// ApplyPodDeploymentConfig applies PodDeploymentConfig settings to a Deployment.
+// This centralizes the logic for applying pod-level configurations (NodeSelector, Tolerations, etc.)
+// to avoid code duplication across different deployment generators.
+//
+// Parameters:
+//   - deployment: The deployment to modify
+//   - config: The PodDeploymentConfig containing the desired settings
+//   - applyReplicas: Whether to apply the Replicas field (only true for appserver/lcore)
+//
+// Usage:
+//
+//	// For console/postgres (replicas always 1):
+//	utils.ApplyPodDeploymentConfig(deployment, cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer, false)
+//
+//	// For appserver/lcore (replicas configurable):
+//	utils.ApplyPodDeploymentConfig(deployment, cr.Spec.OLSConfig.DeploymentConfig.APIContainer, true)
+func ApplyPodDeploymentConfig(deployment *appsv1.Deployment, config olsv1alpha1.Config, applyReplicas bool) {
+	// Apply replicas if allowed (only for appserver/lcore)
+	if applyReplicas && config.Replicas != nil {
+		deployment.Spec.Replicas = config.Replicas
+	} else {
+		deployment.Spec.Replicas = &[]int32{1}[0]
+	}
+
+	// Apply pod-level scheduling constraints
+	if config.NodeSelector != nil {
+		deployment.Spec.Template.Spec.NodeSelector = config.NodeSelector
+	}
+	if config.Tolerations != nil {
+		deployment.Spec.Template.Spec.Tolerations = config.Tolerations
+	}
+	if config.Affinity != nil {
+		deployment.Spec.Template.Spec.Affinity = config.Affinity
+	}
+	if config.TopologySpreadConstraints != nil {
+		deployment.Spec.Template.Spec.TopologySpreadConstraints = config.TopologySpreadConstraints
+	}
 }
 
 func GetSecretContent(rclient client.Client, secretName string, namespace string, secretFields []string, foundSecret *corev1.Secret) (map[string]string, error) {
@@ -465,6 +505,139 @@ func GeneratePostgresSelectorLabels() map[string]string {
 		"app.kubernetes.io/name":       "lightspeed-service-postgres",
 		"app.kubernetes.io/part-of":    "openshift-lightspeed",
 	}
+}
+
+// GetPostgresCAConfigVolume returns the CA certificate volume for postgres TLS verification.
+func GetPostgresCAConfigVolume() corev1.Volume {
+	volumeDefaultMode := VolumeDefaultMode
+	return corev1.Volume{
+		Name: PostgresCAVolume,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: OLSCAConfigMap,
+				},
+				DefaultMode: &volumeDefaultMode,
+			},
+		},
+	}
+}
+
+// GetPostgresCAVolumeMount returns the CA certificate volume mount for postgres.
+func GetPostgresCAVolumeMount(mountPath string) corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      PostgresCAVolume,
+		MountPath: mountPath,
+		ReadOnly:  true,
+	}
+}
+
+// GetCAFromConfigMap retrieves CA certificate content from a ConfigMap.
+// It accepts any key name in the ConfigMap and returns the first value found.
+func GetCAFromConfigMap(rclient client.Client, namespace, configMapName string) (string, error) {
+	ctx := context.Background()
+	configMap := &corev1.ConfigMap{}
+	err := rclient.Get(ctx, client.ObjectKey{
+		Name:      configMapName,
+		Namespace: namespace,
+	}, configMap)
+	if err != nil {
+		return "", fmt.Errorf("ConfigMap not found: %s. error: %w", configMapName, err)
+	}
+
+	if len(configMap.Data) == 0 {
+		return "", fmt.Errorf("ConfigMap %s is empty (no keys found)", configMapName)
+	}
+
+	// Use first key found (works for single or multiple keys)
+	for _, value := range configMap.Data {
+		return value, nil
+	}
+	return "", nil
+}
+
+// GetCAFromSecret retrieves CA certificate content from a Secret.
+// It looks for the "ca.crt" key in the Secret's Data field.
+// Returns empty string if the key doesn't exist (not an error - CA is optional).
+func GetCAFromSecret(rclient client.Client, namespace, secretName string) (string, error) {
+	ctx := context.Background()
+	secret := &corev1.Secret{}
+	err := rclient.Get(ctx, client.ObjectKey{
+		Name:      secretName,
+		Namespace: namespace,
+	}, secret)
+	if err != nil {
+		return "", fmt.Errorf("secret not found: %s. error: %w", secretName, err)
+	}
+
+	caCert, ok := secret.Data["ca.crt"]
+	if !ok {
+		// CA cert is optional - if not provided, console will use default trust
+		return "", nil
+	}
+
+	return string(caCert), nil
+}
+
+// ValidateLLMCredentials validates that all LLM provider credentials are present and valid.
+// It checks that each provider's credential secret exists and contains the required keys.
+func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	for _, provider := range cr.Spec.LLMConfig.Providers {
+		if provider.CredentialsSecretRef.Name == "" {
+			return fmt.Errorf("provider %s missing credentials secret", provider.Name)
+		}
+		secret := &corev1.Secret{}
+		err := r.Get(ctx, client.ObjectKey{Name: provider.CredentialsSecretRef.Name, Namespace: r.GetNamespace()}, secret)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return fmt.Errorf("LLM provider %s credential secret %s not found", provider.Name, provider.CredentialsSecretRef.Name)
+			}
+			return fmt.Errorf("failed to get LLM provider %s credential secret %s: %w", provider.Name, provider.CredentialsSecretRef.Name, err)
+		}
+		if provider.Type == AzureOpenAIType {
+			// Azure OpenAI secret must contain "apitoken" or 3 keys named "client_id", "tenant_id", "client_secret"
+			if _, ok := secret.Data["apitoken"]; ok {
+				continue
+			}
+			for _, key := range []string{"client_id", "tenant_id", "client_secret"} {
+				if _, ok := secret.Data[key]; !ok {
+					return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, key)
+				}
+			}
+		} else {
+			// Other providers (e.g. WatsonX, OpenAI) must contain a key named "apitoken"
+			if _, ok := secret.Data["apitoken"]; !ok {
+				return fmt.Errorf("LLM provider %s credential secret %s missing key 'apitoken'", provider.Name, provider.CredentialsSecretRef.Name)
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateTLSSecret validates that the custom TLS secret exists and contains required keys.
+// It checks that the secret contains 'tls.crt' and 'tls.key'. The 'ca.crt' key is optional.
+// This function should only be called when TLSConfig.KeyCertSecretRef is configured.
+func ValidateTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	secretName := cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
+	secret := &corev1.Secret{}
+	err := r.Get(ctx, client.ObjectKey{Name: secretName, Namespace: r.GetNamespace()}, secret)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("TLS secret %s not found", secretName)
+		}
+		return fmt.Errorf("failed to get TLS secret %s: %w", secretName, err)
+	}
+
+	// Validate required keys
+	requiredKeys := []string{"tls.crt", "tls.key"}
+	for _, key := range requiredKeys {
+		if _, ok := secret.Data[key]; !ok {
+			return fmt.Errorf("TLS secret %s missing required key '%s'", secretName, key)
+		}
+	}
+
+	// Note: 'ca.crt' is optional and not validated here
+	return nil
 }
 
 // GenerateAppServerSelectorLabels returns selector labels for Application Server components

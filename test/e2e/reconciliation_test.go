@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"slices"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,9 +14,14 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/util/retry"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Test Design Notes:
+// - Uses Ordered to ensure serial execution (critical for test isolation)
+// - All tests share a single cluster-scoped OLSConfig CR
+// - Uses DeleteAndWait in AfterAll to prevent resource pollution between test suites
+// - Tests verify operator reconciliation behavior by modifying the CR and checking results
 var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 	var cr *olsv1alpha1.OLSConfig
 	var err error
@@ -36,9 +42,9 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		err = mustGather("reconciliation_test")
 		Expect(err).NotTo(HaveOccurred())
-		By("Deleting the OLSConfig CR")
+		By("Deleting the OLSConfig CR and waiting for cleanup")
 		Expect(cr).NotTo(BeNil())
-		err = client.Delete(cr)
+		err = client.DeleteAndWait(cr, 3*time.Minute)
 		Expect(err).NotTo(HaveOccurred())
 
 	})
@@ -108,25 +114,30 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 
 	It("should reconcile app deployment after changing deployment settings", func() {
 
-		By("update the replica number in the OLSConfig CR")
-		err = client.Get(cr)
-		Expect(err).NotTo(HaveOccurred())
-		*cr.Spec.OLSConfig.DeploymentConfig.Replicas = *cr.Spec.OLSConfig.DeploymentConfig.Replicas + 1
-		err = client.Update(cr)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("check the replica number of the deployment that should be updated")
+		By("get current deployment replicas to determine new value")
 		deployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      AppServerDeploymentName,
 				Namespace: OLSNameSpace,
 			},
 		}
+		err = client.Get(deployment)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Increment from current deployment value
+		newReplicas := *deployment.Spec.Replicas + 1
+
+		By("update the replica number in the OLSConfig CR")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			olsConfig := obj.(*olsv1alpha1.OLSConfig)
+			olsConfig.Spec.OLSConfig.DeploymentConfig.APIContainer.Replicas = &newReplicas
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("check the replica number of the deployment that should be updated")
 		err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
-			if *dep.Spec.Replicas != *cr.Spec.OLSConfig.DeploymentConfig.Replicas {
-				return false, nil
-			}
-			return true, nil
+			return *dep.Spec.Replicas == newReplicas, nil
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -140,21 +151,19 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 				Namespace: OLSNameSpace,
 			},
 		}
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := client.Get(deployment)
+		Expect(err).NotTo(HaveOccurred())
+		generation = deployment.Generation
 
-			err = client.Get(deployment)
-			Expect(err).NotTo(HaveOccurred())
-			generation = deployment.Generation
-
-			By("update LogLevel in the OLSConfig CR")
-			err = client.Get(cr)
-			Expect(err).NotTo(HaveOccurred())
-			if cr.Spec.OLSConfig.LogLevel == "DEBUG" {
-				cr.Spec.OLSConfig.LogLevel = "INFO"
+		By("update LogLevel in the OLSConfig CR")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			cr := obj.(*olsv1alpha1.OLSConfig)
+			if cr.Spec.OLSConfig.LogLevel == olsv1alpha1.LogLevelDebug {
+				cr.Spec.OLSConfig.LogLevel = olsv1alpha1.LogLevelInfo
 			} else {
-				cr.Spec.OLSConfig.LogLevel = "DEBUG"
+				cr.Spec.OLSConfig.LogLevel = olsv1alpha1.LogLevelDebug
 			}
-			return client.Update(cr)
+			return nil
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -166,7 +175,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		}
 
 		By("wait for the app configmap to be updated")
-		err = client.WaitForConfigMapContainString(configMap, AppServerConfigMapKey, "app_log_level: "+cr.Spec.OLSConfig.LogLevel)
+		err = client.WaitForConfigMapContainString(configMap, AppServerConfigMapKey, "app_log_level: "+string(cr.Spec.OLSConfig.LogLevel))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("check the app deployment generation that should be inscreased")
@@ -179,17 +188,14 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		generation = deployment.Generation
 
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			By("update models in the OLSConfig CR")
-			err = client.Get(cr)
-			Expect(err).NotTo(HaveOccurred())
-
+		By("update models in the OLSConfig CR")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			cr := obj.(*olsv1alpha1.OLSConfig)
 			cr.Spec.OLSConfig.DefaultModel = OpenAIAlternativeModel
 			if !slices.Contains(cr.Spec.LLMConfig.Providers[0].Models, olsv1alpha1.ModelSpec{Name: OpenAIAlternativeModel}) {
 				cr.Spec.LLMConfig.Providers[0].Models = append(cr.Spec.LLMConfig.Providers[0].Models, olsv1alpha1.ModelSpec{Name: OpenAIAlternativeModel})
 			}
-
-			return client.Update(cr)
+			return nil
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -213,13 +219,11 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		generation = deployment.Generation
 
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			By("change LLM token secret reference")
-			err = client.Get(cr)
-			Expect(err).NotTo(HaveOccurred())
-
+		By("change LLM token secret reference")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			cr := obj.(*olsv1alpha1.OLSConfig)
 			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = LLMTokenSecondSecretName
-			return client.Update(cr)
+			return nil
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -269,17 +273,18 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		err = client.Create(caCertConfigMap)
 		Expect(err).NotTo(HaveOccurred())
 		defer func() {
-			err = client.Delete(caCertConfigMap)
+			err = client.DeleteAndWait(caCertConfigMap, 30*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 		}()
 
 		By("update additional CA in the OLSConfig CR")
-		err = client.Get(cr)
-		Expect(err).NotTo(HaveOccurred())
-		cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
-			Name: cmCACert1Name,
-		}
-		err = client.Update(cr)
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			cr := obj.(*olsv1alpha1.OLSConfig)
+			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
+				Name: cmCACert1Name,
+			}
+			return nil
+		})
 		Expect(err).NotTo(HaveOccurred())
 
 		By("check the OLS configmap to contain the additional CA cert")
@@ -351,10 +356,11 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		firstCmHash := deployment.Spec.Template.Annotations[AdditionalCAHashKey]
 
 		By("check the app deployment and OLS config adapted to modified CA cert configmap")
-		err = client.Get(caCertConfigMap)
-		Expect(err).NotTo(HaveOccurred())
-		caCertConfigMap.Data[caCert2FileName] = TestCACert
-		err = client.Update(caCertConfigMap)
+		err = client.Update(caCertConfigMap, func(obj ctrlclient.Object) error {
+			cm := obj.(*corev1.ConfigMap)
+			cm.Data[caCert2FileName] = TestCACert
+			return nil
+		})
 		Expect(err).NotTo(HaveOccurred())
 		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-user-ca/"+caCert2FileName)
 		Expect(err).NotTo(HaveOccurred())

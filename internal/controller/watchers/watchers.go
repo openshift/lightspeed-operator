@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
@@ -356,6 +357,17 @@ func ConfigMapWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj cl
 	// Not a watched configmap - no reconciliation needed. Should never happen
 }
 
+// RestartFunc is a function that restarts a deployment
+type RestartFunc func(reconciler.Reconciler, context.Context, ...*appsv1.Deployment) error
+
+// restartFuncs maps deployment names to their restart functions
+var restartFuncs = map[string]RestartFunc{
+	utils.OLSAppServerDeploymentName: appserver.RestartAppServer,
+	utils.LCoreDeploymentName:        lcore.RestartLCore,
+	utils.PostgresDeploymentName:     postgres.RestartPostgres,
+	utils.ConsoleUIDeploymentName:    console.RestartConsoleUI,
+}
+
 // restart corresponding deployment
 func restartDeployment(r reconciler.Reconciler, ctx context.Context, affectedDeployments []string, namespace string, name string, useLCore bool) {
 
@@ -368,22 +380,15 @@ func restartDeployment(r reconciler.Reconciler, ctx context.Context, affectedDep
 				depName = utils.OLSAppServerDeploymentName
 			}
 		}
-		// Restart the deployment
-		var err error
-		switch depName {
-		case utils.OLSAppServerDeploymentName:
-			err = appserver.RestartAppServer(r, ctx)
-		case utils.LCoreDeploymentName:
-			err = lcore.RestartLCore(r, ctx)
-		case utils.PostgresDeploymentName:
-			err = postgres.RestartPostgres(r, ctx)
-		case utils.ConsoleUIDeploymentName:
-			err = console.RestartConsoleUI(r, ctx)
-		default:
+
+		// Restart the deployment using the appropriate function
+		restartFunc, exists := restartFuncs[depName]
+		if !exists {
 			r.GetLogger().Info("unknown deployment name", "deployment", depName)
 			continue
 		}
 
+		err := restartFunc(r, ctx)
 		if err != nil {
 			r.GetLogger().Error(err, "failed to restart deployment",
 				"deployment", depName, "resource", name, "namespace", namespace)

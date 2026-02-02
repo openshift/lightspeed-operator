@@ -31,7 +31,6 @@ limitations under the License.
 //   - metrics-bind-address: Address for metrics endpoint (default: :8080)
 //   - health-probe-bind-address: Address for health probe endpoint (default: :8081)
 //   - leader-elect: Enable leader election for HA deployments
-//   - reconcile-interval: Interval in minutes for reconciliation (default: 10)
 //   - secure-metrics-server: Enable mTLS for metrics server
 //   - service-image: Override default lightspeed-service image
 //   - console-image: Override default console plugin image (PatternFly 6)
@@ -57,7 +56,6 @@ import (
 	"os"
 	"slices"
 	"strconv"
-	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -163,7 +161,6 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
-	var reconcilerIntervalMinutes uint
 	var secureMetricsServer bool
 	var certDir string
 	var certName string
@@ -185,7 +182,6 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.UintVar(&reconcilerIntervalMinutes, "reconcile-interval", utils.DefaultReconcileInterval, "The interval in minutes to reconcile the OLSConfig CR")
 	flag.BoolVar(&secureMetricsServer, "secure-metrics-server", false, "Enable secure serving of the metrics server using mTLS.")
 	flag.StringVar(&certDir, "cert-dir", utils.OperatorCertDirDefault, "The directory where the TLS certificates are stored.")
 	flag.StringVar(&certName, "cert-name", utils.OperatorCertNameDefault, "The name of the TLS certificate file.")
@@ -225,7 +221,7 @@ func main() {
 	setupLog.Info(">>> BACKEND CONFIGURATION <<<", "backendType", backendType)
 	setupLog.Info("========================================")
 
-	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "reconcilerIntervalMinutes", reconcilerIntervalMinutes, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
+	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
 	// Get K8 client and context
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -381,6 +377,12 @@ func main() {
 					Description:         "Console UI TLS certificate",
 					AffectedDeployments: []string{utils.ConsoleUIDeploymentName},
 				},
+				{
+					Name:                utils.PostgresCertsSecretName,
+					Namespace:           namespace,
+					Description:         "PostgreSQL TLS certificate (created by Service CA Operator)",
+					AffectedDeployments: []string{utils.PostgresDeploymentName, "ACTIVE_BACKEND"},
+				},
 			},
 		},
 		// list here "special" external config maps that we need to watch in addition to
@@ -393,6 +395,12 @@ func main() {
 					Description:         "OpenShift default CA bundle",
 					AffectedDeployments: []string{"ACTIVE_BACKEND"},
 				},
+				{
+					Name:                utils.OLSCAConfigMap,
+					Namespace:           namespace,
+					Description:         "OpenShift Service CA certificate bundle",
+					AffectedDeployments: []string{"ACTIVE_BACKEND", utils.PostgresDeploymentName},
+				},
 			},
 		},
 		// AnnotatedSecretMapping maps secret names to their affected deployments.
@@ -400,9 +408,7 @@ func main() {
 		// When these secrets change, the watcher will restart the listed deployments.
 		// Key: secret name, Value: list of deployment names (use "ACTIVE_BACKEND" for appserver/lcore).
 		// Only list secrets here that need to restart specific deployments beyond the active backend.
-		AnnotatedSecretMapping: map[string][]string{
-			utils.PostgresSecretName: {utils.PostgresDeploymentName, "ACTIVE_BACKEND"},
-		},
+		AnnotatedSecretMapping: map[string][]string{},
 		// AnnotatedConfigMapMapping maps configmap names to their affected deployments.
 		// These are configmaps that the operator manages and annotates with watchers.openshift.io/watch.
 		// When these configmaps change, the watcher will restart the listed deployments.
@@ -425,7 +431,6 @@ func main() {
 			LightspeedCoreImage:            imagesMap["lightspeed-core"],
 			UseLCore:                       useLCore,
 			Namespace:                      namespace,
-			ReconcileInterval:              time.Duration(reconcilerIntervalMinutes) * time.Minute, // #nosec G115
 			PrometheusAvailable:            prometheusAvailable,
 		},
 		WatcherConfig: watcherConfig,
