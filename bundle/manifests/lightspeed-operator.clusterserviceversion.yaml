@@ -611,7 +611,7 @@ spec:
                       - --console-image-pf5=quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
                       - --openshift-mcp-server-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
-                      - --dataverse-exporter-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
+                      - --dataverse-exporter-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:94131f9c751de95290270d09074cc9b57c2f0c0ead0cd24c3c083c6c064eecbf
                       - --ocp-rag-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:98b50164ee5662fd0e807c76a0f712553442798858ad81e26c2cb307ee3f47e9
                     command:
                       - /manager
@@ -741,7 +741,7 @@ spec:
     - name: openshift-mcp-server
       image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
     - name: lightspeed-to-dataverse-exporter
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:94131f9c751de95290270d09074cc9b57c2f0c0ead0cd24c3c083c6c064eecbf
     - name: lightspeed-ocp-rag
       image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:98b50164ee5662fd0e807c76a0f712553442798858ad81e26c2cb307ee3f47e9
     - name: lightspeed-postgresql
