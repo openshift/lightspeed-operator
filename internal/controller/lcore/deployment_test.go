@@ -23,9 +23,10 @@ import (
 // mockReconciler is a minimal mock for testing deployment generation
 type mockReconciler struct {
 	reconciler.Reconciler
-	namespace string
-	scheme    *runtime.Scheme
-	image     string
+	namespace       string
+	scheme          *runtime.Scheme
+	image           string
+	lcoreServerMode bool
 }
 
 func (m *mockReconciler) GetNamespace() string {
@@ -64,6 +65,10 @@ func (m *mockReconciler) GetOpenShiftMCPServerImage() string {
 	return utils.OpenShiftMCPServerImageDefault
 }
 
+func (m *mockReconciler) GetLCoreServerMode() bool {
+	return m.lcoreServerMode
+}
+
 func (m *mockReconciler) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	// Return NotFound error for all Get calls in tests
 	// This simulates the ConfigMaps not existing yet during deployment generation
@@ -91,7 +96,9 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 	}
 
 	// Create a mock reconciler
-	r := &mockReconciler{}
+	r := &mockReconciler{
+		lcoreServerMode: true, // Test server mode (2 containers)
+	}
 
 	// Generate the deployment
 	deployment, err := GenerateLCoreDeployment(r, cr)
@@ -309,7 +316,9 @@ func TestGenerateLCoreDeploymentWithAdditionalCA(t *testing.T) {
 	}
 
 	// Create a mock reconciler
-	r := &mockReconciler{}
+	r := &mockReconciler{
+		lcoreServerMode: true, // Test server mode (2 containers)
+	}
 
 	// Generate the deployment
 	deployment, err := GenerateLCoreDeployment(r, cr)
@@ -429,7 +438,9 @@ func TestGenerateLCoreDeploymentWithIntrospection(t *testing.T) {
 	}
 
 	// Create a mock reconciler with OpenShift MCP server image
-	r := &mockReconciler{}
+	r := &mockReconciler{
+		lcoreServerMode: true, // Test server mode (2 containers + MCP sidecar)
+	}
 
 	// Generate the deployment
 	deployment, err := GenerateLCoreDeployment(r, cr)
@@ -550,7 +561,9 @@ func TestGenerateLCoreDeploymentWithMCPHeaderSecrets(t *testing.T) {
 	}
 
 	// Create a mock reconciler
-	r := &mockReconciler{}
+	r := &mockReconciler{
+		lcoreServerMode: true, // Test server mode (2 containers)
+	}
 
 	// Generate the deployment
 	deployment, err := GenerateLCoreDeployment(r, cr)
@@ -627,7 +640,9 @@ func TestGenerateLCoreDeploymentWithoutIntrospection(t *testing.T) {
 	}
 
 	// Create a mock reconciler
-	r := &mockReconciler{}
+	r := &mockReconciler{
+		lcoreServerMode: true, // Test server mode (2 containers)
+	}
 
 	// Generate the deployment
 	deployment, err := GenerateLCoreDeployment(r, cr)
@@ -706,6 +721,163 @@ func TestGetOLSMCPServerResources(t *testing.T) {
 			t.Errorf("Expected memory request '%s', got '%s'", expectedMem, memRequest.String())
 		}
 	}
+}
+
+func TestGenerateLCoreDeploymentLibraryMode(t *testing.T) {
+	// Create a minimal OLSConfig CR
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "test-provider",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "test-secret",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Create a mock reconciler in library mode
+	r := &mockReconciler{
+		lcoreServerMode: false, // Test library mode (1 container)
+	}
+
+	// Generate the deployment
+	deployment, err := GenerateLCoreDeployment(r, cr)
+	if err != nil {
+		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
+	}
+
+	// Verify deployment is not nil
+	if deployment == nil {
+		t.Fatal("GenerateLCoreDeployment returned nil deployment")
+	}
+
+	// Verify basic metadata
+	if deployment.Name != "lightspeed-stack-deployment" {
+		t.Errorf("Expected deployment name 'lightspeed-stack-deployment', got '%s'", deployment.Name)
+	}
+	if deployment.Namespace != utils.OLSNamespaceDefault {
+		t.Errorf("Expected namespace '%s', got '%s'", utils.OLSNamespaceDefault, deployment.Namespace)
+	}
+
+	// Verify labels
+	expectedLabels := map[string]string{
+		"app":                          "lightspeed-stack",
+		"app.kubernetes.io/component":  "application-server",
+		"app.kubernetes.io/managed-by": "lightspeed-operator",
+		"app.kubernetes.io/name":       "lightspeed-service-api",
+		"app.kubernetes.io/part-of":    "openshift-lightspeed",
+	}
+	for key, expectedValue := range expectedLabels {
+		if actualValue, ok := deployment.Labels[key]; !ok {
+			t.Errorf("Missing label '%s'", key)
+		} else if actualValue != expectedValue {
+			t.Errorf("Label '%s': expected '%s', got '%s'", key, expectedValue, actualValue)
+		}
+	}
+
+	// Verify service account
+	if deployment.Spec.Template.Spec.ServiceAccountName != utils.OLSAppServerServiceAccountName {
+		t.Errorf("Expected ServiceAccountName '%s', got '%s'",
+			utils.OLSAppServerServiceAccountName,
+			deployment.Spec.Template.Spec.ServiceAccountName)
+	}
+
+	// Verify containers - should have ONLY 1 (lightspeed-stack with embedded llama-stack)
+	containers := deployment.Spec.Template.Spec.Containers
+	if len(containers) != 1 {
+		t.Fatalf("Expected 1 container in library mode (lightspeed-stack), got %d", len(containers))
+	}
+
+	// Verify lightspeed-stack container
+	lightspeedStackContainer := containers[0]
+	if lightspeedStackContainer.Name != "lightspeed-service-api" {
+		t.Errorf("Expected container name 'lightspeed-service-api', got '%s'", lightspeedStackContainer.Name)
+	}
+	if len(lightspeedStackContainer.Ports) != 1 || lightspeedStackContainer.Ports[0].ContainerPort != utils.OLSAppServerContainerPort {
+		t.Errorf("Expected container port %d, got %v",
+			utils.OLSAppServerContainerPort, lightspeedStackContainer.Ports)
+	}
+	if lightspeedStackContainer.LivenessProbe == nil {
+		t.Error("lightspeed-stack container missing liveness probe")
+	}
+	if lightspeedStackContainer.ReadinessProbe == nil {
+		t.Error("lightspeed-stack container missing readiness probe")
+	}
+
+	// Verify volumes - library mode needs BOTH config volumes (LCore + Llama Stack)
+	volumes := deployment.Spec.Template.Spec.Volumes
+	volumeNames := make(map[string]bool)
+	for _, vol := range volumes {
+		volumeNames[vol.Name] = true
+	}
+
+	// Both configs must be present
+	if !volumeNames[utils.LCoreConfigCmName] {
+		t.Error("Missing LCore config volume in library mode")
+	}
+	if !volumeNames[utils.LlamaStackConfigCmName] {
+		t.Error("Missing Llama Stack config volume in library mode")
+	}
+	// Library mode also needs llama-cache for model downloads
+	if !volumeNames[utils.LlamaCacheVolumeName] {
+		t.Error("Missing llama-cache volume in library mode")
+	}
+	// Should have TLS
+	if !volumeNames["secret-lightspeed-tls"] {
+		t.Error("Missing TLS volume in library mode")
+	}
+	// Should have OpenShift root CA
+	if !volumeNames[utils.OpenShiftCAVolumeName] {
+		t.Error("Missing OpenShift root CA volume in library mode")
+	}
+	// Should have Postgres CA
+	if !volumeNames[utils.PostgresCAVolume] {
+		t.Error("Missing Postgres CA volume in library mode")
+	}
+
+	// Verify volume mounts in lightspeed-stack container
+	volumeMounts := lightspeedStackContainer.VolumeMounts
+	volumeMountNames := make(map[string]bool)
+	for _, mount := range volumeMounts {
+		volumeMountNames[mount.Name] = true
+	}
+
+	// Verify both configs are mounted
+	if !volumeMountNames[utils.LCoreConfigCmName] {
+		t.Error("Missing LCore config mount in library mode")
+	}
+	if !volumeMountNames[utils.LlamaStackConfigCmName] {
+		t.Error("Missing Llama Stack config mount in library mode")
+	}
+	if !volumeMountNames[utils.LlamaCacheVolumeName] {
+		t.Error("Missing llama-cache mount in library mode")
+	}
+	if !volumeMountNames["secret-lightspeed-tls"] {
+		t.Error("Missing TLS mount in library mode")
+	}
+
+	// Verify that deployment can be marshaled to YAML (valid k8s object)
+	yamlBytes, err := yaml.Marshal(deployment)
+	if err != nil {
+		t.Fatalf("Failed to marshal deployment to YAML: %v", err)
+	}
+
+	// Verify we can unmarshal it back
+	var unmarshaledDeployment appsv1.Deployment
+	err = yaml.Unmarshal(yamlBytes, &unmarshaledDeployment)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal deployment YAML: %v", err)
+	}
+
+	t.Logf("Successfully validated LCore Deployment in Library Mode (%d bytes of YAML)", len(yamlBytes))
 }
 
 func TestGenerateLCoreDeploymentWithRAG(t *testing.T) {

@@ -71,4 +71,7 @@ type Reconciler interface {
 
 	// UseLCore returns whether LCore backend is enabled instead of AppServer
 	UseLCore() bool
+
+	// GetLCoreServerMode returns whether LCore should run in server mode (true) or library mode (false)
+	GetLCoreServerMode() bool
 }

@@ -145,6 +145,7 @@ var _ = BeforeSuite(func() {
 	// Set default flags for test reconciler (can be overridden in specific tests)
 	if tr, ok := testReconcilerInstance.(*utils.TestReconciler); ok {
 		tr.PrometheusAvailable = true
+		tr.SetLCoreServerMode(true) // Default to server mode (2 containers)
 	}
 
 	cr = &olsv1alpha1.OLSConfig{}

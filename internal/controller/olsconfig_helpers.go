@@ -85,6 +85,10 @@ func (r *OLSConfigReconciler) UseLCore() bool {
 	return r.Options.UseLCore
 }
 
+func (r *OLSConfigReconciler) GetLCoreServerMode() bool {
+	return r.Options.LCoreServerMode
+}
+
 // Status management
 
 // UpdateStatusCondition updates the complete status of the OLSConfig Custom Resource instance.
