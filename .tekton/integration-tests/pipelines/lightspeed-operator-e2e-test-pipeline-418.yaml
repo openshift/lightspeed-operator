@@ -247,6 +247,9 @@ spec:
                 value: credentials
           - name: run-e2e-tests
             onError: continue
+            resources:
+              limits:
+                memory: 8Gi
             volumeMounts:
               - name: azure-openai-token
                 mountPath: /var/run/azure_openai
@@ -280,7 +283,7 @@ spec:
               echo "---------------------------------------------"
               cat $KUBECONFIG
               echo "---------------------------------------------"
-              dnf -y install git make golang
+              dnf -y install git make golang gpgme-devel
               git clone https://github.com/openshift/lightspeed-operator.git
               cd lightspeed-operator
               git config --global user.email olsci@redhat.com

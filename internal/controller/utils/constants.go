@@ -122,6 +122,8 @@ const (
 	DeploymentInProgress = "In Progress"
 	// OLSSystemPromptFileName is the filename for the system prompt
 	OLSSystemPromptFileName = "system_prompt"
+	// BYOK image stream annotation on the app server deployment
+	OLSAppServerImageStreamTriggerAnnotation = "image.openshift.io/triggers"
 
 	/*** console UI plugin ***/
 	// ConsoleUIConfigMapName is the name of the console UI nginx configmap
