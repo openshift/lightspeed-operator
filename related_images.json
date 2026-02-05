@@ -1,7 +1,7 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:54b01c0296dea92f3dda1e983cb3354a89d2de18f51e906eb26beed4d71c307c",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:b72c400911c234bf621eff371da5ad7e45956646a0bdc23d9fbc58037d97f146",
     "revision": "af3651c3cd2773b97beaad83e6e2590ab6a13af8"
   },
   {
