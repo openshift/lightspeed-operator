@@ -61,6 +61,21 @@ spec:
                         apiVersion:
                           description: API Version for Azure OpenAI provider
                           type: string
+                        config:
+                          description: |-
+                            Arbitrary configuration for the provider (generic mode only)
+                            This map is passed directly to Llama Stack provider configuration.
+                            Credentials are automatically injected as environment variable substitutions.
+                            Example: {"url": "https://...", "custom_field": "value"}
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        credentialKey:
+                          default: apitoken
+                          description: |-
+                            Secret key name for provider credentials (default: "apitoken")
+                            Specifies which key in credentialsSecretRef contains the API token.
+                            The operator creates an environment variable named {PROVIDER_NAME}_API_KEY.
+                          type: string
                         credentialsSecretRef:
                           description: The name of the secret object that stores API
                             provider credentials
@@ -117,6 +132,13 @@ spec:
                           type: string
                         projectID:
                           description: Watsonx Project ID
+                          type: string
+                        providerType:
+                          description: |-
+                            Generic provider type for Llama Stack (e.g., "remote::openai", "inline::sentence-transformers")
+                            When set, this provider uses generic mode instead of legacy mode.
+                            Must follow pattern: (inline|remote)::<provider-name>
+                          pattern: ^(inline|remote)::[a-z0-9][a-z0-9_-]*$
                           type: string
                         tlsSecurityProfile:
                           description: TLS Security Profile used by connection to
@@ -325,6 +347,7 @@ spec:
                           - rhoai_vllm
                           - rhelai_vllm
                           - fake_provider
+                          - generic
                           type: string
                         url:
                           description: Provider API URL
@@ -344,6 +367,19 @@ spec:
                       - message: '''projectID'' must be specified for ''watsonx''
                           provider'
                         rule: self.type != "watsonx" || self.projectID != ""
+                      - message: '''providerType'' and ''config'' must be used together
+                          in generic mode'
+                        rule: '!has(self.providerType) || has(self.config)'
+                      - message: '''config'' requires ''providerType'' to be set'
+                        rule: '!has(self.config) || has(self.providerType)'
+                      - message: Generic mode (providerType set) requires type='generic'
+                        rule: '!has(self.providerType) || self.type == "generic"'
+                      - message: Generic mode cannot use legacy provider-specific
+                          fields
+                        rule: self.type != "generic" || (!has(self.deploymentName)
+                          && !has(self.projectID))
+                      - message: credentialKey must not be empty string
+                        rule: '!has(self.credentialKey) || self.credentialKey != ""'
                     type: array
                 required:
                 - providers

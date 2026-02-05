@@ -188,8 +188,78 @@ func buildLlamaStackEnvVars(r reconciler.Reconciler, ctx context.Context, cr *ol
 			}
 		}
 
-		// For Azure providers, read the secret to support both authentication methods
-		if provider != nil && provider.Type == "azure_openai" {
+		// Handle credential environment variables based on provider configuration
+		if provider != nil && provider.ProviderType != "" {
+			// Generic provider configuration: use credentialKey field
+			credentialKey := provider.CredentialKey
+			if credentialKey == "" {
+				credentialKey = "apitoken"
+			}
+
+			// Read the secret to check for multiple credential keys
+			secret := &corev1.Secret{}
+			err := r.Get(ctx, client.ObjectKey{
+				Name:      name,
+				Namespace: r.GetNamespace(),
+			}, secret)
+			if err != nil {
+				return fmt.Errorf("failed to get secret %s: %w", name, err)
+			}
+
+			// Create env var for the primary credential
+			if _, ok := secret.Data[credentialKey]; ok {
+				envVars = append(envVars, corev1.EnvVar{
+					Name: envVarBase + "_API_KEY",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: name},
+							Key:                  credentialKey,
+						},
+					},
+				})
+			}
+
+			// Auto-detect Azure-style multi-credential pattern
+			// If config has client_id/tenant_id/client_secret, create corresponding env vars
+			hasAzurePattern := false
+			if provider.Config != nil && provider.Config.Raw != nil {
+				var config map[string]interface{}
+				if err := json.Unmarshal(provider.Config.Raw, &config); err == nil {
+					azureKeys := []string{"client_id", "tenant_id", "client_secret"}
+					for _, key := range azureKeys {
+						if _, ok := config[key]; ok {
+							hasAzurePattern = true
+							break
+						}
+					}
+				}
+			}
+
+			if hasAzurePattern {
+				// Create env vars for Azure client credentials if they exist in secret
+				keyToEnvSuffix := map[string]string{
+					"client_id":     "_CLIENT_ID",
+					"tenant_id":     "_TENANT_ID",
+					"client_secret": "_CLIENT_SECRET",
+				}
+
+				for key, suffix := range keyToEnvSuffix {
+					if _, ok := secret.Data[key]; ok {
+						envVars = append(envVars, corev1.EnvVar{
+							Name: envVarBase + suffix,
+							ValueFrom: &corev1.EnvVarSource{
+								SecretKeyRef: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{Name: name},
+									Key:                  key,
+								},
+							},
+						})
+					}
+				}
+			}
+
+		} else if provider != nil && provider.Type == "azure_openai" {
+			// Azure OpenAI provider: read secret to support both authentication methods
 			secret := &corev1.Secret{}
 			err := r.Get(ctx, client.ObjectKey{
 				Name:      name,
@@ -240,7 +310,7 @@ func buildLlamaStackEnvVars(r reconciler.Reconciler, ctx context.Context, cr *ol
 				})
 			}
 		} else {
-			// For non-Azure providers, always use API key
+			// Standard providers: use API key from "apitoken" secret key
 			envVars = append(envVars, corev1.EnvVar{
 				Name: envVarBase + "_API_KEY",
 				ValueFrom: &corev1.EnvVarSource{
