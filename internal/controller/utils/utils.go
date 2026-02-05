@@ -18,6 +18,7 @@ package utils
 import (
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -586,6 +587,13 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 		if provider.CredentialsSecretRef.Name == "" {
 			return fmt.Errorf("provider %s missing credentials secret", provider.Name)
 		}
+
+		// Generic providers require LCore backend (AppServer does not support generic providers)
+		// LCore is the future direction; AppServer is being deprecated
+		if provider.Type == "generic" && !r.UseLCore() {
+			return fmt.Errorf("LLM provider '%s' uses type 'generic' which requires LCore backend. Enable LCore with --enable-lcore operator flag", provider.Name)
+		}
+
 		secret := &corev1.Secret{}
 		err := r.Get(ctx, client.ObjectKey{Name: provider.CredentialsSecretRef.Name, Namespace: r.GetNamespace()}, secret)
 		if err != nil {
@@ -594,8 +602,54 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 			}
 			return fmt.Errorf("failed to get LLM provider %s credential secret %s: %w", provider.Name, provider.CredentialsSecretRef.Name, err)
 		}
-		if provider.Type == AzureOpenAIType {
-			// Azure OpenAI secret must contain "apitoken" or 3 keys named "client_id", "tenant_id", "client_secret"
+		// Validate credential keys based on provider configuration
+		if provider.ProviderType != "" {
+			// Generic provider configuration: validate credentialKey exists
+			credentialKey := provider.CredentialKey
+			if credentialKey == "" {
+				credentialKey = "apitoken"
+			}
+
+			// Check if the specified credential key exists
+			if _, ok := secret.Data[credentialKey]; !ok {
+				return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, credentialKey)
+			}
+
+			// If config suggests Azure pattern, validate those keys too
+			if provider.Config != nil && provider.Config.Raw != nil {
+				var config map[string]interface{}
+				if err := json.Unmarshal(provider.Config.Raw, &config); err == nil {
+					azureKeys := []string{"client_id", "tenant_id", "client_secret"}
+					hasAzurePattern := false
+					for _, key := range azureKeys {
+						if _, ok := config[key]; ok {
+							hasAzurePattern = true
+							break
+						}
+					}
+
+					if hasAzurePattern {
+						// All three must be present, or use apitoken instead
+						hasAllAzureKeys := true
+						for _, key := range azureKeys {
+							if _, ok := secret.Data[key]; !ok {
+								hasAllAzureKeys = false
+								break
+							}
+						}
+
+						// Check that either we have all Azure keys OR we have apitoken
+						if !hasAllAzureKeys {
+							if _, ok := secret.Data["apitoken"]; !ok {
+								return fmt.Errorf("LLM provider %s credential secret %s: Azure client credentials require either all of (client_id, tenant_id, client_secret) or 'apitoken'", provider.Name, provider.CredentialsSecretRef.Name)
+							}
+						}
+					}
+				}
+			}
+
+		} else if provider.Type == AzureOpenAIType {
+			// Azure OpenAI provider: secret must contain "apitoken" or 3 keys named "client_id", "tenant_id", "client_secret"
 			if _, ok := secret.Data["apitoken"]; ok {
 				continue
 			}
@@ -605,7 +659,7 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 				}
 			}
 		} else {
-			// Other providers (e.g. WatsonX, OpenAI) must contain a key named "apitoken"
+			// Standard providers: must contain a key named "apitoken"
 			if _, ok := secret.Data["apitoken"]; !ok {
 				return fmt.Errorf("LLM provider %s credential secret %s missing key 'apitoken'", provider.Name, provider.CredentialsSecretRef.Name)
 			}
