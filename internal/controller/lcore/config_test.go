@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -42,188 +43,6 @@ func (m *mockReconcilerWithLogger) GetLogger() logr.Logger {
 		m.logger = logr.New(mockSink)
 	}
 	return m.logger
-}
-
-func TestFilterHTTPMCPServers(t *testing.T) {
-	// Reset the warning cache before each test
-	ResetMCPWarningCache()
-
-	tests := []struct {
-		name             string
-		servers          []olsv1alpha1.MCPServer
-		expectedFiltered int
-		expectedWarnings int
-		generation       int64
-	}{
-		{
-			name:             "Empty slice",
-			servers:          []olsv1alpha1.MCPServer{},
-			expectedFiltered: 0,
-			expectedWarnings: 0,
-			generation:       1,
-		},
-		{
-			name: "All HTTP servers",
-			servers: []olsv1alpha1.MCPServer{
-				{
-					Name: "server1",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL: "http://example.com",
-					},
-				},
-				{
-					Name: "server2",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL: "https://example.com",
-					},
-				},
-			},
-			expectedFiltered: 2,
-			expectedWarnings: 0,
-			generation:       1,
-		},
-		{
-			name: "Mixed servers - only HTTP pass through",
-			servers: []olsv1alpha1.MCPServer{
-				{
-					Name: "http-server",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL: "http://example.com",
-					},
-				},
-				{
-					Name: "no-transport-server",
-					// No transport specified
-				},
-			},
-			expectedFiltered: 1,
-			expectedWarnings: 1,
-			generation:       1,
-		},
-		{
-			name: "All non-HTTP servers",
-			servers: []olsv1alpha1.MCPServer{
-				{
-					Name: "server1",
-					// No transport specified
-				},
-				{
-					Name: "server2",
-					// No transport specified
-				},
-			},
-			expectedFiltered: 0,
-			expectedWarnings: 2,
-			generation:       1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Reset cache for each test case
-			ResetMCPWarningCache()
-
-			// Create mock reconciler with logger
-			mockSink := &mockLogger{errorMessages: []string{}}
-			mockReconciler := &mockReconcilerWithLogger{
-				mockReconciler: &mockReconciler{},
-				logger:         logr.New(mockSink),
-			}
-
-			cr := &olsv1alpha1.OLSConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "cluster",
-					Generation: tt.generation,
-				},
-			}
-
-			// First call - should log warnings
-			filtered := FilterHTTPMCPServers(mockReconciler, cr, tt.servers)
-
-			if len(filtered) != tt.expectedFiltered {
-				t.Errorf("Expected %d filtered servers, got %d", tt.expectedFiltered, len(filtered))
-			}
-
-			if len(mockSink.errorMessages) != tt.expectedWarnings {
-				t.Errorf("Expected %d warnings, got %d: %v",
-					tt.expectedWarnings,
-					len(mockSink.errorMessages),
-					mockSink.errorMessages)
-			}
-
-			// Verify all filtered servers have StreamableHTTP
-			for _, server := range filtered {
-				if server.StreamableHTTP == nil {
-					t.Errorf("Filtered server '%s' does not have StreamableHTTP transport", server.Name)
-				}
-			}
-
-			// Second call with same generation - should NOT log warnings (cached)
-			mockSink.errorMessages = []string{}
-			filtered2 := FilterHTTPMCPServers(mockReconciler, cr, tt.servers)
-
-			if len(filtered2) != tt.expectedFiltered {
-				t.Errorf("Second call: Expected %d filtered servers, got %d", tt.expectedFiltered, len(filtered2))
-			}
-
-			if len(mockSink.errorMessages) != 0 {
-				t.Errorf("Second call should not log warnings (cached), but got %d warnings: %v",
-					len(mockSink.errorMessages),
-					mockSink.errorMessages)
-			}
-		})
-	}
-}
-
-func TestFilterHTTPMCPServers_GenerationChange(t *testing.T) {
-	ResetMCPWarningCache()
-
-	servers := []olsv1alpha1.MCPServer{
-		{
-			Name: "no-transport",
-		},
-	}
-
-	mockSink := &mockLogger{errorMessages: []string{}}
-	mockReconciler := &mockReconcilerWithLogger{
-		mockReconciler: &mockReconciler{},
-		logger:         logr.New(mockSink),
-	}
-
-	// First call with generation 1
-	cr1 := &olsv1alpha1.OLSConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       "cluster",
-			Generation: 1,
-		},
-	}
-	FilterHTTPMCPServers(mockReconciler, cr1, servers)
-
-	if len(mockSink.errorMessages) != 1 {
-		t.Errorf("Expected 1 warning for generation 1, got %d", len(mockSink.errorMessages))
-	}
-
-	// Second call with same generation - should NOT log
-	mockSink.errorMessages = []string{}
-	FilterHTTPMCPServers(mockReconciler, cr1, servers)
-
-	if len(mockSink.errorMessages) != 0 {
-		t.Errorf("Expected 0 warnings for cached generation 1, got %d", len(mockSink.errorMessages))
-	}
-
-	// Third call with NEW generation - SHOULD log again
-	mockSink.errorMessages = []string{}
-	cr2 := &olsv1alpha1.OLSConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       "cluster",
-			Generation: 2,
-		},
-	}
-	FilterHTTPMCPServers(mockReconciler, cr2, servers)
-
-	if len(mockSink.errorMessages) != 1 {
-		t.Errorf("Expected 1 warning for new generation 2, got %d", len(mockSink.errorMessages))
-	}
 }
 
 func TestBuildLCoreMCPServersConfig_NoServers(t *testing.T) {
@@ -302,14 +121,17 @@ func TestBuildLCoreMCPServersConfig_UserDefinedServers_KubernetesPlaceholder(t *
 			OLSConfig: olsv1alpha1.OLSSpec{
 				IntrospectionEnabled: false,
 			},
-			MCPServers: []olsv1alpha1.MCPServer{
+			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
-					Name: "external-server",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL:     "https://external.example.com/mcp",
-						Timeout: 30,
-						Headers: map[string]string{
-							"Authorization": utils.KUBERNETES_PLACEHOLDER,
+					Name:    "external-server",
+					URL:     "https://external.example.com/mcp",
+					Timeout: 30,
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "Authorization",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type: olsv1alpha1.MCPHeaderSourceTypeKubernetes,
+							},
 						},
 					},
 				},
@@ -361,15 +183,24 @@ func TestBuildLCoreMCPServersConfig_UserDefinedServers_WithSecretRef(t *testing.
 			OLSConfig: olsv1alpha1.OLSSpec{
 				IntrospectionEnabled: false,
 			},
-			MCPServers: []olsv1alpha1.MCPServer{
+			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
-					Name: "external-server",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL:     "https://external.example.com/mcp",
-						Timeout: 30,
-						Headers: map[string]string{
-							"Authorization": utils.KUBERNETES_PLACEHOLDER,
-							"X-Custom":      "mcp-auth-secret", // This will be validated during deployment
+					Name:    "external-server",
+					URL:     "https://external.example.com/mcp",
+					Timeout: 30,
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "Authorization",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type: olsv1alpha1.MCPHeaderSourceTypeKubernetes,
+							},
+						},
+						{
+							Name: "X-Custom",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{Name: "mcp-auth-secret"},
+							},
 						},
 					},
 				},
@@ -414,13 +245,17 @@ func TestBuildLCoreMCPServersConfig_Combined(t *testing.T) {
 			OLSConfig: olsv1alpha1.OLSSpec{
 				IntrospectionEnabled: true,
 			},
-			MCPServers: []olsv1alpha1.MCPServer{
+			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
 					Name: "user-server",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL: "http://user-mcp.example.com",
-						Headers: map[string]string{
-							"Authorization": "user-secret",
+					URL:  "http://user-mcp.example.com",
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "Authorization",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{Name: "user-secret"},
+							},
 						},
 					},
 				},
@@ -460,36 +295,33 @@ func TestBuildLCoreMCPServersConfig_FiltersNonHTTP(t *testing.T) {
 			OLSConfig: olsv1alpha1.OLSSpec{
 				IntrospectionEnabled: false,
 			},
-			MCPServers: []olsv1alpha1.MCPServer{
+			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
 					Name: "http-server",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL: "http://valid.example.com",
-						Headers: map[string]string{
-							"Authorization": "test-secret",
+					URL:  "http://valid.example.com",
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "Authorization",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{Name: "test-secret"},
+							},
 						},
 					},
-				},
-				{
-					Name: "no-transport-server",
-					// No transport - should be filtered out
 				},
 			},
 		},
 	}
 
-	// Reset cache to ensure filtering happens
-	ResetMCPWarningCache()
-
 	// Config generation doesn't validate secrets - validation happens during deployment
 	result := buildLCoreMCPServersConfig(r, cr)
 
 	if len(result) != 1 {
-		t.Fatalf("Expected 1 MCP server (non-HTTP filtered out), got %d", len(result))
+		t.Fatalf("Expected 1 MCP server, got %d", len(result))
 	}
 
 	if result[0]["name"] != "http-server" {
-		t.Errorf("Expected filtered server to be 'http-server', got '%v'", result[0]["name"])
+		t.Errorf("Expected server to be 'http-server', got '%v'", result[0]["name"])
 	}
 }
 
@@ -505,13 +337,11 @@ func TestBuildLCoreMCPServersConfig_EmptyHeadersNotAdded(t *testing.T) {
 			OLSConfig: olsv1alpha1.OLSSpec{
 				IntrospectionEnabled: false,
 			},
-			MCPServers: []olsv1alpha1.MCPServer{
+			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
 					Name: "no-auth-server",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL: "http://no-auth.example.com",
-						// No headers specified
-					},
+					URL:  "http://no-auth.example.com",
+					// No headers specified
 				},
 			},
 		},
@@ -538,15 +368,22 @@ func TestBuildLCoreMCPServersConfig_SkipsEmptySecretRefs(t *testing.T) {
 		},
 		Spec: olsv1alpha1.OLSConfigSpec{
 			FeatureGates: []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer},
-			MCPServers: []olsv1alpha1.MCPServer{
+			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
 					Name: "server-with-mixed-headers",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL: "http://example.com",
-						Headers: map[string]string{
-							"Valid-Header":      utils.KUBERNETES_PLACEHOLDER, // Should be included
-							"Empty-Header":      "",                           // Should be skipped
-							"Kubernetes-Header": utils.KUBERNETES_PLACEHOLDER, // Should be included
+					URL:  "http://example.com",
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "Valid-Header",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type: olsv1alpha1.MCPHeaderSourceTypeKubernetes,
+							},
+						},
+						{
+							Name: "Kubernetes-Header",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type: olsv1alpha1.MCPHeaderSourceTypeKubernetes,
+							},
 						},
 					},
 				},
@@ -565,9 +402,9 @@ func TestBuildLCoreMCPServersConfig_SkipsEmptySecretRefs(t *testing.T) {
 		t.Fatal("Expected authorization_headers to be map[string]string")
 	}
 
-	// Empty header should not be present
-	if _, exists := headers["Empty-Header"]; exists {
-		t.Error("Expected empty header to be skipped")
+	// Should have 2 headers (both kubernetes tokens)
+	if len(headers) != 2 {
+		t.Errorf("Expected 2 headers, got %d", len(headers))
 	}
 
 	// Valid headers should be present

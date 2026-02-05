@@ -162,6 +162,19 @@ type OLSConfig struct {
 	QuotaHandlersConfig *QuotaHandlersConfig `json:"quota_handlers,omitempty"`
 	// User specified system prompt
 	SystemPromptPath string `json:"system_prompt_path,omitempty"`
+	// Tool filtering configuration for hybrid RAG retrieval
+	ToolFiltering *ToolFilteringConfig `json:"tool_filtering,omitempty"`
+}
+
+// ToolFilteringConfig defines configuration for tool filtering using hybrid RAG retrieval
+// The embedding model is not exposed as it's handled by the container image
+type ToolFilteringConfig struct {
+	// Weight for dense vs sparse retrieval (1.0 = full dense, 0.0 = full sparse)
+	Alpha float64 `json:"alpha,omitempty"`
+	// Number of tools to retrieve
+	TopK int `json:"top_k,omitempty"`
+	// Minimum similarity threshold for filtering results
+	Threshold float64 `json:"threshold,omitempty"`
 }
 
 // QuotaHandlersConfig defines the token quota configuration
@@ -289,14 +302,12 @@ const (
 type MCPServerConfig struct {
 	// MCP server name
 	Name string `json:"name"`
-	// MCP server transport - stdio or sse
-	Transport MCPTransport `json:"transport"`
-	// Transport settings if the transport is stdio
-	Stdio *StdioTransportConfig `json:"stdio,omitempty"`
-	// Transport settings if the transport is sse
-	SSE *StreamableHTTPTransportConfig `json:"sse,omitempty"`
-	// Transport settings if the transport is streamable_http
-	StreamableHTTP *StreamableHTTPTransportConfig `json:"streamable_http,omitempty"`
+	// MCP server URL
+	URL string `json:"url"`
+	// Headers (map of header name to file path or placeholder)
+	Headers map[string]string `json:"headers,omitempty"`
+	// Timeout in seconds
+	Timeout int `json:"timeout,omitempty"`
 }
 
 type StdioTransportConfig struct {

@@ -16,3 +16,36 @@ spec:
         models:
           - name: gpt-3.5-turbo-1106
         name: OpenAI
+  # Optional: Enable MCP (Model Context Protocol) servers
+  # featureGates:
+  #   - MCPServer
+  # mcpServers:
+  #   # Example 1: MCP server with secret-based authentication
+  #   - name: external-mcp
+  #     url: https://mcp.example.com
+  #     timeout: 30
+  #     headers:
+  #       - name: Authorization
+  #         valueFrom:
+  #           type: secret
+  #           secretRef:
+  #             name: mcp-auth-secret  # Secret must exist in operator's namespace
+  #       - name: X-API-Key
+  #         valueFrom:
+  #           type: secret
+  #           secretRef:
+  #             name: mcp-api-key-secret
+  #   # Example 2: MCP server using Kubernetes service account token
+  #   - name: internal-mcp
+  #     url: http://mcp-service.default.svc.cluster.local:8080
+  #     headers:
+  #       - name: Authorization
+  #         valueFrom:
+  #           type: kubernetes
+  #   # Example 3: MCP server using client token passthrough
+  #   - name: proxy-mcp
+  #     url: https://mcp-proxy.example.com
+  #     headers:
+  #       - name: Authorization
+  #         valueFrom:
+  #           type: client

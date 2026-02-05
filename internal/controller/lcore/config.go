@@ -6,7 +6,6 @@ import (
 	"path"
 	"slices"
 	"strings"
-	"sync"
 
 	"sigs.k8s.io/yaml"
 
@@ -14,61 +13,6 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
-
-// Package-level cache to track which MCP servers we've already warned about
-// Key format: "mcp-server-<name>-gen-<generation>"
-// This ensures we only log warnings once per CR generation (when spec changes, we log again)
-var mcpWarningCache = sync.Map{}
-
-// FilterHTTPMCPServers filters MCP servers to only include those with HTTP/HTTPS transport.
-// LCore only supports StreamableHTTP transport (not SSE or Stdio).
-// Logs a warning once per server per CR generation for filtered servers.
-//
-// Parameters:
-//   - r: Reconciler for logging
-//   - cr: OLSConfig CR (used for generation tracking)
-//   - servers: List of MCP servers to filter
-//
-// Returns:
-//   - Filtered list containing only servers with StreamableHTTP transport
-func FilterHTTPMCPServers(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig, servers []olsv1alpha1.MCPServer) []olsv1alpha1.MCPServer {
-	if len(servers) == 0 {
-		return servers
-	}
-
-	filtered := []olsv1alpha1.MCPServer{}
-
-	for _, server := range servers {
-		// LCore only supports HTTP/HTTPS transport (StreamableHTTP)
-		if server.StreamableHTTP != nil {
-			filtered = append(filtered, server)
-			continue
-		}
-
-		// Server doesn't have StreamableHTTP configured - log warning once per CR generation
-		warningKey := fmt.Sprintf("mcp-server-%s-gen-%d", server.Name, cr.Generation)
-		_, alreadyLogged := mcpWarningCache.LoadOrStore(warningKey, true)
-		if alreadyLogged {
-			// Already warned about this server in this generation, skip
-			continue
-		}
-
-		// First time seeing this misconfigured server in this generation - log warning
-		r.GetLogger().Error(
-			fmt.Errorf("unsupported MCP server configuration for LCore"),
-			"MCP server skipped - LCore requires streamableHTTP transport (HTTP/HTTPS)",
-			"server", server.Name,
-			"generation", cr.Generation,
-		)
-	}
-
-	return filtered
-}
-
-// ResetMCPWarningCache clears the warning cache. Useful for testing.
-func ResetMCPWarningCache() {
-	mcpWarningCache = sync.Map{}
-}
 
 // DefaultQuerySystemPrompt is the same system prompt as lightspeed-service
 // (ols/customize/ols/prompts.py QUERY_SYSTEM_INSTRUCTION)
@@ -788,7 +732,6 @@ func buildLCoreDatabaseConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig)
 
 // buildLCoreMCPServersConfig configures Model Context Protocol servers
 // Allows integration with external context providers for agent workflows
-// NOTE: LCore only supports HTTP/HTTPS transport (StreamableHTTP)
 // NOTE: Secret validation is performed separately during deployment generation
 func buildLCoreMCPServersConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) []map[string]interface{} {
 	mcpServers := []map[string]interface{}{}
@@ -805,38 +748,71 @@ func buildLCoreMCPServersConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConf
 		})
 	}
 
-	// Add user-defined MCP servers - filter to HTTP-only and log warnings
+	// Add user-defined MCP servers
 	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer) {
-		// Filter to HTTP-only servers, log warnings for filtered servers
-		filteredServers := FilterHTTPMCPServers(r, cr, cr.Spec.MCPServers)
-
-		for _, server := range filteredServers {
+		for _, server := range cr.Spec.MCPServers {
 			// Build MCP server config
 			mcpServer := map[string]interface{}{
 				"name": server.Name,
-				"url":  server.StreamableHTTP.URL,
+				"url":  server.URL,
 			}
 
 			// Add timeout if specified (default is handled by lightspeed-stack)
-			if server.StreamableHTTP.Timeout > 0 {
-				mcpServer["timeout"] = server.StreamableHTTP.Timeout
+			if server.Timeout > 0 {
+				mcpServer["timeout"] = server.Timeout
 			}
 
 			// Add authorization headers if configured
-			if len(server.StreamableHTTP.Headers) > 0 {
+			if len(server.Headers) > 0 {
 				headers := make(map[string]string)
-				for headerName, secretRef := range server.StreamableHTTP.Headers {
-					if secretRef == utils.KUBERNETES_PLACEHOLDER {
-						// Special case: use Kubernetes service account token
-						// Value "kubernetes" is preserved for runtime substitution
-						headers[headerName] = utils.KUBERNETES_PLACEHOLDER
-					} else if secretRef != "" {
-						// Use consistent path structure: /etc/mcp/headers/<secretName>/header
-						// This matches AppServer's approach and provides a clear contract
-						// Secret validation happens during deployment generation
-						headers[headerName] = path.Join(utils.MCPHeadersMountRoot, secretRef, utils.MCPSECRETDATAPATH)
+				invalidServer := false
+				for _, header := range server.Headers {
+					if invalidServer {
+						break
 					}
+					headerName := header.Name
+					var headerValue string
+
+					// Determine header value based on discriminator type
+					switch header.ValueFrom.Type {
+					case olsv1alpha1.MCPHeaderSourceTypeKubernetes:
+						headerValue = utils.KUBERNETES_PLACEHOLDER
+					case olsv1alpha1.MCPHeaderSourceTypeClient:
+						headerValue = utils.CLIENT_PLACEHOLDER
+					case olsv1alpha1.MCPHeaderSourceTypeSecret:
+						if header.ValueFrom.SecretRef == nil || header.ValueFrom.SecretRef.Name == "" {
+							r.GetLogger().Error(
+								fmt.Errorf("missing secretRef for type 'secret'"),
+								"Skipping MCP server: type is 'secret' but secretRef is not set",
+								"server", server.Name,
+								"header", headerName,
+							)
+							invalidServer = true
+							continue
+						}
+						// Use consistent path structure: /etc/mcp/headers/<secretName>/header
+						headerValue = path.Join(utils.MCPHeadersMountRoot, header.ValueFrom.SecretRef.Name, utils.MCPSECRETDATAPATH)
+					default:
+						// This should never happen due to enum validation
+						r.GetLogger().Error(
+							fmt.Errorf("invalid MCP header type: %s", header.ValueFrom.Type),
+							"Skipping MCP server due to invalid header type",
+							"server", server.Name,
+							"header", headerName,
+							"type", header.ValueFrom.Type,
+						)
+						invalidServer = true
+						continue
+					}
+
+					headers[headerName] = headerValue
 				}
+
+				// Skip this server if any header was invalid
+				if invalidServer {
+					continue
+				}
+
 				if len(headers) > 0 {
 					mcpServer["authorization_headers"] = headers
 				}

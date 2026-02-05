@@ -14,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -292,30 +291,43 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		}
 	}
 
-	if cr.Spec.OLSConfig.IntrospectionEnabled {
-		appSrvConfigFile.MCPServers = []utils.MCPServerConfig{
-			{
-				Name:      "openshift",
-				Transport: utils.StreamableHTTP,
-				StreamableHTTP: &utils.StreamableHTTPTransportConfig{
-					URL:            fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort),
-					Timeout:        utils.OpenShiftMCPServerTimeout,
-					SSEReadTimeout: utils.OpenShiftMCPServerHTTPReadTimeout,
-					Headers:        map[string]string{utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER},
-				},
-			},
-		}
+	// Generate MCP servers config (includes both introspection + user-defined servers)
+	mcpServers, err := generateMCPServerConfigs(r, cr)
+	if err != nil {
+		return nil, err
+	}
+	if len(mcpServers) > 0 {
+		appSrvConfigFile.MCPServers = mcpServers
 	}
 
-	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer) {
-		mcpServers, err := generateMCPServerConfigs(r, ctx, cr)
-		if err != nil {
-			return nil, err
-		}
-		if appSrvConfigFile.MCPServers == nil {
-			appSrvConfigFile.MCPServers = mcpServers
+	// Only add tool filtering if there are MCP servers to filter
+	if cr.Spec.OLSConfig.ToolFilteringConfig != nil {
+		if len(mcpServers) > 0 {
+			// Apply defaults for zero values (happens when user specifies toolFilteringConfig: {})
+			cfg := cr.Spec.OLSConfig.ToolFilteringConfig
+			alpha, topK, threshold := cfg.Alpha, cfg.TopK, cfg.Threshold
+			if alpha == 0.0 {
+				alpha = 0.8
+			}
+			if topK == 0 {
+				topK = 10
+			}
+			if threshold == 0.0 {
+				threshold = 0.01
+			}
+
+			appSrvConfigFile.OLSConfig.ToolFiltering = &utils.ToolFilteringConfig{
+				Alpha:     alpha,
+				TopK:      topK,
+				Threshold: threshold,
+			}
 		} else {
-			appSrvConfigFile.MCPServers = append(appSrvConfigFile.MCPServers, mcpServers...)
+			r.GetLogger().Info(
+				"ToolFilteringConfig specified but no MCP servers enabled. Tool filtering will be disabled.",
+				"IntrospectionEnabled", cr.Spec.OLSConfig.IntrospectionEnabled,
+				"MCPFeatureGate", slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer),
+				"MCPServersCount", len(cr.Spec.MCPServers),
+			)
 		}
 	}
 
@@ -709,99 +721,94 @@ func getQueryFilters(cr *olsv1alpha1.OLSConfig) []utils.QueryFilters {
 	return filters
 }
 
-const (
-	SSEField int = iota
-	StreamableHTTPField
-)
-
-func generateMCPServerConfigs(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) ([]utils.MCPServerConfig, error) {
-	if cr.Spec.MCPServers == nil {
-		return nil, nil
-	}
-
+func generateMCPServerConfigs(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) ([]utils.MCPServerConfig, error) {
 	servers := []utils.MCPServerConfig{}
-	var overall_error error
-	overall_error = nil
-	for _, server := range cr.Spec.MCPServers {
-		// check all the secrets
-		sse, err := generateMCPStreamableHTTPTransportConfig(r, ctx, &server, SSEField)
-		if err != nil {
-			overall_error = err
-			continue
-		}
-		streamableHTTP, err := generateMCPStreamableHTTPTransportConfig(r, ctx, &server, StreamableHTTPField)
-		if err != nil {
-			overall_error = err
-			continue
-		}
+
+	// Add OpenShift MCP server if introspection is enabled
+	if cr.Spec.OLSConfig.IntrospectionEnabled {
 		servers = append(servers, utils.MCPServerConfig{
-			Name:           server.Name,
-			Transport:      getMCPTransport(&server),
-			SSE:            sse,
-			StreamableHTTP: streamableHTTP,
+			Name:    "openshift",
+			URL:     fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort),
+			Timeout: utils.OpenShiftMCPServerTimeout,
+			Headers: map[string]string{
+				utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
+			},
 		})
 	}
-	return servers, overall_error
-}
 
-func generateMCPStreamableHTTPTransportConfig(r reconciler.Reconciler, ctx context.Context, server *olsv1alpha1.MCPServer, field int) (*utils.StreamableHTTPTransportConfig, error) {
-	if server == nil || server.StreamableHTTP == nil {
-		return nil, nil
-	}
+	// Add user-defined MCP servers
+	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer) && cr.Spec.MCPServers != nil {
+		for _, server := range cr.Spec.MCPServers {
+			// Build MCP server config
+			mcpServer := utils.MCPServerConfig{
+				Name: server.Name,
+				URL:  server.URL,
+			}
 
-	switch field {
-	case SSEField:
-		if !server.StreamableHTTP.EnableSSE {
-			return nil, nil
-		}
-	case StreamableHTTPField:
-		if server.StreamableHTTP.EnableSSE {
-			return nil, nil
-		}
-	default:
-		return nil, nil
-	}
+			// Add timeout if specified (default is handled by lightspeed-service)
+			if server.Timeout > 0 {
+				mcpServer.Timeout = server.Timeout
+			}
 
-	// convert headers to paths
-	headers := make(map[string]string, len(server.StreamableHTTP.Headers))
-	for k, v := range server.StreamableHTTP.Headers {
-		if v == utils.KUBERNETES_PLACEHOLDER {
-			headers[k] = v
-		} else {
-			secret := &corev1.Secret{}
-			err := r.Get(ctx, client.ObjectKey{Name: v, Namespace: r.GetNamespace()}, secret)
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					r.GetLogger().Error(err, fmt.Sprint("Header secret ", v, " for MCP server ", server.Name, " is not found"))
-					return nil, fmt.Errorf("MCP %s header secret %s is not found", server.Name, v)
+			// Add authorization headers if configured
+			if len(server.Headers) > 0 {
+				headers := make(map[string]string)
+				invalidServer := false
+				for _, header := range server.Headers {
+					if invalidServer {
+						break
+					}
+					headerName := header.Name
+					var headerValue string
+
+					// Determine header value based on discriminator type
+					switch header.ValueFrom.Type {
+					case olsv1alpha1.MCPHeaderSourceTypeKubernetes:
+						headerValue = utils.KUBERNETES_PLACEHOLDER
+					case olsv1alpha1.MCPHeaderSourceTypeClient:
+						headerValue = utils.CLIENT_PLACEHOLDER
+					case olsv1alpha1.MCPHeaderSourceTypeSecret:
+						if header.ValueFrom.SecretRef == nil || header.ValueFrom.SecretRef.Name == "" {
+							r.GetLogger().Error(
+								fmt.Errorf("missing secretRef for type 'secret'"),
+								"Skipping MCP server: type is 'secret' but secretRef is not set",
+								"server", server.Name,
+								"header", headerName,
+							)
+							invalidServer = true
+							continue
+						}
+						// Use consistent path structure: /etc/mcp/headers/<secretName>/header
+						headerValue = path.Join(utils.MCPHeadersMountRoot, header.ValueFrom.SecretRef.Name, utils.MCPSECRETDATAPATH)
+					default:
+						// This should never happen due to enum validation
+						r.GetLogger().Error(
+							fmt.Errorf("invalid MCP header type: %s", header.ValueFrom.Type),
+							"Skipping MCP server due to invalid header type",
+							"server", server.Name,
+							"header", headerName,
+							"type", header.ValueFrom.Type,
+						)
+						invalidServer = true
+						continue
+					}
+
+					headers[headerName] = headerValue
 				}
-				r.GetLogger().Error(err, fmt.Sprint("Failed to get header", v, " for MCP server ", server.Name))
-				return nil, fmt.Errorf("failed to get secret %s for MCP provider %s: %w", v, server.Name, err)
+
+				// Skip this server if any header was invalid
+				if invalidServer {
+					continue
+				}
+
+				if len(headers) > 0 {
+					mcpServer.Headers = headers
+				}
 			}
-			// make sure the secret has header path
-			if _, ok := secret.Data[utils.MCPSECRETDATAPATH]; !ok {
-				r.GetLogger().Error(err, fmt.Sprint("Header", v, " for MCP server ", server.Name, " does not contain 'header' path"))
-				return nil, fmt.Errorf("header %s for MCP server %s is missing key 'header'", v, server.Name)
-			}
-			// update header
-			headers[k] = path.Join(utils.MCPHeadersMountRoot, v, utils.MCPSECRETDATAPATH)
+
+			servers = append(servers, mcpServer)
 		}
 	}
 
-	return &utils.StreamableHTTPTransportConfig{
-		URL:            server.StreamableHTTP.URL,
-		Timeout:        server.StreamableHTTP.Timeout,
-		SSEReadTimeout: server.StreamableHTTP.SSEReadTimeout,
-		Headers:        headers,
-	}, nil
-}
-
-func getMCPTransport(server *olsv1alpha1.MCPServer) utils.MCPTransport {
-	if server == nil || server.StreamableHTTP == nil {
-		return ""
-	}
-	if server.StreamableHTTP.EnableSSE {
-		return utils.SSE
-	}
-	return utils.StreamableHTTP
+	return servers, nil
 }

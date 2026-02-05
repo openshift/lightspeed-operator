@@ -37,7 +37,7 @@ type OLSConfigSpec struct {
 	OLSDataCollectorConfig OLSDataCollectorSpec `json:"olsDataCollector,omitempty"`
 	// MCP Server settings
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Settings"
-	MCPServers []MCPServer `json:"mcpServers,omitempty"`
+	MCPServers []MCPServerConfig `json:"mcpServers,omitempty"`
 	// Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
 	// possible values: MCPServer
 	// +kubebuilder:validation:Optional
@@ -234,6 +234,10 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image Pull Secrets"
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	// Tool filtering configuration for hybrid RAG retrieval. If not specified, all tools are used.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tool Filtering Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	ToolFilteringConfig *ToolFilteringConfig `json:"toolFilteringConfig,omitempty"`
 }
 
 // Persistent Storage Configuration
@@ -515,45 +519,127 @@ type ProxyConfig struct {
 	ProxyCACertificateRef *corev1.LocalObjectReference `json:"proxyCACertificate,omitempty"`
 }
 
-// MCPServer defines the settings for a single MCP server.
-type MCPServer struct {
+// ToolFilteringConfig defines configuration for tool filtering using hybrid RAG retrieval.
+// If this config is present, tool filtering is enabled. If absent, all tools are used.
+// The embedding model is not exposed as it's handled by the container image.
+// +kubebuilder:validation:XValidation:rule="self.alpha >= 0.0 && self.alpha <= 1.0",message="alpha must be between 0.0 and 1.0"
+// +kubebuilder:validation:XValidation:rule="self.threshold >= 0.0 && self.threshold <= 1.0",message="threshold must be between 0.0 and 1.0"
+type ToolFilteringConfig struct {
+	// Weight for dense vs sparse retrieval (1.0 = full dense, 0.0 = full sparse)
+	// +kubebuilder:default=0.8
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Alpha Weight"
+	Alpha float64 `json:"alpha,omitempty"`
+
+	// Number of tools to retrieve
+	// +kubebuilder:default=10
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=50
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Top K"
+	TopK int `json:"topK,omitempty"`
+
+	// Minimum similarity threshold for filtering results
+	// +kubebuilder:default=0.01
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Similarity Threshold"
+	Threshold float64 `json:"threshold,omitempty"`
+}
+
+// MCPHeaderSourceType defines the type of header value source
+// +enum
+type MCPHeaderSourceType string
+
+const (
+	// MCPHeaderSourceTypeSecret uses a value from a Kubernetes secret
+	MCPHeaderSourceTypeSecret MCPHeaderSourceType = "secret"
+	// MCPHeaderSourceTypeKubernetes uses the Kubernetes service account token
+	MCPHeaderSourceTypeKubernetes MCPHeaderSourceType = "kubernetes"
+	// MCPHeaderSourceTypeClient uses the client token from the incoming request
+	MCPHeaderSourceTypeClient MCPHeaderSourceType = "client"
+)
+
+// MCPHeaderValueSource defines where the header value comes from.
+// Uses a discriminated union pattern following KEP-1027.
+// The Type field determines which of the other fields should be set.
+// Secrets must exist in the operator's namespace.
+//
+// Examples:
+//
+//	# Use a secret:
+//	valueFrom:
+//	  type: secret
+//	  secretRef:
+//	    name: my-mcp-secret
+//
+//	# Use Kubernetes service account token:
+//	valueFrom:
+//	  type: kubernetes
+//
+//	# Pass through client token:
+//	valueFrom:
+//	  type: client
+//
+// +kubebuilder:validation:XValidation:rule="self.type == 'secret' ? has(self.secretRef) && size(self.secretRef.name) > 0 : true",message="secretRef with non-empty name is required when type is 'secret'"
+// +kubebuilder:validation:XValidation:rule="self.type != 'secret' ? !has(self.secretRef) : true",message="secretRef must not be set when type is 'kubernetes' or 'client'"
+type MCPHeaderValueSource struct {
+	// Type specifies the source type for the header value
+	// +unionDiscriminator
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=secret;kubernetes;client
+	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Source Type"
+	Type MCPHeaderSourceType `json:"type"`
+
+	// Reference to a secret containing the header value.
+	// Required when Type is "secret".
+	// The secret must exist in the operator's namespace.
+	// +unionMember
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Secret Reference"
+	SecretRef *corev1.LocalObjectReference `json:"secretRef,omitempty"`
+}
+
+// MCPHeader defines a header to send to the MCP server
+type MCPHeader struct {
+	// Name of the header (e.g., "Authorization", "X-API-Key")
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9-]+$`
+	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Header Name"
+	Name string `json:"name"`
+
+	// Source of the header value
+	// +kubebuilder:validation:Required
+	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Value Source"
+	ValueFrom MCPHeaderValueSource `json:"valueFrom"`
+}
+
+// MCPServerConfig defines the streamlined configuration for an MCP server
+// This configuration only supports HTTP/HTTPS transport
+type MCPServerConfig struct {
 	// Name of the MCP server
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Name"
 	Name string `json:"name"`
-	// Streamable HTTP Transport settings
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Streamable HTTP Transport"
-	StreamableHTTP *MCPServerStreamableHTTPTransport `json:"streamableHTTP,omitempty"`
-}
 
-// MCPServerStreamableHTTPTransport configures the MCP server to use streamable HTTP transport.
-type MCPServerStreamableHTTPTransport struct {
-	// URL of the MCP server
+	// URL of the MCP server (HTTP/HTTPS)
 	// +kubebuilder:validation:Required
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="URL"
 	URL string `json:"url"`
-	// Timeout for the MCP server, default is 5 seconds
+
+	// Timeout for the MCP server in seconds, default is 5
 	// +kubebuilder:default=5
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Timeout in seconds"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Timeout (seconds)"
 	Timeout int `json:"timeout,omitempty"`
-	// SSE Read Timeout, default is 10 seconds
-	// +kubebuilder:default=10
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="SSE Read Timeout in seconds"
-	SSEReadTimeout int `json:"sseReadTimeout,omitempty"`
+
 	// Headers to send to the MCP server
-	// the map contains the header name and the name of the secret with the content of the header. This secret
-	// should contain a header path in the data containing a header value.
-	// A special case is usage of the kubernetes token in the header. to specify this use
-	// a string "kubernetes" instead of the secret name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Headers",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:keyValue"}
-	Headers map[string]string `json:"headers,omitempty"`
-	// Enable Server Sent Events
-	// +kubebuilder:default=false
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Enable Server Sent Events"
-	EnableSSE bool `json:"enableSSE,omitempty"`
+	// Each header can reference a secret or use a special source (kubernetes token, client token)
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Headers"
+	Headers []MCPHeader `json:"headers,omitempty"`
 }
 
 // +kubebuilder:object:root=true

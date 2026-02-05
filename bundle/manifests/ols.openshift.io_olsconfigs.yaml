@@ -347,45 +347,84 @@ spec:
               mcpServers:
                 description: MCP Server settings
                 items:
-                  description: MCPServer defines the settings for a single MCP server.
+                  description: |-
+                    MCPServerConfig defines the streamlined configuration for an MCP server
+                    This configuration only supports HTTP/HTTPS transport
                   properties:
+                    headers:
+                      description: |-
+                        Headers to send to the MCP server
+                        Each header can reference a secret or use a special source (kubernetes token, client token)
+                      items:
+                        description: MCPHeader defines a header to send to the MCP
+                          server
+                        properties:
+                          name:
+                            description: Name of the header (e.g., "Authorization",
+                              "X-API-Key")
+                            minLength: 1
+                            pattern: ^[A-Za-z0-9-]+$
+                            type: string
+                          valueFrom:
+                            description: Source of the header value
+                            properties:
+                              secretRef:
+                                description: |-
+                                  Reference to a secret containing the header value.
+                                  Required when Type is "secret".
+                                  The secret must exist in the operator's namespace.
+                                properties:
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    type: string
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              type:
+                                description: Type specifies the source type for the
+                                  header value
+                                enum:
+                                - secret
+                                - kubernetes
+                                - client
+                                type: string
+                            required:
+                            - type
+                            type: object
+                            x-kubernetes-validations:
+                            - message: secretRef with non-empty name is required when
+                                type is 'secret'
+                              rule: 'self.type == ''secret'' ? has(self.secretRef)
+                                && size(self.secretRef.name) > 0 : true'
+                            - message: secretRef must not be set when type is 'kubernetes'
+                                or 'client'
+                              rule: 'self.type != ''secret'' ? !has(self.secretRef)
+                                : true'
+                        required:
+                        - name
+                        - valueFrom
+                        type: object
+                      type: array
                     name:
                       description: Name of the MCP server
                       type: string
-                    streamableHTTP:
-                      description: Streamable HTTP Transport settings
-                      properties:
-                        enableSSE:
-                          default: false
-                          description: Enable Server Sent Events
-                          type: boolean
-                        headers:
-                          additionalProperties:
-                            type: string
-                          description: |-
-                            Headers to send to the MCP server
-                            the map contains the header name and the name of the secret with the content of the header. This secret
-                            should contain a header path in the data containing a header value.
-                            A special case is usage of the kubernetes token in the header. to specify this use
-                            a string "kubernetes" instead of the secret name
-                          type: object
-                        sseReadTimeout:
-                          default: 10
-                          description: SSE Read Timeout, default is 10 seconds
-                          type: integer
-                        timeout:
-                          default: 5
-                          description: Timeout for the MCP server, default is 5 seconds
-                          type: integer
-                        url:
-                          description: URL of the MCP server
-                          pattern: ^https?://.*$
-                          type: string
-                      required:
-                      - url
-                      type: object
+                    timeout:
+                      default: 5
+                      description: Timeout for the MCP server in seconds, default
+                        is 5
+                      type: integer
+                    url:
+                      description: URL of the MCP server (HTTP/HTTPS)
+                      pattern: ^https?://.*$
+                      type: string
                   required:
                   - name
+                  - url
                   type: object
                 type: array
               ols:
@@ -4708,6 +4747,31 @@ spec:
                         - Custom
                         type: string
                     type: object
+                  toolFilteringConfig:
+                    description: Tool filtering configuration for hybrid RAG retrieval.
+                      If not specified, all tools are used.
+                    properties:
+                      alpha:
+                        default: 0.8
+                        description: Weight for dense vs sparse retrieval (1.0 = full
+                          dense, 0.0 = full sparse)
+                        type: number
+                      threshold:
+                        default: 0.01
+                        description: Minimum similarity threshold for filtering results
+                        type: number
+                      topK:
+                        default: 10
+                        description: Number of tools to retrieve
+                        maximum: 50
+                        minimum: 1
+                        type: integer
+                    type: object
+                    x-kubernetes-validations:
+                    - message: alpha must be between 0.0 and 1.0
+                      rule: self.alpha >= 0.0 && self.alpha <= 1.0
+                    - message: threshold must be between 0.0 and 1.0
+                      rule: self.threshold >= 0.0 && self.threshold <= 1.0
                   userDataCollection:
                     description: User data collection switches
                     properties:

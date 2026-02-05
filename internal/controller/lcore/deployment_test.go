@@ -536,23 +536,34 @@ func TestGenerateLCoreDeploymentWithMCPHeaderSecrets(t *testing.T) {
 					},
 				},
 			},
-			MCPServers: []olsv1alpha1.MCPServer{
+			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
 					Name: "external-mcp-kubernetes-auth",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL: "http://external1.example.com",
-						Headers: map[string]string{
-							"Authorization": utils.KUBERNETES_PLACEHOLDER,
+					URL:  "http://external1.example.com",
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "Authorization",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type: olsv1alpha1.MCPHeaderSourceTypeKubernetes,
+							},
 						},
 					},
 				},
 				{
 					Name: "external-mcp-mixed-auth",
-					StreamableHTTP: &olsv1alpha1.MCPServerStreamableHTTPTransport{
-						URL: "https://external2.example.com",
-						Headers: map[string]string{
-							"Authorization": utils.KUBERNETES_PLACEHOLDER,
-							"X-Custom":      utils.KUBERNETES_PLACEHOLDER, // Test multiple placeholders
+					URL:  "https://external2.example.com",
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "Authorization",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type: olsv1alpha1.MCPHeaderSourceTypeKubernetes,
+							},
+						},
+						{
+							Name: "X-Custom",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type: olsv1alpha1.MCPHeaderSourceTypeKubernetes,
+							},
 						},
 					},
 				},
