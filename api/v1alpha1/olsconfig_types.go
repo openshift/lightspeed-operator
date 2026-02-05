@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 // OLSConfigSpec defines the desired state of OLSConfig
@@ -36,6 +37,7 @@ type OLSConfigSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="OLS Data Collector Settings"
 	OLSDataCollectorConfig OLSDataCollectorSpec `json:"olsDataCollector,omitempty"`
 	// MCP Server settings
+	// +kubebuilder:validation:MaxItems=20
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Settings"
 	MCPServers []MCPServerConfig `json:"mcpServers,omitempty"`
 	// Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
@@ -160,6 +162,7 @@ const (
 // LLMSpec defines the desired state of the large language model (LLM).
 type LLMSpec struct {
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxItems=10
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Providers"
 	Providers []ProviderSpec `json:"providers"`
@@ -451,6 +454,11 @@ type ModelSpec struct {
 // ProviderSpec defines the desired state of LLM provider.
 // +kubebuilder:validation:XValidation:message="'deploymentName' must be specified for 'azure_openai' provider",rule="self.type != \"azure_openai\" || self.deploymentName != \"\""
 // +kubebuilder:validation:XValidation:message="'projectID' must be specified for 'watsonx' provider",rule="self.type != \"watsonx\" || self.projectID != \"\""
+// +kubebuilder:validation:XValidation:message="'providerType' and 'config' must be used together in llamaStackGeneric mode",rule="!has(self.providerType) || has(self.config)"
+// +kubebuilder:validation:XValidation:message="'config' requires 'providerType' to be set",rule="!has(self.config) || has(self.providerType)"
+// +kubebuilder:validation:XValidation:message="Llama Stack Generic mode (providerType set) requires type='llamaStackGeneric'",rule="!has(self.providerType) || self.type == \"llamaStackGeneric\""
+// +kubebuilder:validation:XValidation:message="Llama Stack Generic mode cannot use legacy provider-specific fields",rule="self.type != \"llamaStackGeneric\" || (!has(self.deploymentName) && !has(self.projectID) && !has(self.url) && !has(self.apiVersion))"
+// +kubebuilder:validation:XValidation:message="credentialKey must not be empty or whitespace",rule="!has(self.credentialKey) || !self.credentialKey.matches('^[ \\t\\n\\r\\v\\f]*$')"
 type ProviderSpec struct {
 	// Provider name
 	// +kubebuilder:validation:Required
@@ -468,13 +476,14 @@ type ProviderSpec struct {
 	CredentialsSecretRef corev1.LocalObjectReference `json:"credentialsSecretRef"`
 	// List of models from the provider
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxItems=50
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Models"
 	Models []ModelSpec `json:"models"`
 	// Provider type
 	// +kubebuilder:validation:Required
 	// +required
-	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx;rhoai_vllm;rhelai_vllm;fake_provider
+	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx;rhoai_vllm;rhelai_vllm;fake_provider;llamaStackGeneric
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Provider Type"
 	Type string `json:"type"`
 	// Deployment name for Azure OpenAI provider
@@ -493,6 +502,27 @@ type ProviderSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Security Profile",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	TLSSecurityProfile *configv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
+	// Llama Stack Generic provider type for provider configuration (e.g., "remote::openai", "inline::sentence-transformers")
+	// When set, this provider uses Llama Stack Generic mode instead of legacy mode.
+	// Must follow pattern: (inline|remote)::<provider-name>
+	// +kubebuilder:validation:Pattern=`^(inline|remote)::[a-z0-9][a-z0-9_-]*$`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Llama Stack Provider Type"
+	ProviderType string `json:"providerType,omitempty"`
+	// Arbitrary configuration for the provider (Llama Stack Generic mode only)
+	// This map is passed directly to Llama Stack provider configuration.
+	// Credentials are automatically injected as environment variable substitutions.
+	// Example: {"url": "https://...", "custom_field": "value"}
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Llama Stack Provider Config"
+	Config *runtime.RawExtension `json:"config,omitempty"`
+	// Secret key name for provider credentials (defaults to "apitoken" if not set).
+	// Specifies which key inside credentialsSecretRef to read the credential value from.
+	// The credential value is always exposed to the container as env var {PROVIDER_NAME}_API_KEY
+	// (derived from the provider name, not this field), and referenced in the Llama Stack config
+	// YAML as ${env.PROVIDER_NAME_API_KEY}. This field only controls which secret data key is read.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Credential Key Name"
+	CredentialKey string `json:"credentialKey,omitempty"`
 }
 
 // UserDataCollectionSpec defines how we collect user data.
@@ -687,6 +717,7 @@ type MCPServerConfig struct {
 	// Headers to send to the MCP server
 	// Each header can reference a secret or use a special source (kubernetes token, client token)
 	// +optional
+	// +kubebuilder:validation:MaxItems=20
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Headers"
 	Headers []MCPHeader `json:"headers,omitempty"`
 }

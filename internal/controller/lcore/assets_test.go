@@ -2,6 +2,7 @@ package lcore
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -99,17 +100,14 @@ func TestBuildLlamaStackYAML_UnsupportedProvider(t *testing.T) {
 
 			// Verify error message mentions the provider
 			expectedErrMsg := "not currently supported by Llama Stack"
-			if err.Error() == "" || len(err.Error()) == 0 {
+			if err.Error() == "" {
 				t.Errorf("Error message is empty for unsupported provider '%s'", providerType)
 			}
-			if err.Error() != "" && len(err.Error()) > 0 {
-				// Check if error message contains expected text
-				if !contains(err.Error(), expectedErrMsg) {
-					t.Errorf("Error message '%s' doesn't contain expected text '%s'", err.Error(), expectedErrMsg)
-				}
-				if !contains(err.Error(), providerType) {
-					t.Errorf("Error message '%s' doesn't mention provider type '%s'", err.Error(), providerType)
-				}
+			if !strings.Contains(err.Error(), expectedErrMsg) {
+				t.Errorf("Error message '%s' doesn't contain expected text '%s'", err.Error(), expectedErrMsg)
+			}
+			if !strings.Contains(err.Error(), providerType) {
+				t.Errorf("Error message '%s' doesn't mention provider type '%s'", err.Error(), providerType)
 			}
 
 			t.Logf("Correctly rejected unsupported provider '%s' with error: %v", providerType, err)
@@ -344,18 +342,286 @@ func TestBuildLlamaStackYAML_AzureProvider(t *testing.T) {
 	t.Logf("Successfully validated Llama Stack YAML with Azure provider (%d bytes)", len(yamlOutput))
 }
 
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
-}
+// TestBuildLlamaStackYAML_GenericProvider tests the generic provider path using
+// remote::openai as the providerType. This validates that a known provider can be
+// configured through the generic llamaStackGeneric mechanism instead of the legacy path.
+func TestBuildLlamaStackYAML_GenericProvider(t *testing.T) {
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name:         "my-openai",
+						Type:         utils.LlamaStackGenericType,
+						ProviderType: "remote::openai",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "my-openai-secret",
+						},
+						Config: &runtime.RawExtension{
+							Raw: []byte(`{"url": "https://api.openai.com/v1", "custom_field": "test_value"}`),
+						},
+						Models: []olsv1alpha1.ModelSpec{
+							{Name: "gpt-4o"},
+						},
+					},
+				},
+			},
+		},
+	}
 
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
+	ctx := context.Background()
+	yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+	if err != nil {
+		t.Fatalf("buildLlamaStackYAML failed for generic provider: %v", err)
+	}
+
+	if len(yamlOutput) == 0 {
+		t.Fatal("buildLlamaStackYAML returned empty string for generic provider")
+	}
+
+	var result map[string]interface{}
+	err = yaml.Unmarshal([]byte(yamlOutput), &result)
+	if err != nil {
+		t.Fatalf("buildLlamaStackYAML produced invalid YAML: %v\nOutput:\n%s", err, yamlOutput)
+	}
+
+	// Verify providers section
+	providers, ok := result["providers"].(map[string]interface{})
+	if !ok {
+		t.Fatal("providers section missing or invalid type")
+	}
+	inference, ok := providers["inference"].([]interface{})
+	if !ok || len(inference) == 0 {
+		t.Fatal("inference providers missing or empty")
+	}
+
+	// Find the generic openai provider
+	var genericProvider map[string]interface{}
+	for _, provider := range inference {
+		p, ok := provider.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if p["provider_id"] == "my-openai" {
+			genericProvider = p
+			break
 		}
 	}
-	return false
+	if genericProvider == nil {
+		t.Fatal("Generic openai provider not found in inference providers")
+	}
+
+	// Verify provider_type comes from the ProviderType field (generic path)
+	if genericProvider["provider_type"] != "remote::openai" {
+		t.Errorf("Expected provider_type='remote::openai', got '%v'", genericProvider["provider_type"])
+	}
+
+	// Verify config fields are passed through
+	config, ok := genericProvider["config"].(map[string]interface{})
+	if !ok {
+		t.Fatal("provider config missing or invalid type")
+	}
+	if config["url"] != "https://api.openai.com/v1" {
+		t.Errorf("Config URL not passed through correctly, got: %v", config["url"])
+	}
+	if config["custom_field"] != "test_value" {
+		t.Errorf("Custom config field not preserved, got: %v", config["custom_field"])
+	}
+
+	// Verify credential auto-injection
+	apiKey, ok := config["api_key"]
+	if !ok {
+		t.Error("api_key not auto-injected into config")
+	} else {
+		expectedKey := "${env.MY_OPENAI_API_KEY}"
+		if apiKey != expectedKey {
+			t.Errorf("Expected api_key='%s', got '%v'", expectedKey, apiKey)
+		}
+	}
+
+	// Verify model mapping
+	models, ok := result["models"].([]interface{})
+	if !ok || len(models) == 0 {
+		t.Fatal("models section missing or empty")
+	}
+	foundModel := false
+	for _, model := range models {
+		m, ok := model.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if m["model_id"] == "gpt-4o" {
+			foundModel = true
+			if m["provider_id"] != "my-openai" {
+				t.Errorf("Model not mapped to correct provider, got: %v", m["provider_id"])
+			}
+			break
+		}
+	}
+	if !foundModel {
+		t.Error("Model not found in models section")
+	}
+
+	t.Logf("Generic provider with remote::openai generated correctly (%d bytes)", len(yamlOutput))
+}
+
+// TODO: Add tests for additional generic providers as they become supported
+// when they are officially supported.
+
+func TestBuildLlamaStackYAML_GenericProvider_InvalidValues(t *testing.T) {
+	// Test multiple invalid configurations
+	testCases := []struct {
+		name          string
+		provider      olsv1alpha1.ProviderSpec
+		expectedError string
+	}{
+		{
+			name: "invalid JSON in config",
+			provider: olsv1alpha1.ProviderSpec{
+				Name:         "broken-json",
+				Type:         utils.LlamaStackGenericType,
+				ProviderType: "remote::custom",
+				Config: &runtime.RawExtension{
+					Raw: []byte(`{invalid json syntax`),
+				},
+				Models: []olsv1alpha1.ModelSpec{{Name: "test-model"}},
+			},
+			expectedError: "failed to unmarshal config",
+		},
+		{
+			name: "type llamaStackGeneric without providerType",
+			provider: olsv1alpha1.ProviderSpec{
+				Name: "missing-provider-type",
+				Type: utils.LlamaStackGenericType,
+				// ProviderType not set - this should fail
+				Models: []olsv1alpha1.ModelSpec{{Name: "test-model"}},
+			},
+			expectedError: "requires providerType and config fields to be set",
+		},
+		{
+			name: "empty config Raw bytes",
+			provider: olsv1alpha1.ProviderSpec{
+				Name:         "empty-config",
+				Type:         utils.LlamaStackGenericType,
+				ProviderType: "remote::empty",
+				Config: &runtime.RawExtension{
+					Raw: []byte(""),
+				},
+				Models: []olsv1alpha1.ModelSpec{{Name: "test-model"}},
+			},
+			expectedError: "failed to unmarshal config",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cr := &olsv1alpha1.OLSConfig{
+				Spec: olsv1alpha1.OLSConfigSpec{
+					LLMConfig: olsv1alpha1.LLMSpec{
+						Providers: []olsv1alpha1.ProviderSpec{tc.provider},
+					},
+				},
+			}
+
+			ctx := context.Background()
+			yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+
+			// Should return error
+			if err == nil {
+				t.Fatalf("Expected error for %s, got none. Output: %s", tc.name, yamlOutput)
+			}
+
+			// Verify error message contains expected substring
+			if !strings.Contains(err.Error(), tc.expectedError) {
+				t.Errorf("Expected error containing '%s', got: %v", tc.expectedError, err)
+			}
+
+			// Verify error message mentions provider name (for better debugging)
+			if !strings.Contains(err.Error(), tc.provider.Name) {
+				t.Errorf("Error message should mention provider name '%s', got: %v", tc.provider.Name, err)
+			}
+
+			t.Logf("✓ Correctly rejected %s with error: %v", tc.name, err)
+		})
+	}
+}
+
+func TestBuildLlamaStackYAML_GenericProvider_ConfigWithExistingCredential(t *testing.T) {
+	// Test generic provider where config already contains an explicit api_key field.
+	// hasAPIKeyField() detects it and skips auto-injection to avoid overriding the
+	// caller's value (e.g. a custom env var substitution pattern).
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name:         "custom",
+						Type:         utils.LlamaStackGenericType,
+						ProviderType: "remote::custom",
+						Config: &runtime.RawExtension{
+							// Config explicitly sets api_key to a custom env var substitution.
+							// The operator must not overwrite it with the default injection.
+							Raw: []byte(`{
+								"url": "https://api.custom.com/v1",
+								"api_key": "${env.CUSTOM_SECRET_TOKEN}"
+							}`),
+						},
+						Models: []olsv1alpha1.ModelSpec{
+							{Name: "custom-model"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Build the YAML
+	ctx := context.Background()
+	yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+	if err != nil {
+		t.Fatalf("buildLlamaStackYAML failed: %v", err)
+	}
+
+	// Parse YAML output
+	var result map[string]interface{}
+	err = yaml.Unmarshal([]byte(yamlOutput), &result)
+	if err != nil {
+		t.Fatalf("Invalid YAML: %v", err)
+	}
+
+	// Find the custom provider
+	providers := result["providers"].(map[string]interface{})
+	inference := providers["inference"].([]interface{})
+	var customProvider map[string]interface{}
+	for _, provider := range inference {
+		p := provider.(map[string]interface{})
+		if p["provider_id"] == "custom" {
+			customProvider = p
+			break
+		}
+	}
+
+	if customProvider == nil {
+		t.Fatal("Custom provider not found")
+	}
+
+	// Get config
+	config := customProvider["config"].(map[string]interface{})
+
+	// CRITICAL: Verify the caller's api_key value is preserved unchanged.
+	apiKey, ok := config["api_key"]
+	if !ok {
+		t.Error("api_key field was lost from config")
+	} else if apiKey != "${env.CUSTOM_SECRET_TOKEN}" {
+		t.Errorf("api_key was overwritten; expected '${env.CUSTOM_SECRET_TOKEN}', got '%v'", apiKey)
+	}
+
+	// Verify URL is still present
+	if config["url"] != "https://api.custom.com/v1" {
+		t.Errorf("URL not preserved, got: %v", config["url"])
+	}
+
+	t.Logf("✓ Explicit api_key in config preserved correctly (auto-injection skipped)")
 }
 
 func TestBuildLCoreConfigYAML(t *testing.T) {
@@ -528,4 +794,278 @@ func (m *mockReconcilerForAssets) GetNamespace() string {
 
 func (m *mockReconcilerForAssets) GetScheme() *runtime.Scheme {
 	return m.scheme
+}
+
+// TestBuildLlamaStackYAML_EdgeCases tests edge cases and error conditions
+func TestBuildLlamaStackYAML_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name          string
+		provider      olsv1alpha1.ProviderSpec
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "MalformedJSON_Config",
+			provider: olsv1alpha1.ProviderSpec{
+				Name:         "bad-json",
+				Type:         utils.LlamaStackGenericType,
+				ProviderType: "remote::custom",
+				Config: &runtime.RawExtension{
+					Raw: []byte(`{invalid json}`),
+				},
+				Models: []olsv1alpha1.ModelSpec{{Name: "test-model"}},
+			},
+			expectError:   true,
+			errorContains: "invalid character",
+		},
+		{
+			name: "EmptyProviderName",
+			provider: olsv1alpha1.ProviderSpec{
+				Name:         "",
+				Type:         "openai",
+				ProviderType: "",
+				Models:       []olsv1alpha1.ModelSpec{{Name: "gpt-4"}},
+			},
+			expectError: false, // Name can be empty in provider spec
+		},
+		{
+			name: "LongProviderName",
+			provider: olsv1alpha1.ProviderSpec{
+				Name:         "provider-" + strings.Repeat("a", 200),
+				Type:         "openai",
+				ProviderType: "",
+				Models:       []olsv1alpha1.ModelSpec{{Name: "gpt-4"}},
+			},
+			expectError: false, // Should handle long names
+		},
+		{
+			name: "SpecialCharactersInProviderName",
+			provider: olsv1alpha1.ProviderSpec{
+				Name:         "my-provider@#$%",
+				Type:         "openai",
+				ProviderType: "",
+				Models:       []olsv1alpha1.ModelSpec{{Name: "gpt-4"}},
+			},
+			expectError: false, // Should not fail on special chars in name
+		},
+		{
+			name: "VeryLargeConfig",
+			provider: olsv1alpha1.ProviderSpec{
+				Name:         "large-config",
+				Type:         utils.LlamaStackGenericType,
+				ProviderType: "remote::custom",
+				Config: &runtime.RawExtension{
+					Raw: []byte(`{"data": "` + strings.Repeat("x", 10000) + `"}`),
+				},
+				Models: []olsv1alpha1.ModelSpec{{Name: "test"}},
+			},
+			expectError: false,
+		},
+		{
+			name: "NestedConfig",
+			provider: olsv1alpha1.ProviderSpec{
+				Name:         "nested",
+				Type:         utils.LlamaStackGenericType,
+				ProviderType: "remote::custom",
+				Config: &runtime.RawExtension{
+					Raw: []byte(`{"outer": {"inner": {"deep": {"value": 123}}}}`),
+				},
+				Models: []olsv1alpha1.ModelSpec{{Name: "test"}},
+			},
+			expectError: false,
+		},
+		{
+			name: "ConfigWithArrays",
+			provider: olsv1alpha1.ProviderSpec{
+				Name:         "arrays",
+				Type:         utils.LlamaStackGenericType,
+				ProviderType: "remote::custom",
+				Config: &runtime.RawExtension{
+					Raw: []byte(`{"models": ["model1", "model2"], "endpoints": [{"url": "https://test"}]}`),
+				},
+				Models: []olsv1alpha1.ModelSpec{{Name: "test"}},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cr := &olsv1alpha1.OLSConfig{
+				Spec: olsv1alpha1.OLSConfigSpec{
+					LLMConfig: olsv1alpha1.LLMSpec{
+						Providers: []olsv1alpha1.ProviderSpec{tt.provider},
+					},
+				},
+			}
+
+			ctx := context.Background()
+			yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error, but got none. Output: %s", yamlOutput)
+				} else if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("Expected error containing '%s', got: %v", tt.errorContains, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				// Verify output is valid YAML
+				var result map[string]interface{}
+				if err := yaml.Unmarshal([]byte(yamlOutput), &result); err != nil {
+					t.Errorf("buildLlamaStackYAML produced invalid YAML: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestProviderNameToEnvVarConversion tests environment variable name conversion edge cases
+func TestProviderNameToEnvVarConversion(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"simple", "SIMPLE"},
+		{"with-hyphens", "WITH_HYPHENS"},
+		{"multiple-hyphens-here", "MULTIPLE_HYPHENS_HERE"},
+		{"MixedCase", "MIXEDCASE"},
+		{"trailing-", "TRAILING_"},
+		{"-leading", "_LEADING"},
+		{"multiple--hyphens", "MULTIPLE__HYPHENS"},
+		{"already_underscore", "ALREADY_UNDERSCORE"},
+		{"123numeric", "_123NUMERIC"}, // Leading digit prefixed with underscore
+		{"", "_"},                     // Empty string gets underscore prefix (POSIX compliance, prevents collisions)
+		// Special characters are stripped to produce POSIX-valid env var names
+		{"my-provider@#$%", "MY_PROVIDER"},
+		{"dots.in.name", "DOTSINNAME"},
+		{"provider!with*chars", "PROVIDERWITHCHARS"},
+		{"!@#$%", "_"}, // All special chars sanitize to empty, then prefix
+		{"   ", "_"},   // Whitespace sanitizes to empty, then prefix
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("convert_%s", tt.input), func(t *testing.T) {
+			result := utils.ProviderNameToEnvVarName(tt.input)
+			if result != tt.expected {
+				t.Errorf("ProviderNameToEnvVarName(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestGenericProviderCredentialInjection verifies that the env var substitution
+// pattern (${env.PROVIDER_API_KEY}) is emitted in the Llama Stack YAML config
+// for a generic provider. This covers the config-generation side only; the
+// SecretKeyRef wiring is tested in deployment_test.go.
+func TestGenericProviderCredentialInjection(t *testing.T) {
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name:         "test-provider",
+						Type:         utils.LlamaStackGenericType,
+						ProviderType: "remote::test-backend",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "test-provider-secret",
+						},
+						CredentialKey: "secret_key",
+						Config: &runtime.RawExtension{
+							Raw: []byte(`{"api_endpoint": "https://api.example.com"}`),
+						},
+						Models: []olsv1alpha1.ModelSpec{{Name: "test-model"}},
+					},
+				},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+	if err != nil {
+		t.Fatalf("buildLlamaStackYAML failed: %v", err)
+	}
+
+	// Verify that the custom credential key is referenced in environment variables
+	var result map[string]interface{}
+	if err := yaml.Unmarshal([]byte(yamlOutput), &result); err != nil {
+		t.Fatalf("Invalid YAML produced: %v", err)
+	}
+
+	// Check that environment variable substitution is present
+	if !strings.Contains(yamlOutput, "TEST_PROVIDER_API_KEY") {
+		t.Errorf("Expected environment variable reference 'TEST_PROVIDER_API_KEY' in output")
+	}
+}
+
+func TestBuildLlamaStackYAML_GenericProvider_NoCredentials(t *testing.T) {
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name:         "public-llm",
+						Type:         utils.LlamaStackGenericType,
+						ProviderType: "remote::public-provider",
+						Config: &runtime.RawExtension{
+							Raw: []byte(`{"url": "https://public.example.com"}`),
+						},
+						Models: []olsv1alpha1.ModelSpec{{Name: "public-model"}},
+						// NO CredentialsSecretRef
+					},
+				},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+	if err != nil {
+		t.Fatalf("buildLlamaStackYAML returned error for credential-less generic provider: %v", err)
+	}
+	if len(yamlOutput) == 0 {
+		t.Fatal("buildLlamaStackYAML returned empty string")
+	}
+
+	var result map[string]interface{}
+	if err := yaml.Unmarshal([]byte(yamlOutput), &result); err != nil {
+		t.Fatalf("Invalid YAML: %v", err)
+	}
+
+	// Find the public-llm provider
+	providers := result["providers"].(map[string]interface{})
+	inference := providers["inference"].([]interface{})
+	var publicProvider map[string]interface{}
+	for _, p := range inference {
+		pm := p.(map[string]interface{})
+		if pm["provider_id"] == "public-llm" {
+			publicProvider = pm
+			break
+		}
+	}
+	if publicProvider == nil {
+		t.Fatal("public-llm provider not found in inference providers")
+	}
+	if publicProvider["provider_type"] != "remote::public-provider" {
+		t.Errorf("Expected provider_type 'remote::public-provider', got '%v'", publicProvider["provider_type"])
+	}
+
+	config := publicProvider["config"].(map[string]interface{})
+	if config["url"] != "https://public.example.com" {
+		t.Errorf("Expected url 'https://public.example.com', got '%v'", config["url"])
+	}
+	// api_key should NOT be injected when no credentials are configured
+	if _, exists := config["api_key"]; exists {
+		t.Errorf("api_key should not be present for credential-less generic provider, but found: %v", config["api_key"])
+	}
+}
+
+func TestDeepCopyMap_NilInput(t *testing.T) {
+	result := deepCopyMap(nil)
+	if result != nil {
+		t.Errorf("deepCopyMap(nil) should return nil, got %v", result)
+	}
 }

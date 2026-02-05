@@ -1243,3 +1243,204 @@ func (m *mockReconcilerWithTelemetry) Get(ctx context.Context, key client.Object
 func (m *mockReconcilerWithTelemetry) GetDataverseExporterImage() string {
 	return utils.DataverseExporterImageDefault
 }
+
+// mockReconcilerWithSecrets extends mockReconciler to return pre-configured fake
+// secrets keyed by name. Use this when the code under test calls r.Get for a Secret.
+type mockReconcilerWithSecrets struct {
+	mockReconciler
+	secrets map[string]*corev1.Secret // name -> secret
+}
+
+func (m *mockReconcilerWithSecrets) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if secret, ok := obj.(*corev1.Secret); ok {
+		if fakeSecret, found := m.secrets[key.Name]; found {
+			*secret = *fakeSecret
+			return nil
+		}
+	}
+	return m.mockReconciler.Get(ctx, key, obj, opts...)
+}
+
+// TestBuildLlamaStackEnvVars_GenericProvider_CustomCredentialKey verifies that when
+// a generic provider sets CredentialKey to a non-default value, buildLlamaStackEnvVars
+// wires the env var to SecretKeyRef.Key equal to that custom key name.
+// This is the authoritative test for the CredentialKey field's runtime behaviour.
+func TestBuildLlamaStackEnvVars_GenericProvider_CustomCredentialKey(t *testing.T) {
+	const secretName = "custom-provider-creds"
+	const customKey = "bearer_token" // non-default; default is "apitoken"
+
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name:                 "custom-provider",
+						Type:                 utils.LlamaStackGenericType,
+						ProviderType:         "remote::custom",
+						CredentialKey:        customKey,
+						CredentialsSecretRef: corev1.LocalObjectReference{Name: secretName},
+						Config: &runtime.RawExtension{
+							Raw: []byte(`{"url": "https://api.example.com/v1"}`),
+						},
+						Models: []olsv1alpha1.ModelSpec{{Name: "test-model"}},
+					},
+				},
+			},
+		},
+	}
+
+	fakeSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: secretName},
+		Data: map[string][]byte{
+			customKey: []byte("my-custom-token"),
+		},
+	}
+
+	r := &mockReconcilerWithSecrets{
+		secrets: map[string]*corev1.Secret{secretName: fakeSecret},
+	}
+
+	ctx := context.Background()
+	envVars, err := buildLlamaStackEnvVars(r, ctx, cr)
+	if err != nil {
+		t.Fatalf("buildLlamaStackEnvVars returned error: %v", err)
+	}
+
+	// Find the CUSTOM_PROVIDER_API_KEY env var
+	var apiKeyEnv *corev1.EnvVar
+	for i := range envVars {
+		if envVars[i].Name == "CUSTOM_PROVIDER_API_KEY" {
+			apiKeyEnv = &envVars[i]
+			break
+		}
+	}
+
+	if apiKeyEnv == nil {
+		t.Fatal("CUSTOM_PROVIDER_API_KEY env var not found in generated env vars")
+	}
+
+	// CRITICAL: The SecretKeyRef.Key must be the custom key, not the default "apitoken"
+	if apiKeyEnv.ValueFrom == nil || apiKeyEnv.ValueFrom.SecretKeyRef == nil {
+		t.Fatal("CUSTOM_PROVIDER_API_KEY env var does not reference a secret")
+	}
+	if apiKeyEnv.ValueFrom.SecretKeyRef.Name != secretName {
+		t.Errorf("Expected SecretKeyRef.Name=%q, got %q", secretName, apiKeyEnv.ValueFrom.SecretKeyRef.Name)
+	}
+	if apiKeyEnv.ValueFrom.SecretKeyRef.Key != customKey {
+		t.Errorf("Expected SecretKeyRef.Key=%q (custom credentialKey), got %q", customKey, apiKeyEnv.ValueFrom.SecretKeyRef.Key)
+	}
+
+	t.Logf("✓ CredentialKey=%q correctly wired to SecretKeyRef.Key", customKey)
+}
+
+// TestBuildLlamaStackEnvVars_GenericProvider_DefaultCredentialKey verifies that when
+// CredentialKey is not set, buildLlamaStackEnvVars falls back to the default "apitoken" key.
+func TestBuildLlamaStackEnvVars_GenericProvider_DefaultCredentialKey(t *testing.T) {
+	const secretName = "generic-provider-creds"
+
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name:         "generic-provider",
+						Type:         utils.LlamaStackGenericType,
+						ProviderType: "remote::custom",
+						// CredentialKey intentionally not set — should default to "apitoken"
+						CredentialsSecretRef: corev1.LocalObjectReference{Name: secretName},
+						Config: &runtime.RawExtension{
+							Raw: []byte(`{"url": "https://api.example.com/v1"}`),
+						},
+						Models: []olsv1alpha1.ModelSpec{{Name: "test-model"}},
+					},
+				},
+			},
+		},
+	}
+
+	fakeSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: secretName},
+		Data: map[string][]byte{
+			"apitoken": []byte("my-generic-token"),
+		},
+	}
+
+	r := &mockReconcilerWithSecrets{
+		secrets: map[string]*corev1.Secret{secretName: fakeSecret},
+	}
+
+	ctx := context.Background()
+	envVars, err := buildLlamaStackEnvVars(r, ctx, cr)
+	if err != nil {
+		t.Fatalf("buildLlamaStackEnvVars returned error: %v", err)
+	}
+
+	var apiKeyEnv *corev1.EnvVar
+	for i := range envVars {
+		if envVars[i].Name == "GENERIC_PROVIDER_API_KEY" {
+			apiKeyEnv = &envVars[i]
+			break
+		}
+	}
+
+	if apiKeyEnv == nil {
+		t.Fatal("GENERIC_PROVIDER_API_KEY env var not found")
+	}
+
+	if apiKeyEnv.ValueFrom == nil || apiKeyEnv.ValueFrom.SecretKeyRef == nil {
+		t.Fatal("GENERIC_PROVIDER_API_KEY does not reference a secret")
+	}
+	if apiKeyEnv.ValueFrom.SecretKeyRef.Key != "apitoken" {
+		t.Errorf("Expected default SecretKeyRef.Key=%q, got %q", "apitoken", apiKeyEnv.ValueFrom.SecretKeyRef.Key)
+	}
+
+	t.Logf("✓ Default credentialKey 'apitoken' correctly wired to SecretKeyRef.Key")
+}
+
+// TestBuildLlamaStackEnvVars_GenericProvider_MissingCredentialKey verifies that when
+// the secret does not contain the expected credentialKey, an error is returned rather
+// than silently omitting the env var.
+func TestBuildLlamaStackEnvVars_GenericProvider_MissingCredentialKey(t *testing.T) {
+	const secretName = "broken-creds"
+
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name:                 "broken",
+						Type:                 utils.LlamaStackGenericType,
+						ProviderType:         "remote::broken",
+						CredentialKey:        "my_api_key",
+						CredentialsSecretRef: corev1.LocalObjectReference{Name: secretName},
+						Config:               &runtime.RawExtension{Raw: []byte(`{}`)},
+						Models:               []olsv1alpha1.ModelSpec{{Name: "test-model"}},
+					},
+				},
+			},
+		},
+	}
+
+	// Secret exists but does NOT contain the expected key
+	fakeSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: secretName},
+		Data: map[string][]byte{
+			"wrong_key": []byte("some-token"),
+		},
+	}
+
+	r := &mockReconcilerWithSecrets{
+		secrets: map[string]*corev1.Secret{secretName: fakeSecret},
+	}
+
+	ctx := context.Background()
+	_, err := buildLlamaStackEnvVars(r, ctx, cr)
+	if err == nil {
+		t.Fatal("Expected error when credentialKey is absent from secret, got nil")
+	}
+	if !strings.Contains(err.Error(), "my_api_key") {
+		t.Errorf("Error should mention the missing key 'my_api_key', got: %v", err)
+	}
+
+	t.Logf("✓ Missing credentialKey correctly returns error: %v", err)
+}

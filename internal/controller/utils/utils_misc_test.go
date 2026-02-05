@@ -10,6 +10,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -183,7 +184,7 @@ var _ = Describe("Utility Functions", func() {
 
 		It("should handle empty string", func() {
 			result := ProviderNameToEnvVarName("")
-			Expect(result).To(Equal(""))
+			Expect(result).To(Equal("_"))
 		})
 
 		It("should handle mixed case with hyphens", func() {
@@ -891,7 +892,7 @@ cNHlzbRSivTDuHmXJdCYIdd8cnH6EbPm3zNg0jU5Au6OrvDZYifP+DtuiLmJct4=
 					Namespace: OLSNamespaceDefault,
 				},
 				Data: map[string][]byte{
-					"apitoken": []byte("test-token"),
+					DefaultCredentialKey: []byte("test-token"),
 				},
 			}
 			err := k8sClient.Create(testCtx, testSecret)
@@ -972,6 +973,188 @@ cNHlzbRSivTDuHmXJdCYIdd8cnH6EbPm3zNg0jU5Au6OrvDZYifP+DtuiLmJct4=
 			testCR := GetDefaultOLSConfigCR()
 			testCR.Spec.LLMConfig.Providers[0].Type = AzureOpenAIType
 			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-azure-secret"
+
+			By("Check LLM credentials - should succeed")
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should validate generic provider with custom credentialKey", func() {
+			By("Create a test secret with custom key")
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-generic-custom-key-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"bearer_token": []byte("test-token"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Create a test CR with custom credentialKey")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].Type = LlamaStackGenericType
+			testCR.Spec.LLMConfig.Providers[0].ProviderType = "remote::openai"
+			testCR.Spec.LLMConfig.Providers[0].CredentialKey = "bearer_token"
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-generic-custom-key-secret"
+			testReconciler.SetUseLCore(true)
+
+			By("Check LLM credentials - should succeed")
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should validate generic provider with default credentialKey", func() {
+			By("Create a test secret with apitoken key")
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-generic-default-key-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte("test-token"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Create a test CR with default credentialKey (apitoken)")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].Type = LlamaStackGenericType
+			testCR.Spec.LLMConfig.Providers[0].ProviderType = "remote::openai"
+			testCR.Spec.LLMConfig.Providers[0].CredentialKey = DefaultCredentialKey
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-generic-default-key-secret"
+			testReconciler.SetUseLCore(true)
+
+			By("Check LLM credentials - should succeed")
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should fail when generic provider has whitespace-only credentialKey", func() {
+			By("Create a test secret")
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-generic-whitespace-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte("test-token"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Create a test CR with whitespace-only credentialKey")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].Type = LlamaStackGenericType
+			testCR.Spec.LLMConfig.Providers[0].ProviderType = "remote::openai"
+			testCR.Spec.LLMConfig.Providers[0].CredentialKey = "   "
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-generic-whitespace-secret"
+			testReconciler.SetUseLCore(true)
+
+			By("Check LLM credentials - should fail")
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("credentialKey must not be empty or whitespace"))
+		})
+
+		It("should fail when generic provider has invalid JSON in Config", func() {
+			By("Create a test secret")
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-generic-invalid-json-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte("test-token"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Create a test CR with invalid JSON config")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].Type = LlamaStackGenericType
+			testCR.Spec.LLMConfig.Providers[0].ProviderType = "remote::openai"
+			testCR.Spec.LLMConfig.Providers[0].CredentialKey = DefaultCredentialKey
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-generic-invalid-json-secret"
+			testCR.Spec.LLMConfig.Providers[0].Config = &runtime.RawExtension{
+				Raw: []byte(`{invalid json`),
+			}
+			testReconciler.SetUseLCore(true)
+
+			By("Check LLM credentials - should fail due to invalid JSON")
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not valid JSON"))
+		})
+
+		It("should fail when generic provider secret is missing the specified credential key", func() {
+			By("Create a test secret without the expected key")
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-generic-missing-key-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"wrong_key": []byte("test-token"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Create a test CR with credentialKey that doesn't exist in secret")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].Type = LlamaStackGenericType
+			testCR.Spec.LLMConfig.Providers[0].ProviderType = "remote::openai"
+			testCR.Spec.LLMConfig.Providers[0].CredentialKey = "my_api_key"
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-generic-missing-key-secret"
+			testReconciler.SetUseLCore(true)
+
+			By("Check LLM credentials - should fail due to missing key")
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("missing key 'my_api_key'"))
+		})
+
+		It("should fail when llamaStackGeneric provider is used with LCore disabled", func() {
+			By("Create a test CR with llamaStackGeneric provider")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].Type = LlamaStackGenericType
+			testCR.Spec.LLMConfig.Providers[0].ProviderType = "remote::openai"
+			testReconciler.SetUseLCore(false)
+
+			By("Check LLM credentials - should fail because LCore is disabled")
+			err := ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("requires LCore backend"))
+			Expect(err.Error()).To(ContainSubstring("--enable-lcore"))
+		})
+
+		It("should succeed when llamaStackGeneric provider is used with LCore enabled", func() {
+			By("Create a test secret with custom credentialKey")
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-generic-lcore-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte("test-token"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Create a test CR with llamaStackGeneric provider and LCore enabled")
+			testCR := GetDefaultOLSConfigCR()
+			testCR.Spec.LLMConfig.Providers[0].Type = LlamaStackGenericType
+			testCR.Spec.LLMConfig.Providers[0].ProviderType = "remote::openai"
+			testCR.Spec.LLMConfig.Providers[0].CredentialKey = DefaultCredentialKey
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-generic-lcore-secret"
+			testReconciler.SetUseLCore(true)
 
 			By("Check LLM credentials - should succeed")
 			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)

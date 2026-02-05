@@ -2,6 +2,7 @@ package lcore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"slices"
@@ -78,10 +79,8 @@ func buildLlamaStackCoreConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig
 		// image_name is a semantic identifier for the llama-stack configuration
 		// Note: Does NOT affect PostgreSQL database name (llama-stack uses hardcoded "llamastack")
 		"image_name": "openshift-lightspeed-configuration",
-		// Minimal APIs for RAG + MCP: agents (for MCP), files, inference, safety (required by agents), telemetry, tool_runtime, vector_io
-		// Commented out: datasetio, eval, post_training, scoring (not needed for basic RAG + MCP)
-		// Commented out: datasetio, eval, post_training, prompts, scoring, telemetry
-		"apis":                   []string{"agents" /* "datasetio", "eval", */, "files", "inference" /* , "post_training", */, "safety" /* , "scoring", "telemetry"*/, "tool_runtime", "vector_io"},
+		// Enabled APIs for RAG + MCP: agents (for MCP), files, inference, safety (required by agents), tool_runtime, vector_io
+		"apis":                   []string{"agents", "files", "inference", "safety", "tool_runtime", "vector_io"},
 		"benchmarks":             []interface{}{},
 		"container_image":        nil,
 		"datasets":               []interface{}{},
@@ -131,7 +130,7 @@ func buildLlamaStackAgentProviders(_ reconciler.Reconciler, _ *olsv1alpha1.OLSCo
 					"responses": map[string]interface{}{
 						"backend":    "sql_default",
 						"table_name": "agent_responses",
-						"namespace":  "agent_responces",
+						"namespace":  "agent_responses",
 					},
 				},
 			},
@@ -139,65 +138,19 @@ func buildLlamaStackAgentProviders(_ reconciler.Reconciler, _ *olsv1alpha1.OLSCo
 	}
 }
 
-// Commented out - datasetio API not needed for basic RAG + MCP
-// Uncomment if you need dataset operations
-/*
-func buildLlamaStackDatasetIOProviders(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []interface{} {
-	return []interface{}{
-		map[string]interface{}{
-			"provider_id":   "huggingface",
-			"provider_type": "remote::huggingface",
-			"config": map[string]interface{}{
-				"kvstore": map[string]interface{}{
-					"db_path":   "/tmp/llama-stack/huggingface_datasetio.db",
-					"namespace": nil,
-					"type":      "sqlite",
-				},
-			},
-		},
-		map[string]interface{}{
-			"provider_id":   "localfs",
-			"provider_type": "inline::localfs",
-			"config": map[string]interface{}{
-				"kvstore": map[string]interface{}{
-					"db_path":   "/tmp/llama-stack/localfs_datasetio.db",
-					"namespace": nil,
-					"type":      "sqlite",
-				},
-			},
-		},
-	}
-}
-*/
-
-// Commented out - eval API not needed for basic RAG + MCP
-// Uncomment if you need to run evaluations
-/*
-func buildLlamaStackEvalProviders(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []interface{} {
-	return []interface{}{
-		map[string]interface{}{
-			"provider_id":   "meta-reference",
-			"provider_type": "inline::meta-reference",
-			"config": map[string]interface{}{
-				"kvstore": map[string]interface{}{
-					"db_path":   "/tmp/llama-stack/meta_reference_eval.db",
-					"namespace": nil,
-					"type":      "sqlite",
-				},
-			},
-		},
-	}
-}
-*/
-
 func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Context, cr *olsv1alpha1.OLSConfig) ([]interface{}, error) {
+	// Always include sentence-transformers (required for embeddings)
 	providers := []interface{}{
-		// Always include sentence-transformers for embeddings
 		map[string]interface{}{
 			"provider_id":   "sentence-transformers",
 			"provider_type": "inline::sentence-transformers",
 			"config":        map[string]interface{}{},
 		},
+	}
+
+	// Guard against nil CR or empty Providers
+	if cr == nil || cr.Spec.LLMConfig.Providers == nil {
+		return providers, nil
 	}
 
 	// Add LLM providers from OLSConfig
@@ -209,64 +162,92 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Contex
 		// Convert provider name to valid environment variable name
 		envVarName := utils.ProviderNameToEnvVarName(provider.Name)
 
-		// Map OLSConfig provider types to Llama Stack provider types
-		switch provider.Type {
-		case "openai", "rhoai_vllm", "rhelai_vllm":
+		// Check if this is Llama Stack Generic provider configuration (providerType is set)
+		if provider.ProviderType != "" {
+			// Llama Stack Generic provider configuration: use providerType and config directly
+			providerConfig["provider_type"] = provider.ProviderType
+
+			// Unmarshal the config from RawExtension
 			config := map[string]interface{}{}
-			// Determine the appropriate Llama Stack provider type
-			// - OpenAI uses remote::openai (validates against OpenAI model whitelist)
-			// - vLLM uses remote::vllm (accepts any custom model names)
-			if provider.Type == "openai" {
-				providerConfig["provider_type"] = "remote::openai"
-				// Set API key from environment variable
-				// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
-				config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
-			} else {
-				providerConfig["provider_type"] = "remote::vllm"
-				// Set API key from environment variable
-				// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
-				config["api_token"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+			if provider.Config != nil && provider.Config.Raw != nil {
+				if err := json.Unmarshal(provider.Config.Raw, &config); err != nil {
+					return nil, fmt.Errorf("failed to unmarshal config for provider '%s': %w", provider.Name, err)
+				}
 			}
 
-			// Add custom URL if specified
-			if provider.URL != "" {
-				config["url"] = provider.URL
+			// Deep copy to prevent mutations
+			configCopy := deepCopyMap(config)
+
+			// Auto-inject api_key if not already present in config and credentials are configured.
+			// Skip injection when:
+			// - the user has explicitly set api_key in config (custom env var name)
+			// - no CredentialsSecretRef is configured (public/unauthenticated provider)
+			if !hasAPIKeyField(configCopy) && provider.CredentialsSecretRef.Name != "" {
+				configCopy["api_key"] = fmt.Sprintf("${env.%s%s}", envVarName, utils.EnvVarSuffixAPIKey)
 			}
-			providerConfig["config"] = config
 
-		case "azure_openai":
-			providerConfig["provider_type"] = "remote::azure"
-			config := map[string]interface{}{}
+			providerConfig["config"] = configCopy
 
-			// Azure supports both API key and client credentials authentication
-			// Always include api_key (required by LiteLLM's Pydantic validation)
-			config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
-
-			// Also include client credentials fields (will be empty if not using client credentials)
-			config["client_id"] = fmt.Sprintf("${env.%s_CLIENT_ID:=}", envVarName)
-			config["tenant_id"] = fmt.Sprintf("${env.%s_TENANT_ID:=}", envVarName)
-			config["client_secret"] = fmt.Sprintf("${env.%s_CLIENT_SECRET:=}", envVarName)
-
-			// Azure-specific fields
-			if provider.AzureDeploymentName != "" {
-				config["deployment_name"] = provider.AzureDeploymentName
+		} else {
+			// Predefined provider types: map to Llama Stack provider types using getProviderType helper
+			llamaType, err := getProviderType(&provider)
+			if err != nil {
+				return nil, err
 			}
-			if provider.APIVersion != "" {
-				config["api_version"] = provider.APIVersion
-			}
-			if provider.URL != "" {
-				config["api_base"] = provider.URL
-			}
-			providerConfig["config"] = config
+			providerConfig["provider_type"] = llamaType
 
-		case "watsonx", "bam":
-			// These providers are not supported by Llama Stack
-			// They are handled directly by lightspeed-stack (LCS), not Llama Stack
-			return nil, fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
+			// Build provider-specific configuration
+			switch provider.Type {
+			// fake_provider follows the vLLM credential path (api_token); it is included
+			// in the CRD enum and mapping solely for operator integration testing.
+			case "openai", "rhoai_vllm", "rhelai_vllm", "fake_provider":
+				config := map[string]interface{}{}
+				// Determine the appropriate config field for credentials
+				// - OpenAI uses remote::openai (validates against OpenAI model whitelist)
+				// - vLLM/fake uses remote::vllm / remote::fake (accepts any custom model names)
+				if provider.Type == "openai" {
+					// Set API key from environment variable
+					// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
+					config["api_key"] = fmt.Sprintf("${env.%s%s}", envVarName, utils.EnvVarSuffixAPIKey)
+				} else {
+					// Set API token from environment variable for vLLM
+					// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
+					config["api_token"] = fmt.Sprintf("${env.%s%s}", envVarName, utils.EnvVarSuffixAPIKey)
+				}
 
-		default:
-			// Unknown provider type
-			return nil, fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
+				// Add custom URL if specified
+				if provider.URL != "" {
+					config["url"] = provider.URL
+				}
+				providerConfig["config"] = config
+
+			case "azure_openai":
+				config := map[string]interface{}{}
+
+				// Azure supports both API key and client credentials authentication
+				// Always include api_key (required by LiteLLM's Pydantic validation)
+				config["api_key"] = fmt.Sprintf("${env.%s%s}", envVarName, utils.EnvVarSuffixAPIKey)
+
+				// Also include client credentials fields (will be empty if not using client credentials)
+				config["client_id"] = fmt.Sprintf("${env.%s%s:=}", envVarName, utils.EnvVarSuffixClientID)
+				config["tenant_id"] = fmt.Sprintf("${env.%s%s:=}", envVarName, utils.EnvVarSuffixTenantID)
+				config["client_secret"] = fmt.Sprintf("${env.%s%s:=}", envVarName, utils.EnvVarSuffixClientSecret)
+
+				// Azure-specific fields
+				if provider.AzureDeploymentName != "" {
+					config["deployment_name"] = provider.AzureDeploymentName
+				}
+				if provider.APIVersion != "" {
+					config["api_version"] = provider.APIVersion
+				}
+				if provider.URL != "" {
+					config["api_base"] = provider.URL
+				}
+				providerConfig["config"] = config
+
+			default:
+				return nil, fmt.Errorf("internal error: no config builder for legacy provider type '%s' (provider '%s'); update the switch in buildLlamaStackInferenceProviders", provider.Type, provider.Name)
+			}
 		}
 
 		providers = append(providers, providerConfig)
@@ -275,24 +256,82 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Contex
 	return providers, nil
 }
 
-// Commented out - post_training API not needed for basic RAG + MCP
-// Uncomment if you need fine-tuning capabilities
-/*
-func buildLlamaStackPostTraining(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []interface{} {
-	return []interface{}{
-		map[string]interface{}{
-			"provider_id":   "huggingface",
-			"provider_type": "inline::huggingface-gpu",
-			"config": map[string]interface{}{
-				"checkpoint_format":   "huggingface",
-				"device":              "cpu",
-				"distributed_backend": nil,
-				"dpo_output_dir":      ".",
-			},
-		},
+// providerTypeMapping defines how legacy OLSConfig provider types map to Llama Stack provider_type strings.
+// New providers that are fully supported without operator changes should use the llamaStackGeneric
+// type with the providerType field instead of adding entries here.
+//
+// To add a new legacy provider:
+//  1. Add an entry to this map with OLSConfig type as key
+//  2. Set the Llama Stack provider_type value (e.g., "remote::new-provider")
+//  3. Add credential/config handling in the switch inside buildLlamaStackInferenceProviders
+var providerTypeMapping = map[string]string{
+	"openai":       "remote::openai",
+	"rhoai_vllm":   "remote::vllm",
+	"rhelai_vllm":  "remote::vllm",
+	"azure_openai": "remote::azure",
+	// fake_provider is included in the CRD enum for testing purposes
+	"fake_provider": "remote::fake",
+}
+
+// getProviderType returns the Llama Stack provider_type string for a legacy OLSConfig
+// provider type (openai, azure_openai, rhoai_vllm, rhelai_vllm).
+// It is only called for providers where ProviderType == "" (the legacy path);
+// generic providers (ProviderType != "") set provider_type directly without this function.
+// Returns an error for unsupported types (watsonx, bam) or invalid generic usage.
+func getProviderType(provider *olsv1alpha1.ProviderSpec) (string, error) {
+	// Legacy providers use predefined mapping
+	if llamaType, exists := providerTypeMapping[provider.Type]; exists {
+		return llamaType, nil
+	}
+
+	// Unsupported provider type
+	switch provider.Type {
+	case "watsonx", "bam":
+		return "", fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm, %s", provider.Type, provider.Name, utils.LlamaStackGenericType)
+	case utils.LlamaStackGenericType:
+		return "", fmt.Errorf("provider type '%s' (provider '%s') requires providerType and config fields to be set", utils.LlamaStackGenericType, provider.Name)
+	default:
+		return "", fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm, %s", provider.Type, provider.Name, utils.LlamaStackGenericType)
 	}
 }
-*/
+
+// deepCopyMap creates a deep copy of a map[string]interface{}, including nested maps
+// and slices. This prevents mutations of the copy from affecting the original.
+func deepCopyMap(src map[string]interface{}) map[string]interface{} {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]interface{}, len(src))
+	for k, v := range src {
+		dst[k] = deepCopyValue(v)
+	}
+	return dst
+}
+
+// deepCopyValue recursively deep-copies a value that may be a primitive, map, or slice.
+func deepCopyValue(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[string]interface{}:
+		return deepCopyMap(val)
+	case []interface{}:
+		dstSlice := make([]interface{}, len(val))
+		for i, elem := range val {
+			dstSlice[i] = deepCopyValue(elem)
+		}
+		return dstSlice
+	default:
+		return v
+	}
+}
+
+// hasAPIKeyField reports whether the config already contains an explicit "api_key" field.
+// We only check for "api_key" because that is the field we auto-inject; suppressing
+// injection only when the caller has already set it avoids silently skipping injection
+// for providers that require api_key but happen to have an unrelated field (e.g. api_token).
+func hasAPIKeyField(config map[string]interface{}) bool {
+	_, ok := config["api_key"]
+	return ok
+}
 
 // Safety API - Required by agents provider (for MCP)
 // Note: You can configure excluded_categories if needed
@@ -307,59 +346,6 @@ func buildLlamaStackSafety(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []
 		},
 	}
 }
-
-// Commented out - scoring API not needed for basic RAG + MCP
-// Uncomment if you need response scoring capabilities
-/*
-func buildLlamaStackScoring(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []interface{} {
-	return []interface{}{
-		map[string]interface{}{
-			"provider_id":   "basic",
-			"provider_type": "inline::basic",
-			"config":        map[string]interface{}{},
-		},
-		map[string]interface{}{
-			"provider_id":   "llm-as-judge",
-			"provider_type": "inline::llm-as-judge",
-			"config":        map[string]interface{}{},
-		},
-		map[string]interface{}{
-			"provider_id":   "braintrust",
-			"provider_type": "inline::braintrust",
-			"config": map[string]interface{}{
-				"openai_api_key": "********",
-			},
-		},
-	}
-}
-*/
-
-// Telemetry provider - commented out as the API doesn't exist in this Llama Stack version
-// Uncomment and enable in apis list when telemetry API becomes available
-/*
-func buildLlamaStackTelemetry(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []interface{} {
-	// Console telemetry provider - logs to stdout
-	return []interface{}{
-		map[string]interface{}{
-			"provider_id":   "console",
-			"provider_type": "inline::console",
-			"config": map[string]interface{}{
-				"service_name": "lightspeed-stack",
-				"sinks":        []string{"console"},
-			},
-		},
-	}
-
-	// Alternative options (change return statement above):
-	// SQLite telemetry provider - stores traces in SQLite:
-	//   provider_id: "sqlite", provider_type: "inline::meta-reference"
-	//   config: {service_name, sinks: "sqlite", sqlite_db_path: "/tmp/llama-stack/trace_store.db"}
-	//
-	// OTLP telemetry provider - sends traces to Jaeger/OTLP endpoint:
-	//   provider_id: "otlp", provider_type: "inline::otlp"
-	//   config: {service_name, sinks: "otlp", otlp_endpoint: "http://jaeger:4317"}
-}
-*/
 
 func buildLlamaStackToolRuntime(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []interface{} {
 	return []interface{}{
@@ -406,20 +392,6 @@ func buildLlamaStackServerConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConf
 		"tls_keyfile":  nil,
 	}
 }
-
-// Commented out - shields not needed without safety API
-// Uncomment if you enable safety API and need shields
-/*
-func buildLlamaStackShields(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []interface{} {
-	return []interface{}{
-		map[string]interface{}{
-			"shield_id":          "llama-guard-shield",
-			"provider_id":        "llama-guard",
-			"provider_shield_id": "gpt-3.5-turbo",
-		},
-	}
-}
-*/
 
 func buildLlamaStackVectorDBs(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) []interface{} {
 	vectorDBs := []interface{}{}
@@ -589,22 +561,19 @@ func buildLlamaStackYAML(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	}
 
 	// Build providers map - only include providers for enabled APIs
-	// Note: telemetry provider commented out as the API doesn't exist in this Llama Stack version
 	config["providers"] = map[string]interface{}{
-		"files":     buildLlamaStackFileProviders(r, cr),
-		"agents":    buildLlamaStackAgentProviders(r, cr), // Required for MCP
-		"inference": inferenceProviders,
-		"safety":    buildLlamaStackSafety(r, cr), // Required by agents provider
-		// "telemetry":    buildLlamaStackTelemetry(r, cr),   // Telemetry and tracing
-		"tool_runtime": buildLlamaStackToolRuntime(r, cr), // Required for RAG
-		"vector_io":    buildLlamaStackVectorDB(r, cr),    // Required for RAG
+		"files":        buildLlamaStackFileProviders(r, cr),
+		"agents":       buildLlamaStackAgentProviders(r, cr),
+		"inference":    inferenceProviders,
+		"safety":       buildLlamaStackSafety(r, cr),
+		"tool_runtime": buildLlamaStackToolRuntime(r, cr),
+		"vector_io":    buildLlamaStackVectorDB(r, cr),
 	}
 
 	// Add top-level fields
-	config["scoring_fns"] = []interface{}{} // Keep empty for now
+	config["scoring_fns"] = []interface{}{}
 	config["server"] = buildLlamaStackServerConfig(r, cr)
-	config["storage"] = buildLlamaStackStorage(r, cr) // Persistent storage configuration
-	// config["shields"] = buildLlamaStackShields(r, cr) // Commented out - not needed without safety API
+	config["storage"] = buildLlamaStackStorage(r, cr)
 	config["vector_dbs"] = buildLlamaStackVectorDBs(r, cr)
 	config["models"] = buildLlamaStackModels(r, cr)
 	config["tool_groups"] = buildLlamaStackToolGroups(r, cr)
@@ -698,10 +667,6 @@ func buildLCoreInferenceConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfi
 		"default_model":    cr.Spec.OLSConfig.DefaultModel,
 	}
 }
-
-// ============================================================================
-// Optional Configuration Builders (commented out - uncomment to implement)
-// ============================================================================
 
 // buildLCoreDatabaseConfig configures persistent database storage
 // Supports SQLite (file-based) or PostgreSQL (server-based)
@@ -825,28 +790,6 @@ func buildLCoreMCPServersConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConf
 	return mcpServers
 }
 
-// buildLCoreAuthorizationConfig configures role-based access control
-// Defines which actions different roles can perform
-// Actions: query, list_models, list_providers, get_provider, get_metrics, get_config, info, model_override
-//
-//func buildLCoreAuthorizationConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
-//	return map[string]interface{}{
-//		"access_rules": []interface{}{
-//			map[string]interface{}{
-//				"role": "admin",
-//				"actions": []string{
-//					"query", "list_models", "list_providers", "get_provider",
-//					"get_metrics", "get_config", "info", "model_override",
-//				},
-//			},
-//			map[string]interface{}{
-//				"role":    "user",
-//				"actions": []string{"query", "info"},
-//			},
-//		},
-//	}
-//}
-
 // buildLCoreCustomizationConfig configures system prompt customization
 // Uses CR field if set, otherwise falls back to default (same as lightspeed-service)
 func buildLCoreCustomizationConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) map[string]interface{} {
@@ -880,33 +823,7 @@ func buildLCoreConversationCacheConfig(r reconciler.Reconciler, _ *olsv1alpha1.O
 			"namespace":    "conversation_cache", // Separate schema for conversation cache
 		},
 	}
-
-	// Example: SQLite cache (requires persistent volume)
-	// return map[string]interface{}{
-	//     "type": "sqlite",
-	//     "sqlite": map[string]interface{}{
-	//         "db_path": "/app-root/data/conversation_cache.db",
-	//     },
-	// }
-
 }
-
-// buildLCoreByokRagConfig configures Bring Your Own Knowledge RAG sources
-// Allows adding custom document collections beyond default RAG databases
-// Requires vector database setup and embedding model configuration
-//
-//func buildLCoreByokRagConfig(_ reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) []interface{} {
-//	return []interface{}{
-//		map[string]interface{}{
-//			"rag_id":              "custom-docs",
-//			"rag_type":            "chromadb", // or "pgvector"
-//			"embedding_model":     "sentence-transformers/all-mpnet-base-v2",
-//			"embedding_dimension": 768,
-//			"vector_db_id":        "custom-vectordb",
-//			"db_path":             "/app-root/data/custom_rag.db",
-//		},
-//	}
-//}
 
 // buildLCoreQuotaHandlersConfig configures token usage rate limiting
 // Controls how many tokens users or clusters can consume
@@ -1008,10 +925,6 @@ func buildLCoreConfigYAML(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (s
 	if mcpServers := buildLCoreMCPServersConfig(r, cr); len(mcpServers) > 0 {
 		config["mcp_servers"] = mcpServers // Model Context Protocol servers
 	}
-
-	// Optional features (uncomment to enable):
-	// "authorization":      buildLCoreAuthorizationConfig(r, cr),      // Role-based access control
-	// "byok_rag":           buildLCoreByokRagConfig(r, cr),            // Custom RAG sources
 
 	// Convert to YAML
 	yamlBytes, err := yaml.Marshal(config)
