@@ -20,6 +20,7 @@ import (
 	"crypto/sha1" //nolint:gosec
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -87,14 +88,24 @@ func GetContainerIndex(deployment *appsv1.Deployment, containerName string) (int
 // Kubernetes resource names typically use hyphens (DNS-1123), but environment variable
 // names cannot contain hyphens. This function replaces hyphens with underscores and
 // converts to uppercase for consistency with environment variable naming conventions.
+// Characters that are not valid in POSIX environment variable names ([A-Za-z0-9_])
+// are stripped before conversion. Hyphens are replaced with underscores.
 //
 // Example: "my-provider" -> "MY_PROVIDER"
+// Example: "provider@special!" -> "PROVIDERSPECIAL"
 func ProviderNameToEnvVarName(providerName string) string {
+	// Strip characters that are invalid in POSIX environment variable names.
+	// Only alphanumeric, hyphens (converted below), and underscores are kept.
+	sanitized := envVarSanitizeRegex.ReplaceAllString(providerName, "")
 	// Replace hyphens with underscores for valid environment variable names
-	envVarName := strings.ReplaceAll(providerName, "-", "_")
+	envVarName := strings.ReplaceAll(sanitized, "-", "_")
 	// Convert to uppercase for standard environment variable convention
 	return strings.ToUpper(envVarName)
 }
+
+// envVarSanitizeRegex strips characters that are not valid in environment variable names.
+// Keeps alphanumeric, hyphens (converted to underscores later), and underscores.
+var envVarSanitizeRegex = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 
 // GetResourcesOrDefault returns custom resources from CR if specified, otherwise returns defaults.
 // This is a common pattern used across all component resource getters to avoid repetitive
@@ -593,11 +604,23 @@ func GetCAFromSecret(rclient client.Client, ctx context.Context, namespace, secr
 
 // ValidateLLMCredentials validates that all LLM provider credentials are present and valid.
 // It checks that each provider's credential secret exists and contains the required keys.
+// For generic providers with custom config, it validates the config JSON is well-formed.
 func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	for _, provider := range cr.Spec.LLMConfig.Providers {
+		// Llama Stack Generic providers require LCore backend (AppServer does not support llamaStackGeneric providers)
+		// LCore is the future direction; AppServer is being deprecated
+		if provider.Type == LlamaStackGenericType && !r.UseLCore() {
+			return fmt.Errorf("LLM provider '%s' uses type '%s' which requires LCore backend. Enable LCore with --enable-lcore operator flag", provider.Name, LlamaStackGenericType)
+		}
+
+		// Generic providers may operate without credentials (public/unauthenticated endpoints)
 		if provider.CredentialsSecretRef.Name == "" {
+			if provider.Type == LlamaStackGenericType {
+				continue
+			}
 			return fmt.Errorf("provider %s missing credentials secret", provider.Name)
 		}
+
 		secret := &corev1.Secret{}
 		err := r.Get(ctx, client.ObjectKey{Name: provider.CredentialsSecretRef.Name, Namespace: r.GetNamespace()}, secret)
 		if err != nil {
@@ -606,9 +629,37 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 			}
 			return fmt.Errorf("failed to get LLM provider %s credential secret %s: %w", provider.Name, provider.CredentialsSecretRef.Name, err)
 		}
-		if provider.Type == AzureOpenAIType {
-			// Azure OpenAI secret must contain "apitoken" or 3 keys named "client_id", "tenant_id", "client_secret"
-			if _, ok := secret.Data["apitoken"]; ok {
+
+		// Validate credential keys based on provider configuration
+		if provider.ProviderType != "" {
+			// Generic provider configuration: validate credentialKey exists
+			credentialKey := provider.CredentialKey
+			if credentialKey == "" {
+				credentialKey = DefaultCredentialKey
+			}
+
+			// Validate credentialKey is not empty (should be caught by CRD validation but double-check)
+			if strings.TrimSpace(credentialKey) == "" {
+				return fmt.Errorf("LLM provider %s: credentialKey must not be empty or whitespace", provider.Name)
+			}
+
+			// Check if the specified credential key exists in secret
+			if _, ok := secret.Data[credentialKey]; !ok {
+				return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, credentialKey)
+			}
+
+			// Validate provider config JSON is well-formed
+			if provider.Config != nil && provider.Config.Raw != nil {
+				var config map[string]interface{}
+				if err := json.Unmarshal(provider.Config.Raw, &config); err != nil {
+					// Strict validation: reject malformed JSON in generic provider config
+					return fmt.Errorf("LLM provider %s config is not valid JSON: %w", provider.Name, err)
+				}
+			}
+
+		} else if provider.Type == AzureOpenAIType {
+			// Azure OpenAI provider: secret must contain default credential key or 3 keys named "client_id", "tenant_id", "client_secret"
+			if _, ok := secret.Data[DefaultCredentialKey]; ok {
 				continue
 			}
 			for _, key := range []string{"client_id", "tenant_id", "client_secret"} {
@@ -617,9 +668,9 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 				}
 			}
 		} else {
-			// Other providers (e.g. WatsonX, OpenAI) must contain a key named "apitoken"
-			if _, ok := secret.Data["apitoken"]; !ok {
-				return fmt.Errorf("LLM provider %s credential secret %s missing key 'apitoken'", provider.Name, provider.CredentialsSecretRef.Name)
+			// Standard providers: must contain the default credential key
+			if _, ok := secret.Data[DefaultCredentialKey]; !ok {
+				return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, DefaultCredentialKey)
 			}
 		}
 	}
