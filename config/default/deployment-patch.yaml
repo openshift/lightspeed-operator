@@ -1,0 +1,26 @@
+# Placeholders (__REPLACE_*__); must match hack/image_placeholders.json.
+# make deploy and hack/update_bundle.sh substitute these from related_images.json (and IMG for operator).
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --service-image=__REPLACE_LIGHTSPEED_SERVICE_API__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --console-image=__REPLACE_LIGHTSPEED_CONSOLE_PLUGIN__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --console-image-pf5=__REPLACE_LIGHTSPEED_CONSOLE_PLUGIN_PF5__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --postgres-image=__REPLACE_LIGHTSPEED_POSTGRESQL__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --openshift-mcp-server-image=__REPLACE_OPENSHIFT_MCP_SERVER__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --dataverse-exporter-image=__REPLACE_LIGHTSPEED_TO_DATAVERSE_EXPORTER__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --ocp-rag-image=__REPLACE_LIGHTSPEED_OCP_RAG__
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: __REPLACE_LIGHTSPEED_OPERATOR__
