@@ -280,13 +280,17 @@ spec:
               echo "---------------------------------------------"
               cat $KUBECONFIG
               echo "---------------------------------------------"
-              dnf -y install git make golang
-              git clone https://github.com/openshift/lightspeed-operator.git
+              dnf -y install git make golang jq
+              git init lightspeed-operator
               cd lightspeed-operator
-              git config --global user.email olsci@redhat.com
-              git config --global user.name olsci
-              git fetch origin ${COMMIT_SHA}
-              git checkout ${COMMIT_SHA}
+              git remote add origin https://github.com/openshift/lightspeed-operator.git
+              git fetch --depth=1 --filter=blob:none origin ${COMMIT_SHA}
+              TEST_SOURCE_COMMIT=$(
+              git show ${COMMIT_SHA}:related_images.json |
+                jq -r '.[] | select(.name=="lightspeed-operator") | .revision'
+              )
+              git fetch --depth=1 --filter=blob:none origin ${TEST_SOURCE_COMMIT}
+              git checkout ${TEST_SOURCE_COMMIT}
               echo "---------------------------------------------"
               echo "---------------------------------------------"
               echo "---------------------------------------------"
