@@ -5,7 +5,7 @@ ARG OPERATOR_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-operator:lat
 ARG SERVICE_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-service-api:latest
 ARG CONSOLE_IMAGE_ORIGINAL=quay.io/openshift-lightspeed/lightspeed-console-plugin:latest
 ARG CONSOLE_IMAGE_ORIGINAL_PF5=quay.io/openshift-lightspeed/lightspeed-console-plugin-pf5:latest
-ARG OPENSHIFT_MCP_SERVER_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:3a035744b772104c6c592acf8a813daced19362667ed6dab73a00d17eb9c3a43
+ARG OPENSHIFT_MCP_SERVER_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:6d5ad04303cb9ce007c18420483b6005dd1c1154dceb1e3476f61f7eaaf38f6a
 ARG DATAVERSE_EXPORTER_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-to-dataverse-exporter@sha256:ccb6705a5e7ff0c4d371dc72dc8cf319574a2d64bcc0a89ccc7130f626656722
 ARG OCP_RAG_IMAGE_ORIGINAL=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:98b50164ee5662fd0e807c76a0f712553442798858ad81e26c2cb307ee3f47e9
 
