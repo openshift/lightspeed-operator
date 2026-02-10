@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   annotations:
-    build.appstudio.openshift.io/build-nudge-files: .*Dockerfile.*, .*.yaml, .*Containerfile.*,.*.sh
+    build.appstudio.openshift.io/build-nudge-files: related_images.json
     build.appstudio.openshift.io/repo: https://github.com/openshift/lightspeed-operator?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
@@ -12,7 +12,7 @@ metadata:
       event == "pull_request" &&
       target_branch == "main" &&
       (".tekton/ols-bundle-pull-request.yaml".pathChanged() || "bundle/***".pathChanged() || "bundle.Dockerfile".pathChanged() ||
-      ".tekton/integration-tests/*/*.yaml".pathChanged() || "related_images.json".pathChanged() || "rpms.lock.yaml".pathChanged())
+      ".tekton/integration-tests/*/*.yaml".pathChanged() || "related_images.json".pathChanged())
   creationTimestamp:
   labels:
     appstudio.openshift.io/application: ols-bundle
@@ -34,8 +34,6 @@ spec:
     value: bundle.Dockerfile
   - name: build-source-image
     value: "true"
-  - name: prefetch-input
-    value: '[{"type": "gomod", "path": "."},{"type": "rpm", "path": "."}]'
   - name: hermetic
     value: "true"
   - name: build-platforms
