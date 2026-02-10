@@ -213,6 +213,7 @@ spec:
                 value: "$(params.bundle-image)"
             image: cypress/browsers:24.11.0
             script: |
+              apt update && apt install -y jq
               echo "COMMIT_SHA: ${COMMIT_SHA}"
               echo "CYPRESS_BASE_URL: ${CYPRESS_BASE_URL}"
               echo "CYPRESS_CONSOLE_IMAGE: ${CYPRESS_CONSOLE_IMAGE}"
@@ -241,9 +242,21 @@ spec:
               export XDG_RUNTIME_DIR=$PATH:~/.cache/xdgr
               echo "---------------------------------------------"
               cd /home
+              git init lightspeed-operator
+              cd lightspeed-operator
+              git remote add origin https://github.com/openshift/lightspeed-operator.git
+              git fetch --depth=1 --filter=blob:none origin ${COMMIT_SHA}
+              TEST_SOURCE_COMMIT=$(
+                git show ${COMMIT_SHA}:related_images.json |
+                jq -r '.[] | select(.name=="lightspeed-console-plugin") | .revision'
+              )
+              cd /home
               rm -rf lightspeed-console
-              git clone https://github.com/openshift/lightspeed-console.git
+              git init lightspeed-console
               cd lightspeed-console
+              git remote add origin https://github.com/openshift/lightspeed-console.git
+              git fetch --depth=1 --filter=blob:none origin ${TEST_SOURCE_COMMIT}
+              git checkout ${TEST_SOURCE_COMMIT}
               echo "---------------------------------------------"
               echo "npm version: $(npm -v)"
               echo "---------------------------------------------"
