@@ -300,34 +300,35 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		appSrvConfigFile.MCPServers = mcpServers
 	}
 
-	// Only add tool filtering if there are MCP servers to filter
-	if cr.Spec.OLSConfig.ToolFilteringConfig != nil {
-		if len(mcpServers) > 0 {
-			// Apply defaults for zero values (happens when user specifies toolFilteringConfig: {})
-			cfg := cr.Spec.OLSConfig.ToolFilteringConfig
-			alpha, topK, threshold := cfg.Alpha, cfg.TopK, cfg.Threshold
-			if alpha == 0.0 {
-				alpha = 0.8
-			}
-			if topK == 0 {
-				topK = 10
-			}
-			if threshold == 0.0 {
-				threshold = 0.01
-			}
+	// Only add tool filtering if feature gate is enabled, config is specified, and there are MCP servers to filter
+	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateToolFiltering) {
+		if cr.Spec.OLSConfig.ToolFilteringConfig != nil {
+			if len(mcpServers) > 0 {
+				// Apply defaults for zero values (happens when user specifies toolFilteringConfig: {})
+				cfg := cr.Spec.OLSConfig.ToolFilteringConfig
+				alpha, topK, threshold := cfg.Alpha, cfg.TopK, cfg.Threshold
+				if alpha == 0.0 {
+					alpha = 0.8
+				}
+				if topK == 0 {
+					topK = 10
+				}
+				if threshold == 0.0 {
+					threshold = 0.01
+				}
 
-			appSrvConfigFile.OLSConfig.ToolFiltering = &utils.ToolFilteringConfig{
-				Alpha:     alpha,
-				TopK:      topK,
-				Threshold: threshold,
+				appSrvConfigFile.OLSConfig.ToolFiltering = &utils.ToolFilteringConfig{
+					Alpha:     alpha,
+					TopK:      topK,
+					Threshold: threshold,
+				}
+			} else {
+				r.GetLogger().Info(
+					"ToolFilteringConfig specified but no MCP servers configured. Tool filtering will be disabled.",
+					"IntrospectionEnabled", cr.Spec.OLSConfig.IntrospectionEnabled,
+					"MCPServersCount", len(cr.Spec.MCPServers),
+				)
 			}
-		} else {
-			r.GetLogger().Info(
-				"ToolFilteringConfig specified but no MCP servers enabled. Tool filtering will be disabled.",
-				"IntrospectionEnabled", cr.Spec.OLSConfig.IntrospectionEnabled,
-				"MCPFeatureGate", slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer),
-				"MCPServersCount", len(cr.Spec.MCPServers),
-			)
 		}
 	}
 

@@ -94,6 +94,8 @@ const (
 	OLSAppServerNetworkPolicyName = "lightspeed-app-server"
 	// FeatureGateMCPServer is the feature gate flag activating the MCP server
 	FeatureGateMCPServer = "MCPServer"
+	// FeatureGateToolFiltering is the feature gate flag activating tool filtering
+	FeatureGateToolFiltering = "ToolFiltering"
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
 	// LLMProviderHashKey is the key of the hash value of OLS LLM provider credentials consolidated

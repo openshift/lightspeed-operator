@@ -81,7 +81,9 @@ spec:
           - description: The name of the secret object that stores API provider credentials
             displayName: Credential Secret
             path: llm.providers[0].credentialsSecretRef
-          - description: 'Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default. possible values: MCPServer'
+          - description: |-
+              Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
+              possible values: MCPServer, ToolFiltering
             displayName: Feature Gates
             path: featureGates
           - displayName: LLM Settings
@@ -126,7 +128,9 @@ spec:
           - description: MCP Server settings
             displayName: MCP Server Settings
             path: mcpServers
-          - description: Headers to send to the MCP server Each header can reference a secret or use a special source (kubernetes token, client token)
+          - description: |-
+              Headers to send to the MCP server
+              Each header can reference a secret or use a special source (kubernetes token, client token)
             displayName: Headers
             path: mcpServers[0].headers
           - description: Name of the header (e.g., "Authorization", "X-API-Key")
@@ -135,7 +139,10 @@ spec:
           - description: Source of the header value
             displayName: Value Source
             path: mcpServers[0].headers[0].valueFrom
-          - description: Reference to a secret containing the header value. Required when Type is "secret". The secret must exist in the operator's namespace.
+          - description: |-
+              Reference to a secret containing the header value.
+              Required when Type is "secret".
+              The secret must exist in the operator's namespace.
             displayName: Secret Reference
             path: mcpServers[0].headers[0].valueFrom.secretRef
           - description: Type specifies the source type for the header value
@@ -186,7 +193,10 @@ spec:
           - description: API container settings.
             displayName: API Deployment
             path: ols.deployment.api
-          - description: 'Defines the number of desired OLS pods. Default: "1" Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers, the number of replicas will always be set to 1.'
+          - description: |-
+              Defines the number of desired OLS pods. Default: "1"
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+              the number of replicas will always be set to 1.
             displayName: Number of replicas
             path: ols.deployment.api.replicas
             x-descriptors:
@@ -194,7 +204,10 @@ spec:
           - description: Console container settings.
             displayName: Console Deployment
             path: ols.deployment.console
-          - description: 'Defines the number of desired OLS pods. Default: "1" Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers, the number of replicas will always be set to 1.'
+          - description: |-
+              Defines the number of desired OLS pods. Default: "1"
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+              the number of replicas will always be set to 1.
             displayName: Number of replicas
             path: ols.deployment.console.replicas
             x-descriptors:
@@ -205,7 +218,10 @@ spec:
           - description: Database container settings.
             displayName: Database Deployment
             path: ols.deployment.database
-          - description: 'Defines the number of desired OLS pods. Default: "1" Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers, the number of replicas will always be set to 1.'
+          - description: |-
+              Defines the number of desired OLS pods. Default: "1"
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+              the number of replicas will always be set to 1.
             displayName: Number of replicas
             path: ols.deployment.database.replicas
             x-descriptors:
@@ -235,7 +251,9 @@ spec:
           - description: The configmap holding proxy CA certificate
             displayName: Proxy CA Certificate
             path: ols.proxyConfig.proxyCACertificate
-          - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+          - description: |-
+              Proxy URL, e.g. https://proxy.example.com:8080
+              If not specified, the cluster wide proxy will be used, though env var "https_proxy".
             displayName: Proxy URL
             path: ols.proxyConfig.proxyURL
           - description: Query filters
@@ -311,7 +329,14 @@ spec:
           - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
             displayName: TLS Configuration
             path: ols.tlsConfig
-          - description: "KeyCertSecretRef references a Secret containing TLS certificate and key. The Secret must contain the following keys: - tls.crt: Server certificate (PEM format) - REQUIRED - tls.key: Private key (PEM format) - REQUIRED - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL \n If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store."
+          - description: |-
+              KeyCertSecretRef references a Secret containing TLS certificate and key.
+              The Secret must contain the following keys:
+                - tls.crt: Server certificate (PEM format) - REQUIRED
+                - tls.key: Private key (PEM format) - REQUIRED
+                - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
+
+              If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
             displayName: TLS Certificate Secret Reference
             path: ols.tlsConfig.keyCertSecretRef
           - description: TLS Security Profile used by API endpoints
@@ -346,13 +371,24 @@ spec:
             displayName: Log level
             path: olsDataCollector.logLevel
         statusDescriptors:
-          - description: Conditions represent the state of individual components Always populated after first reconciliation
+          - description: |-
+              Conditions represent the state of individual components
+              Always populated after first reconciliation
             displayName: Conditions
             path: conditions
-          - description: DiagnosticInfo provides detailed troubleshooting information when deployments fail. Each entry contains pod-level error details for a specific component. This array is automatically populated when deployments fail and cleared when they recover. Only present during deployment failures.
+          - description: |-
+              DiagnosticInfo provides detailed troubleshooting information when deployments fail.
+              Each entry contains pod-level error details for a specific component.
+              This array is automatically populated when deployments fail and cleared when they recover.
+              Only present during deployment failures.
             displayName: Diagnostic Info
             path: diagnosticInfo
-          - description: 'OverallStatus provides a high-level summary of the entire system''s health. Aggregates all component conditions into a single status value. - Ready: All components are healthy - NotReady: At least one component is not ready (check conditions for details) Always set after first reconciliation'
+          - description: |-
+              OverallStatus provides a high-level summary of the entire system's health.
+              Aggregates all component conditions into a single status value.
+              - Ready: All components are healthy
+              - NotReady: At least one component is not ready (check conditions for details)
+              Always set after first reconciliation
             displayName: Overall Status
             path: overallStatus
         version: v1alpha1
