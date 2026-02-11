@@ -442,3 +442,90 @@ func TestLCoreConfigYAMLComponentFunctions(t *testing.T) {
 //	// Component functions now return maps/slices, not strings
 //	// They are tested implicitly through the full YAML generation test
 //}
+
+func TestGenerateExporterConfigMap_DefaultServiceID(t *testing.T) {
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+	}
+
+	// Use a minimal mock reconciler with OLSConfig registered in scheme
+	scheme := runtime.NewScheme()
+	_ = olsv1alpha1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+	r := &mockReconcilerForAssets{
+		namespace: utils.OLSNamespaceDefault,
+		scheme:    scheme,
+	}
+
+	cm, err := generateExporterConfigMap(r, cr)
+	if err != nil {
+		t.Fatalf("generateExporterConfigMap returned error: %v", err)
+	}
+
+	if cm.Name != utils.ExporterConfigCmName {
+		t.Errorf("Expected ConfigMap name %s, got %s", utils.ExporterConfigCmName, cm.Name)
+	}
+
+	if cm.Namespace != utils.OLSNamespaceDefault {
+		t.Errorf("Expected namespace %s, got %s", utils.OLSNamespaceDefault, cm.Namespace)
+	}
+
+	configContent := cm.Data[utils.ExporterConfigFilename]
+	if !strings.Contains(configContent, `service_id: "`+utils.ServiceIDOLS+`"`) {
+		t.Errorf("Expected service_id '%s' in config, got: %s", utils.ServiceIDOLS, configContent)
+	}
+
+	// Verify other required fields
+	requiredFields := []string{"ingress_server_url", "allowed_subdirs", "collection_interval"}
+	for _, field := range requiredFields {
+		if !strings.Contains(configContent, field) {
+			t.Errorf("Expected field '%s' in exporter config", field)
+		}
+	}
+}
+
+func TestGenerateExporterConfigMap_RHOSLightspeedServiceID(t *testing.T) {
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+			Labels: map[string]string{
+				utils.RHOSOLightspeedOwnerIDLabel: "test-owner-id",
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = olsv1alpha1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+	r := &mockReconcilerForAssets{
+		namespace: utils.OLSNamespaceDefault,
+		scheme:    scheme,
+	}
+
+	cm, err := generateExporterConfigMap(r, cr)
+	if err != nil {
+		t.Fatalf("generateExporterConfigMap returned error: %v", err)
+	}
+
+	configContent := cm.Data[utils.ExporterConfigFilename]
+	if !strings.Contains(configContent, `service_id: "`+utils.ServiceIDRHOSO+`"`) {
+		t.Errorf("Expected service_id '%s' when RHOSO label present, got: %s", utils.ServiceIDRHOSO, configContent)
+	}
+}
+
+// mockReconcilerForAssets is a minimal mock for testing asset generation
+type mockReconcilerForAssets struct {
+	reconciler.Reconciler
+	namespace string
+	scheme    *runtime.Scheme
+}
+
+func (m *mockReconcilerForAssets) GetNamespace() string {
+	return m.namespace
+}
+
+func (m *mockReconcilerForAssets) GetScheme() *runtime.Scheme {
+	return m.scheme
+}

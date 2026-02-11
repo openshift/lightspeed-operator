@@ -315,6 +315,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	ExporterConfigFilename = "config.yaml"
 	// OLSUserDataMountPath is the path where user data is mounted in the app server container
 	OLSUserDataMountPath = "/app-root/ols-user-data"
+	// LCoreUserDataMountPath is the path where user data is mounted in the lcore container
+	LCoreUserDataMountPath = "/tmp/data"
 	// ServiceIDOLS is the service ID used by the data exporter
 	ServiceIDOLS = "ols"
 	// RHOSOLightspeedOwnerIDLabel is the label used to identify RHOSO Lightspeed deployment
