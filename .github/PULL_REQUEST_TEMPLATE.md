@@ -18,6 +18,17 @@
 - Related Issue #
 - Closes #
 
+## AI Tools Used
+
+<!--- For transparency and review context, identify any AI code assistants used -->
+
+**Assisted-by:** (e.g., Claude, CodeRabbit, Ollama, GitHub Copilot, etc.; N/A if not used)
+
+
+**Generated-by:** (e.g., tool name and version; N/A if not used)
+
+
+
 ## Checklist before requesting a review
 
 - [ ] I have performed a self-review of my code.
