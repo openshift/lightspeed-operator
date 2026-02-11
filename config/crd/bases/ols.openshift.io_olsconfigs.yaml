@@ -43,10 +43,11 @@ spec:
               featureGates:
                 description: |-
                   Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
-                  possible values: MCPServer
+                  possible values: MCPServer, ToolFiltering
                 items:
                   enum:
                   - MCPServer
+                  - ToolFiltering
                   type: string
                 type: array
               llm:
