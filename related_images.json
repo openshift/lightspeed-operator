@@ -1,18 +1,18 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:b72c400911c234bf621eff371da5ad7e45956646a0bdc23d9fbc58037d97f146",
-    "revision": "995ab7bf949a96162213efe26d6ed6d0eda26c0f"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:fbc37027f5922c1adc4881ef644796dea82c504034c7e6ca72c35f71d20731fa",
+    "revision": "ee9fb5446cd32dff6879471bb8bfa43cc86c3949"
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:43f45ea0312ab4f37acb7f053d918857adbaa9feb0ff388684cf4ef9f293295a",
-    "revision": "ceb2fc1ca6352dabcf36209de9c2a91278f800e1"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:b40273b7aee5969fd0716542b9eb066ec820608b12f298e9a4a853527d415ba4",
+    "revision": "733ef67f21a6df7795a0ac08123197b5b61a00ca"
   },
   {
     "name": "lightspeed-console-plugin-pf5",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:9600e5a83a2ba3c46ef9e8407e05995138fda6aa3f1b9dfb829be733001d9104",
-    "revision": "d34899863b1526b9b5b88684ffde76d47c5cc074"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:c8b408fe323e882418e31e728a267ea609c28638f7f3a5c221ed806496c6fd2a",
+    "revision": "c1734acf727ba36cf0cdc62f2fb98062b8c54c4f"
   },
   {
     "name": "lightspeed-operator",
@@ -31,8 +31,8 @@
   },
   {
     "name": "lightspeed-ocp-rag",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:cbb2d485417a6524ddc7252487edd275e217b5ed1561ced9645c1423f5cf7bf3",
-    "revision": "f7e02d7b80936750f412074ae2780e5f04a54535"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:8fc0a434462b3f869c94a5e6f6c9ff3a069d9d518b7de83630f8fffe6f1722d9",
+    "revision": "b4a28fa4ae6eec1b2a62f66dacb9388c43484818"
   },
   {
     "name": "lightspeed-postgresql",
