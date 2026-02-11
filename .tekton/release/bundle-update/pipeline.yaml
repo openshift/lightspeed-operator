@@ -108,6 +108,7 @@ spec:
               # restore the bundle element
               jq 'map(select(.name != "lightspeed-operator-bundle"))' related_images.json > tmp.json && mv tmp.json related_images.json
               jq -s '.[0] + [.[1]]' related_images.json bundle.json > tmp.json && mv tmp.json related_images.json
+              PATH=./bin:$PATH make bundle
             workingDir: /workspace
             env:
               - name: KONFLUX_TOKEN
@@ -141,8 +142,8 @@ spec:
                     key: github-token
             script: |
               cd repo
-              git add related_images.json
-              git commit -m "Update related_images with snapshot $(params.snapshot)"
+              git add related_images.json bundle
+              git commit -m "Update related_images and bundle with snapshot $(params.snapshot)"
               git rev-parse HEAD | tee $(results.commit-id.path)
               git config credential.helper '!f() { sleep 1; echo "username=git"; echo "password=$GITHUB_TOKEN"; }; f'
               git push --force fork $(params.forkBranch)
