@@ -58,7 +58,7 @@ relatedImages:
   - name: lightspeed-to-dataverse-exporter
     image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:d4f3fa25a0dc60de849658ee59d900fcdf314984b27f4c07bdfb667f22001053
   - name: lightspeed-ocp-rag
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:3b73a841b0388f659f5a6f8f40a2b903e17ee4a7a57f074aa396b9e050cccc97
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:4ec1a91d87f2ca7597e0b3af4da86954e9a88e2ba4e727637d2cdf97cb988951
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
   - name: lightspeed-operator-bundle
