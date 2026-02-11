@@ -19,3 +19,5 @@ RUN OS=$(go env GOOS) && ARCH=$(go env GOARCH) \
 RUN OS=$(go env GOOS) && ARCH=$(go env GOARCH) \
 	&& curl -sSLo /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_${OS}_${ARCH} \
     && chmod +x /usr/local/bin/yq
+
+LABEL cpe="cpe:/a:redhat:openshift_lightspeed:1::el9"
