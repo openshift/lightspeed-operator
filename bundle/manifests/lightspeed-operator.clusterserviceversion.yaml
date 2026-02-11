@@ -813,7 +813,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:8cb4ecea832e2ab2fdcd90cd4ca13ddc09cdbad4cfd2946b56456dafe589a6c7
+                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:6437f890248b3723e792fc7151bb683052073621c703a25826fcd6ff2ef4392a
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -930,7 +930,7 @@ spec:
     - name: lightspeed-console-plugin-pf5
       image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:9600e5a83a2ba3c46ef9e8407e05995138fda6aa3f1b9dfb829be733001d9104
     - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:8cb4ecea832e2ab2fdcd90cd4ca13ddc09cdbad4cfd2946b56456dafe589a6c7
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:6437f890248b3723e792fc7151bb683052073621c703a25826fcd6ff2ef4392a
     - name: openshift-mcp-server
       image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:b3f75ccbf329c967c538a5bc1ed841a0800d7bc3b8b17f1d5f83269d7bd657d3
     - name: lightspeed-to-dataverse-exporter

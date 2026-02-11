@@ -52,7 +52,7 @@ relatedImages:
   - name: lightspeed-console-plugin-pf5
     image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:555d429aecb1ea2f91e5eeaf71492a6b2fb4d39bfa4a313135cdccaf2cfa76b9
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:477acc1afc8df694c5d661f0da917b65c58a21ca3f9b115979278a6ae475b9ee
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:6437f890248b3723e792fc7151bb683052073621c703a25826fcd6ff2ef4392a
   - name: openshift-mcp-server
     image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:d8f0081fcabbdaa9e5aa4fce5ed15e2a3222a277f6ef55f5a05583480d92dda3
   - name: lightspeed-to-dataverse-exporter

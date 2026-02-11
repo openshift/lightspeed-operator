@@ -56,7 +56,7 @@ relatedImages:
     image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:e3d5dcadd91f62772aad537c667b13daaefc8354394d679065159c08d40f9500
     revision: 15663cd781c150f26842cb436c9d0a82aecd01ed
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:a4a1368a3d00d56e9ae9fdc70c00ccc25946cda9b88817eff99ddc3b0e011599
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:6437f890248b3723e792fc7151bb683052073621c703a25826fcd6ff2ef4392a
     revision: bccc7d41b140e98439584aabe66d4de57bcb78b3
   - name: openshift-mcp-server
     image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:4bf3f7bf3168ea4b3c6513ec52c7396493e67a22bfd89cac09273da24828a207
