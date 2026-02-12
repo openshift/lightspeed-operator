@@ -948,3 +948,259 @@ func TestGenerateLCoreDeploymentWithRAG(t *testing.T) {
 		t.Fatalf("Expected ImagePullSecrets: %+v, got %+v", imagePullSecrets, deployment.Spec.Template.Spec.ImagePullSecrets)
 	}
 }
+
+func TestDataCollectorSidecar_Enabled(t *testing.T) {
+	// Create CR with data collection enabled
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "test-provider",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "test-secret",
+						},
+					},
+				},
+			},
+			OLSConfig: olsv1alpha1.OLSSpec{
+				UserDataCollection: olsv1alpha1.UserDataCollectionSpec{
+					FeedbackDisabled:    false,
+					TranscriptsDisabled: false,
+				},
+			},
+		},
+	}
+
+	// Create mock with telemetry enabled
+	r := &mockReconcilerWithTelemetry{
+		mockReconciler: mockReconciler{
+			lcoreServerMode: true,
+		},
+		telemetryEnabled: true,
+	}
+
+	deployment, err := GenerateLCoreDeployment(r, cr)
+	if err != nil {
+		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
+	}
+
+	// Should have 3 containers: llama-stack, lightspeed-stack, data-collector
+	containers := deployment.Spec.Template.Spec.Containers
+	if len(containers) != 3 {
+		t.Errorf("Expected 3 containers (llama-stack, lightspeed-stack, data-collector), got %d", len(containers))
+	}
+
+	// Verify data collector container exists
+	var hasDataCollector bool
+	for _, container := range containers {
+		if container.Name == "lightspeed-to-dataverse-exporter" {
+			hasDataCollector = true
+			// Verify data-dir arg uses LCoreUserDataMountPath
+			found := false
+			for i, arg := range container.Args {
+				if arg == "--data-dir" && i+1 < len(container.Args) {
+					if container.Args[i+1] != utils.LCoreUserDataMountPath {
+						t.Errorf("Expected data-dir %s, got %s", utils.LCoreUserDataMountPath, container.Args[i+1])
+					}
+					found = true
+				}
+			}
+			if !found {
+				t.Error("Data collector container missing --data-dir argument")
+			}
+		}
+	}
+
+	if !hasDataCollector {
+		t.Error("Expected data collector sidecar container when data collection is enabled")
+	}
+
+	// Verify user data volume exists
+	var hasUserDataVolume bool
+	for _, volume := range deployment.Spec.Template.Spec.Volumes {
+		if volume.Name == "ols-user-data" {
+			hasUserDataVolume = true
+			if volume.EmptyDir == nil {
+				t.Error("Expected ols-user-data volume to be EmptyDir")
+			}
+		}
+	}
+	if !hasUserDataVolume {
+		t.Error("Expected ols-user-data volume when data collection is enabled")
+	}
+
+	// Verify user data volume mount exists in lightspeed-stack container
+	lightspeedStackContainer := containers[1] // Second container in server mode
+	var hasUserDataMount bool
+	for _, mount := range lightspeedStackContainer.VolumeMounts {
+		if mount.Name == "ols-user-data" {
+			hasUserDataMount = true
+			if mount.MountPath != utils.LCoreUserDataMountPath {
+				t.Errorf("Expected mount path %s, got %s", utils.LCoreUserDataMountPath, mount.MountPath)
+			}
+		}
+	}
+	if !hasUserDataMount {
+		t.Error("Expected ols-user-data volume mount in lightspeed-stack container")
+	}
+}
+
+func TestDataCollectorSidecar_Disabled(t *testing.T) {
+	// Create CR with data collection disabled
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "test-provider",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "test-secret",
+						},
+					},
+				},
+			},
+			OLSConfig: olsv1alpha1.OLSSpec{
+				UserDataCollection: olsv1alpha1.UserDataCollectionSpec{
+					FeedbackDisabled:    true,
+					TranscriptsDisabled: true,
+				},
+			},
+		},
+	}
+
+	r := &mockReconciler{
+		lcoreServerMode: true,
+	}
+
+	deployment, err := GenerateLCoreDeployment(r, cr)
+	if err != nil {
+		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
+	}
+
+	// Should have 2 containers: llama-stack, lightspeed-stack (no data-collector)
+	containers := deployment.Spec.Template.Spec.Containers
+	if len(containers) != 2 {
+		t.Errorf("Expected 2 containers (llama-stack, lightspeed-stack), got %d", len(containers))
+	}
+
+	// Verify data collector container does NOT exist
+	for _, container := range containers {
+		if container.Name == "lightspeed-to-dataverse-exporter" {
+			t.Error("Data collector sidecar should not be present when data collection is disabled")
+		}
+	}
+
+	// Verify user data volume does NOT exist
+	for _, volume := range deployment.Spec.Template.Spec.Volumes {
+		if volume.Name == "ols-user-data" {
+			t.Error("ols-user-data volume should not be present when data collection is disabled")
+		}
+	}
+}
+
+func TestDataCollectorSidecar_LibraryMode(t *testing.T) {
+	// Create CR with data collection enabled
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "test-provider",
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "test-secret",
+						},
+					},
+				},
+			},
+			OLSConfig: olsv1alpha1.OLSSpec{
+				UserDataCollection: olsv1alpha1.UserDataCollectionSpec{
+					FeedbackDisabled:    false,
+					TranscriptsDisabled: false,
+				},
+			},
+		},
+	}
+
+	// Create mock with library mode and telemetry enabled
+	r := &mockReconcilerWithTelemetry{
+		mockReconciler: mockReconciler{
+			lcoreServerMode: false, // Library mode
+		},
+		telemetryEnabled: true,
+	}
+
+	deployment, err := GenerateLCoreDeployment(r, cr)
+	if err != nil {
+		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
+	}
+
+	// Should have 2 containers: lightspeed-stack, data-collector
+	containers := deployment.Spec.Template.Spec.Containers
+	if len(containers) != 2 {
+		t.Errorf("Expected 2 containers (lightspeed-stack, data-collector), got %d", len(containers))
+	}
+
+	// Verify data collector container exists
+	var hasDataCollector bool
+	for _, container := range containers {
+		if container.Name == "lightspeed-to-dataverse-exporter" {
+			hasDataCollector = true
+		}
+	}
+
+	if !hasDataCollector {
+		t.Error("Expected data collector sidecar in library mode when data collection is enabled")
+	}
+
+	// Verify user data volume mount in single container
+	lightspeedStackContainer := containers[0]
+	var hasUserDataMount bool
+	for _, mount := range lightspeedStackContainer.VolumeMounts {
+		if mount.Name == "ols-user-data" && mount.MountPath == utils.LCoreUserDataMountPath {
+			hasUserDataMount = true
+		}
+	}
+	if !hasUserDataMount {
+		t.Error("Expected ols-user-data volume mount in library mode")
+	}
+}
+
+// mockReconcilerWithTelemetry extends mockReconciler to simulate telemetry pull secret
+type mockReconcilerWithTelemetry struct {
+	mockReconciler
+	telemetryEnabled bool
+}
+
+func (m *mockReconcilerWithTelemetry) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	// Simulate telemetry pull secret lookup
+	if key.Namespace == utils.TelemetryPullSecretNamespace && key.Name == utils.TelemetryPullSecretName {
+		if m.telemetryEnabled {
+			// Return a mock secret with cloud.openshift.com auth
+			if secret, ok := obj.(*corev1.Secret); ok {
+				secret.Data = map[string][]byte{
+					".dockerconfigjson": []byte(`{"auths":{"cloud.openshift.com":{}}}`),
+				}
+				return nil
+			}
+		}
+		// Telemetry disabled - return not found
+		return errors.NewNotFound(schema.GroupResource{}, key.Name)
+	}
+
+	// For other resources, use the parent mock behavior
+	return m.mockReconciler.Get(ctx, key, obj, opts...)
+}
+
+func (m *mockReconcilerWithTelemetry) GetDataverseExporterImage() string {
+	return utils.DataverseExporterImageDefault
+}

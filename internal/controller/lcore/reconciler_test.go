@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -294,6 +295,104 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			By("Reconcile should succeed and skip")
 			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("Data collector exporter ConfigMap reconciliation", Ordered, func() {
+		BeforeAll(func() {
+			By("Create telemetry pull secret")
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.TelemetryPullSecretName,
+					Namespace: utils.TelemetryPullSecretNamespace,
+				},
+				Data: map[string][]byte{
+					".dockerconfigjson": []byte(`{"auths":{"cloud.openshift.com":{}}}`),
+				},
+			}
+			err := k8sClient.Create(ctx, secret)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterAll(func() {
+			By("Delete telemetry pull secret")
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.TelemetryPullSecretName,
+					Namespace: utils.TelemetryPullSecretNamespace,
+				},
+			}
+			_ = k8sClient.Delete(ctx, secret)
+		})
+
+		It("should skip exporter ConfigMap creation when data collection is disabled", func() {
+			By("Create CR with data collection disabled")
+			err := k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+			// LCore requires supported Llama Stack provider types
+			cr.Spec.LLMConfig.Providers[0].Type = "openai"
+			err = k8sClient.Update(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile should succeed")
+			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Exporter ConfigMap should not exist")
+			cm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ExporterConfigCmName, Namespace: utils.OLSNamespaceDefault}, cm)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should create exporter ConfigMap when data collection is enabled and telemetry is available", func() {
+			By("Create CR with data collection enabled")
+			err := k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    false,
+				TranscriptsDisabled: false,
+			}
+			// LCore requires supported Llama Stack provider types
+			cr.Spec.LLMConfig.Providers[0].Type = "openai"
+			err = k8sClient.Update(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile should succeed")
+			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Exporter ConfigMap should exist")
+			cm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ExporterConfigCmName, Namespace: utils.OLSNamespaceDefault}, cm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Data).To(HaveKey(utils.ExporterConfigFilename))
+			Expect(cm.Data[utils.ExporterConfigFilename]).To(ContainSubstring("service_id"))
+			Expect(cm.Data[utils.ExporterConfigFilename]).To(ContainSubstring("ingress_server_url"))
+		})
+
+		It("should delete exporter ConfigMap when data collection is disabled after being enabled", func() {
+			By("Update CR to disable data collection")
+			err := k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+			err = k8sClient.Update(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile should succeed")
+			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Exporter ConfigMap should be deleted")
+			cm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ExporterConfigCmName, Namespace: utils.OLSNamespaceDefault}, cm)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

@@ -2,6 +2,7 @@ package lcore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"slices"
@@ -80,6 +81,18 @@ func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequire
 	)
 }
 
+// getOLSDataCollectorResources returns resource requirements for the data collector sidecar
+func getOLSDataCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+	return utils.GetResourcesOrDefault(
+		cr.Spec.OLSConfig.DeploymentConfig.DataCollectorContainer.Resources,
+		&corev1.ResourceRequirements{
+			Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
+			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
+			Claims:   []corev1.ResourceClaim{},
+		},
+	)
+}
+
 // addOpenShiftMCPServerSidecar adds the OpenShift MCP server sidecar container to the deployment
 // if introspection is enabled in the CR. This modifies the deployment in place.
 func addOpenShiftMCPServerSidecar(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig, deployment *appsv1.Deployment) {
@@ -106,6 +119,48 @@ func addOpenShiftMCPServerSidecar(r reconciler.Reconciler, cr *olsv1alpha1.OLSCo
 	deployment.Spec.Template.Spec.Containers = append(
 		deployment.Spec.Template.Spec.Containers,
 		openshiftMCPServerContainer,
+	)
+}
+
+// addDataCollectorSidecar adds the data collector container to the deployment if data collection is enabled
+func addDataCollectorSidecar(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig, deployment *appsv1.Deployment, volumeMounts []corev1.VolumeMount, dataCollectorEnabled bool) {
+	if !dataCollectorEnabled {
+		return
+	}
+
+	// Get log level from CR
+	logLevel := cr.Spec.OLSDataCollectorConfig.LogLevel
+	if logLevel == "" {
+		logLevel = olsv1alpha1.LogLevelInfo
+	}
+
+	exporterContainer := corev1.Container{
+		Name:            "lightspeed-to-dataverse-exporter",
+		Image:           r.GetDataverseExporterImage(),
+		ImagePullPolicy: corev1.PullAlways,
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &[]bool{false}[0],
+			ReadOnlyRootFilesystem:   &[]bool{true}[0],
+		},
+		VolumeMounts: volumeMounts,
+		// running in openshift mode ensures that cluster_id is set
+		// as identity_id
+		Args: []string{
+			"--mode",
+			"openshift",
+			"--config",
+			path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
+			"--log-level",
+			string(logLevel),
+			"--data-dir",
+			utils.LCoreUserDataMountPath,
+		},
+		Resources: *getOLSDataCollectorResources(cr),
+	}
+
+	deployment.Spec.Template.Spec.Containers = append(
+		deployment.Spec.Template.Spec.Containers,
+		exporterContainer,
 	)
 }
 
@@ -524,6 +579,46 @@ func addMCPHeaderSecretVolumesAndMounts(r reconciler.Reconciler, ctx context.Con
 	return nil
 }
 
+// addDataCollectorVolumesAndMounts adds volumes and mounts needed for data collection (feedback/transcripts)
+// This creates a shared EmptyDir volume for OLS to write user data and the exporter to read it
+func addDataCollectorVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, volumeDefaultMode *int32, dataCollectorEnabled bool) {
+	if !dataCollectorEnabled {
+		return
+	}
+
+	// Shared EmptyDir volume for user data (feedback and transcripts)
+	*volumes = append(*volumes, corev1.Volume{
+		Name: "ols-user-data",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+
+	*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+		Name:      "ols-user-data",
+		MountPath: utils.LCoreUserDataMountPath,
+	})
+
+	// Exporter config volume (ConfigMap)
+	*volumes = append(*volumes, corev1.Volume{
+		Name: utils.ExporterConfigVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: utils.ExporterConfigCmName,
+				},
+				DefaultMode: volumeDefaultMode,
+			},
+		},
+	})
+
+	*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+		Name:      utils.ExporterConfigVolumeName,
+		MountPath: utils.ExporterConfigMountPath,
+		ReadOnly:  true,
+	})
+}
+
 // buildLightspeedStackLivenessProbe creates the liveness probe for lightspeed-stack container
 func buildLightspeedStackLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
@@ -602,6 +697,12 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 	ctx := context.Background()
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := utils.VolumeDefaultMode
+
+	// Check if data collector is enabled
+	dataCollectorEnabled, err := dataCollectorEnabled(r, cr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check data collector status: %w", err)
+	}
 
 	llamaStackResources := getLlamaStackResources(cr)
 	lightspeedStackResources := getLightspeedStackResources(cr)
@@ -790,6 +891,9 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 		return nil, err
 	}
 
+	// Add data collector volumes and mounts if enabled
+	addDataCollectorVolumesAndMounts(&volumes, &lightspeedStackVolumeMounts, &volumeDefaultMode, dataCollectorEnabled)
+
 	lightspeedStackContainer.VolumeMounts = lightspeedStackVolumeMounts
 	lightspeedStackContainer.LivenessProbe = buildLightspeedStackLivenessProbe()
 	lightspeedStackContainer.ReadinessProbe = buildLightspeedStackReadinessProbe()
@@ -843,6 +947,9 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 
 	// Add OpenShift MCP server sidecar container if introspection is enabled
 	addOpenShiftMCPServerSidecar(r, cr, &deployment)
+
+	// Add data collector sidecar container if data collection is enabled
+	addDataCollectorSidecar(r, cr, &deployment, lightspeedStackVolumeMounts, dataCollectorEnabled)
 
 	return &deployment, nil
 }
@@ -941,6 +1048,12 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := utils.VolumeDefaultMode
 
+	// Check if data collector is enabled
+	dataCollectorEnabled, err := dataCollectorEnabled(r, cr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check data collector status: %w", err)
+	}
+
 	// Get ResourceVersions for tracking
 	lcoreConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LCoreConfigCmName)
 	llamaStackConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LlamaStackConfigCmName)
@@ -990,6 +1103,9 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 	if err := addMCPHeaderSecretVolumesAndMounts(r, ctx, &volumes, &volumeMounts, cr, &volumeDefaultMode); err != nil {
 		return nil, err
 	}
+
+	// Add data collector volumes and mounts if enabled
+	addDataCollectorVolumesAndMounts(&volumes, &volumeMounts, &volumeDefaultMode, dataCollectorEnabled)
 
 	// Build environment variables for library mode
 	// Library mode needs env vars from both llama-stack and lightspeed-stack
@@ -1053,5 +1169,49 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 	// Add OpenShift MCP server sidecar container if introspection is enabled
 	addOpenShiftMCPServerSidecar(r, cr, &deployment)
 
+	// Add data collector sidecar container if data collection is enabled
+	addDataCollectorSidecar(r, cr, &deployment, volumeMounts, dataCollectorEnabled)
+
 	return &deployment, nil
+}
+
+func dataCollectorEnabled(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (bool, error) {
+	// Data collector is enabled when:
+	// 1. User data collection is enabled in OLS configuration (feedback OR transcripts)
+	// 2. AND telemetry is enabled (pull secret contains cloud.openshift.com auth)
+
+	// Check if data collection is enabled in CR
+	configEnabled := !cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled || !cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled
+	if !configEnabled {
+		return false, nil
+	}
+
+	// Check if telemetry is enabled
+	// Telemetry enablement is determined by the presence of the telemetry pull secret
+	// the presence of the field '.auths."cloud.openshift.com"' indicates that telemetry is enabled
+	// use this command to check in an Openshift cluster:
+	// oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' | jq '.auths."cloud.openshift.com"'
+	pullSecret := &corev1.Secret{}
+	err := r.Get(context.Background(), client.ObjectKey{Namespace: utils.TelemetryPullSecretNamespace, Name: utils.TelemetryPullSecretName}, pullSecret)
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	dockerconfigjson, ok := pullSecret.Data[".dockerconfigjson"]
+	if !ok {
+		return false, fmt.Errorf("pull secret does not contain .dockerconfigjson")
+	}
+
+	dockerconfigjsonDecoded := map[string]interface{}{}
+	err = json.Unmarshal(dockerconfigjson, &dockerconfigjsonDecoded)
+	if err != nil {
+		return false, err
+	}
+
+	_, telemetryEnabled := dockerconfigjsonDecoded["auths"].(map[string]interface{})["cloud.openshift.com"]
+	return telemetryEnabled, nil
 }

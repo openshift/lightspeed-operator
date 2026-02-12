@@ -534,10 +534,21 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 	return nil
 }
 
-func telemetryEnabled(r reconciler.Reconciler) (bool, error) {
+func dataCollectorEnabled(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (bool, error) {
+	// Data collector is enabled when:
+	// 1. User data collection is enabled in OLS configuration (feedback OR transcripts)
+	// 2. AND telemetry is enabled (pull secret contains cloud.openshift.com auth)
+
+	// Check if data collection is enabled in CR
+	configEnabled := !cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled || !cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled
+	if !configEnabled {
+		return false, nil
+	}
+
+	// Check if telemetry is enabled
 	// Telemetry enablement is determined by the presence of the telemetry pull secret
 	// the presence of the field '.auths."cloud.openshift.com"' indicates that telemetry is enabled
-	// use this command to check in an Openshift cluster
+	// use this command to check in an Openshift cluster:
 	// oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' | jq '.auths."cloud.openshift.com"'
 	pullSecret := &corev1.Secret{}
 	err := r.Get(context.Background(), client.ObjectKey{Namespace: utils.TelemetryPullSecretNamespace, Name: utils.TelemetryPullSecretName}, pullSecret)
@@ -560,19 +571,8 @@ func telemetryEnabled(r reconciler.Reconciler) (bool, error) {
 		return false, err
 	}
 
-	_, ok = dockerconfigjsonDecoded["auths"].(map[string]interface{})["cloud.openshift.com"]
-	return ok, nil
-
-}
-
-func dataCollectorEnabled(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (bool, error) {
-	// data collector is enabled in OLS configuration
-	configEnabled := !cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled || !cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled
-	telemetryEnabled, err := telemetryEnabled(r)
-	if err != nil {
-		return false, err
-	}
-	return configEnabled && telemetryEnabled, nil
+	_, telemetryEnabled := dockerconfigjsonDecoded["auths"].(map[string]interface{})["cloud.openshift.com"]
+	return telemetryEnabled, nil
 }
 
 // RestartAppServer triggers a rolling restart of the app server deployment by updating its pod template annotation.

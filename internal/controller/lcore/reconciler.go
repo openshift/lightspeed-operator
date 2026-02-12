@@ -60,6 +60,10 @@ func ReconcileLCoreResources(r reconciler.Reconciler, ctx context.Context, olsco
 			Task: reconcileLcoreConfigMap,
 		},
 		{
+			Name: "reconcile Exporter ConfigMap",
+			Task: reconcileExporterConfigMap,
+		},
+		{
 			Name: "reconcile OLS Additional CA ConfigMap",
 			Task: reconcileOLSAdditionalCAConfigMap,
 		},
@@ -269,6 +273,63 @@ func reconcileLcoreConfigMap(r reconciler.Reconciler, ctx context.Context, cr *o
 	}
 
 	r.GetLogger().Info("LCore ConfigMap reconciled", "ConfigMap", cm.Name)
+	return nil
+}
+
+func reconcileExporterConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	// Check if data collector is enabled
+	enabled, err := dataCollectorEnabled(r, cr)
+	if err != nil {
+		return fmt.Errorf("failed to check if data collector is enabled: %w", err)
+	}
+
+	foundCm := &corev1.ConfigMap{}
+	err = r.Get(ctx, client.ObjectKey{Name: utils.ExporterConfigCmName, Namespace: r.GetNamespace()}, foundCm)
+	cmExists := err == nil
+
+	if !enabled {
+		// Data collector is disabled, delete the configmap if it exists
+		if cmExists {
+			r.GetLogger().Info("deleting exporter configmap", "configmap", utils.ExporterConfigCmName)
+			err = r.Delete(ctx, foundCm)
+			if err != nil {
+				return fmt.Errorf("failed to delete exporter configmap: %w", err)
+			}
+		} else {
+			r.GetLogger().Info("data collector disabled, exporter configmap reconciliation skipped")
+		}
+		return nil
+	}
+
+	// Data collector is enabled, ensure configmap exists
+	cm, err := generateExporterConfigMap(r, cr)
+	if err != nil {
+		return fmt.Errorf("failed to generate exporter configmap: %w", err)
+	}
+
+	if !cmExists {
+		r.GetLogger().Info("creating exporter configmap", "configmap", cm.Name)
+		err = r.Create(ctx, cm)
+		if err != nil {
+			return fmt.Errorf("failed to create exporter configmap: %w", err)
+		}
+		return nil
+	}
+
+	// ConfigMap exists, check if it needs update
+	if utils.ConfigMapEqual(foundCm, cm) {
+		r.GetLogger().Info("exporter configmap reconciliation skipped", "configmap", foundCm.Name)
+		return nil
+	}
+
+	foundCm.Data = cm.Data
+	foundCm.Annotations = cm.Annotations
+	err = r.Update(ctx, foundCm)
+	if err != nil {
+		return fmt.Errorf("failed to update exporter configmap: %w", err)
+	}
+
+	r.GetLogger().Info("exporter configmap reconciled", "configmap", cm.Name)
 	return nil
 }
 

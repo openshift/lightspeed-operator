@@ -423,3 +423,42 @@ func GenerateLcoreConfigMap(r reconciler.Reconciler, ctx context.Context, cr *ol
 
 	return &cm, nil
 }
+
+// generateExporterConfigMap generates the ConfigMap for the data exporter
+func generateExporterConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+	serviceID := utils.ServiceIDOLS
+	if cr.Labels != nil {
+		if _, hasRHOSLightspeedLabel := cr.Labels[utils.RHOSOLightspeedOwnerIDLabel]; hasRHOSLightspeedLabel {
+			serviceID = utils.ServiceIDRHOSO
+		}
+	}
+
+	// Collection interval is set to 300 seconds in production (5 minutes)
+	exporterConfigContent := fmt.Sprintf(`service_id: "%s"
+ingress_server_url: "https://console.redhat.com/api/ingress/v1/upload"
+allowed_subdirs:
+ - feedback
+ - transcripts
+ - config_status
+# Collection settings
+collection_interval: 300
+cleanup_after_send: true
+ingress_connection_timeout: 30`, serviceID)
+
+	cm := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.ExporterConfigCmName,
+			Namespace: r.GetNamespace(),
+			Labels:    utils.GenerateAppServerSelectorLabels(),
+		},
+		Data: map[string]string{
+			utils.ExporterConfigFilename: exporterConfigContent,
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &cm, r.GetScheme()); err != nil {
+		return nil, err
+	}
+
+	return &cm, nil
+}
