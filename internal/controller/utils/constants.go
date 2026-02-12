@@ -176,6 +176,9 @@ const (
 	// PostgresSecretResourceVersionAnnotation is the annotation key for tracking Secret ResourceVersion
 	//nolint:gosec // G101: This is an annotation key name, not a credential
 	PostgresSecretResourceVersionAnnotation = "ols.openshift.io/postgres-secret-version"
+	// PostgresCertsSecretResourceVersionAnnotation is the annotation key for tracking Postgres TLS certificate Secret ResourceVersion
+	//nolint:gosec // not a credential, just an annotation key
+	PostgresCertsSecretResourceVersionAnnotation = "ols.openshift.io/postgres-certs-secret-version"
 	// PostgresServiceName is the name of OLS application Postgres server service
 	PostgresServiceName = "lightspeed-postgres-server"
 	// PostgresSecretName is the name of OLS application Postgres secret
@@ -211,6 +214,10 @@ const (
 	PostgresMaxConnections = 2000
 	// PostgresDefaultSSLMode is the default ssl mode for postgres
 	PostgresDefaultSSLMode = "require"
+	// PostgresReadyTimeout is the maximum time to wait for Postgres to become ready
+	// after a restart (e.g., during certificate rotation). 3 minutes should be sufficient
+	// for most deployments including image pull, PVC attachment, and Postgres initialization.
+	PostgresReadyTimeout = 3 * time.Minute
 	// PostgresBootStrapScriptContent is the postgres's bootstrap script content
 	// NOTE: Database name must match LlamaStackDatabaseName constant (hardcoded by llama-stack)
 	PostgresBootStrapScriptContent = `
