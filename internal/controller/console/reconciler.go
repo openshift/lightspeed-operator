@@ -207,7 +207,7 @@ func ReconcileConsoleUIDeployment(r reconciler.Reconciler, ctx context.Context, 
 
 	// Check if deployment spec has changed
 	// Note: TLS secret changes are handled by watchers, not here
-	if utils.DeploymentSpecEqual(&foundDeployment.Spec, &deployment.Spec) {
+	if utils.DeploymentSpecEqual(&foundDeployment.Spec, &deployment.Spec, true) {
 		return nil
 	}
 

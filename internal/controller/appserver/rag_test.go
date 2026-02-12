@@ -1,12 +1,16 @@
 package appserver
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
+	imagev1 "github.com/openshift/api/image/v1"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
@@ -59,5 +63,14 @@ var _ = Describe("App server assets", func() {
 			}))
 		})
 
+		It("should create an ImageStream for each RAG image", func() {
+			err := reconcileImageStreams(testReconcilerInstance, context.Background(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			for _, rag := range cr.Spec.OLSConfig.RAG {
+				var is imagev1.ImageStream
+				err = testReconcilerInstance.Get(ctx, types.NamespacedName{Name: utils.ImageStreamNameFor(rag.Image), Namespace: testReconcilerInstance.GetNamespace()}, &is)
+				Expect(err).NotTo(HaveOccurred())
+			}
+		})
 	})
 })
