@@ -35,7 +35,7 @@ IMAGE_TAG_BASE ?= quay.io/openshift-lightspeed/lightspeed-operator
 
 # BUNDLE_TAG defines the version of the bundle.
 # You can use it as an arg. (E.g make bundle BUNDLE_TAG=0.0.1)
-BUNDLE_TAG ?= 1.0.9
+BUNDLE_TAG ?= 1.0.10
 
 # set the base image for docker files
 # You can use it as an arg.  (E.g make bundle BASE_IMG=registry.redhat.io/ubi9/ubi-minimal)
