@@ -78,6 +78,9 @@ spec:
                         deploymentName:
                           description: Azure OpenAI deployment name
                           type: string
+                        fakeProviderMCPToolCall:
+                          description: Fake Provider MCP Tool Call
+                          type: boolean
                         models:
                           description: List of models from the provider
                           items:

@@ -471,6 +471,9 @@ type ProviderSpec struct {
 	// Watsonx Project ID
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Watsonx Project ID"
 	WatsonProjectID string `json:"projectID,omitempty"`
+	// Fake Provider MCP Tool Call
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Fake Provider MCP Tool Call"
+	FakeProviderMCPToolCall bool `json:"fakeProviderMCPToolCall,omitempty"`
 	// TLS Security Profile used by connection to provider
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Security Profile",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
