@@ -154,6 +154,17 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 				WatsonProjectID: provider.WatsonProjectID,
 			}
 		}
+
+		if provider.Type == utils.FakeProviderType {
+			providerConfig.FakeProviderConfig = &utils.FakeProviderConfig{
+				URL:         "http://example.com",
+				Response:    "This is a preconfigured fake response.",
+				Chunks:      30,
+				Sleep:       0.1,
+				Stream:      false,
+				MCPToolCall: provider.FakeProviderMCPToolCall,
+			}
+		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
 

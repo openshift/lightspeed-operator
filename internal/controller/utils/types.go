@@ -106,6 +106,23 @@ type ProviderConfig struct {
 	APIVersion string `json:"api_version,omitempty"`
 	// Azure OpenAI Config
 	AzureOpenAIConfig *AzureOpenAIConfig `json:"azure_openai_config,omitempty"`
+	// Fake Provider Config for testing
+	FakeProviderConfig *FakeProviderConfig `json:"fake_provider_config,omitempty"`
+}
+
+type FakeProviderConfig struct {
+	// URL of the fake provider server to send requests
+	URL string `json:"url,omitempty" default:"http://example.com"`
+	// Whether the fake provider should stream responses in chunks
+	Stream bool `json:"stream" default:"false"`
+	// Flag to enable mcp tool call in fake provider
+	MCPToolCall bool `json:"mcp_tool_call" default:"false"`
+	// The full response to return when Stream is false, or the base response to chunk when Stream is true
+	Response string `json:"response,omitempty"`
+	// The number of chunks to split the response into when Stream is true
+	Chunks int `json:"chunks,omitempty" default:"30"`
+	// The amount of time in seconds to sleep between sending each chunk when Stream is true
+	Sleep float64 `json:"sleep,omitempty" default:"0.1"`
 }
 
 type AzureOpenAIConfig struct {

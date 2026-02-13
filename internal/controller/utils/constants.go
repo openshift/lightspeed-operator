@@ -120,6 +120,8 @@ const (
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
 	// AzureOpenAIType is the name of the Azure OpenAI provider type
 	AzureOpenAIType = "azure_openai"
+	// FakeProviderType is the name of the fake provider type used for testing
+	FakeProviderType = "fake_provider"
 	// DeploymentInProgress message
 	DeploymentInProgress = "In Progress"
 	// OLSSystemPromptFileName is the filename for the system prompt
