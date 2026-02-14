@@ -63,7 +63,7 @@ spec:
             type: string
         steps:
           - name: parse-metadata
-            image: quay.io/hasun/bundle-update:0.0.1
+            image: quay.io/hasun/bundle-update:0.0.2
             env:
               - name: SNAPSHOT_NAME
                 valueFrom:
@@ -125,7 +125,7 @@ spec:
             type: string
         steps:
           - name: check-and-create-release
-            image: quay.io/hasun/bundle-update:0.0.1
+            image: quay.io/hasun/bundle-update:0.0.2
             env:
               - name: KONFLUX_TOKEN
                 valueFrom:
