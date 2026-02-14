@@ -185,7 +185,7 @@ spec:
                 value: "$(params.commit)"
               - name: CYPRESS_BUNDLE_IMAGE
                 value: "$(params.bundle-image)"
-            image: cypress/browsers:24.13.0
+            image: cypress/browsers:24.13.1
             script: |
               apt update && apt install -y jq
               echo "COMMIT_SHA: ${COMMIT_SHA}"
