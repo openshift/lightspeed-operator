@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-02-06T16:33:27Z"
+    createdAt: "2026-02-17T16:19:18Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -81,9 +81,7 @@ spec:
           - description: The name of the secret object that stores API provider credentials
             displayName: Credential Secret
             path: llm.providers[0].credentialsSecretRef
-          - description: |-
-              Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
-              possible values: MCPServer, ToolFiltering
+          - description: 'Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default. possible values: MCPServer, ToolFiltering'
             displayName: Feature Gates
             path: featureGates
           - displayName: LLM Settings
@@ -96,6 +94,9 @@ spec:
           - description: Azure OpenAI deployment name
             displayName: Azure OpenAI deployment name
             path: llm.providers[0].deploymentName
+          - description: Fake Provider MCP Tool Call
+            displayName: Fake Provider MCP Tool Call
+            path: llm.providers[0].fakeProviderMCPToolCall
           - description: List of models from the provider
             displayName: Models
             path: llm.providers[0].models
@@ -128,9 +129,7 @@ spec:
           - description: MCP Server settings
             displayName: MCP Server Settings
             path: mcpServers
-          - description: |-
-              Headers to send to the MCP server
-              Each header can reference a secret or use a special source (kubernetes token, client token)
+          - description: Headers to send to the MCP server Each header can reference a secret or use a special source (kubernetes token, client token)
             displayName: Headers
             path: mcpServers[0].headers
           - description: Name of the header (e.g., "Authorization", "X-API-Key")
@@ -139,10 +138,7 @@ spec:
           - description: Source of the header value
             displayName: Value Source
             path: mcpServers[0].headers[0].valueFrom
-          - description: |-
-              Reference to a secret containing the header value.
-              Required when Type is "secret".
-              The secret must exist in the operator's namespace.
+          - description: Reference to a secret containing the header value. Required when Type is "secret". The secret must exist in the operator's namespace.
             displayName: Secret Reference
             path: mcpServers[0].headers[0].valueFrom.secretRef
           - description: Type specifies the source type for the header value
@@ -193,10 +189,7 @@ spec:
           - description: API container settings.
             displayName: API Deployment
             path: ols.deployment.api
-          - description: |-
-              Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
-              the number of replicas will always be set to 1.
+          - description: 'Defines the number of desired OLS pods. Default: "1" Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers, the number of replicas will always be set to 1.'
             displayName: Number of replicas
             path: ols.deployment.api.replicas
             x-descriptors:
@@ -204,10 +197,7 @@ spec:
           - description: Console container settings.
             displayName: Console Deployment
             path: ols.deployment.console
-          - description: |-
-              Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
-              the number of replicas will always be set to 1.
+          - description: 'Defines the number of desired OLS pods. Default: "1" Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers, the number of replicas will always be set to 1.'
             displayName: Number of replicas
             path: ols.deployment.console.replicas
             x-descriptors:
@@ -218,10 +208,7 @@ spec:
           - description: Database container settings.
             displayName: Database Deployment
             path: ols.deployment.database
-          - description: |-
-              Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
-              the number of replicas will always be set to 1.
+          - description: 'Defines the number of desired OLS pods. Default: "1" Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers, the number of replicas will always be set to 1.'
             displayName: Number of replicas
             path: ols.deployment.database.replicas
             x-descriptors:
@@ -251,9 +238,7 @@ spec:
           - description: The configmap holding proxy CA certificate
             displayName: Proxy CA Certificate
             path: ols.proxyConfig.proxyCACertificate
-          - description: |-
-              Proxy URL, e.g. https://proxy.example.com:8080
-              If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+          - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified, the cluster wide proxy will be used, though env var "https_proxy".
             displayName: Proxy URL
             path: ols.proxyConfig.proxyURL
           - description: Query filters
@@ -329,14 +314,7 @@ spec:
           - description: TLS configuration of the Lightspeed backend's HTTPS endpoint
             displayName: TLS Configuration
             path: ols.tlsConfig
-          - description: |-
-              KeyCertSecretRef references a Secret containing TLS certificate and key.
-              The Secret must contain the following keys:
-                - tls.crt: Server certificate (PEM format) - REQUIRED
-                - tls.key: Private key (PEM format) - REQUIRED
-                - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
-
-              If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
+          - description: "KeyCertSecretRef references a Secret containing TLS certificate and key. The Secret must contain the following keys: - tls.crt: Server certificate (PEM format) - REQUIRED - tls.key: Private key (PEM format) - REQUIRED - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL \n If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store."
             displayName: TLS Certificate Secret Reference
             path: ols.tlsConfig.keyCertSecretRef
           - description: TLS Security Profile used by API endpoints
@@ -371,24 +349,13 @@ spec:
             displayName: Log level
             path: olsDataCollector.logLevel
         statusDescriptors:
-          - description: |-
-              Conditions represent the state of individual components
-              Always populated after first reconciliation
+          - description: Conditions represent the state of individual components Always populated after first reconciliation
             displayName: Conditions
             path: conditions
-          - description: |-
-              DiagnosticInfo provides detailed troubleshooting information when deployments fail.
-              Each entry contains pod-level error details for a specific component.
-              This array is automatically populated when deployments fail and cleared when they recover.
-              Only present during deployment failures.
+          - description: DiagnosticInfo provides detailed troubleshooting information when deployments fail. Each entry contains pod-level error details for a specific component. This array is automatically populated when deployments fail and cleared when they recover. Only present during deployment failures.
             displayName: Diagnostic Info
             path: diagnosticInfo
-          - description: |-
-              OverallStatus provides a high-level summary of the entire system's health.
-              Aggregates all component conditions into a single status value.
-              - Ready: All components are healthy
-              - NotReady: At least one component is not ready (check conditions for details)
-              Always set after first reconciliation
+          - description: 'OverallStatus provides a high-level summary of the entire system''s health. Aggregates all component conditions into a single status value. - Ready: All components are healthy - NotReady: At least one component is not ready (check conditions for details) Always set after first reconciliation'
             displayName: Overall Status
             path: overallStatus
         version: v1alpha1
@@ -799,13 +766,13 @@ spec:
                       - --lcore-image=quay.io/lightspeed-core/lightspeed-stack:dev-latest
                       - --use-lcore=false
                       - --lcore-server=true
-                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:b72c400911c234bf621eff371da5ad7e45956646a0bdc23d9fbc58037d97f146
-                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:43f45ea0312ab4f37acb7f053d918857adbaa9feb0ff388684cf4ef9f293295a
-                      - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:9600e5a83a2ba3c46ef9e8407e05995138fda6aa3f1b9dfb829be733001d9104
+                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:fed317c9dedb5fb72fcfb5d2f301d263c0b3e594eba7a0ff016021240f7ffa96
+                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:bba38d543e730c3963b6d990f032732b4c0b747588a77f2da97157a8a929975e
+                      - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:7833065d560df60efb58b8bb4c5473c81bb17122d97c343b0f1f5968558532bb
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:b3f75ccbf329c967c538a5bc1ed841a0800d7bc3b8b17f1d5f83269d7bd657d3
+                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:30b8d4fa2c971c74fe49ba438078ec8cd0a94005e7ff41e3a9aa8ed6896a1328
                       - --dataverse-exporter-image=registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:94131f9c751de95290270d09074cc9b57c2f0c0ead0cd24c3c083c6c064eecbf
-                      - --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:cbb2d485417a6524ddc7252487edd275e217b5ed1561ced9645c1423f5cf7bf3
+                      - --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:6e9a2a90beecbb72fb1ed1613387a2c2c5f66afdd79185c62c791c697729462d
                     command:
                       - /manager
                     env:
@@ -813,7 +780,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:8cb4ecea832e2ab2fdcd90cd4ca13ddc09cdbad4cfd2946b56456dafe589a6c7
+                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:fdd8c88a03b34f382a34e95674b3c5dd316a397c489b02f8b828ce719d585bd1
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -924,19 +891,19 @@ spec:
   version: 1.0.10
   relatedImages:
     - name: lightspeed-service-api
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:b72c400911c234bf621eff371da5ad7e45956646a0bdc23d9fbc58037d97f146
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:fed317c9dedb5fb72fcfb5d2f301d263c0b3e594eba7a0ff016021240f7ffa96
     - name: lightspeed-console-plugin
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:43f45ea0312ab4f37acb7f053d918857adbaa9feb0ff388684cf4ef9f293295a
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:bba38d543e730c3963b6d990f032732b4c0b747588a77f2da97157a8a929975e
     - name: lightspeed-console-plugin-pf5
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:9600e5a83a2ba3c46ef9e8407e05995138fda6aa3f1b9dfb829be733001d9104
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:7833065d560df60efb58b8bb4c5473c81bb17122d97c343b0f1f5968558532bb
     - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:8cb4ecea832e2ab2fdcd90cd4ca13ddc09cdbad4cfd2946b56456dafe589a6c7
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:fdd8c88a03b34f382a34e95674b3c5dd316a397c489b02f8b828ce719d585bd1
     - name: openshift-mcp-server
-      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:b3f75ccbf329c967c538a5bc1ed841a0800d7bc3b8b17f1d5f83269d7bd657d3
+      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:30b8d4fa2c971c74fe49ba438078ec8cd0a94005e7ff41e3a9aa8ed6896a1328
     - name: lightspeed-to-dataverse-exporter
       image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:94131f9c751de95290270d09074cc9b57c2f0c0ead0cd24c3c083c6c064eecbf
     - name: lightspeed-ocp-rag
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:cbb2d485417a6524ddc7252487edd275e217b5ed1561ced9645c1423f5cf7bf3
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:6e9a2a90beecbb72fb1ed1613387a2c2c5f66afdd79185c62c791c697729462d
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     - name: lightspeed-operator-bundle
