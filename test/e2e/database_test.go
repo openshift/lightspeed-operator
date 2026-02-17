@@ -147,6 +147,15 @@ var _ = Describe("Database Persistency", Ordered, Label("Database-Persistency"),
 	AfterAll(func() {
 		err = mustGather("database_test")
 		Expect(err).NotTo(HaveOccurred())
+		By("Ensuring operator is ready before CR deletion")
+		operatorDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      OperatorDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.WaitForDeploymentRollout(operatorDeployment)
+		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR and waiting for cleanup")
 		if cr != nil {
 			err = client.DeleteAndWait(cr, 3*time.Minute)

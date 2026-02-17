@@ -94,6 +94,15 @@ var _ = Describe("Prometheus Metrics", FlakeAttempts(5), Ordered, func() {
 
 		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
+		By("Ensuring operator is ready before CR deletion")
+		operatorDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      OperatorDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.WaitForDeploymentRollout(operatorDeployment)
+		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR and waiting for cleanup")
 		Expect(cr).NotTo(BeNil())
 		err = client.DeleteAndWait(cr, 3*time.Minute)

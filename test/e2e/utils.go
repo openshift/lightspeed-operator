@@ -12,6 +12,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -55,9 +56,39 @@ func SetupOLSTestEnvironment(crModifier func(*olsv1alpha1.OLSConfig), callback f
 		crModifier(env.CR)
 	}
 
+	// Attempt to create the CR
 	err = env.Client.Create(env.CR)
 	if err != nil {
-		return nil, err
+		// If CR already exists (e.g., from failed cleanup in previous test),
+		// ensure operator is ready, delete it, wait for complete deletion, then retry
+		if k8serrors.IsAlreadyExists(err) {
+			// Ensure operator is ready to process finalizer
+			operatorDeployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      OperatorDeploymentName,
+					Namespace: OLSNameSpace,
+				},
+			}
+			err = env.Client.WaitForDeploymentRollout(operatorDeployment)
+			if err != nil {
+				return nil, fmt.Errorf("operator not ready for CR cleanup: %w", err)
+			}
+
+			// Delete existing CR and wait
+			existingCR := env.CR.DeepCopy()
+			err = env.Client.DeleteAndWait(existingCR, 3*time.Minute)
+			if err != nil {
+				return nil, fmt.Errorf("failed to delete existing CR: %w", err)
+			}
+
+			// Retry creation
+			err = env.Client.Create(env.CR)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create CR after cleanup: %w", err)
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	// Create service account for OLS user
@@ -278,8 +309,22 @@ func CleanupOLSTestEnvironmentWithCRDeletion(env *OLSTestEnvironment, testName s
 		return err
 	}
 
-	// Delete the OLSConfig CR and wait for complete deletion
+	// Ensure operator is ready before deleting CR
+	// This is critical - the operator processes the finalizer during deletion
+	// If the operator is not ready, the CR won't be fully cleaned up
 	if env.CR != nil {
+		operatorDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      OperatorDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = env.Client.WaitForDeploymentRollout(operatorDeployment)
+		if err != nil {
+			return fmt.Errorf("operator deployment not ready before CR deletion: %w", err)
+		}
+
+		// Delete the OLSConfig CR and wait for complete deletion
 		if err := env.Client.DeleteAndWait(env.CR, 3*time.Minute); err != nil {
 			return fmt.Errorf("failed to delete OLSConfig CR: %w", err)
 		}
