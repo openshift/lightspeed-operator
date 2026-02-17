@@ -343,6 +343,27 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		}
 	}
 
+	// Add tools approval configuration if specified
+	if cr.Spec.OLSConfig.ToolsApprovalConfig != nil {
+		// Apply defaults for zero values (happens when user specifies toolsApprovalConfig: {})
+		cfg := cr.Spec.OLSConfig.ToolsApprovalConfig
+		approvalType := string(cfg.ApprovalType)
+		approvalTimeout := cfg.ApprovalTimeout
+
+		// Apply defaults if not set
+		if approvalType == "" {
+			approvalType = string(olsv1alpha1.ApprovalTypeNever)
+		}
+		if approvalTimeout == 0 {
+			approvalTimeout = 600
+		}
+
+		appSrvConfigFile.OLSConfig.ToolsApproval = &utils.ToolsApprovalConfig{
+			ApprovalType:    approvalType,
+			ApprovalTimeout: approvalTimeout,
+		}
+	}
+
 	configFileBytes, err := yaml.Marshal(appSrvConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OLS config file %w", err)

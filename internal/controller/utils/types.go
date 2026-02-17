@@ -181,6 +181,8 @@ type OLSConfig struct {
 	SystemPromptPath string `json:"system_prompt_path,omitempty"`
 	// Tool filtering configuration for hybrid RAG retrieval
 	ToolFiltering *ToolFilteringConfig `json:"tool_filtering,omitempty"`
+	// Tool execution approval configuration
+	ToolsApproval *ToolsApprovalConfig `json:"tools_approval,omitempty"`
 }
 
 // ToolFilteringConfig defines configuration for tool filtering using hybrid RAG retrieval
@@ -192,6 +194,15 @@ type ToolFilteringConfig struct {
 	TopK int `json:"top_k,omitempty"`
 	// Minimum similarity threshold for filtering results
 	Threshold float64 `json:"threshold,omitempty"`
+}
+
+// ToolsApprovalConfig defines configuration for tool execution approval
+// Controls whether tool calls require user approval before execution
+type ToolsApprovalConfig struct {
+	// Approval strategy for tool execution
+	ApprovalType string `json:"approval_type,omitempty"`
+	// Timeout in seconds for waiting for user approval
+	ApprovalTimeout int `json:"approval_timeout,omitempty"`
 }
 
 // QuotaHandlersConfig defines the token quota configuration

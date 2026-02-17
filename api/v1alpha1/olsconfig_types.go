@@ -238,6 +238,10 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tool Filtering Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	ToolFilteringConfig *ToolFilteringConfig `json:"toolFilteringConfig,omitempty"`
+	// Tool execution approval configuration. Controls whether tool calls require user approval before execution.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tools Approval Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	ToolsApprovalConfig *ToolsApprovalConfig `json:"toolsApprovalConfig,omitempty"`
 }
 
 // Persistent Storage Configuration
@@ -544,6 +548,37 @@ type ToolFilteringConfig struct {
 	// +kubebuilder:default=0.01
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Similarity Threshold"
 	Threshold float64 `json:"threshold,omitempty"`
+}
+
+// ApprovalType defines the approval strategy for tool execution
+// +kubebuilder:validation:Enum=never;always;tool_annotations
+type ApprovalType string
+
+const (
+	// ApprovalTypeNever - all tools execute without approval
+	ApprovalTypeNever ApprovalType = "never"
+	// ApprovalTypeAlways - all tool calls require approval
+	ApprovalTypeAlways ApprovalType = "always"
+	// ApprovalTypeToolAnnotations - approval based on per-tool annotations
+	ApprovalTypeToolAnnotations ApprovalType = "tool_annotations"
+)
+
+// ToolsApprovalConfig defines configuration for tool execution approval.
+// Controls whether tool calls require user approval before execution.
+type ToolsApprovalConfig struct {
+	// Approval strategy for tool execution.
+	// 'never' - tools execute without approval
+	// 'always' - all tool calls require approval
+	// 'tool_annotations' - approval based on per-tool annotations
+	// +kubebuilder:default=never
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Approval Type"
+	ApprovalType ApprovalType `json:"approvalType,omitempty"`
+
+	// Timeout in seconds for waiting for user approval
+	// +kubebuilder:default=600
+	// +kubebuilder:validation:Minimum=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Approval Timeout (seconds)"
+	ApprovalTimeout int `json:"approvalTimeout,omitempty"`
 }
 
 // MCPHeaderSourceType defines the type of header value source
