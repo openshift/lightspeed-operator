@@ -1349,23 +1349,31 @@ user_data_collector_config: {}
 					Port:     "https",
 					Path:     utils.AppServerMetricsPath,
 					Interval: "30s",
-					Scheme:   "https",
-					TLSConfig: &monv1.TLSConfig{
-						SafeTLSConfig: monv1.SafeTLSConfig{
-							InsecureSkipVerify: &valFalse,
-							ServerName:         &serverName,
-						},
-						CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
-						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
-						KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
-					},
-					Authorization: &monv1.SafeAuthorization{
-						Type: "Bearer",
-						Credentials: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: utils.MetricsReaderServiceAccountTokenSecretName,
+					Scheme:   &schemeHTTPS,
+					HTTPConfigWithProxyAndTLSFiles: monv1.HTTPConfigWithProxyAndTLSFiles{
+						HTTPConfigWithTLSFiles: monv1.HTTPConfigWithTLSFiles{
+							TLSConfig: &monv1.TLSConfig{
+								TLSFilesConfig: monv1.TLSFilesConfig{
+									CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
+									CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
+									KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
+								},
+								SafeTLSConfig: monv1.SafeTLSConfig{
+									InsecureSkipVerify: &valFalse,
+									ServerName:         &serverName,
+								},
 							},
-							Key: "token",
+							HTTPConfigWithoutTLS: monv1.HTTPConfigWithoutTLS{
+								Authorization: &monv1.SafeAuthorization{
+									Type: "Bearer",
+									Credentials: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: utils.MetricsReaderServiceAccountTokenSecretName,
+										},
+										Key: "token",
+									},
+								},
+							},
 						},
 					},
 				},

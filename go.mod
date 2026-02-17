@@ -48,7 +48,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
 )
 
-require github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.85.0
+require github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.89.0
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
