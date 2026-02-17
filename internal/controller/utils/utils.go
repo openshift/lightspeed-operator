@@ -785,14 +785,35 @@ func ForEachExternalConfigMap(cr *olsv1alpha1.OLSConfig, fn func(name string, so
 	}
 
 	// 2. Proxy CA certificate
-	if cr.Spec.OLSConfig.ProxyConfig != nil &&
-		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil &&
-		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name != "" {
-		cmName := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name
-		if err := fn(cmName, "proxy-ca"); err != nil {
-			return err
+	if cr.Spec.OLSConfig.ProxyConfig != nil {
+		cmName := GetProxyCACertConfigMapName(cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef)
+		if cmName != "" {
+			if err := fn(cmName, "proxy-ca"); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
+}
+
+// GetProxyCACertKey returns the ConfigMap key for the proxy CA certificate.
+// If not specified, defaults to ProxyCACertFileName for backward compatibility.
+func GetProxyCACertKey(proxyCACertRef *olsv1alpha1.ProxyCACertConfigMapRef) string {
+	if proxyCACertRef == nil {
+		return ProxyCACertFileName
+	}
+	if proxyCACertRef.Key != "" {
+		return proxyCACertRef.Key
+	}
+	return ProxyCACertFileName // Default for backward compatibility
+}
+
+// GetProxyCACertConfigMapName returns the ConfigMap name for the proxy CA certificate.
+// Returns empty string if the reference is nil.
+func GetProxyCACertConfigMapName(proxyCACertRef *olsv1alpha1.ProxyCACertConfigMapRef) string {
+	if proxyCACertRef == nil || proxyCACertRef.Name == "" {
+		return ""
+	}
+	return proxyCACertRef.Name
 }

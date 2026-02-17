@@ -61,6 +61,14 @@ spec:
                         apiVersion:
                           description: API Version for Azure OpenAI provider
                           type: string
+                        config:
+                          description: |-
+                            Llama Stack provider configuration (llamaStackGeneric type only)
+                            Contains the complete Llama Stack provider definition including provider_type and config.
+                            This configuration is passed directly to Llama Stack.
+                            Example: {"provider_type": "remote::openai", "config": {"api_key": "${env.OPENAI_API_KEY}"}}
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         credentialsSecretRef:
                           description: The name of the secret object that stores API
                             provider credentials
@@ -325,6 +333,7 @@ spec:
                           - rhoai_vllm
                           - rhelai_vllm
                           - fake_provider
+                          - llamaStackGeneric
                           type: string
                         url:
                           description: Provider API URL
@@ -344,6 +353,12 @@ spec:
                       - message: '''projectID'' must be specified for ''watsonx''
                           provider'
                         rule: self.type != "watsonx" || self.projectID != ""
+                      - message: '''config'' must be specified for ''llamaStackGeneric''
+                          provider'
+                        rule: self.type != "llamaStackGeneric" || has(self.config)
+                      - message: '''config'' can only be used with ''llamaStackGeneric''
+                          provider type'
+                        rule: '!has(self.config) || self.type == "llamaStackGeneric"'
                     type: array
                 required:
                 - providers
@@ -4409,8 +4424,17 @@ spec:
                       such as LLM providers.
                     properties:
                       proxyCACertificate:
-                        description: The configmap holding proxy CA certificate
+                        description: |-
+                          The configmap and key holding proxy CA certificate.
+                          The key is optional and defaults to "proxy-ca.crt" for backward compatibility.
+                          If you use a different key name in your ConfigMap, specify it in the ConfigMapKeySelector.
                         properties:
+                          key:
+                            default: proxy-ca.crt
+                            description: |-
+                              Key in the ConfigMap that contains the proxy CA certificate.
+                              Defaults to "proxy-ca.crt" if not specified.
+                            type: string
                           name:
                             default: ""
                             description: |-

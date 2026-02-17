@@ -1662,8 +1662,11 @@ user_data_collector_config: {}
 
 			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
 				ProxyURL: "https://proxy.example.com:8080",
-				ProxyCACertificateRef: &corev1.LocalObjectReference{
-					Name: caConfigMapName,
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: caConfigMapName,
+					},
+					// No Key specified - tests backward compatibility
 				},
 			}
 
@@ -1701,8 +1704,11 @@ user_data_collector_config: {}
 
 			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
 				ProxyURL: "https://proxy.example.com:8080",
-				ProxyCACertificateRef: &corev1.LocalObjectReference{
-					Name: caConfigMapName,
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: caConfigMapName,
+					},
+					// No Key specified - tests backward compatibility
 				},
 			}
 			_, err = GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)

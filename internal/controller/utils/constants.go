@@ -107,6 +107,8 @@ const (
 	OLSConsoleTLSHashKey = "hash/olsconsoletls"
 	// AdditionalCAHashKey is the key of the hash value of the additional CA certificates in the deployment annotations
 	AdditionalCAHashKey = "hash/additionalca"
+	// ProxyCACertHashKey is the key of the hash value of the proxy CA certificate in the deployment annotations
+	ProxyCACertHashKey = "hash/proxycacert"
 	// OLSAppServerContainerPort is the port number of the lightspeed-service-api container exposes
 	OLSAppServerContainerPort = 8443
 	// OLSAppServerServicePort is the port number for OLS application server service.

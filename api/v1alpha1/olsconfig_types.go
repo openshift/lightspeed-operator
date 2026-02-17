@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 // OLSConfigSpec defines the desired state of OLSConfig
@@ -436,6 +437,8 @@ type ModelSpec struct {
 // ProviderSpec defines the desired state of LLM provider.
 // +kubebuilder:validation:XValidation:message="'deploymentName' must be specified for 'azure_openai' provider",rule="self.type != \"azure_openai\" || self.deploymentName != \"\""
 // +kubebuilder:validation:XValidation:message="'projectID' must be specified for 'watsonx' provider",rule="self.type != \"watsonx\" || self.projectID != \"\""
+// +kubebuilder:validation:XValidation:message="'config' must be specified for 'llamaStackGeneric' provider",rule="self.type != \"llamaStackGeneric\" || has(self.config)"
+// +kubebuilder:validation:XValidation:message="'config' can only be used with 'llamaStackGeneric' provider type",rule="!has(self.config) || self.type == \"llamaStackGeneric\""
 type ProviderSpec struct {
 	// Provider name
 	// +kubebuilder:validation:Required
@@ -459,7 +462,7 @@ type ProviderSpec struct {
 	// Provider type
 	// +kubebuilder:validation:Required
 	// +required
-	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx;rhoai_vllm;rhelai_vllm;fake_provider
+	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx;rhoai_vllm;rhelai_vllm;fake_provider;llamaStackGeneric
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Provider Type"
 	Type string `json:"type"`
 	// Azure OpenAI deployment name
@@ -478,6 +481,14 @@ type ProviderSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Security Profile",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	TLSSecurityProfile *configv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
+	// Llama Stack provider configuration (llamaStackGeneric type only)
+	// Contains the complete Llama Stack provider definition including provider_type and config.
+	// This configuration is passed directly to Llama Stack.
+	// Example: {"provider_type": "remote::openai", "config": {"api_key": "${env.OPENAI_API_KEY}"}}
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Provider Config (Generic Mode)"
+	Config *runtime.RawExtension `json:"config,omitempty"`
 }
 
 // UserDataCollectionSpec defines how we collect user data.
@@ -517,9 +528,24 @@ type ProxyConfig struct {
 	// +kubebuilder:validation:Pattern=`^https?://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy URL"
 	ProxyURL string `json:"proxyURL,omitempty"`
-	// The configmap holding proxy CA certificate
+	// The configmap and key holding proxy CA certificate.
+	// The key is optional and defaults to "proxy-ca.crt" for backward compatibility.
+	// If you use a different key name in your ConfigMap, specify it in the ConfigMapKeySelector.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy CA Certificate"
-	ProxyCACertificateRef *corev1.LocalObjectReference `json:"proxyCACertificate,omitempty"`
+	ProxyCACertificateRef *ProxyCACertConfigMapRef `json:"proxyCACertificate,omitempty"`
+}
+
+// ProxyCACertConfigMapRef references a ConfigMap containing the proxy CA certificate.
+// Provides backward compatibility by making the key field optional with a default value.
+// +structType=atomic
+type ProxyCACertConfigMapRef struct {
+	// The ConfigMap to select from
+	corev1.LocalObjectReference `json:",inline"`
+	// Key in the ConfigMap that contains the proxy CA certificate.
+	// Defaults to "proxy-ca.crt" if not specified.
+	// +kubebuilder:default="proxy-ca.crt"
+	// +optional
+	Key string `json:"key,omitempty"`
 }
 
 // ToolFilteringConfig defines configuration for tool filtering using hybrid RAG retrieval.
