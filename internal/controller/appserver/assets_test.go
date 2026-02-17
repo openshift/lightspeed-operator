@@ -1637,6 +1637,7 @@ user_data_collector_config: {}
 
 	Context("Proxy settings", func() {
 		const caConfigMapName = "test-ca-configmap"
+		const proxyURL = "https://proxy.example.com:8080"
 		var proxyCACm *corev1.ConfigMap
 
 		BeforeEach(func() {
@@ -1710,15 +1711,19 @@ user_data_collector_config: {}
 			))
 
 			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
-				ProxyURL: "https://proxy.example.com:8080",
-				ProxyCACertificateRef: &corev1.LocalObjectReference{
-					Name: caConfigMapName,
+				ProxyURL: proxyURL,
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: caConfigMapName,
+					},
+					// No Key specified - tests backward compatibility
 				},
 			}
 
 			olsCm, err = GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("proxy_config:\n    proxy_ca_cert_path: /etc/certs/proxy-ca/proxy-ca.crt\n    proxy_url: https://proxy.example.com:8080\n"))
+			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("proxy_ca_cert_path: /etc/certs/proxy-ca/" + utils.ProxyCACertFileName))
+			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("proxy_url: " + proxyURL))
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -1731,6 +1736,9 @@ user_data_collector_config: {}
 								Name: caConfigMapName,
 							},
 							DefaultMode: &defaultVolumeMode,
+							Items: []corev1.KeyToPath{
+								{Key: utils.ProxyCACertFileName, Path: utils.ProxyCACertFileName},
+							},
 						},
 					},
 				}))
@@ -1749,14 +1757,37 @@ user_data_collector_config: {}
 			Expect(err).NotTo(HaveOccurred())
 
 			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
-				ProxyURL: "https://proxy.example.com:8080",
-				ProxyCACertificateRef: &corev1.LocalObjectReference{
-					Name: caConfigMapName,
+				ProxyURL: proxyURL,
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: caConfigMapName,
+					},
+					// No Key specified - tests backward compatibility
 				},
 			}
 			_, err = GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to validate proxy CA certificate"))
+		})
+
+		It("should use custom Key when ProxyCACertificateRef.Key is set", func() {
+			const proxyCertKey = "my-proxy-ca.crt"
+			proxyCACm.Data[proxyCertKey] = utils.TestCACert
+			err := testReconcilerInstance.Update(ctx, proxyCACm)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
+				ProxyURL: proxyURL,
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
+					LocalObjectReference: corev1.LocalObjectReference{Name: caConfigMapName},
+					Key:                  proxyCertKey,
+				},
+			}
+
+			olsCm, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("proxy_ca_cert_path: /etc/certs/proxy-ca/" + proxyCertKey))
+			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("proxy_url: " + proxyURL))
 		})
 	})
 })
