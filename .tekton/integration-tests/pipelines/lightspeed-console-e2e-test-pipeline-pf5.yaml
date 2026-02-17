@@ -216,10 +216,21 @@ spec:
               export XDG_RUNTIME_DIR=$PATH:~/.cache/xdgr
               echo "---------------------------------------------"
               cd /home
-              git clone https://github.com/openshift/lightspeed-console.git
+              git init lightspeed-operator
+              cd lightspeed-operator
+              git remote add origin https://github.com/openshift/lightspeed-operator.git
+              git fetch --depth=1 --filter=blob:none origin ${COMMIT_SHA}
+              TEST_SOURCE_COMMIT=$(
+                git show ${COMMIT_SHA}:related_images.json |
+                jq -r '.[] | select(.name=="lightspeed-console-plugin-pf5") | .revision'
+              )
+              cd /home
+              rm -rf lightspeed-console
+              git init lightspeed-console
               cd lightspeed-console
-              git fetch origin
-              git switch pattern-fly-5
+              git remote add origin https://github.com/openshift/lightspeed-console.git
+              git fetch --depth=1 --filter=blob:none origin ${TEST_SOURCE_COMMIT}
+              git checkout ${TEST_SOURCE_COMMIT}
               echo "---------------------------------------------"
               echo "npm version: $(npm -v)"
               echo "---------------------------------------------"

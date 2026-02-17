@@ -408,6 +408,15 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 	AfterAll(func() {
 		err = mustGather("proxy_test")
 		Expect(err).NotTo(HaveOccurred())
+		By("Ensuring operator is ready before CR deletion")
+		operatorDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      OperatorDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.WaitForDeploymentRollout(operatorDeployment)
+		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR and waiting for cleanup")
 		if cr != nil {
 			err = client.DeleteAndWait(cr, 3*time.Minute)

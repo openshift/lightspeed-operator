@@ -66,6 +66,15 @@ var _ = Describe("Upgrade operator tests", Ordered, Label("Upgrade"), func() {
 		err = mustGather("upgrade_test")
 		Expect(err).NotTo(HaveOccurred())
 
+		By("Ensuring operator is ready before CR deletion")
+		operatorDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      OperatorDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.WaitForDeploymentRollout(operatorDeployment)
+		Expect(err).NotTo(HaveOccurred())
 		By("Deleting the OLSConfig CR and waiting for cleanup")
 		if cr != nil {
 			err = client.DeleteAndWait(cr, 3*time.Minute)
