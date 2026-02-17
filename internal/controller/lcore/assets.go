@@ -148,6 +148,7 @@ func GenerateServiceMonitor(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) 
 
 	valFalse := false
 	serverName := strings.Join([]string{utils.OLSAppServerServiceName, r.GetNamespace(), "svc"}, ".")
+	var schemeHTTPS monv1.Scheme = "https"
 
 	serviceMonitor := monv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{

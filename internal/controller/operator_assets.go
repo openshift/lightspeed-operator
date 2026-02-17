@@ -32,6 +32,7 @@ func (r *OLSConfigReconciler) generateServiceMonitorForOperator() (*monv1.Servic
 
 	valFalse := false
 	serverName := strings.Join([]string{"lightspeed-operator-controller-manager-service", r.Options.Namespace, "svc"}, ".")
+	var schemeHTTPS monv1.Scheme = "https"
 	serviceMonitor := monv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OperatorServiceMonitorName,

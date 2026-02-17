@@ -1160,7 +1160,7 @@ ols_config:
     type: postgres
   extra_ca:
     - /etc/certs/ols-additional-ca/service-ca.crt
-  certificate_directory: /etc/certs/cert-bundle		
+  certificate_directory: /etc/certs/cert-bundle
   logging_config:
     app_log_level: ""
     lib_log_level: ""
@@ -1220,7 +1220,7 @@ ols_config:
     type: postgres
   extra_ca:
     - /etc/certs/ols-additional-ca/service-ca.crt
-  certificate_directory: /etc/certs/cert-bundle		
+  certificate_directory: /etc/certs/cert-bundle
   logging_config:
     app_log_level: ""
     lib_log_level: ""
@@ -1343,6 +1343,7 @@ user_data_collector_config: {}
 			Expect(serviceMonitor.Namespace).To(Equal(utils.OLSNamespaceDefault))
 			valFalse := false
 			serverName := fmt.Sprintf("%s.%s.svc", utils.OLSAppServerServiceName, utils.OLSNamespaceDefault)
+			var schemeHTTPS monv1.Scheme = "https"
 			Expect(serviceMonitor.Spec.Endpoints).To(ConsistOf(
 				monv1.Endpoint{
 					Port:     "https",

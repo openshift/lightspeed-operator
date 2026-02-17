@@ -86,6 +86,7 @@ var _ = Describe("App server assets", func() {
 
 			valFalse := false
 			serverName := strings.Join([]string{"lightspeed-operator-controller-manager-service", utils.OLSNamespaceDefault, "svc"}, ".")
+			var schemeHTTPS monv1.Scheme = "https"
 
 			expectedSM := monv1.ServiceMonitor{
 				ObjectMeta: metav1.ObjectMeta{
