@@ -562,6 +562,36 @@ func addUserCAVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]corev1.
 	})
 }
 
+// addProxyCACertVolumeAndMount adds the proxy CA ConfigMap volume and mount if a proxy CA is configured.
+func addProxyCACertVolumeAndMount(volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, cr *olsv1alpha1.OLSConfig, volumeDefaultMode *int32) {
+	if cr.Spec.OLSConfig.ProxyConfig == nil {
+		return
+	}
+	proxyCACertRef := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef
+	cmName := utils.GetProxyCACertConfigMapName(proxyCACertRef)
+	if cmName == "" {
+		return
+	}
+	certKey := utils.GetProxyCACertKey(proxyCACertRef)
+	*volumes = append(*volumes, corev1.Volume{
+		Name: utils.ProxyCACertVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: cmName},
+				DefaultMode:          volumeDefaultMode,
+				Items: []corev1.KeyToPath{
+					{Key: certKey, Path: certKey},
+				},
+			},
+		},
+	})
+	*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+		Name:      utils.ProxyCACertVolumeName,
+		MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.ProxyCACertVolumeName),
+		ReadOnly:  true,
+	})
+}
+
 // addCustomTLSVolumesAndMounts adds user-provided custom TLS certificate volumes and mounts if specified
 func addCustomTLSVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, cr *olsv1alpha1.OLSConfig, volumeDefaultMode *int32) {
 	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
@@ -763,6 +793,10 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, ctx context.Context,
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get MCP Server ConfigMap resource version: %w", err)
 	}
+	proxyCACMResourceVersion, err := utils.GetProxyCACertResourceVersion(r, ctx, cr)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get Proxy CA ConfigMap resource version: %w", err)
+	}
 
 	// Use helper functions to build common components
 	labels := buildCommonLabels()
@@ -814,6 +848,9 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, ctx context.Context,
 
 	// Add user-provided CA certificates to llama-stack container
 	addUserCAVolumesAndMounts(&volumes, &llamaStackVolumeMounts, cr, &volumeDefaultMode)
+
+	// Proxy CA ConfigMap volume and mount (for proxy certificate verification)
+	addProxyCACertVolumeAndMount(&volumes, &llamaStackVolumeMounts, cr, &volumeDefaultMode)
 
 	// Build environment variables for LLM providers
 	llamaStackEnvVars, err := buildLlamaStackEnvVars(r, ctx, cr)
@@ -960,6 +997,7 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, ctx context.Context,
 				utils.LCoreConfigMapResourceVersionAnnotation:              lcoreConfigMapResourceVersion,
 				utils.LlamaStackConfigMapResourceVersionAnnotation:         llamaStackConfigMapResourceVersion,
 				utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation: mcpConfigMapResourceVersion,
+				utils.ProxyCACertResourceVersionAnnotation:                 proxyCACMResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -1049,7 +1087,7 @@ func RestartLCore(r reconciler.Reconciler, ctx context.Context, deployment ...*a
 }
 
 // updateLCoreDeployment updates the LCore deployment based on CustomResource configuration
-func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existingDeployment, desiredDeployment *appsv1.Deployment) error {
+func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, existingDeployment, desiredDeployment *appsv1.Deployment) error {
 	// Step 1: Check if deployment spec has changed
 	utils.SetDefaults_Deployment(desiredDeployment)
 	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec, true)
@@ -1092,6 +1130,18 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existin
 		}
 	}
 
+	// Check if Proxy CA ConfigMap ResourceVersion has changed
+	currentProxyCACMVersion, err := utils.GetProxyCACertResourceVersion(r, ctx, cr)
+	if err != nil && !apierrors.IsNotFound(err) {
+		r.GetLogger().Info("failed to get Proxy CA ConfigMap ResourceVersion", "error", err)
+		changed = true
+	} else {
+		storedProxyCACMVersion := existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation]
+		if storedProxyCACMVersion != currentProxyCACMVersion {
+			changed = true
+		}
+	}
+
 	// If nothing changed, skip update
 	if !changed {
 		return nil
@@ -1099,9 +1149,16 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existin
 
 	// Apply changes - always update spec and annotations since something changed
 	existingDeployment.Spec = desiredDeployment.Spec
+
+	// Initialize annotations if nil
+	if existingDeployment.Annotations == nil {
+		existingDeployment.Annotations = make(map[string]string)
+	}
+
 	existingDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+	existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation] = currentProxyCACMVersion
 
 	r.GetLogger().Info("updating LCore deployment", "name", existingDeployment.Name)
 
@@ -1137,6 +1194,10 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, ctx context.Context
 	mcpConfigMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OpenShiftMCPServerConfigCmName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get MCP Server ConfigMap resource version: %w", err)
+	}
+	proxyCACMResourceVersion, err := utils.GetProxyCACertResourceVersion(r, ctx, cr)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get Proxy CA ConfigMap resource version: %w", err)
 	}
 
 	// Use helper functions to build common components
@@ -1180,6 +1241,9 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, ctx context.Context
 	// Add user CA certificates
 	addUserCAVolumesAndMounts(&volumes, &volumeMounts, cr, &volumeDefaultMode)
 
+	// Proxy CA ConfigMap volume and mount (for proxy certificate verification)
+	addProxyCACertVolumeAndMount(&volumes, &volumeMounts, cr, &volumeDefaultMode)
+
 	// Add MCP header secrets for HTTP MCP servers
 	if err := addMCPHeaderSecretVolumesAndMounts(r, ctx, &volumes, &volumeMounts, cr, &volumeDefaultMode); err != nil {
 		return nil, err
@@ -1211,6 +1275,7 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, ctx context.Context
 				utils.LCoreConfigMapResourceVersionAnnotation:              lcoreConfigMapResourceVersion,
 				utils.LlamaStackConfigMapResourceVersionAnnotation:         llamaStackConfigMapResourceVersion,
 				utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation: mcpConfigMapResourceVersion,
+				utils.ProxyCACertResourceVersionAnnotation:                 proxyCACMResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{

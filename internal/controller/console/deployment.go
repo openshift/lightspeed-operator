@@ -58,7 +58,7 @@ func GenerateConsoleUIDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSCon
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
-						SecurityContext: utils.RestrictedContainerSecurityContext(),
+							SecurityContext: utils.RestrictedContainerSecurityContext(),
 							ImagePullPolicy: corev1.PullAlways,
 							Env:             utils.GetProxyEnvVars(),
 							Resources:       *resources,

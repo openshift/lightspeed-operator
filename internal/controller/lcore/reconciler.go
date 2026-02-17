@@ -65,11 +65,11 @@ func ReconcileLCoreResources(r reconciler.Reconciler, ctx context.Context, olsco
 		},
 		{
 			Name: "reconcile OLS Additional CA ConfigMap",
-			Task: reconcileOLSAdditionalCAConfigMap,
+			Task: utils.ReconcileOLSAdditionalCAConfigMap,
 		},
 		{
 			Name: "reconcile Proxy CA ConfigMap",
-			Task: reconcileProxyCAConfigMap,
+			Task: utils.ReconcileProxyCAConfigMap,
 		},
 		{
 			Name: "reconcile Metrics Reader Secret",
@@ -440,7 +440,7 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		return fmt.Errorf("%s: %w", utils.ErrGetAPIDeployment, err)
 	}
 
-	err = updateLCoreDeployment(r, ctx, existingDeployment, desiredDeployment)
+	err = updateLCoreDeployment(r, ctx, cr, existingDeployment, desiredDeployment)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAPIDeployment, err)
 	}
