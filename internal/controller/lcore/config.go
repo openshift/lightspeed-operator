@@ -2,6 +2,7 @@ package lcore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"slices"
@@ -209,70 +210,170 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Contex
 		// Convert provider name to valid environment variable name
 		envVarName := utils.ProviderNameToEnvVarName(provider.Name)
 
-		// Map OLSConfig provider types to Llama Stack provider types
-		switch provider.Type {
-		case "openai", "rhoai_vllm", "rhelai_vllm":
+		// Check if this is generic provider configuration (providerType is set)
+		if provider.ProviderType != "" {
+			// Generic provider configuration: use providerType and config directly
+			providerConfig["provider_type"] = provider.ProviderType
+
+			// Unmarshal the config from RawExtension
 			config := map[string]interface{}{}
-			// Determine the appropriate Llama Stack provider type
-			// - OpenAI uses remote::openai (validates against OpenAI model whitelist)
-			// - vLLM uses remote::vllm (accepts any custom model names)
-			if provider.Type == "openai" {
-				providerConfig["provider_type"] = "remote::openai"
-				// Set API key from environment variable
-				// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
+			if provider.Config != nil && provider.Config.Raw != nil {
+				if err := json.Unmarshal(provider.Config.Raw, &config); err != nil {
+					return nil, fmt.Errorf("failed to unmarshal config for provider '%s': %w", provider.Name, err)
+				}
+			}
+
+			// Deep copy to prevent mutations
+			configCopy := deepCopyMap(config)
+
+			// Auto-inject credential if not already present in config
+			// Check common patterns: api_key, api_token, apikey
+			if !hasCredentialField(configCopy) {
+				// Inject as api_key by default (most common)
+				configCopy["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+			}
+
+			providerConfig["config"] = configCopy
+
+		} else {
+			// Predefined provider types: map to Llama Stack provider types using getProviderType helper
+			llamaType, err := getProviderType(&provider)
+			if err != nil {
+				return nil, err
+			}
+			providerConfig["provider_type"] = llamaType
+
+			// Build provider-specific configuration
+			switch provider.Type {
+			case "openai", "rhoai_vllm", "rhelai_vllm":
+				config := map[string]interface{}{}
+				// Determine the appropriate config field for credentials
+				// - OpenAI uses remote::openai (validates against OpenAI model whitelist)
+				// - vLLM uses remote::vllm (accepts any custom model names)
+				if provider.Type == "openai" {
+					providerConfig["provider_type"] = "remote::openai"
+					// Set API key from environment variable
+					// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
+					config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+				} else {
+					// Set API token from environment variable for vLLM
+					// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
+					config["api_token"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+				}
+
+				// Add custom URL if specified
+				if provider.URL != "" {
+					config["url"] = provider.URL
+				}
+				providerConfig["config"] = config
+
+			case "azure_openai":
+				config := map[string]interface{}{}
+
+				// Azure supports both API key and client credentials authentication
+				// Always include api_key (required by LiteLLM's Pydantic validation)
 				config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
-			} else {
-				providerConfig["provider_type"] = "remote::vllm"
-				// Set API key from environment variable
-				// Llama Stack will substitute ${env.VAR_NAME} with the actual env var value
-				config["api_token"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+
+				// Also include client credentials fields (will be empty if not using client credentials)
+				config["client_id"] = fmt.Sprintf("${env.%s_CLIENT_ID:=}", envVarName)
+				config["tenant_id"] = fmt.Sprintf("${env.%s_TENANT_ID:=}", envVarName)
+				config["client_secret"] = fmt.Sprintf("${env.%s_CLIENT_SECRET:=}", envVarName)
+
+				// Azure-specific fields
+				if provider.AzureDeploymentName != "" {
+					config["deployment_name"] = provider.AzureDeploymentName
+				}
+				if provider.APIVersion != "" {
+					config["api_version"] = provider.APIVersion
+				}
+				if provider.URL != "" {
+					config["api_base"] = provider.URL
+				}
+				providerConfig["config"] = config
 			}
-
-			// Add custom URL if specified
-			if provider.URL != "" {
-				config["url"] = provider.URL
-			}
-			providerConfig["config"] = config
-
-		case "azure_openai":
-			providerConfig["provider_type"] = "remote::azure"
-			config := map[string]interface{}{}
-
-			// Azure supports both API key and client credentials authentication
-			// Always include api_key (required by LiteLLM's Pydantic validation)
-			config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
-
-			// Also include client credentials fields (will be empty if not using client credentials)
-			config["client_id"] = fmt.Sprintf("${env.%s_CLIENT_ID:=}", envVarName)
-			config["tenant_id"] = fmt.Sprintf("${env.%s_TENANT_ID:=}", envVarName)
-			config["client_secret"] = fmt.Sprintf("${env.%s_CLIENT_SECRET:=}", envVarName)
-
-			// Azure-specific fields
-			if provider.AzureDeploymentName != "" {
-				config["deployment_name"] = provider.AzureDeploymentName
-			}
-			if provider.APIVersion != "" {
-				config["api_version"] = provider.APIVersion
-			}
-			if provider.URL != "" {
-				config["api_base"] = provider.URL
-			}
-			providerConfig["config"] = config
-
-		case "watsonx", "bam":
-			// These providers are not supported by Llama Stack
-			// They are handled directly by lightspeed-stack (LCS), not Llama Stack
-			return nil, fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
-
-		default:
-			// Unknown provider type
-			return nil, fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
 		}
 
 		providers = append(providers, providerConfig)
 	}
 
 	return providers, nil
+}
+
+// providerTypeMapping defines how OLSConfig provider types map to Llama Stack provider types.
+// This mapping centralizes the provider type logic, making it easy to add support for new providers.
+//
+// Structure:
+//
+//	OLSConfig Type -> (Llama Stack Type, Handler)
+//
+// To add a new provider:
+//  1. Add an entry to this map with OLSConfig type as key
+//  2. Set the Llama Stack provider_type (e.g., "remote::new-provider")
+//  3. Add handling logic in buildInferenceProviderConfig if needed
+var providerTypeMapping = map[string]string{
+	"openai":       "remote::openai",
+	"rhoai_vllm":   "remote::vllm",
+	"rhelai_vllm":  "remote::vllm",
+	"azure_openai": "remote::azure",
+}
+
+// getProviderType returns the Llama Stack provider_type for a given OLSConfig provider type.
+// For legacy types, it maps to their Llama Stack equivalents.
+// For generic types, the mapping is provided via ProviderType field.
+// Returns error if the provider type is not supported.
+func getProviderType(provider *olsv1alpha1.ProviderSpec) (string, error) {
+	// Generic providers use explicit ProviderType from spec
+	if provider.ProviderType != "" {
+		return provider.ProviderType, nil
+	}
+
+	// Legacy providers use predefined mapping
+	if llamaType, exists := providerTypeMapping[provider.Type]; exists {
+		return llamaType, nil
+	}
+
+	// Unsupported provider type
+	switch provider.Type {
+	case "watsonx", "bam":
+		return "", fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm, generic", provider.Type, provider.Name)
+	case "generic":
+		return "", fmt.Errorf("provider type 'generic' (provider '%s') requires providerType and config fields to be set", provider.Name)
+	default:
+		return "", fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm, generic", provider.Type, provider.Name)
+	}
+}
+
+// deepCopyMap creates a deep copy of a map[string]interface{}
+func deepCopyMap(src map[string]interface{}) map[string]interface{} {
+	dst := make(map[string]interface{}, len(src))
+	for k, v := range src {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			// Recursively copy nested maps
+			dst[k] = deepCopyMap(val)
+		case []interface{}:
+			// Copy slices
+			dstSlice := make([]interface{}, len(val))
+			copy(dstSlice, val)
+			dst[k] = dstSlice
+		default:
+			// Copy primitive values
+			dst[k] = v
+		}
+	}
+	return dst
+}
+
+// hasCredentialField checks if the config already contains common credential field patterns
+func hasCredentialField(config map[string]interface{}) bool {
+	// Check for common credential field names
+	credentialFields := []string{"api_key", "api_token", "apikey", "token", "access_token"}
+	for _, field := range credentialFields {
+		if _, ok := config[field]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // Commented out - post_training API not needed for basic RAG + MCP
