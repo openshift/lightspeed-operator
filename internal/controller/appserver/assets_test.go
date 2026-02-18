@@ -848,7 +848,15 @@ var _ = Describe("App server assets", func() {
 					},
 				}))
 
-			Expect(deployment.Spec.Template.Spec.InitContainers).To(ConsistOf(
+			// Should have 3 init containers: postgres-safety-check + 2 RAG containers
+			Expect(deployment.Spec.Template.Spec.InitContainers).To(HaveLen(3))
+
+			// First init container should be postgres-safety-check
+			Expect(deployment.Spec.Template.Spec.InitContainers[0].Name).To(Equal("postgres-safety-check"))
+			Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(Equal("registry.redhat.io/openshift4/ose-cli:latest"))
+
+			// Remaining init containers should be RAG containers
+			Expect(deployment.Spec.Template.Spec.InitContainers[1:]).To(ConsistOf(
 				corev1.Container{
 					Name:    "rag-0",
 					Image:   "rag-ocp-product-docs:4.19",

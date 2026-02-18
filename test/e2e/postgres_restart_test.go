@@ -12,6 +12,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
 func invokeOLS(env *OLSTestEnvironment, secret *corev1.Secret, query string, expected_success bool) {
@@ -94,5 +96,87 @@ var _ = Describe("Postgres restart", Ordered, Label("Postgres restart"), func() 
 
 		By("Testing HTTPS POST on /v1/query endpoint by OLS user - should work after recovery")
 		invokeOLS(env, secret, "how do I stop a VM?", true)
+	})
+
+	It("should wait for postgres to be ready before starting app server when conversationCache is postgres", FlakeAttempts(3), func() {
+		By("Verifying conversation cache type is Postgres")
+		olsConfig := &olsv1alpha1.OLSConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: OLSCRName,
+			},
+		}
+		err = env.Client.Get(olsConfig)
+		Expect(err).NotTo(HaveOccurred())
+		if olsConfig.Spec.OLSConfig.ConversationCache.Type != olsv1alpha1.Postgres {
+			Skip("Skipping test - conversation cache type is not Postgres")
+		}
+
+		postgresDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      PostgresDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		appServerDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AppServerDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+
+		By("Recording initial app server generation")
+		err = env.Client.Get(appServerDeployment)
+		Expect(err).NotTo(HaveOccurred())
+		initialAppServerGeneration := appServerDeployment.Generation
+
+		By("Scaling down Postgres to trigger a restart")
+		shutdownPostgres(env)
+
+		By("Waiting for Postgres to reconcile back to ready state")
+		Eventually(func() bool {
+			err = env.Client.Get(postgresDeployment)
+			if err != nil {
+				return false
+			}
+			return postgresDeployment.Status.ReadyReplicas == *postgresDeployment.Spec.Replicas &&
+				postgresDeployment.Status.UpdatedReplicas == *postgresDeployment.Spec.Replicas
+		}, 5*time.Minute, 5*time.Second).Should(BeTrue(), "Postgres should become ready")
+
+		By("Verifying App Server waits for Postgres before becoming ready")
+		// App Server should only become ready after Postgres is ready
+		Eventually(func() bool {
+			err = env.Client.Get(appServerDeployment)
+			if err != nil {
+				return false
+			}
+			// Check if app server has been updated/restarted
+			appServerUpdated := appServerDeployment.Generation > initialAppServerGeneration ||
+				appServerDeployment.Status.UpdatedReplicas == *appServerDeployment.Spec.Replicas
+
+			// Verify postgres is ready
+			err = env.Client.Get(postgresDeployment)
+			if err != nil {
+				return false
+			}
+			postgresReady := postgresDeployment.Status.ReadyReplicas == *postgresDeployment.Spec.Replicas
+
+			// App server should only be ready if postgres is ready
+			if appServerUpdated {
+				Expect(postgresReady).To(BeTrue(), "Postgres must be ready before App Server becomes ready")
+			}
+
+			return appServerDeployment.Status.ReadyReplicas == *appServerDeployment.Spec.Replicas
+		}, 8*time.Minute, 5*time.Second).Should(BeTrue(), "App Server should become ready after Postgres is ready")
+
+		By("Verifying both deployments are fully operational")
+		err = env.Client.Get(postgresDeployment)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(postgresDeployment.Status.ReadyReplicas).To(Equal(*postgresDeployment.Spec.Replicas),
+			"Postgres should have all replicas ready")
+
+		err = env.Client.Get(appServerDeployment)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(appServerDeployment.Status.ReadyReplicas).To(Equal(*appServerDeployment.Spec.Replicas),
+			"App Server should have all replicas ready")
 	})
 })
