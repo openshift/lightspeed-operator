@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -635,32 +634,31 @@ func reconcileImageStreams(r reconciler.Reconciler, ctx context.Context, cr *ols
 		return fmt.Errorf("list ImageStreams: %w", err)
 	}
 
-	seen := make(map[string]struct{}, len(desired))
 	for name, want := range desired {
 		var got imagev1.ImageStream
 		err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: r.GetNamespace()}, &got)
 		if client.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("get ImageStream %q: %w", name, err)
 		}
-		if err != nil {
+		if err != nil { // i.e. Not Found
 			if err := r.Create(ctx, want); err != nil {
 				return fmt.Errorf("create ImageStream %q: %w", name, err)
 			}
 		} else {
-			updated := got.DeepCopy()
-
-			if !equality.Semantic.DeepEqual(updated.Spec, got.Spec) ||
-				!equality.Semantic.DeepEqual(updated.OwnerReferences, got.OwnerReferences) {
+			if !utils.ImageStreamEqual(want, &got) {
+				updated := got.DeepCopy()
+				updated.Spec = want.Spec
+				updated.Labels = want.Labels
+				updated.OwnerReferences = want.OwnerReferences
 				if err := r.Update(ctx, updated); err != nil {
 					return fmt.Errorf("update ImageStream %q: %w", name, err)
 				}
 			}
 		}
-		seen[name] = struct{}{}
 	}
 
 	for _, is := range existing.Items {
-		if _, ok := seen[is.Name]; ok {
+		if _, inDesired := desired[is.Name]; inDesired {
 			continue
 		}
 		if err := r.Delete(ctx, &is); client.IgnoreNotFound(err) != nil {

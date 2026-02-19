@@ -436,7 +436,11 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		if cr.Spec.OLSConfig.ImagePullSecrets != nil {
 			deployment.Spec.Template.Spec.ImagePullSecrets = cr.Spec.OLSConfig.ImagePullSecrets
 		}
-		deployment.Annotations[utils.OLSAppServerImageStreamTriggerAnnotation] = generateImageStreamTriggers(cr)
+		triggers, err := generateImageStreamTriggers(cr)
+		if err != nil {
+			return nil, err
+		}
+		deployment.Annotations[utils.OLSAppServerImageStreamTriggerAnnotation] = triggers
 	}
 
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {

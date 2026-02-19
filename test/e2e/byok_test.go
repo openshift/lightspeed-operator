@@ -1,3 +1,8 @@
+// byok_test.go contains end-to-end tests for the BYOK (Bring Your Own Knowledge) flow.
+// It verifies that OLS can use customer-provided RAG images, that queries hit the BYOK
+// index only when ByokRAGOnly is set, and that image updates (e.g. new tag/digest)
+// propagate correctly to the app server deployment.
+
 package e2e
 
 import (
@@ -26,12 +31,20 @@ const (
 	latestImageName         = internalRegistyHostName + "/" + utils.OLSNamespaceDefault + "/" + imageNameAndTag
 )
 
-var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
+// Test Design Notes:
+// - Uses Ordered to ensure serial execution (critical for test isolation)
+// - Tests Bring-Your-Own-Knowledge (BYOK) RAG functionality with custom vector database
+// - Uses DeleteAndWait in cleanup to prevent resource pollution between test suites
+// - FlakeAttempts(5) handles transient query timing and LLM response issues
+var _ = Describe("BYOK", Ordered, Label("BYOK"), FlakeAttempts(5), func() {
 	var env *OLSTestEnvironment
 	var err error
 	var registryDefaultRoute string
 	var dstToken string
 
+	// BeforeAll enables the internal image registry route, copies a RAG image into
+	// the cluster registry, and sets up the OLS test environment with RAG and
+	// ByokRAGOnly enabled so subsequent tests run against the BYOK index.
 	BeforeAll(func() {
 		By("Setting up OLS test environment with RAG configuration")
 		ctx := context.Background()
@@ -78,12 +91,16 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	// AfterAll tears down the OLS test environment and deletes the OLSConfig CR
+	// so the cluster is left clean after the BYOK test run.
 	AfterAll(func() {
 		By("Cleaning up OLS test environment with CR deletion")
 		err = CleanupOLSTestEnvironmentWithCRDeletion(env, "byok_test")
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	// Verifies that when RAG is configured by image only (no IndexID), the CR
+	// spec keeps IndexID empty so the OLS uses the only database in the BYOK image.
 	It("should check that the default index ID is empty", FlakeAttempts(5), func() {
 		olsConfig := &olsv1alpha1.OLSConfig{
 			ObjectMeta: metav1.ObjectMeta{
@@ -94,6 +111,9 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 		Expect(olsConfig.Spec.OLSConfig.RAG[0].IndexID).To(BeEmpty())
 	})
 
+	// Ensures the OLS /v1/query endpoint answers using the BYOK RAG index by asking
+	// a question whose answer is in the assisted-installer-guide content (CPU
+	// architectures) and asserting the response includes the expected architectures.
 	It("should query the BYOK database", FlakeAttempts(5), func() {
 		By("Testing OLS service activation")
 		secret, err := TestOLSServiceActivation(env)
@@ -118,6 +138,9 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 		)
 	})
 
+	// With ByokRAGOnly true, OLS must not fall back to the default documentation
+	// index. A query that would trigger "Related documentation" from the default
+	// index must not contain that phrase when only the BYOK database is used.
 	It("should only query the BYOK database", func() {
 		By("Testing OLS service activation")
 		secret, err := TestOLSServiceActivation(env)
@@ -134,6 +157,10 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), func() {
 		Expect(string(body)).NotTo(ContainSubstring("Related documentation"))
 	})
 
+	// Pushes a new BYOK image (different tag) to the internal registry and triggers
+	// an ImageStream update; then checks that the app server deployment's init
+	// container image is updated to the new digest, confirming BYOK image change
+	// propagated and the OLS deployment is restarted.
 	It("should check that BYOK image update propagates to the OLS", func() {
 		appServerDeployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
