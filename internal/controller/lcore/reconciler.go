@@ -352,14 +352,20 @@ func reconcileOLSAdditionalCAConfigMap(r reconciler.Reconciler, ctx context.Cont
 }
 
 func reconcileProxyCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	if cr.Spec.OLSConfig.ProxyConfig == nil || cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef == nil {
+	if cr.Spec.OLSConfig.ProxyConfig == nil {
+		// no proxy CA certs, skip
+		r.GetLogger().Info("Proxy CA not configured, reconciliation skipped")
+		return nil
+	}
+	cmName := utils.GetProxyCACertConfigMapName(cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef)
+	if cmName == "" {
 		// no proxy CA certs, skip
 		r.GetLogger().Info("Proxy CA not configured, reconciliation skipped")
 		return nil
 	}
 
 	cm := &corev1.ConfigMap{}
-	err := r.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, Namespace: r.GetNamespace()}, cm)
+	err := r.Get(ctx, client.ObjectKey{Name: cmName, Namespace: r.GetNamespace()}, cm)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetProxyCACM, err)
 	}

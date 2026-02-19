@@ -2,6 +2,7 @@ package lcore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"slices"
@@ -259,14 +260,37 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Contex
 			}
 			providerConfig["config"] = config
 
+		case "llamaStackGeneric":
+			// Generic Llama Stack provider - pass through user configuration directly
+			if provider.Config == nil {
+				return nil, fmt.Errorf("config is required for llamaStackGeneric provider '%s'", provider.Name)
+			}
+
+			// Parse the raw JSON/YAML config
+			var userConfig map[string]interface{}
+			if err := json.Unmarshal(provider.Config.Raw, &userConfig); err != nil {
+				return nil, fmt.Errorf("failed to parse config for provider '%s': %w", provider.Name, err)
+			}
+
+			// Start with the user-provided configuration
+			providerConfig = deepCopyMap(userConfig)
+
+			// Always set provider_id from the provider name (override if user specified it)
+			providerConfig["provider_id"] = provider.Name
+
+			// Validate that provider_type is set
+			if _, hasProviderType := providerConfig["provider_type"]; !hasProviderType {
+				return nil, fmt.Errorf("config must include 'provider_type' field for provider '%s'", provider.Name)
+			}
+
 		case "watsonx", "bam":
 			// These providers are not supported by Llama Stack
 			// They are handled directly by lightspeed-stack (LCS), not Llama Stack
-			return nil, fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
+			return nil, fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm, llamaStackGeneric", provider.Type, provider.Name)
 
 		default:
 			// Unknown provider type
-			return nil, fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
+			return nil, fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm, llamaStackGeneric", provider.Type, provider.Name)
 		}
 
 		providers = append(providers, providerConfig)
@@ -637,7 +661,7 @@ func buildLCoreServiceConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	// color_log: enable colored logs for DEBUG, disable for production (INFO+)
 	colorLog := logLevel == olsv1alpha1.LogLevelDebug
 
-	return map[string]interface{}{
+	serviceConfig := map[string]interface{}{
 		"host":         "0.0.0.0",
 		"port":         utils.OLSAppServerContainerPort,
 		"auth_enabled": false,
@@ -651,6 +675,28 @@ func buildLCoreServiceConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 			"tls_key_path":         "/etc/certs/lightspeed-tls/tls.key",
 		},
 	}
+
+	// Add proxy configuration if specified
+	if cr.Spec.OLSConfig.ProxyConfig != nil {
+		proxyConfigMap := map[string]interface{}{}
+
+		if cr.Spec.OLSConfig.ProxyConfig.ProxyURL != "" {
+			proxyConfigMap["proxy_url"] = cr.Spec.OLSConfig.ProxyConfig.ProxyURL
+		}
+
+		proxyCACertRef := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef
+		cmName := utils.GetProxyCACertConfigMapName(proxyCACertRef)
+		if cmName != "" {
+			certKey := utils.GetProxyCACertKey(proxyCACertRef)
+			proxyConfigMap["proxy_ca_cert_path"] = "/etc/certs/" + utils.ProxyCACertVolumeName + "/" + certKey
+		}
+
+		if len(proxyConfigMap) > 0 {
+			serviceConfig["proxy_config"] = proxyConfigMap
+		}
+	}
+
+	return serviceConfig
 }
 
 func buildLCoreLlamaStackConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) map[string]interface{} {
@@ -988,4 +1034,36 @@ func buildLCoreConfigYAML(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (s
 	}
 
 	return string(yamlBytes), nil
+}
+
+// deepCopyMap creates a deep copy of a map[string]interface{}
+func deepCopyMap(src map[string]interface{}) map[string]interface{} {
+	dst := make(map[string]interface{}, len(src))
+	for k, v := range src {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			dst[k] = deepCopyMap(val)
+		case []interface{}:
+			dst[k] = deepCopySlice(val)
+		default:
+			dst[k] = v
+		}
+	}
+	return dst
+}
+
+// deepCopySlice creates a deep copy of a []interface{}, recursing into nested maps and slices.
+func deepCopySlice(src []interface{}) []interface{} {
+	dst := make([]interface{}, len(src))
+	for i, elem := range src {
+		switch val := elem.(type) {
+		case map[string]interface{}:
+			dst[i] = deepCopyMap(val)
+		case []interface{}:
+			dst[i] = deepCopySlice(val)
+		default:
+			dst[i] = val
+		}
+	}
+	return dst
 }

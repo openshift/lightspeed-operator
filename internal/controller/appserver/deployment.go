@@ -263,25 +263,34 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// User provided CA certificates - create both volumes and volume mounts in single pass
 	_ = utils.ForEachExternalConfigMap(cr, func(name, source string) error {
 		var volumeName, mountPath string
+		var volumeSource corev1.VolumeSource
+
 		switch source {
 		case "additional-ca":
 			volumeName = utils.AdditionalCAVolumeName
 			mountPath = UserCAMountPath
+			volumeSource = corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: name},
+					DefaultMode:          &volumeDefaultMode,
+				},
+			}
 		case "proxy-ca":
 			volumeName = utils.ProxyCACertVolumeName
 			mountPath = path.Join(utils.OLSAppCertsMountRoot, utils.ProxyCACertVolumeName)
+			volumeSource = corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: name},
+					DefaultMode:          &volumeDefaultMode,
+				},
+			}
 		default:
 			return nil
 		}
 
 		volumes = append(volumes, corev1.Volume{
-			Name: volumeName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: name},
-					DefaultMode:          &volumeDefaultMode,
-				},
-			},
+			Name:         volumeName,
+			VolumeSource: volumeSource,
 		})
 
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{

@@ -515,6 +515,110 @@ func TestGenerateExporterConfigMap_RHOSLightspeedServiceID(t *testing.T) {
 	}
 }
 
+func TestBuildLlamaStackYAML_GenericProvider(t *testing.T) {
+	// Test the llamaStackGeneric provider type with custom Llama Stack configuration
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "my-custom-provider",
+						Type: "llamaStackGeneric",
+						Config: &runtime.RawExtension{
+							Raw: []byte(`{
+								"provider_type": "remote::openai",
+								"config": {
+									"api_key": "${env.MY_CUSTOM_PROVIDER_API_KEY}",
+									"url": "https://api.custom.com/v1"
+								}
+							}`),
+						},
+						Models: []olsv1alpha1.ModelSpec{
+							{Name: "custom-model"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Build the YAML
+	ctx := context.Background()
+	yamlOutput, err := buildLlamaStackYAML(nil, ctx, cr)
+	if err != nil {
+		t.Fatalf("buildLlamaStackYAML returned error for llamaStackGeneric provider: %v", err)
+	}
+
+	// Verify it's valid YAML
+	var result map[string]interface{}
+	err = yaml.Unmarshal([]byte(yamlOutput), &result)
+	if err != nil {
+		t.Fatalf("buildLlamaStackYAML produced invalid YAML: %v\nYAML output:\n%s", err, yamlOutput)
+	}
+
+	// Verify providers section exists
+	providersRaw, exists := result["providers"]
+	if !exists {
+		t.Fatal("Expected 'providers' section in YAML output")
+	}
+
+	providersMap, ok := providersRaw.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected 'providers' to be a map, got type %T", providersRaw)
+	}
+
+	// Get the inference providers
+	inferenceProvidersRaw, exists := providersMap["inference"]
+	if !exists {
+		t.Fatal("Expected 'inference' section in providers")
+	}
+
+	inferenceProviders, ok := inferenceProvidersRaw.([]interface{})
+	if !ok {
+		t.Fatalf("Expected 'inference' to be an array, got type %T", inferenceProvidersRaw)
+	}
+
+	// Find our custom provider (should be after sentence-transformers)
+	var customProvider map[string]interface{}
+	for _, p := range inferenceProviders {
+		provider := p.(map[string]interface{})
+		if provider["provider_id"] == "my-custom-provider" {
+			customProvider = provider
+			break
+		}
+	}
+
+	if customProvider == nil {
+		t.Fatal("Custom provider not found in inference providers list")
+	}
+
+	// Verify provider_id was set correctly
+	if customProvider["provider_id"] != "my-custom-provider" {
+		t.Errorf("Expected provider_id 'my-custom-provider', got '%v'", customProvider["provider_id"])
+	}
+
+	// Verify provider_type was passed through
+	if customProvider["provider_type"] != "remote::openai" {
+		t.Errorf("Expected provider_type 'remote::openai', got '%v'", customProvider["provider_type"])
+	}
+
+	// Verify config was passed through
+	config, ok := customProvider["config"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected 'config' to be a map")
+	}
+
+	if config["api_key"] != "${env.MY_CUSTOM_PROVIDER_API_KEY}" {
+		t.Errorf("Expected api_key '${env.MY_CUSTOM_PROVIDER_API_KEY}', got '%v'", config["api_key"])
+	}
+
+	if config["url"] != "https://api.custom.com/v1" {
+		t.Errorf("Expected url 'https://api.custom.com/v1', got '%v'", config["url"])
+	}
+
+	t.Logf("Successfully validated llamaStackGeneric provider configuration")
+}
+
 // mockReconcilerForAssets is a minimal mock for testing asset generation
 type mockReconcilerForAssets struct {
 	reconciler.Reconciler
