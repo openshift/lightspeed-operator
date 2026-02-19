@@ -14,6 +14,8 @@ entries:
     skipRange: ">=0.1.0 <1.0.8"
   - name: lightspeed-operator.v1.0.9
     replaces: lightspeed-operator.v1.0.8
+  - name: lightspeed-operator.v1.0.10
+    replaces: lightspeed-operator.v1.0.9
 ---
 schema: olm.channel
 package: lightspeed-operator
@@ -23,3 +25,5 @@ entries:
     skipRange: ">=0.1.0 <1.0.8"
   - name: lightspeed-operator.v1.0.9
     replaces: lightspeed-operator.v1.0.8
+  - name: lightspeed-operator.v1.0.10
+    replaces: lightspeed-operator.v1.0.9
