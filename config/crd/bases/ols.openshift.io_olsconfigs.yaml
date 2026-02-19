@@ -4776,6 +4776,28 @@ spec:
                       rule: self.alpha >= 0.0 && self.alpha <= 1.0
                     - message: threshold must be between 0.0 and 1.0
                       rule: self.threshold >= 0.0 && self.threshold <= 1.0
+                  toolsApprovalConfig:
+                    description: Tool execution approval configuration. Controls whether
+                      tool calls require user approval before execution.
+                    properties:
+                      approvalTimeout:
+                        default: 600
+                        description: Timeout in seconds for waiting for user approval
+                        minimum: 1
+                        type: integer
+                      approvalType:
+                        default: never
+                        description: |-
+                          Approval strategy for tool execution.
+                          'never' - tools execute without approval
+                          'always' - all tool calls require approval
+                          'tool_annotations' - approval based on per-tool annotations
+                        enum:
+                        - never
+                        - always
+                        - tool_annotations
+                        type: string
+                    type: object
                   userDataCollection:
                     description: User data collection switches
                     properties:

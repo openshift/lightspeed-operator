@@ -169,6 +169,58 @@ var _ = Describe("App server assets", func() {
 			})))))
 		})
 
+		It("should generate configmap with tools approval configuration", func() {
+			By("with default values when empty config is specified")
+			cr.Spec.OLSConfig.ToolsApprovalConfig = &olsv1alpha1.ToolsApprovalConfig{}
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tools_approval", MatchAllKeys(Keys{
+				"approval_type":    Equal("never"),
+				"approval_timeout": BeNumerically("==", 600),
+			}))))
+
+			By("with custom values when specified")
+			cr.Spec.OLSConfig.ToolsApprovalConfig = &olsv1alpha1.ToolsApprovalConfig{
+				ApprovalType:    olsv1alpha1.ApprovalTypeAlways,
+				ApprovalTimeout: 300,
+			}
+			cm, err = GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tools_approval", MatchAllKeys(Keys{
+				"approval_type":    Equal("always"),
+				"approval_timeout": BeNumerically("==", 300),
+			}))))
+
+			By("with tool_annotations approval type")
+			cr.Spec.OLSConfig.ToolsApprovalConfig = &olsv1alpha1.ToolsApprovalConfig{
+				ApprovalType:    olsv1alpha1.ApprovalTypeToolAnnotations,
+				ApprovalTimeout: 120,
+			}
+			cm, err = GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tools_approval", MatchAllKeys(Keys{
+				"approval_type":    Equal("tool_annotations"),
+				"approval_timeout": BeNumerically("==", 120),
+			}))))
+
+			By("not present when config is nil")
+			cr.Spec.OLSConfig.ToolsApprovalConfig = nil
+			cm, err = GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig, ok := olsConfigMap["ols_config"].(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			Expect(olsConfig).NotTo(HaveKey("tools_approval"))
+		})
+
 		It("should generate configmap with token quota limiters", func() {
 			crWithFilters := utils.WithQuotaLimiters(cr)
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), crWithFilters)

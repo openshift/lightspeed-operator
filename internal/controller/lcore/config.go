@@ -952,6 +952,33 @@ func buildLCoreQuotaHandlersConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 	}
 }
 
+// buildLCoreToolsApprovalConfig configures tool execution approval
+// Controls whether tool calls require user approval before execution
+func buildLCoreToolsApprovalConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) map[string]interface{} {
+	// If no tools approval config in CR, return nil (not configured)
+	if cr.Spec.OLSConfig.ToolsApprovalConfig == nil {
+		return nil
+	}
+
+	cfg := cr.Spec.OLSConfig.ToolsApprovalConfig
+
+	// Apply defaults if not set
+	approvalType := string(cfg.ApprovalType)
+	if approvalType == "" {
+		approvalType = string(olsv1alpha1.ApprovalTypeNever)
+	}
+
+	approvalTimeout := cfg.ApprovalTimeout
+	if approvalTimeout == 0 {
+		approvalTimeout = 600
+	}
+
+	return map[string]interface{}{
+		"approval_type":    approvalType,    // "never", "always", or "tool_annotations"
+		"approval_timeout": approvalTimeout, // Timeout in seconds for waiting for user approval
+	}
+}
+
 // buildLCoreConfigYAML assembles the complete Lightspeed Core Service configuration and converts to YAML
 func buildLCoreConfigYAML(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (string, error) {
 	// Build the complete config as a map
@@ -970,6 +997,11 @@ func buildLCoreConfigYAML(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (s
 	// Optional features - only add if configured/enabled
 	if quotaConfig := buildLCoreQuotaHandlersConfig(r, cr); quotaConfig != nil {
 		config["quota_handlers"] = quotaConfig // Token rate limiting
+	}
+
+	// Tools approval configuration (requires user approval before tool execution)
+	if toolsApprovalConfig := buildLCoreToolsApprovalConfig(r, cr); toolsApprovalConfig != nil {
+		config["tools_approval"] = toolsApprovalConfig
 	}
 
 	// MCP servers configuration (includes introspection + user-defined servers)

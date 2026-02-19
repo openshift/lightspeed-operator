@@ -470,3 +470,163 @@ func TestBuildLCoreConfigYAML_WithoutMCPServers(t *testing.T) {
 		t.Error("Expected YAML NOT to contain 'mcp_servers:' section when no servers configured")
 	}
 }
+
+func TestBuildLCoreToolsApprovalConfig_WithConfig(t *testing.T) {
+	r := utils.NewTestReconciler(nil, logr.Discard(), nil, utils.OLSNamespaceDefault)
+
+	tests := []struct {
+		name            string
+		config          *olsv1alpha1.ToolsApprovalConfig
+		expectedType    string
+		expectedTimeout int
+	}{
+		{
+			name: "with never approval type",
+			config: &olsv1alpha1.ToolsApprovalConfig{
+				ApprovalType:    olsv1alpha1.ApprovalTypeNever,
+				ApprovalTimeout: 300,
+			},
+			expectedType:    "never",
+			expectedTimeout: 300,
+		},
+		{
+			name: "with always approval type",
+			config: &olsv1alpha1.ToolsApprovalConfig{
+				ApprovalType:    olsv1alpha1.ApprovalTypeAlways,
+				ApprovalTimeout: 120,
+			},
+			expectedType:    "always",
+			expectedTimeout: 120,
+		},
+		{
+			name: "with tool_annotations approval type",
+			config: &olsv1alpha1.ToolsApprovalConfig{
+				ApprovalType:    olsv1alpha1.ApprovalTypeToolAnnotations,
+				ApprovalTimeout: 600,
+			},
+			expectedType:    "tool_annotations",
+			expectedTimeout: 600,
+		},
+		{
+			name:            "with empty config (defaults applied)",
+			config:          &olsv1alpha1.ToolsApprovalConfig{},
+			expectedType:    "never",
+			expectedTimeout: 600,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cr := &olsv1alpha1.OLSConfig{
+				Spec: olsv1alpha1.OLSConfigSpec{
+					OLSConfig: olsv1alpha1.OLSSpec{
+						ToolsApprovalConfig: tt.config,
+					},
+				},
+			}
+
+			result := buildLCoreToolsApprovalConfig(r, cr)
+
+			if result == nil {
+				t.Fatal("Expected non-nil result")
+			}
+
+			approvalType, ok := result["approval_type"].(string)
+			if !ok {
+				t.Fatal("Expected approval_type to be string")
+			}
+			if approvalType != tt.expectedType {
+				t.Errorf("Expected approval_type %q, got %q", tt.expectedType, approvalType)
+			}
+
+			approvalTimeout, ok := result["approval_timeout"].(int)
+			if !ok {
+				t.Fatal("Expected approval_timeout to be int")
+			}
+			if approvalTimeout != tt.expectedTimeout {
+				t.Errorf("Expected approval_timeout %d, got %d", tt.expectedTimeout, approvalTimeout)
+			}
+		})
+	}
+}
+
+func TestBuildLCoreToolsApprovalConfig_WithoutConfig(t *testing.T) {
+	r := utils.NewTestReconciler(nil, logr.Discard(), nil, utils.OLSNamespaceDefault)
+
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			OLSConfig: olsv1alpha1.OLSSpec{
+				ToolsApprovalConfig: nil,
+			},
+		},
+	}
+
+	result := buildLCoreToolsApprovalConfig(r, cr)
+
+	if result != nil {
+		t.Errorf("Expected nil result when ToolsApprovalConfig is nil, got %v", result)
+	}
+}
+
+func TestBuildLCoreConfigYAML_WithToolsApproval(t *testing.T) {
+	r := utils.NewTestReconciler(nil, logr.Discard(), nil, utils.OLSNamespaceDefault)
+
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			OLSConfig: olsv1alpha1.OLSSpec{
+				ToolsApprovalConfig: &olsv1alpha1.ToolsApprovalConfig{
+					ApprovalType:    olsv1alpha1.ApprovalTypeAlways,
+					ApprovalTimeout: 300,
+				},
+			},
+		},
+	}
+
+	yamlStr, err := buildLCoreConfigYAML(r, cr)
+	if err != nil {
+		t.Fatalf("buildLCoreConfigYAML returned error: %v", err)
+	}
+
+	// Verify YAML contains tools_approval section
+	if !strings.Contains(yamlStr, "tools_approval:") {
+		t.Error("Expected YAML to contain 'tools_approval:' section")
+	}
+
+	// Verify approval_type is present
+	if !strings.Contains(yamlStr, "approval_type: always") {
+		t.Error("Expected YAML to contain 'approval_type: always'")
+	}
+
+	// Verify approval_timeout is present
+	if !strings.Contains(yamlStr, "approval_timeout: 300") {
+		t.Error("Expected YAML to contain 'approval_timeout: 300'")
+	}
+}
+
+func TestBuildLCoreConfigYAML_WithoutToolsApproval(t *testing.T) {
+	r := utils.NewTestReconciler(nil, logr.Discard(), nil, utils.OLSNamespaceDefault)
+
+	cr := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: olsv1alpha1.OLSConfigSpec{
+			OLSConfig: olsv1alpha1.OLSSpec{
+				ToolsApprovalConfig: nil,
+			},
+		},
+	}
+
+	yamlStr, err := buildLCoreConfigYAML(r, cr)
+	if err != nil {
+		t.Fatalf("buildLCoreConfigYAML returned error: %v", err)
+	}
+
+	// Verify YAML does NOT contain tools_approval section
+	if strings.Contains(yamlStr, "tools_approval:") {
+		t.Error("Expected YAML NOT to contain 'tools_approval:' section when not configured")
+	}
+}

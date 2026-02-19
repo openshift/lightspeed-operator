@@ -336,6 +336,21 @@ spec:
           - description: Number of tools to retrieve
             displayName: Top K
             path: ols.toolFilteringConfig.topK
+          - description: Tool execution approval configuration. Controls whether tool calls require user approval before execution.
+            displayName: Tools Approval Configuration
+            path: ols.toolsApprovalConfig
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:advanced
+          - description: Timeout in seconds for waiting for user approval
+            displayName: Approval Timeout (seconds)
+            path: ols.toolsApprovalConfig.approvalTimeout
+          - description: |-
+              Approval strategy for tool execution.
+              'never' - tools execute without approval
+              'always' - all tool calls require approval
+              'tool_annotations' - approval based on per-tool annotations
+            displayName: Approval Type
+            path: ols.toolsApprovalConfig.approvalType
           - description: User data collection switches
             displayName: User Data Collection
             path: ols.userDataCollection
