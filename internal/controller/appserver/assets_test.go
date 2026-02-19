@@ -1160,7 +1160,7 @@ ols_config:
     type: postgres
   extra_ca:
     - /etc/certs/ols-additional-ca/service-ca.crt
-  certificate_directory: /etc/certs/cert-bundle		
+  certificate_directory: /etc/certs/cert-bundle
   logging_config:
     app_log_level: ""
     lib_log_level: ""
@@ -1220,7 +1220,7 @@ ols_config:
     type: postgres
   extra_ca:
     - /etc/certs/ols-additional-ca/service-ca.crt
-  certificate_directory: /etc/certs/cert-bundle		
+  certificate_directory: /etc/certs/cert-bundle
   logging_config:
     app_log_level: ""
     lib_log_level: ""
@@ -1343,28 +1343,37 @@ user_data_collector_config: {}
 			Expect(serviceMonitor.Namespace).To(Equal(utils.OLSNamespaceDefault))
 			valFalse := false
 			serverName := fmt.Sprintf("%s.%s.svc", utils.OLSAppServerServiceName, utils.OLSNamespaceDefault)
+			var schemeHTTPS monv1.Scheme = "https"
 			Expect(serviceMonitor.Spec.Endpoints).To(ConsistOf(
 				monv1.Endpoint{
 					Port:     "https",
 					Path:     utils.AppServerMetricsPath,
 					Interval: "30s",
-					Scheme:   "https",
-					TLSConfig: &monv1.TLSConfig{
-						SafeTLSConfig: monv1.SafeTLSConfig{
-							InsecureSkipVerify: &valFalse,
-							ServerName:         &serverName,
-						},
-						CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
-						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
-						KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
-					},
-					Authorization: &monv1.SafeAuthorization{
-						Type: "Bearer",
-						Credentials: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: utils.MetricsReaderServiceAccountTokenSecretName,
+					Scheme:   &schemeHTTPS,
+					HTTPConfigWithProxyAndTLSFiles: monv1.HTTPConfigWithProxyAndTLSFiles{
+						HTTPConfigWithTLSFiles: monv1.HTTPConfigWithTLSFiles{
+							TLSConfig: &monv1.TLSConfig{
+								TLSFilesConfig: monv1.TLSFilesConfig{
+									CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
+									CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
+									KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
+								},
+								SafeTLSConfig: monv1.SafeTLSConfig{
+									InsecureSkipVerify: &valFalse,
+									ServerName:         &serverName,
+								},
 							},
-							Key: "token",
+							HTTPConfigWithoutTLS: monv1.HTTPConfigWithoutTLS{
+								Authorization: &monv1.SafeAuthorization{
+									Type: "Bearer",
+									Credentials: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: utils.MetricsReaderServiceAccountTokenSecretName,
+										},
+										Key: "token",
+									},
+								},
+							},
 						},
 					},
 				},

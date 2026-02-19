@@ -32,6 +32,7 @@ func (r *OLSConfigReconciler) generateServiceMonitorForOperator() (*monv1.Servic
 
 	valFalse := false
 	serverName := strings.Join([]string{"lightspeed-operator-controller-manager-service", r.Options.Namespace, "svc"}, ".")
+	var schemeHTTPS monv1.Scheme = "https"
 	serviceMonitor := monv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OperatorServiceMonitorName,
@@ -44,14 +45,20 @@ func (r *OLSConfigReconciler) generateServiceMonitorForOperator() (*monv1.Servic
 					Port:     "metrics",
 					Path:     "/metrics",
 					Interval: "30s",
-					Scheme:   "https",
-					TLSConfig: &monv1.TLSConfig{
-						CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
-						CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
-						KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
-						SafeTLSConfig: monv1.SafeTLSConfig{
-							InsecureSkipVerify: &valFalse,
-							ServerName:         &serverName,
+					Scheme:   &schemeHTTPS,
+					HTTPConfigWithProxyAndTLSFiles: monv1.HTTPConfigWithProxyAndTLSFiles{
+						HTTPConfigWithTLSFiles: monv1.HTTPConfigWithTLSFiles{
+							TLSConfig: &monv1.TLSConfig{
+								TLSFilesConfig: monv1.TLSFilesConfig{
+									CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
+									CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
+									KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
+								},
+								SafeTLSConfig: monv1.SafeTLSConfig{
+									InsecureSkipVerify: &valFalse,
+									ServerName:         &serverName,
+								},
+							},
 						},
 					},
 				},

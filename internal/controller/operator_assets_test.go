@@ -86,6 +86,7 @@ var _ = Describe("App server assets", func() {
 
 			valFalse := false
 			serverName := strings.Join([]string{"lightspeed-operator-controller-manager-service", utils.OLSNamespaceDefault, "svc"}, ".")
+			var schemeHTTPS monv1.Scheme = "https"
 
 			expectedSM := monv1.ServiceMonitor{
 				ObjectMeta: metav1.ObjectMeta{
@@ -108,14 +109,20 @@ var _ = Describe("App server assets", func() {
 							Port:     "metrics",
 							Path:     "/metrics",
 							Interval: "30s",
-							Scheme:   "https",
-							TLSConfig: &monv1.TLSConfig{
-								CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
-								CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
-								KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
-								SafeTLSConfig: monv1.SafeTLSConfig{
-									InsecureSkipVerify: &valFalse,
-									ServerName:         &serverName,
+							Scheme:   &schemeHTTPS,
+							HTTPConfigWithProxyAndTLSFiles: monv1.HTTPConfigWithProxyAndTLSFiles{
+								HTTPConfigWithTLSFiles: monv1.HTTPConfigWithTLSFiles{
+									TLSConfig: &monv1.TLSConfig{
+										TLSFilesConfig: monv1.TLSFilesConfig{
+											CAFile:   "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
+											CertFile: "/etc/prometheus/secrets/metrics-client-certs/tls.crt",
+											KeyFile:  "/etc/prometheus/secrets/metrics-client-certs/tls.key",
+										},
+										SafeTLSConfig: monv1.SafeTLSConfig{
+											InsecureSkipVerify: &valFalse,
+											ServerName:         &serverName,
+										},
+									},
 								},
 							},
 						},
@@ -127,6 +134,7 @@ var _ = Describe("App server assets", func() {
 						},
 					},
 				},
+				Status: monv1.ConfigResourceStatus{},
 			}
 			Expect(sm.ObjectMeta.Name).To(Equal(utils.OperatorServiceMonitorName))
 			Expect(sm.ObjectMeta.Namespace).To(Equal(r.Options.Namespace))
