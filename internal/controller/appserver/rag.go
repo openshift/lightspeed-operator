@@ -1,6 +1,7 @@
 package appserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"path"
 
@@ -9,6 +10,18 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
+
+// ImageTrigger represents a Build trigger entry for ImageStreamTag (used in deployment annotations).
+type ImageTrigger struct {
+	From      ImageTriggerFrom `json:"from"`
+	FieldPath string           `json:"fieldPath"`
+}
+
+// ImageTriggerFrom identifies the image stream tag to trigger on.
+type ImageTriggerFrom struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
 
 func generateRAGVolume() corev1.Volume {
 	return corev1.Volume{
@@ -44,4 +57,24 @@ func generateRAGVolumeMount() corev1.VolumeMount {
 		Name:      utils.RAGVolumeName,
 		MountPath: utils.RAGVolumeMountPath,
 	}
+}
+
+func generateImageStreamTriggers(cr *olsv1alpha1.OLSConfig) (string, error) {
+	var triggers []ImageTrigger
+	for idx, rag := range cr.Spec.OLSConfig.RAG {
+		isName := utils.ImageStreamNameFor(rag.Image)
+		initContainerName := fmt.Sprintf("rag-%d", idx)
+		triggers = append(triggers, ImageTrigger{
+			From: ImageTriggerFrom{
+				Kind: "ImageStreamTag",
+				Name: fmt.Sprintf("%s:latest", isName),
+			},
+			FieldPath: fmt.Sprintf("spec.template.spec.initContainers[?(@.name==\"%s\")].image", initContainerName),
+		})
+	}
+	data, err := json.Marshal(triggers)
+	if err != nil {
+		return "", fmt.Errorf("marshal image triggers: %w", err)
+	}
+	return string(data), nil
 }

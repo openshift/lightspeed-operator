@@ -2,6 +2,7 @@ package utils
 
 import (
 	"os"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -952,5 +953,52 @@ cNHlzbRSivTDuHmXJdCYIdd8cnH6EbPm3zNg0jU5Au6OrvDZYifP+DtuiLmJct4=
 			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
 			Expect(err).NotTo(HaveOccurred())
 		})
+	})
+})
+
+var _ = Describe("ImageStreamNameFor", func() {
+	It("converts a typical image reference to a lowercase slug with RFC1123-safe chars and a 6-char suffix", func() {
+		image := "quay.io/org/my-image:v1.0"
+		got := ImageStreamNameFor(image)
+		Expect(got).To(MatchRegexp(`^[a-z0-9_-]+-[a-f0-9]{6}$`))
+		Expect(len(got)).To(BeNumerically("<=", imageStreamNameMaxLength))
+		Expect(got[:len(got)-7]).To(Equal("quay-io-org-my-image-v1-0"))
+	})
+
+	It("is deterministic: same image produces same name", func() {
+		image := "registry.example.com/ns/foo:tag"
+		Expect(ImageStreamNameFor(image)).To(Equal(ImageStreamNameFor(image)))
+	})
+
+	It("produces different suffixes for different images", func() {
+		a := ImageStreamNameFor("quay.io/a:1")
+		b := ImageStreamNameFor("quay.io/b:2")
+		Expect(a).NotTo(Equal(b))
+	})
+
+	It("lowercases the slug", func() {
+		got := ImageStreamNameFor("Quay.IO/ORG/My-Image:V1")
+		Expect(got).To(MatchRegexp(`^[a-z0-9_-]+-[a-f0-9]{6}$`))
+		Expect(got).To(ContainSubstring("quay-io-org-my-image-v1"))
+	})
+
+	It("replaces slash, colon, and at-sign with hyphens in the slug (via normalize-then-replace)", func() {
+		got := ImageStreamNameFor("reg.io/ns/img:v1")
+		Expect(got).To(ContainSubstring("reg-io-ns-img-v1"))
+		got2 := ImageStreamNameFor("reg.io/ns/img@sha256:abc123")
+		Expect(got2).To(ContainSubstring("reg-io-ns-img-sha256-abc123"))
+	})
+
+	It("truncates long image names to ImageStreamSlugMaxLength in the slug and keeps total length <= ImageStreamNameMaxLength", func() {
+		longImage := "quay.io/" + strings.Repeat("a", 200) + ":tag"
+		got := ImageStreamNameFor(longImage)
+		slugPart := strings.TrimSuffix(got, "-"+got[strings.LastIndex(got, "-")+1:])
+		Expect(len(slugPart)).To(BeNumerically("<=", imageStreamSlugMaxLength))
+		Expect(len(got)).To(BeNumerically("<=", imageStreamNameMaxLength))
+	})
+
+	It("replaces non-RFC1123 characters in the slug with hyphens", func() {
+		got := ImageStreamNameFor("reg.io/some.image_name:tag")
+		Expect(got).To(MatchRegexp(`^[a-z0-9_-]+-[a-f0-9]{6}$`))
 	})
 })

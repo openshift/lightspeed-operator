@@ -17,7 +17,10 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
+	imagev1 "github.com/openshift/api/image/v1"
+	imageregistryv1 "github.com/openshift/api/imageregistry/v1"
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -94,6 +97,9 @@ func GetClient(options *ClientOptions) (*Client, error) {
 	utilruntime.Must(openshiftv1.AddToScheme(scheme))
 	utilruntime.Must(olsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(imagev1.AddToScheme(scheme))
+	utilruntime.Must(imageregistryv1.AddToScheme(scheme))
+	utilruntime.Must(configv1.AddToScheme(scheme))
 	// Create a new client
 	k8sClient, err := client.New(cfg, client.Options{
 		Scheme: scheme,
@@ -231,6 +237,16 @@ func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
 			_ = c.ShowUnavailablePodsOfDeployment(dep)
 			return false, fmt.Errorf("got %d unavailable replicas",
 				dep.Status.UnavailableReplicas)
+		}
+		return true, nil
+	})
+}
+
+func (c *Client) WaitForDeploymentNextGeneration(dep *appsv1.Deployment, oldGen int64) error {
+	return c.WaitForDeploymentCondition(dep, func(dep *appsv1.Deployment) (bool, error) {
+		if dep.Status.ObservedGeneration <= oldGen {
+			return false, fmt.Errorf("observed generation %d, old generation %d",
+				dep.Status.ObservedGeneration, oldGen)
 		}
 		return true, nil
 	})

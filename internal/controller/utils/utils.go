@@ -17,13 +17,17 @@ package utils
 
 import (
 	"context"
+	"crypto/sha1" //nolint:gosec
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
+	imagev1 "github.com/openshift/api/image/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -239,7 +243,7 @@ func ConfigMapEqual(a, b *corev1.ConfigMap) bool {
 		apiequality.Semantic.DeepEqual(a.BinaryData, b.BinaryData)
 }
 
-func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec) bool {
+func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec, compareInitContainers bool) bool {
 	if !apiequality.Semantic.DeepEqual(a.Template.Spec.NodeSelector, b.Template.Spec.NodeSelector) || // check node selector
 		!apiequality.Semantic.DeepEqual(a.Template.Spec.Tolerations, b.Template.Spec.Tolerations) || // check toleration
 		!apiequality.Semantic.DeepEqual(a.Strategy, b.Strategy) || // check strategy
@@ -254,7 +258,7 @@ func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec) bool {
 	}
 
 	// check init containers
-	if !ContainersEqual(a.Template.Spec.InitContainers, b.Template.Spec.InitContainers) {
+	if compareInitContainers && !ContainersEqual(a.Template.Spec.InitContainers, b.Template.Spec.InitContainers) {
 		return false
 	}
 
@@ -402,6 +406,15 @@ func PrometheusRuleEqual(a *monv1.PrometheusRule, b *monv1.PrometheusRule) bool 
 func NetworkPolicyEqual(a *networkingv1.NetworkPolicy, b *networkingv1.NetworkPolicy) bool {
 	return apiequality.Semantic.DeepEqual(a.Labels, b.Labels) &&
 		apiequality.Semantic.DeepEqual(a.Spec, b.Spec)
+}
+
+// ImageStreamEqual compares the fields that the controller owns on two imagev1.ImageStreams.
+// Used to decide if an existing ImageStream needs an Update. All managed fields must be
+// listed here so reconciliation does not miss changes.
+func ImageStreamEqual(a *imagev1.ImageStream, b *imagev1.ImageStream) bool {
+	return apiequality.Semantic.DeepEqual(a.Spec, b.Spec) &&
+		apiequality.Semantic.DeepEqual(a.Labels, b.Labels) &&
+		apiequality.Semantic.DeepEqual(a.OwnerReferences, b.OwnerReferences)
 }
 
 // This is copied from https://github.com/kubernetes/kubernetes/blob/v1.29.2/pkg/apis/apps/v1/defaults.go#L38
@@ -795,4 +808,46 @@ func ForEachExternalConfigMap(cr *olsv1alpha1.OLSConfig, fn func(name string, so
 	}
 
 	return nil
+}
+
+// ImageStream name length limits (RFC 1123 DNS subdomain label).
+const (
+	// ImageStreamNameMaxLength is the max length for an ImageStream name.
+	imageStreamNameMaxLength = 63
+	// ImageStreamSlugMaxLength is the max length of the slug part in ImageStreamNameFor (NameMaxLength - 1 - 6-char suffix).
+	imageStreamSlugMaxLength = 55
+	// imageStreamSHA1SuffixLength is the length of the SHA1 suffix in ImageStreamNameFor.
+	imageStreamSHA1SuffixLength = 6
+)
+
+// imageStreamNameRegex is used only by ImageStreamNameFor.
+var imageStreamNameRegex = regexp.MustCompile(`[^a-z0-9-]+`)
+
+// ImageStreamNameFor converts a container image reference (e.g. "quay.io/org/my-image:v1.0")
+// into a Kubernetes-compatible name suitable for an ImageStream.
+// Kubernetes names that are used as DNS subdomain labels must follow RFC 1123: a single label
+// can be at most ImageStreamNameMaxLength (63) characters. The final name is slug + "-" + suffix, so:
+//
+//	ImageStreamSlugMaxLength (55) + 1 (hyphen) + 6 (suffix) ≤ ImageStreamNameMaxLength.
+//
+// It lowercases the string,
+// replaces "/", ":", and "@" with underscores, replaces any character that is not [a-z0-9-]
+// with a hyphen, trims and truncates to ImageStreamSlugMaxLength characters, then appends a 6-char SHA1 suffix
+// of the original image so that different images still produce unique names while fitting
+// within typical length limits (e.g. DNS subdomain labels).
+func ImageStreamNameFor(image string) string {
+	base := strings.ToLower(strings.ReplaceAll(image, "/", "_"))
+	base = strings.ReplaceAll(base, ":", "_")
+	base = strings.ReplaceAll(base, "@", "_")
+
+	slug := imageStreamNameRegex.ReplaceAllString(base, "-")
+	slug = strings.Trim(slug, "-")
+
+	if len(slug) > imageStreamSlugMaxLength {
+		slug = slug[:imageStreamSlugMaxLength]
+	}
+	slug = strings.Trim(slug, "-")
+	sum := sha1.Sum([]byte(image)) //nolint:gosec
+	sfx := hex.EncodeToString(sum[:])[:imageStreamSHA1SuffixLength]
+	return fmt.Sprintf("%s-%s", slug, sfx)
 }

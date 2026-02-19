@@ -21,14 +21,19 @@ import (
 
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 
+	imagev1 "github.com/openshift/api/image/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
@@ -72,6 +77,10 @@ func ReconcileAppServerResources(r reconciler.Reconciler, ctx context.Context, o
 		{
 			Name: "reconcile Proxy CA ConfigMap",
 			Task: reconcileProxyCAConfigMap,
+		},
+		{
+			Name: "reconcile ImageStreams",
+			Task: reconcileImageStreams,
 		},
 	}
 
@@ -578,4 +587,97 @@ func ReconcileAppServer(r reconciler.Reconciler, ctx context.Context, olsconfig 
 
 	r.GetLogger().Info("reconcileAppServer completes")
 	return nil
+}
+
+func reconcileImageStreams(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	var ragImages []string
+	for _, rag := range cr.Spec.OLSConfig.RAG {
+		ragImages = append(ragImages, rag.Image)
+	}
+
+	desired := make(map[string]*imagev1.ImageStream, len(ragImages))
+	for _, img := range uniqueStrings(ragImages) {
+		name := utils.ImageStreamNameFor(img)
+		is := &imagev1.ImageStream{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: r.GetNamespace(),
+				Labels:    utils.GenerateAppServerSelectorLabels(),
+			},
+			Spec: imagev1.ImageStreamSpec{
+				Tags: []imagev1.TagReference{
+					{
+						Name: "latest",
+						From: &corev1.ObjectReference{
+							Kind: "DockerImage",
+							Name: img,
+						},
+						ImportPolicy: imagev1.TagImportPolicy{
+							Scheduled: true,
+						},
+						ReferencePolicy: imagev1.TagReferencePolicy{
+							Type: imagev1.SourceTagReferencePolicy,
+						},
+					},
+				},
+			},
+		}
+		if err := controllerutil.SetControllerReference(cr, is, r.GetScheme()); err != nil {
+			return err
+		}
+		desired[name] = is
+	}
+
+	sel := labels.SelectorFromSet(utils.GenerateAppServerSelectorLabels())
+	var existing imagev1.ImageStreamList
+	if err := r.List(ctx, &existing, client.InNamespace(r.GetNamespace()), &client.ListOptions{LabelSelector: sel}); err != nil {
+		return fmt.Errorf("list ImageStreams: %w", err)
+	}
+
+	for name, want := range desired {
+		var got imagev1.ImageStream
+		err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: r.GetNamespace()}, &got)
+		if client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("get ImageStream %q: %w", name, err)
+		}
+		if err != nil { // i.e. Not Found
+			if err := r.Create(ctx, want); err != nil {
+				return fmt.Errorf("create ImageStream %q: %w", name, err)
+			}
+		} else {
+			if !utils.ImageStreamEqual(want, &got) {
+				updated := got.DeepCopy()
+				updated.Spec = want.Spec
+				updated.Labels = want.Labels
+				updated.OwnerReferences = want.OwnerReferences
+				if err := r.Update(ctx, updated); err != nil {
+					return fmt.Errorf("update ImageStream %q: %w", name, err)
+				}
+			}
+		}
+	}
+
+	for _, is := range existing.Items {
+		if _, inDesired := desired[is.Name]; inDesired {
+			continue
+		}
+		if err := r.Delete(ctx, &is); client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("delete ImageStream %q: %w", is.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func uniqueStrings(in []string) []string {
+	seen := make(map[string]struct{}, len(in))
+	var out []string
+	for _, s := range in {
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
 }
