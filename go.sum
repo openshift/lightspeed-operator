@@ -268,8 +268,8 @@ github.com/opencontainers/selinux v1.12.0 h1:6n5JV4Cf+4y0KNXW48TLj5DwfXpvWlxXplU
 github.com/opencontainers/selinux v1.12.0/go.mod h1:BTPX+bjVbWGXw7ZZWUbdENt8w0htPSrlgOOysQaU62U=
 github.com/openshift/api v0.0.0-20260226052804-beff70de904a h1:3mBAecolw1crGJR1pUk4YVmFbwt6upeyALOsu6L0MCE=
 github.com/openshift/api v0.0.0-20260226052804-beff70de904a/go.mod h1:ZYAxo9t1AALeEotN07tNzIvqqqWSxcZIqMUKnY/xCeQ=
-github.com/openshift/client-go v0.0.0-20260219131751-7e63ce155298 h1:V8uz/2Z4hh+49TUxl0nYs0sDn1fB7lTdSMDKAa6TFY8=
-github.com/openshift/client-go v0.0.0-20260219131751-7e63ce155298/go.mod h1:rtH0BhilT6+jn3nWybANEumaBO1vWCKaY8QpwipRy/Y=
+github.com/openshift/client-go v0.0.0-20260226152647-d8b2196ff0d9 h1:5gHG1T3PUm5Ly7vILl9+byccl9eAUiV2RZuWXVVNnB4=
+github.com/openshift/client-go v0.0.0-20260226152647-d8b2196ff0d9/go.mod h1:TeUQXSUW0UPXSmEtMZLfTYIE3MajxnziS3lbdH0WSwk=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
