@@ -4,20 +4,20 @@ lockfileVendor: redhat
 arches:
 - arch: aarch64
   packages:
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/g/glib2-devel-2.68.4-18.el9_7.aarch64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/g/glib2-devel-2.68.4-18.el9_7.1.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
-    size: 562642
-    checksum: sha256:c8197e152d3f83d3d615e2c700b3651b6f225051a98a1ef9fca3d091a3ba0d41
+    size: 570041
+    checksum: sha256:7943a0aab0b44b9e57c1e70f1647af59646f29d96b14dbaf30edcc6827a8303d
     name: glib2-devel
-    evr: 2.68.4-18.el9_7
-    sourcerpm: glib2-2.68.4-18.el9_7.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/l/libblkid-devel-2.37.4-21.el9.aarch64.rpm
+    evr: 2.68.4-18.el9_7.1
+    sourcerpm: glib2-2.68.4-18.el9_7.1.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/l/libblkid-devel-2.37.4-21.el9_7.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
-    size: 18820
-    checksum: sha256:41a14a958ddb7b3dd1f01f3ac19a75156e551d088c1fc7e5d77e060119537ee3
+    size: 21227
+    checksum: sha256:a635e20a7d7ebc2468aa4dee6506bfa7aabca28c65dbf9e0b16baacae8781709
     name: libblkid-devel
-    evr: 2.37.4-21.el9
-    sourcerpm: util-linux-2.37.4-21.el9.src.rpm
+    evr: 2.37.4-21.el9_7
+    sourcerpm: util-linux-2.37.4-21.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/l/libffi-devel-3.4.2-8.el9.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
     size: 31109
@@ -32,13 +32,13 @@ arches:
     name: libgpg-error-devel
     evr: 1.42-5.el9
     sourcerpm: libgpg-error-1.42-5.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/l/libmount-devel-2.37.4-21.el9.aarch64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/l/libmount-devel-2.37.4-21.el9_7.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
-    size: 19507
-    checksum: sha256:cc916cb9374d41ccd421f89f9330310ebc8e9980386194c2f80dd409805ffba8
+    size: 22581
+    checksum: sha256:20be76dc88e7b36fca4163390eae76cabdd425cc2b0903c6d98339d48f9c2992
     name: libmount-devel
-    evr: 2.37.4-21.el9
-    sourcerpm: util-linux-2.37.4-21.el9.src.rpm
+    evr: 2.37.4-21.el9_7
+    sourcerpm: util-linux-2.37.4-21.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/l/libselinux-devel-3.6-3.el9.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
     size: 166975
@@ -109,13 +109,13 @@ arches:
     name: pcre2-utf32
     evr: 10.40-6.el9
     sourcerpm: pcre2-10.40-6.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/p/python-unversioned-command-3.9.23-2.el9.noarch.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/p/python-unversioned-command-3.9.25-3.el9_7.noarch.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
-    size: 9209
-    checksum: sha256:20ed4bbcb151aef651eb315825d3a02e0f6203ab1b858e94812258f5b41ce703
+    size: 15791
+    checksum: sha256:624671b3cc8d4e90eb53a05aae5c5533c6f9f4cb9c18ec0720ac98e328b8f69b
     name: python-unversioned-command
-    evr: 3.9.23-2.el9
-    sourcerpm: python3.9-3.9.23-2.el9.src.rpm
+    evr: 3.9.25-3.el9_7
+    sourcerpm: python3.9-3.9.25-3.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/s/sysprof-capture-devel-3.40.1-3.el9.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
     size: 66841
@@ -179,20 +179,20 @@ arches:
     name: pkgconf-pkg-config
     evr: 1.7.3-10.el9
     sourcerpm: pkgconf-1.7.3-10.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/p/python3-3.9.23-2.el9.aarch64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/p/python3-3.9.25-3.el9_7.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 26208
-    checksum: sha256:61362064f2fad6a572a4b52dedac8a4f7aa2b80bf91c914d35d4608272a3a86b
+    size: 33122
+    checksum: sha256:6d022badf46677030440e9de6fbc52abd8b6d934e59fbc587326b4dad05e8723
     name: python3
-    evr: 3.9.23-2.el9
-    sourcerpm: python3.9-3.9.23-2.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/p/python3-libs-3.9.23-2.el9.aarch64.rpm
+    evr: 3.9.25-3.el9_7
+    sourcerpm: python3.9-3.9.25-3.el9_7.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/p/python3-libs-3.9.25-3.el9_7.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 8464402
-    checksum: sha256:433d9fc1e3b431d206334cd6271e92b53a1b40b805dc265c772b3f0935cda9ea
+    size: 8468437
+    checksum: sha256:63d8b06d97691e2f64d894433acf38495e171e308feada1fdaa40938d5ed1327
     name: python3-libs
-    evr: 3.9.23-2.el9
-    sourcerpm: python3.9-3.9.23-2.el9.src.rpm
+    evr: 3.9.25-3.el9_7
+    sourcerpm: python3.9-3.9.25-3.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/p/python3-pip-wheel-21.3.1-1.el9.noarch.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
     size: 1193706
@@ -225,20 +225,20 @@ arches:
   module_metadata: []
 - arch: x86_64
   packages:
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/g/glib2-devel-2.68.4-18.el9_7.x86_64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/g/glib2-devel-2.68.4-18.el9_7.1.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
-    size: 562955
-    checksum: sha256:a92921a6541a470f8ee54756affdc99efc46f53b55a894f3ed1a13bd3953f819
+    size: 570694
+    checksum: sha256:f2ae3295a4d9ec22430a934fb8ff27d615d74e4e7ef6e8a53eb3c4df5d75f4d2
     name: glib2-devel
-    evr: 2.68.4-18.el9_7
-    sourcerpm: glib2-2.68.4-18.el9_7.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/l/libblkid-devel-2.37.4-21.el9.x86_64.rpm
+    evr: 2.68.4-18.el9_7.1
+    sourcerpm: glib2-2.68.4-18.el9_7.1.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/l/libblkid-devel-2.37.4-21.el9_7.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
-    size: 18854
-    checksum: sha256:f0bcbd0d6d96405d96e6a5326ec382d37133af36b6f8c491506b4e2e2785f702
+    size: 21252
+    checksum: sha256:f02c2c0c6cdf762f8db7bf13be5204b39aeb66c0dd5b7502a2cde054ef5599c8
     name: libblkid-devel
-    evr: 2.37.4-21.el9
-    sourcerpm: util-linux-2.37.4-21.el9.src.rpm
+    evr: 2.37.4-21.el9_7
+    sourcerpm: util-linux-2.37.4-21.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/l/libffi-devel-3.4.2-8.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
     size: 32520
@@ -253,13 +253,13 @@ arches:
     name: libgpg-error-devel
     evr: 1.42-5.el9
     sourcerpm: libgpg-error-1.42-5.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/l/libmount-devel-2.37.4-21.el9.x86_64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/l/libmount-devel-2.37.4-21.el9_7.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
-    size: 19542
-    checksum: sha256:b6cc197e511d7326496d6b4a14614b972bcd3e7170d7d5736073139891a775b5
+    size: 22612
+    checksum: sha256:362b1054805c88f2c837f159394659ce13b2d29d24e1f93591e4440223027c78
     name: libmount-devel
-    evr: 2.37.4-21.el9
-    sourcerpm: util-linux-2.37.4-21.el9.src.rpm
+    evr: 2.37.4-21.el9_7
+    sourcerpm: util-linux-2.37.4-21.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/l/libselinux-devel-3.6-3.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
     size: 166987
@@ -337,13 +337,13 @@ arches:
     name: pcre2-utf32
     evr: 10.40-6.el9
     sourcerpm: pcre2-10.40-6.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/p/python-unversioned-command-3.9.23-2.el9.noarch.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/p/python-unversioned-command-3.9.25-3.el9_7.noarch.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
-    size: 9209
-    checksum: sha256:20ed4bbcb151aef651eb315825d3a02e0f6203ab1b858e94812258f5b41ce703
+    size: 15791
+    checksum: sha256:624671b3cc8d4e90eb53a05aae5c5533c6f9f4cb9c18ec0720ac98e328b8f69b
     name: python-unversioned-command
-    evr: 3.9.23-2.el9
-    sourcerpm: python3.9-3.9.23-2.el9.src.rpm
+    evr: 3.9.25-3.el9_7
+    sourcerpm: python3.9-3.9.25-3.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/s/sysprof-capture-devel-3.40.1-3.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
     size: 65413
@@ -407,20 +407,20 @@ arches:
     name: pkgconf-pkg-config
     evr: 1.7.3-10.el9
     sourcerpm: pkgconf-1.7.3-10.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/p/python3-3.9.23-2.el9.x86_64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/p/python3-3.9.25-3.el9_7.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
-    size: 26265
-    checksum: sha256:b25fcb3b9d37193b8b2f6638fab40db6679cc81bfbf7799869b472d04f7051c8
+    size: 33157
+    checksum: sha256:0e0cadfc2b4ce7eb629c82a2a8f3bebb89ecf828da36ba142ac92d485d2baca4
     name: python3
-    evr: 3.9.23-2.el9
-    sourcerpm: python3.9-3.9.23-2.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/p/python3-libs-3.9.23-2.el9.x86_64.rpm
+    evr: 3.9.25-3.el9_7
+    sourcerpm: python3.9-3.9.25-3.el9_7.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/p/python3-libs-3.9.25-3.el9_7.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
-    size: 8473618
-    checksum: sha256:23e63da66e2e0a96481cc839d905de23a9a4b1a8986c9b0659fb78767f8edf9a
+    size: 8476238
+    checksum: sha256:5140197b69d6cf14dcbc65d4d5733fa1d3d248fa4f7e03e0b0f37faebf45e341
     name: python3-libs
-    evr: 3.9.23-2.el9
-    sourcerpm: python3.9-3.9.23-2.el9.src.rpm
+    evr: 3.9.25-3.el9_7
+    sourcerpm: python3.9-3.9.25-3.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/p/python3-pip-wheel-21.3.1-1.el9.noarch.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
     size: 1193706
