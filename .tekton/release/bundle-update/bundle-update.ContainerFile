@@ -9,6 +9,7 @@ RUN microdnf install -y \
     git \
     make \
     golang \
+    gpgme-devel \
     && microdnf clean all
 # openshift client
 RUN curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.19/openshift-client-linux-amd64-rhel9.tar.gz \
