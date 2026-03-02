@@ -96,6 +96,7 @@ spec:
             image: quay.io/hasun/bundle-update:0.0.2
             script: |
               set -e
+              microdnf install -y gpgme-devel
               oc login --token=${KONFLUX_TOKEN} --server=https://api.stone-prd-rh01.pg1f.p1.openshiftapps.com:6443
               IFS='/' read -r SNAPSHOT_NAMESPACE SNAPSHOT_NAME <<< "$(params.snapshot)"
               SNAPSHOT_IMAGES=$(oc get snapshot "${SNAPSHOT_NAME}" -n "${SNAPSHOT_NAMESPACE}" \
