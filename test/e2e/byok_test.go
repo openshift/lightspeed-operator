@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,6 +18,7 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -206,8 +208,16 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), FlakeAttempts(5), func() {
 		}
 		err = env.Client.Get(appServerDeployment)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(appServerDeployment.Spec.Template.Spec.InitContainers[0].Image).To(
-			Equal(internalRegistyHostName + "/" + utils.OLSNamespaceDefault + "/" + imageName + "@" + digest),
-		)
+
+		expectedImage := internalRegistyHostName + "/" + utils.OLSNamespaceDefault + "/" + imageName + "@" + digest
+		var ragContainer *corev1.Container
+		for i, c := range appServerDeployment.Spec.Template.Spec.InitContainers {
+			if strings.HasPrefix(c.Name, "rag-") {
+				ragContainer = &appServerDeployment.Spec.Template.Spec.InitContainers[i]
+				break
+			}
+		}
+		Expect(ragContainer).NotTo(BeNil(), "RAG init container not found")
+		Expect(ragContainer.Image).To(Equal(expectedImage))
 	})
 })

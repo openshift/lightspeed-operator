@@ -168,8 +168,8 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 
 	databaseResources := getDatabaseResources(cr)
 
-	// Get ResourceVersions for tracking - these resources should already exist
-	// If they don't exist, we'll get empty strings which is fine for initial creation
+	// Get ResourceVersions for tracking - owned resources only (Postgres ConfigMap).
+	// External resources (Postgres TLS certs secret, service CA ConfigMap) are in the watcher and restarted by it.
 	configMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.PostgresConfigMap)
 
 	deployment := appsv1.Deployment{
@@ -261,7 +261,7 @@ func UpdatePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr *
 	utils.SetDefaults_Deployment(desiredDeployment)
 	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec, true)
 
-	// Step 2: Check if ConfigMap ResourceVersion has changed
+	// Step 2: Check if owned ConfigMap ResourceVersion has changed (Postgres config only; external cert/CA are handled by watcher)
 	currentConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.PostgresConfigMap)
 	if err != nil {
 		r.GetLogger().Info("failed to get ConfigMap ResourceVersion", "error", err)

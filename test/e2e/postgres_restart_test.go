@@ -67,8 +67,10 @@ var _ = Describe("Postgres restart", Ordered, Label("Postgres restart"), func() 
 
 	AfterAll(func() {
 		By("Cleaning up OLS test environment with CR deletion")
-		err = CleanupOLSTestEnvironmentWithCRDeletion(env, "postgres_restart_test")
-		Expect(err).NotTo(HaveOccurred())
+		if env != nil {
+			err = CleanupOLSTestEnvironmentWithCRDeletion(env, "postgres_restart_test")
+			Expect(err).NotTo(HaveOccurred())
+		}
 	})
 
 	It("should automatically recover when Postgres is scaled down", FlakeAttempts(5), func() {
