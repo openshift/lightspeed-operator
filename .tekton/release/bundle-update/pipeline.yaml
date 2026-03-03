@@ -65,7 +65,7 @@ spec:
             default: "main"
         steps:
           - name: check-release-status
-            image: quay.io/hasun/bundle-update:0.0.2
+            image: quay.io/hasun/bundle-update:0.0.3
             script: |
               set -e
               oc login --token=${KONFLUX_TOKEN} --server=https://api.stone-prd-rh01.pg1f.p1.openshiftapps.com:6443
@@ -86,17 +86,16 @@ spec:
               - name: HOME
                 value: /workspace
           - name: git-clone
-            image: quay.io/hasun/bundle-update:0.0.2
+            image: quay.io/hasun/bundle-update:0.0.3
             script: |
               git clone --single-branch --branch $(params.sourceBranch) $(params.sourceGitUrl) repo
               cd repo
               git checkout -b $(params.forkBranch)
             workingDir: /workspace
           - name: update-file
-            image: quay.io/hasun/bundle-update:0.0.2
+            image: quay.io/hasun/bundle-update:0.0.3
             script: |
               set -e
-              microdnf install -y gpgme-devel
               oc login --token=${KONFLUX_TOKEN} --server=https://api.stone-prd-rh01.pg1f.p1.openshiftapps.com:6443
               IFS='/' read -r SNAPSHOT_NAMESPACE SNAPSHOT_NAME <<< "$(params.snapshot)"
               SNAPSHOT_IMAGES=$(oc get snapshot "${SNAPSHOT_NAME}" -n "${SNAPSHOT_NAMESPACE}" \
@@ -120,7 +119,7 @@ spec:
               - name: HOME
                 value: /workspace
           - name: git-config
-            image: quay.io/hasun/bundle-update:0.0.2
+            image: quay.io/hasun/bundle-update:0.0.3
             script: |
               set -e
               cd repo
@@ -133,7 +132,7 @@ spec:
               - name: HOME
                 value: /workspace
           - name: git-commit-push
-            image: quay.io/hasun/bundle-update:0.0.2
+            image: quay.io/hasun/bundle-update:0.0.3
             workingDir: /workspace
             env:
               - name: GITHUB_TOKEN
