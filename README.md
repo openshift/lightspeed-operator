@@ -316,10 +316,10 @@ When using Visual Studio Code, we can use the debugger settings below to execute
 ### Update Catalog From Konflux Snapshot
 
 To update the catalog index from a Konflux snapshot, we need to connect to Konflux using `oc login`  command:
-1. Go to the Developer Sandbox web portal https://registration-service-toolchain-host-operator.apps.stone-prd-host1.wdlc.p1.openshiftapps.com/
-2. Copy the proxy login command on the top right corner. It should look like this `oc login --token=$TOKEN --server=https://api-toolchain-host-operator.apps.stone-prd-host1.wdlc.p1.openshiftapps.com`
-3. Append our workspace to the server URL `oc login --token=$TOKEN --server=https://api-toolchain-host-operator.apps.stone-prd-host1.wdlc.p1.openshiftapps.com/workspaces/crt-nshift-lightspeed/`
-4. Login using that command
+1. Go to the Konflux Cluster of Lightspeed tenant https://console-openshift-console.apps.stone-prd-rh01.pg1f.p1.openshiftapps.com/k8s/cluster/projects/crt-nshift-lightspeed-tenant
+2. Click on the account dropdown on the top right corner and select `Copy Login Command`. It should look like this `oc login --token=$TOKEN --server=https://api.stone-prd-rh01.pg1f.p1.openshiftapps.com:6443`
+3. Login using that command
+4. Switch to our workspace `oc project crt-nshift-lightspeed-tenant`
 
 Now we can use the script `hack/snapshot_to_catalog.sh` to update the catalog index. It takes 3 parameters `snapshot_to_catalog.sh -s <snapshot-ref> -c <catalog-file>`:
 - snapshot-ref: required, the snapshot reference to use, example: ols-bnxm2
@@ -342,6 +342,26 @@ Bundle version is 0.1.0
 Validation passed for lightspeed-catalog-4.16/index.yaml
 ```
 
+# Update Bundle from Snapshot
+
+To update the bunlde with images from a Konflux snapshot, , we need to connect to Konflux using `oc login`  command:
+1. Go to the Konflux Cluster of Lightspeed tenant https://console-openshift-console.apps.stone-prd-rh01.pg1f.p1.openshiftapps.com/k8s/cluster/projects/crt-nshift-lightspeed-tenant
+2. Click on the account dropdown on the top right corner and select `Copy Login Command`. It should look like this `oc login --token=$TOKEN --server=https://api.stone-prd-rh01.pg1f.p1.openshiftapps.com:6443`
+3. Login using that command
+4. Switch to our workspace `oc project crt-nshift-lightspeed-tenant`
+
+Save related images from the snapshot.
+```shell
+# back up the bundle image from the related images list
+jq '.[] | select(.name == "lightspeed-operator-bundle")' related_images.json > bundle.json
+./hack/snapshot_to_image_list.sh -s "${SNAPSHOT_NAME}" -r stable -o related_images.json
+# restore the bundle image to the related images list
+jq 'map(select(.name != "lightspeed-operator-bundle"))' related_images.json > tmp.json && mv tmp.json related_images.json
+jq -s '.[0] + [.[1]]' related_images.json bundle.json > tmp.json && mv tmp.json related_images.json
+# generate new bundle
+PATH=./bin:$PATH make bundle
+```
+
 ## Prerequisites
 
 You'll need the following tools to develop the Operator:
@@ -352,4 +372,5 @@ You'll need the following tools to develop the Operator:
 - [docker](https://docs.docker.com/install/), version 17.03+.
 - [oc](https://kubernetes.io/docs/tasks/tools/install-oc/) or [oc](https://docs.openshift.com/container-platform/latest/cli_reference/openshift_cli/getting-started-cli.html#installing-openshift-cli) and access to an OpenShift cluster of a compatible version.
 - [golangci-lint](https://golangci-lint.run/usage/install/#local-installation), version v1.54.2
-
+- [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
+- [gpgme](https://www.gnupg.org/software/gpgme/index.html)
