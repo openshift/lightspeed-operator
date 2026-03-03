@@ -166,6 +166,8 @@ const (
 	PostgresCAVolume = "cm-olspostgresca"
 	// PostgresDeploymentName is the name of OLS application Postgres deployment
 	PostgresDeploymentName = "lightspeed-postgres-server"
+	// PostgresWaitInitContainerName is the name of the init container that waits for Postgres to accept connections
+	PostgresWaitInitContainerName = "wait-for-postgres"
 	// PostgresSecretKeyName is the name of the key holding Postgres server secret
 	PostgresSecretKeyName = "password"
 	// PostgresDefaultUser is the default user name for postgres

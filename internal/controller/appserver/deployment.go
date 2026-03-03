@@ -364,6 +364,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	})
 
 	initContainers := []corev1.Container{}
+	initContainers = append(initContainers, utils.GeneratePostgresWaitInitContainer(r.GetPostgresImage()))
 	if len(cr.Spec.OLSConfig.RAG) > 0 {
 		ragInitContainers := GenerateRAGInitContainers(cr)
 		initContainers = append(initContainers, ragInitContainers...)
