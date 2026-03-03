@@ -258,7 +258,8 @@ spec:
               git config --global user.name olsci
               git fetch origin ${COMMIT_SHA}
               git checkout ${COMMIT_SHA}
-              export BUNDLE_IMAGE=$(cat lightspeed-catalog-4.16/index.yaml | yq '.relatedImages[] | select(.name == "lightspeed-operator-bundle") | .image')
+              LATEST_BUNDLE=$(ls lightspeed-catalog-4.16/bundle-v* | sort | head -n 1)
+              export BUNDLE_IMAGE=$(cat $LATEST_BUNDLE | yq '.relatedImages[] | select(.name == "lightspeed-operator-bundle") | .image')
               echo "$BUNDLE_IMAGE"
               echo "---------------------------------------------"
               echo "---------------------------------------------"
