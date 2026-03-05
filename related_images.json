@@ -1,13 +1,13 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:6e2890a7774b5040e2c078b1255a945cedb0b4da9145007a30e2b56fd2daaff5",
-    "revision": "63b131d4b0718ab2efa0703cdd24728aeaac52ad"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:04d7a0de0b5bd03451b4a16c8d358936191054e1797b7b2174ec24b871fe8173",
+    "revision": "d57480b70e90e9097daf35451451d8da92d49aee"
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:8cc68831c9dbc87f7775151dcea2bff06e028cdbae81699e0468589decc2977c",
-    "revision": "280f7eb1bdf769a63805b1758a1f450838853f0b"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:7cf1e2817edf826ef91d2e3333b3b1bbb5d764c2ddcaeef4bb6e7607d1b9f822",
+    "revision": "3de5bb424483022405a495ea266dd544273ec2a8"
   },
   {
     "name": "lightspeed-console-plugin-pf5",
@@ -16,8 +16,8 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:f2d6441a930fa4ad5211dd9e839105d62de7304aa8761c6dcd979ad0fc8b8fa2",
-    "revision": "6f7060ea2bc201631b877bdd9cc68865d7fec441"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ab864d2f6761fbe1b4865fef50d9ea35a06012af5baf1d7bcc985a032b4bf681",
+    "revision": "a05596c2e64e4bb3b2a97a551c220eaffe5d965b"
   },
   {
     "name": "openshift-mcp-server",
@@ -26,8 +26,8 @@
   },
   {
     "name": "lightspeed-to-dataverse-exporter",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:ec8162a742e6c306c35790f45db23be9b9d12f86ea7555be671ae30832efa04f",
-    "revision": "dd6fd25963907712fcb429a993d43279aa2583fe"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:1dcc299c0cefb4ccdf3a649c2550227b4d5789576e84d29c604327dfdf9aa1da",
+    "revision": "62f01b4fa9529a3947d0d418850a27bf71d2cbe9"
   },
   {
     "name": "lightspeed-ocp-rag",
