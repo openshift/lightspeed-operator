@@ -23,6 +23,22 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
+// restrictedContainerSecurityContext returns a pointer to a SecurityContext
+// that conforms to the Pod Security "restricted" profile.
+func restrictedContainerSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &[]bool{false}[0],
+		ReadOnlyRootFilesystem:   &[]bool{true}[0],
+		RunAsNonRoot:             &[]bool{true}[0],
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+	}
+}
+
 func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
 	return utils.GetResourcesOrDefault(
 		cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Resources,
@@ -382,10 +398,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 							Image:           r.GetAppServerImage(),
 							ImagePullPolicy: corev1.PullAlways,
 							Ports:           ports,
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: &[]bool{false}[0],
-								ReadOnlyRootFilesystem:   &[]bool{true}[0],
-							},
+							SecurityContext: restrictedContainerSecurityContext(),
 							VolumeMounts: volumeMounts,
 							Env: append(utils.GetProxyEnvVars(), corev1.EnvVar{
 								Name:  "OLS_CONFIG_FILE",
@@ -461,10 +474,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Name:            "lightspeed-to-dataverse-exporter",
 			Image:           r.GetDataverseExporterImage(),
 			ImagePullPolicy: corev1.PullAlways,
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &[]bool{false}[0],
-				ReadOnlyRootFilesystem:   &[]bool{true}[0],
-			},
+			SecurityContext: restrictedContainerSecurityContext(),
 			VolumeMounts: volumeMounts,
 			// running in openshift mode ensures that cluster_id is set
 			// as identity_id
@@ -489,10 +499,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Name:            "openshift-mcp-server",
 			Image:           r.GetOpenShiftMCPServerImage(),
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &[]bool{false}[0],
-				ReadOnlyRootFilesystem:   &[]bool{true}[0],
-			},
+			SecurityContext: restrictedContainerSecurityContext(),
 			VolumeMounts: volumeMounts,
 			Command:      []string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort)},
 			Resources:    *mcp_server_resources,
