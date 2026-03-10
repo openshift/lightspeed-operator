@@ -8,7 +8,7 @@ A Kubernetes operator for managing [Red Hat OpenShift Lightspeed](https://github
 
 - **[Contributing Guide](CONTRIBUTING.md)** - How to add or modify components
 - **[Architecture](ARCHITECTURE.md)** - Internal architecture and developer guide
-- **[CLAUDE.md](CLAUDE.md)** - Coding conventions and patterns for this codebase
+- **[AGENTS.md](AGENTS.md)** - AI assistant guide: coding conventions, patterns, and available skills
 
 ## Getting Started
 
