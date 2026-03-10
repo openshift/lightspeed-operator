@@ -453,6 +453,15 @@ For operators deployed via OLM, see comprehensive guides in `docs/`:
 4. Create pull request with clear description
 5. Ensure CI passes
 
+### Code Review Tools
+
+AI skills are available to help review code before submitting:
+- `/go-code-review` - Check error handling, concurrency, resource management
+- `/go-testing-code-review` - Validate test patterns and coverage
+- `/review-pr` - Full PR review workflow
+
+See [AGENTS.md](AGENTS.md) for details on using these skills.
+
 ---
 
 **Thank you for contributing to OpenShift Lightspeed Operator!** 🚀
