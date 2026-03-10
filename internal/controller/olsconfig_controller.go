@@ -175,7 +175,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Error reading the object - requeue the request.
 		// Controller-runtime handles error retries with exponential backoff.
 		r.Logger.Error(err, "Failed to get olsconfig")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed to get OLSConfig CR: %w", err)
 	}
 
 	// ========== Finalizer Handling ==========
@@ -188,7 +188,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			// Run finalizer cleanup logic
 			if err := r.finalizeOLSConfig(ctx, olsconfig); err != nil {
 				r.Logger.Error(err, "Failed to finalize OLSConfig CR")
-				return ctrl.Result{}, err
+				return ctrl.Result{}, fmt.Errorf("failed to finalize OLSConfig CR: %w", err)
 			}
 
 			// Re-fetch the CR to get the latest ResourceVersion before removing finalizer
@@ -200,7 +200,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					return ctrl.Result{}, nil
 				}
 				r.Logger.Error(err, "Failed to re-fetch OLSConfig CR before finalizer removal")
-				return ctrl.Result{}, err
+				return ctrl.Result{}, fmt.Errorf("failed to re-fetch OLSConfig CR before finalizer removal: %w", err)
 			}
 
 			// Remove finalizer
@@ -214,10 +214,10 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				if apierrors.IsConflict(err) {
 					// Conflict means CR was updated by someone else, controller-runtime will retry
 					r.Logger.V(1).Info("Conflict removing finalizer, will retry")
-					return ctrl.Result{}, err
+					return ctrl.Result{}, fmt.Errorf("conflict removing finalizer: %w", err)
 				}
 				r.Logger.Error(err, "Failed to remove finalizer from OLSConfig CR")
-				return ctrl.Result{}, err
+				return ctrl.Result{}, fmt.Errorf("failed to remove finalizer from OLSConfig CR: %w", err)
 			}
 		}
 		// CR is being deleted and finalizer is removed (or never existed), nothing to do
@@ -230,7 +230,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		controllerutil.AddFinalizer(olsconfig, utils.OLSConfigFinalizer)
 		if err := r.Update(ctx, olsconfig); err != nil {
 			r.Logger.Error(err, "Failed to add finalizer to OLSConfig CR")
-			return ctrl.Result{}, err
+			return ctrl.Result{}, fmt.Errorf("failed to add finalizer to OLSConfig CR: %w", err)
 		}
 		r.Logger.Info("Finalizer added to OLSConfig CR")
 		// Return here to ensure finalizer is persisted before proceeding
@@ -264,7 +264,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		err := reconcileFunc.Fn(ctx)
 		if err != nil {
 			r.Logger.Error(err, fmt.Sprintf("Failed to reconcile %s", reconcileFunc.Name))
-			return ctrl.Result{}, err
+			return ctrl.Result{}, fmt.Errorf("failed to reconcile %s: %w", reconcileFunc.Name, err)
 		}
 	}
 
@@ -277,7 +277,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err := r.annotateExternalResources(ctx, olsconfig); err != nil {
 		// Controller-runtime handles error retries with exponential backoff.
 		r.Logger.Error(err, "Failed to annotate external resources")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed to annotate external resources: %w", err)
 	}
 
 	// Phase 1: Reconcile independent resources for all components
@@ -342,7 +342,8 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		// Update status before returning error
-		if updateErr := r.UpdateStatusCondition(ctx, olsconfig, failureStatus); updateErr != nil {
+		updateErr := r.UpdateStatusCondition(ctx, olsconfig, failureStatus)
+		if updateErr != nil {
 			r.Logger.Error(updateErr, "Failed to update status after resource reconciliation failure")
 		}
 
@@ -350,7 +351,13 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		for taskName := range resourceFailures {
 			taskNames = append(taskNames, taskName)
 		}
-		return ctrl.Result{}, fmt.Errorf("failed to reconcile resources: %v", taskNames)
+
+		reconcileErr := fmt.Errorf("failed to reconcile resources: %v", taskNames)
+		if updateErr != nil {
+			// Combine both errors if status update also failed
+			return ctrl.Result{}, fmt.Errorf("%w (status update also failed: %v)", reconcileErr, updateErr)
+		}
+		return ctrl.Result{}, reconcileErr
 	}
 
 	// Phase 2: Reconcile deployments and their dependent resources
@@ -401,7 +408,8 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	for _, step := range deploymentSteps {
 		err := step.Fn(ctx, olsconfig)
 		if err != nil {
-			r.Logger.Error(err, fmt.Sprintf("Failed to reconcile %s", step.Name))
+			wrappedErr := fmt.Errorf("failed to reconcile %s: %w", step.Name, err)
+			r.Logger.Error(wrappedErr, fmt.Sprintf("Failed to reconcile %s", step.Name))
 			// Add condition to status structure
 			condition := metav1.Condition{
 				Type:               step.ConditionType,
@@ -412,13 +420,14 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				LastTransitionTime: metav1.Now(),
 			}
 			newStatus.Conditions = append(newStatus.Conditions, condition)
-			failedTasks[step.Name] = err
+			failedTasks[step.Name] = wrappedErr
 			newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
 		} else {
 			// Get corresponding deployment
 			deployment := &appsv1.Deployment{}
 			err := r.Get(ctx, client.ObjectKey{Name: step.Deployment, Namespace: r.Options.Namespace}, deployment)
 			if err != nil {
+				wrappedErr := fmt.Errorf("failed to get deployment %s: %w", step.Deployment, err)
 				// Add condition to status structure
 				condition := metav1.Condition{
 					Type:               step.ConditionType,
@@ -429,7 +438,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					LastTransitionTime: metav1.Now(),
 				}
 				newStatus.Conditions = append(newStatus.Conditions, condition)
-				failedTasks[step.Name] = err
+				failedTasks[step.Name] = wrappedErr
 				newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
 			} else {
 				status, diagnostics, err := r.checkDeploymentStatus(ctx, deployment, step.ConditionType)
@@ -463,6 +472,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
 				default:
 					// Deployment failed
+					wrappedErr := fmt.Errorf("deployment %s failed health check: %w", step.Deployment, err)
 					condition := metav1.Condition{
 						Type:               step.ConditionType,
 						Status:             metav1.ConditionFalse,
@@ -472,7 +482,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 						LastTransitionTime: metav1.Now(),
 					}
 					newStatus.Conditions = append(newStatus.Conditions, condition)
-					failedTasks[step.Name] = err
+					failedTasks[step.Name] = wrappedErr
 					newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
 				}
 			}
@@ -482,7 +492,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Update status once, regardless of outcome (with retry on conflict)
 	if updateErr := r.UpdateStatusCondition(ctx, olsconfig, newStatus); updateErr != nil {
 		r.Logger.Error(updateErr, "Failed to update status")
-		return ctrl.Result{}, updateErr
+		return ctrl.Result{}, fmt.Errorf("failed to update OLSConfig status: %w", updateErr)
 	}
 
 	// Determine reconciliation result based on deployment status
@@ -497,7 +507,10 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	} else if newStatus.OverallStatus == olsv1alpha1.OverallStatusReady {
 		r.Logger.Info("reconciliation done", "olsconfig generation", olsconfig.Generation)
 	} else {
-		// Deployments are progressing - keep checking to detect issues early
+		// Deployments are progressing - return error to trigger retry
+		// This allows early detection of issues rather than waiting for deployment watch
+		// Alternative: return ctrl.Result{Requeue: true} to poll without exponential backoff
+		// or ctrl.Result{} to rely solely on deployment watch events
 		r.Logger.Info("reconciliation in progress, waiting for deployments to become ready")
 		reconcileErr = fmt.Errorf("deployments not ready yet, retrying")
 	}

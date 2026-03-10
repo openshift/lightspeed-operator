@@ -399,7 +399,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 							ImagePullPolicy: corev1.PullAlways,
 							Ports:           ports,
 							SecurityContext: restrictedContainerSecurityContext(),
-							VolumeMounts: volumeMounts,
+							VolumeMounts:    volumeMounts,
 							Env: append(utils.GetProxyEnvVars(), corev1.EnvVar{
 								Name:  "OLS_CONFIG_FILE",
 								Value: path.Join(utils.OLSConfigMountRoot, utils.OLSConfigFilename),
@@ -475,7 +475,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Image:           r.GetDataverseExporterImage(),
 			ImagePullPolicy: corev1.PullAlways,
 			SecurityContext: restrictedContainerSecurityContext(),
-			VolumeMounts: volumeMounts,
+			VolumeMounts:    volumeMounts,
 			// running in openshift mode ensures that cluster_id is set
 			// as identity_id
 			Args: []string{
@@ -500,9 +500,9 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Image:           r.GetOpenShiftMCPServerImage(),
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			SecurityContext: restrictedContainerSecurityContext(),
-			VolumeMounts: volumeMounts,
-			Command:      []string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort)},
-			Resources:    *mcp_server_resources,
+			VolumeMounts:    volumeMounts,
+			Command:         []string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort)},
+			Resources:       *mcp_server_resources,
 		}
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, openshiftMCPServerSidecarContainer)
 	}
