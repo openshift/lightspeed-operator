@@ -103,6 +103,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	volumeMounts := []corev1.VolumeMount{}
 
 	// Add external LLM provider secrets - create both volumes and volume mounts in single pass
+	// Note: Callback never returns an error, using ForEach for convenient iteration
 	_ = utils.ForEachExternalSecret(cr, func(name, source string) error {
 		if !strings.HasPrefix(source, "llm-provider-") {
 			// TLS and MCP header secrets are handled separately below
@@ -277,6 +278,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	volumeMounts = append(volumeMounts, openShiftCAVolumeMount, certBundleVolumeMount)
 
 	// User provided CA certificates - create both volumes and volume mounts in single pass
+	// Note: Callback never returns an error, using ForEach for convenient iteration
 	_ = utils.ForEachExternalConfigMap(cr, func(name, source string) error {
 		var volumeName, mountPath string
 		switch source {
@@ -340,6 +342,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	)
 
 	// mount the volumes and add Volume mounts for the MCP server headers
+	// Note: Callback never returns an error, using ForEach for convenient iteration
 	_ = utils.ForEachExternalSecret(cr, func(name, source string) error {
 		if strings.HasPrefix(source, "mcp-") {
 			volumes = append(volumes, corev1.Volume{
@@ -371,8 +374,12 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	mcp_server_resources := getOLSMCPServerResources(cr)
 
 	// Get ResourceVersions for tracking - these resources should already exist
-	// If they don't exist, we'll get empty strings which is fine for initial creation
-	configMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
+	// If they don't exist (NotFound), we'll get empty strings which is fine for initial creation
+	// However, we should not ignore other errors (like API failures)
+	configMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get ConfigMap resource version: %w", err)
+	}
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

@@ -176,7 +176,10 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 	// We want to disable the data collector if the user has explicitly disabled it
 	// or if the data collector is not enabled in the cluster with pull secret
 
-	dataCollectorEnabled, _ := dataCollectorEnabled(r, cr)
+	dataCollectorEnabled, err := dataCollectorEnabled(r, cr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if data collector is enabled: %w", err)
+	}
 
 	// TLS config always uses /etc/certs/lightspeed-tls/ path
 	// regardless of whether it's service-ca generated or user-provided
@@ -436,14 +439,14 @@ func addAdditionalCAFileNames(r reconciler.Reconciler, ctx context.Context, cr *
 	cm := &corev1.ConfigMap{}
 	err := r.Get(ctx, client.ObjectKey{Name: cr.Name, Namespace: r.GetNamespace()}, cm)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get additional CA configmap %s/%s: %v", r.GetNamespace(), cr.Name, err)
+		return nil, fmt.Errorf("failed to get additional CA configmap %s/%s: %w", r.GetNamespace(), cr.Name, err)
 	}
 
 	filenames := []string{}
 	for key, caStr := range cm.Data {
 		err = utils.ValidateCertificateFormat([]byte(caStr))
 		if err != nil {
-			return nil, fmt.Errorf("failed to validate additional CA certificate %s: %v", key, err)
+			return nil, fmt.Errorf("failed to validate additional CA certificate %s: %w", key, err)
 		}
 		filenames = append(filenames, key)
 	}
@@ -461,7 +464,7 @@ func validateCertificateInConfigMap(r reconciler.Reconciler, ctx context.Context
 	cm := &corev1.ConfigMap{}
 	err := r.Get(ctx, client.ObjectKey{Name: cmName, Namespace: r.GetNamespace()}, cm)
 	if err != nil {
-		return fmt.Errorf("failed to get certificate configmap %s/%s: %v", r.GetNamespace(), cmName, err)
+		return fmt.Errorf("failed to get certificate configmap %s/%s: %w", r.GetNamespace(), cmName, err)
 	}
 
 	caStr, ok := cm.Data[fileName]
@@ -471,7 +474,7 @@ func validateCertificateInConfigMap(r reconciler.Reconciler, ctx context.Context
 
 	err = utils.ValidateCertificateFormat([]byte(caStr))
 	if err != nil {
-		return fmt.Errorf("failed to validate certificate %s: %v", fileName, err)
+		return fmt.Errorf("failed to validate certificate %s: %w", fileName, err)
 	}
 	return nil
 }
