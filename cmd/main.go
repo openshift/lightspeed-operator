@@ -117,8 +117,8 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-// overrideImages overides the default images with the images provided by the user
-// if an images is not provided, the default is used.
+// overrideImages overrides the default images with the images provided by the user.
+// If an image is not provided, the default is used.
 func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 string, postgresImage string, openshiftMCPServerImage string, lcoreImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
 	res := defaultImages
 	if serviceImage != "" {
@@ -148,6 +148,7 @@ func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 s
 	return res
 }
 
+// listImages returns a sorted list of all configured images in "key=value" format.
 func listImages() []string {
 	i := 0
 	imgs := make([]string, len(defaultImages))
@@ -258,7 +259,8 @@ func main() {
 		var exists bool
 		metricsClientCA, exists = apiAuthConfigmap.Data[utils.ClientCACertKey]
 		if !exists {
-			setupLog.Error(err, fmt.Sprintf("the key %s is not found in %s/%s configmap.", utils.ClientCACertKey, utils.ClientCACmNamespace, utils.ClientCACmName))
+			keyErr := fmt.Errorf("the key %s is not found in %s/%s configmap", utils.ClientCACertKey, utils.ClientCACmNamespace, utils.ClientCACmName)
+			setupLog.Error(keyErr, "failed to get client CA certificate from configmap")
 			os.Exit(1)
 		}
 
@@ -468,7 +470,7 @@ func main() {
 	}
 }
 
-// get the namespace to watch or use the default namespace
+// GetWatchNamespace returns the namespace to watch or uses the default namespace.
 func getWatchNamespace() string {
 	ns, found := os.LookupEnv("WATCH_NAMESPACE")
 	if !found {
