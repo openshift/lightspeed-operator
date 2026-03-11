@@ -144,6 +144,8 @@ const (
 	ConsoleUIPluginName = "lightspeed-console-plugin"
 	// ConsoleUIPluginDisplayName is the display name of the console UI plugin
 	ConsoleUIPluginDisplayName = "Lightspeed Console"
+	// ConsoleUIServiceAccountName is the name of the service account for the console UI plugin
+	ConsoleUIServiceAccountName = "lightspeed-console-plugin"
 	// ConsoleCRName is the name of the console custom resource
 	ConsoleCRName = "cluster"
 	// ConsoleProxyAlias is the alias of the console proxy

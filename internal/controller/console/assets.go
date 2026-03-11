@@ -200,3 +200,17 @@ func GenerateConsoleUINetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 	return &np, nil
 
 }
+
+func GenerateConsoleUIServiceAccount(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ServiceAccount, error) {
+	sa := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.ConsoleUIServiceAccountName,
+			Namespace: r.GetNamespace(),
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &sa, r.GetScheme()); err != nil {
+		return nil, err
+	}
+	return &sa, nil
+}

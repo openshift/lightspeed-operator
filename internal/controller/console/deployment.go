@@ -118,6 +118,7 @@ func GenerateConsoleUIDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSCon
 							Type: "RuntimeDefault",
 						},
 					},
+					ServiceAccountName: utils.ConsoleUIServiceAccountName,
 				},
 			},
 		},
