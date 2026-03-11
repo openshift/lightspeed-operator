@@ -157,5 +157,12 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should create a postgres service account", func() {
+			By("Get the postgres service account")
+			serviceAccount := &corev1.ServiceAccount{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.PostgreServiceAccountName, Namespace: utils.OLSNamespaceDefault}, serviceAccount)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 	})
 })

@@ -28,6 +28,7 @@ var _ = Describe("App postgres server assets", func() {
 		volumeDefaultMode := utils.VolumeDefaultMode
 		Expect(dep.Name).To(Equal(utils.PostgresDeploymentName))
 		Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
+		Expect(dep.Spec.Template.Spec.ServiceAccountName).To(Equal(utils.PostgreServiceAccountName))
 		Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.PostgresServerImageDefault))
 		Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.PostgresContainerName))
 		Expect(dep.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
@@ -244,6 +245,11 @@ var _ = Describe("App postgres server assets", func() {
 		Expect(networkPolicy.Spec.PodSelector.MatchLabels).To(Equal(utils.GeneratePostgresSelectorLabels()))
 	}
 
+	validatePostgresServiceAccount := func(serviceAccount *corev1.ServiceAccount) {
+		Expect(serviceAccount.Name).To(Equal(utils.PostgreServiceAccountName))
+		Expect(serviceAccount.Namespace).To(Equal(utils.OLSNamespaceDefault))
+	}
+
 	createAndValidatePostgresDeployment := func(with_pvc bool) {
 		if with_pvc {
 			testCr.Spec.OLSConfig.Storage = &olsv1alpha1.Storage{}
@@ -440,6 +446,12 @@ var _ = Describe("App postgres server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			validatePostgresNetworkPolicy(networkPolicy)
 		})
+
+		It("should generate the OLS postgres service account", func() {
+			serviceAccount, err := GeneratePostgresServiceAccount(testReconcilerInstance, testCr)
+			Expect(err).NotTo(HaveOccurred())
+			validatePostgresServiceAccount(serviceAccount)
+		})
 	})
 
 	Context("empty custom resource", func() {
@@ -493,6 +505,12 @@ var _ = Describe("App postgres server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Name).To(Equal(utils.PostgresSecretName))
 			validatePostgresSecret(secret)
+		})
+
+		It("should generate the OLS postgres service account", func() {
+			serviceAccount, err := GeneratePostgresServiceAccount(testReconcilerInstance, testCr)
+			Expect(err).NotTo(HaveOccurred())
+			validatePostgresServiceAccount(serviceAccount)
 		})
 	})
 

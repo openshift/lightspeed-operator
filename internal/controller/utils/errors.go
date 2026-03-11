@@ -26,6 +26,7 @@ const (
 	ErrCreatePostgresPVC                  = "failed to create OLS Postgres PVC"
 	ErrCreatePostgresDeployment           = "failed to create OLS Postgres deployment"
 	ErrCreatePostgresNetworkPolicy        = "failed to create OLS Postgres network policy"
+	ErrCreatePostgresServiceAccount       = "failed to create OLS Postgres service account"
 	ErrDeleteConsolePlugin                = "failed to delete Console Plugin"
 	ErrDeleteAdditionalCACM               = "failed to delete additional CA configmap"
 	ErrGenerateAdditionalCACM             = "failed to generate additional CA configmap"
@@ -54,6 +55,7 @@ const (
 	ErrGeneratePostgresService            = "failed to generate OLS Postgres service"
 	ErrGeneratePostgresDeployment         = "failed to generate OLS Postgres deployment"
 	ErrGeneratePostgresNetworkPolicy      = "failed to generate OLS Postgres network policy"
+	ErrGeneratePostgresServiceAccount     = "failed to generate OLS Postgres service account"
 	ErrGetAPIConfigmap                    = "failed to get OLS configmap"
 	ErrGetAPIDeployment                   = "failed to get OLS deployment"
 	ErrGetAPIService                      = "failed to get OLS service"
@@ -68,6 +70,7 @@ const (
 	ErrGetLLMSecret                       = "failed to get LLM provider secret" // #nosec G101
 	ErrGetOperatorNetworkPolicy           = "failed to get operator network policy"
 	ErrGetPostgresNetworkPolicy           = "failed to get OLS Postgres network policy"
+	ErrGetPostgresServiceAccount          = "failed to get OLS Postgres service account"
 	ErrGetTLSSecret                       = "failed to get TLS secret" // #nosec G101
 	ErrGetSARClusterRole                  = "failed to get SAR cluster role"
 	ErrGetSARClusterRoleBinding           = "failed to get SAR cluster role binding"
@@ -88,6 +91,7 @@ const (
 	ErrUpdateCRStatusCondition            = "failed to update OLSConfig CR status condition"
 	ErrUpdateOperatorNetworkPolicy        = "failed to update operator network policy"
 	ErrUpdatePostgresNetworkPolicy        = "failed to update OLS Postgres network policy"
+	ErrUpdatePostgresServiceAccount       = "failed to update OLS Postgres service account"
 	ErrUpdateServiceMonitor               = "failed to update ServiceMonitor"
 	ErrUpdateMetricsReaderSecret          = "failed to update metrics reader secret"
 	ErrUpdatePrometheusRule               = "failed to update PrometheusRule"

@@ -54,6 +54,10 @@ func ReconcilePostgresResources(r reconciler.Reconciler, ctx context.Context, ol
 			Name: "generate Postgres Network Policy",
 			Task: reconcilePostgresNetworkPolicy,
 		},
+		{
+			Name: "reconcile Postgres Service Account",
+			Task: reconcilePostgresServiceAccount,
+		},
 	}
 
 	failedTasks := make(map[string]error)
@@ -308,6 +312,26 @@ func reconcilePostgresNetworkPolicy(r reconciler.Reconciler, ctx context.Context
 		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresNetworkPolicy, err)
 	}
 	r.GetLogger().Info("OLS postgres network policy reconciled", "network policy", networkPolicy.Name)
+	return nil
+}
+
+func reconcilePostgresServiceAccount(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	serviceAccount, err := GeneratePostgresServiceAccount(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGeneratePostgresServiceAccount, err)
+	}
+	foundServiceAccount := &corev1.ServiceAccount{}
+	err = r.Get(ctx, client.ObjectKey{Name: utils.PostgreServiceAccountName, Namespace: r.GetNamespace()}, foundServiceAccount)
+	if err != nil && errors.IsNotFound(err) {
+		err = r.Create(ctx, serviceAccount)
+		if err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrCreatePostgresServiceAccount, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGetPostgresServiceAccount, err)
+	}
+	r.GetLogger().Info("OLS postgres service account reconciled", "service account", serviceAccount.Name)
 	return nil
 }
 

@@ -246,7 +246,8 @@ func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec, compareInitContainers bool
 		!apiequality.Semantic.DeepEqual(a.Template.Spec.Tolerations, b.Template.Spec.Tolerations) || // check toleration
 		!apiequality.Semantic.DeepEqual(a.Strategy, b.Strategy) || // check strategy
 		!PodVolumeEqual(a.Template.Spec.Volumes, b.Template.Spec.Volumes) || // check volumes
-		*a.Replicas != *b.Replicas { // check replicas
+		*a.Replicas != *b.Replicas || // check replicas
+		a.Template.Spec.ServiceAccountName != b.Template.Spec.ServiceAccountName { // check service account name
 		return false
 	}
 

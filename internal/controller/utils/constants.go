@@ -265,6 +265,9 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	// PostgresDefaultPVCSize is the default size of the PVC for the OLS Postgres server
 	PostgresDefaultPVCSize = "1Gi"
 
+	// PostgreServiceAccountName is the name of the service account for the OLS Postgres server
+	PostgreServiceAccountName = "lightspeed-postgres-server"
+
 	// TmpVolume is the data volume name for the /tmp writable mount
 	TmpVolumeName = "tmp-writable-volume"
 	// TmpVolumeMountPath is the path of the /tmp writable mount
