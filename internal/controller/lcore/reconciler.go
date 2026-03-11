@@ -278,7 +278,7 @@ func reconcileLcoreConfigMap(r reconciler.Reconciler, ctx context.Context, cr *o
 
 func reconcileExporterConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	// Check if data collector is enabled
-	enabled, err := dataCollectorEnabled(r, cr)
+	enabled, err := dataCollectorEnabled(r, ctx, cr)
 	if err != nil {
 		return fmt.Errorf("failed to check if data collector is enabled: %w", err)
 	}
@@ -363,10 +363,6 @@ func reconcileProxyCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr 
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetProxyCACM, err)
 	}
-	err = r.Update(ctx, cm)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdateProxyCACM, err)
-	}
 
 	r.GetLogger().Info("proxy CA configmap reconciled", "configmap", cm.Name)
 	return nil
@@ -404,7 +400,11 @@ func reconcileService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alp
 		}
 	}
 
-	err = r.Update(ctx, service)
+	// Update the existing Service with desired spec
+	foundService.Spec = service.Spec
+	foundService.Annotations = service.Annotations
+	foundService.Labels = service.Labels
+	err = r.Update(ctx, foundService)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAPIService, err)
 	}
@@ -414,7 +414,7 @@ func reconcileService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alp
 }
 
 func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	desiredDeployment, err := GenerateLCoreDeployment(r, cr)
+	desiredDeployment, err := GenerateLCoreDeployment(r, ctx, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateAPIDeployment, err)
 	}
@@ -460,6 +460,9 @@ func reconcileMetricsReaderSecret(r reconciler.Reconciler, ctx context.Context, 
 
 	if foundSecret.Type != secret.Type || foundSecret.Annotations["kubernetes.io/service-account.name"] != utils.MetricsReaderServiceAccountName {
 		foundSecret.Type = secret.Type
+		if foundSecret.Annotations == nil {
+			foundSecret.Annotations = make(map[string]string)
+		}
 		foundSecret.Annotations["kubernetes.io/service-account.name"] = utils.MetricsReaderServiceAccountName
 		err = r.Update(ctx, foundSecret)
 		if err != nil {
@@ -560,10 +563,6 @@ func reconcileTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 		return fmt.Errorf("%s -%s - wait err %w; last error: %w", utils.ErrGetTLSSecret, utils.OLSCertsSecretName, err, lastErr)
 	}
 
-	err = r.Update(ctx, foundSecret)
-	if err != nil {
-		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
-	}
 	r.GetLogger().Info("LCore TLS secret reconciled", "secret", secretName)
 	return nil
 }
