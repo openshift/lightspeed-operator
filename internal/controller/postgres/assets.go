@@ -153,13 +153,12 @@ func GeneratePostgresNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 	return &np, nil
 }
 
-func storageDefaults(r reconciler.Reconciler, s *olsv1alpha1.Storage) error {
+func storageDefaults(r reconciler.Reconciler, ctx context.Context, s *olsv1alpha1.Storage) error {
 	if s.Size.IsZero() {
 		s.Size = resource.MustParse(utils.PostgresDefaultPVCSize)
 	}
 	if s.Class == "" {
 		var scList storagev1.StorageClassList
-		ctx := context.Background()
 		if err := r.List(ctx, &scList); err == nil {
 			for _, sc := range scList.Items {
 				if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
@@ -174,10 +173,10 @@ func storageDefaults(r reconciler.Reconciler, s *olsv1alpha1.Storage) error {
 	return nil
 }
 
-func GeneratePostgresPVC(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.PersistentVolumeClaim, error) {
+func GeneratePostgresPVC(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.PersistentVolumeClaim, error) {
 
 	storage := cr.Spec.OLSConfig.Storage
-	if err := storageDefaults(r, storage); err != nil {
+	if err := storageDefaults(r, ctx, storage); err != nil {
 		return nil, err
 	}
 

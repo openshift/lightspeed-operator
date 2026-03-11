@@ -47,6 +47,7 @@ var _ = Describe("BYOK_auth", Ordered, Label("BYOK_auth"), func() {
 				return nil
 			},
 		)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterAll(func() {
