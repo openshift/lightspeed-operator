@@ -685,21 +685,20 @@ func buildLightspeedStackContainer(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 // ============================================================================
 
 // GenerateLCoreDeployment generates the Deployment for LCore based on the server mode
-func GenerateLCoreDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
+func GenerateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	if r.GetLCoreServerMode() {
-		return generateLCoreServerDeployment(r, cr)
+		return generateLCoreServerDeployment(r, ctx, cr)
 	}
-	return generateLCoreLibraryDeployment(r, cr)
+	return generateLCoreLibraryDeployment(r, ctx, cr)
 }
 
 // generateLCoreServerDeployment generates the Deployment for LCore in server mode (llama-stack + lightspeed-stack)
-func generateLCoreServerDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
-	ctx := context.Background()
+func generateLCoreServerDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := utils.VolumeDefaultMode
 
 	// Check if data collector is enabled
-	dataCollectorEnabled, err := dataCollectorEnabled(r, cr)
+	dataCollectorEnabled, err := dataCollectorEnabled(r, ctx, cr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check data collector status: %w", err)
 	}
@@ -1043,13 +1042,12 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existin
 }
 
 // generateLCoreLibraryDeployment generates the Deployment for LCore in library mode (single container)
-func generateLCoreLibraryDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
-	ctx := context.Background()
+func generateLCoreLibraryDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	revisionHistoryLimit := int32(1)
 	volumeDefaultMode := utils.VolumeDefaultMode
 
 	// Check if data collector is enabled
-	dataCollectorEnabled, err := dataCollectorEnabled(r, cr)
+	dataCollectorEnabled, err := dataCollectorEnabled(r, ctx, cr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check data collector status: %w", err)
 	}
@@ -1175,7 +1173,7 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 	return &deployment, nil
 }
 
-func dataCollectorEnabled(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (bool, error) {
+func dataCollectorEnabled(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (bool, error) {
 	// Data collector is enabled when:
 	// 1. User data collection is enabled in OLS configuration (feedback OR transcripts)
 	// 2. AND telemetry is enabled (pull secret contains cloud.openshift.com auth)
@@ -1192,7 +1190,7 @@ func dataCollectorEnabled(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (b
 	// use this command to check in an Openshift cluster:
 	// oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' | jq '.auths."cloud.openshift.com"'
 	pullSecret := &corev1.Secret{}
-	err := r.Get(context.Background(), client.ObjectKey{Namespace: utils.TelemetryPullSecretNamespace, Name: utils.TelemetryPullSecretName}, pullSecret)
+	err := r.Get(ctx, client.ObjectKey{Namespace: utils.TelemetryPullSecretNamespace, Name: utils.TelemetryPullSecretName}, pullSecret)
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
