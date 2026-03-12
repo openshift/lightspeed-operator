@@ -42,7 +42,7 @@ var _ = Describe("Secret Functions", func() {
 			foundSecret := &corev1.Secret{}
 			fields := []string{"username", "password"}
 
-			result, err := GetSecretContent(testClient, "test-secret-utils", OLSNamespaceDefault, fields, foundSecret)
+			result, err := GetSecretContent(testClient, ctx, "test-secret-utils", OLSNamespaceDefault, fields, foundSecret)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(HaveLen(2))
@@ -54,7 +54,7 @@ var _ = Describe("Secret Functions", func() {
 			foundSecret := &corev1.Secret{}
 			fields := []string{"username"}
 
-			_, err := GetSecretContent(testClient, "non-existent", OLSNamespaceDefault, fields, foundSecret)
+			_, err := GetSecretContent(testClient, ctx, "non-existent", OLSNamespaceDefault, fields, foundSecret)
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("secret not found"))
@@ -64,7 +64,7 @@ var _ = Describe("Secret Functions", func() {
 			foundSecret := &corev1.Secret{}
 			fields := []string{"missing-field"}
 
-			_, err := GetSecretContent(testClient, "test-secret-utils", OLSNamespaceDefault, fields, foundSecret)
+			_, err := GetSecretContent(testClient, ctx, "test-secret-utils", OLSNamespaceDefault, fields, foundSecret)
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("not present in the secret"))
@@ -74,7 +74,7 @@ var _ = Describe("Secret Functions", func() {
 			foundSecret := &corev1.Secret{}
 			fields := []string{}
 
-			result, err := GetSecretContent(testClient, "test-secret-utils", OLSNamespaceDefault, fields, foundSecret)
+			result, err := GetSecretContent(testClient, ctx, "test-secret-utils", OLSNamespaceDefault, fields, foundSecret)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeEmpty())
@@ -85,7 +85,7 @@ var _ = Describe("Secret Functions", func() {
 		It("should retrieve all fields from secret", func() {
 			foundSecret := &corev1.Secret{}
 
-			result, err := GetAllSecretContent(testClient, "test-secret-utils", OLSNamespaceDefault, foundSecret)
+			result, err := GetAllSecretContent(testClient, ctx, "test-secret-utils", OLSNamespaceDefault, foundSecret)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(HaveLen(3))
@@ -97,7 +97,7 @@ var _ = Describe("Secret Functions", func() {
 		It("should return error for non-existent secret", func() {
 			foundSecret := &corev1.Secret{}
 
-			_, err := GetAllSecretContent(testClient, "non-existent", OLSNamespaceDefault, foundSecret)
+			_, err := GetAllSecretContent(testClient, ctx, "non-existent", OLSNamespaceDefault, foundSecret)
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("secret not found"))
@@ -115,7 +115,7 @@ var _ = Describe("Secret Functions", func() {
 			defer testClient.Delete(ctx, emptySecret)
 
 			foundSecret := &corev1.Secret{}
-			result, err := GetAllSecretContent(testClient, "empty-secret", OLSNamespaceDefault, foundSecret)
+			result, err := GetAllSecretContent(testClient, ctx, "empty-secret", OLSNamespaceDefault, foundSecret)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeEmpty())

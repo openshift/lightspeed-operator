@@ -1,6 +1,7 @@
 package console
 
 import (
+	"context"
 	"fmt"
 
 	consolev1 "github.com/openshift/api/console/v1"
@@ -95,7 +96,7 @@ func GenerateConsoleUIService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig
 	return &service, nil
 }
 
-func GenerateConsoleUIPlugin(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*consolev1.ConsolePlugin, error) {
+func GenerateConsoleUIPlugin(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*consolev1.ConsolePlugin, error) {
 	plugin := &consolev1.ConsolePlugin{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   utils.ConsoleUIPluginName,
@@ -135,7 +136,7 @@ func GenerateConsoleUIPlugin(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig)
 	// Conditionally add the CA certificate if user provides custom TLS
 	// If TLSConfig.KeyCertSecretRef is set, try to fetch the CA cert from that Secret
 	if cr.Spec.OLSConfig.TLSConfig != nil && cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name != "" {
-		caCert, err := utils.GetCAFromSecret(r, r.GetNamespace(), cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name)
+		caCert, err := utils.GetCAFromSecret(r, ctx, r.GetNamespace(), cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get CA certificate from Secret %s: %w", cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name, err)
 		}

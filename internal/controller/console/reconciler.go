@@ -225,7 +225,7 @@ func ReconcileConsoleUIDeployment(r reconciler.Reconciler, ctx context.Context, 
 }
 
 func reconcileConsoleUIPlugin(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	plugin, err := GenerateConsoleUIPlugin(r, cr)
+	plugin, err := GenerateConsoleUIPlugin(r, ctx, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateConsolePlugin, err)
 	}
@@ -363,7 +363,7 @@ func reconcileConsoleTLSSecret(r reconciler.Reconciler, ctx context.Context, _ *
 	foundSecret := &corev1.Secret{}
 	var err, lastErr error
 	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, utils.ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err = utils.GetSecretContent(r, utils.ConsoleUIServiceCertSecretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
+		_, err = utils.GetSecretContent(r, ctx, utils.ConsoleUIServiceCertSecretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
 		if err != nil {
 			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", utils.ConsoleUIServiceCertSecretName, err)
 			return false, nil

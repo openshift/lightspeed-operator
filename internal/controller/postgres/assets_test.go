@@ -259,7 +259,7 @@ var _ = Describe("App postgres server assets", func() {
 		})
 		secretCreationErr := testReconcilerInstance.Create(ctx, secret)
 		Expect(secretCreationErr).NotTo(HaveOccurred())
-		passwordMap, _ := utils.GetSecretContent(testReconcilerInstance, secret.Name, testCr.Namespace, []string{utils.OLSComponentPasswordFileName}, secret)
+		passwordMap, _ := utils.GetSecretContent(testReconcilerInstance, ctx, secret.Name, testCr.Namespace, []string{utils.OLSComponentPasswordFileName}, secret)
 		password := passwordMap[utils.OLSComponentPasswordFileName]
 		deployment, err := GeneratePostgresDeployment(testReconcilerInstance, ctx, testCr)
 		Expect(err).NotTo(HaveOccurred())
@@ -461,7 +461,7 @@ var _ = Describe("App postgres server assets", func() {
 			})
 			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
-			passwordMap, _ := utils.GetSecretContent(testReconcilerInstance, secret.Name, testCr.Namespace, []string{utils.OLSComponentPasswordFileName}, secret)
+			passwordMap, _ := utils.GetSecretContent(testReconcilerInstance, ctx, secret.Name, testCr.Namespace, []string{utils.OLSComponentPasswordFileName}, secret)
 			password := passwordMap[utils.OLSComponentPasswordFileName]
 			deployment, err := GeneratePostgresDeployment(testReconcilerInstance, ctx, testCr)
 			Expect(err).NotTo(HaveOccurred())
