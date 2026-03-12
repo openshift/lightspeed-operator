@@ -552,7 +552,7 @@ func reconcileTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 	}
 	err := wait.PollUntilContextTimeout(ctx, 1*time.Second, utils.ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
 		var getErr error
-		_, getErr = utils.GetSecretContent(r, secretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
+		_, getErr = utils.GetSecretContent(r, ctx, secretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
 		if getErr != nil {
 			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", secretName, getErr)
 			return false, nil

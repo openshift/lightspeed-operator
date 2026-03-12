@@ -154,8 +154,7 @@ func ApplyPodDeploymentConfig(deployment *appsv1.Deployment, config olsv1alpha1.
 	}
 }
 
-func GetSecretContent(rclient client.Client, secretName string, namespace string, secretFields []string, foundSecret *corev1.Secret) (map[string]string, error) {
-	ctx := context.Background()
+func GetSecretContent(rclient client.Client, ctx context.Context, secretName string, namespace string, secretFields []string, foundSecret *corev1.Secret) (map[string]string, error) {
 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
 	if err != nil {
 		return nil, fmt.Errorf("secret not found: %s. error: %w", secretName, err)
@@ -172,8 +171,7 @@ func GetSecretContent(rclient client.Client, secretName string, namespace string
 	return secretValues, nil
 }
 
-func GetAllSecretContent(rclient client.Client, secretName string, namespace string, foundSecret *corev1.Secret) (map[string]string, error) {
-	ctx := context.Background()
+func GetAllSecretContent(rclient client.Client, ctx context.Context, secretName string, namespace string, foundSecret *corev1.Secret) (map[string]string, error) {
 	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
 	if err != nil {
 		return nil, fmt.Errorf("secret not found: %s. error: %w", secretName, err)
@@ -547,8 +545,7 @@ func GetPostgresCAVolumeMount(mountPath string) corev1.VolumeMount {
 
 // GetCAFromConfigMap retrieves CA certificate content from a ConfigMap.
 // It accepts any key name in the ConfigMap and returns the first value found.
-func GetCAFromConfigMap(rclient client.Client, namespace, configMapName string) (string, error) {
-	ctx := context.Background()
+func GetCAFromConfigMap(rclient client.Client, ctx context.Context, namespace, configMapName string) (string, error) {
 	configMap := &corev1.ConfigMap{}
 	err := rclient.Get(ctx, client.ObjectKey{
 		Name:      configMapName,
@@ -572,8 +569,7 @@ func GetCAFromConfigMap(rclient client.Client, namespace, configMapName string) 
 // GetCAFromSecret retrieves CA certificate content from a Secret.
 // It looks for the "ca.crt" key in the Secret's Data field.
 // Returns empty string if the key doesn't exist (not an error - CA is optional).
-func GetCAFromSecret(rclient client.Client, namespace, secretName string) (string, error) {
-	ctx := context.Background()
+func GetCAFromSecret(rclient client.Client, ctx context.Context, namespace, secretName string) (string, error) {
 	secret := &corev1.Secret{}
 	err := rclient.Get(ctx, client.ObjectKey{
 		Name:      secretName,
