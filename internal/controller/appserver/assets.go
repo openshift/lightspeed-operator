@@ -25,18 +25,7 @@ import (
 )
 
 func GenerateServiceAccount(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ServiceAccount, error) {
-	sa := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.OLSAppServerServiceAccountName,
-			Namespace: r.GetNamespace(),
-		},
-	}
-
-	if err := controllerutil.SetControllerReference(cr, &sa, r.GetScheme()); err != nil {
-		return nil, err
-	}
-
-	return &sa, nil
+	return utils.GenerateServiceAccount(r, cr, utils.OLSAppServerServiceAccountName)
 }
 
 func GenerateSARClusterRole(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRole, error) {
