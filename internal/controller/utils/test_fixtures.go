@@ -255,7 +255,7 @@ func GenerateRandomSecret() (*corev1.Secret, error) {
 			Namespace: OLSNamespaceDefault,
 		},
 		Data: map[string][]byte{
-			"apitoken": []byte(token),
+			DefaultCredentialKey: []byte(token),
 		},
 	}
 

@@ -81,7 +81,9 @@ spec:
           - description: The name of the secret object that stores API provider credentials
             displayName: Credential Secret
             path: llm.providers[0].credentialsSecretRef
-          - description: 'Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default. possible values: MCPServer, ToolFiltering'
+          - description: |-
+              Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
+              possible values: MCPServer, ToolFiltering
             displayName: Feature Gates
             path: featureGates
           - displayName: LLM Settings
@@ -91,6 +93,19 @@ spec:
           - description: API Version for Azure OpenAI provider
             displayName: Azure OpenAI API Version
             path: llm.providers[0].apiVersion
+          - description: |-
+              Arbitrary configuration for the provider (Llama Stack Generic mode only)
+              This map is passed directly to Llama Stack provider configuration.
+              Credentials are automatically injected as environment variable substitutions.
+              Example: {"url": "https://...", "custom_field": "value"}
+            displayName: Llama Stack Provider Config
+            path: llm.providers[0].config
+          - description: |-
+              Secret key name for provider credentials (defaults to "apitoken" if not set)
+              Specifies which key in credentialsSecretRef contains the API token.
+              The operator creates an environment variable named {PROVIDER_NAME}_API_KEY.
+            displayName: Credential Key Name
+            path: llm.providers[0].credentialKey
           - description: Azure OpenAI deployment name
             displayName: Azure OpenAI deployment name
             path: llm.providers[0].deploymentName
@@ -118,6 +133,12 @@ spec:
           - description: Watsonx Project ID
             displayName: Watsonx Project ID
             path: llm.providers[0].projectID
+          - description: |-
+              Llama Stack Generic provider type for provider configuration (e.g., "remote::openai", "inline::sentence-transformers")
+              When set, this provider uses Llama Stack Generic mode instead of legacy mode.
+              Must follow pattern: (inline|remote)::<provider-name>
+            displayName: Llama Stack Provider Type
+            path: llm.providers[0].providerType
           - description: TLS Security Profile used by connection to provider
             displayName: TLS Security Profile
             path: llm.providers[0].tlsSecurityProfile

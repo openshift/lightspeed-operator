@@ -118,6 +118,10 @@ const (
 	// Annotation key for serving certificate secret name
 	// #nosec G101
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
+	// LlamaStackGenericType is the provider type for Llama Stack Generic mode
+	LlamaStackGenericType = "llamaStackGeneric"
+	// DefaultCredentialKey is the default secret key name for provider credentials
+	DefaultCredentialKey = "apitoken"
 	// AzureOpenAIType is the name of the Azure OpenAI provider type
 	AzureOpenAIType = "azure_openai"
 	// FakeProviderType is the name of the fake provider type used for testing

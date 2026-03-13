@@ -188,8 +188,40 @@ func buildLlamaStackEnvVars(r reconciler.Reconciler, ctx context.Context, cr *ol
 			}
 		}
 
-		// For Azure providers, read the secret to support both authentication methods
-		if provider != nil && provider.Type == "azure_openai" {
+		// Handle credential environment variables based on provider configuration
+		if provider != nil && provider.ProviderType != "" {
+			// Generic provider configuration: use credentialKey field
+			credentialKey := provider.CredentialKey
+			if credentialKey == "" {
+				credentialKey = utils.DefaultCredentialKey
+			}
+
+			// Read the secret to check for multiple credential keys
+			secret := &corev1.Secret{}
+			err := r.Get(ctx, client.ObjectKey{
+				Name:      name,
+				Namespace: r.GetNamespace(),
+			}, secret)
+			if err != nil {
+				return fmt.Errorf("failed to get secret %s: %w", name, err)
+			}
+
+			// Create env var for the primary credential
+			if _, ok := secret.Data[credentialKey]; !ok {
+				return fmt.Errorf("secret %s missing credential key '%s' for provider '%s'", name, credentialKey, providerName)
+			}
+			envVars = append(envVars, corev1.EnvVar{
+				Name: envVarBase + "_API_KEY",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: name},
+						Key:                  credentialKey,
+					},
+				},
+			})
+
+		} else if provider != nil && provider.Type == "azure_openai" {
+			// Azure OpenAI provider: read secret to support both authentication methods
 			secret := &corev1.Secret{}
 			err := r.Get(ctx, client.ObjectKey{
 				Name:      name,
@@ -202,10 +234,10 @@ func buildLlamaStackEnvVars(r reconciler.Reconciler, ctx context.Context, cr *ol
 			// Create environment variables for each key in the secret
 			// Azure supports both API key (apitoken) and client credentials (client_id, tenant_id, client_secret)
 			keyToEnvSuffix := map[string]string{
-				"apitoken":      "_API_KEY",
-				"client_id":     "_CLIENT_ID",
-				"tenant_id":     "_TENANT_ID",
-				"client_secret": "_CLIENT_SECRET",
+				utils.DefaultCredentialKey: "_API_KEY",
+				"client_id":                "_CLIENT_ID",
+				"tenant_id":                "_TENANT_ID",
+				"client_secret":            "_CLIENT_SECRET",
 			}
 
 			for key := range secret.Data {
@@ -240,13 +272,13 @@ func buildLlamaStackEnvVars(r reconciler.Reconciler, ctx context.Context, cr *ol
 				})
 			}
 		} else {
-			// For non-Azure providers, always use API key
+			// Standard providers: use API key from default credential key
 			envVars = append(envVars, corev1.EnvVar{
 				Name: envVarBase + "_API_KEY",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{Name: name},
-						Key:                  "apitoken",
+						Key:                  utils.DefaultCredentialKey,
 					},
 				},
 			})
@@ -549,7 +581,7 @@ func addMCPHeaderSecretVolumesAndMounts(r reconciler.Reconciler, ctx context.Con
 	}
 
 	// Mount MCP header secrets using the same pattern as appserver
-	_ = utils.ForEachExternalSecret(cr, func(name, source string) error {
+	err := utils.ForEachExternalSecret(cr, func(name, source string) error {
 		if strings.HasPrefix(source, "mcp-") {
 			// Validate secret exists and has correct structure
 			serverName := strings.TrimPrefix(source, "mcp-")
@@ -576,7 +608,7 @@ func addMCPHeaderSecretVolumesAndMounts(r reconciler.Reconciler, ctx context.Con
 		return nil
 	})
 
-	return nil
+	return err
 }
 
 // addDataCollectorVolumesAndMounts adds volumes and mounts needed for data collection (feedback/transcripts)
