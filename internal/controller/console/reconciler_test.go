@@ -113,6 +113,13 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should create a service account lightspeed-console-plugin", func() {
+			By("Get the service account")
+			sa := &corev1.ServiceAccount{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIServiceAccountName, Namespace: utils.OLSNamespaceDefault}, sa)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("should activate the console plugin", func() {
 			By("Get the console plugin")
 			console := &openshiftv1.Console{}

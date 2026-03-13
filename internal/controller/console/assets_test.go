@@ -69,6 +69,7 @@ var _ = Describe("Console UI assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Tolerations).To(BeNil())
 			Expect(dep.Spec.Template.Spec.NodeSelector).To(BeNil())
+			Expect(dep.Spec.Template.Spec.ServiceAccountName).To(Equal(utils.ConsoleUIServiceAccountName))
 			// Console always runs 1 replica (not configurable)
 			Expect(*dep.Spec.Replicas).To(Equal(int32(1)))
 		})
@@ -125,6 +126,13 @@ var _ = Describe("Console UI assets", func() {
 			}))
 			Expect(np.Spec.PodSelector.MatchLabels).To(Equal(labels))
 
+		})
+
+		It("should generate the console UI service account", func() {
+			sa, err := GenerateConsoleUIServiceAccount(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(sa.Name).To(Equal(utils.ConsoleUIServiceAccountName))
+			Expect(sa.Namespace).To(Equal(utils.OLSNamespaceDefault))
 		})
 	})
 })

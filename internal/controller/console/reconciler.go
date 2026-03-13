@@ -52,6 +52,10 @@ func ReconcileConsoleUIResources(r reconciler.Reconciler, ctx context.Context, o
 			Name: "reconcile Console Plugin NetworkPolicy",
 			Task: reconcileConsoleNetworkPolicy,
 		},
+		{
+			Name: "reconcile Console Plugin Service Account",
+			Task: reconcileConsoleUIServiceAccount,
+		},
 	}
 
 	failedTasks := make(map[string]error)
@@ -414,6 +418,26 @@ func reconcileConsoleNetworkPolicy(r reconciler.Reconciler, ctx context.Context,
 	r.GetLogger().Info("Console NetworkPolicy reconciled", "networkpolicy", utils.ConsoleUINetworkPolicyName)
 	return nil
 
+}
+
+func reconcileConsoleUIServiceAccount(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	sa, err := GenerateConsoleUIServiceAccount(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGenerateConsolePluginServiceAccount, err)
+	}
+	foundSa := &corev1.ServiceAccount{}
+	err = r.Get(ctx, client.ObjectKey{Name: utils.ConsoleUIServiceAccountName, Namespace: r.GetNamespace()}, foundSa)
+	if err != nil && errors.IsNotFound(err) {
+		err = r.Create(ctx, sa)
+		if err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrCreateConsolePluginServiceAccount, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGetConsolePluginServiceAccount, err)
+	}
+
+	return nil
 }
 
 // RestartConsoleUI triggers a rolling restart of the Console UI deployment by updating its pod template annotation.

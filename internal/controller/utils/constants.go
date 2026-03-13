@@ -144,6 +144,8 @@ const (
 	ConsoleUIPluginName = "lightspeed-console-plugin"
 	// ConsoleUIPluginDisplayName is the display name of the console UI plugin
 	ConsoleUIPluginDisplayName = "Lightspeed Console"
+	// ConsoleUIServiceAccountName is the name of the service account for the console UI plugin
+	ConsoleUIServiceAccountName = "lightspeed-console-plugin"
 	// ConsoleCRName is the name of the console custom resource
 	ConsoleCRName = "cluster"
 	// ConsoleProxyAlias is the alias of the console proxy
@@ -264,6 +266,9 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 
 	// PostgresDefaultPVCSize is the default size of the PVC for the OLS Postgres server
 	PostgresDefaultPVCSize = "1Gi"
+
+	// PostgreServiceAccountName is the name of the service account for the OLS Postgres server
+	PostgreServiceAccountName = "lightspeed-postgres-server"
 
 	// TmpVolume is the data volume name for the /tmp writable mount
 	TmpVolumeName = "tmp-writable-volume"

@@ -338,6 +338,30 @@ var _ = Describe("Utility Functions", func() {
 		})
 	})
 
+	Describe("GenerateServiceAccount", func() {
+		var testReconciler *TestReconciler
+		var testCr *olsv1alpha1.OLSConfig
+
+		BeforeEach(func() {
+			testReconciler = NewTestReconciler(
+				k8sClient,
+				logf.Log.WithName("test"),
+				k8sClient.Scheme(),
+				OLSNamespaceDefault,
+			)
+			testCr = GetDefaultOLSConfigCR()
+		})
+		It("should generate a service account", func() {
+			sa, err := GenerateServiceAccount(testReconciler, testCr, "test-service-account")
+			Expect(sa.Name).To(Equal("test-service-account"))
+			Expect(sa.Namespace).To(Equal(testReconciler.GetNamespace()))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(sa.OwnerReferences).NotTo(BeNil())
+			Expect(sa.OwnerReferences[0].Kind).To(Equal("OLSConfig"))
+			Expect(sa.OwnerReferences[0].Name).To(Equal(testCr.Name))
+		})
+	})
+
 	Describe("GetPostgresCAConfigVolume", func() {
 		It("should return a volume with correct structure", func() {
 			volume := GetPostgresCAConfigVolume()

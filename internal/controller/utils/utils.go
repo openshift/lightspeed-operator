@@ -34,8 +34,10 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
@@ -246,7 +248,8 @@ func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec, compareInitContainers bool
 		!apiequality.Semantic.DeepEqual(a.Template.Spec.Tolerations, b.Template.Spec.Tolerations) || // check toleration
 		!apiequality.Semantic.DeepEqual(a.Strategy, b.Strategy) || // check strategy
 		!PodVolumeEqual(a.Template.Spec.Volumes, b.Template.Spec.Volumes) || // check volumes
-		*a.Replicas != *b.Replicas { // check replicas
+		*a.Replicas != *b.Replicas || // check replicas
+		a.Template.Spec.ServiceAccountName != b.Template.Spec.ServiceAccountName { // check service account name
 		return false
 	}
 
@@ -846,4 +849,19 @@ func ImageStreamNameFor(image string) string {
 	sum := sha1.Sum([]byte(image)) //nolint:gosec
 	sfx := hex.EncodeToString(sum[:])[:imageStreamSHA1SuffixLength]
 	return fmt.Sprintf("%s-%s", slug, sfx)
+}
+
+// GenerateServiceAccount generates a service account with the given name in the operator namespace
+func GenerateServiceAccount(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig, name string) (*corev1.ServiceAccount, error) {
+	sa := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.GetNamespace(),
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &sa, r.GetScheme()); err != nil {
+		return nil, err
+	}
+	return &sa, nil
 }

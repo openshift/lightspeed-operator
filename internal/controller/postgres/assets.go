@@ -204,3 +204,7 @@ func GeneratePostgresPVC(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*c
 	}
 	return pvc, nil
 }
+
+func GeneratePostgresServiceAccount(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ServiceAccount, error) {
+	return utils.GenerateServiceAccount(r, cr, utils.PostgreServiceAccountName)
+}

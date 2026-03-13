@@ -200,3 +200,7 @@ func GenerateConsoleUINetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 	return &np, nil
 
 }
+
+func GenerateConsoleUIServiceAccount(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ServiceAccount, error) {
+	return utils.GenerateServiceAccount(r, cr, utils.ConsoleUIServiceAccountName)
+}
