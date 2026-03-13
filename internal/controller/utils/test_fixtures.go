@@ -89,6 +89,7 @@ func GetDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 				},
 				DefaultModel:    "testModel",
 				DefaultProvider: "testProvider",
+				MaxIterations:   5,
 				LogLevel:        olsv1alpha1.LogLevelInfo,
 			},
 		},

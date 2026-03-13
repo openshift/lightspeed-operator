@@ -230,6 +230,11 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Query System Prompt",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	QuerySystemPrompt string `json:"querySystemPrompt,omitempty"`
+	// Maximum number of iterations for agent execution. Default: 5
+	// +kubebuilder:default=5
+	// +kubebuilder:validation:Minimum=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max Iterations",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
+	MaxIterations int `json:"maxIterations,omitempty"`
 	// Pull secrets for BYOK RAG images from image registries requiring authentication
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image Pull Secrets"
@@ -258,7 +263,7 @@ type Storage struct {
 	Class string `json:"class,omitempty"`
 }
 
-// RAGSpec defines how to retrieve a RAG databases.
+// RAGSpec defines how to retrieve RAG databases.
 type RAGSpec struct {
 	// The path to the RAG database inside of the container image
 	// +kubebuilder:default="/rag/vector_db"
@@ -304,6 +309,9 @@ type LimiterConfig struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Token Quota Increase Step"
 	QuotaIncrease int `json:"quotaIncrease"`
 	// Period of time the token quota is for
+	// Examples: "1 hour", "30 minutes", "2 days", "1 h", "30 min", "2 d"
+	// Accepts singular (e.g., "1 second") or plural (e.g., "2 seconds") forms
+	// Supported units: second(s), minute(s), hour(s), day(s), month(s), year(s) or s, min, h, d, m, y
 	// +kubebuilder:validation:Pattern=`^(1\s+(second|minute|hour|day|month|year|s|min|h|d|m|y)|([2-9][0-9]*|[1-9][0-9]{2,})\s+(seconds|minutes|hours|days|months|years|s|min|h|d|m|y))$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Period of Time the Token Quota Is For"
 	Period string `json:"period"`
@@ -469,8 +477,8 @@ type ProviderSpec struct {
 	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx;rhoai_vllm;rhelai_vllm;fake_provider
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Provider Type"
 	Type string `json:"type"`
-	// Azure OpenAI deployment name
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Azure OpenAI deployment name"
+	// Deployment name for Azure OpenAI provider
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Azure Deployment Name"
 	AzureDeploymentName string `json:"deploymentName,omitempty"`
 	// API Version for Azure OpenAI provider
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Azure OpenAI API Version"
@@ -520,7 +528,7 @@ type TLSConfig struct {
 // ProxyConfig defines the proxy settings for connecting to external servers, such as LLM providers.
 type ProxyConfig struct {
 	// Proxy URL, e.g. https://proxy.example.com:8080
-	// If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+	// If not specified, the cluster wide proxy will be used, through env var "https_proxy".
 	// +kubebuilder:validation:Pattern=`^https?://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy URL"
 	ProxyURL string `json:"proxyURL,omitempty"`
