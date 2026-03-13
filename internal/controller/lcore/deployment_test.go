@@ -65,6 +65,10 @@ func (m *mockReconciler) GetOpenShiftMCPServerImage() string {
 	return utils.OpenShiftMCPServerImageDefault
 }
 
+func (m *mockReconciler) GetPostgresImage() string {
+	return utils.PostgresServerImageDefault
+}
+
 func (m *mockReconciler) GetLCoreServerMode() bool {
 	return m.lcoreServerMode
 }

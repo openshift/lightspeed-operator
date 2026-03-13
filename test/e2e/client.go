@@ -793,7 +793,7 @@ func (c *Client) GetServiceAccountToken(namespace, name string) (string, error) 
 		Type: corev1.SecretTypeServiceAccountToken,
 	}
 	err := c.Create(secret)
-	if err != nil {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return "", err
 	}
 
