@@ -26,8 +26,7 @@
   },
   {
     "name": "lightspeed-to-dataverse-exporter",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:1dcc299c0cefb4ccdf3a649c2550227b4d5789576e84d29c604327dfdf9aa1da",
-    "revision": "62f01b4fa9529a3947d0d418850a27bf71d2cbe9"
+    "image": "registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9:0.4.1"
   },
   {
     "name": "lightspeed-ocp-rag",
@@ -40,7 +39,7 @@
   },
   {
     "name": "lightspeed-operator-bundle",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:6ddfddfd63d7b8b1fc59c7d8062562b9c1e0dbfaa7b6126db3c6bdc19342a6d6",
-    "revision": "ba91c4cd25169bbc91afef1c06283d43ce0e2fc5"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:bdf70e356224e6999e5193713671b2fcee8061496630e59e6f59458d89b45ecd",
+    "revision": "2cd3162892c7c274ddc4d53c8fc0bf49284f6efd"
   }
 ]

@@ -101,7 +101,7 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 	}
 
 	// Generate the deployment
-	deployment, err := GenerateLCoreDeployment(r, cr)
+	deployment, err := GenerateLCoreDeployment(r, context.Background(), cr)
 	if err != nil {
 		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
 	}
@@ -321,7 +321,7 @@ func TestGenerateLCoreDeploymentWithAdditionalCA(t *testing.T) {
 	}
 
 	// Generate the deployment
-	deployment, err := GenerateLCoreDeployment(r, cr)
+	deployment, err := GenerateLCoreDeployment(r, context.Background(), cr)
 	if err != nil {
 		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
 	}
@@ -443,7 +443,7 @@ func TestGenerateLCoreDeploymentWithIntrospection(t *testing.T) {
 	}
 
 	// Generate the deployment
-	deployment, err := GenerateLCoreDeployment(r, cr)
+	deployment, err := GenerateLCoreDeployment(r, context.Background(), cr)
 	if err != nil {
 		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
 	}
@@ -577,7 +577,7 @@ func TestGenerateLCoreDeploymentWithMCPHeaderSecrets(t *testing.T) {
 	}
 
 	// Generate the deployment
-	deployment, err := GenerateLCoreDeployment(r, cr)
+	deployment, err := GenerateLCoreDeployment(r, context.Background(), cr)
 	if err != nil {
 		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
 	}
@@ -656,7 +656,7 @@ func TestGenerateLCoreDeploymentWithoutIntrospection(t *testing.T) {
 	}
 
 	// Generate the deployment
-	deployment, err := GenerateLCoreDeployment(r, cr)
+	deployment, err := GenerateLCoreDeployment(r, context.Background(), cr)
 	if err != nil {
 		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
 	}
@@ -760,7 +760,7 @@ func TestGenerateLCoreDeploymentLibraryMode(t *testing.T) {
 	}
 
 	// Generate the deployment
-	deployment, err := GenerateLCoreDeployment(r, cr)
+	deployment, err := GenerateLCoreDeployment(r, context.Background(), cr)
 	if err != nil {
 		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
 	}
@@ -934,7 +934,7 @@ func TestGenerateLCoreDeploymentWithRAG(t *testing.T) {
 	r := &mockReconciler{}
 
 	// Generate the deployment
-	deployment, err := GenerateLCoreDeployment(r, cr)
+	deployment, err := GenerateLCoreDeployment(r, context.Background(), cr)
 	if err != nil {
 		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
 	}
@@ -983,7 +983,7 @@ func TestDataCollectorSidecar_Enabled(t *testing.T) {
 		telemetryEnabled: true,
 	}
 
-	deployment, err := GenerateLCoreDeployment(r, cr)
+	deployment, err := GenerateLCoreDeployment(r, context.Background(), cr)
 	if err != nil {
 		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
 	}
@@ -1079,7 +1079,7 @@ func TestDataCollectorSidecar_Disabled(t *testing.T) {
 		lcoreServerMode: true,
 	}
 
-	deployment, err := GenerateLCoreDeployment(r, cr)
+	deployment, err := GenerateLCoreDeployment(r, context.Background(), cr)
 	if err != nil {
 		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
 	}
@@ -1139,7 +1139,7 @@ func TestDataCollectorSidecar_LibraryMode(t *testing.T) {
 		telemetryEnabled: true,
 	}
 
-	deployment, err := GenerateLCoreDeployment(r, cr)
+	deployment, err := GenerateLCoreDeployment(r, context.Background(), cr)
 	if err != nil {
 		t.Fatalf("GenerateLCoreDeployment returned error: %v", err)
 	}

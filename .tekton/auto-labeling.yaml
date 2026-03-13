@@ -1,0 +1,80 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+# refer to https://docs.redhat.com/en/documentation/red_hat_openshift_pipelines/1.21/html/pipelines_as_code/creating-pipeline-runs-pac
+metadata:
+  name: auto-labeling-pull-request
+  annotations:
+    pipelinesascode.tekton.dev/on-event: "[pull_request]"
+    pipelinesascode.tekton.dev/on-target-branch: "[main]"
+    pipelinesascode.tekton.dev/cancel-in-progress: "true"
+spec:
+  params:
+    - name: repo_owner
+      value: "{{repo_owner}}"
+    - name: repo_name
+      value: "{{repo_name}}"
+    - name: pr_number
+      value: "{{pull_request_number}}"
+    - name: pr_title
+      value: "{{ body.pull_request.title }}"
+  pipelineSpec:
+    params:
+      - name: repo_owner
+      - name: repo_name
+      - name: pr_number
+      - name: pr_title
+    tasks:
+      - name: check-and-label-pr
+        params:
+          - name: repo_owner
+            value: $(params.repo_owner)
+          - name: repo_name
+            value: $(params.repo_name)
+          - name: pr_number
+            value: $(params.pr_number)
+          - name: pr_title
+            value: $(params.pr_title)
+        taskSpec:
+          params:
+            - name: repo_owner
+            - name: repo_name
+            - name: pr_number
+            - name: pr_title
+          steps:
+            - name: apply-labels
+              image: registry.access.redhat.com/ubi9/ubi
+              env:
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: "{{git_auth_secret}}"
+                      key: git-provider-token
+              script: |
+                #!/usr/bin/env bash
+
+                if [[ "$(params.pr_title)" == "Bundle Update"* ||
+                 "$(params.pr_title)" == "Catalog Update from Bundle Snapshot "* ]]; then
+                  echo "PR title begins with 'Bundle Update' or 'Catalog Update from Bundle Snapshot'. Applying labels..."
+
+                  label_output=$(curl -s -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+                       -H "Accept: application/vnd.github.v3+json" \
+                       "https://api.github.com/repos/$(params.repo_owner)/$(params.repo_name)/issues/$(params.pr_number)/labels" \
+                       -d '{"labels":["lgtm", "approved"]}' 2>&1)
+                  label_exit=$?
+
+                  if [[ $label_exit -eq 0 ]]; then
+                    comment_body='label added: `lgtm`, `approved`'
+                  else
+                    escaped=${label_output//\\/\\\\}
+                    escaped=${escaped//\"/\\\"}
+                    escaped=${escaped//$'\n'/\\n}
+                    comment_body="Label add failed: ${escaped}"
+                  fi
+
+                  curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+                       -H "Accept: application/vnd.github.v3+json" \
+                       "https://api.github.com/repos/$(params.repo_owner)/$(params.repo_name)/issues/$(params.pr_number)/comments" \
+                       -d "$(printf '{"body":"%s"}' "$comment_body")"
+                else
+                  echo "PR title does not match. Skipping labels. $(params.pr_title)"
+                fi

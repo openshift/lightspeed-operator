@@ -138,11 +138,13 @@ func reconcileConsoleUIConfigMap(r reconciler.Reconciler, ctx context.Context, c
 		r.GetLogger().Info("Console UI configmap unchanged, reconciliation skipped", "configmap", cm.Name)
 		return nil
 	}
-	err = r.Update(ctx, cm)
+	// Update the existing ConfigMap with desired data (preserving ResourceVersion)
+	foundCm.Data = cm.Data
+	err = r.Update(ctx, foundCm)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateConsolePluginConfigMap, err)
 	}
-	r.GetLogger().Info("Console configmap reconciled", "configmap", cm.Name)
+	r.GetLogger().Info("Console configmap reconciled", "configmap", foundCm.Name)
 
 	return nil
 }
@@ -173,12 +175,16 @@ func reconcileConsoleUIService(r reconciler.Reconciler, ctx context.Context, cr 
 		return nil
 	}
 
-	err = r.Update(ctx, service)
+	// Update the existing Service with desired spec (preserving ResourceVersion)
+	foundService.Spec = service.Spec
+	foundService.Annotations = service.Annotations
+	foundService.Labels = service.Labels
+	err = r.Update(ctx, foundService)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateConsolePluginService, err)
 	}
 
-	r.GetLogger().Info("Console UI service reconciled", "service", service.Name)
+	r.GetLogger().Info("Console UI service reconciled", "service", foundService.Name)
 
 	return nil
 }
@@ -225,7 +231,7 @@ func ReconcileConsoleUIDeployment(r reconciler.Reconciler, ctx context.Context, 
 }
 
 func reconcileConsoleUIPlugin(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	plugin, err := GenerateConsoleUIPlugin(r, cr)
+	plugin, err := GenerateConsoleUIPlugin(r, ctx, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateConsolePlugin, err)
 	}
@@ -363,7 +369,7 @@ func reconcileConsoleTLSSecret(r reconciler.Reconciler, ctx context.Context, _ *
 	foundSecret := &corev1.Secret{}
 	var err, lastErr error
 	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, utils.ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err = utils.GetSecretContent(r, utils.ConsoleUIServiceCertSecretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
+		_, err = utils.GetSecretContent(r, ctx, utils.ConsoleUIServiceCertSecretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
 		if err != nil {
 			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", utils.ConsoleUIServiceCertSecretName, err)
 			return false, nil
@@ -372,10 +378,6 @@ func reconcileConsoleTLSSecret(r reconciler.Reconciler, ctx context.Context, _ *
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get TLS key and cert - wait err %w; last error: %w", err, lastErr)
-	}
-	err = r.Update(ctx, foundSecret)
-	if err != nil {
-		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
 	}
 	r.GetLogger().Info("OLS console tls secret reconciled")
 	return nil
@@ -403,7 +405,9 @@ func reconcileConsoleNetworkPolicy(r reconciler.Reconciler, ctx context.Context,
 		r.GetLogger().Info("Console NetworkPolicy unchanged, reconciliation skipped", "networkpolicy", utils.ConsoleUINetworkPolicyName)
 		return nil
 	}
-	err = r.Update(ctx, np)
+	// Update the existing NetworkPolicy with desired spec (preserving ResourceVersion)
+	foundNp.Spec = np.Spec
+	err = r.Update(ctx, foundNp)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateConsolePluginNetworkPolicy, err)
 	}
@@ -426,8 +430,7 @@ func RestartConsoleUI(r reconciler.Reconciler, ctx context.Context, deployment .
 		dep = &appsv1.Deployment{}
 		err = r.Get(ctx, client.ObjectKey{Name: utils.ConsoleUIDeploymentName, Namespace: r.GetNamespace()}, dep)
 		if err != nil {
-			r.GetLogger().Info("failed to get deployment", "deploymentName", utils.ConsoleUIDeploymentName, "error", err)
-			return err
+			return fmt.Errorf("failed to get deployment %s: %w", utils.ConsoleUIDeploymentName, err)
 		}
 	}
 
@@ -443,8 +446,7 @@ func RestartConsoleUI(r reconciler.Reconciler, ctx context.Context, deployment .
 	r.GetLogger().Info("triggering Console UI rolling restart", "deployment", dep.Name)
 	err = r.Update(ctx, dep)
 	if err != nil {
-		r.GetLogger().Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
-		return err
+		return fmt.Errorf("failed to update deployment %s: %w", dep.Name, err)
 	}
 
 	return nil

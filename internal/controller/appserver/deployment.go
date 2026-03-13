@@ -23,6 +23,22 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
+// restrictedContainerSecurityContext returns a pointer to a SecurityContext
+// that conforms to the Pod Security "restricted" profile.
+func restrictedContainerSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &[]bool{false}[0],
+		ReadOnlyRootFilesystem:   &[]bool{true}[0],
+		RunAsNonRoot:             &[]bool{true}[0],
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+	}
+}
+
 func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
 	return utils.GetResourcesOrDefault(
 		cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Resources,
@@ -87,6 +103,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	volumeMounts := []corev1.VolumeMount{}
 
 	// Add external LLM provider secrets - create both volumes and volume mounts in single pass
+	// Note: Callback never returns an error, using ForEach for convenient iteration
 	_ = utils.ForEachExternalSecret(cr, func(name, source string) error {
 		if !strings.HasPrefix(source, "llm-provider-") {
 			// TLS and MCP header secrets are handled separately below
@@ -261,6 +278,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	volumeMounts = append(volumeMounts, openShiftCAVolumeMount, certBundleVolumeMount)
 
 	// User provided CA certificates - create both volumes and volume mounts in single pass
+	// Note: Callback never returns an error, using ForEach for convenient iteration
 	_ = utils.ForEachExternalConfigMap(cr, func(name, source string) error {
 		var volumeName, mountPath string
 		switch source {
@@ -324,6 +342,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	)
 
 	// mount the volumes and add Volume mounts for the MCP server headers
+	// Note: Callback never returns an error, using ForEach for convenient iteration
 	_ = utils.ForEachExternalSecret(cr, func(name, source string) error {
 		if strings.HasPrefix(source, "mcp-") {
 			volumes = append(volumes, corev1.Volume{
@@ -355,8 +374,12 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	mcp_server_resources := getOLSMCPServerResources(cr)
 
 	// Get ResourceVersions for tracking - these resources should already exist
-	// If they don't exist, we'll get empty strings which is fine for initial creation
-	configMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
+	// If they don't exist (NotFound), we'll get empty strings which is fine for initial creation
+	// However, we should not ignore other errors (like API failures)
+	configMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OLSConfigCmName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get ConfigMap resource version: %w", err)
+	}
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -382,11 +405,8 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 							Image:           r.GetAppServerImage(),
 							ImagePullPolicy: corev1.PullAlways,
 							Ports:           ports,
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: &[]bool{false}[0],
-								ReadOnlyRootFilesystem:   &[]bool{true}[0],
-							},
-							VolumeMounts: volumeMounts,
+							SecurityContext: restrictedContainerSecurityContext(),
+							VolumeMounts:    volumeMounts,
 							Env: append(utils.GetProxyEnvVars(), corev1.EnvVar{
 								Name:  "OLS_CONFIG_FILE",
 								Value: path.Join(utils.OLSConfigMountRoot, utils.OLSConfigFilename),
@@ -461,11 +481,8 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Name:            "lightspeed-to-dataverse-exporter",
 			Image:           r.GetDataverseExporterImage(),
 			ImagePullPolicy: corev1.PullAlways,
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &[]bool{false}[0],
-				ReadOnlyRootFilesystem:   &[]bool{true}[0],
-			},
-			VolumeMounts: volumeMounts,
+			SecurityContext: restrictedContainerSecurityContext(),
+			VolumeMounts:    volumeMounts,
 			// running in openshift mode ensures that cluster_id is set
 			// as identity_id
 			Args: []string{
@@ -489,13 +506,10 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Name:            "openshift-mcp-server",
 			Image:           r.GetOpenShiftMCPServerImage(),
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &[]bool{false}[0],
-				ReadOnlyRootFilesystem:   &[]bool{true}[0],
-			},
-			VolumeMounts: volumeMounts,
-			Command:      []string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort)},
-			Resources:    *mcp_server_resources,
+			SecurityContext: restrictedContainerSecurityContext(),
+			VolumeMounts:    volumeMounts,
+			Command:         []string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort)},
+			Resources:       *mcp_server_resources,
 		}
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, openshiftMCPServerSidecarContainer)
 	}

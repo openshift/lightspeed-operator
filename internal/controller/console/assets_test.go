@@ -74,7 +74,7 @@ var _ = Describe("Console UI assets", func() {
 		})
 
 		It("should generate the console UI plugin", func() {
-			plugin, err := GenerateConsoleUIPlugin(testReconcilerInstance, cr)
+			plugin, err := GenerateConsoleUIPlugin(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(plugin.Name).To(Equal(utils.ConsoleUIPluginName))
 			Expect(plugin.Labels).To(Equal(labels))

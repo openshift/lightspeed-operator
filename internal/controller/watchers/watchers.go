@@ -76,7 +76,8 @@ func (h *SecretUpdateHandler) Create(ctx context.Context, evt event.CreateEvent,
 	cr := &olsv1alpha1.OLSConfig{}
 	err := h.Reconciler.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, cr)
 	if err != nil {
-		// Can't get CR, skip
+		h.Reconciler.GetLogger().Info("failed to get OLSConfig CR for secret watcher",
+			"secret", secret.Name, "error", err)
 		return
 	}
 
@@ -93,7 +94,8 @@ func (h *SecretUpdateHandler) Create(ctx context.Context, evt event.CreateEvent,
 		utils.AnnotateSecretWatcher(secret)
 		err = h.Reconciler.Update(ctx, secret)
 		if err != nil {
-			// Failed to annotate, skip restart
+			h.Reconciler.GetLogger().Info("failed to annotate secret for watcher",
+				"secret", secret.Name, "error", err)
 			return
 		}
 	}
@@ -159,7 +161,8 @@ func (h *ConfigMapUpdateHandler) Create(ctx context.Context, evt event.CreateEve
 	cr := &olsv1alpha1.OLSConfig{}
 	err := h.Reconciler.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, cr)
 	if err != nil {
-		// Can't get CR, skip
+		h.Reconciler.GetLogger().Info("failed to get OLSConfig CR for configmap watcher",
+			"configmap", cm.Name, "error", err)
 		return
 	}
 
@@ -176,7 +179,8 @@ func (h *ConfigMapUpdateHandler) Create(ctx context.Context, evt event.CreateEve
 		utils.AnnotateConfigMapWatcher(cm)
 		err = h.Reconciler.Update(ctx, cm)
 		if err != nil {
-			// Failed to annotate, skip restart
+			h.Reconciler.GetLogger().Info("failed to annotate configmap for watcher",
+				"configmap", cm.Name, "error", err)
 			return
 		}
 	}

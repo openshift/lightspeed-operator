@@ -39,7 +39,7 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 	cacheReplicas := int32(1)
 	revisionHistoryLimit := int32(1)
 
-	passwordMap, err := utils.GetSecretContent(r, utils.PostgresSecretName, r.GetNamespace(), []string{utils.OLSComponentPasswordFileName}, &corev1.Secret{})
+	passwordMap, err := utils.GetSecretContent(r, ctx, utils.PostgresSecretName, r.GetNamespace(), []string{utils.OLSComponentPasswordFileName}, &corev1.Secret{})
 	if err != nil {
 		return nil, fmt.Errorf("password is needed to start postgres deployment : %w", err)
 	}

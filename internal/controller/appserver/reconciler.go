@@ -259,10 +259,6 @@ func reconcileProxyCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr 
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetProxyCACM, err)
 	}
-	err = r.Update(ctx, cm)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdateProxyCACM, err)
-	}
 
 	r.GetLogger().Info("proxy CA configmap reconciled", "configmap", cm.Name)
 	return nil
@@ -378,7 +374,7 @@ func reconcileService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alp
 
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetAPIServiceAccount, err)
+		return fmt.Errorf("%s: %w", utils.ErrGetAPIService, err)
 	}
 
 	if utils.ServiceEqual(foundService, service) && foundService.Annotations != nil {
@@ -423,6 +419,9 @@ func reconcileMetricsReaderSecret(r reconciler.Reconciler, ctx context.Context, 
 
 	if foundSecret.Type != secret.Type || foundSecret.Annotations["kubernetes.io/service-account.name"] != utils.MetricsReaderServiceAccountName {
 		foundSecret.Type = secret.Type
+		if foundSecret.Annotations == nil {
+			foundSecret.Annotations = make(map[string]string)
+		}
 		foundSecret.Annotations["kubernetes.io/service-account.name"] = utils.MetricsReaderServiceAccountName
 		err = r.Update(ctx, foundSecret)
 		if err != nil {
@@ -499,7 +498,7 @@ func reconcilePrometheusRule(r reconciler.Reconciler, ctx context.Context, cr *o
 	foundRule.Spec = rule.Spec
 	err = r.Update(ctx, foundRule)
 	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdateServiceMonitor, err)
+		return fmt.Errorf("%s: %w", utils.ErrUpdatePrometheusRule, err)
 	}
 	r.GetLogger().Info("OLS prometheus rule reconciled", "prometheusRule", rule.Name)
 	return nil
@@ -513,7 +512,7 @@ func ReconcileTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 		secretName = cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
 	}
 	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, utils.ResourceCreationTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err = utils.GetSecretContent(r, secretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
+		_, err = utils.GetSecretContent(r, ctx, secretName, r.GetNamespace(), []string{"tls.key", "tls.crt"}, foundSecret)
 		if err != nil {
 			lastErr = fmt.Errorf("secret: %s does not have expected tls.key or tls.crt. error: %w", secretName, err)
 			return false, nil
