@@ -157,6 +157,8 @@ type OLSConfig struct {
 	DefaultModel string `json:"default_model,omitempty"`
 	// Default provider for usage
 	DefaultProvider string `json:"default_provider,omitempty"`
+	// Maximum number of iterations for agent execution
+	MaxIterations int `json:"max_iterations,omitempty"`
 	// Logging config
 	Logging LoggingConfig `json:"logging_config,omitempty"`
 	// Conversation cache

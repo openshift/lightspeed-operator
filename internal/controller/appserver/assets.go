@@ -215,6 +215,7 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 	olsConfig := utils.OLSConfig{
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
 		DefaultProvider: cr.Spec.OLSConfig.DefaultProvider,
+		MaxIterations:   cr.Spec.OLSConfig.MaxIterations,
 		Logging: utils.LoggingConfig{
 			AppLogLevel:     string(cr.Spec.OLSConfig.LogLevel),
 			LibLogLevel:     string(cr.Spec.OLSConfig.LogLevel),
