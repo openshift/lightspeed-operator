@@ -248,8 +248,11 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
 				ProxyURL: "https://proxy.example.com:8443",
-				ProxyCACertificateRef: &corev1.LocalObjectReference{
-					Name: proxyCACMName,
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: proxyCACMName,
+					},
+					// Key is omitted - will default to "proxy-ca.crt" for backward compatibility
 				},
 			}
 			// LCore requires supported Llama Stack provider types

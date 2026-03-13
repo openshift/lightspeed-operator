@@ -711,6 +711,21 @@ func GetConfigMapResourceVersion(r reconciler.Reconciler, ctx context.Context, c
 	return configMap.ResourceVersion, nil
 }
 
+// GetProxyCACertResourceVersion returns the ResourceVersion of the proxy CA ConfigMap
+// if proxy CA is configured. Returns empty string if proxy is not configured or the
+// ConfigMap is not found.
+func GetProxyCACertResourceVersion(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) string {
+	if cr.Spec.OLSConfig.ProxyConfig == nil {
+		return ""
+	}
+	cmName := GetProxyCACertConfigMapName(cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef)
+	if cmName == "" {
+		return ""
+	}
+	version, _ := GetConfigMapResourceVersion(r, ctx, cmName)
+	return version
+}
+
 // GetSecretResourceVersion returns the ResourceVersion of a Secret.
 func GetSecretResourceVersion(r reconciler.Reconciler, ctx context.Context, secretName string) (string, error) {
 	secret := &corev1.Secret{}
@@ -797,12 +812,12 @@ func ForEachExternalConfigMap(cr *olsv1alpha1.OLSConfig, fn func(name string, so
 	}
 
 	// 2. Proxy CA certificate
-	if cr.Spec.OLSConfig.ProxyConfig != nil &&
-		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil &&
-		cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name != "" {
-		cmName := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name
-		if err := fn(cmName, "proxy-ca"); err != nil {
-			return err
+	if cr.Spec.OLSConfig.ProxyConfig != nil {
+		cmName := GetProxyCACertConfigMapName(cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef)
+		if cmName != "" {
+			if err := fn(cmName, "proxy-ca"); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -864,4 +879,70 @@ func GenerateServiceAccount(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig, 
 		return nil, err
 	}
 	return &sa, nil
+}
+
+// GetProxyCACertKey returns the ConfigMap key for the proxy CA certificate.
+// If not specified, defaults to ProxyCACertFileName for backward compatibility.
+func GetProxyCACertKey(proxyCACertRef *olsv1alpha1.ProxyCACertConfigMapRef) string {
+	if proxyCACertRef == nil {
+		return ProxyCACertFileName
+	}
+	if proxyCACertRef.Key != "" {
+		return proxyCACertRef.Key
+	}
+	return ProxyCACertFileName // Default for backward compatibility
+}
+
+// GetProxyCACertConfigMapName returns the ConfigMap name for the proxy CA certificate.
+// Returns empty string if the reference is nil.
+func GetProxyCACertConfigMapName(proxyCACertRef *olsv1alpha1.ProxyCACertConfigMapRef) string {
+	if proxyCACertRef == nil || proxyCACertRef.Name == "" {
+		return ""
+	}
+	return proxyCACertRef.Name
+}
+
+// ReconcileOLSAdditionalCAConfigMap validates that the externally referenced Additional CA ConfigMap exists.
+// Annotation handling is managed by the main controller.
+func ReconcileOLSAdditionalCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef == nil {
+		// no additional CA certs, skip
+		r.GetLogger().Info("Additional CA not configured, reconciliation skipped")
+		return nil
+	}
+
+	cm := &corev1.ConfigMap{}
+	err := r.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.GetNamespace()}, cm)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetAdditionalCACM, err)
+	}
+
+	r.GetLogger().Info("additional CA configmap reconciled", "configmap", cm.Name)
+	return nil
+}
+
+// ReconcileProxyCAConfigMap validates that the externally referenced Proxy CA ConfigMap exists.
+// Annotation handling is managed by the main controller.
+func ReconcileProxyCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	if cr.Spec.OLSConfig.ProxyConfig == nil {
+		// no proxy CA certs, skip
+		r.GetLogger().Info("Proxy CA not configured, reconciliation skipped")
+		return nil
+	}
+
+	cmName := GetProxyCACertConfigMapName(cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef)
+	if cmName == "" {
+		// no proxy CA certs, skip
+		r.GetLogger().Info("Proxy CA not configured, reconciliation skipped")
+		return nil
+	}
+
+	cm := &corev1.ConfigMap{}
+	err := r.Get(ctx, client.ObjectKey{Name: cmName, Namespace: r.GetNamespace()}, cm)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetProxyCACM, err)
+	}
+
+	r.GetLogger().Info("proxy CA configmap reconciled", "configmap", cm.Name)
+	return nil
 }

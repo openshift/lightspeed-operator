@@ -26,7 +26,6 @@ const (
 	httpsPort           = 3349
 	httpPort            = 3128
 	squidConfigName     = "squid-config"
-	proxyConfigmapName  = "proxy-ca"
 )
 
 // Test Design Notes:
@@ -52,7 +51,7 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 	var secret *corev1.Secret
 
 	// Helper function to setup proxy configuration
-	setupProxyConfig := func(proxyURL string, proxyCACertRef *corev1.LocalObjectReference) {
+	setupProxyConfig := func(proxyURL string, proxyCACertRef *olsv1alpha1.ProxyCACertConfigMapRef) {
 		By("modifying the olsconfig to use proxy")
 		err = client.Update(cr, func(obj ctrlclient.Object) error {
 			cr := obj.(*olsv1alpha1.OLSConfig)
@@ -306,32 +305,6 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 		err = client.WaitForDeploymentRollout(deployment)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("copy contents of openshift-service-ca.crt to proxy-ca")
-		serviceCAConfigMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "openshift-service-ca.crt",
-				Namespace: OLSNameSpace,
-			},
-		}
-		err = client.Get(serviceCAConfigMap)
-		Expect(err).NotTo(HaveOccurred())
-		serviceCACrt, ok := serviceCAConfigMap.Data["service-ca.crt"]
-		Expect(ok).To(BeTrue())
-
-		configmap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      proxyConfigmapName,
-				Namespace: OLSNameSpace,
-			},
-			Data: map[string]string{
-				"proxy-ca.crt": serviceCACrt,
-			},
-		}
-		err = client.Create(configmap)
-		Expect(err).NotTo(HaveOccurred())
-		err = client.WaitForObjectCreated(configmap)
-		Expect(err).NotTo(HaveOccurred())
-
 		By("get the squid service hostname")
 		squidService = &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -423,18 +396,8 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 			Expect(err).NotTo(HaveOccurred())
 		}
 
-		By("Deleting the proxy configmap")
-		configmap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      proxyConfigmapName,
-				Namespace: OLSNameSpace,
-			},
-		}
-		err = client.DeleteAndWait(configmap, 30*time.Second)
-		Expect(err).NotTo(HaveOccurred())
-
 		By("Deleting the squid-config configmap")
-		configmap = &corev1.ConfigMap{
+		configmap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      squidConfigName,
 				Namespace: OLSNameSpace,
@@ -487,8 +450,11 @@ var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func()
 	})
 
 	It("should be able to query the application server with https proxy", func() {
-		setupProxyConfig("https://"+squidHostname+":"+strconv.Itoa(httpsPort), &corev1.LocalObjectReference{
-			Name: "proxy-ca",
+		setupProxyConfig("https://"+squidHostname+":"+strconv.Itoa(httpsPort), &olsv1alpha1.ProxyCACertConfigMapRef{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: "openshift-service-ca.crt",
+			},
+			Key: "service-ca.crt",
 		})
 		waitForAppServerRollout()
 		setupHTTPSClient()
