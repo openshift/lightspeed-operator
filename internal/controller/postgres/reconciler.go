@@ -148,7 +148,7 @@ func reconcilePostgresPVC(r reconciler.Reconciler, ctx context.Context, cr *olsv
 	if cr.Spec.OLSConfig.Storage == nil {
 		return nil
 	}
-	pvc, err := GeneratePostgresPVC(r, cr)
+	pvc, err := GeneratePostgresPVC(r, ctx, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGeneratePostgresPVC, err)
 	}
@@ -228,17 +228,23 @@ func reconcilePostgresBootstrapSecret(r reconciler.Reconciler, ctx context.Conte
 }
 
 func reconcilePostgresSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	secret, err := GeneratePostgresSecret(r, cr)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGeneratePostgresSecret, err)
-	}
+	// Check if the secret already exists
 	foundSecret := &corev1.Secret{}
-	err = r.Get(ctx, client.ObjectKey{Name: secret.Name, Namespace: r.GetNamespace()}, foundSecret)
+	err := r.Get(ctx, client.ObjectKey{Name: utils.PostgresSecretName, Namespace: r.GetNamespace()}, foundSecret)
+
 	if err != nil && errors.IsNotFound(err) {
+		// Secret doesn't exist, generate and create it
+		secret, err := GeneratePostgresSecret(r, cr)
+		if err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrGeneratePostgresSecret, err)
+		}
+
+		// Clean up any old postgres secrets with same labels before creating new one
 		err = deleteOldPostgresSecrets(r, ctx)
 		if err != nil {
 			return err
 		}
+
 		r.GetLogger().Info("creating a new Postgres secret", "secret", secret.Name)
 		err = r.Create(ctx, secret)
 		if err != nil {
@@ -249,24 +255,14 @@ func reconcilePostgresSecret(r reconciler.Reconciler, ctx context.Context, cr *o
 		return fmt.Errorf("%s: %w", utils.ErrGetPostgresSecret, err)
 	}
 
-	// Check if secret data has changed
-	if string(foundSecret.Data[utils.PostgresSecretKeyName]) == string(secret.Data[utils.PostgresSecretKeyName]) {
-		r.GetLogger().Info("OLS postgres secret reconciliation skipped", "secret", foundSecret.Name)
-		return nil
-	}
-
-	secret.Data[utils.PostgresSecretKeyName] = foundSecret.Data[utils.PostgresSecretKeyName]
-	err = r.Update(ctx, secret)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresSecret, err)
-	}
-	r.GetLogger().Info("OLS postgres secret reconciled", "secret", secret.Name)
+	// Secret exists - never change the password once created
+	// Changing password after PostgreSQL initialization would corrupt the database
+	r.GetLogger().Info("OLS postgres secret exists, reconciliation skipped", "secret", foundSecret.Name)
 	return nil
 }
 
 func deleteOldPostgresSecrets(r reconciler.Reconciler, ctx context.Context) error {
 	labelSelector := labels.Set{"app.kubernetes.io/name": "lightspeed-service-postgres"}.AsSelector()
-	matchingLabels := client.MatchingLabelsSelector{Selector: labelSelector}
 	oldSecrets := &corev1.SecretList{}
 	err := r.List(ctx, oldSecrets, &client.ListOptions{Namespace: r.GetNamespace(), LabelSelector: labelSelector})
 	if err != nil {
@@ -277,7 +273,7 @@ func deleteOldPostgresSecrets(r reconciler.Reconciler, ctx context.Context) erro
 	deleteOptions := &client.DeleteAllOfOptions{
 		ListOptions: client.ListOptions{
 			Namespace:     r.GetNamespace(),
-			LabelSelector: matchingLabels,
+			LabelSelector: client.MatchingLabelsSelector{Selector: labelSelector},
 		},
 	}
 	if err := r.DeleteAllOf(ctx, &corev1.Secret{}, deleteOptions); err != nil {
@@ -349,8 +345,7 @@ func RestartPostgres(r reconciler.Reconciler, ctx context.Context, deployment ..
 		dep = &appsv1.Deployment{}
 		err = r.Get(ctx, client.ObjectKey{Name: utils.PostgresDeploymentName, Namespace: r.GetNamespace()}, dep)
 		if err != nil {
-			r.GetLogger().Info("failed to get deployment", "deploymentName", utils.PostgresDeploymentName, "error", err)
-			return err
+			return fmt.Errorf("failed to get deployment %s: %w", utils.PostgresDeploymentName, err)
 		}
 	}
 
@@ -366,8 +361,7 @@ func RestartPostgres(r reconciler.Reconciler, ctx context.Context, deployment ..
 	r.GetLogger().Info("triggering Postgres rolling restart", "deployment", dep.Name)
 	err = r.Update(ctx, dep)
 	if err != nil {
-		r.GetLogger().Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
-		return err
+		return fmt.Errorf("failed to update deployment %s: %w", dep.Name, err)
 	}
 
 	return nil

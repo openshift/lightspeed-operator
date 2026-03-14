@@ -16,24 +16,10 @@ import (
 var _ = Describe("Postgres server reconciliator", Ordered, func() {
 
 	Context("Creation logic", Ordered, func() {
-		var secret, bootstrapSecret *corev1.Secret
+		var bootstrapSecret *corev1.Secret
 		var sc *storagev1.StorageClass
 		var configmap *corev1.ConfigMap
 		BeforeEach(func() {
-			By("create the provider secret")
-			secret, _ = utils.GenerateRandomSecret()
-			secret.Name = utils.PostgresSecretName
-			secret.SetOwnerReferences([]metav1.OwnerReference{
-				{
-					Kind:       "Secret",
-					APIVersion: "v1",
-					UID:        "ownerUID1",
-					Name:       utils.PostgresSecretName,
-				},
-			})
-			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
-			Expect(secretCreationErr).NotTo(HaveOccurred())
-
 			By("create the tls secret")
 			tlsSecret, _ = utils.GenerateRandomSecret()
 			tlsSecret.Name = utils.OLSCertsSecretName
@@ -45,12 +31,12 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 					Name:       utils.OLSCertsSecretName,
 				},
 			})
-			secretCreationErr = testReconcilerInstance.Create(ctx, tlsSecret)
-			Expect(secretCreationErr).NotTo(HaveOccurred())
+			err := testReconcilerInstance.Create(ctx, tlsSecret)
+			Expect(err).NotTo(HaveOccurred())
 
 			By("create the bootstrap secret")
 			bootstrapSecret, _ = utils.GenerateRandomSecret()
-			bootstrapSecret.Name = "lightspeed-bootstrap-secret"
+			bootstrapSecret.Name = utils.PostgresBootstrapSecretName
 			bootstrapSecret.SetOwnerReferences([]metav1.OwnerReference{
 				{
 					Kind:       "Secret",
@@ -59,8 +45,8 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 					Name:       "lightspeed-bootstrap-secret",
 				},
 			})
-			bootstrapSecretCreationErr := testReconcilerInstance.Create(ctx, bootstrapSecret)
-			Expect(bootstrapSecretCreationErr).NotTo(HaveOccurred())
+			err = testReconcilerInstance.Create(ctx, bootstrapSecret)
+			Expect(err).NotTo(HaveOccurred())
 
 			By("Creating default StorageClass")
 			sc = utils.BuildDefaultStorageClass()
@@ -87,17 +73,13 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 			storageClassDeletionErr := testReconcilerInstance.Delete(ctx, sc)
 			Expect(storageClassDeletionErr).NotTo(HaveOccurred())
 
-			By("Delete the provider secret")
-			secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
-			Expect(secretDeletionErr).NotTo(HaveOccurred())
-
 			By("Delete the tls secret")
-			secretDeletionErr = testReconcilerInstance.Delete(ctx, tlsSecret)
-			Expect(secretDeletionErr).NotTo(HaveOccurred())
+			err := testReconcilerInstance.Delete(ctx, tlsSecret)
+			Expect(err).NotTo(HaveOccurred())
 
 			By("Delete the bootstrap secret")
-			bootstrapSecretDeletionErr := testReconcilerInstance.Delete(ctx, bootstrapSecret)
-			Expect(bootstrapSecretDeletionErr).NotTo(HaveOccurred())
+			err = testReconcilerInstance.Delete(ctx, bootstrapSecret)
+			Expect(err).NotTo(HaveOccurred())
 
 			By("Delete OpenShift certificates config map")
 			configMapDeletionErr := testReconcilerInstance.Delete(ctx, configmap)

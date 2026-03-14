@@ -254,6 +254,13 @@ var _ = Describe("App postgres server assets", func() {
 		if with_pvc {
 			testCr.Spec.OLSConfig.Storage = &olsv1alpha1.Storage{}
 		}
+
+		// Delete any existing secret from previous tests
+		existingSecret := &corev1.Secret{}
+		existingSecret.Name = utils.PostgresSecretName
+		existingSecret.Namespace = testCr.Namespace
+		_ = testReconcilerInstance.Delete(ctx, existingSecret)
+
 		secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
 		secret.SetOwnerReferences([]metav1.OwnerReference{
 			{
@@ -462,6 +469,13 @@ var _ = Describe("App postgres server assets", func() {
 		It("should generate the OLS postgres deployment", func() {
 			testCr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers = utils.PostgresSharedBuffers
 			testCr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections = utils.PostgresMaxConnections
+
+			// Delete any existing secret from previous tests
+			existingSecret := &corev1.Secret{}
+			existingSecret.Name = utils.PostgresSecretName
+			existingSecret.Namespace = testCr.Namespace
+			_ = testReconcilerInstance.Delete(ctx, existingSecret)
+
 			secret, _ := GeneratePostgresSecret(testReconcilerInstance, testCr)
 			secret.SetOwnerReferences([]metav1.OwnerReference{
 				{
