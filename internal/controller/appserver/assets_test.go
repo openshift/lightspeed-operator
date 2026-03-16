@@ -90,6 +90,7 @@ var _ = Describe("App server assets", func() {
 				OLSConfig: utils.OLSConfig{
 					DefaultModel:    "testModel",
 					DefaultProvider: "testProvider",
+					MaxIterations:   5,
 					Logging: utils.LoggingConfig{
 						AppLogLevel:     string(olsv1alpha1.LogLevelInfo),
 						LibLogLevel:     string(olsv1alpha1.LogLevelInfo),

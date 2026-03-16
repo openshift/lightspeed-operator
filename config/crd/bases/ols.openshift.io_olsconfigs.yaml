@@ -77,7 +77,7 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                         deploymentName:
-                          description: Azure OpenAI deployment name
+                          description: Deployment name for Azure OpenAI provider
                           type: string
                         fakeProviderMCPToolCall:
                           description: Fake Provider MCP Tool Call
@@ -4341,6 +4341,12 @@ spec:
                     - ERROR
                     - CRITICAL
                     type: string
+                  maxIterations:
+                    default: 5
+                    description: 'Maximum number of iterations for agent execution.
+                      Default: 5'
+                    minimum: 1
+                    type: integer
                   proxyConfig:
                     description: Proxy settings for connecting to external servers,
                       such as LLM providers.
@@ -4362,7 +4368,7 @@ spec:
                       proxyURL:
                         description: |-
                           Proxy URL, e.g. https://proxy.example.com:8080
-                          If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+                          If not specified, the cluster wide proxy will be used, through env var "https_proxy".
                         pattern: ^https?://.*$
                         type: string
                     type: object
@@ -4407,7 +4413,11 @@ spec:
                               description: Name of the limiter
                               type: string
                             period:
-                              description: Period of time the token quota is for
+                              description: |-
+                                Period of time the token quota is for
+                                Examples: "1 hour", "30 minutes", "2 days", "1 h", "30 min", "2 d"
+                                Accepts singular (e.g., "1 second") or plural (e.g., "2 seconds") forms
+                                Supported units: second(s), minute(s), hour(s), day(s), month(s), year(s) or s, min, h, d, m, y
                               pattern: ^(1\s+(second|minute|hour|day|month|year|s|min|h|d|m|y)|([2-9][0-9]*|[1-9][0-9]{2,})\s+(seconds|minutes|hours|days|months|years|s|min|h|d|m|y))$
                               type: string
                             quotaIncrease:
@@ -4432,7 +4442,7 @@ spec:
                   rag:
                     description: RAG databases
                     items:
-                      description: RAGSpec defines how to retrieve a RAG databases.
+                      description: RAGSpec defines how to retrieve RAG databases.
                       properties:
                         image:
                           description: The URL of the container image to use as a
