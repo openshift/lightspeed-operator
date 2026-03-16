@@ -30,6 +30,15 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 	BeforeAll(func() {
 		client, err = GetClient(nil)
 		Expect(err).NotTo(HaveOccurred())
+
+		// Try to delete any existing CR first (idempotent cleanup from previous failed runs)
+		existingCR := &olsv1alpha1.OLSConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster",
+			},
+		}
+		_ = client.DeleteAndWait(existingCR, 3*time.Minute) // Ignore error if doesn't exist
+
 		By("Creating a OLSConfig CR")
 		cr, err = generateOLSConfig()
 		Expect(err).NotTo(HaveOccurred())
