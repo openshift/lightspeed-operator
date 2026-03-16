@@ -21,7 +21,7 @@ var _ = Describe("App postgres server assets", func() {
 
 	var testCr *olsv1alpha1.OLSConfig
 
-	validatePostgresDeployment := func(dep *appsv1.Deployment, password string, with_pvc bool) {
+	validatePostgresDeployment := func(dep *appsv1.Deployment, with_pvc bool) {
 		replicas := int32(1)
 		revisionHistoryLimit := int32(1)
 		defaultPermission := utils.VolumeRestrictedMode
@@ -48,6 +48,14 @@ var _ = Describe("App postgres server assets", func() {
 				corev1.ResourceMemory: resource.MustParse("2Gi"),
 			},
 		}))
+		expectedSecretRef := &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: utils.PostgresSecretName,
+				},
+				Key: utils.PostgresSecretKeyName,
+			},
+		}
 		Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
 			{
 				Name:  "POSTGRESQL_USER",
@@ -58,12 +66,12 @@ var _ = Describe("App postgres server assets", func() {
 				Value: utils.PostgresDefaultDbName,
 			},
 			{
-				Name:  "POSTGRESQL_ADMIN_PASSWORD",
-				Value: password,
+				Name:      "POSTGRESQL_ADMIN_PASSWORD",
+				ValueFrom: expectedSecretRef,
 			},
 			{
-				Name:  "POSTGRESQL_PASSWORD",
-				Value: password,
+				Name:      "POSTGRESQL_PASSWORD",
+				ValueFrom: expectedSecretRef,
 			},
 			{
 				Name:  "POSTGRESQL_SHARED_BUFFERS",
@@ -265,11 +273,9 @@ var _ = Describe("App postgres server assets", func() {
 		})
 		secretCreationErr := testReconcilerInstance.Create(ctx, secret)
 		Expect(secretCreationErr).NotTo(HaveOccurred())
-		passwordMap, _ := utils.GetSecretContent(testReconcilerInstance, ctx, secret.Name, testCr.Namespace, []string{utils.OLSComponentPasswordFileName}, secret)
-		password := passwordMap[utils.OLSComponentPasswordFileName]
 		deployment, err := GeneratePostgresDeployment(testReconcilerInstance, ctx, testCr)
 		Expect(err).NotTo(HaveOccurred())
-		validatePostgresDeployment(deployment, password, with_pvc)
+		validatePostgresDeployment(deployment, with_pvc)
 		secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
 		Expect(secretDeletionErr).NotTo(HaveOccurred())
 	}
@@ -473,11 +479,9 @@ var _ = Describe("App postgres server assets", func() {
 			})
 			secretCreationErr := testReconcilerInstance.Create(ctx, secret)
 			Expect(secretCreationErr).NotTo(HaveOccurred())
-			passwordMap, _ := utils.GetSecretContent(testReconcilerInstance, ctx, secret.Name, testCr.Namespace, []string{utils.OLSComponentPasswordFileName}, secret)
-			password := passwordMap[utils.OLSComponentPasswordFileName]
 			deployment, err := GeneratePostgresDeployment(testReconcilerInstance, ctx, testCr)
 			Expect(err).NotTo(HaveOccurred())
-			validatePostgresDeployment(deployment, password, false)
+			validatePostgresDeployment(deployment, false)
 			secretDeletionErr := testReconcilerInstance.Delete(ctx, secret)
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})

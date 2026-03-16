@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"strconv"
 
@@ -39,11 +38,14 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 	cacheReplicas := int32(1)
 	revisionHistoryLimit := int32(1)
 
-	passwordMap, err := utils.GetSecretContent(r, ctx, utils.PostgresSecretName, r.GetNamespace(), []string{utils.OLSComponentPasswordFileName}, &corev1.Secret{})
-	if err != nil {
-		return nil, fmt.Errorf("password is needed to start postgres deployment : %w", err)
+	passwordSecretRef := &corev1.EnvVarSource{
+		SecretKeyRef: &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: utils.PostgresSecretName,
+			},
+			Key: utils.PostgresSecretKeyName,
+		},
 	}
-	postgresPassword := passwordMap[utils.OLSComponentPasswordFileName]
 	if cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers == "" {
 		cr.Spec.OLSConfig.ConversationCache.Postgres.SharedBuffers = utils.PostgresSharedBuffers
 	}
@@ -219,12 +221,12 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 									Value: utils.PostgresDefaultDbName,
 								},
 								{
-									Name:  "POSTGRESQL_ADMIN_PASSWORD",
-									Value: postgresPassword,
+									Name:      "POSTGRESQL_ADMIN_PASSWORD",
+									ValueFrom: passwordSecretRef,
 								},
 								{
-									Name:  "POSTGRESQL_PASSWORD",
-									Value: postgresPassword,
+									Name:      "POSTGRESQL_PASSWORD",
+									ValueFrom: passwordSecretRef,
 								},
 								{
 									Name:  "POSTGRESQL_SHARED_BUFFERS",
