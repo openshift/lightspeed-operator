@@ -203,10 +203,7 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: &[]bool{false}[0],
-								ReadOnlyRootFilesystem:   &[]bool{true}[0],
-							},
+						SecurityContext: utils.RestrictedContainerSecurityContext(),
 							VolumeMounts: volumeMounts,
 							Resources:    *databaseResources,
 							Env: []corev1.EnvVar{

@@ -531,18 +531,10 @@ func TestGenerateLCoreDeploymentWithIntrospection(t *testing.T) {
 		t.Error("Missing MCP server config volume in deployment")
 	}
 
-	// Verify security context
-	if openshiftMCPContainer.SecurityContext == nil {
-		t.Error("OpenShift MCP server container has no security context")
-	} else {
-		if openshiftMCPContainer.SecurityContext.AllowPrivilegeEscalation == nil ||
-			*openshiftMCPContainer.SecurityContext.AllowPrivilegeEscalation != false {
-			t.Error("Expected AllowPrivilegeEscalation to be false")
-		}
-		if openshiftMCPContainer.SecurityContext.ReadOnlyRootFilesystem == nil ||
-			*openshiftMCPContainer.SecurityContext.ReadOnlyRootFilesystem != true {
-			t.Error("Expected ReadOnlyRootFilesystem to be true")
-		}
+	// Verify security context matches the restricted profile
+	expectedSC := utils.RestrictedContainerSecurityContext()
+	if !reflect.DeepEqual(openshiftMCPContainer.SecurityContext, expectedSC) {
+		t.Errorf("Expected restricted security context, got %+v", openshiftMCPContainer.SecurityContext)
 	}
 
 	// Verify resource requirements are set

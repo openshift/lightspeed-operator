@@ -1038,7 +1038,7 @@ var _ = Describe("App server assets", func() {
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
 			}))
-			Expect(openshiftMCPServerContainer.SecurityContext).To(Equal(restrictedContainerSecurityContext()))
+			Expect(openshiftMCPServerContainer.SecurityContext).To(Equal(utils.RestrictedContainerSecurityContext()))
 			Expect(openshiftMCPServerContainer.Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},

@@ -108,11 +108,8 @@ func addOpenShiftMCPServerSidecar(r reconciler.Reconciler, cr *olsv1alpha1.OLSCo
 		Name:            utils.OpenShiftMCPServerContainerName,
 		Image:           r.GetOpenShiftMCPServerImage(),
 		ImagePullPolicy: corev1.PullIfNotPresent,
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &[]bool{false}[0],
-			ReadOnlyRootFilesystem:   &[]bool{true}[0],
-		},
-		VolumeMounts: []corev1.VolumeMount{configMount},
+		SecurityContext: utils.RestrictedContainerSecurityContext(),
+		VolumeMounts:    []corev1.VolumeMount{configMount},
 		Command: []string{
 			"/openshift-mcp-server",
 			"--read-only",
@@ -148,11 +145,8 @@ func addDataCollectorSidecar(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig,
 		Name:            "lightspeed-to-dataverse-exporter",
 		Image:           r.GetDataverseExporterImage(),
 		ImagePullPolicy: corev1.PullAlways,
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &[]bool{false}[0],
-			ReadOnlyRootFilesystem:   &[]bool{true}[0],
-		},
-		VolumeMounts: volumeMounts,
+		SecurityContext: utils.RestrictedContainerSecurityContext(),
+		VolumeMounts:    volumeMounts,
 		// running in openshift mode ensures that cluster_id is set
 		// as identity_id
 		Args: []string{
