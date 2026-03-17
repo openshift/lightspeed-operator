@@ -23,21 +23,6 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-// restrictedContainerSecurityContext returns a pointer to a SecurityContext
-// that conforms to the Pod Security "restricted" profile.
-func restrictedContainerSecurityContext() *corev1.SecurityContext {
-	return &corev1.SecurityContext{
-		AllowPrivilegeEscalation: &[]bool{false}[0],
-		ReadOnlyRootFilesystem:   &[]bool{true}[0],
-		RunAsNonRoot:             &[]bool{true}[0],
-		SeccompProfile: &corev1.SeccompProfile{
-			Type: corev1.SeccompProfileTypeRuntimeDefault,
-		},
-		Capabilities: &corev1.Capabilities{
-			Drop: []corev1.Capability{"ALL"},
-		},
-	}
-}
 
 func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
 	return utils.GetResourcesOrDefault(
@@ -406,7 +391,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 							Image:           r.GetAppServerImage(),
 							ImagePullPolicy: corev1.PullAlways,
 							Ports:           ports,
-							SecurityContext: restrictedContainerSecurityContext(),
+							SecurityContext: utils.RestrictedContainerSecurityContext(),
 							VolumeMounts:    volumeMounts,
 							Env: append(utils.GetProxyEnvVars(), corev1.EnvVar{
 								Name:  "OLS_CONFIG_FILE",
@@ -482,7 +467,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Name:            "lightspeed-to-dataverse-exporter",
 			Image:           r.GetDataverseExporterImage(),
 			ImagePullPolicy: corev1.PullAlways,
-			SecurityContext: restrictedContainerSecurityContext(),
+			SecurityContext: utils.RestrictedContainerSecurityContext(),
 			VolumeMounts:    volumeMounts,
 			// running in openshift mode ensures that cluster_id is set
 			// as identity_id
@@ -501,17 +486,26 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, exporterContainer)
 	}
 
-	// Add OpenShift MCP server sidecar container if introspection is enabled
+	// Add OpenShift MCP server sidecar container if introspection is enabled.
+	// The sidecar is configured with a TOML config that denies access to Secret resources,
+	// preventing secret data from reaching the LLM.
 	if cr.Spec.OLSConfig.IntrospectionEnabled {
+		configVolume, configMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
 		openshiftMCPServerSidecarContainer := corev1.Container{
 			Name:            "openshift-mcp-server",
 			Image:           r.GetOpenShiftMCPServerImage(),
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			SecurityContext: restrictedContainerSecurityContext(),
-			VolumeMounts:    volumeMounts,
-			Command:         []string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort)},
-			Resources:       *mcp_server_resources,
+			SecurityContext: utils.RestrictedContainerSecurityContext(),
+			VolumeMounts: []corev1.VolumeMount{configMount},
+			Command: []string{
+				"/openshift-mcp-server",
+				"--read-only",
+				"--config", utils.GetOpenShiftMCPServerConfigPath(),
+				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
+			},
+			Resources: *mcp_server_resources,
 		}
+		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, configVolume)
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, openshiftMCPServerSidecarContainer)
 	}
 

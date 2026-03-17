@@ -118,4 +118,10 @@ const (
 	ErrGenerateLlamaStackConfigMap = "failed to generate Llama Stack configmap"
 	ErrGetLlamaStackConfigMap      = "failed to get Llama Stack configmap"
 	ErrUpdateLlamaStackConfigMap   = "failed to update Llama Stack configmap"
+
+	// OpenShift MCP server config errors
+	ErrCreateMCPServerConfigMap = "failed to create MCP server config configmap"
+	ErrDeleteMCPServerConfigMap = "failed to delete MCP server config configmap"
+	ErrGetMCPServerConfigMap    = "failed to get MCP server config configmap"
+	ErrUpdateMCPServerConfigMap = "failed to update MCP server config configmap"
 )

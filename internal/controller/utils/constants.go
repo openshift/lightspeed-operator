@@ -313,6 +313,14 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	CLIENT_PLACEHOLDER = "client"
 	// MCPHeadersMountRoot is the directory hosting MCP headers in the container
 	MCPHeadersMountRoot = "/etc/mcp/headers"
+	// OpenShiftMCPServerConfigCmName is the name of the ConfigMap for openshift-mcp-server configuration
+	OpenShiftMCPServerConfigCmName = "openshift-mcp-server-config"
+	// OpenShiftMCPServerConfigFilename is the filename for the openshift-mcp-server TOML config
+	OpenShiftMCPServerConfigFilename = "config.toml"
+	// OpenShiftMCPServerConfigMountPath is the directory where the MCP server config is mounted
+	OpenShiftMCPServerConfigMountPath = "/etc/mcp-server"
+	// OpenShiftMCPServerConfigVolumeName is the volume name for the MCP server config
+	OpenShiftMCPServerConfigVolumeName = "mcp-server-config"
 	// Header Secret Data Path
 	MCPSECRETDATAPATH = "header"
 	/*** Data Exporter Constants ***/

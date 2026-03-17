@@ -82,6 +82,10 @@ func ReconcileAppServerResources(r reconciler.Reconciler, ctx context.Context, o
 			Name: "reconcile ImageStreams",
 			Task: reconcileImageStreams,
 		},
+		{
+			Name: "reconcile MCP Server ConfigMap",
+			Task: reconcileMCPServerConfigMap,
+		},
 	}
 
 	failedTasks := make(map[string]error)
@@ -245,6 +249,10 @@ func reconcileExporterConfigMap(r reconciler.Reconciler, ctx context.Context, cr
 	}
 
 	return nil
+}
+
+func reconcileMCPServerConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	return utils.ReconcileOpenShiftMCPServerConfigMap(r, ctx, cr, utils.GenerateAppServerSelectorLabels())
 }
 
 func reconcileProxyCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {

@@ -117,6 +117,22 @@ func GetResourcesOrDefault(customResources *corev1.ResourceRequirements, default
 	return defaultResources
 }
 
+// RestrictedContainerSecurityContext returns a SecurityContext that conforms to
+// the Pod Security "restricted" profile. Use this for all operator-managed containers.
+func RestrictedContainerSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &[]bool{false}[0],
+		ReadOnlyRootFilesystem:   &[]bool{true}[0],
+		RunAsNonRoot:             &[]bool{true}[0],
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+	}
+}
+
 // ApplyPodDeploymentConfig applies PodDeploymentConfig settings to a Deployment.
 // This centralizes the logic for applying pod-level configurations (NodeSelector, Tolerations, etc.)
 // to avoid code duplication across different deployment generators.

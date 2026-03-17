@@ -58,10 +58,7 @@ func GenerateConsoleUIDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSCon
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: &[]bool{false}[0],
-								ReadOnlyRootFilesystem:   &[]bool{true}[0],
-							},
+						SecurityContext: utils.RestrictedContainerSecurityContext(),
 							ImagePullPolicy: corev1.PullAlways,
 							Env:             utils.GetProxyEnvVars(),
 							Resources:       *resources,

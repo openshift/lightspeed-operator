@@ -1033,16 +1033,26 @@ var _ = Describe("App server assets", func() {
 			Expect(openshiftMCPServerContainer.Name).To(Equal(utils.OpenShiftMCPServerContainerName))
 			Expect(openshiftMCPServerContainer.Image).To(Equal(utils.OpenShiftMCPServerImageDefault))
 			Expect(openshiftMCPServerContainer.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
-			Expect(openshiftMCPServerContainer.Command).To(Equal([]string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort)}))
-			Expect(openshiftMCPServerContainer.SecurityContext).To(Equal(restrictedContainerSecurityContext()))
+			Expect(openshiftMCPServerContainer.Command).To(Equal([]string{
+				"/openshift-mcp-server",
+				"--read-only",
+				"--config", utils.GetOpenShiftMCPServerConfigPath(),
+				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
+			}))
+			Expect(openshiftMCPServerContainer.SecurityContext).To(Equal(utils.RestrictedContainerSecurityContext()))
 			Expect(openshiftMCPServerContainer.Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
 
-			// Verify MCP server has the same volume mounts as other containers
-			Expect(openshiftMCPServerContainer.VolumeMounts).To(ConsistOf(get10RequiredVolumeMounts()))
+			// Verify MCP server has its own config volume mount
+			_, expectedConfigMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
+			Expect(openshiftMCPServerContainer.VolumeMounts).To(ContainElement(expectedConfigMount))
+
+			// Verify MCP server config volume is in deployment
+			expectedConfigVolume, _ := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
+			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(expectedConfigVolume))
 
 			By("Disabling introspection")
 			cr.Spec.OLSConfig.IntrospectionEnabled = false
@@ -1129,7 +1139,12 @@ var _ = Describe("App server assets", func() {
 			// Verify MCP container configuration
 			mcpContainer := dep.Spec.Template.Spec.Containers[1]
 			Expect(mcpContainer.Image).To(Equal(utils.OpenShiftMCPServerImageDefault))
-			Expect(mcpContainer.Command).To(Equal([]string{"/openshift-mcp-server", "--read-only", "--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort)}))
+			Expect(mcpContainer.Command).To(Equal([]string{
+				"/openshift-mcp-server",
+				"--read-only",
+				"--config", utils.GetOpenShiftMCPServerConfigPath(),
+				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
+			}))
 			Expect(mcpContainer.Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
