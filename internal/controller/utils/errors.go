@@ -121,6 +121,7 @@ const (
 
 	// OpenShift MCP server config errors
 	ErrCreateMCPServerConfigMap = "failed to create MCP server config configmap"
+	ErrDeleteMCPServerConfigMap = "failed to delete MCP server config configmap"
 	ErrGetMCPServerConfigMap    = "failed to get MCP server config configmap"
 	ErrUpdateMCPServerConfigMap = "failed to update MCP server config configmap"
 )

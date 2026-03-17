@@ -59,14 +59,13 @@ func GenerateOpenShiftMCPServerConfigMap(r reconciler.Reconciler, cr *olsv1alpha
 // When introspection is disabled, the ConfigMap is deleted if it exists.
 func ReconcileOpenShiftMCPServerConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, labels map[string]string) error {
 	foundCm := &corev1.ConfigMap{}
-	err := r.Get(ctx, client.ObjectKey{Name: OpenShiftMCPServerConfigCmName, Namespace: r.GetNamespace()}, foundCm)
-	cmExists := err == nil
+	getErr := r.Get(ctx, client.ObjectKey{Name: OpenShiftMCPServerConfigCmName, Namespace: r.GetNamespace()}, foundCm)
 
 	if !cr.Spec.OLSConfig.IntrospectionEnabled {
-		if cmExists {
+		if getErr == nil {
 			r.GetLogger().Info("deleting MCP server config configmap", "configmap", OpenShiftMCPServerConfigCmName)
 			if err := r.Delete(ctx, foundCm); err != nil {
-				return fmt.Errorf("%s: %w", ErrGetMCPServerConfigMap, err)
+				return fmt.Errorf("%s: %w", ErrDeleteMCPServerConfigMap, err)
 			}
 		}
 		return nil
@@ -77,12 +76,14 @@ func ReconcileOpenShiftMCPServerConfigMap(r reconciler.Reconciler, ctx context.C
 		return fmt.Errorf("failed to generate MCP server config configmap: %w", err)
 	}
 
-	if !cmExists {
+	if getErr != nil && errors.IsNotFound(getErr) {
 		r.GetLogger().Info("creating MCP server config configmap", "configmap", cm.Name)
 		if err := r.Create(ctx, cm); err != nil {
 			return fmt.Errorf("%s: %w", ErrCreateMCPServerConfigMap, err)
 		}
 		return nil
+	} else if getErr != nil {
+		return fmt.Errorf("%s: %w", ErrGetMCPServerConfigMap, getErr)
 	}
 
 	if ConfigMapEqual(foundCm, cm) {
@@ -130,18 +131,4 @@ func GetOpenShiftMCPServerConfigVolumeAndMount() (corev1.Volume, corev1.VolumeMo
 // GetOpenShiftMCPServerConfigPath returns the full path to the MCP server config file inside the container.
 func GetOpenShiftMCPServerConfigPath() string {
 	return path.Join(OpenShiftMCPServerConfigMountPath, OpenShiftMCPServerConfigFilename)
-}
-
-// CleanupOpenShiftMCPServerConfigMap deletes the MCP server config ConfigMap if it exists.
-// Used during CR deletion cleanup.
-func CleanupOpenShiftMCPServerConfigMap(r reconciler.Reconciler, ctx context.Context) error {
-	cm := &corev1.ConfigMap{}
-	err := r.Get(ctx, client.ObjectKey{Name: OpenShiftMCPServerConfigCmName, Namespace: r.GetNamespace()}, cm)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	return r.Delete(ctx, cm)
 }
