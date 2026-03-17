@@ -920,6 +920,9 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, ctx context.Context,
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: utils.OLSAppServerServiceAccountName,
+					InitContainers: []corev1.Container{
+						utils.GeneratePostgresWaitInitContainer(r.GetPostgresImage()),
+					},
 					Containers: []corev1.Container{
 						llamaStackContainer,
 						lightspeedStackContainer,
