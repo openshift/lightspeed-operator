@@ -79,6 +79,10 @@ func ReconcileLCoreResources(r reconciler.Reconciler, ctx context.Context, olsco
 			Name: "reconcile LCore NetworkPolicy",
 			Task: reconcileNetworkPolicy,
 		},
+		{
+			Name: "reconcile MCP Server ConfigMap",
+			Task: reconcileMCPServerConfigMap,
+		},
 	}
 
 	failedTasks := make(map[string]error)
@@ -349,6 +353,10 @@ func reconcileOLSAdditionalCAConfigMap(r reconciler.Reconciler, ctx context.Cont
 
 	r.GetLogger().Info("additional CA configmap reconciled", "configmap", cm.Name)
 	return nil
+}
+
+func reconcileMCPServerConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	return utils.ReconcileOpenShiftMCPServerConfigMap(r, ctx, cr, buildCommonLabels())
 }
 
 func reconcileProxyCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {

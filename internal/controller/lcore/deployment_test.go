@@ -481,7 +481,7 @@ func TestGenerateLCoreDeploymentWithIntrospection(t *testing.T) {
 		t.Errorf("Expected ImagePullPolicy PullIfNotPresent, got %v", openshiftMCPContainer.ImagePullPolicy)
 	}
 
-	// Verify command includes port flag
+	// Verify command includes port, read-only, and config flags
 	if len(openshiftMCPContainer.Command) == 0 {
 		t.Error("OpenShift MCP server container has no command")
 	} else {
@@ -493,6 +493,42 @@ func TestGenerateLCoreDeploymentWithIntrospection(t *testing.T) {
 		if !strings.Contains(commandStr, "--read-only") {
 			t.Error("Expected command to include '--read-only' flag")
 		}
+		if !strings.Contains(commandStr, "--config") || !strings.Contains(commandStr, utils.GetOpenShiftMCPServerConfigPath()) {
+			t.Errorf("Expected command to include '--config %s', got: %s", utils.GetOpenShiftMCPServerConfigPath(), commandStr)
+		}
+	}
+
+	// Verify MCP server config volume mount
+	if len(openshiftMCPContainer.VolumeMounts) == 0 {
+		t.Error("OpenShift MCP server container has no volume mounts")
+	} else {
+		hasMCPConfigMount := false
+		for _, mount := range openshiftMCPContainer.VolumeMounts {
+			if mount.Name == utils.OpenShiftMCPServerConfigVolumeName {
+				hasMCPConfigMount = true
+				if !mount.ReadOnly {
+					t.Error("MCP server config volume mount should be read-only")
+				}
+			}
+		}
+		if !hasMCPConfigMount {
+			t.Error("Missing MCP server config volume mount in openshift-mcp-server container")
+		}
+	}
+
+	// Verify MCP server config volume is added to deployment
+	volumes := deployment.Spec.Template.Spec.Volumes
+	hasMCPConfigVolume := false
+	for _, vol := range volumes {
+		if vol.Name == utils.OpenShiftMCPServerConfigVolumeName {
+			hasMCPConfigVolume = true
+			if vol.ConfigMap == nil || vol.ConfigMap.Name != utils.OpenShiftMCPServerConfigCmName {
+				t.Errorf("MCP server config volume should reference ConfigMap '%s'", utils.OpenShiftMCPServerConfigCmName)
+			}
+		}
+	}
+	if !hasMCPConfigVolume {
+		t.Error("Missing MCP server config volume in deployment")
 	}
 
 	// Verify security context
@@ -676,6 +712,13 @@ func TestGenerateLCoreDeploymentWithoutIntrospection(t *testing.T) {
 	for i := range containers {
 		if containers[i].Name == utils.OpenShiftMCPServerContainerName {
 			t.Error("OpenShift MCP server container should not be present when introspection is disabled")
+		}
+	}
+
+	// Verify MCP server config volume is NOT present
+	for _, vol := range deployment.Spec.Template.Spec.Volumes {
+		if vol.Name == utils.OpenShiftMCPServerConfigVolumeName {
+			t.Error("MCP server config volume should not be present when introspection is disabled")
 		}
 	}
 
