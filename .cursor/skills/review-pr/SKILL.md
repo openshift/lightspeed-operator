@@ -39,7 +39,11 @@ Only raise issues if you have a concrete concern — not as a checklist to fill:
 - **Architecture**: Is logic clearly in the wrong layer? (e.g. business logic leaking into controller/reconciler)
 - **Error handling**: Are errors silently swallowed with `_ = err`, or is error wrapping missing where failure is plausible?
 - **Duplication**: Is the same logic copy-pasted, not just similar-looking?
+  - For deep analysis, use the [find-duplication](../find-duplication/SKILL.md) skill
 - **Dead code / docs**: Is there obviously unused code or a doc update that's clearly missing?
+  - For comprehensive analysis, use the [find-dead-code](../find-dead-code/SKILL.md) skill
+- **Complexity**: Are functions overly complex with high cyclomatic/cognitive complexity?
+  - For detailed analysis, use the [find-complexity](../find-complexity/SKILL.md) skill
 
 Skip this section if nothing stands out.
 
