@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-03-05T13:36:03Z"
+    createdAt: "2026-03-18T15:48:38Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -55,7 +55,7 @@ metadata:
     operators.operatorframework.io/builder: operator-sdk-v1.33.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
-  name: lightspeed-operator.v1.0.11
+  name: lightspeed-operator.v1.0.10
   namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
@@ -91,8 +91,8 @@ spec:
           - description: API Version for Azure OpenAI provider
             displayName: Azure OpenAI API Version
             path: llm.providers[0].apiVersion
-          - description: Azure OpenAI deployment name
-            displayName: Azure OpenAI deployment name
+          - description: Deployment name for Azure OpenAI provider
+            displayName: Azure Deployment Name
             path: llm.providers[0].deploymentName
           - description: Fake Provider MCP Tool Call
             displayName: Fake Provider MCP Tool Call
@@ -230,6 +230,11 @@ spec:
           - description: 'Log level. Valid options are DEBUG, INFO, WARNING, ERROR and CRITICAL. Default: "INFO".'
             displayName: Log level
             path: ols.logLevel
+          - description: 'Maximum number of iterations for agent execution. Default: 5'
+            displayName: Max Iterations
+            path: ols.maxIterations
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:number
           - description: Proxy settings for connecting to external servers, such as LLM providers.
             displayName: Proxy Settings
             path: ols.proxyConfig
@@ -238,7 +243,7 @@ spec:
           - description: The configmap holding proxy CA certificate
             displayName: Proxy CA Certificate
             path: ols.proxyConfig.proxyCACertificate
-          - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified, the cluster wide proxy will be used, though env var "https_proxy".
+          - description: Proxy URL, e.g. https://proxy.example.com:8080 If not specified, the cluster wide proxy will be used, through env var "https_proxy".
             displayName: Proxy URL
             path: ols.proxyConfig.proxyURL
           - description: Query filters
@@ -277,7 +282,7 @@ spec:
           - description: Name of the limiter
             displayName: Limiter Name
             path: ols.quotaHandlersConfig.limitersConfig[0].name
-          - description: Period of time the token quota is for
+          - description: 'Period of time the token quota is for Examples: "1 hour", "30 minutes", "2 days", "1 h", "30 min", "2 d" Accepts singular (e.g., "1 second") or plural (e.g., "2 seconds") forms Supported units: second(s), minute(s), hour(s), day(s), month(s), year(s) or s, min, h, d, m, y'
             displayName: Period of Time the Token Quota Is For
             path: ols.quotaHandlersConfig.limitersConfig[0].period
           - description: Token quota increase step
@@ -789,13 +794,13 @@ spec:
                       - --lcore-image=quay.io/lightspeed-core/lightspeed-stack:dev-latest
                       - --use-lcore=false
                       - --lcore-server=true
-                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:04d7a0de0b5bd03451b4a16c8d358936191054e1797b7b2174ec24b871fe8173
-                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:7cf1e2817edf826ef91d2e3333b3b1bbb5d764c2ddcaeef4bb6e7607d1b9f822
-                      - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:043c01a6032e73f240a97f9acf583d0edb11d8ac19d8530cddfe3a0a05a65eea
+                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:726f35f0a86b03eff8333d418fa1fb44c8714f0c32659e99ff4c0cbf47af12c9
+                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:4a717f09e0c0ba822957fbe356c20f3fc07b2531f9061b2f4d600b0006730260
+                      - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:9029cf7de93e7fc2f00926ea40f93f544b4dab7856c84a9904bba2da1117d85b
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:9e919d8dbe93d1234c2c1a246a3e011af3a8014f0f54429c640422ec30a32888
-                      - --dataverse-exporter-image=registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:1dcc299c0cefb4ccdf3a649c2550227b4d5789576e84d29c604327dfdf9aa1da
-                      - --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:16fe827e539bb7ccb73061cef582f95b1ec9902188bd1af61d43bb6b51b6b5ed
+                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:a8e9b963dc01a5c4cc5a6900ac0ea4f8b64fed0c0bd0831f9d3c36b3bc1d58b9
+                      - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9:0.4.1
+                      - --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:e0c1f608d50f03188081285df6bd27f032cb9d70209c82103ee9d827f7add208
                     command:
                       - /manager
                     env:
@@ -803,7 +808,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ab864d2f6761fbe1b4865fef50d9ea35a06012af5baf1d7bcc985a032b4bf681
+                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:c689c51755f57bbcac03b64c41573986122f7ac3f4b5a164929c6b6856c363e1
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -911,23 +916,23 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
-  version: 1.0.11
+  version: 1.0.10
   relatedImages:
     - name: lightspeed-service-api
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:04d7a0de0b5bd03451b4a16c8d358936191054e1797b7b2174ec24b871fe8173
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:726f35f0a86b03eff8333d418fa1fb44c8714f0c32659e99ff4c0cbf47af12c9
     - name: lightspeed-console-plugin
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:7cf1e2817edf826ef91d2e3333b3b1bbb5d764c2ddcaeef4bb6e7607d1b9f822
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:4a717f09e0c0ba822957fbe356c20f3fc07b2531f9061b2f4d600b0006730260
     - name: lightspeed-console-plugin-pf5
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:043c01a6032e73f240a97f9acf583d0edb11d8ac19d8530cddfe3a0a05a65eea
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:9029cf7de93e7fc2f00926ea40f93f544b4dab7856c84a9904bba2da1117d85b
     - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ab864d2f6761fbe1b4865fef50d9ea35a06012af5baf1d7bcc985a032b4bf681
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:c689c51755f57bbcac03b64c41573986122f7ac3f4b5a164929c6b6856c363e1
     - name: openshift-mcp-server
-      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:9e919d8dbe93d1234c2c1a246a3e011af3a8014f0f54429c640422ec30a32888
+      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:a8e9b963dc01a5c4cc5a6900ac0ea4f8b64fed0c0bd0831f9d3c36b3bc1d58b9
     - name: lightspeed-to-dataverse-exporter
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:1dcc299c0cefb4ccdf3a649c2550227b4d5789576e84d29c604327dfdf9aa1da
+      image: registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9:0.4.1
     - name: lightspeed-ocp-rag
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:16fe827e539bb7ccb73061cef582f95b1ec9902188bd1af61d43bb6b51b6b5ed
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:e0c1f608d50f03188081285df6bd27f032cb9d70209c82103ee9d827f7add208
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     - name: lightspeed-operator-bundle
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:6ddfddfd63d7b8b1fc59c7d8062562b9c1e0dbfaa7b6126db3c6bdc19342a6d6
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:bdf70e356224e6999e5193713671b2fcee8061496630e59e6f59458d89b45ecd
