@@ -99,62 +99,6 @@ spec:
           - name: credentials
             emptyDir: {}
         steps:
-          - name: get-kubeconfig
-            ref:
-              resolver: git
-              params:
-                - name: url
-                  value: https://github.com/konflux-ci/build-definitions.git
-                - name: revision
-                  value: main
-                - name: pathInRepo
-                  value: stepactions/eaas-get-ephemeral-cluster-credentials/0.1/eaas-get-ephemeral-cluster-credentials.yaml
-            params:
-              - name: eaasSpaceSecretRef
-                value: $(tasks.eaas-provision-space.results.secretRef)
-              - name: clusterName
-                value: "$(tasks.provision-cluster.results.clusterName)"
-              - name: credentials
-                value: credentials
-          - name: install-operator
-            env:
-              - name: SNAPSHOT
-                value: $(params.SNAPSHOT)
-              - name: KONFLUX_COMPONENT_NAME
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.labels['appstudio.openshift.io/component']
-              - name: KUBECONFIG
-                value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
-            volumeMounts:
-              - name: credentials
-                mountPath: /credentials
-            image: registry.redhat.io/openshift4/ose-cli:latest
-            script: |
-              echo "---------------------------------------------"
-              cat $KUBECONFIG
-              echo "---------------------------------------------"
-              dnf -y install jq python3-pip
-              export OPERATOR_SDK_VERSION=1.36.1
-              export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
-              export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v${OPERATOR_SDK_VERSION}
-              curl -Lo /usr/local/bin/operator-sdk ${OPERATOR_SDK_DL_URL}/operator-sdk_linux_${ARCH}
-              chmod +x /usr/local/bin/operator-sdk
-              operator-sdk version
-              echo "---------------------------------------------"
-              oc create namespace $(params.namespace)
-              oc label namespaces $(params.namespace) openshift.io/cluster-monitoring=true --overwrite=true
-              echo "---------------------------------------------"
-              echo ${KONFLUX_COMPONENT_NAME}
-              export BUNDLE_IMAGE="quay.io/openshift-lightspeed/lightspeed-operator-bundle:latest"
-              operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
-              echo "---------------------------------------------"
-              export BUNDLE_IMAGE="$(jq -r --arg component_name "$KONFLUX_COMPONENT_NAME" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")"
-              echo "${BUNDLE_IMAGE}"
-              echo "---------------------------------------------"
-
-              echo "---------------------------------------------"
-              oc get deployment lightspeed-operator-controller-manager -n "$(params.namespace)"
           - name: get-bundle-image
             image: registry.redhat.io/openshift4/ose-cli:latest
             env:
@@ -251,16 +195,31 @@ spec:
               echo "---------------------------------------------"
               cat $KUBECONFIG
               echo "---------------------------------------------"
-              dnf -y install git make golang yq
+              dnf -y install git make golang yq jq gpgme-devel
+              curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.17/openshift-client-linux-amd64-rhel9.tar.gz \
+                  && tar -xvzf oc.tar.gz \
+                  && chmod +x kubectl oc \
+                  && mv oc kubectl /usr/local/bin/
               git clone https://github.com/openshift/lightspeed-operator.git
               cd lightspeed-operator
               git config --global user.email olsci@redhat.com
               git config --global user.name olsci
               git fetch origin ${COMMIT_SHA}
               git checkout ${COMMIT_SHA}
-              LATEST_BUNDLE=$(ls lightspeed-catalog-4.19/bundle-v* | sort  | head -n 1)
+              echo "---------------------------------------------"
+              export OPERATOR_SDK_VERSION=1.36.1
+              export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
+              export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v${OPERATOR_SDK_VERSION}
+              curl -Lo /usr/local/bin/operator-sdk ${OPERATOR_SDK_DL_URL}/operator-sdk_linux_${ARCH}
+              chmod +x /usr/local/bin/operator-sdk
+              operator-sdk version
+              echo "---------------------------------------------"
+              oc create namespace $(params.namespace)
+              oc label namespaces $(params.namespace) openshift.io/cluster-monitoring=true --overwrite=true
+              LATEST_BUNDLE=$(ls lightspeed-catalog-4.19/bundle-v* | sort -V -r | head -n 2 | tail -n 1)
               export BUNDLE_IMAGE=$(cat $LATEST_BUNDLE | yq '.relatedImages[] | select(.name == "lightspeed-operator-bundle") | .image')
-              echo "$BUNDLE_IMAGE"
+              echo "installing ${LATEST_BUNDLE} bundle image"
+              operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
               echo "---------------------------------------------"
               echo "---------------------------------------------"
               echo "---------------------------------------------"
