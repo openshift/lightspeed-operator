@@ -167,6 +167,8 @@ type OLSConfig struct {
 	ConversationCache ConversationCacheConfig `json:"conversation_cache,omitempty"`
 	// TLS configuration
 	TLSConfig TLSConfig `json:"tls_config,omitempty"`
+	// TLS security profile for service endpoint
+	TLSSecurityProfile *TLSSecurityProfileConfig `json:"tlsSecurityProfile,omitempty"`
 	// Query filters
 	QueryFilters []QueryFilters `json:"query_filters,omitempty"`
 	// Reference content for RAG
@@ -187,6 +189,15 @@ type OLSConfig struct {
 	ToolFiltering *ToolFilteringConfig `json:"tool_filtering,omitempty"`
 	// Tool execution approval configuration
 	ToolsApproval *ToolsApprovalConfig `json:"tools_approval,omitempty"`
+}
+
+type TLSSecurityProfileConfig struct {
+	// Profile type expected by the service (OldType, IntermediateType, ModernType, Custom)
+	ProfileType string `json:"type,omitempty"`
+	// Minimum TLS protocol version (VersionTLS12, VersionTLS13, ...)
+	MinTLSVersion string `json:"minTLSVersion,omitempty"`
+	// Allowed ciphers in OpenSSL format
+	Ciphers []string `json:"ciphers,omitempty"`
 }
 
 // ToolFilteringConfig defines configuration for tool filtering using hybrid RAG retrieval

@@ -8,7 +8,10 @@ import (
 	"slices"
 	"strings"
 
+	configv1 "github.com/openshift/api/config/v1"
+
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
+	utiltls "github.com/openshift/lightspeed-operator/internal/tls"
 
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -291,6 +294,17 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		ProxyConfig: proxyConfig,
 	}
 
+	tlsProfileType := utiltls.DefaultTLSProfileType
+	if cr.Spec.OLSConfig.TLSSecurityProfile != nil && cr.Spec.OLSConfig.TLSSecurityProfile.Type != "" {
+		tlsProfileType = cr.Spec.OLSConfig.TLSSecurityProfile.Type
+	}
+	tlsProfileSpec := utiltls.GetTLSProfileSpec(cr.Spec.OLSConfig.TLSSecurityProfile)
+	olsConfig.TLSSecurityProfile = &utils.TLSSecurityProfileConfig{
+		ProfileType:   serviceTLSProfileType(tlsProfileType),
+		MinTLSVersion: utiltls.MinTLSVersion(tlsProfileSpec),
+		Ciphers:       utiltls.TLSCiphers(tlsProfileSpec),
+	}
+
 	return olsConfig, nil
 }
 
@@ -411,8 +425,6 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		return nil, err
 	}
 
-	// Add quota handlers configuration if specified
-	// This configures rate limiting and token tracking for API usage
 	if cr.Spec.OLSConfig.QuotaHandlersConfig != nil {
 		olsConfig.QuotaHandlersConfig = &utils.QuotaHandlersConfig{
 			Storage: postgresCacheConfig(r, cr),
@@ -899,6 +911,21 @@ func GenerateMetricsReaderSecret(r reconciler.Reconciler, cr *olsv1alpha1.OLSCon
 	}
 
 	return secret, nil
+}
+
+func serviceTLSProfileType(profileType configv1.TLSProfileType) string {
+	switch profileType {
+	case configv1.TLSProfileOldType:
+		return "OldType"
+	case configv1.TLSProfileIntermediateType:
+		return "IntermediateType"
+	case configv1.TLSProfileModernType:
+		return "ModernType"
+	case configv1.TLSProfileCustomType:
+		return "Custom"
+	default:
+		return "IntermediateType"
+	}
 }
 
 func getQueryFilters(cr *olsv1alpha1.OLSConfig) []utils.QueryFilters {
