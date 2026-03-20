@@ -798,8 +798,8 @@ spec:
                       - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:1887c690e4e37dcffe0fd574e003f86bc5e7624720431b587871b990dd75afa6
                       - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:34e399b8f565217c85f8a01e479c747407013b512d55f91e96cd8f47cc41e4bb
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:a8e9b963dc01a5c4cc5a6900ac0ea4f8b64fed0c0bd0831f9d3c36b3bc1d58b9
-                      - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9:0.4.1@sha256:c5a58cb0431bb666c8034be7da7e245234f1294bd6388db47cc43bc62f765f7a
+                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:2fb9689f7145f772157cdbba0a26db4a60a3e5f5f82bd8cc356bad2a0f613eea
+                      - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9:0.4.1
                       - --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:e0c1f608d50f03188081285df6bd27f032cb9d70209c82103ee9d827f7add208
                     command:
                       - /manager
@@ -929,7 +929,7 @@ spec:
     - name: openshift-mcp-server
       image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:2fb9689f7145f772157cdbba0a26db4a60a3e5f5f82bd8cc356bad2a0f613eea
     - name: lightspeed-to-dataverse-exporter
-      image: registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9:0.4.1@sha256:c5a58cb0431bb666c8034be7da7e245234f1294bd6388db47cc43bc62f765f7a
+      image: registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9:0.4.1
     - name: lightspeed-ocp-rag
       image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:e0c1f608d50f03188081285df6bd27f032cb9d70209c82103ee9d827f7add208
     - name: lightspeed-postgresql
