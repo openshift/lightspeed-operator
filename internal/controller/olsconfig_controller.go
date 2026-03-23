@@ -151,33 +151,40 @@ type OLSConfigReconciler struct {
 // ImageStream access
 // +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;list;watch;create;update;patch;delete
 
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
-func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
-	// Reconcile operator's resources first
-	// The operator reconciles only for OLSConfig CR with a specific name
+// getAndValidateCR fetches and validates the OLSConfig CR.
+// Returns (cr, nil) on success.
+// Returns (nil, nil) if CR doesn't exist or has wrong name (expected, no retry needed).
+// Returns (nil, err) for API errors (will trigger retry).
+func (r *OLSConfigReconciler) getAndValidateCR(ctx context.Context, req ctrl.Request) (*olsv1alpha1.OLSConfig, error) {
+	// Validate CR name
 	if req.Name != utils.OLSConfigName {
 		r.Logger.Info(fmt.Sprintf("Ignoring OLSConfig CR other than %s", utils.OLSConfigName), "name", req.Name)
-		return ctrl.Result{}, nil
+		return nil, nil
 	}
 
-	// Fetch the OLSConfig CR first to determine if it exists
-	// This prevents unnecessary operator-level reconciliation after CR deletion
+	// Fetch the CR
 	olsconfig := &olsv1alpha1.OLSConfig{}
 	err := r.Get(ctx, req.NamespacedName, olsconfig)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// CR was deleted - this is expected after finalizer completes
 			// Return silently without logging to avoid noise from watch-triggered reconciliations
-			return ctrl.Result{}, nil
+			return nil, nil
 		}
 		// Error reading the object - requeue the request.
 		// Controller-runtime handles error retries with exponential backoff.
 		r.Logger.Error(err, "Failed to get olsconfig")
-		return ctrl.Result{}, fmt.Errorf("failed to get OLSConfig CR: %w", err)
+		return nil, fmt.Errorf("failed to get OLSConfig CR: %w", err)
 	}
 
+	return olsconfig, nil
+}
+
+// handleFinalizer manages finalizer addition and removal.
+// Returns non-nil Result if reconciliation should stop (deletion in progress, finalizer just added).
+// Returns (nil, nil) to continue with normal reconciliation.
+// Returns (nil, err) if an error occurred.
+func (r *OLSConfigReconciler) handleFinalizer(ctx context.Context, req ctrl.Request, olsconfig *olsv1alpha1.OLSConfig) (*ctrl.Result, error) {
 	// ========== Finalizer Handling ==========
 	// Check if CR is being deleted (DeletionTimestamp is set)
 	// Handle this BEFORE operator reconciliation to avoid wasteful work during deletion
@@ -188,7 +195,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			// Run finalizer cleanup logic
 			if err := r.finalizeOLSConfig(ctx, olsconfig); err != nil {
 				r.Logger.Error(err, "Failed to finalize OLSConfig CR")
-				return ctrl.Result{}, fmt.Errorf("failed to finalize OLSConfig CR: %w", err)
+				return &ctrl.Result{}, fmt.Errorf("failed to finalize OLSConfig CR: %w", err)
 			}
 
 			// Re-fetch the CR to get the latest ResourceVersion before removing finalizer
@@ -197,10 +204,10 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			if err := r.Get(ctx, req.NamespacedName, olsconfig); err != nil {
 				if apierrors.IsNotFound(err) {
 					// CR already deleted, nothing to do
-					return ctrl.Result{}, nil
+					return &ctrl.Result{}, nil
 				}
 				r.Logger.Error(err, "Failed to re-fetch OLSConfig CR before finalizer removal")
-				return ctrl.Result{}, fmt.Errorf("failed to re-fetch OLSConfig CR before finalizer removal: %w", err)
+				return &ctrl.Result{}, fmt.Errorf("failed to re-fetch OLSConfig CR before finalizer removal: %w", err)
 			}
 
 			// Remove finalizer
@@ -209,19 +216,19 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				if apierrors.IsNotFound(err) {
 					// CR was deleted between Get and Update, that's fine
 					r.Logger.V(1).Info("OLSConfig CR deleted during finalizer removal, skipping")
-					return ctrl.Result{}, nil
+					return &ctrl.Result{}, nil
 				}
 				if apierrors.IsConflict(err) {
 					// Conflict means CR was updated by someone else, controller-runtime will retry
 					r.Logger.V(1).Info("Conflict removing finalizer, will retry")
-					return ctrl.Result{}, fmt.Errorf("conflict removing finalizer: %w", err)
+					return &ctrl.Result{}, fmt.Errorf("conflict removing finalizer: %w", err)
 				}
 				r.Logger.Error(err, "Failed to remove finalizer from OLSConfig CR")
-				return ctrl.Result{}, fmt.Errorf("failed to remove finalizer from OLSConfig CR: %w", err)
+				return &ctrl.Result{}, fmt.Errorf("failed to remove finalizer from OLSConfig CR: %w", err)
 			}
 		}
 		// CR is being deleted and finalizer is removed (or never existed), nothing to do
-		return ctrl.Result{}, nil
+		return &ctrl.Result{}, nil
 	}
 
 	// Add finalizer if not present (for new or existing CRs without finalizer)
@@ -230,17 +237,22 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		controllerutil.AddFinalizer(olsconfig, utils.OLSConfigFinalizer)
 		if err := r.Update(ctx, olsconfig); err != nil {
 			r.Logger.Error(err, "Failed to add finalizer to OLSConfig CR")
-			return ctrl.Result{}, fmt.Errorf("failed to add finalizer to OLSConfig CR: %w", err)
+			return &ctrl.Result{}, fmt.Errorf("failed to add finalizer to OLSConfig CR: %w", err)
 		}
 		r.Logger.Info("Finalizer added to OLSConfig CR")
 		// Return here to ensure finalizer is persisted before proceeding
 		// Controller-runtime will requeue automatically
-		return ctrl.Result{}, nil
+		return &ctrl.Result{}, nil
 	}
 	// ========== End Finalizer Handling ==========
 
-	// Reconcile operator-level resources (ServiceMonitor, NetworkPolicy)
-	// These are reconciled on every CR reconciliation to ensure they stay in sync
+	// Continue with normal reconciliation
+	return nil, nil
+}
+
+// reconcileOperatorResources reconciles operator-level resources (ServiceMonitor, NetworkPolicy).
+// These are reconciled on every CR reconciliation to ensure they stay in sync.
+func (r *OLSConfigReconciler) reconcileOperatorResources(ctx context.Context) error {
 	operatorReconcileFuncs := []utils.OperatorReconcileFuncs{}
 
 	// Skip ServiceMonitor in local development mode (requires Prometheus Operator CRDs)
@@ -264,27 +276,18 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		err := reconcileFunc.Fn(ctx)
 		if err != nil {
 			r.Logger.Error(err, fmt.Sprintf("Failed to reconcile %s", reconcileFunc.Name))
-			return ctrl.Result{}, fmt.Errorf("failed to reconcile %s: %w", reconcileFunc.Name, err)
+			return fmt.Errorf("failed to reconcile %s: %w", reconcileFunc.Name, err)
 		}
 	}
 
-	r.Logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
+	return nil
+}
 
-	// Annotation Step: Annotate external resources and validate they exist
-	// This ensures all user-provided external resources (secrets, configmaps) are properly
-	// annotated for watching before we reconcile deployments that depend on them.
-	// This also validates that the resources exist (fail fast if they're missing).
-	if err := r.annotateExternalResources(ctx, olsconfig); err != nil {
-		// Controller-runtime handles error retries with exponential backoff.
-		r.Logger.Error(err, "Failed to annotate external resources")
-		return ctrl.Result{}, fmt.Errorf("failed to annotate external resources: %w", err)
-	}
-
-	// Phase 1: Reconcile independent resources for all components
-	// This phase creates ConfigMaps, Secrets, ServiceAccounts, Roles, NetworkPolicies, etc.
-	// These resources are independent and can be reconciled in any order without race conditions.
-	// We use a continue-on-error pattern here to reconcile as many resources as possible,
-	// even if some fail, to maximize progress in each reconciliation loop.
+// reconcileIndependentResources reconciles Phase 1: independent resources for all components.
+// This phase creates ConfigMaps, Secrets, ServiceAccounts, Roles, NetworkPolicies, etc.
+// These resources are independent and can be reconciled in any order without race conditions.
+// Uses a continue-on-error pattern to reconcile as many resources as possible, even if some fail.
+func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
 	resourceSteps := []utils.ReconcileSteps{
 		{Name: "console UI resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return console.ReconcileConsoleUIResources(r, ctx, cr)
@@ -355,17 +358,19 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		reconcileErr := fmt.Errorf("failed to reconcile resources: %v", taskNames)
 		if updateErr != nil {
 			// Combine both errors if status update also failed
-			return ctrl.Result{}, fmt.Errorf("%w (status update also failed: %v)", reconcileErr, updateErr)
+			return fmt.Errorf("%w (status update also failed: %v)", reconcileErr, updateErr)
 		}
-		return ctrl.Result{}, reconcileErr
+		return reconcileErr
 	}
 
-	// Phase 2: Reconcile deployments and their dependent resources
-	// This phase creates Deployments, Services, TLS certificates, ServiceMonitors, etc.
-	// These resources depend on Phase 1 resources being available (e.g., Services must exist
-	// before TLS certificates can be created by service-ca-operator, ConfigMaps must exist
-	// before Deployments can mount them). We use a fail-fast pattern here because deployment
-	// failures should stop the reconciliation and update status conditions appropriately.
+	return nil
+}
+
+// reconcileDeploymentsAndStatus reconciles Phase 2: deployments and updates CR status.
+// This phase creates Deployments, Services, TLS certificates, ServiceMonitors, etc.
+// These resources depend on Phase 1 resources being available.
+// Uses a fail-fast pattern and updates status conditions based on deployment health.
+func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) (ctrl.Result, error) {
 	deploymentSteps := []utils.ReconcileSteps{
 		{Name: "console UI deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return console.ReconcileConsoleUIDeploymentAndPlugin(r, ctx, cr)
@@ -516,6 +521,56 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	return ctrl.Result{}, reconcileErr
+}
+
+// Reconcile reconciles the OLSConfig custom resource to manage OpenShift Lightspeed components.
+// It performs the following steps:
+// 1. Fetches and validates the OLSConfig CR (only processes CR named "cluster")
+// 2. Handles finalizer logic (CR deletion cleanup or finalizer addition)
+// 3. Reconciles operator-level resources (ServiceMonitor, NetworkPolicy)
+// 4. Annotates external resources (secrets, configmaps) for watching
+// 5. Phase 1: Reconciles independent resources (ConfigMaps, Secrets, ServiceAccounts, Roles, etc.)
+// 6. Phase 2: Reconciles deployments (Console UI, Postgres, LCore/AppServer) and updates status
+//
+// Returns:
+// - ctrl.Result{}, nil: Reconciliation completed successfully
+// - ctrl.Result{}, error: Reconciliation failed, will be retried with exponential backoff
+//
+// For more details on Reconcile pattern, see:
+// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
+func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// 1. Fetch and validate CR
+	olsconfig, err := r.getAndValidateCR(ctx, req)
+	if olsconfig == nil {
+		return ctrl.Result{}, err
+	}
+
+	// 2. Handle finalizer (both deletion and addition)
+	finalizerResult, err := r.handleFinalizer(ctx, req, olsconfig)
+	if finalizerResult != nil {
+		return *finalizerResult, err
+	}
+
+	// 3. Reconcile operator-level resources
+	if err := r.reconcileOperatorResources(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	r.Logger.Info("reconciliation starts", "olsconfig generation", olsconfig.Generation)
+
+	// 4. Annotate external resources
+	if err := r.annotateExternalResources(ctx, olsconfig); err != nil {
+		r.Logger.Error(err, "Failed to annotate external resources")
+		return ctrl.Result{}, fmt.Errorf("failed to annotate external resources: %w", err)
+	}
+
+	// 5. Phase 1: Reconcile independent resources
+	if err := r.reconcileIndependentResources(ctx, olsconfig); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// 6. Phase 2: Reconcile deployments and update status
+	return r.reconcileDeploymentsAndStatus(ctx, olsconfig)
 }
 
 // finalizeOLSConfig performs cleanup when OLSConfig CR is deleted.
