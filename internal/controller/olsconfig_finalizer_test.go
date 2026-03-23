@@ -118,20 +118,22 @@ var _ = Describe("OLSConfig Finalizer", Ordered, Serial, func() {
 			err := k8sClient.Create(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Trigger reconciliation (may fail due to missing test fixtures, but finalizer logic should run)
-			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: cr.Name,
-				},
-			}
-			_, _ = reconciler.Reconcile(ctx, req)
+			// Fetch the CR to get latest version
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, cr)
+			Expect(err).NotTo(HaveOccurred())
 
-			// Fetch the updated CR
+			// Test finalizer logic directly
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: cr.Name},
+			}
+			result, err := reconciler.handleFinalizer(ctx, req, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).NotTo(BeNil(), "should return early after adding finalizer")
+
+			// Verify finalizer was added
 			updatedCR := &olsv1alpha1.OLSConfig{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, updatedCR)
 			Expect(err).NotTo(HaveOccurred())
-
-			// Verify finalizer was added (this is what we're testing)
 			Expect(controllerutil.ContainsFinalizer(updatedCR, utils.OLSConfigFinalizer)).To(BeTrue())
 		})
 
@@ -141,20 +143,22 @@ var _ = Describe("OLSConfig Finalizer", Ordered, Serial, func() {
 			err := k8sClient.Create(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Trigger reconciliation (may fail due to missing test fixtures)
-			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: cr.Name,
-				},
-			}
-			_, _ = reconciler.Reconcile(ctx, req)
+			// Fetch the CR to get latest version
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, cr)
+			Expect(err).NotTo(HaveOccurred())
 
-			// Fetch the updated CR
+			// Test finalizer logic directly
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: cr.Name},
+			}
+			result, err := reconciler.handleFinalizer(ctx, req, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeNil(), "should continue reconciliation when finalizer exists")
+
+			// Verify only one finalizer (this is what we're testing)
 			updatedCR := &olsv1alpha1.OLSConfig{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, updatedCR)
 			Expect(err).NotTo(HaveOccurred())
-
-			// Verify only one finalizer (this is what we're testing)
 			Expect(updatedCR.Finalizers).To(HaveLen(1))
 			Expect(updatedCR.Finalizers[0]).To(Equal(utils.OLSConfigFinalizer))
 		})
@@ -171,25 +175,24 @@ var _ = Describe("OLSConfig Finalizer", Ordered, Serial, func() {
 			err = k8sClient.Delete(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Trigger reconciliation (should run finalizer logic, may have errors from missing fixtures)
+			// Re-fetch to get DeletionTimestamp
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cr.DeletionTimestamp.IsZero()).To(BeFalse())
+
+			// Test finalizer deletion logic directly
 			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: cr.Name,
-				},
+				NamespacedName: types.NamespacedName{Name: cr.Name},
 			}
-			_, _ = reconciler.Reconcile(ctx, req)
+			result, err := reconciler.handleFinalizer(ctx, req, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).NotTo(BeNil(), "should return early after cleanup")
 
-			// Try to fetch the CR - it should either be gone or have no finalizer
-			updatedCR := &olsv1alpha1.OLSConfig{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, updatedCR)
-
-			if err == nil {
-				// CR still exists - finalizer should have been removed
-				Expect(controllerutil.ContainsFinalizer(updatedCR, utils.OLSConfigFinalizer)).To(BeFalse())
-			} else {
-				// CR should be NotFound (successfully deleted after finalizer removal)
-				Expect(apierrors.IsNotFound(err)).To(BeTrue())
-			}
+			// Verify CR is eventually deleted (finalizer removed)
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, cr)
+				return apierrors.IsNotFound(err)
+			}, "10s", "100ms").Should(BeTrue())
 		})
 	})
 
