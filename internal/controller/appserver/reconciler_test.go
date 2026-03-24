@@ -15,7 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -219,6 +219,132 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Spec.Template.Spec.Tolerations).To(Equal(olsConfig.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations))
 		})
 
+		It("should track MCP Server ConfigMap ResourceVersion and trigger restart on introspection toggle", func() {
+			By("Disable introspection initially")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err := k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = false
+
+			By("Reconcile with introspection disabled")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify MCP Server ConfigMap does not exist")
+			mcpCm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "MCP ConfigMap should not exist when introspection is disabled")
+
+			By("Get deployment and verify MCP annotation is empty")
+			dep := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			mcpAnnotation := dep.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+			Expect(mcpAnnotation).To(BeEmpty(), "MCP annotation should be empty when ConfigMap doesn't exist")
+
+			By("Enable introspection")
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = true
+
+			By("Reconcile with introspection enabled")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify MCP Server ConfigMap was created")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(err).NotTo(HaveOccurred(), "MCP ConfigMap should exist after enabling introspection")
+			firstResourceVersion := mcpCm.ResourceVersion
+			Expect(firstResourceVersion).NotTo(BeEmpty())
+
+			By("Verify deployment annotation tracks MCP ConfigMap ResourceVersion")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			mcpAnnotation = dep.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+			Expect(mcpAnnotation).To(Equal(firstResourceVersion), "Deployment annotation should match ConfigMap ResourceVersion")
+
+			By("Disable introspection again")
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = false
+
+			By("Reconcile with introspection disabled again")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify MCP Server ConfigMap was deleted")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "MCP ConfigMap should be deleted when introspection is disabled")
+
+			By("Verify deployment annotation changed (triggering restart)")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			newMcpAnnotation := dep.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+			Expect(newMcpAnnotation).NotTo(Equal(firstResourceVersion), "Annotation should change when ConfigMap is deleted to trigger pod restart")
+
+			By("Verify pod template restart annotation is set")
+			forceReloadValue := dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]
+			Expect(forceReloadValue).NotTo(BeEmpty(), "Pod template restart annotation should be set to trigger rolling update")
+		})
+
+		It("should trigger rolling update when MCP ConfigMap is modified externally", func() {
+			By("Enable introspection")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err := k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = true
+
+			By("Reconcile to create MCP ConfigMap")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get the MCP ConfigMap and capture initial ResourceVersion")
+			mcpCm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(err).NotTo(HaveOccurred())
+			initialResourceVersion := mcpCm.ResourceVersion
+
+			By("Get deployment and capture initial annotation")
+			dep := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			initialAnnotation := dep.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+			Expect(initialAnnotation).To(Equal(initialResourceVersion))
+
+			By("Manually modify MCP ConfigMap data (simulating external change)")
+			mcpCm.Data["mcp-server-config.toml"] = "# Modified externally"
+			err = k8sClient.Update(ctx, mcpCm)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get updated ResourceVersion after manual modification")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(err).NotTo(HaveOccurred())
+			modifiedResourceVersion := mcpCm.ResourceVersion
+			Expect(modifiedResourceVersion).NotTo(Equal(initialResourceVersion), "ResourceVersion should change after update")
+
+			By("Reconcile again to correct the ConfigMap")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify ConfigMap was corrected and has new ResourceVersion")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(err).NotTo(HaveOccurred())
+			correctedResourceVersion := mcpCm.ResourceVersion
+			Expect(correctedResourceVersion).NotTo(Equal(modifiedResourceVersion), "ResourceVersion should change after reconciler correction")
+			Expect(mcpCm.Data["mcp-server-config.toml"]).NotTo(ContainSubstring("Modified externally"), "ConfigMap should be corrected to proper content")
+
+			By("Verify deployment annotation updated to new ResourceVersion")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			newAnnotation := dep.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+			Expect(newAnnotation).To(Equal(correctedResourceVersion), "Deployment annotation should track corrected ConfigMap ResourceVersion")
+			Expect(newAnnotation).NotTo(Equal(initialAnnotation), "Deployment annotation should change to trigger restart")
+
+			By("Verify pod template restart annotation is set")
+			forceReloadValue := dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]
+			Expect(forceReloadValue).NotTo(BeEmpty(), "Pod template restart annotation should be set to trigger rolling update")
+		})
+
 		It("should trigger rolling update of the deployment when updating the nodeselector ", func() {
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
@@ -413,7 +539,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 			By("Verify exporter configmap has been deleted")
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ExporterConfigCmName, Namespace: utils.OLSNamespaceDefault}, &corev1.ConfigMap{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
 
 		// Note: LLM credential validation is now done in annotateExternalResources
@@ -473,7 +599,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Delete the tls secret")
 			secretDeletionErr = testReconcilerInstance.Delete(ctx, tlsSecret)
 			if secretDeletionErr != nil {
-				Expect(errors.IsNotFound(secretDeletionErr)).To(BeTrue())
+				Expect(apierrors.IsNotFound(secretDeletionErr)).To(BeTrue())
 			} else {
 				Expect(secretDeletionErr).NotTo(HaveOccurred())
 			}

@@ -711,9 +711,20 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, ctx context.Context,
 	lightspeedStackResources := getLightspeedStackResources(cr)
 
 	// Get ResourceVersions for tracking - these resources should already exist
-	// If they don't exist, we'll get empty strings which is fine for initial creation
-	lcoreConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LCoreConfigCmName)
-	llamaStackConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LlamaStackConfigCmName)
+	// If they don't exist (NotFound), we'll get empty strings which is fine for initial creation
+	// However, we should not ignore other errors (like API failures)
+	lcoreConfigMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.LCoreConfigCmName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get LCore ConfigMap resource version: %w", err)
+	}
+	llamaStackConfigMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.LlamaStackConfigCmName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get Llama Stack ConfigMap resource version: %w", err)
+	}
+	mcpConfigMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OpenShiftMCPServerConfigCmName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get MCP Server ConfigMap resource version: %w", err)
+	}
 
 	// Use helper functions to build common components
 	labels := buildCommonLabels()
@@ -908,8 +919,9 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, ctx context.Context,
 			Namespace: r.GetNamespace(),
 			Labels:    labels,
 			Annotations: map[string]string{
-				utils.LCoreConfigMapResourceVersionAnnotation:      lcoreConfigMapResourceVersion,
-				utils.LlamaStackConfigMapResourceVersionAnnotation: llamaStackConfigMapResourceVersion,
+				utils.LCoreConfigMapResourceVersionAnnotation:              lcoreConfigMapResourceVersion,
+				utils.LlamaStackConfigMapResourceVersionAnnotation:         llamaStackConfigMapResourceVersion,
+				utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation: mcpConfigMapResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -1029,6 +1041,19 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existin
 		}
 	}
 
+	// Check if MCP Server ConfigMap ResourceVersion has changed
+	currentMCPConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OpenShiftMCPServerConfigCmName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		r.GetLogger().Info("failed to get MCP Server ConfigMap ResourceVersion", "error", err)
+		changed = true
+	} else {
+		storedMCPConfigMapVersion := existingDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+		if storedMCPConfigMapVersion != currentMCPConfigMapVersion {
+			r.GetLogger().Info("MCP Server ConfigMap changed, updating deployment")
+			changed = true
+		}
+	}
+
 	// If nothing changed, skip update
 	if !changed {
 		return nil
@@ -1038,6 +1063,7 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, existin
 	existingDeployment.Spec = desiredDeployment.Spec
 	existingDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation]
+	existingDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
 
 	r.GetLogger().Info("updating LCore deployment", "name", existingDeployment.Name)
 
@@ -1059,9 +1085,21 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, ctx context.Context
 		return nil, fmt.Errorf("failed to check data collector status: %w", err)
 	}
 
-	// Get ResourceVersions for tracking
-	lcoreConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LCoreConfigCmName)
-	llamaStackConfigMapResourceVersion, _ := utils.GetConfigMapResourceVersion(r, ctx, utils.LlamaStackConfigCmName)
+	// Get ResourceVersions for tracking - these resources should already exist
+	// If they don't exist (NotFound), we'll get empty strings which is fine for initial creation
+	// However, we should not ignore other errors (like API failures)
+	lcoreConfigMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.LCoreConfigCmName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get LCore ConfigMap resource version: %w", err)
+	}
+	llamaStackConfigMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.LlamaStackConfigCmName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get Llama Stack ConfigMap resource version: %w", err)
+	}
+	mcpConfigMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OpenShiftMCPServerConfigCmName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get MCP Server ConfigMap resource version: %w", err)
+	}
 
 	// Use helper functions to build common components
 	labels := buildCommonLabels()
@@ -1132,8 +1170,9 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, ctx context.Context
 			Namespace: r.GetNamespace(),
 			Labels:    labels,
 			Annotations: map[string]string{
-				utils.LCoreConfigMapResourceVersionAnnotation:      lcoreConfigMapResourceVersion,
-				utils.LlamaStackConfigMapResourceVersionAnnotation: llamaStackConfigMapResourceVersion,
+				utils.LCoreConfigMapResourceVersionAnnotation:              lcoreConfigMapResourceVersion,
+				utils.LlamaStackConfigMapResourceVersionAnnotation:         llamaStackConfigMapResourceVersion,
+				utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation: mcpConfigMapResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{

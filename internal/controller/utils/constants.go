@@ -396,6 +396,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	LlamaStackConfigMapResourceVersionAnnotation = "ols.openshift.io/llamastack-configmap-version"
 	// LCoreConfigMapResourceVersionAnnotation is the annotation key for tracking LCore ConfigMap ResourceVersion
 	LCoreConfigMapResourceVersionAnnotation = "ols.openshift.io/lcore-configmap-version"
+	// OpenShiftMCPServerConfigMapResourceVersionAnnotation is the annotation key for tracking MCP Server ConfigMap ResourceVersion
+	OpenShiftMCPServerConfigMapResourceVersionAnnotation = "ols.openshift.io/mcp-server-configmap-version"
 	// LlamaStackDatabaseName is the PostgreSQL database name for llama-stack conversation storage.
 	// CRITICAL: This value is HARDCODED in llama-stack's internal PostgreSQL adapter.
 	// DO NOT CHANGE THIS VALUE UNDER ANY CIRCUMSTANCES - llama-stack expects exactly "llamastack".
