@@ -104,7 +104,9 @@ func postgresCacheConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) util
 	}
 }
 
-func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+// buildProviderConfigs builds the provider configurations for the OLS config from the CR spec.
+// It handles Azure OpenAI, fake providers, and standard providers with their respective models.
+func buildProviderConfigs(cr *olsv1alpha1.OLSConfig) []utils.ProviderConfig {
 	providerConfigs := []utils.ProviderConfig{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
 		credentialPath := path.Join(utils.APIKeyMountRoot, provider.CredentialsSecretRef.Name)
@@ -156,45 +158,89 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
+	return providerConfigs
+}
 
+// buildToolFilteringConfig builds the tool filtering configuration if enabled and MCP servers exist.
+// Returns nil if tool filtering should not be enabled.
+func buildToolFilteringConfig(cr *olsv1alpha1.OLSConfig, mcpServers []utils.MCPServerConfig, r reconciler.Reconciler) *utils.ToolFilteringConfig {
+	// Check if feature gate is enabled
+	if cr.Spec.FeatureGates == nil || !slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateToolFiltering) {
+		return nil
+	}
+
+	// Check if config is specified
+	if cr.Spec.OLSConfig.ToolFilteringConfig == nil {
+		return nil
+	}
+
+	// Check if there are MCP servers to filter
+	if len(mcpServers) == 0 {
+		r.GetLogger().Info(
+			"ToolFilteringConfig specified but no MCP servers configured. Tool filtering will be disabled.",
+			"IntrospectionEnabled", cr.Spec.OLSConfig.IntrospectionEnabled,
+			"MCPServersCount", len(cr.Spec.MCPServers),
+		)
+		return nil
+	}
+
+	// Apply defaults for zero values (happens when user specifies toolFilteringConfig: {})
+	cfg := cr.Spec.OLSConfig.ToolFilteringConfig
+	alpha, topK, threshold := cfg.Alpha, cfg.TopK, cfg.Threshold
+	if alpha == 0.0 {
+		alpha = 0.8
+	}
+	if topK == 0 {
+		topK = 10
+	}
+	if threshold == 0.0 {
+		threshold = 0.01
+	}
+
+	return &utils.ToolFilteringConfig{
+		Alpha:     alpha,
+		TopK:      topK,
+		Threshold: threshold,
+	}
+}
+
+// buildOLSConfig builds the main OLS configuration including conversation cache, TLS, proxy,
+// RAG indexes, logging, and user data collection settings.
+func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, dataCollectorEnabled bool) (utils.OLSConfig, error) {
+	// Configure conversation cache using PostgreSQL
 	conversationCache := utils.ConversationCacheConfig{
 		Type:     string(utils.OLSDefaultCacheType),
 		Postgres: postgresCacheConfig(r, cr),
 	}
 
-	// We want to disable the data collector if the user has explicitly disabled it
-	// or if the data collector is not enabled in the cluster with pull secret
-
-	dataCollectorEnabled, err := dataCollectorEnabled(r, cr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check if data collector is enabled: %w", err)
-	}
-
-	// TLS config always uses /etc/certs/lightspeed-tls/ path
-	// regardless of whether it's service-ca generated or user-provided
+	// Configure TLS for secure communication
+	// Uses /etc/certs/lightspeed-tls/ path for both service-ca and user-provided certs
 	tlsConfig := utils.TLSConfig{
 		TLSCertificatePath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.crt"),
 		TLSKeyPath:         path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.key"),
 	}
 
+	// Configure HTTP proxy if specified
 	var proxyConfig *utils.ProxyConfig
 	if cr.Spec.OLSConfig.ProxyConfig != nil {
 		proxyConfig = &utils.ProxyConfig{
 			ProxyURL:        cr.Spec.OLSConfig.ProxyConfig.ProxyURL,
 			ProxyCACertPath: "",
 		}
+		// Validate and add proxy CA certificate if provided
 		if cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil && cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name != "" {
 			err := validateCertificateInConfigMap(r, ctx, cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, utils.ProxyCACertFileName)
 			if err != nil {
-				return nil, fmt.Errorf("failed to validate proxy CA certificate %s: %w", cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, err)
+				return utils.OLSConfig{}, fmt.Errorf("failed to validate proxy CA certificate %s: %w", cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, err)
 			}
 			proxyConfig.ProxyCACertPath = path.Join(utils.OLSAppCertsMountRoot, utils.ProxyCACertVolumeName, utils.ProxyCACertFileName)
 		}
 	}
 
+	// Build RAG (Retrieval-Augmented Generation) reference indexes
+	// OLS-1823: BYOK (Bring Your Own Knowledge) content is prioritized ahead of OCP docs
 	referenceIndexes := []utils.ReferenceIndex{}
-	// OLS-1823: prioritize BYOK content by listing it ahead of the OCP docs
-	// Custom reference document is optional
+	// Add user-provided RAG indexes (BYOK)
 	for i, index := range cr.Spec.OLSConfig.RAG {
 		referenceIndex := utils.ReferenceIndex{
 			ProductDocsIndexPath: filepath.Join(utils.RAGVolumeMountPath, fmt.Sprintf("rag-%d", i)),
@@ -203,6 +249,7 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		}
 		referenceIndexes = append(referenceIndexes, referenceIndex)
 	}
+	// Add OCP documentation index unless BYOK-only mode is enabled
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
 		ocpReferenceIndex := utils.ReferenceIndex{
 			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor(),
@@ -212,6 +259,7 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 	}
 
+	// Assemble the main OLS configuration
 	olsConfig := utils.OLSConfig{
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
 		DefaultProvider: cr.Spec.OLSConfig.DefaultProvider,
@@ -224,8 +272,7 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		ConversationCache: conversationCache,
 		TLSConfig:         tlsConfig,
 		ReferenceContent: utils.ReferenceContent{
-			Indexes: referenceIndexes,
-			// all RAGs use the same embedding model
+			Indexes:             referenceIndexes,
 			EmbeddingsModelPath: "/app-root/embeddings_model",
 		},
 		UserDataCollection: utils.UserDataCollectionConfig{
@@ -237,6 +284,122 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		ProxyConfig: proxyConfig,
 	}
 
+	return olsConfig, nil
+}
+
+// generateMCPServerConfigs builds MCP (Model Context Protocol) server configurations.
+// It adds the built-in OpenShift MCP server if introspection is enabled, and any user-defined
+// MCP servers with their authentication headers (Kubernetes, client, or secret-based).
+func generateMCPServerConfigs(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) ([]utils.MCPServerConfig, error) {
+	servers := []utils.MCPServerConfig{}
+
+	// Add OpenShift MCP server if introspection is enabled
+	if cr.Spec.OLSConfig.IntrospectionEnabled {
+		servers = append(servers, utils.MCPServerConfig{
+			Name:    "openshift",
+			URL:     fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort),
+			Timeout: utils.OpenShiftMCPServerTimeout,
+			Headers: map[string]string{
+				utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
+			},
+		})
+	}
+
+	// Add user-defined MCP servers
+	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer) && cr.Spec.MCPServers != nil {
+		for _, server := range cr.Spec.MCPServers {
+			// Build MCP server config
+			mcpServer := utils.MCPServerConfig{
+				Name: server.Name,
+				URL:  server.URL,
+			}
+
+			// Add timeout if specified (default is handled by lightspeed-service)
+			if server.Timeout > 0 {
+				mcpServer.Timeout = server.Timeout
+			}
+
+			// Add authorization headers if configured
+			if len(server.Headers) > 0 {
+				headers := make(map[string]string)
+				invalidServer := false
+				for _, header := range server.Headers {
+					if invalidServer {
+						break
+					}
+					headerName := header.Name
+					var headerValue string
+
+					// Determine header value based on discriminator type
+					switch header.ValueFrom.Type {
+					case olsv1alpha1.MCPHeaderSourceTypeKubernetes:
+						headerValue = utils.KUBERNETES_PLACEHOLDER
+					case olsv1alpha1.MCPHeaderSourceTypeClient:
+						headerValue = utils.CLIENT_PLACEHOLDER
+					case olsv1alpha1.MCPHeaderSourceTypeSecret:
+						if header.ValueFrom.SecretRef == nil || header.ValueFrom.SecretRef.Name == "" {
+							r.GetLogger().Error(
+								fmt.Errorf("missing secretRef for type 'secret'"),
+								"Skipping MCP server: type is 'secret' but secretRef is not set",
+								"server", server.Name,
+								"header", headerName,
+							)
+							invalidServer = true
+							continue
+						}
+						// Use consistent path structure: /etc/mcp/headers/<secretName>/header
+						headerValue = path.Join(utils.MCPHeadersMountRoot, header.ValueFrom.SecretRef.Name, utils.MCPSECRETDATAPATH)
+					default:
+						// This should never happen due to enum validation
+						r.GetLogger().Error(
+							fmt.Errorf("invalid MCP header type: %s", header.ValueFrom.Type),
+							"Skipping MCP server due to invalid header type",
+							"server", server.Name,
+							"header", headerName,
+							"type", header.ValueFrom.Type,
+						)
+						invalidServer = true
+						continue
+					}
+
+					headers[headerName] = headerValue
+				}
+
+				// Skip this server if any header was invalid
+				if invalidServer {
+					continue
+				}
+
+				if len(headers) > 0 {
+					mcpServer.Headers = headers
+				}
+			}
+
+			servers = append(servers, mcpServer)
+		}
+	}
+
+	return servers, nil
+}
+
+func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+	// Build provider configurations (Azure, fake providers, standard providers)
+	providerConfigs := buildProviderConfigs(cr)
+
+	// Check data collector status (needed for both buildOLSConfig and later)
+	dataCollectorEnabled, err := dataCollectorEnabled(r, cr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if data collector is enabled: %w", err)
+	}
+
+	// Build core OLS configuration (TLS, proxy, RAG indexes, logging, data collection)
+	olsConfig, err := buildOLSConfig(r, ctx, cr, dataCollectorEnabled)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add quota handlers configuration if specified
+	// This configures rate limiting and token tracking for API usage
 	if cr.Spec.OLSConfig.QuotaHandlersConfig != nil {
 		olsConfig.QuotaHandlersConfig = &utils.QuotaHandlersConfig{
 			Storage: postgresCacheConfig(r, cr),
@@ -246,6 +409,7 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 			LimitersConfig:     []utils.LimiterConfig{},
 			EnableTokenHistory: cr.Spec.OLSConfig.QuotaHandlersConfig.EnableTokenHistory,
 		}
+		// Build limiter configs from CR spec
 		for _, lc := range cr.Spec.OLSConfig.QuotaHandlersConfig.LimitersConfig {
 			olsConfig.QuotaHandlersConfig.LimitersConfig = append(
 				olsConfig.QuotaHandlersConfig.LimitersConfig,
@@ -267,6 +431,7 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 	}
 	olsConfig.ExtraCAs = extraCAs
 
+	// Append user-provided additional CA certificates if configured
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {
 		extraCAs, err := addAdditionalCAFileNames(r, ctx, cr.Spec.OLSConfig.AdditionalCAConfigMapRef, utils.UserCACertDir)
 		if err != nil {
@@ -276,18 +441,23 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 	}
 	olsConfig.CertificateDirectory = path.Join(utils.OLSAppCertsMountRoot, utils.CertBundleVolumeName)
 
+	// Add query filters if configured (content filtering for responses)
 	if queryFilters := getQueryFilters(cr); queryFilters != nil {
 		olsConfig.QueryFilters = queryFilters
 	}
 
+	// Add custom system prompt path if provided
 	if cr.Spec.OLSConfig.QuerySystemPrompt != "" {
 		olsConfig.SystemPromptPath = path.Join(utils.OLSConfigMountRoot, utils.OLSSystemPromptFileName)
 	}
 
+	// Assemble the final application server configuration file
 	appSrvConfigFile := utils.AppSrvConfigFile{
 		LLMProviders: providerConfigs,
 		OLSConfig:    olsConfig,
 	}
+
+	// Add data collector configuration if enabled
 	if dataCollectorEnabled {
 		appSrvConfigFile.UserDataCollectorConfig = utils.UserDataCollectorConfig{
 			DataStorage: "/app-root/ols-user-data",
@@ -304,36 +474,9 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		appSrvConfigFile.MCPServers = mcpServers
 	}
 
-	// Only add tool filtering if feature gate is enabled, config is specified, and there are MCP servers to filter
-	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateToolFiltering) {
-		if cr.Spec.OLSConfig.ToolFilteringConfig != nil {
-			if len(mcpServers) > 0 {
-				// Apply defaults for zero values (happens when user specifies toolFilteringConfig: {})
-				cfg := cr.Spec.OLSConfig.ToolFilteringConfig
-				alpha, topK, threshold := cfg.Alpha, cfg.TopK, cfg.Threshold
-				if alpha == 0.0 {
-					alpha = 0.8
-				}
-				if topK == 0 {
-					topK = 10
-				}
-				if threshold == 0.0 {
-					threshold = 0.01
-				}
-
-				appSrvConfigFile.OLSConfig.ToolFiltering = &utils.ToolFilteringConfig{
-					Alpha:     alpha,
-					TopK:      topK,
-					Threshold: threshold,
-				}
-			} else {
-				r.GetLogger().Info(
-					"ToolFilteringConfig specified but no MCP servers configured. Tool filtering will be disabled.",
-					"IntrospectionEnabled", cr.Spec.OLSConfig.IntrospectionEnabled,
-					"MCPServersCount", len(cr.Spec.MCPServers),
-				)
-			}
-		}
+	// Add tool filtering configuration if enabled
+	if toolFilteringConfig := buildToolFilteringConfig(cr, mcpServers, r); toolFilteringConfig != nil {
+		appSrvConfigFile.OLSConfig.ToolFiltering = toolFilteringConfig
 	}
 
 	// Add tools approval configuration if specified
@@ -357,19 +500,23 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		}
 	}
 
+	// Marshal the configuration to YAML format
 	configFileBytes, err := yaml.Marshal(appSrvConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OLS config file %w", err)
 	}
 
+	// Prepare ConfigMap data with the YAML configuration
 	data := map[string]string{
 		utils.OLSConfigFilename: string(configFileBytes),
 	}
 
+	// Add custom system prompt as a separate file if provided
 	if cr.Spec.OLSConfig.QuerySystemPrompt != "" {
 		data[utils.OLSSystemPromptFileName] = cr.Spec.OLSConfig.QuerySystemPrompt
 	}
 
+	// Create the ConfigMap object
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OLSConfigCmName,
@@ -379,6 +526,7 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		Data: data,
 	}
 
+	// Set the OLSConfig CR as the owner of this ConfigMap
 	if err := controllerutil.SetControllerReference(cr, &cm, r.GetScheme()); err != nil {
 		return nil, err
 	}
@@ -754,96 +902,4 @@ func getQueryFilters(cr *olsv1alpha1.OLSConfig) []utils.QueryFilters {
 		})
 	}
 	return filters
-}
-
-func generateMCPServerConfigs(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) ([]utils.MCPServerConfig, error) {
-	servers := []utils.MCPServerConfig{}
-
-	// Add OpenShift MCP server if introspection is enabled
-	if cr.Spec.OLSConfig.IntrospectionEnabled {
-		servers = append(servers, utils.MCPServerConfig{
-			Name:    "openshift",
-			URL:     fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort),
-			Timeout: utils.OpenShiftMCPServerTimeout,
-			Headers: map[string]string{
-				utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
-			},
-		})
-	}
-
-	// Add user-defined MCP servers
-	if cr.Spec.FeatureGates != nil && slices.Contains(cr.Spec.FeatureGates, utils.FeatureGateMCPServer) && cr.Spec.MCPServers != nil {
-		for _, server := range cr.Spec.MCPServers {
-			// Build MCP server config
-			mcpServer := utils.MCPServerConfig{
-				Name: server.Name,
-				URL:  server.URL,
-			}
-
-			// Add timeout if specified (default is handled by lightspeed-service)
-			if server.Timeout > 0 {
-				mcpServer.Timeout = server.Timeout
-			}
-
-			// Add authorization headers if configured
-			if len(server.Headers) > 0 {
-				headers := make(map[string]string)
-				invalidServer := false
-				for _, header := range server.Headers {
-					if invalidServer {
-						break
-					}
-					headerName := header.Name
-					var headerValue string
-
-					// Determine header value based on discriminator type
-					switch header.ValueFrom.Type {
-					case olsv1alpha1.MCPHeaderSourceTypeKubernetes:
-						headerValue = utils.KUBERNETES_PLACEHOLDER
-					case olsv1alpha1.MCPHeaderSourceTypeClient:
-						headerValue = utils.CLIENT_PLACEHOLDER
-					case olsv1alpha1.MCPHeaderSourceTypeSecret:
-						if header.ValueFrom.SecretRef == nil || header.ValueFrom.SecretRef.Name == "" {
-							r.GetLogger().Error(
-								fmt.Errorf("missing secretRef for type 'secret'"),
-								"Skipping MCP server: type is 'secret' but secretRef is not set",
-								"server", server.Name,
-								"header", headerName,
-							)
-							invalidServer = true
-							continue
-						}
-						// Use consistent path structure: /etc/mcp/headers/<secretName>/header
-						headerValue = path.Join(utils.MCPHeadersMountRoot, header.ValueFrom.SecretRef.Name, utils.MCPSECRETDATAPATH)
-					default:
-						// This should never happen due to enum validation
-						r.GetLogger().Error(
-							fmt.Errorf("invalid MCP header type: %s", header.ValueFrom.Type),
-							"Skipping MCP server due to invalid header type",
-							"server", server.Name,
-							"header", headerName,
-							"type", header.ValueFrom.Type,
-						)
-						invalidServer = true
-						continue
-					}
-
-					headers[headerName] = headerValue
-				}
-
-				// Skip this server if any header was invalid
-				if invalidServer {
-					continue
-				}
-
-				if len(headers) > 0 {
-					mcpServer.Headers = headers
-				}
-			}
-
-			servers = append(servers, mcpServer)
-		}
-	}
-
-	return servers, nil
 }

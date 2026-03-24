@@ -1906,3 +1906,259 @@ func get7RequiredVolumes() []corev1.Volume {
 		},
 	}
 }
+
+var _ = Describe("Helper function unit tests", func() {
+	var cr *olsv1alpha1.OLSConfig
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.TODO()
+		cr = utils.GetDefaultOLSConfigCR()
+	})
+
+	Context("buildOLSConfig", func() {
+		It("should build OLS config without proxy", func() {
+			cr.Spec.OLSConfig.ProxyConfig = nil
+			config, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(config.ProxyConfig).To(BeNil())
+			Expect(config.DefaultModel).To(Equal(cr.Spec.OLSConfig.DefaultModel))
+			Expect(config.DefaultProvider).To(Equal(cr.Spec.OLSConfig.DefaultProvider))
+		})
+
+		It("should build OLS config with proxy but no CA cert", func() {
+			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
+				ProxyURL: "http://proxy.example.com:8080",
+			}
+			config, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(config.ProxyConfig).NotTo(BeNil())
+			Expect(config.ProxyConfig.ProxyURL).To(Equal("http://proxy.example.com:8080"))
+			Expect(config.ProxyConfig.ProxyCACertPath).To(BeEmpty())
+		})
+
+		It("should build RAG indexes for BYOK only mode", func() {
+			cr.Spec.OLSConfig.ByokRAGOnly = true
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{IndexID: "test-index", Image: "test-image"},
+			}
+			config, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(config.ReferenceContent.Indexes).To(HaveLen(1))
+			Expect(config.ReferenceContent.Indexes[0].ProductDocsIndexId).To(Equal("test-index"))
+		})
+
+		It("should include OCP docs when BYOK only mode is disabled", func() {
+			cr.Spec.OLSConfig.ByokRAGOnly = false
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{}
+			config, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(config.ReferenceContent.Indexes).To(HaveLen(1))
+			Expect(config.ReferenceContent.Indexes[0].ProductDocsIndexId).To(ContainSubstring("ocp-product-docs"))
+		})
+
+		It("should disable user data collection when data collector is disabled", func() {
+			// Data collector is disabled by default in test environment
+			config, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(config.UserDataCollection.FeedbackDisabled).To(BeTrue())
+			Expect(config.UserDataCollection.TranscriptsDisabled).To(BeTrue())
+		})
+
+		It("should return error when proxy CA certificate ConfigMap does not exist", func() {
+			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
+				ProxyURL: "http://proxy.example.com:8080",
+				ProxyCACertificateRef: &corev1.LocalObjectReference{
+					Name: "nonexistent-proxy-ca",
+				},
+			}
+			// Don't create the ConfigMap - validation should fail
+			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to validate proxy CA certificate"))
+			Expect(err.Error()).To(ContainSubstring("nonexistent-proxy-ca"))
+		})
+	})
+
+	Context("generateMCPServerConfigs", func() {
+		It("should return empty list when introspection is disabled and no user servers", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = false
+			cr.Spec.MCPServers = nil
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(BeEmpty())
+		})
+
+		It("should add OpenShift MCP server when introspection is enabled", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(HaveLen(1))
+			Expect(servers[0].Name).To(Equal("openshift"))
+			Expect(servers[0].URL).To(ContainSubstring("8080"))
+			Expect(servers[0].Headers).To(HaveKey(utils.K8S_AUTH_HEADER))
+		})
+
+		It("should add user-defined MCP server with kubernetes header", func() {
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
+				{
+					Name: "custom-server",
+					URL:  "http://custom.example.com",
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "Authorization",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type: olsv1alpha1.MCPHeaderSourceTypeKubernetes,
+							},
+						},
+					},
+				},
+			}
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(HaveLen(1))
+			Expect(servers[0].Name).To(Equal("custom-server"))
+			Expect(servers[0].Headers["Authorization"]).To(Equal(utils.KUBERNETES_PLACEHOLDER))
+		})
+
+		It("should add user-defined MCP server with client header", func() {
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
+				{
+					Name: "custom-server",
+					URL:  "http://custom.example.com",
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "X-Client-ID",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type: olsv1alpha1.MCPHeaderSourceTypeClient,
+							},
+						},
+					},
+				},
+			}
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(HaveLen(1))
+			Expect(servers[0].Headers["X-Client-ID"]).To(Equal(utils.CLIENT_PLACEHOLDER))
+		})
+
+		It("should add user-defined MCP server with secret-based header", func() {
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
+				{
+					Name: "custom-server",
+					URL:  "http://custom.example.com",
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "X-API-Key",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type: olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{
+									Name: "my-api-key",
+								},
+							},
+						},
+					},
+				},
+			}
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(HaveLen(1))
+			Expect(servers[0].Headers["X-API-Key"]).To(ContainSubstring("/etc/mcp/headers/my-api-key"))
+		})
+
+		It("should skip server with invalid secret header (missing secretRef)", func() {
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
+				{
+					Name: "invalid-server",
+					URL:  "http://invalid.example.com",
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "X-API-Key",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: nil, // Invalid: missing secretRef
+							},
+						},
+					},
+				},
+			}
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(BeEmpty(), "server with invalid header should be skipped")
+		})
+
+		It("should skip server with invalid secret header (empty secretRef name)", func() {
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
+				{
+					Name: "invalid-server",
+					URL:  "http://invalid.example.com",
+					Headers: []olsv1alpha1.MCPHeader{
+						{
+							Name: "X-API-Key",
+							ValueFrom: olsv1alpha1.MCPHeaderValueSource{
+								Type:      olsv1alpha1.MCPHeaderSourceTypeSecret,
+								SecretRef: &corev1.LocalObjectReference{Name: ""}, // Invalid: empty name
+							},
+						},
+					},
+				},
+			}
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(BeEmpty(), "server with empty secret name should be skipped")
+		})
+
+		It("should add server with no headers (unauthenticated)", func() {
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
+				{
+					Name:    "public-server",
+					URL:     "http://public.example.com",
+					Headers: nil, // No authentication headers
+				},
+			}
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(HaveLen(1))
+			Expect(servers[0].Name).To(Equal("public-server"))
+			Expect(servers[0].URL).To(Equal("http://public.example.com"))
+			Expect(servers[0].Headers).To(BeNil(), "server without headers should have nil Headers map")
+		})
+
+		It("should add custom timeout when specified", func() {
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
+				{
+					Name:    "custom-server",
+					URL:     "http://custom.example.com",
+					Timeout: 60,
+				},
+			}
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(HaveLen(1))
+			Expect(servers[0].Timeout).To(Equal(60))
+		})
+
+		It("should include both OpenShift and user-defined servers", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
+			cr.Spec.MCPServers = []olsv1alpha1.MCPServerConfig{
+				{
+					Name: "custom-server",
+					URL:  "http://custom.example.com",
+				},
+			}
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(HaveLen(2))
+			Expect(servers[0].Name).To(Equal("openshift"))
+			Expect(servers[1].Name).To(Equal("custom-server"))
+		})
+	})
+})
