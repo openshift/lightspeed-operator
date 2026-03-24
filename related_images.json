@@ -26,7 +26,7 @@
   },
   {
     "name": "lightspeed-to-dataverse-exporter",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-to-dataverse-exporter-rhel9@sha256:ec8162a742e6c306c35790f45db23be9b9d12f86ea7555be671ae30832efa04f",
+    "image": "registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:da7c082a2ee8c3bb108a9114d8c250fa669fdf4db7f319ae520e397df6635277",
     "revision": "dd6fd25963907712fcb429a993d43279aa2583fe"
   },
   {
