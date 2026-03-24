@@ -799,7 +799,7 @@ spec:
                       - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:34e399b8f565217c85f8a01e479c747407013b512d55f91e96cd8f47cc41e4bb
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
                       - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:2fb9689f7145f772157cdbba0a26db4a60a3e5f5f82bd8cc356bad2a0f613eea
-                      - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9:0.4.1
+                      - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:da7c082a2ee8c3bb108a9114d8c250fa669fdf4db7f319ae520e397df6635277
                       - --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:e0c1f608d50f03188081285df6bd27f032cb9d70209c82103ee9d827f7add208
                     command:
                       - /manager
@@ -929,7 +929,7 @@ spec:
     - name: openshift-mcp-server
       image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:2fb9689f7145f772157cdbba0a26db4a60a3e5f5f82bd8cc356bad2a0f613eea
     - name: lightspeed-to-dataverse-exporter
-      image: registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9:0.4.1
+      image: registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:da7c082a2ee8c3bb108a9114d8c250fa669fdf4db7f319ae520e397df6635277
     - name: lightspeed-ocp-rag
       image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:e0c1f608d50f03188081285df6bd27f032cb9d70209c82103ee9d827f7add208
     - name: lightspeed-postgresql
