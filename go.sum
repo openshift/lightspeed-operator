@@ -262,8 +262,8 @@ github.com/opencontainers/runtime-spec v1.3.0 h1:YZupQUdctfhpZy3TM39nN9Ika5CBWT5
 github.com/opencontainers/runtime-spec v1.3.0/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
 github.com/opencontainers/selinux v1.13.1 h1:A8nNeceYngH9Ow++M+VVEwJVpdFmrlxsN22F+ISDCJE=
 github.com/opencontainers/selinux v1.13.1/go.mod h1:S10WXZ/osk2kWOYKy1x2f/eXF5ZHJoUs8UU/2caNRbg=
-github.com/openshift/api v0.0.0-20260318185450-1f2fa3f09f4e h1:n2fW82JRX5B/+eCULWIe06MAhJVaE8fUsvy0A0Gn9n4=
-github.com/openshift/api v0.0.0-20260318185450-1f2fa3f09f4e/go.mod h1:pyVjK0nZ4sRs4fuQVQ4rubsJdahI1PB94LnQ8sGdvxo=
+github.com/openshift/api v0.0.0-20260326111139-30c2ef7a272e h1:SbgwHvkc6vgiqHOfGrbumjPvtOvJmCwJoFEwr7rAKzY=
+github.com/openshift/api v0.0.0-20260326111139-30c2ef7a272e/go.mod h1:pyVjK0nZ4sRs4fuQVQ4rubsJdahI1PB94LnQ8sGdvxo=
 github.com/openshift/client-go v0.0.0-20260226152647-d8b2196ff0d9 h1:5gHG1T3PUm5Ly7vILl9+byccl9eAUiV2RZuWXVVNnB4=
 github.com/openshift/client-go v0.0.0-20260226152647-d8b2196ff0d9/go.mod h1:TeUQXSUW0UPXSmEtMZLfTYIE3MajxnziS3lbdH0WSwk=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
