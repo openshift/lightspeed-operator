@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -393,6 +394,156 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			cm := &corev1.ConfigMap{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.ExporterConfigCmName, Namespace: utils.OLSNamespaceDefault}, cm)
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("MCP Server ConfigMap ResourceVersion tracking", Ordered, func() {
+		BeforeAll(func() {
+			By("Reset the CR to default state with supported provider")
+			err := k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			crDefault := utils.GetDefaultOLSConfigCR()
+			cr.Spec = crDefault.Spec
+			// LCore requires supported Llama Stack provider types
+			cr.Spec.LLMConfig.Providers[0].Type = "openai"
+			err = k8sClient.Update(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile should succeed")
+			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should track MCP Server ConfigMap ResourceVersion and trigger restart on introspection toggle", func() {
+			By("Disable introspection initially")
+			err := k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			cr.Spec.OLSConfig.IntrospectionEnabled = false
+			err = k8sClient.Update(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile with introspection disabled")
+			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify MCP Server ConfigMap does not exist")
+			mcpCm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "MCP ConfigMap should not exist when introspection is disabled")
+
+			By("Get LCore deployment and verify MCP annotation is empty")
+			dep := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.LCoreDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			mcpAnnotation := dep.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+			Expect(mcpAnnotation).To(BeEmpty(), "MCP annotation should be empty when ConfigMap doesn't exist")
+
+			By("Enable introspection")
+			err = k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			err = k8sClient.Update(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile with introspection enabled")
+			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify MCP Server ConfigMap was created")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(err).NotTo(HaveOccurred(), "MCP ConfigMap should exist after enabling introspection")
+			firstResourceVersion := mcpCm.ResourceVersion
+			Expect(firstResourceVersion).NotTo(BeEmpty())
+
+			By("Verify deployment annotation tracks MCP ConfigMap ResourceVersion")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.LCoreDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			mcpAnnotation = dep.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+			Expect(mcpAnnotation).To(Equal(firstResourceVersion), "Deployment annotation should match ConfigMap ResourceVersion")
+
+			By("Disable introspection again")
+			err = k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			cr.Spec.OLSConfig.IntrospectionEnabled = false
+			err = k8sClient.Update(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile with introspection disabled again")
+			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify MCP Server ConfigMap was deleted")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "MCP ConfigMap should be deleted when introspection is disabled")
+
+			By("Verify deployment annotation changed (triggering restart)")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.LCoreDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			newMcpAnnotation := dep.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+			Expect(newMcpAnnotation).NotTo(Equal(firstResourceVersion), "Annotation should change when ConfigMap is deleted to trigger pod restart")
+
+			By("Verify pod template restart annotation is set")
+			forceReloadValue := dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]
+			Expect(forceReloadValue).NotTo(BeEmpty(), "Pod template restart annotation should be set to trigger rolling update")
+		})
+
+		It("should trigger rolling update when MCP ConfigMap is modified externally", func() {
+			By("Enable introspection")
+			err := k8sClient.Get(ctx, crNamespacedName, cr)
+			Expect(err).NotTo(HaveOccurred())
+			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			err = k8sClient.Update(ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile to create MCP ConfigMap")
+			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get the MCP ConfigMap and capture initial ResourceVersion")
+			mcpCm := &corev1.ConfigMap{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(err).NotTo(HaveOccurred())
+			initialResourceVersion := mcpCm.ResourceVersion
+
+			By("Get deployment and capture initial annotation")
+			dep := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.LCoreDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			initialAnnotation := dep.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+			Expect(initialAnnotation).To(Equal(initialResourceVersion))
+
+			By("Manually modify MCP ConfigMap data (simulating external change)")
+			mcpCm.Data["mcp-server-config.toml"] = "# Modified externally"
+			err = k8sClient.Update(ctx, mcpCm)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get updated ResourceVersion after manual modification")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(err).NotTo(HaveOccurred())
+			modifiedResourceVersion := mcpCm.ResourceVersion
+			Expect(modifiedResourceVersion).NotTo(Equal(initialResourceVersion), "ResourceVersion should change after update")
+
+			By("Reconcile again to correct the ConfigMap")
+			err = ReconcileLCore(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify ConfigMap was corrected and has new ResourceVersion")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: utils.OLSNamespaceDefault}, mcpCm)
+			Expect(err).NotTo(HaveOccurred())
+			correctedResourceVersion := mcpCm.ResourceVersion
+			Expect(correctedResourceVersion).NotTo(Equal(modifiedResourceVersion), "ResourceVersion should change after reconciler correction")
+			Expect(mcpCm.Data["mcp-server-config.toml"]).NotTo(ContainSubstring("Modified externally"), "ConfigMap should be corrected to proper content")
+
+			By("Verify deployment annotation updated to new ResourceVersion")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.LCoreDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			newAnnotation := dep.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+			Expect(newAnnotation).To(Equal(correctedResourceVersion), "Deployment annotation should track corrected ConfigMap ResourceVersion")
+			Expect(newAnnotation).NotTo(Equal(initialAnnotation), "Deployment annotation should change to trigger restart")
+
+			By("Verify pod template restart annotation is set")
+			forceReloadValue := dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]
+			Expect(forceReloadValue).NotTo(BeEmpty(), "Pod template restart annotation should be set to trigger rolling update")
 		})
 	})
 })

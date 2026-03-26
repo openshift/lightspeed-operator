@@ -23,7 +23,6 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-
 func getOLSServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
 	return utils.GetResourcesOrDefault(
 		cr.Spec.OLSConfig.DeploymentConfig.APIContainer.Resources,
@@ -367,13 +366,19 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		return nil, fmt.Errorf("failed to get ConfigMap resource version: %w", err)
 	}
 
+	mcpConfigMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OpenShiftMCPServerConfigCmName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get MCP Server ConfigMap resource version: %w", err)
+	}
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OLSAppServerDeploymentName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GenerateAppServerSelectorLabels(),
 			Annotations: map[string]string{
-				utils.OLSConfigMapResourceVersionAnnotation: configMapResourceVersion,
+				utils.OLSConfigMapResourceVersionAnnotation:                configMapResourceVersion,
+				utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation: mcpConfigMapResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -496,7 +501,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Image:           r.GetOpenShiftMCPServerImage(),
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			SecurityContext: utils.RestrictedContainerSecurityContext(),
-			VolumeMounts: []corev1.VolumeMount{configMount},
+			VolumeMounts:    []corev1.VolumeMount{configMount},
 			Command: []string{
 				"/openshift-mcp-server",
 				"--read-only",
@@ -530,6 +535,19 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 		}
 	}
 
+	// Step 3: Check if MCP Server ConfigMap ResourceVersion has changed
+	currentMCPConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OpenShiftMCPServerConfigCmName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		r.GetLogger().Info("failed to get MCP Server ConfigMap ResourceVersion", "error", err)
+		changed = true
+	} else {
+		storedMCPConfigMapVersion := existingDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
+		if storedMCPConfigMapVersion != currentMCPConfigMapVersion {
+			r.GetLogger().Info("MCP Server ConfigMap changed, updating deployment")
+			changed = true
+		}
+	}
+
 	// If nothing changed, skip update
 	if !changed {
 		return nil
@@ -538,6 +556,7 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, existingD
 	// Apply changes - always update spec and annotations since something changed
 	existingDeployment.Spec = desiredDeployment.Spec
 	existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
+	existingDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
 
 	r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
 
