@@ -61,6 +61,22 @@ spec:
                         apiVersion:
                           description: API Version for Azure OpenAI provider
                           type: string
+                        config:
+                          description: |-
+                            Arbitrary configuration for the provider (Llama Stack Generic mode only)
+                            This map is passed directly to Llama Stack provider configuration.
+                            Credentials are automatically injected as environment variable substitutions.
+                            Example: {"url": "https://...", "custom_field": "value"}
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        credentialKey:
+                          description: |-
+                            Secret key name for provider credentials (defaults to "apitoken" if not set).
+                            Specifies which key inside credentialsSecretRef to read the credential value from.
+                            The credential value is always exposed to the container as env var {PROVIDER_NAME}_API_KEY
+                            (derived from the provider name, not this field), and referenced in the Llama Stack config
+                            YAML as ${env.PROVIDER_NAME_API_KEY}. This field only controls which secret data key is read.
+                          type: string
                         credentialsSecretRef:
                           description: The name of the secret object that stores API
                             provider credentials
@@ -111,12 +127,20 @@ spec:
                             required:
                             - name
                             type: object
+                          maxItems: 50
                           type: array
                         name:
                           description: Provider name
                           type: string
                         projectID:
                           description: Watsonx Project ID
+                          type: string
+                        providerType:
+                          description: |-
+                            Llama Stack Generic provider type for provider configuration (e.g., "remote::openai", "inline::sentence-transformers")
+                            When set, this provider uses Llama Stack Generic mode instead of legacy mode.
+                            Must follow pattern: (inline|remote)::<provider-name>
+                          pattern: ^(inline|remote)::[a-z0-9][a-z0-9_-]*$
                           type: string
                         tlsSecurityProfile:
                           description: TLS Security Profile used by connection to
@@ -259,6 +283,7 @@ spec:
                           - rhoai_vllm
                           - rhelai_vllm
                           - fake_provider
+                          - llamaStackGeneric
                           type: string
                         url:
                           description: Provider API URL
@@ -278,6 +303,22 @@ spec:
                       - message: '''projectID'' must be specified for ''watsonx''
                           provider'
                         rule: self.type != "watsonx" || self.projectID != ""
+                      - message: '''providerType'' and ''config'' must be used together
+                          in llamaStackGeneric mode'
+                        rule: '!has(self.providerType) || has(self.config)'
+                      - message: '''config'' requires ''providerType'' to be set'
+                        rule: '!has(self.config) || has(self.providerType)'
+                      - message: Llama Stack Generic mode (providerType set) requires
+                          type='llamaStackGeneric'
+                        rule: '!has(self.providerType) || self.type == "llamaStackGeneric"'
+                      - message: Llama Stack Generic mode cannot use legacy provider-specific
+                          fields
+                        rule: self.type != "llamaStackGeneric" || (!has(self.deploymentName)
+                          && !has(self.projectID) && !has(self.url) && !has(self.apiVersion))
+                      - message: credentialKey must not be empty or whitespace
+                        rule: '!has(self.credentialKey) || !self.credentialKey.matches(''^[
+                          \t\n\r\v\f]*$'')'
+                    maxItems: 10
                     type: array
                 required:
                 - providers
@@ -347,6 +388,7 @@ spec:
                         - name
                         - valueFrom
                         type: object
+                      maxItems: 20
                       type: array
                     name:
                       description: Name of the MCP server
@@ -364,6 +406,7 @@ spec:
                   - name
                   - url
                   type: object
+                maxItems: 20
                 type: array
               ols:
                 description: OLSSpec defines the desired state of OLS deployment.

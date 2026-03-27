@@ -118,6 +118,10 @@ const (
 	// Annotation key for serving certificate secret name
 	// #nosec G101
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
+	// LlamaStackGenericType is the provider type for Llama Stack Generic mode
+	LlamaStackGenericType = "llamaStackGeneric"
+	// DefaultCredentialKey is the default secret key name for provider credentials
+	DefaultCredentialKey = "apitoken"
 	// AzureOpenAIType is the name of the Azure OpenAI provider type
 	AzureOpenAIType = "azure_openai"
 	// FakeProviderType is the name of the fake provider type used for testing
@@ -404,6 +408,16 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	// Changing this will break llama-stack's database connectivity.
 	// This database is created in PostgresBootStrapScriptContent.
 	LlamaStackDatabaseName = "llamastack"
+
+	/*** Environment Variable Suffixes ***/
+	// EnvVarSuffixAPIKey is the environment variable suffix for API key credentials
+	EnvVarSuffixAPIKey = "_API_KEY"
+	// EnvVarSuffixClientID is the environment variable suffix for client ID credentials
+	EnvVarSuffixClientID = "_CLIENT_ID"
+	// EnvVarSuffixTenantID is the environment variable suffix for tenant ID credentials
+	EnvVarSuffixTenantID = "_TENANT_ID"
+	// EnvVarSuffixClientSecret is the environment variable suffix for client secret credentials
+	EnvVarSuffixClientSecret = "_CLIENT_SECRET"
 )
 
 // Default images from related_images.json (see internal/relatedimages). Used for flags and tests.
