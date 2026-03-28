@@ -429,6 +429,12 @@ type ModelParametersSpec struct {
 	// Max tokens for response. The default is 2048 tokens.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max Tokens For Response"
 	MaxTokensForResponse int `json:"maxTokensForResponse,omitempty"`
+	// Ratio of context window size allocated for tool token budget. Must be between 0.1 and 0.5. The default is 0.25.
+	// +kubebuilder:default=0.25
+	// +kubebuilder:validation:Minimum=0.1
+	// +kubebuilder:validation:Maximum=0.5
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tool Budget Ratio"
+	ToolBudgetRatio float64 `json:"toolBudgetRatio"`
 }
 
 // ModelSpec defines the LLM model to use and its parameters.

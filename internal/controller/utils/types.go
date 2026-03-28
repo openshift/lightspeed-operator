@@ -138,6 +138,8 @@ type AzureOpenAIConfig struct {
 type ModelParameters struct {
 	// Maximum number of tokens for the input text. Default: 1024
 	MaxTokensForResponse int `json:"max_tokens_for_response,omitempty"`
+	// Ratio of context window size allocated for tool token budget
+	ToolBudgetRatio float64 `json:"tool_budget_ratio"`
 }
 
 // ModelSpec defines the desired state of in-memory cache.

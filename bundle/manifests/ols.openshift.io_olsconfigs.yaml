@@ -71,9 +71,11 @@ spec:
                           x-kubernetes-preserve-unknown-fields: true
                         credentialKey:
                           description: |-
-                            Secret key name for provider credentials (defaults to "apitoken" if not set)
-                            Specifies which key in credentialsSecretRef contains the API token.
-                            The operator creates an environment variable named {PROVIDER_NAME}_API_KEY.
+                            Secret key name for provider credentials (defaults to "apitoken" if not set).
+                            Specifies which key inside credentialsSecretRef to read the credential value from.
+                            The credential value is always exposed to the container as env var {PROVIDER_NAME}_API_KEY
+                            (derived from the provider name, not this field), and referenced in the Llama Stack config
+                            YAML as ${env.PROVIDER_NAME_API_KEY}. This field only controls which secret data key is read.
                           type: string
                         credentialsSecretRef:
                           description: The name of the secret object that stores API
@@ -117,6 +119,16 @@ spec:
                                     description: Max tokens for response. The default
                                       is 2048 tokens.
                                     type: integer
+                                  toolBudgetRatio:
+                                    default: 0.25
+                                    description: Ratio of context window size allocated
+                                      for tool token budget. Must be between 0.1 and
+                                      0.5. The default is 0.25.
+                                    maximum: 0.5
+                                    minimum: 0.1
+                                    type: number
+                                required:
+                                - toolBudgetRatio
                                 type: object
                               url:
                                 description: Model API URL
@@ -312,10 +324,10 @@ spec:
                       - message: Llama Stack Generic mode cannot use legacy provider-specific
                           fields
                         rule: self.type != "llamaStackGeneric" || (!has(self.deploymentName)
-                          && !has(self.projectID))
+                          && !has(self.projectID) && !has(self.url) && !has(self.apiVersion))
                       - message: credentialKey must not be empty or whitespace
                         rule: '!has(self.credentialKey) || !self.credentialKey.matches(''^[
-                          \t\n\r]*$'')'
+                          \t\n\r\v\f]*$'')'
                     maxItems: 10
                     type: array
                 required:

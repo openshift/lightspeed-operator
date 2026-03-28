@@ -137,6 +137,7 @@ var _ = Describe("App server assets", func() {
 								URL:  testURL,
 								Parameters: utils.ModelParameters{
 									MaxTokensForResponse: 20,
+									ToolBudgetRatio:      0.25,
 								},
 								ContextWindowSize: 32768,
 							},
@@ -153,6 +154,51 @@ var _ = Describe("App server assets", func() {
 
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
+
+	It("should apply default tool_budget_ratio when parameters are not specified", func() {
+		crNoParams := &olsv1alpha1.OLSConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: utils.OLSConfigName,
+			},
+			Spec: olsv1alpha1.OLSConfigSpec{
+				LLMConfig: olsv1alpha1.LLMSpec{
+					Providers: []olsv1alpha1.ProviderSpec{
+						{
+							Name: "testProvider",
+							Type: "bam",
+							URL:  "https://testURL",
+							Models: []olsv1alpha1.ModelSpec{
+								{
+									Name:              "testModel",
+									URL:               "https://testURL",
+									ContextWindowSize: 32768,
+								},
+							},
+							CredentialsSecretRef: corev1.LocalObjectReference{
+								Name: "test-secret",
+							},
+						},
+					},
+				},
+				OLSConfig: olsv1alpha1.OLSSpec{
+					DefaultModel:    "testModel",
+					DefaultProvider: "testProvider",
+				},
+			},
+		}
+
+		cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), crNoParams)
+		Expect(err).NotTo(HaveOccurred())
+
+		olsconfigGenerated := utils.AppSrvConfigFile{}
+		err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(olsconfigGenerated.LLMProviders).To(HaveLen(1))
+		Expect(olsconfigGenerated.LLMProviders[0].Models).To(HaveLen(1))
+		Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.ToolBudgetRatio).To(Equal(0.25))
+		Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.MaxTokensForResponse).To(Equal(0))
+	})
 
 		It("should generate configmap with queryFilters", func() {
 			crWithFilters := utils.WithQueryFilters(cr)

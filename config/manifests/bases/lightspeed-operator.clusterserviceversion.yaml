@@ -94,6 +94,10 @@ spec:
       - description: Max tokens for response. The default is 2048 tokens.
         displayName: Max Tokens For Response
         path: llm.providers[0].models[0].parameters.maxTokensForResponse
+      - description: Ratio of context window size allocated for tool token budget.
+          Must be between 0.1 and 0.5. The default is 0.25.
+        displayName: Tool Budget Ratio
+        path: llm.providers[0].models[0].parameters.toolBudgetRatio
       - description: Model API URL
         displayName: URL
         path: llm.providers[0].models[0].url
@@ -340,7 +344,6 @@ spec:
             - tls.crt: Server certificate (PEM format) - REQUIRED
             - tls.key: Private key (PEM format) - REQUIRED
             - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
-
 
           If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
         displayName: TLS Certificate Secret Reference

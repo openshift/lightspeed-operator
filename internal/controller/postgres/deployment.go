@@ -205,9 +205,9 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
-						SecurityContext: utils.RestrictedContainerSecurityContext(),
-							VolumeMounts: volumeMounts,
-							Resources:    *databaseResources,
+							SecurityContext: utils.RestrictedContainerSecurityContext(),
+							VolumeMounts:    volumeMounts,
+							Resources:       *databaseResources,
 							Env: []corev1.EnvVar{
 								{
 									Name:  "POSTGRESQL_USER",
