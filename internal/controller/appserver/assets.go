@@ -112,11 +112,16 @@ func buildProviderConfigs(cr *olsv1alpha1.OLSConfig) []utils.ProviderConfig {
 		credentialPath := path.Join(utils.APIKeyMountRoot, provider.CredentialsSecretRef.Name)
 		modelConfigs := []utils.ModelConfig{}
 		for _, model := range provider.Models {
+			toolBudgetRatio := model.Parameters.ToolBudgetRatio
+			if toolBudgetRatio == 0 {
+				toolBudgetRatio = 0.25
+			}
 			modelConfig := utils.ModelConfig{
 				Name: model.Name,
 				URL:  model.URL,
 				Parameters: utils.ModelParameters{
 					MaxTokensForResponse: model.Parameters.MaxTokensForResponse,
+					ToolBudgetRatio:      toolBudgetRatio,
 				},
 				ContextWindowSize: model.ContextWindowSize,
 			}
