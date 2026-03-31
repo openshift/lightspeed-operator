@@ -127,8 +127,6 @@ spec:
                                     maximum: 0.5
                                     minimum: 0.1
                                     type: number
-                                required:
-                                - toolBudgetRatio
                                 type: object
                               url:
                                 description: Model API URL

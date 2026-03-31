@@ -67,9 +67,11 @@ spec:
         displayName: Llama Stack Provider Config
         path: llm.providers[0].config
       - description: |-
-          Secret key name for provider credentials (defaults to "apitoken" if not set)
-          Specifies which key in credentialsSecretRef contains the API token.
-          The operator creates an environment variable named {PROVIDER_NAME}_API_KEY.
+          Secret key name for provider credentials (defaults to "apitoken" if not set).
+          Specifies which key inside credentialsSecretRef to read the credential value from.
+          The credential value is always exposed to the container as env var {PROVIDER_NAME}_API_KEY
+          (derived from the provider name, not this field), and referenced in the Llama Stack config
+          YAML as ${env.PROVIDER_NAME_API_KEY}. This field only controls which secret data key is read.
         displayName: Credential Key Name
         path: llm.providers[0].credentialKey
       - description: Deployment name for Azure OpenAI provider

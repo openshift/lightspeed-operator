@@ -434,7 +434,7 @@ type ModelParametersSpec struct {
 	// +kubebuilder:validation:Minimum=0.1
 	// +kubebuilder:validation:Maximum=0.5
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tool Budget Ratio"
-	ToolBudgetRatio float64 `json:"toolBudgetRatio"`
+	ToolBudgetRatio float64 `json:"toolBudgetRatio,omitempty"`
 }
 
 // ModelSpec defines the LLM model to use and its parameters.
