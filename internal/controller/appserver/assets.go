@@ -302,10 +302,16 @@ func generateMCPServerConfigs(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig
 
 	// Add OpenShift MCP server if introspection is enabled
 	if cr.Spec.OLSConfig.IntrospectionEnabled {
+		// Get timeout from MCPKubeServerConfig if specified, otherwise use default
+		timeout := utils.OpenShiftMCPServerTimeout
+		if cr.Spec.OLSConfig.MCPKubeServerConfig != nil && cr.Spec.OLSConfig.MCPKubeServerConfig.Timeout != 0 {
+			timeout = cr.Spec.OLSConfig.MCPKubeServerConfig.Timeout
+		}
+
 		servers = append(servers, utils.MCPServerConfig{
 			Name:    "openshift",
 			URL:     fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort),
-			Timeout: utils.OpenShiftMCPServerTimeout,
+			Timeout: timeout,
 			Headers: map[string]string{
 				utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
 			},

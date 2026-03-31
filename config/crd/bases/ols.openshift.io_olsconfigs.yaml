@@ -4398,6 +4398,16 @@ spec:
                       Default: 5'
                     minimum: 1
                     type: integer
+                  mcpKubeServerConfig:
+                    description: MCP Kubernetes server configuration
+                    properties:
+                      timeout:
+                        default: 60
+                        description: Timeout for the MCP Kube server in seconds, default
+                          is 60
+                        minimum: 5
+                        type: integer
+                    type: object
                   proxyConfig:
                     description: Proxy settings for connecting to external servers,
                       such as LLM providers.

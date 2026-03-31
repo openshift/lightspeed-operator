@@ -155,50 +155,50 @@ var _ = Describe("App server assets", func() {
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
 
-	It("should apply default tool_budget_ratio when parameters are not specified", func() {
-		crNoParams := &olsv1alpha1.OLSConfig{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: utils.OLSConfigName,
-			},
-			Spec: olsv1alpha1.OLSConfigSpec{
-				LLMConfig: olsv1alpha1.LLMSpec{
-					Providers: []olsv1alpha1.ProviderSpec{
-						{
-							Name: "testProvider",
-							Type: "bam",
-							URL:  "https://testURL",
-							Models: []olsv1alpha1.ModelSpec{
-								{
-									Name:              "testModel",
-									URL:               "https://testURL",
-									ContextWindowSize: 32768,
+		It("should apply default tool_budget_ratio when parameters are not specified", func() {
+			crNoParams := &olsv1alpha1.OLSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: utils.OLSConfigName,
+				},
+				Spec: olsv1alpha1.OLSConfigSpec{
+					LLMConfig: olsv1alpha1.LLMSpec{
+						Providers: []olsv1alpha1.ProviderSpec{
+							{
+								Name: "testProvider",
+								Type: "bam",
+								URL:  "https://testURL",
+								Models: []olsv1alpha1.ModelSpec{
+									{
+										Name:              "testModel",
+										URL:               "https://testURL",
+										ContextWindowSize: 32768,
+									},
 								},
-							},
-							CredentialsSecretRef: corev1.LocalObjectReference{
-								Name: "test-secret",
+								CredentialsSecretRef: corev1.LocalObjectReference{
+									Name: "test-secret",
+								},
 							},
 						},
 					},
+					OLSConfig: olsv1alpha1.OLSSpec{
+						DefaultModel:    "testModel",
+						DefaultProvider: "testProvider",
+					},
 				},
-				OLSConfig: olsv1alpha1.OLSSpec{
-					DefaultModel:    "testModel",
-					DefaultProvider: "testProvider",
-				},
-			},
-		}
+			}
 
-		cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), crNoParams)
-		Expect(err).NotTo(HaveOccurred())
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), crNoParams)
+			Expect(err).NotTo(HaveOccurred())
 
-		olsconfigGenerated := utils.AppSrvConfigFile{}
-		err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
-		Expect(err).NotTo(HaveOccurred())
+			olsconfigGenerated := utils.AppSrvConfigFile{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
 
-		Expect(olsconfigGenerated.LLMProviders).To(HaveLen(1))
-		Expect(olsconfigGenerated.LLMProviders[0].Models).To(HaveLen(1))
-		Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.ToolBudgetRatio).To(Equal(0.25))
-		Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.MaxTokensForResponse).To(Equal(0))
-	})
+			Expect(olsconfigGenerated.LLMProviders).To(HaveLen(1))
+			Expect(olsconfigGenerated.LLMProviders[0].Models).To(HaveLen(1))
+			Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.ToolBudgetRatio).To(Equal(0.25))
+			Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.MaxTokensForResponse).To(Equal(0))
+		})
 
 		It("should generate configmap with queryFilters", func() {
 			crWithFilters := utils.WithQueryFilters(cr)
@@ -2076,6 +2076,28 @@ var _ = Describe("Helper function unit tests", func() {
 			Expect(servers[0].Name).To(Equal("openshift"))
 			Expect(servers[0].URL).To(ContainSubstring("8080"))
 			Expect(servers[0].Headers).To(HaveKey(utils.K8S_AUTH_HEADER))
+		})
+
+		It("should use default timeout for OpenShift MCP server when MCPKubeServerConfig is not set", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.OLSConfig.MCPKubeServerConfig = nil
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(HaveLen(1))
+			Expect(servers[0].Name).To(Equal("openshift"))
+			Expect(servers[0].Timeout).To(Equal(utils.OpenShiftMCPServerTimeout))
+		})
+
+		It("should use custom timeout for OpenShift MCP server when MCPKubeServerConfig is set", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.OLSConfig.MCPKubeServerConfig = &olsv1alpha1.MCPKubeServerConfiguration{
+				Timeout: 120,
+			}
+			servers, err := generateMCPServerConfigs(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(servers).To(HaveLen(1))
+			Expect(servers[0].Name).To(Equal("openshift"))
+			Expect(servers[0].Timeout).To(Equal(120))
 		})
 
 		It("should add user-defined MCP server with kubernetes header", func() {

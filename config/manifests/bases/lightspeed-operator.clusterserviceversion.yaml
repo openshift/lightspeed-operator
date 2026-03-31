@@ -247,13 +247,24 @@ spec:
         path: ols.maxIterations
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
+      - description: MCP Kubernetes server configuration
+        displayName: MCP Kube Server Configuration
+        path: ols.mcpKubeServerConfig
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Timeout for the MCP Kube server in seconds, default is 60
+        displayName: Timeout (seconds)
+        path: ols.mcpKubeServerConfig.timeout
       - description: Proxy settings for connecting to external servers, such as LLM
           providers.
         displayName: Proxy Settings
         path: ols.proxyConfig
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: The configmap holding proxy CA certificate
+      - description: |-
+          The configmap and key holding proxy CA certificate.
+          The key is optional and defaults to "proxy-ca.crt" for backward compatibility.
+          If you use a different key name in your ConfigMap, specify it in the Key field of ProxyCACertConfigMapRef.
         displayName: Proxy CA Certificate
         path: ols.proxyConfig.proxyCACertificate
       - description: |-

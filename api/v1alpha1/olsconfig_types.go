@@ -210,6 +210,10 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Introspection Enabled",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	IntrospectionEnabled bool `json:"introspectionEnabled,omitempty"`
+	// MCP Kubernetes server configuration
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Kube Server Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +kubebuilder:validation:Optional
+	MCPKubeServerConfig *MCPKubeServerConfiguration `json:"mcpKubeServerConfig,omitempty"`
 	// Proxy settings for connecting to external servers, such as LLM providers.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy Settings",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:validation:Optional
@@ -264,6 +268,16 @@ type Storage struct {
 	// Storage class of the requested volume
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Storage Class of the Requested Volume"
 	Class string `json:"class,omitempty"`
+}
+
+// MCPKubeServerConfiguration defines the configuration for the MCP Kubernetes server
+// This server is started by OLS to provide MCP capabilities for Kubernetes resources
+type MCPKubeServerConfiguration struct {
+	// Timeout for the MCP Kube server in seconds, default is 60
+	// +kubebuilder:default=60
+	// +kubebuilder:validation:Minimum=5
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Timeout (seconds)"
+	Timeout int `json:"timeout,omitempty"`
 }
 
 // RAGSpec defines how to retrieve RAG databases.
