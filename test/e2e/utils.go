@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
@@ -253,6 +254,88 @@ func TestHTTPSQueryEndpoint(env *OLSTestEnvironment, secret *corev1.Secret, requ
 	}
 
 	return resp, body, nil
+}
+
+// GetPodLogs retrieves logs from a pod in the specified namespace.
+// containerName can be empty to get logs from the first container.
+// sinceTime can be nil to get all logs, or a time.Time to get logs since that time.
+func GetPodLogs(c *Client, namespace, podName, containerName string, sinceTime *time.Time) (string, error) {
+	logOptions := &corev1.PodLogOptions{}
+	if containerName != "" {
+		logOptions.Container = containerName
+	}
+	if sinceTime != nil {
+		metaTime := metav1.NewTime(*sinceTime)
+		logOptions.SinceTime = &metaTime
+	}
+
+	req := c.clientset.CoreV1().Pods(namespace).GetLogs(podName, logOptions)
+	podLogs, err := req.Stream(context.Background())
+	if err != nil {
+		return "", fmt.Errorf("failed to get pod logs: %w", err)
+	}
+	defer podLogs.Close()
+
+	logs, err := io.ReadAll(podLogs)
+	if err != nil {
+		return "", fmt.Errorf("failed to read pod logs: %w", err)
+	}
+
+	return string(logs), nil
+}
+
+// GetAppServerPodLogs retrieves logs from an OLS app server pod.
+// It finds the first running app server pod and returns its logs from the lightspeed-service-api container.
+func GetAppServerPodLogs(c *Client, sinceTime *time.Time) (string, string, error) {
+	// Get app server deployment to find pod selector
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      AppServerDeploymentName,
+			Namespace: OLSNameSpace,
+		},
+	}
+	err := c.Get(deployment)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get app server deployment: %w", err)
+	}
+
+	// Get pods matching the deployment selector
+	selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to parse deployment selector: %w", err)
+	}
+
+	podList := &corev1.PodList{}
+	err = c.List(podList, client.InNamespace(OLSNameSpace), client.MatchingLabelsSelector{Selector: selector})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to list pods: %w", err)
+	}
+
+	if len(podList.Items) == 0 {
+		return "", "", fmt.Errorf("no app server pods found")
+	}
+
+	// Find first running pod
+	var targetPod *corev1.Pod
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		if pod.Status.Phase == corev1.PodRunning {
+			targetPod = pod
+			break
+		}
+	}
+
+	if targetPod == nil {
+		return "", "", fmt.Errorf("no running app server pods found")
+	}
+
+	// Get logs from the lightspeed-service-api container
+	logs, err := GetPodLogs(c, OLSNameSpace, targetPod.Name, "lightspeed-service-api", sinceTime)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get logs from pod %s: %w", targetPod.Name, err)
+	}
+
+	return logs, targetPod.Name, nil
 }
 
 // CreateOLSRoute creates a route for the OLS application

@@ -178,7 +178,7 @@ endif
 ifndef LLM_TOKEN
 	$(error LLM_TOKEN  environment variable is not set)
 endif
-	go test -tags=exclude_graphdriver_btrfs ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade" --ginkgo.timeout=2h
+	go test -tags=exclude_graphdriver_btrfs ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade && !AllFeatures" --ginkgo.timeout=2h
 
 .PHONY: test-upgrade
 test-upgrade: ## Run upgrade tests with an Openshift cluster. Requires KUBECONFIG, LLM_TOKEN and BUNDLE_IMAGE environment variables.
@@ -192,6 +192,16 @@ ifndef BUNDLE_IMAGE
 	$(error BUNDLE_IMAGE  environment variable is not set)
 endif
 	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="Upgrade" --ginkgo.timeout=2h
+
+.PHONY: test-e2e-all-features
+test-e2e-all-features: ## Run comprehensive all-features E2E test. Requires KUBECONFIG and LLM_TOKEN environment variables.
+ifndef KUBECONFIG
+	$(error KUBECONFIG environment variable is not set)
+endif
+ifndef LLM_TOKEN
+	$(error LLM_TOKEN  environment variable is not set)
+endif
+	go test -tags=exclude_graphdriver_btrfs ./test/e2e -timeout=180m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="AllFeatures" --ginkgo.timeout=3h
 
 .PHONY: test-e2e-local
 test-e2e-local: ## Run e2e tests with an Openshift cluster, excluding Database-Persistency test that requires a storage class. Requires KUBECONFIG and LLM_TOKEN environment variables.
