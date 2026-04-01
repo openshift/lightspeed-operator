@@ -4403,8 +4403,17 @@ spec:
                       such as LLM providers.
                     properties:
                       proxyCACertificate:
-                        description: The configmap holding proxy CA certificate
+                        description: |-
+                          The configmap and key holding proxy CA certificate.
+                          The key is optional and defaults to "proxy-ca.crt" for backward compatibility.
+                          If you use a different key name in your ConfigMap, specify it in the Key field of ProxyCACertConfigMapRef.
                         properties:
+                          key:
+                            default: proxy-ca.crt
+                            description: |-
+                              Key in the ConfigMap that contains the proxy CA certificate.
+                              Defaults to "proxy-ca.crt" if not specified.
+                            type: string
                           name:
                             default: ""
                             description: |-

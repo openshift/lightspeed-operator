@@ -568,9 +568,24 @@ type ProxyConfig struct {
 	// +kubebuilder:validation:Pattern=`^https?://.*$`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy URL"
 	ProxyURL string `json:"proxyURL,omitempty"`
-	// The configmap holding proxy CA certificate
+	// The configmap and key holding proxy CA certificate.
+	// The key is optional and defaults to "proxy-ca.crt" for backward compatibility.
+	// If you use a different key name in your ConfigMap, specify it in the Key field of ProxyCACertConfigMapRef.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy CA Certificate"
-	ProxyCACertificateRef *corev1.LocalObjectReference `json:"proxyCACertificate,omitempty"`
+	ProxyCACertificateRef *ProxyCACertConfigMapRef `json:"proxyCACertificate,omitempty"`
+}
+
+// ProxyCACertConfigMapRef references a ConfigMap containing the proxy CA certificate.
+// Provides backward compatibility by making the key field optional with a default value.
+// +structType=atomic
+type ProxyCACertConfigMapRef struct {
+	// The ConfigMap to select from
+	corev1.LocalObjectReference `json:",inline"`
+	// Key in the ConfigMap that contains the proxy CA certificate.
+	// Defaults to "proxy-ca.crt" if not specified.
+	// +kubebuilder:default="proxy-ca.crt"
+	// +optional
+	Key string `json:"key,omitempty"`
 }
 
 // ToolFilteringConfig defines configuration for tool filtering using hybrid RAG retrieval.

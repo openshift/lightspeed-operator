@@ -1107,8 +1107,10 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Set up a proxy CA cert")
 			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
 				ProxyURL: "https://proxy.example.com:8080",
-				ProxyCACertificateRef: &corev1.LocalObjectReference{
-					Name: cmCACertName,
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cmCACertName,
+					},
 				},
 			}
 			err := ReconcileAppServer(testReconcilerInstance, ctx, cr)
@@ -1134,6 +1136,9 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 								Name: cmCACertName,
 							},
 							DefaultMode: &volumeDefaultMode,
+							Items: []corev1.KeyToPath{
+								{Key: utils.ProxyCACertFileName, Path: utils.ProxyCACertFileName},
+							},
 						},
 					},
 				},

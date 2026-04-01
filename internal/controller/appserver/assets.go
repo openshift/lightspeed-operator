@@ -232,13 +232,15 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 			ProxyURL:        cr.Spec.OLSConfig.ProxyConfig.ProxyURL,
 			ProxyCACertPath: "",
 		}
-		// Validate and add proxy CA certificate if provided
-		if cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef != nil && cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name != "" {
-			err := validateCertificateInConfigMap(r, ctx, cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, utils.ProxyCACertFileName)
+		proxyCACertRef := cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef
+		cmName := utils.GetProxyCACertConfigMapName(proxyCACertRef)
+		if cmName != "" {
+			certKey := utils.GetProxyCACertKey(proxyCACertRef)
+			err := validateCertificateInConfigMap(r, ctx, cmName, certKey)
 			if err != nil {
-				return utils.OLSConfig{}, fmt.Errorf("failed to validate proxy CA certificate %s: %w", cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, err)
+				return utils.OLSConfig{}, fmt.Errorf("failed to validate proxy CA certificate %s: %w", cmName, err)
 			}
-			proxyConfig.ProxyCACertPath = path.Join(utils.OLSAppCertsMountRoot, utils.ProxyCACertVolumeName, utils.ProxyCACertFileName)
+			proxyConfig.ProxyCACertPath = path.Join(utils.OLSAppCertsMountRoot, utils.ProxyCACertVolumeName, certKey)
 		}
 	}
 

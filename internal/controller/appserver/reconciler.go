@@ -64,7 +64,7 @@ func ReconcileAppServerResources(r reconciler.Reconciler, ctx context.Context, o
 		},
 		{
 			Name: "reconcile Additional CA ConfigMap",
-			Task: reconcileOLSAdditionalCAConfigMap,
+			Task: utils.ReconcileOLSAdditionalCAConfigMap,
 		},
 		{
 			Name: "reconcile Metrics Reader Secret",
@@ -76,7 +76,7 @@ func ReconcileAppServerResources(r reconciler.Reconciler, ctx context.Context, o
 		},
 		{
 			Name: "reconcile Proxy CA ConfigMap",
-			Task: reconcileProxyCAConfigMap,
+			Task: utils.ReconcileProxyCAConfigMap,
 		},
 		{
 			Name: "reconcile ImageStreams",
@@ -189,24 +189,6 @@ func reconcileOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *ols
 	return nil
 }
 
-func reconcileOLSAdditionalCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef == nil {
-		// no additional CA certs, skip
-		r.GetLogger().Info("Additional CA not configured, reconciliation skipped")
-		return nil
-	}
-
-	// Verify the configmap exists (annotation is handled by main controller)
-	cm := &corev1.ConfigMap{}
-	err := r.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.AdditionalCAConfigMapRef.Name, Namespace: r.GetNamespace()}, cm)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetAdditionalCACM, err)
-	}
-
-	r.GetLogger().Info("additional CA configmap reconciled", "configmap", cm.Name)
-	return nil
-}
-
 func reconcileExporterConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	// Check if data collector is enabled
 	enabled, err := dataCollectorEnabled(r, cr)
@@ -253,23 +235,6 @@ func reconcileExporterConfigMap(r reconciler.Reconciler, ctx context.Context, cr
 
 func reconcileMCPServerConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	return utils.ReconcileOpenShiftMCPServerConfigMap(r, ctx, cr, utils.GenerateAppServerSelectorLabels())
-}
-
-func reconcileProxyCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	if cr.Spec.OLSConfig.ProxyConfig == nil || cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef == nil {
-		// no proxy CA certs, skip
-		r.GetLogger().Info("Proxy CA not configured, reconciliation skipped")
-		return nil
-	}
-
-	cm := &corev1.ConfigMap{}
-	err := r.Get(ctx, client.ObjectKey{Name: cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef.Name, Namespace: r.GetNamespace()}, cm)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetProxyCACM, err)
-	}
-
-	r.GetLogger().Info("proxy CA configmap reconciled", "configmap", cm.Name)
-	return nil
 }
 
 func reconcileServiceAccount(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
@@ -357,7 +322,7 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		return fmt.Errorf("%s: %w", utils.ErrGetAPIDeployment, err)
 	}
 
-	err = updateOLSDeployment(r, ctx, existingDeployment, desiredDeployment)
+	err = updateOLSDeployment(r, ctx, cr, existingDeployment, desiredDeployment)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateAPIDeployment, err)
 	}
