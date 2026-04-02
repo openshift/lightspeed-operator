@@ -48,9 +48,9 @@ const (
 // - Tests ALL OLSConfig features in a single comprehensive configuration
 // - Labeled "AllFeatures" to exclude from standard make test-e2e runs
 // - Combines features from all other E2E tests plus new features not tested elsewhere
-// - FlakeAttempts(5) handles transient query timing and network issues
+// - Each It block has FlakeAttempts(5) to retry only failing tests, not entire suite
 // - Longer timeout (3h) due to complexity of setup and comprehensive testing
-var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAttempts(5), func() {
+var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 	var env *OLSTestEnvironment
 	var err error
 	var client *Client
@@ -407,8 +407,10 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 				cr.Spec = allFeaturesCR.Spec
 
 				cr.Spec.OLSConfig.ProxyConfig.ProxyURL = fmt.Sprintf("https://%s:%d", squidHostname, allFeaturesSquidHTTPSPort)
-				cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef = &corev1.LocalObjectReference{
-					Name: allFeaturesProxyConfigmapName,
+				cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef = &olsv1alpha1.ProxyCACertConfigMapRef{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: allFeaturesProxyConfigmapName,
+					},
 				}
 
 				cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
@@ -463,7 +465,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 1: Deployment Validation
-	It("should deploy all components successfully", func() {
+	It("should deploy all components successfully", FlakeAttempts(5), func() {
 		By("Verifying app server deployment with 2 replicas")
 		appDeployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -510,7 +512,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 2: Configuration Validation
-	It("should have all features configured in the CR", func() {
+	It("should have all features configured in the CR", FlakeAttempts(5), func() {
 		By("Retrieving the OLSConfig CR")
 		cr := &olsv1alpha1.OLSConfig{
 			ObjectMeta: metav1.ObjectMeta{
@@ -554,7 +556,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 3: ConfigMap Validation
-	It("should have all features in the olsconfig ConfigMap", func() {
+	It("should have all features in the olsconfig ConfigMap", FlakeAttempts(5), func() {
 		By("Retrieving the olsconfig ConfigMap")
 		configMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -585,7 +587,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 4: TLS and Service Activation
-	It("should have TLS properly configured", func() {
+	It("should have TLS properly configured", FlakeAttempts(5), func() {
 		By("Verifying TLS secret exists")
 		tlsSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -611,22 +613,22 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 5: Basic Query Functionality
-	It("should handle basic queries successfully", func() {
+	It("should handle basic queries successfully", FlakeAttempts(5), func() {
 		By("Making a basic query request")
 		reqBody := []byte(`{"query": "what is OpenShift?"}`)
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
-		CheckErrorAndRestartPortForwardingTestEnvironment(env, err)
+		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(body).NotTo(BeEmpty())
 	})
 
 	// Test 6: BYOK RAG Query
-	It("should return BYOK content and respect byokRAGOnly mode", func() {
+	It("should return BYOK content and respect byokRAGOnly mode", FlakeAttempts(5), func() {
 		By("Making a query that should hit BYOK RAG index")
 		reqBody := []byte(`{"query": "what CPU architectures are supported by assisted installer?"}`)
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
-		CheckErrorAndRestartPortForwardingTestEnvironment(env, err)
+		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
@@ -646,7 +648,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 7: MCP Server Sidecar
-	It("should have openshift-mcp-server sidecar container", func() {
+	It("should have openshift-mcp-server sidecar container", FlakeAttempts(5), func() {
 		By("Verifying openshift-mcp-server container is present in app deployment")
 		appDeployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -669,18 +671,18 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 8: Proxy Functionality
-	It("should route queries through the proxy", func() {
+	It("should route queries through the proxy", FlakeAttempts(5), func() {
 		By("Making a query through the proxy")
 		reqBody := []byte(`{"query": "what is Kubernetes?"}`)
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
-		CheckErrorAndRestartPortForwardingTestEnvironment(env, err)
+		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(body).NotTo(BeEmpty())
 	})
 
 	// Test 9: Database Persistence
-	It("should persist conversations in postgres with correct configuration", func() {
+	It("should persist conversations in postgres with correct configuration", FlakeAttempts(5), func() {
 		By("Verifying PVC exists with correct size")
 		pvc := &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -720,7 +722,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 10: Resource Limits Validation
-	It("should have correct resource limits for all containers", func() {
+	It("should have correct resource limits for all containers", FlakeAttempts(5), func() {
 		By("Verifying API container resource limits")
 		appDeployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -763,7 +765,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 11: Custom System Prompt
-	It("should use the custom system prompt", func() {
+	It("should use the custom system prompt", FlakeAttempts(5), func() {
 		By("Verifying custom prompt in ConfigMap")
 		configMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -779,7 +781,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 12: Query Filters
-	It("should have query filters configured and functioning", func() {
+	It("should have query filters configured and functioning", FlakeAttempts(5), func() {
 		By("Verifying query filters in ConfigMap")
 		configMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -802,7 +804,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 		By("Sending query with filtered term to verify filter functionality")
 		reqBody := []byte(`{"query": "what is oldterm in Kubernetes?"}`)
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
-		CheckErrorAndRestartPortForwardingTestEnvironment(env, err)
+		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(body).NotTo(BeEmpty())
@@ -845,14 +847,14 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 12b: Query Filters - Edge Cases
-	It("should filter multiple occurrences of the term in a single query", func() {
+	It("should filter multiple occurrences of the term in a single query", FlakeAttempts(5), func() {
 		// Record the time before sending the query
 		queryStartTime := time.Now()
 
 		By("Sending query with multiple occurrences of filtered term")
 		reqBody := []byte(`{"query": "How does oldterm differ from oldterm in production? Is oldterm configuration important?"}`)
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
-		CheckErrorAndRestartPortForwardingTestEnvironment(env, err)
+		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Log error details if we get a 500 status
@@ -889,7 +891,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 13: Multi-Provider Configuration
-	It("should have multiple providers and models configured", func() {
+	It("should have multiple providers and models configured", FlakeAttempts(5), func() {
 		By("Retrieving the OLSConfig CR")
 		cr := &olsv1alpha1.OLSConfig{
 			ObjectMeta: metav1.ObjectMeta{
@@ -911,7 +913,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 14: User Data Collection Settings
-	It("should have user data collection settings configured correctly", func() {
+	It("should have user data collection settings configured correctly", FlakeAttempts(5), func() {
 		By("Verifying user data collection in ConfigMap")
 		configMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -937,7 +939,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 		// Make a query to get a valid conversation_id for feedback testing
 		queryReqBody := []byte(`{"query": "what is OpenShift?"}`)
 		queryResp, queryBody, err := TestHTTPSQueryEndpoint(env, secret, queryReqBody)
-		CheckErrorAndRestartPortForwardingTestEnvironment(env, err)
+		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(queryResp.StatusCode).To(Equal(http.StatusOK))
 
@@ -949,15 +951,15 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 		Expect(conversationID).NotTo(BeEmpty())
 
 		// Should fail because feedback is disabled
-		feedbackReqBody := []byte(fmt.Sprintf(`{
+		feedbackReqBody := fmt.Appendf(nil, `{
 			"conversation_id": "%s",
 			"user_question": "what is OpenShift?",
 			"llm_response": "OpenShift is a container platform",
 			"sentiment": 1
-		}`, conversationID))
+		}`, conversationID)
 
 		feedbackResp, err := httpsClient.PostJson("/v1/feedback", feedbackReqBody, authHeader)
-		CheckErrorAndRestartPortForwardingTestEnvironment(env, err)
+		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Exact status code may vary (400, 403, or 404) depending on implementation
@@ -969,7 +971,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), FlakeAtt
 	})
 
 	// Test 15: Additional CA Certificates
-	It("should have additional CA certificates mounted", func() {
+	It("should have additional CA certificates mounted", FlakeAttempts(5), func() {
 		By("Verifying additional CA volume in app deployment")
 		appDeployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{

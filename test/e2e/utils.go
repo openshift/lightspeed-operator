@@ -134,7 +134,7 @@ func SetupOLSTestEnvironment(crModifier func(*olsv1alpha1.OLSConfig), callback f
 	return env, nil
 }
 
-func CheckErrorAndRestartPortForwardingTestEnvironment(env *OLSTestEnvironment, err error) {
+func CheckEOFAndRestartPortForwarding(env *OLSTestEnvironment, err error) {
 	if err == nil {
 		return
 	}
