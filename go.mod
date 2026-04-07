@@ -123,7 +123,7 @@ require (
 
 require (
 	github.com/containers/image/v5 v5.36.2
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.89.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.90.1
 )
 
 require (
