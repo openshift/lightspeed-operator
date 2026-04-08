@@ -200,6 +200,36 @@ var _ = Describe("App server assets", func() {
 			Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.MaxTokensForResponse).To(Equal(0))
 		})
 
+		It("should omit max_iterations from olsconfig.yaml when maxIterations is not set on a populated CR", func() {
+			crNoMaxIter := cr.DeepCopy()
+			crNoMaxIter.Spec.OLSConfig.MaxIterations = 0
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), crNoMaxIter)
+			Expect(err).NotTo(HaveOccurred())
+
+			olsconfigGenerated := utils.AppSrvConfigFile{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsconfigGenerated.OLSConfig.MaxIterations).To(Equal(0))
+
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("max_iterations"))
+		})
+
+		It("should include max_iterations in olsconfig.yaml when maxIterations is explicitly set", func() {
+			crWithMaxIter := cr.DeepCopy()
+			crWithMaxIter.Spec.OLSConfig.MaxIterations = 10
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), crWithMaxIter)
+			Expect(err).NotTo(HaveOccurred())
+
+			olsconfigGenerated := utils.AppSrvConfigFile{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsconfigGenerated.OLSConfig.MaxIterations).To(Equal(10))
+
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("max_iterations: 10"))
+		})
+
 		It("should generate configmap with queryFilters", func() {
 			crWithFilters := utils.WithQueryFilters(cr)
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), crWithFilters)
