@@ -4393,9 +4393,9 @@ spec:
                     - CRITICAL
                     type: string
                   maxIterations:
-                    default: 5
-                    description: 'Maximum number of iterations for agent execution.
-                      Default: 5'
+                    description: Maximum number of iterations for agent execution.
+                      Optional; omit to use the application default. When set, must
+                      be at least 1.
                     minimum: 1
                     type: integer
                   mcpKubeServerConfig:

@@ -237,8 +237,8 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Query System Prompt",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	QuerySystemPrompt string `json:"querySystemPrompt,omitempty"`
-	// Maximum number of iterations for agent execution. Default: 5
-	// +kubebuilder:default=5
+	// Maximum number of iterations for agent execution. Optional; omit to use the application default. When set, must be at least 1.
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max Iterations",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
 	MaxIterations int `json:"maxIterations,omitempty"`

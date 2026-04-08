@@ -242,7 +242,8 @@ spec:
           CRITICAL. Default: "INFO".'
         displayName: Log level
         path: ols.logLevel
-      - description: 'Maximum number of iterations for agent execution. Default: 5'
+      - description: Maximum number of iterations for agent execution. Optional; omit
+          to use the application default. When set, must be at least 1.
         displayName: Max Iterations
         path: ols.maxIterations
         x-descriptors:

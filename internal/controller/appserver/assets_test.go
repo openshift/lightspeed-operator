@@ -2045,11 +2045,11 @@ var _ = Describe("Helper function unit tests", func() {
 		It("should return error when proxy CA certificate ConfigMap does not exist", func() {
 			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
 				ProxyURL: "http://proxy.example.com:8080",
-			ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "nonexistent-proxy-ca",
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "nonexistent-proxy-ca",
+					},
 				},
-			},
 			}
 			// Don't create the ConfigMap - validation should fail
 			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
