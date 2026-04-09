@@ -510,7 +510,7 @@ func TestBuildLCoreToolsApprovalConfig_WithConfig(t *testing.T) {
 		{
 			name:            "with empty config (defaults applied)",
 			config:          &olsv1alpha1.ToolsApprovalConfig{},
-			expectedType:    "never",
+			expectedType:    "tool_annotations",
 			expectedTimeout: 600,
 		},
 	}
@@ -563,8 +563,24 @@ func TestBuildLCoreToolsApprovalConfig_WithoutConfig(t *testing.T) {
 
 	result := buildLCoreToolsApprovalConfig(r, cr)
 
-	if result != nil {
-		t.Errorf("Expected nil result when ToolsApprovalConfig is nil, got %v", result)
+	if result == nil {
+		t.Fatal("Expected non-nil result when ToolsApprovalConfig is nil")
+	}
+
+	approvalType, ok := result["approval_type"].(string)
+	if !ok {
+		t.Fatal("Expected approval_type to be string")
+	}
+	if approvalType != "tool_annotations" {
+		t.Errorf("Expected approval_type %q, got %q", "tool_annotations", approvalType)
+	}
+
+	approvalTimeout, ok := result["approval_timeout"].(int)
+	if !ok {
+		t.Fatal("Expected approval_timeout to be int")
+	}
+	if approvalTimeout != 600 {
+		t.Errorf("Expected approval_timeout %d, got %d", 600, approvalTimeout)
 	}
 }
 
@@ -625,8 +641,18 @@ func TestBuildLCoreConfigYAML_WithoutToolsApproval(t *testing.T) {
 		t.Fatalf("buildLCoreConfigYAML returned error: %v", err)
 	}
 
-	// Verify YAML does NOT contain tools_approval section
-	if strings.Contains(yamlStr, "tools_approval:") {
-		t.Error("Expected YAML NOT to contain 'tools_approval:' section when not configured")
+	// Verify YAML contains tools_approval section with defaults
+	if !strings.Contains(yamlStr, "tools_approval:") {
+		t.Error("Expected YAML to contain 'tools_approval:' section with defaults when not configured")
+	}
+
+	// Verify default approval_type is present
+	if !strings.Contains(yamlStr, "approval_type: tool_annotations") {
+		t.Error("Expected YAML to contain 'approval_type: tool_annotations' as default")
+	}
+
+	// Verify default approval_timeout is present
+	if !strings.Contains(yamlStr, "approval_timeout: 600") {
+		t.Error("Expected YAML to contain 'approval_timeout: 600' as default")
 	}
 }

@@ -311,6 +311,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	OpenShiftMCPServerTimeout = 60
 	// MCP server SSE read timeout, sec
 	OpenShiftMCPServerHTTPReadTimeout = 30
+	// Tools approval timeout default, sec (must match +kubebuilder:default in ToolsApprovalConfig)
+	ToolsApprovalDefaultTimeout = 600
 	// Authorization header for OpenShift MCP server
 	K8S_AUTH_HEADER = "Authorization"
 	// Constant, defining usage of kubernetes token

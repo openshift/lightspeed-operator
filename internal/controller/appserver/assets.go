@@ -492,25 +492,30 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		appSrvConfigFile.OLSConfig.ToolFiltering = toolFilteringConfig
 	}
 
-	// Add tools approval configuration if specified
-	if cr.Spec.OLSConfig.ToolsApprovalConfig != nil {
-		// Apply defaults for zero values (happens when user specifies toolsApprovalConfig: {})
-		cfg := cr.Spec.OLSConfig.ToolsApprovalConfig
-		approvalType := string(cfg.ApprovalType)
-		approvalTimeout := cfg.ApprovalTimeout
+	// Add tools approval configuration (always present with defaults from CRD)
+	var approvalType string
+	var approvalTimeout int
 
-		// Apply defaults if not set
+	if cr.Spec.OLSConfig.ToolsApprovalConfig == nil {
+		// Use CRD defaults (must match +kubebuilder:default markers in ToolsApprovalConfig)
+		approvalType = string(olsv1alpha1.ApprovalTypeToolAnnotations) // CRD default: tool_annotations
+		approvalTimeout = utils.ToolsApprovalDefaultTimeout            // CRD default: 600
+	} else {
+		// Use specified values, applying CRD defaults for zero values
+		approvalType = string(cr.Spec.OLSConfig.ToolsApprovalConfig.ApprovalType)
+		approvalTimeout = cr.Spec.OLSConfig.ToolsApprovalConfig.ApprovalTimeout
+
 		if approvalType == "" {
-			approvalType = string(olsv1alpha1.ApprovalTypeNever)
+			approvalType = string(olsv1alpha1.ApprovalTypeToolAnnotations) // CRD default: tool_annotations
 		}
 		if approvalTimeout == 0 {
-			approvalTimeout = 600
+			approvalTimeout = utils.ToolsApprovalDefaultTimeout // CRD default: 600
 		}
+	}
 
-		appSrvConfigFile.OLSConfig.ToolsApproval = &utils.ToolsApprovalConfig{
-			ApprovalType:    approvalType,
-			ApprovalTimeout: approvalTimeout,
-		}
+	appSrvConfigFile.OLSConfig.ToolsApproval = &utils.ToolsApprovalConfig{
+		ApprovalType:    approvalType,
+		ApprovalTimeout: approvalTimeout,
 	}
 
 	// Marshal the configuration to YAML format

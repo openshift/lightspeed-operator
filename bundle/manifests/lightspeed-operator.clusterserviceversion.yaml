@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-04-09T11:46:41Z"
+    createdAt: "2026-04-10T08:19:49Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -55,7 +55,7 @@ metadata:
     operators.operatorframework.io/builder: operator-sdk-v1.36.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
-  name: lightspeed-operator.v1.0.11
+  name: lightspeed-operator.v1.0.10
   namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
@@ -383,7 +383,6 @@ spec:
                 - tls.key: Private key (PEM format) - REQUIRED
                 - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
 
-
               If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
             displayName: TLS Certificate Secret Reference
             path: ols.tlsConfig.keyCertSecretRef
@@ -406,11 +405,7 @@ spec:
           - description: Number of tools to retrieve
             displayName: Top K
             path: ols.toolFilteringConfig.topK
-          - description: |-
-              Tool execution approval configuration. Controls whether tool calls require user approval before execution.
-              ⚠️ WARNING: This feature is not yet fully supported in the current OLS backend version.
-              The operator will generate the configuration, but tool approval behavior may not function as expected.
-              Please verify backend support before enabling.
+          - description: Tool execution approval configuration. Controls whether tool calls require user approval before execution.
             displayName: Tools Approval Configuration
             path: ols.toolsApprovalConfig
             x-descriptors:
@@ -1000,7 +995,7 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
-  version: 1.0.11
+  version: 1.0.10
   relatedImages:
     - name: lightspeed-service-api
       image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:7314d1c8cf1469f558376439f6c17713238e5676d7808e07d8183516b1e1a057
