@@ -1,8 +1,7 @@
+#!/bin/bash
 # Helper tool to update the bundle artifacts
 # Pre-requisites: opm, make, yq, operator-sdk
 # Usage: ./hack/update_bundle.sh
-
-#!/bin/bash
 
 set -euo pipefail
 
