@@ -703,6 +703,17 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 					return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, key)
 				}
 			}
+		} else if provider.Type == GoogleVertexType || provider.Type == GoogleVertexAnthropicType {
+			credentialKey := provider.CredentialKey
+			if credentialKey == "" {
+				credentialKey = DefaultCredentialKey
+			}
+			if strings.TrimSpace(credentialKey) == "" {
+				return fmt.Errorf("LLM provider %s: credentialKey must not be empty or whitespace", provider.Name)
+			}
+			if _, ok := secret.Data[credentialKey]; !ok {
+				return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, credentialKey)
+			}
 		} else {
 			// Standard providers: must contain the default credential key
 			if _, ok := secret.Data[DefaultCredentialKey]; !ok {

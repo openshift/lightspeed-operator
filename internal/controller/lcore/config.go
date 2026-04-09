@@ -245,6 +245,9 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Contex
 				}
 				providerConfig["config"] = config
 
+			case utils.GoogleVertexType, utils.GoogleVertexAnthropicType:
+				providerConfig["config"] = buildVertexAIInferenceConfig(&provider)
+
 			default:
 				return nil, fmt.Errorf("internal error: no config builder for legacy provider type '%s' (provider '%s'); update the switch in buildLlamaStackInferenceProviders", provider.Type, provider.Name)
 			}
@@ -265,16 +268,18 @@ func buildLlamaStackInferenceProviders(_ reconciler.Reconciler, _ context.Contex
 //  2. Set the Llama Stack provider_type value (e.g., "remote::new-provider")
 //  3. Add credential/config handling in the switch inside buildLlamaStackInferenceProviders
 var providerTypeMapping = map[string]string{
-	"openai":       "remote::openai",
-	"rhoai_vllm":   "remote::vllm",
-	"rhelai_vllm":  "remote::vllm",
-	"azure_openai": "remote::azure",
+	"openai":                        "remote::openai",
+	"rhoai_vllm":                    "remote::vllm",
+	"rhelai_vllm":                   "remote::vllm",
+	"azure_openai":                  "remote::azure",
+	utils.GoogleVertexType:          "remote::vertexai",
+	utils.GoogleVertexAnthropicType: "remote::vertexai",
 	// fake_provider is included in the CRD enum for testing purposes
 	"fake_provider": "remote::fake",
 }
 
 // getProviderType returns the Llama Stack provider_type string for a legacy OLSConfig
-// provider type (openai, azure_openai, rhoai_vllm, rhelai_vllm).
+// provider type (openai, azure_openai, rhoai_vllm, rhelai_vllm, google_vertex, google_vertex_anthropic).
 // It is only called for providers where ProviderType == "" (the legacy path);
 // generic providers (ProviderType != "") set provider_type directly without this function.
 // Returns an error for unsupported types (watsonx, bam) or invalid generic usage.
@@ -287,12 +292,36 @@ func getProviderType(provider *olsv1alpha1.ProviderSpec) (string, error) {
 	// Unsupported provider type
 	switch provider.Type {
 	case "watsonx", "bam":
-		return "", fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm, %s", provider.Type, provider.Name, utils.LlamaStackGenericType)
+		return "", fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm, google_vertex, google_vertex_anthropic, %s", provider.Type, provider.Name, utils.LlamaStackGenericType)
 	case utils.LlamaStackGenericType:
 		return "", fmt.Errorf("provider type '%s' (provider '%s') requires providerType and config fields to be set", utils.LlamaStackGenericType, provider.Name)
 	default:
-		return "", fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm, %s", provider.Type, provider.Name, utils.LlamaStackGenericType)
+		return "", fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm, google_vertex, google_vertex_anthropic, %s", provider.Type, provider.Name, utils.LlamaStackGenericType)
 	}
+}
+
+// buildVertexAIInferenceConfig builds the Llama Stack remote::vertexai provider config
+// (project, location). Application Default Credentials use GOOGLE_APPLICATION_CREDENTIALS
+// on the deployment. See https://llamastack.github.io/docs/providers/inference/remote_vertexai
+func buildVertexAIInferenceConfig(provider *olsv1alpha1.ProviderSpec) map[string]interface{} {
+	var vc *olsv1alpha1.VertexConfig
+	switch provider.Type {
+	case utils.GoogleVertexType:
+		vc = provider.GoogleVertexConfig
+	case utils.GoogleVertexAnthropicType:
+		vc = provider.GoogleVertexAnthropicConfig
+	default:
+		return map[string]interface{}{}
+	}
+
+	config := map[string]interface{}{}
+	if vc != nil && vc.ProjectID != "" {
+		config["project"] = vc.ProjectID
+	}
+	if vc != nil && vc.Location != "" {
+		config["location"] = vc.Location
+	}
+	return config
 }
 
 // deepCopyMap creates a deep copy of a map[string]interface{}, including nested maps
