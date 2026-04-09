@@ -128,6 +128,10 @@ const (
 	AzureOpenAIType = "azure_openai"
 	// FakeProviderType is the name of the fake provider type used for testing
 	FakeProviderType = "fake_provider"
+	// GoogleVertexType is the name of the Google Vertex generic provider type
+	GoogleVertexType = "google_vertex"
+	// GoogleVertexAnthropicType is the name of the Google Vertex Anthropic provider type
+	GoogleVertexAnthropicType = "google_vertex_anthropic"
 	// DeploymentInProgress message
 	DeploymentInProgress = "In Progress"
 	// OLSSystemPromptFileName is the filename for the system prompt

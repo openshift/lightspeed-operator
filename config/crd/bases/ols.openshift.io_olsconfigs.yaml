@@ -98,6 +98,26 @@ spec:
                         fakeProviderMCPToolCall:
                           description: Fake Provider MCP Tool Call
                           type: boolean
+                        googleVertexAnthropicConfig:
+                          description: Google Vertex Anthropic Config
+                          properties:
+                            location:
+                              description: Server region location
+                              type: string
+                            projectID:
+                              description: Google Cloud project ID
+                              type: string
+                          type: object
+                        googleVertexConfig:
+                          description: Google Vertex Config
+                          properties:
+                            location:
+                              description: Server region location
+                              type: string
+                            projectID:
+                              description: Google Cloud project ID
+                              type: string
+                          type: object
                         models:
                           description: List of models from the provider
                           items:
@@ -292,6 +312,8 @@ spec:
                           - rhelai_vllm
                           - fake_provider
                           - llamaStackGeneric
+                          - google_vertex
+                          - google_vertex_anthropic
                           type: string
                         url:
                           description: Provider API URL
@@ -326,6 +348,17 @@ spec:
                       - message: credentialKey must not be empty or whitespace
                         rule: '!has(self.credentialKey) || !self.credentialKey.matches(''^[
                           \t\n\r\v\f]*$'')'
+                      - message: googleVertexConfig is required for google_vertex
+                          provider
+                        rule: self.type != "google_vertex" || has(self.googleVertexConfig)
+                      - message: googleVertexAnthropicConfig is required for google_vertex_anthropic
+                          provider
+                        rule: self.type != "google_vertex_anthropic" || has(self.googleVertexAnthropicConfig)
+                      - message: googleVertexConfig may only be set when type is google_vertex
+                        rule: self.type == "google_vertex" || !has(self.googleVertexConfig)
+                      - message: googleVertexAnthropicConfig may only be set when
+                          type is google_vertex_anthropic
+                        rule: self.type == "google_vertex_anthropic" || !has(self.googleVertexAnthropicConfig)
                     maxItems: 10
                     type: array
                 required:

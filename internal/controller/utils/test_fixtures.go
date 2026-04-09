@@ -222,6 +222,32 @@ func WithRHELAIProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	return cr
 }
 
+// WithGoogleVertexProvider configures the first LLM provider as Google Vertex.
+// This modifies the CR in place and returns it for chaining.
+// Requires that Providers[0] already exists.
+func WithGoogleVertexProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.LLMConfig.Providers[0].Name = "google_vertex"
+	cr.Spec.LLMConfig.Providers[0].Type = "google_vertex"
+	cr.Spec.LLMConfig.Providers[0].GoogleVertexConfig = &olsv1alpha1.VertexConfig{
+		ProjectID: "testProjectID",
+		Location:  "testLocation",
+	}
+	return cr
+}
+
+// WithGoogleVertexAnthropicProvider configures the first LLM provider as Google Vertex Anthropic.
+// This modifies the CR in place and returns it for chaining.
+// Requires that Providers[0] already exists.
+func WithGoogleVertexAnthropicProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.LLMConfig.Providers[0].Name = "google_vertex_anthropic"
+	cr.Spec.LLMConfig.Providers[0].Type = "google_vertex_anthropic"
+	cr.Spec.LLMConfig.Providers[0].GoogleVertexAnthropicConfig = &olsv1alpha1.VertexConfig{
+		ProjectID: "testProjectID",
+		Location:  "testLocation",
+	}
+	return cr
+}
+
 // WithProviderType is a generic helper to configure the first LLM provider with a specific type.
 // This is useful when you need to test custom provider configurations.
 // This modifies the CR in place and returns it for chaining.
