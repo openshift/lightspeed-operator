@@ -1,9 +1,8 @@
+#!/bin/bash
 # Helper tool to build bundle and catalog image and push it to the quay.io registry
 # for given tag of the operator and operands.
 # Example , 
 # Pre-requisites: opm, podman, make
-
-#!/bin/bash
 
 usage() {
   echo "Usage:
