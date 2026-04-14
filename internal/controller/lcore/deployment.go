@@ -793,9 +793,9 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, ctx context.Context,
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get MCP Server ConfigMap resource version: %w", err)
 	}
-	proxyCACMResourceVersion, err := utils.GetProxyCACertResourceVersion(r, ctx, cr)
+	proxyCACMResourceVersion, err := utils.GetProxyCACertHash(r, ctx, cr)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, fmt.Errorf("failed to get Proxy CA ConfigMap resource version: %w", err)
+		return nil, fmt.Errorf("failed to get Proxy CA certificate hash: %w", err)
 	}
 
 	// Use helper functions to build common components
@@ -1130,14 +1130,15 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, cr *ols
 		}
 	}
 
-	// Check if Proxy CA ConfigMap ResourceVersion has changed
-	currentProxyCACMVersion, err := utils.GetProxyCACertResourceVersion(r, ctx, cr)
+	// Check if Proxy CA certificate content has changed
+	currentProxyCACMHash, err := utils.GetProxyCACertHash(r, ctx, cr)
 	if err != nil && !apierrors.IsNotFound(err) {
-		r.GetLogger().Info("failed to get Proxy CA ConfigMap ResourceVersion", "error", err)
+		r.GetLogger().Info("failed to get Proxy CA certificate hash", "error", err)
 		changed = true
 	} else {
-		storedProxyCACMVersion := existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation]
-		if storedProxyCACMVersion != currentProxyCACMVersion {
+		storedProxyCACMHash := existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation]
+		if storedProxyCACMHash != currentProxyCACMHash {
+			r.GetLogger().Info("Proxy CA certificate content changed, updating deployment")
 			changed = true
 		}
 	}
@@ -1158,7 +1159,7 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, cr *ols
 	existingDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
-	existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation] = currentProxyCACMVersion
+	existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation] = currentProxyCACMHash
 
 	r.GetLogger().Info("updating LCore deployment", "name", existingDeployment.Name)
 
@@ -1195,9 +1196,9 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, ctx context.Context
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get MCP Server ConfigMap resource version: %w", err)
 	}
-	proxyCACMResourceVersion, err := utils.GetProxyCACertResourceVersion(r, ctx, cr)
+	proxyCACMResourceVersion, err := utils.GetProxyCACertHash(r, ctx, cr)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, fmt.Errorf("failed to get Proxy CA ConfigMap resource version: %w", err)
+		return nil, fmt.Errorf("failed to get Proxy CA certificate hash: %w", err)
 	}
 
 	// Use helper functions to build common components

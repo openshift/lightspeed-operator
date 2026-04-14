@@ -229,7 +229,7 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			cm.Name = proxyCACMName
 			cm.Namespace = utils.OLSNamespaceDefault
 			cm.Data = map[string]string{
-				"ca-bundle.crt": "test-proxy-ca-cert-content",
+				utils.ProxyCACertFileName: "test-proxy-ca-cert-content",
 			}
 			err = k8sClient.Create(ctx, cm)
 			Expect(err).NotTo(HaveOccurred())

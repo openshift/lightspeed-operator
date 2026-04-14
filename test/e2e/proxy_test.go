@@ -34,7 +34,7 @@ const (
 // - Creates test infrastructure (squid proxy) and cleans up with DeleteAndWait
 // - All tests share a single cluster-scoped OLSConfig CR
 // - FlakeAttempts(5) handles transient network and port-forwarding issues
-var _ = XDescribe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func() {
+var _ = Describe("Proxy test", Ordered, Label("Proxy"), FlakeAttempts(5), func() {
 
 	var cr *olsv1alpha1.OLSConfig
 	var err error

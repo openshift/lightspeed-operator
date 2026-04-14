@@ -376,9 +376,9 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get MCP Server ConfigMap resource version: %w", err)
 	}
-	proxyCACMResourceVersion, err := utils.GetProxyCACertResourceVersion(r, ctx, cr)
+	proxyCACMResourceVersion, err := utils.GetProxyCACertHash(r, ctx, cr)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, fmt.Errorf("failed to get Proxy CA ConfigMap resource version: %w", err)
+		return nil, fmt.Errorf("failed to get Proxy CA certificate hash: %w", err)
 	}
 
 	deployment := appsv1.Deployment{
@@ -559,14 +559,15 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		}
 	}
 
-	// Step 4: Check if Proxy CA ConfigMap ResourceVersion has changed
-	currentProxyCACMVersion, err := utils.GetProxyCACertResourceVersion(r, ctx, cr)
+	// Step 4: Check if Proxy CA certificate content has changed
+	currentProxyCACMHash, err := utils.GetProxyCACertHash(r, ctx, cr)
 	if err != nil && !apierrors.IsNotFound(err) {
-		r.GetLogger().Info("failed to get Proxy CA ConfigMap ResourceVersion", "error", err)
+		r.GetLogger().Info("failed to get Proxy CA certificate hash", "error", err)
 		changed = true
 	} else {
-		storedProxyCACMVersion := existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation]
-		if storedProxyCACMVersion != currentProxyCACMVersion {
+		storedProxyCACMHash := existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation]
+		if storedProxyCACMHash != currentProxyCACMHash {
+			r.GetLogger().Info("Proxy CA certificate content changed, updating deployment")
 			changed = true
 		}
 	}
@@ -586,7 +587,7 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 
 	existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
-	existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation] = currentProxyCACMVersion
+	existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation] = currentProxyCACMHash
 
 	r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
 
