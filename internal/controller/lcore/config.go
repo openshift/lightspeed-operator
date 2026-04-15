@@ -894,22 +894,24 @@ func buildLCoreQuotaHandlersConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 // buildLCoreToolsApprovalConfig configures tool execution approval
 // Controls whether tool calls require user approval before execution
 func buildLCoreToolsApprovalConfig(_ reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) map[string]interface{} {
-	// If no tools approval config in CR, return nil (not configured)
+	var approvalType string
+	var approvalTimeout int
+
 	if cr.Spec.OLSConfig.ToolsApprovalConfig == nil {
-		return nil
-	}
+		// Use CRD defaults (must match +kubebuilder:default markers in ToolsApprovalConfig)
+		approvalType = string(olsv1alpha1.ApprovalTypeToolAnnotations) // CRD default: tool_annotations
+		approvalTimeout = utils.ToolsApprovalDefaultTimeout            // CRD default: 600
+	} else {
+		// Use specified values, applying CRD defaults for zero values
+		approvalType = string(cr.Spec.OLSConfig.ToolsApprovalConfig.ApprovalType)
+		approvalTimeout = cr.Spec.OLSConfig.ToolsApprovalConfig.ApprovalTimeout
 
-	cfg := cr.Spec.OLSConfig.ToolsApprovalConfig
-
-	// Apply defaults if not set
-	approvalType := string(cfg.ApprovalType)
-	if approvalType == "" {
-		approvalType = string(olsv1alpha1.ApprovalTypeNever)
-	}
-
-	approvalTimeout := cfg.ApprovalTimeout
-	if approvalTimeout == 0 {
-		approvalTimeout = 600
+		if approvalType == "" {
+			approvalType = string(olsv1alpha1.ApprovalTypeToolAnnotations) // CRD default: tool_annotations
+		}
+		if approvalTimeout == 0 {
+			approvalTimeout = utils.ToolsApprovalDefaultTimeout // CRD default: 600
+		}
 	}
 
 	return map[string]interface{}{

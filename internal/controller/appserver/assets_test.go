@@ -124,6 +124,10 @@ var _ = Describe("App server assets", func() {
 						"/etc/certs/ols-additional-ca/service-ca.crt",
 					},
 					CertificateDirectory: "/etc/certs/cert-bundle",
+					ToolsApproval: &utils.ToolsApprovalConfig{
+						ApprovalType:    "tool_annotations",
+						ApprovalTimeout: utils.ToolsApprovalDefaultTimeout,
+					},
 				},
 				LLMProviders: []utils.ProviderConfig{
 					{
@@ -225,7 +229,7 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tools_approval", MatchAllKeys(Keys{
-				"approval_type":    Equal("never"),
+				"approval_type":    Equal("tool_annotations"),
 				"approval_timeout": BeNumerically("==", 600),
 			}))))
 
@@ -257,15 +261,16 @@ var _ = Describe("App server assets", func() {
 				"approval_timeout": BeNumerically("==", 120),
 			}))))
 
-			By("not present when config is nil")
+			By("with default values when config is nil")
 			cr.Spec.OLSConfig.ToolsApprovalConfig = nil
 			cm, err = GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
 			Expect(err).NotTo(HaveOccurred())
-			olsConfig, ok := olsConfigMap["ols_config"].(map[string]interface{})
-			Expect(ok).To(BeTrue())
-			Expect(olsConfig).NotTo(HaveKey("tools_approval"))
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tools_approval", MatchAllKeys(Keys{
+				"approval_type":    Equal("tool_annotations"),
+				"approval_timeout": BeNumerically("==", 600),
+			}))))
 		})
 
 		It("should generate configmap with token quota limiters", func() {
@@ -1286,6 +1291,9 @@ ols_config:
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
+  tools_approval:
+    approval_timeout: 600
+    approval_type: tool_annotations
   user_data_collection:
     feedback_disabled: false
     feedback_storage: /app-root/ols-user-data/feedback
@@ -1346,6 +1354,9 @@ ols_config:
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
+  tools_approval:
+    approval_timeout: 600
+    approval_type: tool_annotations
   user_data_collection:
     feedback_disabled: true
     feedback_storage: /app-root/ols-user-data/feedback
@@ -2045,11 +2056,11 @@ var _ = Describe("Helper function unit tests", func() {
 		It("should return error when proxy CA certificate ConfigMap does not exist", func() {
 			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
 				ProxyURL: "http://proxy.example.com:8080",
-			ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "nonexistent-proxy-ca",
+				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "nonexistent-proxy-ca",
+					},
 				},
-			},
 			}
 			// Don't create the ConfigMap - validation should fail
 			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)

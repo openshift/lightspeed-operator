@@ -251,9 +251,6 @@ type OLSSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tool Filtering Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	ToolFilteringConfig *ToolFilteringConfig `json:"toolFilteringConfig,omitempty"`
 	// Tool execution approval configuration. Controls whether tool calls require user approval before execution.
-	// ⚠️ WARNING: This feature is not yet fully supported in the current OLS backend version.
-	// The operator will generate the configuration, but tool approval behavior may not function as expected.
-	// Please verify backend support before enabling.
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tools Approval Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	ToolsApprovalConfig *ToolsApprovalConfig `json:"toolsApprovalConfig,omitempty"`
@@ -646,7 +643,7 @@ type ToolsApprovalConfig struct {
 	// 'never' - tools execute without approval
 	// 'always' - all tool calls require approval
 	// 'tool_annotations' - approval based on per-tool annotations
-	// +kubebuilder:default=never
+	// +kubebuilder:default=tool_annotations
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Approval Type"
 	ApprovalType ApprovalType `json:"approvalType,omitempty"`
 
