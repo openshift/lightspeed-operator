@@ -11,6 +11,9 @@
   value: --console-image-pf5=__REPLACE_LIGHTSPEED_CONSOLE_PLUGIN_PF5__
 - op: add
   path: /spec/template/spec/containers/0/args/-
+  value: --console-image-4-19=__REPLACE_LIGHTSPEED_CONSOLE_PLUGIN_4_19__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
   value: --postgres-image=__REPLACE_LIGHTSPEED_POSTGRESQL__
 - op: add
   path: /spec/template/spec/containers/0/args/-

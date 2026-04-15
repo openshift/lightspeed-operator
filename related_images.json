@@ -15,6 +15,11 @@
     "revision": "c6d9c2fe8ce107ae86a69a43007e99870fdf84e7"
   },
   {
+    "name": "lightspeed-console-plugin-4-19",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:cd6199b76eadbf921dc303850d401841a0653a6b77bff7dbf4c83b1db84f49fb",
+    "revision": "dcf95a42dce63122a735b00f3d61616ff7fa5e9c"
+  },
+  {
     "name": "lightspeed-operator",
     "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:f972945e6cae4273d0e5547f65a4473939cca39bacfdb889e8ade2bba974db7b",
     "revision": "c9efdb48e785f58b9cab85e085284df9a76c0f18"
