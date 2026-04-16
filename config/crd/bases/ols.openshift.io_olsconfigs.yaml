@@ -140,10 +140,10 @@ spec:
                                       is 2048 tokens.
                                     type: integer
                                   toolBudgetRatio:
-                                    default: 0.25
+                                    default: 0.5
                                     description: Ratio of context window size allocated
                                       for tool token budget. Must be between 0.1 and
-                                      0.5. The default is 0.25.
+                                      0.5. The default is 0.5.
                                     maximum: 0.5
                                     minimum: 0.1
                                     type: number
@@ -4412,7 +4412,10 @@ spec:
                       x-kubernetes-map-type: atomic
                     type: array
                   introspectionEnabled:
-                    description: Enable introspection features
+                    default: true
+                    description: |-
+                      Enable introspection features (e.g. built-in OpenShift MCP server). Omitted means use the
+                      CRD default (true); explicit false disables introspection.
                     type: boolean
                   logLevel:
                     default: INFO

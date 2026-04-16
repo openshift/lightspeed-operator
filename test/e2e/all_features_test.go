@@ -543,7 +543,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		Expect(cr.Spec.MCPServers[0].Name).To(Equal("test-mcp-server"))
 
 		By("Verifying introspection enabled")
-		Expect(cr.Spec.OLSConfig.IntrospectionEnabled).To(BeTrue())
+		Expect(utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true)).To(BeTrue())
 
 		By("Verifying BYOK RAG only mode")
 		Expect(cr.Spec.OLSConfig.ByokRAGOnly).To(BeTrue())

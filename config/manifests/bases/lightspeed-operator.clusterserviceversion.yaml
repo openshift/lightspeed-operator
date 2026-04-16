@@ -97,7 +97,7 @@ spec:
         displayName: Max Tokens For Response
         path: llm.providers[0].models[0].parameters.maxTokensForResponse
       - description: Ratio of context window size allocated for tool token budget.
-          Must be between 0.1 and 0.5. The default is 0.25.
+          Must be between 0.1 and 0.5. The default is 0.5.
         displayName: Tool Budget Ratio
         path: llm.providers[0].models[0].parameters.toolBudgetRatio
       - description: Model API URL
@@ -233,7 +233,9 @@ spec:
           authentication
         displayName: Image Pull Secrets
         path: ols.imagePullSecrets
-      - description: Enable introspection features
+      - description: |-
+          Enable introspection features (e.g. built-in OpenShift MCP server). Omitted means use the
+          CRD default (true); explicit false disables introspection.
         displayName: Introspection Enabled
         path: ols.introspectionEnabled
         x-descriptors:

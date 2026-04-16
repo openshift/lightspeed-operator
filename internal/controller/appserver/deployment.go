@@ -505,8 +505,9 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Add OpenShift MCP server sidecar container if introspection is enabled.
 	// The sidecar is configured with a TOML config that denies access to Secret resources,
 	// preventing secret data from reaching the LLM.
-	if cr.Spec.OLSConfig.IntrospectionEnabled {
+	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		configVolume, configMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
+
 		openshiftMCPServerSidecarContainer := corev1.Container{
 			Name:            "openshift-mcp-server",
 			Image:           r.GetOpenShiftMCPServerImage(),
@@ -515,7 +516,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			VolumeMounts:    []corev1.VolumeMount{configMount},
 			Command: []string{
 				"/openshift-mcp-server",
-				"--read-only",
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
 			},

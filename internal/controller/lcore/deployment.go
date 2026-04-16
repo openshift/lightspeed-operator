@@ -98,7 +98,7 @@ func getOLSDataCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceReq
 // The sidecar is configured with a TOML config that denies access to Secret resources,
 // preventing secret data from reaching the LLM.
 func addOpenShiftMCPServerSidecar(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig, deployment *appsv1.Deployment) {
-	if !cr.Spec.OLSConfig.IntrospectionEnabled {
+	if !utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		return
 	}
 
@@ -112,7 +112,6 @@ func addOpenShiftMCPServerSidecar(r reconciler.Reconciler, cr *olsv1alpha1.OLSCo
 		VolumeMounts:    []corev1.VolumeMount{configMount},
 		Command: []string{
 			"/openshift-mcp-server",
-			"--read-only",
 			"--config", utils.GetOpenShiftMCPServerConfigPath(),
 			"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
 		},

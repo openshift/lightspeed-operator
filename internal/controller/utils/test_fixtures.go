@@ -88,10 +88,11 @@ func GetDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 						MaxConnections: PostgresMaxConnections,
 					},
 				},
-				DefaultModel:    "testModel",
-				DefaultProvider: "testProvider",
-				MaxIterations:   5,
-				LogLevel:        olsv1alpha1.LogLevelInfo,
+				DefaultModel:         "testModel",
+				DefaultProvider:      "testProvider",
+				MaxIterations:        5,
+				LogLevel:             olsv1alpha1.LogLevelInfo,
+				IntrospectionEnabled: BoolPtr(false),
 			},
 		},
 	}
@@ -125,6 +126,7 @@ func GetOLSConfigWithCacheCR() *olsv1alpha1.OLSConfig {
 						MaxConnections: PostgresMaxConnections,
 					},
 				},
+				IntrospectionEnabled: BoolPtr(false),
 			},
 		},
 	}

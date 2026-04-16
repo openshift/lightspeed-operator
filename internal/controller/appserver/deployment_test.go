@@ -133,7 +133,7 @@ var _ = Describe("App server deployment generation", func() {
 			defer utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 
 			By("Enabling introspection")
-			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -148,13 +148,12 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(openshiftMCPServerContainer.Image).To(Equal(utils.OpenShiftMCPServerImageDefault))
 			Expect(openshiftMCPServerContainer.Command).To(Equal([]string{
 				"/openshift-mcp-server",
-				"--read-only",
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
 			}))
 
 			By("Disabling introspection")
-			cr.Spec.OLSConfig.IntrospectionEnabled = false
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -163,12 +162,24 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
+
+			By("Leaving introspection unset should use default enabled behavior")
+			cr.Spec.OLSConfig.IntrospectionEnabled = nil
+
+			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Default is enabled, so MCP sidecar should be present again.
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
+			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
+			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
+			Expect(dep.Spec.Template.Spec.Containers[2].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
 		})
 
 		It("should deploy MCP container independently of data collection settings", func() {
 			By("introspection enabled, data collection enabled")
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
-			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    false,
 				TranscriptsDisabled: false,
@@ -195,7 +206,7 @@ var _ = Describe("App server deployment generation", func() {
 
 		It("should deploy MCP container when introspection is enabled regardless of telemetry settings", func() {
 			By("introspection enabled with no telemetry pull secret")
-			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
 				TranscriptsDisabled: true,
@@ -212,7 +223,6 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(mcpContainer.Image).To(Equal(utils.OpenShiftMCPServerImageDefault))
 			Expect(mcpContainer.Command).To(Equal([]string{
 				"/openshift-mcp-server",
-				"--read-only",
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
 			}))

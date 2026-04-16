@@ -71,7 +71,7 @@ func ReconcileOpenShiftMCPServerConfigMap(r reconciler.Reconciler, ctx context.C
 	foundCm := &corev1.ConfigMap{}
 	getErr := r.Get(ctx, client.ObjectKey{Name: OpenShiftMCPServerConfigCmName, Namespace: r.GetNamespace()}, foundCm)
 
-	if !cr.Spec.OLSConfig.IntrospectionEnabled {
+	if !BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		if getErr == nil {
 			r.GetLogger().Info("deleting MCP server config configmap", "configmap", OpenShiftMCPServerConfigCmName)
 			if err := r.Delete(ctx, foundCm); err != nil {

@@ -224,7 +224,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			olsConfig := &olsv1alpha1.OLSConfig{}
 			err := k8sClient.Get(ctx, crNamespacedName, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
-			olsConfig.Spec.OLSConfig.IntrospectionEnabled = false
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 
 			By("Reconcile with introspection disabled")
 			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
@@ -245,7 +245,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Enable introspection")
 			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
-			olsConfig.Spec.OLSConfig.IntrospectionEnabled = true
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 
 			By("Reconcile with introspection enabled")
 			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
@@ -266,7 +266,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Disable introspection again")
 			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
-			olsConfig.Spec.OLSConfig.IntrospectionEnabled = false
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 
 			By("Reconcile with introspection disabled again")
 			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
@@ -292,7 +292,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			olsConfig := &olsv1alpha1.OLSConfig{}
 			err := k8sClient.Get(ctx, crNamespacedName, olsConfig)
 			Expect(err).NotTo(HaveOccurred())
-			olsConfig.Spec.OLSConfig.IntrospectionEnabled = true
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 
 			By("Reconcile to create MCP ConfigMap")
 			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)

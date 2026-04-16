@@ -1060,3 +1060,16 @@ func ReconcileProxyCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr 
 	r.GetLogger().Info("proxy CA configmap reconciled", "configmap", cm.Name)
 	return nil
 }
+
+// BoolDeref returns *p when non-nil; otherwise def.
+func BoolDeref(p *bool, def bool) bool {
+	if p != nil {
+		return *p
+	}
+	return def
+}
+
+// BoolPtr returns a pointer to b (for optional API fields).
+func BoolPtr(b bool) *bool {
+	return &b
+}
