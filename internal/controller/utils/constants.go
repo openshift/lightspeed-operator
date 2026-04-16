@@ -108,7 +108,7 @@ const (
 	// AdditionalCAHashKey is the key of the hash value of the additional CA certificates in the deployment annotations
 	AdditionalCAHashKey = "hash/additionalca"
 	// ProxyCACertHashAnnotation is the annotation key for tracking Proxy CA certificate content hash.
-	ProxyCACertHashAnnotation = "ols.openshift.io/proxy-ca-configmap-version"
+	ProxyCACertHashAnnotation = "ols.openshift.io/proxy-ca-configmap-hash"
 	// OLSAppServerContainerPort is the port number of the lightspeed-service-api container exposes
 	OLSAppServerContainerPort = 8443
 	// OLSAppServerServicePort is the port number for OLS application server service.

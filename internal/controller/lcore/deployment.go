@@ -997,7 +997,7 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, ctx context.Context,
 				utils.LCoreConfigMapResourceVersionAnnotation:              lcoreConfigMapResourceVersion,
 				utils.LlamaStackConfigMapResourceVersionAnnotation:         llamaStackConfigMapResourceVersion,
 				utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation: mcpConfigMapResourceVersion,
-				utils.ProxyCACertHashAnnotation:                 proxyCACMResourceVersion,
+				utils.ProxyCACertHashAnnotation:                            proxyCACMResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -1276,7 +1276,7 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, ctx context.Context
 				utils.LCoreConfigMapResourceVersionAnnotation:              lcoreConfigMapResourceVersion,
 				utils.LlamaStackConfigMapResourceVersionAnnotation:         llamaStackConfigMapResourceVersion,
 				utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation: mcpConfigMapResourceVersion,
-				utils.ProxyCACertHashAnnotation:                 proxyCACMResourceVersion,
+				utils.ProxyCACertHashAnnotation:                            proxyCACMResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{

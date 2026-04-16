@@ -389,7 +389,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Annotations: map[string]string{
 				utils.OLSConfigMapResourceVersionAnnotation:                configMapResourceVersion,
 				utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation: mcpConfigMapResourceVersion,
-				utils.ProxyCACertHashAnnotation:                 proxyCACMResourceVersion,
+				utils.ProxyCACertHashAnnotation:                            proxyCACMResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
