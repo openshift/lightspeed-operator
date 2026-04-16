@@ -997,7 +997,7 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, ctx context.Context,
 				utils.LCoreConfigMapResourceVersionAnnotation:              lcoreConfigMapResourceVersion,
 				utils.LlamaStackConfigMapResourceVersionAnnotation:         llamaStackConfigMapResourceVersion,
 				utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation: mcpConfigMapResourceVersion,
-				utils.ProxyCACertResourceVersionAnnotation:                 proxyCACMResourceVersion,
+				utils.ProxyCACertHashAnnotation:                 proxyCACMResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -1136,7 +1136,7 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, cr *ols
 		r.GetLogger().Info("failed to get Proxy CA certificate hash", "error", err)
 		changed = true
 	} else {
-		storedProxyCACMHash := existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation]
+		storedProxyCACMHash := existingDeployment.Annotations[utils.ProxyCACertHashAnnotation]
 		if storedProxyCACMHash != currentProxyCACMHash {
 			r.GetLogger().Info("Proxy CA certificate content changed, updating deployment")
 			changed = true
@@ -1159,7 +1159,7 @@ func updateLCoreDeployment(r reconciler.Reconciler, ctx context.Context, cr *ols
 	existingDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LCoreConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.LlamaStackConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
-	existingDeployment.Annotations[utils.ProxyCACertResourceVersionAnnotation] = currentProxyCACMHash
+	existingDeployment.Annotations[utils.ProxyCACertHashAnnotation] = currentProxyCACMHash
 
 	r.GetLogger().Info("updating LCore deployment", "name", existingDeployment.Name)
 
@@ -1276,7 +1276,7 @@ func generateLCoreLibraryDeployment(r reconciler.Reconciler, ctx context.Context
 				utils.LCoreConfigMapResourceVersionAnnotation:              lcoreConfigMapResourceVersion,
 				utils.LlamaStackConfigMapResourceVersionAnnotation:         llamaStackConfigMapResourceVersion,
 				utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation: mcpConfigMapResourceVersion,
-				utils.ProxyCACertResourceVersionAnnotation:                 proxyCACMResourceVersion,
+				utils.ProxyCACertHashAnnotation:                 proxyCACMResourceVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{

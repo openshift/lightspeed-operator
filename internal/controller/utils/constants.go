@@ -107,10 +107,8 @@ const (
 	OLSConsoleTLSHashKey = "hash/olsconsoletls"
 	// AdditionalCAHashKey is the key of the hash value of the additional CA certificates in the deployment annotations
 	AdditionalCAHashKey = "hash/additionalca"
-	// ProxyCACertResourceVersionAnnotation is the annotation key for tracking Proxy CA certificate content hash.
-	// Despite the name referencing "ResourceVersion" for backward compatibility, this now stores a SHA256 hash
-	// of the certificate content to ensure deployments only restart when the cert actually changes.
-	ProxyCACertResourceVersionAnnotation = "ols.openshift.io/proxy-ca-configmap-version"
+	// ProxyCACertHashAnnotation is the annotation key for tracking Proxy CA certificate content hash.
+	ProxyCACertHashAnnotation = "ols.openshift.io/proxy-ca-configmap-version"
 	// OLSAppServerContainerPort is the port number of the lightspeed-service-api container exposes
 	OLSAppServerContainerPort = 8443
 	// OLSAppServerServicePort is the port number for OLS application server service.
