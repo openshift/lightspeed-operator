@@ -18,6 +18,7 @@ package utils
 import (
 	"context"
 	"crypto/sha1" //nolint:gosec
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
@@ -798,9 +799,12 @@ func GetConfigMapResourceVersion(r reconciler.Reconciler, ctx context.Context, c
 	return configMap.ResourceVersion, nil
 }
 
-// GetProxyCACertResourceVersion returns the ResourceVersion of the proxy CA ConfigMap
-// if proxy CA is configured. Returns empty string and nil error if proxy is not configured.
-func GetProxyCACertResourceVersion(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
+// GetProxyCACertHash returns a SHA256 hash of the proxy CA certificate content
+// if proxy CA is configured. This ensures deployments only restart when the certificate
+// content actually changes, not just when the ConfigMap ResourceVersion changes
+// (which can happen frequently for service-ca managed ConfigMaps).
+// Returns empty string and nil error if proxy is not configured.
+func GetProxyCACertHash(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
 	if cr.Spec.OLSConfig.ProxyConfig == nil {
 		return "", nil
 	}
@@ -808,7 +812,21 @@ func GetProxyCACertResourceVersion(r reconciler.Reconciler, ctx context.Context,
 	if cmName == "" {
 		return "", nil
 	}
-	return GetConfigMapResourceVersion(r, ctx, cmName)
+
+	cm := &corev1.ConfigMap{}
+	err := r.Get(ctx, client.ObjectKey{Name: cmName, Namespace: r.GetNamespace()}, cm)
+	if err != nil {
+		return "", err
+	}
+
+	certKey := GetProxyCACertKey(cr.Spec.OLSConfig.ProxyConfig.ProxyCACertificateRef)
+	certData, ok := cm.Data[certKey]
+	if !ok {
+		return "", fmt.Errorf("proxy CA certificate key %s not found in ConfigMap %s", certKey, cmName)
+	}
+
+	hash := sha256.Sum256([]byte(certData))
+	return hex.EncodeToString(hash[:]), nil
 }
 
 // GetSecretResourceVersion returns the ResourceVersion of a Secret.
