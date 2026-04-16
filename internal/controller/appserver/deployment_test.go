@@ -148,7 +148,6 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(openshiftMCPServerContainer.Image).To(Equal(utils.OpenShiftMCPServerImageDefault))
 			Expect(openshiftMCPServerContainer.Command).To(Equal([]string{
 				"/openshift-mcp-server",
-				"--read-only",
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
 			}))
@@ -212,7 +211,6 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(mcpContainer.Image).To(Equal(utils.OpenShiftMCPServerImageDefault))
 			Expect(mcpContainer.Command).To(Equal([]string{
 				"/openshift-mcp-server",
-				"--read-only",
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
 			}))

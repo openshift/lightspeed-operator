@@ -112,7 +112,6 @@ func addOpenShiftMCPServerSidecar(r reconciler.Reconciler, cr *olsv1alpha1.OLSCo
 		VolumeMounts:    []corev1.VolumeMount{configMount},
 		Command: []string{
 			"/openshift-mcp-server",
-			"--read-only",
 			"--config", utils.GetOpenShiftMCPServerConfigPath(),
 			"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
 		},
