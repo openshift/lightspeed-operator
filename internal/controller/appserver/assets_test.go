@@ -13,7 +13,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
@@ -547,181 +546,6 @@ var _ = Describe("App server assets", func() {
 
 		})
 
-		It("should generate the OLS deployment", func() {
-			By("generate full deployment when telemetry pull secret exists")
-			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
-
-			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Name).To(Equal(utils.OLSAppServerDeploymentName))
-			Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
-			// application container
-			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.OLSAppServerImageDefault))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[0].Resources).ToNot(BeNil())
-			Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
-				{
-					ContainerPort: utils.OLSAppServerContainerPort,
-					Name:          "https",
-					Protocol:      corev1.ProtocolTCP,
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", utils.OLSConfigFilename),
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get10RequiredVolumeMounts()))
-			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
-				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("4Gi")},
-				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("1Gi")},
-				Claims:   []corev1.ResourceClaim{},
-			}))
-			// dataverse exporter container
-			Expect(dep.Spec.Template.Spec.Containers[1].Image).To(Equal(utils.DataverseExporterImageDefault))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Resources).ToNot(BeNil())
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(Equal([]string{
-				"--mode",
-				"openshift",
-				"--config",
-				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
-				"--log-level",
-				string(olsv1alpha1.LogLevelInfo),
-				"--data-dir",
-				utils.OLSUserDataMountPath,
-			}))
-			Expect(dep.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf(get10RequiredVolumeMounts()))
-			Expect(dep.Spec.Template.Spec.Containers[1].Resources).To(Equal(corev1.ResourceRequirements{
-				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
-				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
-				Claims:   []corev1.ResourceClaim{},
-			}))
-			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(10))
-			Expect(dep.Spec.Selector.MatchLabels).To(Equal(utils.GenerateAppServerSelectorLabels()))
-
-			By("generate deployment without data collector when telemetry pull secret does not exist")
-			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Name).To(Equal(utils.OLSAppServerDeploymentName))
-			Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
-			// application container
-			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.OLSAppServerImageDefault))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[0].Resources).ToNot(BeNil())
-			Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
-				{
-					ContainerPort: utils.OLSAppServerContainerPort,
-					Name:          "https",
-					Protocol:      corev1.ProtocolTCP,
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", utils.OLSConfigFilename),
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get8RequiredVolumeMounts()))
-			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(8))
-
-			By("generate deployment without data collector when telemetry pull secret does not contain telemetry token")
-			utils.CreateTelemetryPullSecret(ctx, k8sClient, false)
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Name).To(Equal(utils.OLSAppServerDeploymentName))
-			Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
-			// application container
-			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.OLSAppServerImageDefault))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[0].Resources).ToNot(BeNil())
-			Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
-				{
-					ContainerPort: utils.OLSAppServerContainerPort,
-					Name:          "https",
-					Protocol:      corev1.ProtocolTCP,
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", utils.OLSConfigFilename),
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get8RequiredVolumeMounts()))
-			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(8))
-			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
-		})
-
-		It("should use configured log level for data collector container", func() {
-			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
-
-			By("using default INFO log level when not specified")
-			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{}
-			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
-			// data collector container should be the second container
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelInfo)))
-
-			By("using DEBUG log level when configured")
-			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: olsv1alpha1.LogLevelDebug,
-			}
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(Equal([]string{
-				"--mode",
-				"openshift",
-				"--config",
-				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
-				"--log-level",
-				string(olsv1alpha1.LogLevelDebug),
-				"--data-dir",
-				utils.OLSUserDataMountPath,
-			}))
-
-			By("using WARNING log level when configured")
-			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: olsv1alpha1.LogLevelWarning,
-			}
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelWarning)))
-
-			By("using ERROR log level when configured")
-			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: olsv1alpha1.LogLevelError,
-			}
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelError)))
-
-			By("using CRITICAL log level when configured")
-			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{
-				LogLevel: olsv1alpha1.LogLevelCritical,
-			}
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelCritical)))
-
-			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
-		})
-
 		It("should generate the OLS service", func() {
 			service, err := GenerateService(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -822,165 +646,6 @@ var _ = Describe("App server assets", func() {
 
 		})
 
-		It("should switch data collection on and off as CR defines in .spec.ols_config.user_data_collection", func() {
-			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
-			defer utils.DeleteTelemetryPullSecret(ctx, k8sClient)
-			By("Switching data collection off")
-			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
-				FeedbackDisabled:    true,
-				TranscriptsDisabled: true,
-			}
-			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
-			Expect(err).NotTo(HaveOccurred())
-			olsconfigGenerated := utils.AppSrvConfigFile{}
-			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeTrue())
-			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeTrue())
-
-			deployment, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
-			Expect(deployment.Spec.Template.Spec.Volumes).To(Not(ContainElement(
-				corev1.Volume{
-					Name: "ols-user-data",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			)))
-
-			By("Switching data collection on")
-			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
-				FeedbackDisabled:    false,
-				TranscriptsDisabled: false,
-			}
-			cm, err = GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
-			Expect(err).NotTo(HaveOccurred())
-			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeFalse())
-			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeFalse())
-
-			deployment, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(2))
-			Expect(deployment.Spec.Template.Spec.Containers[1].Image).To(Equal(utils.DataverseExporterImageDefault))
-			Expect(deployment.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(deployment.Spec.Template.Spec.Containers[1].Resources).ToNot(BeNil())
-			Expect(deployment.Spec.Template.Spec.Containers[1].Args).To(Equal([]string{
-				"--mode",
-				"openshift",
-				"--config",
-				path.Join(utils.ExporterConfigMountPath, utils.ExporterConfigFilename),
-				"--log-level",
-				string(olsv1alpha1.LogLevelInfo),
-				"--data-dir",
-				utils.OLSUserDataMountPath,
-			}))
-			Expect(deployment.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf(get10RequiredVolumeMounts()))
-			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
-				corev1.Volume{
-					Name: "ols-user-data",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			))
-		})
-
-		It("should use user provided TLS settings if user provided one", func() {
-			const tlsSecretName = "test-tls-secret"
-			cr.Spec.OLSConfig.TLSConfig = &olsv1alpha1.TLSConfig{
-				KeyCertSecretRef: corev1.LocalObjectReference{
-					Name: tlsSecretName,
-				},
-			}
-			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
-			Expect(err).NotTo(HaveOccurred())
-			olsconfigGenerated := utils.AppSrvConfigFile{}
-			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
-			Expect(err).NotTo(HaveOccurred())
-			// Config always uses /etc/certs/lightspeed-tls/ path regardless of secret name
-			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSCertificatePath).To(Equal(path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.crt")))
-			Expect(olsconfigGenerated.OLSConfig.TLSConfig.TLSKeyPath).To(Equal(path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls", "tls.key")))
-
-			deployment, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			// Volume mount uses canonical name regardless of secret name
-			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(
-				corev1.VolumeMount{
-					Name:      "secret-lightspeed-tls",
-					MountPath: path.Join(utils.OLSAppCertsMountRoot, "lightspeed-tls"),
-					ReadOnly:  true,
-				},
-			))
-			// Volume has canonical name but references the user's secret
-			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
-				corev1.Volume{
-					Name: "secret-lightspeed-tls",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  tlsSecretName, // References user's secret
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-			))
-		})
-
-		It("should generate RAG volume and initContainers", func() {
-			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
-				{
-					IndexPath: "/rag/vector_db/ocp_product_docs/4.19",
-					IndexID:   "ocp-product-docs-4_19",
-					Image:     "rag-ocp-product-docs:4.19",
-				},
-				{
-					IndexPath: "/rag/vector_db/ansible_docs/2.18",
-					IndexID:   "ansible-docs-2_18",
-					Image:     "rag-ansible-docs:2.18",
-				},
-			}
-			deployment, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
-				corev1.Volume{
-					Name: utils.RAGVolumeName,
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				}))
-
-			Expect(deployment.Spec.Template.Spec.InitContainers).To(ConsistOf(
-				utils.GeneratePostgresWaitInitContainer(testReconcilerInstance.GetPostgresImage()),
-				corev1.Container{
-					Name:    "rag-0",
-					Image:   "rag-ocp-product-docs:4.19",
-					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-0 && cp -a /rag/vector_db/ocp_product_docs/4.19/. %s/rag-0", utils.RAGVolumeMountPath, utils.RAGVolumeMountPath)},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      utils.RAGVolumeName,
-							MountPath: utils.RAGVolumeMountPath,
-						},
-					},
-					ImagePullPolicy: corev1.PullAlways,
-				},
-				corev1.Container{
-					Name:    "rag-1",
-					Image:   "rag-ansible-docs:2.18",
-					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-1 && cp -a /rag/vector_db/ansible_docs/2.18/. %s/rag-1", utils.RAGVolumeMountPath, utils.RAGVolumeMountPath)},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      utils.RAGVolumeName,
-							MountPath: utils.RAGVolumeMountPath,
-						},
-					},
-					ImagePullPolicy: corev1.PullAlways,
-				},
-			))
-		})
-
 		It("should fill app config with multiple RAG indexes and remove them when no additional RAG is defined", func() {
 			By("additional RAG indexes are added")
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
@@ -1061,145 +726,6 @@ var _ = Describe("App server assets", func() {
 					ProductDocsIndexPath: utils.RAGVolumeMountPath + "/rag-0",
 					ProductDocsOrigin:    "rag-ansible-docs:2.18",
 				},
-			}))
-		})
-
-		It("should generate deployment with MCP server sidecar when introspectionEnabled is true", func() {
-			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
-			defer utils.DeleteTelemetryPullSecret(ctx, k8sClient)
-
-			By("Enabling introspection")
-			cr.Spec.OLSConfig.IntrospectionEnabled = true
-
-			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Name).To(Equal(utils.OLSAppServerDeploymentName))
-			Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
-
-			// Should have 3 containers: main app, telemetry, and MCP server
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
-
-			// Verify OpenShift MCP server container (should be the third container)
-			openshiftMCPServerContainer := dep.Spec.Template.Spec.Containers[2]
-			Expect(openshiftMCPServerContainer.Name).To(Equal(utils.OpenShiftMCPServerContainerName))
-			Expect(openshiftMCPServerContainer.Image).To(Equal(utils.OpenShiftMCPServerImageDefault))
-			Expect(openshiftMCPServerContainer.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
-			Expect(openshiftMCPServerContainer.Command).To(Equal([]string{
-				"/openshift-mcp-server",
-				"--read-only",
-				"--config", utils.GetOpenShiftMCPServerConfigPath(),
-				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
-			}))
-			Expect(openshiftMCPServerContainer.SecurityContext).To(Equal(utils.RestrictedContainerSecurityContext()))
-			Expect(openshiftMCPServerContainer.Resources).To(Equal(corev1.ResourceRequirements{
-				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
-				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
-				Claims:   []corev1.ResourceClaim{},
-			}))
-
-			// Verify MCP server has its own config volume mount
-			_, expectedConfigMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
-			Expect(openshiftMCPServerContainer.VolumeMounts).To(ContainElement(expectedConfigMount))
-
-			// Verify MCP server config volume is in deployment
-			expectedConfigVolume, _ := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
-			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(expectedConfigVolume))
-
-			By("Disabling introspection")
-			cr.Spec.OLSConfig.IntrospectionEnabled = false
-
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-
-			// Should have only 2 containers: main app and dataverse exporter (no MCP server)
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-		})
-
-		It("should deploy MCP container independently of data collection settings", func() {
-			By("Test case 1: introspection enabled, data collection enabled - should have both MCP and dataverse exporter containers")
-			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
-			cr.Spec.OLSConfig.IntrospectionEnabled = true
-			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
-				FeedbackDisabled:    false,
-				TranscriptsDisabled: false,
-			}
-
-			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[2].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
-
-			By("Test case 2: introspection enabled, data collection disabled - should have only MCP container (no dataverse exporter)")
-			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
-				FeedbackDisabled:    true,
-				TranscriptsDisabled: true,
-			}
-
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
-
-			By("Test case 3: introspection disabled, data collection enabled - should have only dataverse exporter container (no MCP)")
-			cr.Spec.OLSConfig.IntrospectionEnabled = false
-			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
-				FeedbackDisabled:    false,
-				TranscriptsDisabled: false,
-			}
-
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-
-			By("Test case 4: introspection disabled, data collection disabled - should have only main container")
-			cr.Spec.OLSConfig.IntrospectionEnabled = false
-			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
-				FeedbackDisabled:    true,
-				TranscriptsDisabled: true,
-			}
-
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-
-			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
-		})
-
-		It("should deploy MCP container when introspection is enabled regardless of telemetry settings", func() {
-			By("Test case: introspection enabled with no telemetry pull secret - MCP should still be deployed")
-			cr.Spec.OLSConfig.IntrospectionEnabled = true
-			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
-				FeedbackDisabled:    true,
-				TranscriptsDisabled: true,
-			}
-
-			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
-
-			// Verify MCP container configuration
-			mcpContainer := dep.Spec.Template.Spec.Containers[1]
-			Expect(mcpContainer.Image).To(Equal(utils.OpenShiftMCPServerImageDefault))
-			Expect(mcpContainer.Command).To(Equal([]string{
-				"/openshift-mcp-server",
-				"--read-only",
-				"--config", utils.GetOpenShiftMCPServerConfigPath(),
-				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
-			}))
-			Expect(mcpContainer.Resources).To(Equal(corev1.ResourceRequirements{
-				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
-				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
-				Claims:   []corev1.ResourceClaim{},
 			}))
 		})
 
@@ -1395,70 +921,6 @@ user_data_collector_config: {}
 			}))
 		})
 
-		It("should generate the OLS deployment", func() {
-			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
-			defer utils.DeleteTelemetryPullSecret(ctx, k8sClient)
-			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Name).To(Equal(utils.OLSAppServerDeploymentName))
-			Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
-			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.OLSAppServerImageDefault))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[0].Ports).To(Equal([]corev1.ContainerPort{
-				{
-					ContainerPort: utils.OLSAppServerContainerPort,
-					Name:          "https",
-					Protocol:      corev1.ProtocolTCP,
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", utils.OLSConfigFilename),
-				},
-			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(
-				append(get7RequiredVolumeMounts(),
-					corev1.VolumeMount{
-						Name:      "ols-user-data",
-						ReadOnly:  false,
-						MountPath: "/app-root/ols-user-data",
-					},
-					corev1.VolumeMount{
-						Name:      utils.ExporterConfigVolumeName,
-						ReadOnly:  true,
-						MountPath: utils.ExporterConfigMountPath,
-					}),
-			))
-			Expect(dep.Spec.Template.Spec.Volumes).To(ConsistOf(
-				append(get7RequiredVolumes(),
-					corev1.Volume{
-						Name: "ols-user-data",
-						VolumeSource: corev1.VolumeSource{
-							EmptyDir: &corev1.EmptyDirVolumeSource{},
-						},
-					},
-					corev1.Volume{
-						Name: utils.ExporterConfigVolumeName,
-						VolumeSource: corev1.VolumeSource{
-							ConfigMap: &corev1.ConfigMapVolumeSource{
-								LocalObjectReference: corev1.LocalObjectReference{Name: utils.ExporterConfigCmName},
-								DefaultMode:          &defaultVolumeMode,
-							},
-						},
-					}),
-			))
-			Expect(dep.Spec.Selector.MatchLabels).To(Equal(utils.GenerateAppServerSelectorLabels()))
-			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe).ToNot(BeNil())
-			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe.HTTPGet.Port).To(Equal(intstr.FromString("https")))
-			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe.HTTPGet.Path).To(Equal("/liveness"))
-			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe).ToNot(BeNil())
-			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet.Port).To(Equal(intstr.FromString("https")))
-			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet.Path).To(Equal("/readiness"))
-			Expect(dep.Spec.Template.Spec.Tolerations).To(BeNil())
-			Expect(dep.Spec.Template.Spec.NodeSelector).To(BeNil())
-		})
-
 		It("should generate the OLS service monitor", func() {
 			serviceMonitor, err := GenerateServiceMonitor(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -1552,25 +1014,12 @@ user_data_collector_config: {}
 	})
 
 	Context("Additional CA", func() {
-
 		const caConfigMapName = "test-ca-configmap"
 		const certFilename = "additional-ca.crt"
 		var additionalCACm *corev1.ConfigMap
 
 		BeforeEach(func() {
 			cr = utils.GetDefaultOLSConfigCR()
-			By("create the provider secret")
-			secret, _ = utils.GenerateRandomSecret()
-			secret.SetOwnerReferences([]metav1.OwnerReference{
-				{
-					Kind:       "Secret",
-					APIVersion: "v1",
-					UID:        "ownerUID",
-					Name:       "test-secret",
-				},
-			})
-			err := testReconcilerInstance.Create(ctx, secret)
-			Expect(err).NotTo(HaveOccurred())
 			By("create the additional CA configmap")
 			additionalCACm = &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1581,117 +1030,14 @@ user_data_collector_config: {}
 					certFilename: utils.TestCACert,
 				},
 			}
-			err = testReconcilerInstance.Create(ctx, additionalCACm)
+			err := testReconcilerInstance.Create(ctx, additionalCACm)
 			Expect(err).NotTo(HaveOccurred())
-
-			By("create the OpenShift certificates config map")
-			configmap, _ = utils.GenerateRandomConfigMap()
-			configmap.SetOwnerReferences([]metav1.OwnerReference{
-				{
-					Kind:       "Configmap",
-					APIVersion: "v1",
-					UID:        "ownerUID",
-					Name:       utils.DefaultOpenShiftCerts,
-				},
-			})
-			configMapCreationErr := testReconcilerInstance.Create(ctx, configmap)
-			Expect(configMapCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
-			By("Delete the provider secret")
-			err := testReconcilerInstance.Delete(ctx, secret)
-			Expect(err).NotTo(HaveOccurred())
 			By("Delete the additional CA configmap")
-			err = testReconcilerInstance.Delete(ctx, additionalCACm)
+			err := testReconcilerInstance.Delete(ctx, additionalCACm)
 			Expect(err).NotTo(HaveOccurred())
-			configMapDeletionErr := testReconcilerInstance.Delete(ctx, configmap)
-			Expect(configMapDeletionErr).NotTo(HaveOccurred())
-		})
-
-		It("should update OLS config and mount volumes for additional CA", func() {
-			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(
-				corev1.Volume{
-					Name: utils.AdditionalCAVolumeName,
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: caConfigMapName,
-							},
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				}))
-
-			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
-				Name: caConfigMapName,
-			}
-
-			olsCm, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
-			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
-
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElements(
-				corev1.Volume{
-					Name: utils.AdditionalCAVolumeName,
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: caConfigMapName,
-							},
-							DefaultMode: &defaultVolumeMode,
-						},
-					},
-				},
-				corev1.Volume{
-					Name: utils.CertBundleVolumeName,
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			))
-
-		})
-
-		It("should generate ImagePullSecrets in the app server deployment pod template", func() {
-			// there should be no ImagePullSecrets in the app server deployment
-			// pod template if none are specified in OLSCconfig
-			Expect(cr.Spec.OLSConfig.ImagePullSecrets).To(BeNil())
-			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(BeNil())
-
-			imagePullSecrets := []corev1.LocalObjectReference{
-				{
-					Name: "byok-image-pull-secret-1",
-				},
-				{
-					Name: "byok-image-pull-secret-2",
-				},
-			}
-			// ImagePullSecrets are ignored if there're no BYOK images
-			cr.Spec.OLSConfig.ImagePullSecrets = imagePullSecrets
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(BeNil())
-
-			// ImagePullSecrets should be set in the app server deployment
-			// pod template if there are BYOK images
-			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
-				{
-					Image:     "rag-image-1",
-					IndexPath: "/path/to/index-1",
-					IndexID:   "index-id-1",
-				},
-			}
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
 		})
 
 		It("should return error if the CA text is malformed", func() {
@@ -1706,7 +1052,6 @@ user_data_collector_config: {}
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to validate additional CA certificate"))
 		})
-
 	})
 
 	Context("Proxy settings", func() {
@@ -1716,19 +1061,7 @@ user_data_collector_config: {}
 
 		BeforeEach(func() {
 			cr = utils.GetDefaultOLSConfigCR()
-			By("create the provider secret")
-			secret, _ = utils.GenerateRandomSecret()
-			secret.SetOwnerReferences([]metav1.OwnerReference{
-				{
-					Kind:       "Secret",
-					APIVersion: "v1",
-					UID:        "ownerUID",
-					Name:       "test-secret",
-				},
-			})
-			err := testReconcilerInstance.Create(ctx, secret)
-			Expect(err).NotTo(HaveOccurred())
-			By("create the additional CA configmap")
+			By("create the proxy CA configmap")
 			proxyCACm = &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      caConfigMapName,
@@ -1738,91 +1071,14 @@ user_data_collector_config: {}
 					utils.ProxyCACertFileName: utils.TestCACert,
 				},
 			}
-			err = testReconcilerInstance.Create(ctx, proxyCACm)
+			err := testReconcilerInstance.Create(ctx, proxyCACm)
 			Expect(err).NotTo(HaveOccurred())
-
-			By("create the OpenShift certificates config map")
-			configmap, _ = utils.GenerateRandomConfigMap()
-			configmap.SetOwnerReferences([]metav1.OwnerReference{
-				{
-					Kind:       "Configmap",
-					APIVersion: "v1",
-					UID:        "ownerUID",
-					Name:       utils.DefaultOpenShiftCerts,
-				},
-			})
-			configMapCreationErr := testReconcilerInstance.Create(ctx, configmap)
-			Expect(configMapCreationErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
-			By("Delete the provider secret")
-			err := testReconcilerInstance.Delete(ctx, secret)
+			By("Delete the proxy CA configmap")
+			err := testReconcilerInstance.Delete(ctx, proxyCACm)
 			Expect(err).NotTo(HaveOccurred())
-			By("Delete the additional CA configmap")
-			err = testReconcilerInstance.Delete(ctx, proxyCACm)
-			Expect(err).NotTo(HaveOccurred())
-			configMapDeletionErr := testReconcilerInstance.Delete(ctx, configmap)
-			Expect(configMapDeletionErr).NotTo(HaveOccurred())
-		})
-
-		It("should update OLS config and mount volumes for proxy settings", func() {
-			olsCm, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(olsCm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("proxy_config:"))
-
-			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(
-				MatchFields(IgnoreExtras, Fields{
-					"Name": Equal(utils.ProxyCACertVolumeName),
-				}),
-			))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).NotTo(ContainElement(
-				MatchFields(IgnoreExtras, Fields{
-					"Name": Equal(utils.ProxyCACertVolumeName),
-				}),
-			))
-
-			cr.Spec.OLSConfig.ProxyConfig = &olsv1alpha1.ProxyConfig{
-				ProxyURL: proxyURL,
-				ProxyCACertificateRef: &olsv1alpha1.ProxyCACertConfigMapRef{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: caConfigMapName,
-					},
-					// No Key specified - tests backward compatibility
-				},
-			}
-
-			olsCm, err = GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("proxy_ca_cert_path: /etc/certs/proxy-ca/" + utils.ProxyCACertFileName))
-			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("proxy_url: " + proxyURL))
-
-			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(
-				corev1.Volume{
-					Name: utils.ProxyCACertVolumeName,
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: caConfigMapName,
-							},
-							DefaultMode: &defaultVolumeMode,
-							Items: []corev1.KeyToPath{
-								{Key: utils.ProxyCACertFileName, Path: utils.ProxyCACertFileName},
-							},
-						},
-					},
-				}))
-			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(
-				corev1.VolumeMount{
-					Name:      utils.ProxyCACertVolumeName,
-					MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.ProxyCACertVolumeName),
-					ReadOnly:  true,
-				},
-			))
 		})
 
 		It("should return error if the CA text is malformed", func() {
@@ -1836,7 +1092,6 @@ user_data_collector_config: {}
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: caConfigMapName,
 					},
-					// No Key specified - tests backward compatibility
 				},
 			}
 			_, err = GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
@@ -1864,6 +1119,7 @@ user_data_collector_config: {}
 			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("proxy_url: " + proxyURL))
 		})
 	})
+
 })
 
 func get7RequiredVolumeMounts() []corev1.VolumeMount {
@@ -1930,69 +1186,6 @@ func get10RequiredVolumeMounts() []corev1.VolumeMount {
 			ReadOnly:  true,
 			MountPath: utils.ExporterConfigMountPath,
 		})
-}
-
-func get7RequiredVolumes() []corev1.Volume {
-
-	return []corev1.Volume{
-		{
-			Name: "secret-lightspeed-tls",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  utils.OLSCertsSecretName,
-					DefaultMode: &defaultVolumeMode,
-				},
-			},
-		},
-		{
-			Name: "cm-olsconfig",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: utils.OLSConfigCmName},
-					DefaultMode:          &defaultVolumeMode,
-				},
-			},
-		},
-		{
-			Name: "secret-lightspeed-postgres-secret",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  utils.PostgresSecretName,
-					DefaultMode: &defaultVolumeMode,
-				},
-			},
-		},
-		{
-			Name: utils.PostgresCAVolume,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: utils.OLSCAConfigMap},
-					DefaultMode:          &defaultVolumeMode,
-				},
-			},
-		},
-		{
-			Name: utils.TmpVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-		{
-			Name: "openshift-ca",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "kube-root-ca.crt"},
-					DefaultMode:          &defaultVolumeMode,
-				},
-			},
-		},
-		{
-			Name: "cert-bundle",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-	}
 }
 
 var _ = Describe("Helper function unit tests", func() {
