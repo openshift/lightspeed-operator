@@ -35,6 +35,11 @@
     "target": "args"
   },
   {
+    "name": "lightspeed-console-plugin-4-19",
+    "placeholder": "__REPLACE_LIGHTSPEED_CONSOLE_PLUGIN_4_19__",
+    "target": "args"
+  },
+  {
     "name": "lightspeed-postgresql",
     "placeholder": "__REPLACE_LIGHTSPEED_POSTGRESQL__",
     "target": "args"

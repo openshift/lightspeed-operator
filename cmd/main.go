@@ -98,6 +98,7 @@ var (
 		"postgres-image":             utils.PostgresServerImageDefault,
 		"console-plugin":             utils.ConsoleUIImageDefault,
 		"console-plugin-pf5":         utils.ConsoleUIImagePF5Default,
+		"console-plugin-4-19":        utils.ConsoleUIImage419Default,
 		"openshift-mcp-server-image": utils.OpenShiftMCPServerImageDefault,
 		"lightspeed-core":            utils.LlamaStackImageDefault,
 		"dataverse-exporter-image":   utils.DataverseExporterImageDefault,
@@ -119,7 +120,7 @@ func init() {
 
 // overrideImages overrides the default images with the images provided by the user.
 // If an image is not provided, the default is used.
-func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 string, postgresImage string, openshiftMCPServerImage string, lcoreImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
+func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 string, consoleImage_419 string, postgresImage string, openshiftMCPServerImage string, lcoreImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
 	res := defaultImages
 	if serviceImage != "" {
 		res["lightspeed-service"] = serviceImage
@@ -129,6 +130,9 @@ func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 s
 	}
 	if consoleImage_pf5 != "" {
 		res["console-plugin-pf5"] = consoleImage_pf5
+	}
+	if consoleImage_419 != "" {
+		res["console-plugin-4-19"] = consoleImage_419
 	}
 	if postgresImage != "" {
 		res["postgres-image"] = postgresImage
@@ -173,6 +177,7 @@ func main() {
 	var serviceImage string
 	var consoleImage string
 	var consoleImage_pf5 string
+	var consoleImage_419 string
 	var namespace string
 	var postgresImage string
 	var openshiftMCPServerImage string
@@ -194,6 +199,7 @@ func main() {
 	flag.StringVar(&serviceImage, "service-image", utils.OLSAppServerImageDefault, "The image of the lightspeed-service container.")
 	flag.StringVar(&consoleImage, "console-image", utils.ConsoleUIImageDefault, "The image of the console-plugin container using PatternFly 6.")
 	flag.StringVar(&consoleImage_pf5, "console-image-pf5", utils.ConsoleUIImagePF5Default, "The image of the console-plugin container using PatternFly 5.")
+	flag.StringVar(&consoleImage_419, "console-image-4-19", utils.ConsoleUIImage419Default, "The image of the console-plugin container for OCP 4.19 - 4.21.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
 	flag.StringVar(&postgresImage, "postgres-image", utils.PostgresServerImageDefault, "The image of the PostgreSQL server.")
 	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", utils.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
@@ -214,7 +220,7 @@ func main() {
 		namespace = getWatchNamespace()
 	}
 
-	imagesMap := overrideImages(serviceImage, consoleImage, consoleImage_pf5, postgresImage, openshiftMCPServerImage, lcoreImage, dataverseExporterImage, ocpRagImage)
+	imagesMap := overrideImages(serviceImage, consoleImage, consoleImage_pf5, consoleImage_419, postgresImage, openshiftMCPServerImage, lcoreImage, dataverseExporterImage, ocpRagImage)
 	setupLog.Info("Images setting loaded", "images", listImages())
 
 	// Log which backend is being used
@@ -347,8 +353,11 @@ func main() {
 	if mVersion < 19 {
 		// Use PF5
 		consoleImage = imagesMap["console-plugin-pf5"]
+	} else if mVersion < 22 {
+		// Use 4.19 - 4.21 PF6 image
+		consoleImage = imagesMap["console-plugin-4-19"]
 	} else {
-		// Use PF6
+		// Use 4.22+ image
 		consoleImage = imagesMap["console-plugin"]
 	}
 
