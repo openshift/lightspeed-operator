@@ -109,6 +109,10 @@ func generateBaseOLSConfig(opts olsConfigOptions, customizer func(*olsv1alpha1.O
 			},
 			Type: llmProvider,
 		}
+		if llmProvider == "azure_openai" {
+			secondProvider.AzureDeploymentName = llmModel
+			secondProvider.URL = AzureURL
+		}
 		providers = append(providers, secondProvider)
 	}
 

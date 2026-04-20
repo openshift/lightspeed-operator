@@ -710,15 +710,16 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		foundMaxConnections := false
 		for _, container := range postgresDeployment.Spec.Template.Spec.Containers {
 			for _, env := range container.Env {
-				if env.Name == "POSTGRES_SHARED_BUFFERS" || strings.Contains(env.Value, "512MB") {
+				if env.Name == "POSTGRESQL_SHARED_BUFFERS" && env.Value == "512MB" {
 					foundSharedBuffers = true
 				}
-				if env.Name == "POSTGRES_MAX_CONNECTIONS" || strings.Contains(env.Value, "3000") {
+				if env.Name == "POSTGRESQL_MAX_CONNECTIONS" && env.Value == "3000" {
 					foundMaxConnections = true
 				}
 			}
 		}
-		Expect(foundSharedBuffers || foundMaxConnections).To(BeTrue(), "Postgres configuration should include custom settings")
+		Expect(foundSharedBuffers).To(BeTrue(), "POSTGRESQL_SHARED_BUFFERS should be set to 512MB")
+		Expect(foundMaxConnections).To(BeTrue(), "POSTGRESQL_MAX_CONNECTIONS should be set to 3000")
 	})
 
 	// Test 10: Resource Limits Validation
@@ -733,7 +734,13 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		err = client.Get(appDeployment)
 		Expect(err).NotTo(HaveOccurred())
 
-		apiContainer := appDeployment.Spec.Template.Spec.Containers[0]
+		var apiContainer *corev1.Container
+		for i := range appDeployment.Spec.Template.Spec.Containers {
+			if appDeployment.Spec.Template.Spec.Containers[i].Name == ServerContainerName {
+				apiContainer = &appDeployment.Spec.Template.Spec.Containers[i]
+				break
+			}
+		}
 		Expect(apiContainer.Resources.Limits).NotTo(BeNil())
 		Expect(apiContainer.Resources.Requests).NotTo(BeNil())
 		Expect(apiContainer.Resources.Limits.Cpu().String()).To(Equal("1"))
@@ -798,9 +805,6 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		Expect(olsConfigYaml).To(ContainSubstring("oldterm"))
 		Expect(olsConfigYaml).To(ContainSubstring("newterm"))
 
-		// Record the time before sending the query to filter logs
-		queryStartTime := time.Now()
-
 		By("Sending query with filtered term to verify filter functionality")
 		reqBody := []byte(`{"query": "what is oldterm in Kubernetes?"}`)
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
@@ -809,85 +813,92 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(body).NotTo(BeEmpty())
 
-		By("Verifying response contains valid LLM output")
-		bodyStr := string(body)
-		Expect(bodyStr).To(ContainSubstring("conversation_id"))
-
-		By("Retrieving pod logs to verify query filter was applied")
-		logs, podName, err := GetAppServerPodLogs(client, &queryStartTime)
+		By("Extracting conversation_id from response")
+		var queryResponse map[string]any
+		err = json.Unmarshal(body, &queryResponse)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(podName).NotTo(BeEmpty())
+		conversationID, ok := queryResponse["conversation_id"].(string)
+		Expect(ok).To(BeTrue(), "conversation_id should be present in response")
+		Expect(conversationID).NotTo(BeEmpty())
 
-		By("Verifying filtered query appears in logs (oldterm -> newterm)")
-		// The filtered query should contain "newterm"
-		Expect(logs).To(ContainSubstring("newterm"))
-
-		By("Verifying original unfiltered term does NOT appear in processed logs")
-		// Check that "oldterm" doesn't appear in the redacted/processed query logs
-		// Note: The raw request body might still contain it, so we look for specific patterns
-		logLines := strings.Split(logs, "\n")
-		foundRedactedQuery := false
-
-		for _, line := range logLines {
-			// Skip lines that are raw request bodies (they contain the original query)
-			if strings.Contains(line, `"query"`) && strings.Contains(line, "oldterm") && strings.Contains(line, `Body:`) {
-				// This is the raw HTTP request body, which is expected to contain oldterm
-				continue
-			}
-
-			// Look for the redacted query being processed
-			if strings.Contains(line, "newterm") && strings.Contains(line, "Kubernetes") {
-				foundRedactedQuery = true
-			}
+		By("Getting postgres pod to query database")
+		postgresDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      PostgresDeploymentName,
+				Namespace: OLSNameSpace,
+			},
 		}
+		err = client.Get(postgresDeployment)
+		Expect(err).NotTo(HaveOccurred())
 
-		Expect(foundRedactedQuery).To(BeTrue(), "Logs should contain the redacted query with 'newterm'")
-		// Note: The raw request body may still contain "oldterm" - that's just HTTP request logging
-		// The important verification is that the processed query uses "newterm"
+		databasePod, err := getDatabasePod(client, postgresDeployment)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Querying postgres to verify stored query is redacted")
+		// The cache table stores conversation history as JSON in the value column
+		// We need to extract and decode it to check the query content
+		sqlQuery := fmt.Sprintf(
+			`SELECT convert_from(value, 'UTF8')::json FROM cache WHERE conversation_id = '%s';`,
+			conversationID,
+		)
+
+		output, err := QueryPostgresDB(client, databasePod.Name, sqlQuery)
+		Expect(err).NotTo(HaveOccurred(), "Failed to query postgres database")
+
+		By("Verifying the stored conversation contains redacted query with 'newterm'")
+		Expect(output).To(ContainSubstring("newterm"), "Database should contain the redacted term 'newterm'")
+		Expect(output).To(ContainSubstring("Kubernetes"), "Database should contain the query context")
+
+		By("Verifying the stored conversation does NOT contain original term 'oldterm'")
+		Expect(output).NotTo(ContainSubstring("oldterm"), "Database should NOT contain the original term 'oldterm'")
 	})
 
 	// Test 12b: Query Filters - Edge Cases
 	It("should filter multiple occurrences of the term in a single query", FlakeAttempts(5), func() {
-		// Record the time before sending the query
-		queryStartTime := time.Now()
-
 		By("Sending query with multiple occurrences of filtered term")
 		reqBody := []byte(`{"query": "How does oldterm differ from oldterm in production? Is oldterm configuration important?"}`)
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
 		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
-
-		// Log error details if we get a 500 status
-		if resp.StatusCode == http.StatusInternalServerError {
-			By("Capturing error details from response body")
-			fmt.Printf("ERROR: Received HTTP 500. Response body: %s\n", string(body))
-
-			By("Retrieving pod logs for detailed error information")
-			logs, podName, logErr := GetAppServerPodLogs(client, &queryStartTime)
-			if logErr == nil {
-				fmt.Printf("Pod %s logs (since query):\n%s\n", podName, logs)
-			} else {
-				fmt.Printf("Failed to retrieve pod logs: %v\n", logErr)
-			}
-		}
-
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(body).NotTo(BeEmpty())
 
-		By("Retrieving pod logs to verify all occurrences were filtered")
-		logs, podName, err := GetAppServerPodLogs(client, &queryStartTime)
+		By("Extracting conversation_id from response")
+		var queryResponse map[string]any
+		err = json.Unmarshal(body, &queryResponse)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(podName).NotTo(BeEmpty())
+		conversationID, ok := queryResponse["conversation_id"].(string)
+		Expect(ok).To(BeTrue(), "conversation_id should be present in response")
+		Expect(conversationID).NotTo(BeEmpty())
 
-		By("Verifying multiple 'newterm' replacements appear in logs")
-		newtermCount := strings.Count(logs, "newterm")
-		// We should see at least 3 occurrences of newterm (one for each oldterm)
-		// There might be more depending on how the logs are formatted
-		Expect(newtermCount).To(BeNumerically(">=", 3), "Should find at least 3 occurrences of 'newterm' in logs")
+		By("Getting postgres pod to query database")
+		postgresDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      PostgresDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.Get(postgresDeployment)
+		Expect(err).NotTo(HaveOccurred())
 
-		By("Verifying the query was processed successfully despite filtering")
-		bodyStr := string(body)
-		Expect(bodyStr).To(ContainSubstring("conversation_id"))
+		databasePod, err := getDatabasePod(client, postgresDeployment)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Querying postgres to verify stored query has all occurrences redacted")
+		sqlQuery := fmt.Sprintf(
+			`SELECT convert_from(value, 'UTF8')::json FROM cache WHERE conversation_id = '%s';`,
+			conversationID,
+		)
+
+		output, err := QueryPostgresDB(client, databasePod.Name, sqlQuery)
+		Expect(err).NotTo(HaveOccurred(), "Failed to query postgres database")
+
+		By("Verifying the stored conversation contains multiple 'newterm' replacements")
+		newtermCount := strings.Count(output, "newterm")
+		Expect(newtermCount).To(BeNumerically(">=", 3), "Should find at least 3 occurrences of 'newterm' in database (one for each 'oldterm')")
+
+		By("Verifying the stored conversation does NOT contain any 'oldterm' occurrences")
+		Expect(output).NotTo(ContainSubstring("oldterm"), "Database should NOT contain any 'oldterm' occurrences")
 	})
 
 	// Test 13: Multi-Provider Configuration
@@ -962,8 +973,8 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
 
-		// Exact status code may vary (400, 403, or 404) depending on implementation
-		Expect(feedbackResp.StatusCode).NotTo(Equal(http.StatusOK), "Feedback endpoint should be disabled")
+		Expect(feedbackResp.StatusCode).To(BeElementOf([]int{http.StatusBadRequest, http.StatusForbidden, http.StatusNotFound}),
+			"Feedback endpoint should return 4xx when disabled, not %d", feedbackResp.StatusCode)
 
 		By("Verifying transcripts are enabled (transcripts_disabled: false)")
 		// Cannot verify transcript files without pod exec, but configuration is validated

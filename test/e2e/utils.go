@@ -480,6 +480,61 @@ func WriteLogsToFile(client *Client, clusterDir string) error {
 	return nil
 }
 
+// QueryPostgresDB executes a SQL query in the postgres pod and returns the output.
+func QueryPostgresDB(c *Client, podName, sqlQuery string) (string, error) {
+	cmd := exec.CommandContext(
+		context.TODO(),
+		"oc",
+		"--kubeconfig", c.kubeconfigPath,
+		"exec", podName,
+		"-n", OLSNameSpace,
+		"--",
+		"psql",
+		"-c", sqlQuery,
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to execute SQL command: %w, output: %s", err, string(output))
+	}
+	return string(output), nil
+}
+
+// GetDatabasePod returns the most recent running postgres pod from the given deployment.
+func GetDatabasePod(c *Client, deployment *appsv1.Deployment) (*corev1.Pod, error) {
+	selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse deployment selector: %w", err)
+	}
+
+	podList := &corev1.PodList{}
+	err = c.List(podList, client.InNamespace(OLSNameSpace), client.MatchingLabelsSelector{Selector: selector})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pods: %w", err)
+	}
+
+	if len(podList.Items) == 0 {
+		return nil, fmt.Errorf("no database pod found")
+	}
+
+	// Find the most recent running or pending pod
+	var latestPod *corev1.Pod
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		if pod.Status.Phase != corev1.PodRunning && pod.Status.Phase != corev1.PodPending {
+			continue
+		}
+		if latestPod == nil || pod.CreationTimestamp.After(latestPod.CreationTimestamp.Time) {
+			latestPod = pod
+		}
+	}
+
+	if latestPod == nil {
+		return nil, fmt.Errorf("no running or pending database pod found")
+	}
+
+	return latestPod, nil
+}
+
 func mustGather(test_case string) error {
 	var client *Client
 	client, err := GetClient(nil)
