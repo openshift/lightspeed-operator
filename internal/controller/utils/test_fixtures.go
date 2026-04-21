@@ -70,7 +70,7 @@ func GetDefaultOLSConfigCR() *olsv1alpha1.OLSConfig {
 								ContextWindowSize: 32768,
 								Parameters: olsv1alpha1.ModelParametersSpec{
 									MaxTokensForResponse: 20,
-									ToolBudgetRatio:      0.25,
+									ToolBudgetRatio:      0.5,
 								},
 							},
 						},

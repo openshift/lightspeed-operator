@@ -114,7 +114,7 @@ func buildProviderConfigs(cr *olsv1alpha1.OLSConfig) []utils.ProviderConfig {
 		for _, model := range provider.Models {
 			toolBudgetRatio := model.Parameters.ToolBudgetRatio
 			if toolBudgetRatio == 0 {
-				toolBudgetRatio = 0.25
+				toolBudgetRatio = 0.5
 			}
 			modelConfig := utils.ModelConfig{
 				Name: model.Name,

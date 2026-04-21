@@ -140,7 +140,7 @@ var _ = Describe("App server assets", func() {
 								URL:  testURL,
 								Parameters: utils.ModelParameters{
 									MaxTokensForResponse: 20,
-									ToolBudgetRatio:      0.25,
+									ToolBudgetRatio:      0.5,
 								},
 								ContextWindowSize: 32768,
 							},
@@ -199,7 +199,7 @@ var _ = Describe("App server assets", func() {
 
 			Expect(olsconfigGenerated.LLMProviders).To(HaveLen(1))
 			Expect(olsconfigGenerated.LLMProviders[0].Models).To(HaveLen(1))
-			Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.ToolBudgetRatio).To(Equal(0.25))
+			Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.ToolBudgetRatio).To(Equal(0.5))
 			Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.MaxTokensForResponse).To(Equal(0))
 		})
 
