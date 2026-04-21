@@ -24,6 +24,22 @@ func TestOpenShiftMCPServerConfigTOML(t *testing.T) {
 		t.Error("TOML config should use denied_resources table array syntax")
 	}
 
+	if !strings.Contains(config, `toolsets = ["core", "config", "helm", "metrics"]`) {
+		t.Error("TOML config should pin default toolsets explicitly")
+	}
+	if !strings.Contains(config, "[toolset_configs.obs-mcp]") {
+		t.Error("TOML config should define obs-mcp toolset config for metrics")
+	}
+	if !strings.Contains(config, "prometheus_url = \"https://thanos-querier.openshift-monitoring.svc.cluster.local:9091\"") {
+		t.Error("TOML config should set Thanos Querier prometheus_url for obs-mcp")
+	}
+	if !strings.Contains(config, "alertmanager_url = \"https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094\"") {
+		t.Error("TOML config should set Alertmanager URL for obs-mcp")
+	}
+	if !strings.Contains(config, "guardrails = \"none\"") {
+		t.Error("TOML config should set guardrails to none for OCP Thanos compatibility")
+	}
+
 	// Verify there are exactly 2 denied_resources entries
 	count := strings.Count(config, "[[denied_resources]]")
 	if count != 2 {
