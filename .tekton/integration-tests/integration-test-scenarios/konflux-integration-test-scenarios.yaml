@@ -1,0 +1,687 @@
+# IntegrationTestScenario resources for Konflux (appstudio.redhat.com/v1beta2).
+# Apply to your tenant namespace (e.g. crt-nshift-lightspeed-tenant). Each scenario points at the
+# per-minor pipeline file in this repo (stable pathInRepo for Konflux) and passes pipeline parameters.
+#
+# Bundle builds: contexts name component_bundle, install-mode defaults to bundle on the Pipeline.
+# Operator image builds: *-direct scenarios use component_lightspeed-operator and install-mode direct
+# (same pathInRepo as the matching bundle scenario; IMG from lightspeed-operator in the snapshot).
+#
+# Resolver paths are relative to repo root (leading slash optional; Konflux accepts both).
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-e2e-tests-416
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator bundle e2e on OCP 4.16
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.16
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.16."
+    - name: artifact-oci-tag-prefix
+      value: "416"
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-416.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-e2e-tests-417
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator bundle e2e on OCP 4.17
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.17
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.17."
+    - name: artifact-oci-tag-prefix
+      value: ""
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-417.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-e2e-tests-418
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator bundle e2e on OCP 4.18
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.18
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.18."
+    - name: artifact-oci-tag-prefix
+      value: ""
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-418.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-e2e-tests-419
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator bundle e2e on OCP 4.19
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.19
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.19."
+    - name: artifact-oci-tag-prefix
+      value: ""
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-419.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-upgrade-e2e-tests-416
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator upgrade e2e on OCP 4.16
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-upgrade-e2e-tests-4.16
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.16."
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline-419.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-upgrade-e2e-tests-417
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator upgrade e2e on OCP 4.17
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-upgrade-e2e-tests-4.17
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.17."
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline-419.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-upgrade-e2e-tests-418
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator upgrade e2e on OCP 4.18
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-upgrade-e2e-tests-4.18
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.18."
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline-419.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-upgrade-e2e-tests-419
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator upgrade e2e on OCP 4.19
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-upgrade-e2e-tests-4.19
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.19."
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline-419.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-upgrade-e2e-tests-420
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator upgrade e2e on OCP 4.20
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-upgrade-e2e-tests-4.20
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.20."
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline-420.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: service-integration-tests-416
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Lightspeed service integration on OCP 4.16
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.16
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.16."
+    - name: artifact-oci-tag-prefix
+      value: "416"
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.16.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: service-integration-tests-417
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Lightspeed service integration on OCP 4.17
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.17
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.17."
+    - name: artifact-oci-tag-prefix
+      value: ""
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.17.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: service-integration-tests-418
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Lightspeed service integration on OCP 4.18
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.18
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.18."
+    - name: artifact-oci-tag-prefix
+      value: ""
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.18.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: service-integration-tests-419
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Lightspeed service integration on OCP 4.19
+      name: component_bundle
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.19
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.19."
+    - name: artifact-oci-tag-prefix
+      value: ""
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.19.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-e2e-tests-416-direct
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator e2e on OCP 4.16 (direct deploy; lightspeed-operator snapshot)
+      name: component_lightspeed-operator
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.16
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.16."
+    - name: artifact-oci-tag-prefix
+      value: "416"
+    - name: install-mode
+      value: direct
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-416.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-e2e-tests-417-direct
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator e2e on OCP 4.17 (direct deploy; lightspeed-operator snapshot)
+      name: component_lightspeed-operator
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.17
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.17."
+    - name: artifact-oci-tag-prefix
+      value: ""
+    - name: install-mode
+      value: direct
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-417.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-e2e-tests-418-direct
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator e2e on OCP 4.18 (direct deploy; lightspeed-operator snapshot)
+      name: component_lightspeed-operator
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.18
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.18."
+    - name: artifact-oci-tag-prefix
+      value: ""
+    - name: install-mode
+      value: direct
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-418.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: operator-e2e-tests-419-direct
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Operator e2e on OCP 4.19 (direct deploy; lightspeed-operator snapshot)
+      name: component_lightspeed-operator
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.19
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.19."
+    - name: artifact-oci-tag-prefix
+      value: ""
+    - name: install-mode
+      value: direct
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-419.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: service-integration-tests-416-direct
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Lightspeed service integration on OCP 4.16 (direct deploy; lightspeed-operator snapshot)
+      name: component_lightspeed-operator
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.16
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.16."
+    - name: artifact-oci-tag-prefix
+      value: "416"
+    - name: install-mode
+      value: direct
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.16.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: service-integration-tests-417-direct
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Lightspeed service integration on OCP 4.17 (direct deploy; lightspeed-operator snapshot)
+      name: component_lightspeed-operator
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.17
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.17."
+    - name: artifact-oci-tag-prefix
+      value: ""
+    - name: install-mode
+      value: direct
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.17.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: service-integration-tests-418-direct
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Lightspeed service integration on OCP 4.18 (direct deploy; lightspeed-operator snapshot)
+      name: component_lightspeed-operator
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.18
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.18."
+    - name: artifact-oci-tag-prefix
+      value: ""
+    - name: install-mode
+      value: direct
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.18.yaml
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: service-integration-tests-419-direct
+  namespace: crt-nshift-lightspeed-tenant
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+spec:
+  application: ols
+  contexts:
+    - description: Lightspeed service integration on OCP 4.19 (direct deploy; lightspeed-operator snapshot)
+      name: component_lightspeed-operator
+  params:
+    - name: test-name
+      value: ols-e2e-tests-4.19
+    - name: namespace
+      value: openshift-lightspeed
+    - name: openshift-version-prefix
+      value: "4.19."
+    - name: artifact-oci-tag-prefix
+      value: ""
+    - name: install-mode
+      value: direct
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-operator
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.19.yaml
