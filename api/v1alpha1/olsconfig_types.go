@@ -435,6 +435,16 @@ type QueryFiltersSpec struct {
 	ReplaceWith string `json:"replaceWith,omitempty"`
 }
 
+// VertexConfig defines the configuration for the Google Vertex provider.
+type VertexConfig struct {
+	// Google Cloud project ID
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Google Cloud Project ID"
+	ProjectID string `json:"projectID,omitempty"`
+	// Server region location
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Server Region Location"
+	Location string `json:"location,omitempty"`
+}
+
 // ModelParametersSpec
 type ModelParametersSpec struct {
 	// Max tokens for response. The default is 2048 tokens.
@@ -476,6 +486,10 @@ type ModelSpec struct {
 // +kubebuilder:validation:XValidation:message="Llama Stack Generic mode (providerType set) requires type='llamaStackGeneric'",rule="!has(self.providerType) || self.type == \"llamaStackGeneric\""
 // +kubebuilder:validation:XValidation:message="Llama Stack Generic mode cannot use legacy provider-specific fields",rule="self.type != \"llamaStackGeneric\" || (!has(self.deploymentName) && !has(self.projectID) && !has(self.url) && !has(self.apiVersion))"
 // +kubebuilder:validation:XValidation:message="credentialKey must not be empty or whitespace",rule="!has(self.credentialKey) || !self.credentialKey.matches('^[ \\t\\n\\r\\v\\f]*$')"
+// +kubebuilder:validation:XValidation:message="googleVertexConfig is required for google_vertex provider",rule="self.type != \"google_vertex\" || has(self.googleVertexConfig)"
+// +kubebuilder:validation:XValidation:message="googleVertexAnthropicConfig is required for google_vertex_anthropic provider",rule="self.type != \"google_vertex_anthropic\" || has(self.googleVertexAnthropicConfig)"
+// +kubebuilder:validation:XValidation:message="googleVertexConfig may only be set when type is google_vertex",rule="self.type == \"google_vertex\" || !has(self.googleVertexConfig)"
+// +kubebuilder:validation:XValidation:message="googleVertexAnthropicConfig may only be set when type is google_vertex_anthropic",rule="self.type == \"google_vertex_anthropic\" || !has(self.googleVertexAnthropicConfig)"
 type ProviderSpec struct {
 	// Provider name
 	// +kubebuilder:validation:Required
@@ -500,7 +514,7 @@ type ProviderSpec struct {
 	// Provider type
 	// +kubebuilder:validation:Required
 	// +required
-	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx;rhoai_vllm;rhelai_vllm;fake_provider;llamaStackGeneric
+	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx;rhoai_vllm;rhelai_vllm;fake_provider;llamaStackGeneric;google_vertex;google_vertex_anthropic
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Provider Type"
 	Type string `json:"type"`
 	// Deployment name for Azure OpenAI provider
@@ -512,6 +526,12 @@ type ProviderSpec struct {
 	// Watsonx Project ID
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Watsonx Project ID"
 	WatsonProjectID string `json:"projectID,omitempty"`
+	// Google Vertex Config
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Google Vertex Config"
+	GoogleVertexConfig *VertexConfig `json:"googleVertexConfig,omitempty"`
+	// Google Vertex Anthropic Config
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Google Vertex Anthropic Config"
+	GoogleVertexAnthropicConfig *VertexConfig `json:"googleVertexAnthropicConfig,omitempty"`
 	// Fake Provider MCP Tool Call
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Fake Provider MCP Tool Call"
 	FakeProviderMCPToolCall bool `json:"fakeProviderMCPToolCall,omitempty"`

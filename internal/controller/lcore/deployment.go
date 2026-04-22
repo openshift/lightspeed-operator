@@ -281,6 +281,32 @@ func buildLlamaStackEnvVars(r reconciler.Reconciler, ctx context.Context, cr *ol
 					Value: "placeholder",
 				})
 			}
+		} else if provider.Type == utils.GoogleVertexType || provider.Type == utils.GoogleVertexAnthropicType {
+			// Google Vertex / Vertex Anthropic: credentials are mounted as files; the Google client
+			// libraries read GOOGLE_APPLICATION_CREDENTIALS (set once below after this loop).
+			credentialKey := provider.CredentialKey
+			if credentialKey == "" {
+				credentialKey = utils.DefaultCredentialKey
+			}
+			if strings.TrimSpace(credentialKey) == "" {
+				return fmt.Errorf("LLM provider %s: credentialKey must not be empty or whitespace", providerName)
+			}
+			secret := &corev1.Secret{}
+			err := r.Get(ctx, client.ObjectKey{
+				Name:      name,
+				Namespace: r.GetNamespace(),
+			}, secret)
+			if err != nil {
+				return fmt.Errorf("failed to get secret %s: %w", name, err)
+			}
+			if _, ok := secret.Data[credentialKey]; !ok {
+				return fmt.Errorf("secret %s missing credential key '%s' for provider '%s'", name, credentialKey, providerName)
+			}
+			credPath := utils.ProviderCredentialsFilePath(providerName, credentialKey)
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  "GOOGLE_APPLICATION_CREDENTIALS",
+				Value: credPath,
+			})
 		} else {
 			// Standard providers: use API key from default credential key
 			envVars = append(envVars, corev1.EnvVar{
@@ -691,6 +717,34 @@ func addDataCollectorVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]
 	})
 }
 
+func addGoogleVertexVolumesAndMounts(volumes *[]corev1.Volume, volumeMounts *[]corev1.VolumeMount, cr *olsv1alpha1.OLSConfig, volumeDefaultMode *int32) {
+	for _, provider := range cr.Spec.LLMConfig.Providers {
+		if provider.Type != utils.GoogleVertexType && provider.Type != utils.GoogleVertexAnthropicType {
+			continue
+		}
+		secretName := provider.CredentialsSecretRef.Name
+		if secretName == "" {
+			continue
+		}
+		volName := utils.CredentialsVolumeName(provider.Name)
+		mountPath := path.Join(utils.APIKeyMountRoot, utils.ProviderSubMountDir(provider.Name))
+		*volumes = append(*volumes, corev1.Volume{
+			Name: volName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  secretName,
+					DefaultMode: volumeDefaultMode,
+				},
+			},
+		})
+		*volumeMounts = append(*volumeMounts, corev1.VolumeMount{
+			Name:      volName,
+			MountPath: mountPath,
+			ReadOnly:  true,
+		})
+	}
+}
+
 // buildLightspeedStackLivenessProbe creates the liveness probe for lightspeed-stack container
 func buildLightspeedStackLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
@@ -982,6 +1036,9 @@ func generateLCoreServerDeployment(r reconciler.Reconciler, ctx context.Context,
 
 	// Add data collector volumes and mounts if enabled
 	addDataCollectorVolumesAndMounts(&volumes, &lightspeedStackVolumeMounts, &volumeDefaultMode, dataCollectorEnabled)
+
+	// Add Google Vertex volumes and mounts if enabled
+	addGoogleVertexVolumesAndMounts(&volumes, &lightspeedStackVolumeMounts, cr, &volumeDefaultMode)
 
 	lightspeedStackContainer.VolumeMounts = lightspeedStackVolumeMounts
 	lightspeedStackContainer.LivenessProbe = buildLightspeedStackLivenessProbe()

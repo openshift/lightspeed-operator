@@ -362,6 +362,60 @@ var _ = Describe("App server assets", func() {
 			}))))
 		})
 
+		It("should generate configmap with googleVertex provider", func() {
+			cr := utils.WithGoogleVertexProvider(cr)
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
+				"name":             Equal("google_vertex"),
+				"type":             Equal("google_vertex"),
+				"credentials_path": Equal("/etc/apikeys/test-secret/apitoken"),
+				"google_vertex_config": MatchKeys(Options(IgnoreExtras), Keys{
+					"project":  Equal("testProjectID"),
+					"location": Equal("testLocation"),
+				}),
+			}))))
+		})
+
+		It("should return error when googleVertexConfig is not specified for google_vertex provider", func() {
+			cr := utils.WithGoogleVertexProvider(cr)
+			cr.Spec.LLMConfig.Providers[0].GoogleVertexConfig = nil
+			_, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("googleVertexConfig is required for google_vertex provider"))
+		})
+
+		It("should generate configmap with googleVertexAnthropic provider", func() {
+			cr := utils.WithGoogleVertexAnthropicProvider(cr)
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+
+			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
+				"name":             Equal("google_vertex_anthropic"),
+				"type":             Equal("google_vertex_anthropic"),
+				"credentials_path": Equal("/etc/apikeys/test-secret/apitoken"),
+				"google_vertex_anthropic_config": MatchKeys(Options(IgnoreExtras), Keys{
+					"project":  Equal("testProjectID"),
+					"location": Equal("testLocation"),
+				}),
+			}))))
+		})
+
+		It("should return error when googleVertexAnthropicConfig is not specified for google_vertex_anthropic provider", func() {
+			cr := utils.WithGoogleVertexAnthropicProvider(cr)
+			cr.Spec.LLMConfig.Providers[0].GoogleVertexAnthropicConfig = nil
+			_, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("googleVertexAnthropicConfig is required for google_vertex_anthropic provider"))
+		})
+
 		It("should generate configmap with introspectionEnabled", func() {
 			cr.Spec.OLSConfig.IntrospectionEnabled = true
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)

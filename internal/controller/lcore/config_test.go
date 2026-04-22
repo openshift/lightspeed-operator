@@ -656,3 +656,33 @@ func TestBuildLCoreConfigYAML_WithoutToolsApproval(t *testing.T) {
 		t.Error("Expected YAML to contain 'approval_timeout: 600' as default")
 	}
 }
+
+func TestBuildVertexAIInferenceConfig(t *testing.T) {
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "google_vertex",
+						Type: utils.GoogleVertexType,
+						GoogleVertexConfig: &olsv1alpha1.VertexConfig{
+							ProjectID: "testProjectID",
+							Location:  "testLocation",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := buildVertexAIInferenceConfig(&cr.Spec.LLMConfig.Providers[0])
+	if result == nil {
+		t.Fatal("Expected non-nil result")
+	}
+	if result["project"] != "testProjectID" {
+		t.Errorf("Expected project to be testProjectID, got %s", result["project"])
+	}
+	if result["location"] != "testLocation" {
+		t.Errorf("Expected location to be testLocation, got %s", result["location"])
+	}
+}

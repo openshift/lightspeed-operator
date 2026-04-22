@@ -106,7 +106,7 @@ func postgresCacheConfig(r reconciler.Reconciler, _ *olsv1alpha1.OLSConfig) util
 
 // buildProviderConfigs builds the provider configurations for the OLS config from the CR spec.
 // It handles Azure OpenAI, fake providers, and standard providers with their respective models.
-func buildProviderConfigs(cr *olsv1alpha1.OLSConfig) []utils.ProviderConfig {
+func buildProviderConfigs(cr *olsv1alpha1.OLSConfig) ([]utils.ProviderConfig, error) {
 	providerConfigs := []utils.ProviderConfig{}
 	for _, provider := range cr.Spec.LLMConfig.Providers {
 		credentialPath := path.Join(utils.APIKeyMountRoot, provider.CredentialsSecretRef.Name)
@@ -128,7 +128,8 @@ func buildProviderConfigs(cr *olsv1alpha1.OLSConfig) []utils.ProviderConfig {
 			modelConfigs = append(modelConfigs, modelConfig)
 		}
 		var providerConfig utils.ProviderConfig
-		if provider.Type == utils.AzureOpenAIType {
+		switch provider.Type {
+		case utils.AzureOpenAIType:
 			providerConfig = utils.ProviderConfig{
 				Name:       provider.Name,
 				Type:       provider.Type,
@@ -140,7 +141,40 @@ func buildProviderConfigs(cr *olsv1alpha1.OLSConfig) []utils.ProviderConfig {
 					AzureDeploymentName: provider.AzureDeploymentName,
 				},
 			}
-		} else {
+		case utils.GoogleVertexType, utils.GoogleVertexAnthropicType:
+			if provider.CredentialKey != "" {
+				credentialPath = path.Join(utils.APIKeyMountRoot, provider.CredentialsSecretRef.Name, provider.CredentialKey)
+			} else {
+				credentialPath = path.Join(utils.APIKeyMountRoot, provider.CredentialsSecretRef.Name, utils.DefaultCredentialKey)
+			}
+			providerConfig = utils.ProviderConfig{
+				Name:            provider.Name,
+				Type:            provider.Type,
+				URL:             provider.URL,
+				CredentialsPath: credentialPath,
+				Models:          modelConfigs,
+			}
+			switch provider.Type {
+			case utils.GoogleVertexType:
+				if provider.GoogleVertexConfig != nil {
+					providerConfig.GoogleVertexConfig = &utils.GoogleVertexConfig{
+						Project:  provider.GoogleVertexConfig.ProjectID,
+						Location: provider.GoogleVertexConfig.Location,
+					}
+				} else {
+					return []utils.ProviderConfig{}, fmt.Errorf("googleVertexConfig is required for google_vertex provider")
+				}
+			case utils.GoogleVertexAnthropicType:
+				if provider.GoogleVertexAnthropicConfig != nil {
+					providerConfig.GoogleVertexAnthropicConfig = &utils.GoogleVertexAnthropicConfig{
+						Project:  provider.GoogleVertexAnthropicConfig.ProjectID,
+						Location: provider.GoogleVertexAnthropicConfig.Location,
+					}
+				} else {
+					return []utils.ProviderConfig{}, fmt.Errorf("googleVertexAnthropicConfig is required for google_vertex_anthropic provider")
+				}
+			}
+		default:
 			providerConfig = utils.ProviderConfig{
 				Name:            provider.Name,
 				Type:            provider.Type,
@@ -163,7 +197,7 @@ func buildProviderConfigs(cr *olsv1alpha1.OLSConfig) []utils.ProviderConfig {
 		}
 		providerConfigs = append(providerConfigs, providerConfig)
 	}
-	return providerConfigs
+	return providerConfigs, nil
 }
 
 // buildToolFilteringConfig builds the tool filtering configuration if enabled and MCP servers exist.
@@ -397,7 +431,10 @@ func generateMCPServerConfigs(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig
 
 func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
 	// Build provider configurations (Azure, fake providers, standard providers)
-	providerConfigs := buildProviderConfigs(cr)
+	providerConfigs, err := buildProviderConfigs(cr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build provider configurations: %w", err)
+	}
 
 	// Check data collector status (needed for both buildOLSConfig and later)
 	dataCollectorEnabled, err := dataCollectorEnabled(r, cr)

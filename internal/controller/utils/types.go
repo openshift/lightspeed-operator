@@ -108,6 +108,10 @@ type ProviderConfig struct {
 	AzureOpenAIConfig *AzureOpenAIConfig `json:"azure_openai_config,omitempty"`
 	// Fake Provider Config for testing
 	FakeProviderConfig *FakeProviderConfig `json:"fake_provider_config,omitempty"`
+	// Google Vertex Config
+	GoogleVertexConfig *GoogleVertexConfig `json:"google_vertex_config,omitempty"`
+	// Google Vertex Anthropic Config
+	GoogleVertexAnthropicConfig *GoogleVertexAnthropicConfig `json:"google_vertex_anthropic_config,omitempty"`
 }
 
 type FakeProviderConfig struct {
@@ -133,6 +137,15 @@ type AzureOpenAIConfig struct {
 	// Azure deployment name
 	AzureDeploymentName string `json:"deployment_name,omitempty"`
 }
+
+type GoogleVertexConfig struct {
+	// Google Cloud project ID
+	Project string `json:"project,omitempty"`
+	// Server region location
+	Location string `json:"location,omitempty"`
+}
+
+type GoogleVertexAnthropicConfig = GoogleVertexConfig
 
 // ModelParameters defines the parameters for a model.
 type ModelParameters struct {

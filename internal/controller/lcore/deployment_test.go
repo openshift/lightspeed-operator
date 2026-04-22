@@ -1444,3 +1444,165 @@ func TestBuildLlamaStackEnvVars_GenericProvider_MissingCredentialKey(t *testing.
 
 	t.Logf("✓ Missing credentialKey correctly returns error: %v", err)
 }
+
+// TestAddGoogleVertexVolumesAndMounts tests that the addGoogleVertexVolumesAndMounts function
+// adds the correct volumes and mounts for Google Vertex AI
+func TestAddGoogleVertexVolumesAndMounts(t *testing.T) {
+	volumeDefaultMode := int32(0644)
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "google_vertex",
+						Type: utils.GoogleVertexType,
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "google-vertex-credential-secret",
+						},
+						CredentialKey: "google-vertex-credential-key",
+						GoogleVertexConfig: &olsv1alpha1.VertexConfig{
+							ProjectID: "google-vertex-project-id",
+							Location:  "google-vertex-location",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	volumes := []corev1.Volume{}
+	volumeMounts := []corev1.VolumeMount{}
+	addGoogleVertexVolumesAndMounts(&volumes, &volumeMounts, cr, &volumeDefaultMode)
+
+	if len(volumes) == 0 {
+		t.Error("Expected volumes to be non-empty")
+	}
+	if len(volumeMounts) == 0 {
+		t.Error("Expected volume mounts to be non-empty")
+	}
+	wantVol := "creds-google-vertex"
+	if volumes[0].Name != wantVol {
+		t.Errorf("Expected volume name %q, got %s", wantVol, volumes[0].Name)
+	}
+	if volumeMounts[0].Name != wantVol {
+		t.Errorf("Expected volume mount name %q, got %s", wantVol, volumeMounts[0].Name)
+	}
+	wantPath := "/etc/apikeys/google-vertex"
+	if volumeMounts[0].MountPath != wantPath {
+		t.Errorf("Expected volume mount path %q, got %s", wantPath, volumeMounts[0].MountPath)
+	}
+	if volumeMounts[0].ReadOnly != true {
+		t.Errorf("Expected volume mount read only to be true, got %t", volumeMounts[0].ReadOnly)
+	}
+	if volumes[0].Secret.SecretName != "google-vertex-credential-secret" {
+		t.Errorf("Expected secret name google-vertex-credential-secret, got %s", volumes[0].Secret.SecretName)
+	}
+}
+
+func TestAddGoogleVertexVolumesAndMounts_MultipleProviders(t *testing.T) {
+	volumeDefaultMode := int32(0644)
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "vertex_a",
+						Type: utils.GoogleVertexType,
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "secret-a",
+						},
+						GoogleVertexConfig: &olsv1alpha1.VertexConfig{
+							ProjectID: "p1",
+							Location:  "us-central1",
+						},
+					},
+					{
+						Name: "vertex_b",
+						Type: utils.GoogleVertexAnthropicType,
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "secret-b",
+						},
+						GoogleVertexAnthropicConfig: &olsv1alpha1.VertexConfig{
+							ProjectID: "p2",
+							Location:  "europe-west1",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	volumes := []corev1.Volume{}
+	volumeMounts := []corev1.VolumeMount{}
+	addGoogleVertexVolumesAndMounts(&volumes, &volumeMounts, cr, &volumeDefaultMode)
+
+	if len(volumes) != 2 || len(volumeMounts) != 2 {
+		t.Fatalf("expected 2 volumes and 2 mounts, got %d volumes %d mounts", len(volumes), len(volumeMounts))
+	}
+	if volumes[0].Secret.SecretName != "secret-a" || volumes[1].Secret.SecretName != "secret-b" {
+		t.Errorf("unexpected secret refs: %#v %#v", volumes[0].Secret, volumes[1].Secret)
+	}
+	if volumeMounts[0].MountPath == volumeMounts[1].MountPath {
+		t.Errorf("expected distinct mount paths, both were %s", volumeMounts[0].MountPath)
+	}
+}
+
+// TestGoogleVertexEnvVars tests that the buildLlamaStackEnvVars function
+// adds the correct environment variables for Google Vertex AI
+func TestGoogleVertexEnvVars(t *testing.T) {
+	r := &mockReconcilerWithSecrets{
+		secrets: map[string]*corev1.Secret{
+			"google-vertex-credential-secret": {
+				ObjectMeta: metav1.ObjectMeta{Name: "google-vertex-credential-secret"},
+				Data: map[string][]byte{
+					"google-vertex-credential-key": []byte("google-vertex-credential-value"),
+				},
+			},
+		},
+	}
+	ctx := context.Background()
+	cr := &olsv1alpha1.OLSConfig{
+		Spec: olsv1alpha1.OLSConfigSpec{
+			LLMConfig: olsv1alpha1.LLMSpec{
+				Providers: []olsv1alpha1.ProviderSpec{
+					{
+						Name: "google_vertex",
+						Type: utils.GoogleVertexType,
+						CredentialsSecretRef: corev1.LocalObjectReference{
+							Name: "google-vertex-credential-secret",
+						},
+						CredentialKey: "google-vertex-credential-key",
+						GoogleVertexConfig: &olsv1alpha1.VertexConfig{
+							ProjectID: "google-vertex-project-id",
+							Location:  "google-vertex-location",
+						},
+					},
+				},
+			},
+		},
+	}
+	envVars, err := buildLlamaStackEnvVars(r, ctx, cr)
+	if err != nil {
+		t.Fatalf("buildLlamaStackEnvVars returned error: %v", err)
+	}
+	var foundPostgres bool
+	wantGAC := "/etc/apikeys/google-vertex/google-vertex-credential-key"
+	var foundGAC bool
+	for _, ev := range envVars {
+		if ev.Name == "POSTGRES_PASSWORD" {
+			foundPostgres = true
+		}
+		if ev.Name == "GOOGLE_APPLICATION_CREDENTIALS" {
+			foundGAC = true
+			if ev.Value != wantGAC {
+				t.Errorf("GOOGLE_APPLICATION_CREDENTIALS = %q, want %q", ev.Value, wantGAC)
+			}
+		}
+	}
+	if !foundPostgres {
+		t.Error("expected POSTGRES_PASSWORD env var to be present")
+	}
+	if !foundGAC {
+		t.Errorf("expected GOOGLE_APPLICATION_CREDENTIALS=%q to be present", wantGAC)
+	}
+}
