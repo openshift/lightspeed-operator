@@ -7,10 +7,16 @@ metadata:
   name: ols-integration-tests-pipeline
 spec:
   description: |
-    This pipeline automates the process of running end-to-end tests for OpenShift Lightspeed
-    using a ROSA (Red Hat OpenShift Service on AWS) cluster. The pipeline provisions
-    the ROSA cluster, installs the OpenShift Lightspeed operator using the installer, runs the tests, collects artifacts,
-    and finally deprovisions the ROSA cluster.
+    Runs OpenShift Lightspeed service integration tests on a Konflux ephemeral OpenShift cluster (EaaS):
+    provision cluster, install the operator via ols-install (OLM bundle or direct per install-mode),
+    then clone operator + service at related_images
+    revisions and run tests/scripts/test-e2e-cluster.sh, push artifacts.
+
+    Per OpenShift minor: set openshift-version-prefix (e.g. 4.16.) and test-name. For OCP 4.16 only,
+    set artifact-oci-tag-prefix to "416" so ols-service-artifacts uses tag 416<commit>; leave empty
+    for other versions. The run step bootstraps git then runs
+    .tekton/integration-tests/scripts/run-service-integration-tests.sh (openshift-version-prefix
+    is passed through; install-oc-if-missing.sh supplies the oc client for latest-<minor>).
   params:
     - name: SNAPSHOT
       description: 'The JSON string representing the snapshot of the application under test.'
@@ -18,10 +24,24 @@ spec:
       type: string
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
-      default: 'ols-e2e-tests-4.18'
+      default: 'ols-e2e-tests-4.19'
+      type: string
     - name: namespace
       description: 'Namespace to run tests in'
       default: 'openshift-lightspeed'
+      type: string
+    - name: openshift-version-prefix
+      description: 'Minor line prefix for eaas-get-latest-openshift-version-by-prefix (include trailing dot, e.g. 4.19.)'
+      default: '4.19.'
+      type: string
+    - name: artifact-oci-tag-prefix
+      description: 'Prepended to commit SHA in ols-service-artifacts Quay tag. Use "416" for OCP 4.16; empty for other minors.'
+      default: ''
+      type: string
+    - name: install-mode
+      description: 'Operator install: bundle (OLM) or direct (kustomize; IMG from lightspeed-operator in SNAPSHOT).'
+      type: string
+      default: 'bundle'
   tasks:
     - name: eaas-provision-space
       taskRef:
@@ -43,7 +63,13 @@ spec:
     - name: provision-cluster
       runAfter:
         - eaas-provision-space
+      params:
+        - name: openshift-version-prefix
+          value: $(params.openshift-version-prefix)
       taskSpec:
+        params:
+          - name: openshift-version-prefix
+            type: string
         results:
           - name: clusterName
             value: "$(steps.create-cluster.results.clusterName)"
@@ -60,7 +86,7 @@ spec:
                   value: stepactions/eaas-get-latest-openshift-version-by-prefix/0.1/eaas-get-latest-openshift-version-by-prefix.yaml
             params:
               - name: prefix
-                value: "4.18."
+                value: "$(params.openshift-version-prefix)"
           - name: create-cluster
             ref:
               resolver: git
@@ -78,8 +104,8 @@ spec:
                 value: "$(steps.pick-version.results.version)"
               - name: instanceType
                 value: "m5.large"
-    - name: get-bundle-images
-      description: Task to install bundle onto ephemeral namespace
+    - name: ols-install
+      description: Install operator (OLM bundle or direct); record SNAPSHOT image ref and commit for service tests.
       runAfter:
         - provision-cluster
       params:
@@ -87,55 +113,119 @@ spec:
           value: $(params.SNAPSHOT)
         - name: namespace
           value: "$(params.namespace)"
+        - name: install-mode
+          value: $(params.install-mode)
       taskSpec:
         results:
           - name: bundle-image
-            value: "$(steps.get-bundle-image.results.bundle-image)"
+            value: "$(steps.get-snapshot-component.results.bundle-image)"
           - name: commit
-            value: "$(steps.get-bundle-image.results.commit)"
+            value: "$(steps.get-snapshot-component.results.commit)"
         params:
           - name: SNAPSHOT
           - name: namespace
             type: string
+          - name: install-mode
+            type: string
+            default: "bundle"
         volumes:
           - name: credentials
             emptyDir: {}
         steps:
-          - name: get-bundle-image
+          - name: get-kubeconfig
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/build-definitions.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/eaas-get-ephemeral-cluster-credentials/0.1/eaas-get-ephemeral-cluster-credentials.yaml
+            params:
+              - name: eaasSpaceSecretRef
+                value: $(tasks.eaas-provision-space.results.secretRef)
+              - name: clusterName
+                value: "$(tasks.provision-cluster.results.clusterName)"
+              - name: credentials
+                value: credentials
+          - name: install-operator
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+              - name: KONFLUX_COMPONENT_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['appstudio.openshift.io/component']
+              - name: KUBECONFIG
+                value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
+              - name: OLS_NAMESPACE
+                value: "$(params.namespace)"
+            volumeMounts:
+              - name: credentials
+                mountPath: /credentials
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            script: |
+              set -euo pipefail
+              dnf -y install jq python3-pip git curl make golang
+              COMMIT="$(jq -r --arg component_name "${KONFLUX_COMPONENT_NAME}" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")"
+              echo "Cloning lightspeed-operator@${COMMIT} for Konflux operator install"
+              rm -rf /workspace/lightspeed-operator
+              mkdir -p /workspace/lightspeed-operator
+              cd /workspace/lightspeed-operator
+              git init -q
+              git remote add origin https://github.com/openshift/lightspeed-operator.git
+              git fetch --depth 1 origin "${COMMIT}"
+              git checkout -q FETCH_HEAD
+              ./.tekton/integration-tests/scripts/run-konflux-operator-install.sh "$(params.install-mode)"
+          - name: get-snapshot-component
             image: registry.redhat.io/openshift4/ose-cli:latest
             env:
               - name: SNAPSHOT
                 value: $(params.SNAPSHOT)
+              - name: KONFLUX_COMPONENT_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['appstudio.openshift.io/component']
             results:
               - name: bundle-image
                 type: string
-                description: "service image from snapshot"
+                description: "SNAPSHOT containerImage for the PipelineRun-labeled Konflux component (bundle or operator manager image)."
               - name: commit
                 type: string
                 description: "commit sha to be used to store artifacts"
             script: |
               dnf -y install jq
-              echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
-              echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")" > $(step.results.commit.path)
+              echo -n "$(jq -r --arg component_name "${KONFLUX_COMPONENT_NAME}" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
+              echo -n "$(jq -r --arg component_name "${KONFLUX_COMPONENT_NAME}" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")" > $(step.results.commit.path)
     - name: ols-service-tests
       description: Task to run tests from service repository
       params:
         - name: SNAPSHOT
           value: $(params.SNAPSHOT)
         - name: bundleimage
-          value: $(tasks.get-bundle-images.results.bundle-image)
+          value: $(tasks.ols-install.results.bundle-image)
         - name: commit
-          value: $(tasks.get-bundle-images.results.commit)
+          value: $(tasks.ols-install.results.commit)
         - name: namespace
           value: "$(params.namespace)"
+        - name: openshift-version-prefix
+          value: $(params.openshift-version-prefix)
+        - name: artifact-oci-tag-prefix
+          value: $(params.artifact-oci-tag-prefix)
       runAfter:
-        - get-bundle-images
+        - ols-install
       taskSpec:
         params:
           - name: SNAPSHOT
           - name: bundleimage
+            description: SNAPSHOT containerImage for the labeled Konflux component (bundle or operator manager image).
           - name: commit
           - name: namespace
+            type: string
+          - name: openshift-version-prefix
+            type: string
+          - name: artifact-oci-tag-prefix
             type: string
         volumes:
           - name: azure-openai-token
@@ -225,58 +315,29 @@ spec:
                 value: "$(params.bundleimage)"
               - name: BUNDLE_COMMIT_SHA
                 value: "$(params.commit)"
+              - name: OLS_NAMESPACE
+                value: "$(params.namespace)"
             image: registry.access.redhat.com/ubi9/ubi-minimal
             script: |
-              echo "---------------------------------------------"
-              cat $KUBECONFIG
-              echo "---------------------------------------------"
-              echo "$KONFLUX_BOOL"
-              echo "---------------------------------------------"
-              echo "$BUNDLE_IMAGE"
-              echo "---------------------------------------------"
-              export OPERATOR_SDK_VERSION=1.36.1
-              export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
-              export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v${OPERATOR_SDK_VERSION}
-              curl -Lo /usr/local/bin/operator-sdk ${OPERATOR_SDK_DL_URL}/operator-sdk_linux_${ARCH}
-              chmod +x /usr/local/bin/operator-sdk
-              operator-sdk version
-              echo "---------------------------------------------"
+              set -euo pipefail
               microdnf -y install git make python3.11 python3.11-devel python3.11-pip shadow-utils tar jq
-              curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.18/openshift-client-linux-amd64-rhel9.tar.gz \
-                  && tar -xvzf oc.tar.gz \
-                  && chmod +x kubectl oc \
-                  && mv oc kubectl /usr/local/bin/
-              git clone https://github.com/openshift/lightspeed-operator.git
+              git init lightspeed-operator
               cd lightspeed-operator
-              git config --global user.email olsci@redhat.com
-              git config --global user.name olsci
-              git fetch origin ${BUNDLE_COMMIT_SHA}
-              git checkout ${BUNDLE_COMMIT_SHA}
-              export SERVICE_SHA=$(cat related_images.json | jq '.[] | select(.name=="lightspeed-service-api")' | jq '.revision' | tr -d '"' )
-              git clone https://github.com/openshift/lightspeed-service.git
-              cd lightspeed-service
-              git config --global user.email olsci@redhat.com
-              git config --global user.name olsci
-              git fetch origin ${SERVICE_SHA}
-              git checkout ${SERVICE_SHA}
-              pip3.11 install --no-cache-dir --upgrade pip pdm
-              pdm config python.use_venv false
-              export CP_OFFLINE_TOKEN=$(cat /var/run/insights-stage-upload-offline-token/token)
-              export AZUREOPENAI_ENTRA_ID_TENANT_ID="$(cat /var/run/azureopenai-entra-id/tenant_id)"
-              export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/client_id)"
-              export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
-              tests/scripts/test-e2e-cluster.sh
+              git remote add origin https://github.com/openshift/lightspeed-operator.git
+              git fetch --depth=1 origin "${BUNDLE_COMMIT_SHA}"
+              git checkout "${BUNDLE_COMMIT_SHA}"
+              bash .tekton/integration-tests/scripts/run-service-integration-tests.sh "$(params.openshift-version-prefix)"
           - name: gather-cluster-resources
             onError: continue
             ref:
               resolver: git
               params:
                 - name: url
-                  value: https://github.com/konflux-ci/tekton-integration-catalog
+                  value: https://github.com/openshift/lightspeed-operator
                 - name: revision
-                  value: main
+                  value: $(params.commit)
                 - name: pathInRepo
-                  value: stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
+                  value: .tekton/integration-tests/stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
             params:
               - name: credentials
                 value: "credentials"
@@ -284,6 +345,8 @@ spec:
                 value: "$(steps.get-kubeconfig.results.kubeconfig)"
               - name: artifact-dir
                 value: "/workspace/konflux-artifacts"
+              - name: gather-script-url
+                value: "https://raw.githubusercontent.com/openshift/lightspeed-operator/$(params.commit)/.tekton/integration-tests/scripts/gather-extra.sh"
           # validate that the cluster resources are available in another tekton step
           - name: list-artifacts
             onError: continue
@@ -307,7 +370,7 @@ spec:
               - name: workdir-path
                 value: /workspace
               - name: oci-ref
-                value: "quay.io/openshift-lightspeed/ols-service-artifacts:$(params.commit)"
+                value: "quay.io/openshift-lightspeed/ols-service-artifacts:$(params.artifact-oci-tag-prefix)$(params.commit)"
               - name: credentials-volume-name
                 value: ols-konflux-artifacts-bot-creds
           - name: fail-if-any-step-failed
