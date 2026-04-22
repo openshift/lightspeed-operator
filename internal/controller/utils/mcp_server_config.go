@@ -36,7 +36,7 @@ kind = "Secret"
 group = "rbac.authorization.k8s.io"
 version = "v1"
 
-[toolset_configs.obs-mcp]
+[toolset_configs.metrics]
 prometheus_url = "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091"
 alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094"
 guardrails = "none"
