@@ -18,9 +18,14 @@ import (
 // OpenShiftMCPServerConfigTOML is the TOML configuration for the shipped openshift-mcp-server sidecar.
 // It denies access to Secret resources at the server level so secret data never reaches the LLM.
 // Other sensitive resource types (RBAC) are also denied as defense in depth.
+// Toolsets are listed explicitly so upstream default changes do not affect OLS; the metrics toolset
+// uses in-cluster Thanos Querier and Alertmanager endpoints.
 const OpenShiftMCPServerConfigTOML = `# Denied resources prevent the MCP server from accessing these Kubernetes resource types.
 # This ensures secret data never reaches the LLM through the shipped MCP server.
 # User-brought MCP servers (spec.mcpServers) are the user's responsibility to secure.
+# Toolsets are pinned explicitly so upstream default changes do not affect OLS.
+
+toolsets = ["core", "config", "helm", "metrics"]
 
 [[denied_resources]]
 group = ""
@@ -30,6 +35,11 @@ kind = "Secret"
 [[denied_resources]]
 group = "rbac.authorization.k8s.io"
 version = "v1"
+
+[toolset_configs.metrics]
+prometheus_url = "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091"
+alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094"
+guardrails = "none"
 `
 
 // GenerateOpenShiftMCPServerConfigMap generates the ConfigMap containing the TOML configuration
