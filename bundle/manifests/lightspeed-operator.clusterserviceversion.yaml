@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-04-15T21:37:03Z"
+    createdAt: "2026-04-23T03:16:31Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -400,6 +400,7 @@ spec:
                 - tls.crt: Server certificate (PEM format) - REQUIRED
                 - tls.key: Private key (PEM format) - REQUIRED
                 - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
+
 
               If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
             displayName: TLS Certificate Secret Reference
@@ -892,11 +893,11 @@ spec:
                       - --use-lcore=false
                       - --lcore-server=true
                       - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:a6879af72ac8acdcc1fb2fc2ec48de4c41a52265565fc507cb898950a9e2f68f
-                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:e5ba35a922401e34eaf767978fa1bc3832ab33fab019776ec2610b98b9297365
+                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:796e6e8c502f470f4c6477e771265b00d7afac6b2a722a6adcb40a7188b54f44
                       - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:03db0f8c54212c74cd63c4728d9711c07a1f4753799b777f77b1b14190b87217
                       - --console-image-4-19=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:a055210c1ea6951c9f16005d24e1489d16973bdf42c132f625e2b9078c1c5c8a
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:55dd00232a33bdfa68d7b0087e7e6efa527baee5d0675829479e49fb52edcec8
+                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:8ae251e8bfcf7cd1d27ca1c937f5f7054985a5d5dd4b6454fc73effd10aff8de
                       - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:dc071421c925dbe55fd03765f7a2ede7140e9a4d49aa95c0b4d2435cbee95f0f
                       - --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:638c21663c64d2e9f1bda420a4db8104c327e3cf02c214f8db0b7ccdf503c670
                     command:
@@ -1019,7 +1020,7 @@ spec:
     - name: lightspeed-service-api
       image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:a6879af72ac8acdcc1fb2fc2ec48de4c41a52265565fc507cb898950a9e2f68f
     - name: lightspeed-console-plugin
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:e5ba35a922401e34eaf767978fa1bc3832ab33fab019776ec2610b98b9297365
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:796e6e8c502f470f4c6477e771265b00d7afac6b2a722a6adcb40a7188b54f44
     - name: lightspeed-console-plugin-pf5
       image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:03db0f8c54212c74cd63c4728d9711c07a1f4753799b777f77b1b14190b87217
     - name: lightspeed-console-plugin-4-19
@@ -1027,7 +1028,7 @@ spec:
     - name: lightspeed-operator
       image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:33c20e96b6577e2ecd70c7217738012697cfa40481292fb255fb7efe51f02c82
     - name: openshift-mcp-server
-      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:55dd00232a33bdfa68d7b0087e7e6efa527baee5d0675829479e49fb52edcec8
+      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:8ae251e8bfcf7cd1d27ca1c937f5f7054985a5d5dd4b6454fc73effd10aff8de
     - name: lightspeed-to-dataverse-exporter
       image: registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:dc071421c925dbe55fd03765f7a2ede7140e9a4d49aa95c0b4d2435cbee95f0f
     - name: lightspeed-ocp-rag
