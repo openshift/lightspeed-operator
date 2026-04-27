@@ -5,7 +5,7 @@ go 1.25.7
 require (
 	github.com/Jeffail/gabs/v2 v2.7.0
 	github.com/go-logr/logr v1.4.3
-	github.com/onsi/ginkgo/v2 v2.28.1
+	github.com/onsi/ginkgo/v2 v2.28.2
 	github.com/onsi/gomega v1.39.1
 	github.com/openshift/client-go v0.0.0-20260424153654-c280f7942f94
 	k8s.io/api v0.35.4
