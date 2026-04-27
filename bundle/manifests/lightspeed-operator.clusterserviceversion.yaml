@@ -897,7 +897,7 @@ spec:
                       - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:b478030eccecbcd9799ef70c0121536fa689629226bbce76d3e3b85ec4e031aa
                       - --console-image-4-19=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:dfb9aed8a3b0f7a29266518516fd92694c48bc7e86054dd28d4bf89dd13c4f37
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:0408796ab37da631c458529804d481688f9365afd465e30efa93473868db561e
+                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:55dd00232a33bdfa68d7b0087e7e6efa527baee5d0675829479e49fb52edcec8
                       - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:dc071421c925dbe55fd03765f7a2ede7140e9a4d49aa95c0b4d2435cbee95f0f
                       - --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:638c21663c64d2e9f1bda420a4db8104c327e3cf02c214f8db0b7ccdf503c670
                     command:
@@ -1028,7 +1028,7 @@ spec:
     - name: lightspeed-operator
       image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:101e423c551bedd6fed77f4233b97483fd1823668c6919734db8708c09d2b630
     - name: openshift-mcp-server
-      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:0408796ab37da631c458529804d481688f9365afd465e30efa93473868db561e
+      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:55dd00232a33bdfa68d7b0087e7e6efa527baee5d0675829479e49fb52edcec8
     - name: lightspeed-to-dataverse-exporter
       image: registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:dc071421c925dbe55fd03765f7a2ede7140e9a4d49aa95c0b4d2435cbee95f0f
     - name: lightspeed-ocp-rag

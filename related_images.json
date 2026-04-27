@@ -26,8 +26,8 @@
   },
   {
     "name": "openshift-mcp-server",
-    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:0408796ab37da631c458529804d481688f9365afd465e30efa93473868db561e",
-    "revision": "ce503a794cbeb9a2872bcceca917a4948e10fe69"
+    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:55dd00232a33bdfa68d7b0087e7e6efa527baee5d0675829479e49fb52edcec8",
+    "revision": "030d7bed2e42b4a2e2af23990a5495c533427515"
   },
   {
     "name": "lightspeed-to-dataverse-exporter",
