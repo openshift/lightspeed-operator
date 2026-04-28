@@ -1,6 +1,10 @@
 // Package reconciler defines the interface contract between the main OLSConfigReconciler
 // and component-specific reconcilers (appserver, postgres, console).
 //
+// This package contains only type definitions (no functions), so Go coverage reports
+// "no statements" for production code here. *utils.TestReconciler (envtest) and the
+// production reconciler satisfy Reconciler wherever components are wired or tested.
+//
 // The Reconciler interface provides a clean abstraction that allows component packages
 // to access only the functionality they need from the main controller, without creating
 // circular dependencies or exposing internal implementation details.
@@ -60,18 +64,9 @@ type Reconciler interface {
 	// GetDataverseExporterImage returns the OpenShift MCP server image to use
 	GetDataverseExporterImage() string
 
-	// GetLCoreImage returns the LCore image to use
-	GetLCoreImage() string
-
 	// IsPrometheusAvailable returns whether Prometheus Operator CRDs are available
 	IsPrometheusAvailable() bool
 
 	// GetWatcherConfig returns the watcher configuration for external resource monitoring
 	GetWatcherConfig() interface{}
-
-	// UseLCore returns whether LCore backend is enabled instead of AppServer
-	UseLCore() bool
-
-	// GetLCoreServerMode returns whether LCore should run in server mode (true) or library mode (false)
-	GetLCoreServerMode() bool
 }

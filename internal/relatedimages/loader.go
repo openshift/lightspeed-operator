@@ -18,8 +18,9 @@ type relatedImage struct {
 }
 
 var (
-	imagesOnce sync.Once
-	imagesMap  map[string]string
+	imagesMu  sync.Mutex
+	imagesMap map[string]string
+	loaded    bool
 )
 
 // findModuleRoot walks up from dir looking for go.mod; returns dir if not found.
@@ -36,50 +37,45 @@ func findModuleRoot(dir string) string {
 	}
 }
 
-func loadImages() map[string]string {
-	imagesOnce.Do(func() {
-		imagesMap = make(map[string]string)
+func loadImagesFromDisk() map[string]string {
+	out := make(map[string]string)
 
-		filePath := os.Getenv("RELATED_IMAGES_FILE")
-		if filePath == "" {
-			cwd, err := os.Getwd()
-			if err != nil {
-				return
-			}
-			root := findModuleRoot(cwd)
-			filePath = filepath.Join(root, "related_images.json")
-		}
-
-		data, err := os.ReadFile(filePath)
+	filePath := os.Getenv("RELATED_IMAGES_FILE")
+	if filePath == "" {
+		cwd, err := os.Getwd()
 		if err != nil {
-			return
+			return out
 		}
-
-		var list []relatedImage
-		if err := json.Unmarshal(data, &list); err != nil {
-			return
-		}
-
-		for _, entry := range list {
-			if entry.Name != "" && entry.Image != "" {
-				imagesMap[entry.Name] = entry.Image
-			}
-		}
-	})
-	return imagesMap
-}
-
-// DefaultImages returns a copy of the name->image map from related_images.json.
-func DefaultImages() map[string]string {
-	m := loadImages()
-	if len(m) == 0 {
-		return nil
+		root := findModuleRoot(cwd)
+		filePath = filepath.Join(root, "related_images.json")
 	}
-	out := make(map[string]string, len(m))
-	for k, v := range m {
-		out[k] = v
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return out
+	}
+
+	var list []relatedImage
+	if err := json.Unmarshal(data, &list); err != nil {
+		return out
+	}
+
+	for _, entry := range list {
+		if entry.Name != "" && entry.Image != "" {
+			out[entry.Name] = entry.Image
+		}
 	}
 	return out
+}
+
+func loadImages() map[string]string {
+	imagesMu.Lock()
+	defer imagesMu.Unlock()
+	if !loaded {
+		imagesMap = loadImagesFromDisk()
+		loaded = true
+	}
+	return imagesMap
 }
 
 // GetDefaultImage returns the image for the given component name (e.g. "lightspeed-service-api").

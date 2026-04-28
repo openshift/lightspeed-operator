@@ -4,7 +4,7 @@ This document describes the internal architecture of the OpenShift Lightspeed Op
 
 ## Overview
 
-The operator follows a modular, component-based architecture where each major component (application server, Lightspeed Core/Llama Stack, PostgreSQL, Console UI) is managed by its own dedicated package with independent reconciliation logic.
+The operator follows a modular, component-based architecture where each major component (application server, PostgreSQL, Console UI) is managed by its own dedicated package with independent reconciliation logic.
 
 ## Key Design Decisions
 
@@ -37,7 +37,7 @@ The operator follows a modular, component-based architecture where each major co
 **Core Orchestration:**
 - Main `Reconcile()` method coordinates all reconciliation phases
 - `SetupWithManager()` configures controller watches and event handlers
-- Selects backend: calls either `appserver.ReconcileAppServer()` OR `lcore.ReconcileLCore()` based on `--enable-lcore` flag
+- Reconciles the application server via `appserver` (see `ReconcileAppServerResources` / `ReconcileAppServerDeployment` in `olsconfig_controller.go`)
 
 **Support Functions:**
 - Implements `reconciler.Reconciler` interface (provides config/images to components)
@@ -58,7 +58,7 @@ The operator follows a modular, component-based architecture where each major co
 - Detect OpenShift version and select appropriate images
 - Start controller and handle graceful shutdown
 
-**Key Flags:** `--enable-lcore` (backend selection), `--controller-namespace`. See `cmd/main.go` for complete list.
+**Key Flags:** Image URLs, `--controller-namespace`, reconcile interval, and related runtime options. See `cmd/main.go` for the complete list.
 
 ### Reconciler Interface (`internal/controller/reconciler`)
 
@@ -70,22 +70,9 @@ Provides clean contract between main controller and component packages:
 
 ### Application Server Package (`internal/controller/appserver`)
 
-**Purpose:** Manages OpenShift Lightspeed application server (LEGACY backend - LLM API proxy)
+**Purpose:** Manages the OpenShift Lightspeed application server (LLM API, RAG, optional MCP, metrics).
 
-**Entry Point:** `ReconcileAppServer(reconciler.Reconciler, context, *OLSConfig)`
-
-### Lightspeed Core Package (`internal/controller/lcore`)
-
-**Purpose:** Manages Lightspeed Core + Llama Stack server (NEW backend - agent-based with MCP support)
-
-**Entry Point:** `ReconcileLCore(reconciler.Reconciler, context, *OLSConfig)`
-
-**Key Features:**
-- Dynamic LLM configuration (supports OpenAI, Azure OpenAI, others)
-- CA certificate support for custom TLS
-- RAG support with vector database
-- MCP (Model Context Protocol) integration
-- Metrics with K8s authentication
+**Entry Points:** `ReconcileAppServerResources` and `ReconcileAppServerDeployment` (invoked from `olsconfig_controller.go`).
 
 ### PostgreSQL Package (`internal/controller/postgres`)
 
@@ -138,7 +125,7 @@ High-level reconciliation sequence:
 6. Reconcile Components:
    - Console UI (if enabled)
    - PostgreSQL (if conversation cache enabled)
-   - Backend (AppServer OR LCore - mutually exclusive, controlled by --enable-lcore flag)
+   - Application server (`appserver` package)
 7. Update Status Conditions based on deployment readiness
 ```
 

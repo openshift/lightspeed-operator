@@ -100,7 +100,6 @@ var (
 		"console-plugin-pf5":         utils.ConsoleUIImagePF5Default,
 		"console-plugin-4-19":        utils.ConsoleUIImage419Default,
 		"openshift-mcp-server-image": utils.OpenShiftMCPServerImageDefault,
-		"lightspeed-core":            utils.LlamaStackImageDefault,
 		"dataverse-exporter-image":   utils.DataverseExporterImageDefault,
 		"ocp-rag-image":              utils.OcpRagImageDefault,
 	}
@@ -120,7 +119,7 @@ func init() {
 
 // overrideImages overrides the default images with the images provided by the user.
 // If an image is not provided, the default is used.
-func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 string, consoleImage_419 string, postgresImage string, openshiftMCPServerImage string, lcoreImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
+func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 string, consoleImage_419 string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
 	res := defaultImages
 	if serviceImage != "" {
 		res["lightspeed-service"] = serviceImage
@@ -139,9 +138,6 @@ func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 s
 	}
 	if openshiftMCPServerImage != "" {
 		res["openshift-mcp-server-image"] = openshiftMCPServerImage
-	}
-	if lcoreImage != "" {
-		res["lightspeed-core"] = lcoreImage
 	}
 	if dataverseExporterImage != "" {
 		res["dataverse-exporter-image"] = dataverseExporterImage
@@ -181,11 +177,8 @@ func main() {
 	var namespace string
 	var postgresImage string
 	var openshiftMCPServerImage string
-	var lcoreImage string
 	var dataverseExporterImage string
 	var ocpRagImage string
-	var useLCore bool
-	var lcoreServerMode bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -203,11 +196,8 @@ func main() {
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
 	flag.StringVar(&postgresImage, "postgres-image", utils.PostgresServerImageDefault, "The image of the PostgreSQL server.")
 	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", utils.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
-	flag.StringVar(&lcoreImage, "lcore-image", utils.LlamaStackImageDefault, "The image of the LCore container.")
 	flag.StringVar(&dataverseExporterImage, "dataverse-exporter-image", utils.DataverseExporterImageDefault, "The image of the dataverse exporter container.")
 	flag.StringVar(&ocpRagImage, "ocp-rag-image", utils.OcpRagImageDefault, "The image with the OCP RAG databases.")
-	flag.BoolVar(&useLCore, "use-lcore", false, "Use LCore instead of AppServer for the application server deployment.")
-	flag.BoolVar(&lcoreServerMode, "lcore-server", true, "Use LCore in a server mode.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -220,24 +210,8 @@ func main() {
 		namespace = getWatchNamespace()
 	}
 
-	imagesMap := overrideImages(serviceImage, consoleImage, consoleImage_pf5, consoleImage_419, postgresImage, openshiftMCPServerImage, lcoreImage, dataverseExporterImage, ocpRagImage)
+	imagesMap := overrideImages(serviceImage, consoleImage, consoleImage_pf5, consoleImage_419, postgresImage, openshiftMCPServerImage, dataverseExporterImage, ocpRagImage)
 	setupLog.Info("Images setting loaded", "images", listImages())
-
-	// Log which backend is being used
-	backendType := "AppServer"
-	if useLCore {
-		backendType = "LCore"
-	}
-	setupLog.Info("========================================")
-	setupLog.Info(">>> BACKEND CONFIGURATION <<<", "backendType", backendType)
-	if useLCore {
-		deploymentMode := "server"
-		if !lcoreServerMode {
-			deploymentMode = "library"
-		}
-		setupLog.Info(">>> LCORE DEPLOYMENT MODE <<<", "mode", deploymentMode)
-	}
-	setupLog.Info("========================================")
 
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
 	// Get K8 client and context
@@ -428,13 +402,13 @@ func main() {
 		// AnnotatedSecretMapping maps secret names to their affected deployments.
 		// These are secrets that the operator manages and annotates with watchers.openshift.io/watch.
 		// When these secrets change, the watcher will restart the listed deployments.
-		// Key: secret name, Value: list of deployment names (use "ACTIVE_BACKEND" for appserver/lcore).
+		// Key: secret name, Value: list of deployment names (use "ACTIVE_BACKEND" for appserver).
 		// Only list secrets here that need to restart specific deployments beyond the active backend.
 		AnnotatedSecretMapping: map[string][]string{},
 		// AnnotatedConfigMapMapping maps configmap names to their affected deployments.
 		// These are configmaps that the operator manages and annotates with watchers.openshift.io/watch.
 		// When these configmaps change, the watcher will restart the listed deployments.
-		// Key: configmap name, Value: list of deployment names (use "ACTIVE_BACKEND" for appserver/lcore)
+		// Key: configmap name, Value: list of deployment names (use "ACTIVE_BACKEND" for appserver)
 		// Only list configmaps here that need to restart specific deployments beyond the active backend.
 		AnnotatedConfigMapMapping: map[string][]string{},
 	}
@@ -450,9 +424,6 @@ func main() {
 			LightspeedServicePostgresImage: imagesMap["postgres-image"],
 			OpenShiftMCPServerImage:        imagesMap["openshift-mcp-server-image"],
 			DataverseExporterImage:         imagesMap["dataverse-exporter-image"],
-			LightspeedCoreImage:            imagesMap["lightspeed-core"],
-			UseLCore:                       useLCore,
-			LCoreServerMode:                lcoreServerMode,
 			Namespace:                      namespace,
 			PrometheusAvailable:            prometheusAvailable,
 		},
