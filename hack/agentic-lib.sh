@@ -36,7 +36,16 @@ else
     TAG="latest"
 fi
 
-# Local image tags (used for docker build, then pushed via skopeo)
+# Container engine — prefer podman, fall back to docker
+if command -v podman >/dev/null 2>&1; then
+    CONTAINER_ENGINE="podman"
+elif command -v docker >/dev/null 2>&1; then
+    CONTAINER_ENGINE="docker"
+else
+    CONTAINER_ENGINE=""
+fi
+
+# Local image tags (used for container build, then pushed via skopeo)
 IMG_OPERATOR="lightspeed-operator:${TAG}"
 IMG_CONSOLE="lightspeed-console-plugin:${TAG}"
 IMG_AGENT="lightspeed-agentic-sandbox:${TAG}"
@@ -90,21 +99,38 @@ build_image() {
         warn "Skipping build of ${name}"
         return
     fi
+    [[ -z "${CONTAINER_ENGINE}" ]] && fail "podman or docker is required but neither is installed"
     echo "    Building ${name} for linux/amd64..."
-    docker build --platform linux/amd64 --provenance=false --sbom=false \
-        -f "${dir}/${containerfile}" -t "${tag}" "${dir}" >/dev/null 2>&1
-    info "${name} built ($(docker inspect "${tag}" --format '{{.Id}}' | cut -c8-19))"
+    local build_log
+    build_log=$(mktemp /tmp/lightspeed-build-XXXXXX)
+    if ! ${CONTAINER_ENGINE} build --platform linux/amd64 \
+        -f "${dir}/${containerfile}" -t "${tag}" "${dir}" >"${build_log}" 2>&1; then
+        echo ""
+        tail -20 "${build_log}"
+        rm -f "${build_log}"
+        fail "Failed to build ${name}. See output above."
+    fi
+    rm -f "${build_log}"
+    info "${name} built ($(${CONTAINER_ENGINE} inspect "${tag}" --format '{{.Id}}' | cut -c8-19))"
 }
 
 # Push a locally built image to the OpenShift internal registry
 push_image() {
     local name="$1" ns="$2" tag="$3"
+    if ! ${CONTAINER_ENGINE} image inspect "${tag}" >/dev/null 2>&1; then
+        fail "Image ${tag} not found locally. Build it first:\n    ${CONTAINER_ENGINE} build --platform linux/amd64 -t ${tag} <source-dir>\n  Or re-run without --skip-build."
+    fi
     local token
     token=$(oc create token builder -n "${ns}" --duration=10m 2>/dev/null) \
         || fail "Cannot create builder token in ${ns}"
     echo "    Pushing ${name}..."
-    skopeo copy --dest-tls-verify=false --dest-creds="unused:${token}" \
-        "docker-daemon:${tag}" "docker://${REGISTRY}/${ns}/${name}:${TAG}" >/dev/null 2>&1
+    if [[ "${CONTAINER_ENGINE}" == "podman" ]]; then
+        podman push --tls-verify=false --creds="unused:${token}" \
+            "localhost/${tag}" "docker://${REGISTRY}/${ns}/${name}:${TAG}" >/dev/null 2>&1
+    else
+        skopeo copy --dest-tls-verify=false --dest-creds="unused:${token}" \
+            "docker-daemon:${tag}" "docker://${REGISTRY}/${ns}/${name}:${TAG}" >/dev/null 2>&1
+    fi
     info "${name} pushed"
 }
 
@@ -183,12 +209,9 @@ install_crds() {
     cd "${OPERATOR_DIR}"
     make manifests kustomize >/dev/null 2>&1
     bin/kustomize build config/crd | oc apply -f - >/dev/null 2>&1
-    if [[ -f config/crd/bases/agentic.openshift.io_proposals.yaml ]]; then
-        oc apply -f config/crd/bases/agentic.openshift.io_proposals.yaml >/dev/null 2>&1
-    fi
     info "CRDs installed"
-    oc get crd olsconfigs.agentic.openshift.io --no-headers 2>/dev/null | awk '{print "    " $1}'
-    oc get crd proposals.agentic.openshift.io --no-headers 2>/dev/null | awk '{print "    " $1}'
+    oc get crd olsconfigs.ols.openshift.io --no-headers 2>/dev/null | awk '{print "    " $1}' || true
+    oc get crd proposals.agentic.openshift.io --no-headers 2>/dev/null | awk '{print "    " $1}' || true
 }
 
 ensure_namespace() {
@@ -222,10 +245,13 @@ deploy_operator_manifests() {
         done
     fi
 
-    bin/kustomize build config/default | oc apply -f - >/dev/null 2>&1
+    local CONSOLE_IMG_REF="${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-console-plugin:${TAG}"
+    bin/kustomize build config/default \
+        | awk -v console_img="${CONSOLE_IMG_REF}" '/- --leader-elect/{print; print "        - --enable-agentic"; print "        - --agentic-console-image=" console_img; next}1' \
+        | oc apply -f - >/dev/null 2>&1
     cp "${PATCH_FILE}.bak" "${PATCH_FILE}"
     rm -f "${PATCH_FILE}.bak"
-    info "Operator manifests applied"
+    info "Operator manifests applied (agentic enabled)"
 
     step "Ensuring operator cluster-admin"
     oc adm policy add-cluster-role-to-user cluster-admin \
@@ -249,8 +275,8 @@ install_agent_sandbox_controller() {
     if oc get crd sandboxes.agents.x-k8s.io >/dev/null 2>&1; then
         info "Agent-sandbox CRDs already installed"
     else
-        kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.2.1/manifest.yaml >/dev/null 2>&1
-        kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.2.1/extensions.yaml >/dev/null 2>&1
+        kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.4.2/manifest.yaml >/dev/null 2>&1
+        kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.4.2/extensions.yaml >/dev/null 2>&1
         oc rollout status deployment/agent-sandbox-controller -n agent-sandbox-system --timeout=120s >/dev/null 2>&1
         info "Agent-sandbox controller ready"
     fi
@@ -501,7 +527,7 @@ ensure_tool_secrets() {
 build_push_agent_and_skills() {
     local AGENT_DIR="${AGENT_DIR:-${WORKSPACE_ROOT}/lightspeed-agentic-sandbox}"
     if [[ -d "${AGENT_DIR}" ]]; then
-        build_image "agent" "${AGENT_DIR}" "${IMG_AGENT}"
+        build_image "agent" "${AGENT_DIR}" "${IMG_AGENT}" "Containerfile"
         step "Pushing agent image"
         push_image "lightspeed-agentic-sandbox" "${NS_OPERATOR}" "${IMG_AGENT}"
     else
@@ -525,47 +551,13 @@ build_push_agent_and_skills() {
     fi
 }
 
-# Apply a SandboxTemplate from stdin, create claim, wait for pod, update service selector
-deploy_sandbox() {
-    local LLM_SECRET="$1"
-    step "Deploying agent sandbox"
+# Apply a base SandboxTemplate — minimal pod spec without LLM credentials,
+# skills, or phase config. The operator derives per-step templates at runtime
+# from the CRD chain (Agent + ComponentTools + LLMProvider).
+deploy_base_template() {
+    step "Deploying base SandboxTemplate"
     cat | oc apply -f - >/dev/null 2>&1
-    info "SandboxTemplate created"
-
-    if ! oc get sandboxclaim lightspeed-chat -n "${NS_OPERATOR}" >/dev/null 2>&1; then
-        cat <<'CLAIMEOF' | oc apply -f - >/dev/null 2>&1
-apiVersion: extensions.agents.x-k8s.io/v1alpha1
-kind: SandboxClaim
-metadata:
-  name: lightspeed-chat
-  namespace: openshift-lightspeed
-spec:
-  sandboxTemplateRef:
-    name: lightspeed-chat
-CLAIMEOF
-        info "SandboxClaim created"
-    else
-        info "SandboxClaim already exists"
-    fi
-
-    step "Waiting for agent pod"
-    for i in {1..60}; do
-        local READY
-        READY=$(oc get pod lightspeed-chat -n "${NS_OPERATOR}" \
-            -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null)
-        [[ "${READY}" == "true" ]] && break
-        sleep 3
-    done
-    local POD_HASH
-    POD_HASH=$(oc get pod lightspeed-chat -n "${NS_OPERATOR}" \
-        -o jsonpath='{.metadata.labels.agents\.x-k8s\.io/sandbox-name-hash}' 2>/dev/null)
-    if [[ -n "${POD_HASH:-}" ]]; then
-        oc patch svc lightspeed-agent -n "${NS_OPERATOR}" --type merge \
-            -p "{\"spec\":{\"selector\":{\"agents.x-k8s.io/sandbox-name-hash\":\"${POD_HASH}\"}}}" >/dev/null 2>&1
-        info "Agent pod running, service selector updated (hash: ${POD_HASH})"
-    else
-        warn "Agent pod not ready yet — update service selector manually"
-    fi
+    info "Base SandboxTemplate created"
 }
 
 ensure_olsconfig() {
@@ -592,22 +584,13 @@ OLSEOF
 }
 
 build_push_console() {
-    if [[ -d "${CONSOLE_DIR}" ]]; then
+    if [[ -d "${CONSOLE_DIR}" ]] && [[ -f "${CONSOLE_DIR}/Dockerfile" ]]; then
         build_image "console-plugin" "${CONSOLE_DIR}" "${IMG_CONSOLE}"
         step "Pushing console plugin image"
         push_image "lightspeed-console-plugin" "${NS_CONSOLE}" "${IMG_CONSOLE}"
-
-        if oc get "deployment/${DEPLOY_CONSOLE}" -n "${NS_CONSOLE}" >/dev/null 2>&1; then
-            step "Deploying console plugin"
-            pause_operator
-            patch_console_image
-            rollout "${DEPLOY_CONSOLE}" "${NS_CONSOLE}" "Console plugin"
-            resume_operator
-        else
-            warn "Console plugin deployment not found — operator may still be reconciling"
-        fi
+        info "Console image pushed (operator deploys it via --agentic-console-image)"
     else
-        warn "Console directory not found: ${CONSOLE_DIR}"
+        warn "Console directory or Dockerfile not found: ${CONSOLE_DIR}"
     fi
 }
 

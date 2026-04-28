@@ -15,6 +15,8 @@ require (
 	sigs.k8s.io/yaml v1.6.0
 )
 
+replace github.com/openshift/lightspeed-agentic-operator => github.com/harche/lightspeed-agentic-operator v0.0.0-20260428211837-e731605675e4
+
 require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
@@ -123,6 +125,7 @@ require (
 
 require (
 	github.com/containers/image/v5 v5.36.2
+	github.com/openshift/lightspeed-agentic-operator v0.0.0-00010101000000-000000000000
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.90.1
 )
 
@@ -145,7 +148,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/openshift/api v0.0.0-20260420151639-34e60874783e
+	github.com/openshift/api v0.0.0-20260424174501-4f63a40a2970
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect

@@ -21,7 +21,7 @@
 #
 #   Vertex AI:
 #     VERTEX_PROJECT    - Required. GCP project with Vertex AI enabled.
-#     VERTEX_REGION     - GCP region (default: us-east5).
+#     VERTEX_REGION     - GCP region (default: global).
 #     VERTEX_KEY_TTL    - SA key auto-revoke TTL in seconds (default: 64800 = 18h).
 #
 #   AWS Bedrock:
@@ -77,10 +77,12 @@ LLM_SECRET="llm-credentials"
 
 if [[ "${LLM_PROVIDER}" == "vertex" ]]; then
     step "Ensuring LLM credentials (Vertex AI)"
-    VERTEX_REGION="${VERTEX_REGION:-us-east5}"
+    VERTEX_REGION="${VERTEX_REGION:-global}"
 
     if ! oc get secret "${LLM_SECRET}" -n "${NS_OPERATOR}" >/dev/null 2>&1; then
-        SCOPED_KEY_FILE=$(mktemp /tmp/lightspeed-vertex-key-XXXXXX.json)
+        SCOPED_KEY_FILE=$(mktemp /tmp/lightspeed-vertex-key-XXXXXX)
+        mv "${SCOPED_KEY_FILE}" "${SCOPED_KEY_FILE}.json"
+        SCOPED_KEY_FILE="${SCOPED_KEY_FILE}.json"
         ensure_vertex_credentials "${SCOPED_KEY_FILE}"
 
         oc create secret generic "${LLM_SECRET}" -n "${NS_OPERATOR}" \
@@ -122,17 +124,17 @@ ensure_tool_secrets
 build_push_agent_and_skills
 
 ###############################################################################
-# SandboxTemplate — provider-specific (Vertex needs credentials file volume)
+# Base SandboxTemplate — provider-agnostic. The operator patches in LLM
+# credentials, skills, MCP servers, and phase config from the CRD chain
+# (Agent + ComponentTools + LLMProvider) at proposal reconciliation time.
 ###############################################################################
 AGENT_IMAGE="${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-agentic-sandbox:${TAG}"
-SKILLS_IMAGE="${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-skills:${TAG}"
 
-if [[ "${LLM_PROVIDER}" == "vertex" ]]; then
-    deploy_sandbox "${LLM_SECRET}" <<SANDBOXEOF
+deploy_base_template <<SANDBOXEOF
 apiVersion: extensions.agents.x-k8s.io/v1alpha1
 kind: SandboxTemplate
 metadata:
-  name: lightspeed-chat
+  name: lightspeed-agent
   namespace: openshift-lightspeed
 spec:
   podTemplate:
@@ -146,154 +148,13 @@ spec:
         ports:
           - containerPort: 8080
             protocol: TCP
-        envFrom:
-          - secretRef:
-              name: ${LLM_SECRET}
         env:
-          - name: LIGHTSPEED_MODE
-            value: chat
           - name: LIGHTSPEED_SKILLS_DIR
             value: /app/skills
           - name: TLS_CERT_PATH
             value: /etc/tls/tls.crt
           - name: TLS_KEY_PATH
             value: /etc/tls/tls.key
-          - name: ANTHROPIC_MODEL
-            value: claude-opus-4-6
-          - name: GOOGLE_APPLICATION_CREDENTIALS
-            value: /var/secrets/google/credentials.json
-          - name: GH_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: github-token
-                key: token
-                optional: true
-          - name: RH_API_OFFLINE_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: redhat-api-token
-                key: token
-                optional: true
-          - name: ACS_API_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: acs-api-token
-                key: token
-                optional: true
-          - name: ACS_CENTRAL_URL
-            valueFrom:
-              secretKeyRef:
-                name: acs-api-token
-                key: url
-                optional: true
-        volumeMounts:
-          - name: serving-cert
-            mountPath: /etc/tls
-            readOnly: true
-          - name: skills
-            mountPath: /app/skills
-          - name: llm-credentials
-            mountPath: /var/secrets/google
-            readOnly: true
-          - name: home
-            mountPath: /home/agent
-          - name: tmp
-            mountPath: /tmp
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-            scheme: HTTPS
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-            scheme: HTTPS
-          initialDelaySeconds: 10
-          periodSeconds: 10
-        resources:
-          requests:
-            cpu: 500m
-            memory: 1Gi
-          limits:
-            cpu: "4"
-            memory: 4Gi
-      volumes:
-      - name: serving-cert
-        secret:
-          secretName: lightspeed-agent-tls
-      - name: skills
-        image:
-          reference: ${SKILLS_IMAGE}
-          pullPolicy: Always
-      - name: llm-credentials
-        secret:
-          secretName: ${LLM_SECRET}
-      - name: home
-        emptyDir: {}
-      - name: tmp
-        emptyDir: {}
-SANDBOXEOF
-
-elif [[ "${LLM_PROVIDER}" == "bedrock" ]]; then
-    deploy_sandbox "${LLM_SECRET}" <<SANDBOXEOF
-apiVersion: extensions.agents.x-k8s.io/v1alpha1
-kind: SandboxTemplate
-metadata:
-  name: lightspeed-chat
-  namespace: openshift-lightspeed
-spec:
-  podTemplate:
-    spec:
-      serviceAccountName: lightspeed-agent
-      automountServiceAccountToken: true
-      containers:
-      - name: agent
-        image: ${AGENT_IMAGE}
-        imagePullPolicy: Always
-        ports:
-          - containerPort: 8080
-            protocol: TCP
-        envFrom:
-          - secretRef:
-              name: ${LLM_SECRET}
-        env:
-          - name: LIGHTSPEED_MODE
-            value: chat
-          - name: LIGHTSPEED_SKILLS_DIR
-            value: /app/skills
-          - name: TLS_CERT_PATH
-            value: /etc/tls/tls.crt
-          - name: TLS_KEY_PATH
-            value: /etc/tls/tls.key
-          - name: ANTHROPIC_MODEL
-            value: us.anthropic.claude-opus-4-6-v1
-          - name: GH_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: github-token
-                key: token
-                optional: true
-          - name: RH_API_OFFLINE_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: redhat-api-token
-                key: token
-                optional: true
-          - name: ACS_API_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: acs-api-token
-                key: token
-                optional: true
-          - name: ACS_CENTRAL_URL
-            valueFrom:
-              secretKeyRef:
-                name: acs-api-token
-                key: url
-                optional: true
         volumeMounts:
           - name: serving-cert
             mountPath: /etc/tls
@@ -331,19 +192,18 @@ spec:
           secretName: lightspeed-agent-tls
       - name: skills
         image:
-          reference: ${SKILLS_IMAGE}
+          reference: placeholder:latest
           pullPolicy: Always
       - name: home
         emptyDir: {}
       - name: tmp
         emptyDir: {}
 SANDBOXEOF
-fi
 
 ###############################################################################
-# OLSConfig + Console
+# Console plugin — built and pushed here, deployed by the operator's
+# console reconciler via --agentic-console-image flag.
 ###############################################################################
-ensure_olsconfig
 build_push_console
 
 ###############################################################################

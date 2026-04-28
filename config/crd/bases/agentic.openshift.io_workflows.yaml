@@ -1,0 +1,192 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: workflows.agentic.openshift.io
+spec:
+  group: agentic.openshift.io
+  names:
+    kind: Workflow
+    listKind: WorkflowList
+    plural: workflows
+    singular: workflow
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.analysis.componentTools.name
+      name: Analysis
+      type: string
+    - jsonPath: .spec.execution.componentTools.name
+      name: Execution
+      type: string
+    - jsonPath: .spec.verification.componentTools.name
+      name: Verification
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: "Workflow defines a reusable 3-step pipeline template that controls
+          which\nagent tier and component tools handle analysis, execution, and verification.\nIt
+          is owned by the component team and lives in their namespace alongside\nComponentTools
+          and Proposals.\n\nWorkflow is namespace-scoped. You create workflows representing
+          different\noperational patterns and then reference them from proposals.
+          Per-proposal\noverrides (WorkflowOverride in the Proposal spec) allow swapping
+          agents\nor component tools for individual steps without creating a new Workflow.\n\nExample
+          — full remediation (analyze, execute, verify):\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          Workflow\n\tmetadata:\n\t  name: remediation\n\tspec:\n\t  analysis:\n\t
+          \   agent: smart\n\t    componentTools:\n\t      name: my-tools\n\t  execution:\n\t
+          \   componentTools:\n\t      name: my-tools\n\t  verification:\n\t    agent:
+          fast\n\t    componentTools:\n\t      name: my-tools\n\nExample — advisory-only
+          (analyze only, no execution or verification):\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          Workflow\n\tmetadata:\n\t  name: advisory-only\n\tspec:\n\t  analysis:\n\t
+          \   componentTools:\n\t      name: my-tools\n\nExample — gitops (analyze,
+          skip execution, verify after user applies via git):\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          Workflow\n\tmetadata:\n\t  name: gitops-remediation\n\tspec:\n\t  analysis:\n\t
+          \   componentTools:\n\t      name: my-tools\n\t  verification:\n\t    componentTools:\n\t
+          \     name: my-tools\n\nExample — trust-mode (analyze, execute, skip verification):\n\n\tapiVersion:
+          agentic.openshift.io/v1alpha1\n\tkind: Workflow\n\tmetadata:\n\t  name:
+          trust-mode\n\tspec:\n\t  analysis:\n\t    componentTools:\n\t      name:
+          my-tools\n\t  execution:\n\t    componentTools:\n\t      name: my-tools"
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of Workflow.
+            properties:
+              analysis:
+                description: |-
+                  analysis defines the analysis step configuration. The analysis
+                  agent examines the cluster state, produces a diagnosis (root cause,
+                  confidence), a remediation proposal (actions, risk, reversibility),
+                  a verification plan, and RBAC permissions needed for execution.
+                properties:
+                  agent:
+                    default: default
+                    description: |-
+                      agent is the name of the cluster-scoped Agent (tier) to use for this step.
+                      Defaults to "default" when omitted. The cluster admin creates Agent
+                      resources (e.g., "default", "smart", "fast"); the component owner
+                      references them by name here.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  componentTools:
+                    description: |-
+                      componentTools references the ComponentTools CR (in the same namespace
+                      as the Workflow) that provides skills, MCP servers, system prompt, and
+                      output schema for this step.
+                    properties:
+                      name:
+                        description: name of the ComponentTools.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                required:
+                - componentTools
+                type: object
+              execution:
+                description: |-
+                  execution defines the execution step configuration. The execution
+                  agent carries out the approved remediation plan using the RBAC
+                  permissions granted by the operator.
+
+                  When omitted (nil), the proposal transitions to AwaitingSync after
+                  approval, making it advisory-only. The user is expected to apply
+                  changes manually or via GitOps.
+                properties:
+                  agent:
+                    default: default
+                    description: |-
+                      agent is the name of the cluster-scoped Agent (tier) to use for this step.
+                      Defaults to "default" when omitted. The cluster admin creates Agent
+                      resources (e.g., "default", "smart", "fast"); the component owner
+                      references them by name here.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  componentTools:
+                    description: |-
+                      componentTools references the ComponentTools CR (in the same namespace
+                      as the Workflow) that provides skills, MCP servers, system prompt, and
+                      output schema for this step.
+                    properties:
+                      name:
+                        description: name of the ComponentTools.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                required:
+                - componentTools
+                type: object
+              verification:
+                description: |-
+                  verification defines the verification step configuration. The
+                  verification agent checks whether the remediation was successful
+                  by running the verification plan produced during analysis.
+
+                  When omitted (nil), the proposal completes immediately after execution
+                  without a verification check. Useful for trust-mode workflows where
+                  the execution agent's inline verification is sufficient.
+                properties:
+                  agent:
+                    default: default
+                    description: |-
+                      agent is the name of the cluster-scoped Agent (tier) to use for this step.
+                      Defaults to "default" when omitted. The cluster admin creates Agent
+                      resources (e.g., "default", "smart", "fast"); the component owner
+                      references them by name here.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  componentTools:
+                    description: |-
+                      componentTools references the ComponentTools CR (in the same namespace
+                      as the Workflow) that provides skills, MCP servers, system prompt, and
+                      output schema for this step.
+                    properties:
+                      name:
+                        description: name of the ComponentTools.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                required:
+                - componentTools
+                type: object
+            required:
+            - analysis
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}

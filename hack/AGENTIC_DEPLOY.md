@@ -121,7 +121,7 @@ This means multiple worktrees can deploy to the same cluster concurrently withou
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VERTEX_REGION` | `us-east5` | GCP region for Vertex AI |
+| `VERTEX_REGION` | `global` | GCP region for Vertex AI |
 | `VERTEX_KEY_TTL` | `64800` (18h) | SA key auto-revocation TTL in seconds |
 | `AWS_ACCESS_KEY_ID` | From `aws configure` | Bedrock access key |
 | `AWS_SECRET_ACCESS_KEY` | From `aws configure` | Bedrock secret key |

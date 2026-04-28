@@ -73,6 +73,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -80,6 +81,10 @@ import (
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+
+	agenticv1alpha1 "github.com/openshift/lightspeed-agentic-operator/api/v1alpha1"
+	agenticconsole "github.com/openshift/lightspeed-agentic-operator/controller/console"
+	"github.com/openshift/lightspeed-agentic-operator/controller/proposal"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -115,6 +120,7 @@ func init() {
 	utilruntime.Must(configv1.AddToScheme(scheme))
 
 	utilruntime.Must(olsv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(agenticv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -186,6 +192,9 @@ func main() {
 	var ocpRagImage string
 	var useLCore bool
 	var lcoreServerMode bool
+	var enableAgentic bool
+	var sandboxTemplateName string
+	var agenticConsoleImage string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -208,6 +217,9 @@ func main() {
 	flag.StringVar(&ocpRagImage, "ocp-rag-image", utils.OcpRagImageDefault, "The image with the OCP RAG databases.")
 	flag.BoolVar(&useLCore, "use-lcore", false, "Use LCore instead of AppServer for the application server deployment.")
 	flag.BoolVar(&lcoreServerMode, "lcore-server", true, "Use LCore in a server mode.")
+	flag.BoolVar(&enableAgentic, "enable-agentic", false, "Enable the agentic proposal controller.")
+	flag.StringVar(&sandboxTemplateName, "base-template-name", "lightspeed-agent", "Base SandboxTemplate name for deriving per-step agent templates.")
+	flag.StringVar(&agenticConsoleImage, "agentic-console-image", "", "Image for the agentic console plugin. When set, the operator deploys the console plugin automatically.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -460,6 +472,35 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")
 		os.Exit(1)
+	}
+	if enableAgentic {
+		sandboxMgr := proposal.NewSandboxManager(mgr.GetClient(), namespace)
+		agentCaller := proposal.NewSandboxAgentCaller(
+			sandboxMgr,
+			mgr.GetClient(),
+			proposal.NewAgentHTTPClient,
+			namespace,
+			sandboxTemplateName,
+		)
+		if err = (&proposal.ProposalReconciler{
+			Client: mgr.GetClient(),
+			Log:    ctrl.Log.WithName("controllers").WithName("Proposal"),
+			Agent:  agentCaller,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Proposal")
+			os.Exit(1)
+		}
+		setupLog.Info("Agentic proposal controller enabled", "namespace", namespace, "sandboxTemplate", sandboxTemplateName)
+
+		if err = mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+			return agenticconsole.EnsureAgenticConsole(ctx, mgr.GetClient(), agenticconsole.AgenticConsoleConfig{
+				Image:     agenticConsoleImage,
+				Namespace: namespace,
+			})
+		})); err != nil {
+			setupLog.Error(err, "unable to add agentic console runnable")
+			os.Exit(1)
+		}
 	}
 	//+kubebuilder:scaffold:builder
 

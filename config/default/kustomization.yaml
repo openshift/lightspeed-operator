@@ -14,6 +14,7 @@ namePrefix: lightspeed-operator-
 resources:
   - ../crd
   - ../rbac
+  - ../rbac-agentic
   - ../manager
   - ../user-access
   # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in

@@ -1,0 +1,143 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: llmproviders.agentic.openshift.io
+spec:
+  group: agentic.openshift.io
+  names:
+    kind: LLMProvider
+    listKind: LLMProviderList
+    plural: llmproviders
+    singular: llmprovider
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.type
+      name: Type
+      type: string
+    - jsonPath: .spec.model
+      name: Model
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: "LLMProvider defines an LLM provider configuration. It is the
+          first link in\nthe CRD chain (LLMProvider -> Agent -> Workflow -> Proposal)
+          and is\nreferenced by Agent resources via spec.llmProvider.\n\nLLMProvider
+          is cluster-scoped — the cluster admin manages LLM infrastructure\ncentrally.
+          The operator uses the credentials and model to configure the LLM\nclient
+          inside agent sandbox pods.\n\nTypically you create a small number of providers
+          representing different\ncapability/cost tiers (e.g., \"smart\" for complex
+          analysis, \"fast\" for\nroutine execution) and then reference them from
+          multiple Agent resources.\n\nExample — a high-capability provider for analysis
+          tasks:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind: LLMProvider\n\tmetadata:\n\t
+          \ name: smart\n\tspec:\n\t  type: vertex\n\t  model: claude-opus-4-6\n\t
+          \ credentialsSecret:\n\t    name: llm-credentials\n\t    namespace: lightspeed-operator\n\nExample
+          — a fast, cost-efficient provider for execution tasks:\n\n\tapiVersion:
+          agentic.openshift.io/v1alpha1\n\tkind: LLMProvider\n\tmetadata:\n\t  name:
+          fast\n\tspec:\n\t  type: vertex\n\t  model: claude-haiku-4-5\n\t  credentialsSecret:\n\t
+          \   name: llm-credentials\n\t    namespace: lightspeed-operator"
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of LLMProvider.
+            properties:
+              credentialsSecret:
+                description: |-
+                  credentialsSecret references a Secret containing the provider credentials.
+                  Since LLMProvider is cluster-scoped, both name and namespace must be
+                  specified. The required keys depend on the provider type (see
+                  LLMProviderType for details). The operator reads this secret and injects
+                  the credentials into agent sandbox pods at runtime.
+                properties:
+                  name:
+                    description: name of the Secret.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: namespace of the Secret.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+              model:
+                description: |-
+                  model is the LLM model identifier as recognized by the provider
+                  (e.g., "claude-opus-4-6", "claude-haiku-4-5", "gpt-4o").
+                  Different agents can reference different LLMProviders to use different
+                  models for different tasks (e.g., a capable model for analysis,
+                  a fast model for execution). Must be 1-256 characters.
+                maxLength: 256
+                minLength: 1
+                type: string
+              type:
+                description: |-
+                  type is the LLM provider backend. Allowed values:
+                    - "Anthropic"   — Direct Anthropic API (secret needs ANTHROPIC_API_KEY).
+                    - "Vertex"      — Google Cloud Vertex AI (secret needs service account JSON,
+                      GCP_PROJECT, and GCP_REGION).
+                    - "OpenAI"      — OpenAI-compatible API (secret needs OPENAI_API_KEY).
+                    - "AzureOpenAI" — Azure OpenAI Service (secret needs AZURE_OPENAI_API_KEY,
+                      AZURE_OPENAI_ENDPOINT, and optionally AZURE_OPENAI_API_VERSION).
+                    - "Bedrock"     — AWS Bedrock (secret needs AWS_ACCESS_KEY_ID,
+                      AWS_SECRET_ACCESS_KEY, and AWS_REGION).
+                enum:
+                - Anthropic
+                - Vertex
+                - OpenAI
+                - AzureOpenAI
+                - Bedrock
+                type: string
+              url:
+                description: |-
+                  url is an optional override for the provider API endpoint.
+                  Most providers have well-known endpoints that the operator resolves
+                  automatically, so this is only needed for custom deployments or
+                  API proxies. This is not related to the cluster-wide egress proxy
+                  (config.openshift.io/v1 Proxy). The operator honors the cluster
+                  proxy configuration (HTTP_PROXY, HTTPS_PROXY, NO_PROXY) independently
+                  when making requests to the provider endpoint. Must be an HTTP or
+                  HTTPS URL, maximum 2048 characters.
+                maxLength: 2048
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: url must be a valid HTTP or HTTPS URL
+                  rule: isURL(self) && url(self).getScheme() in ['http', 'https']
+            required:
+            - credentialsSecret
+            - model
+            - type
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}

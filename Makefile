@@ -108,10 +108,19 @@ help: ## Display this help.
 
 # Controller-gen paths exclude test/e2e to avoid loading containers/image and its CGO deps (gpgme, etc.)
 CONTROLLER_GEN_PATHS = paths=./api/... paths=./internal/... paths=./cmd/...
+AGENTIC_OPERATOR_DIR ?= ../lightspeed-agentic-operator
+AGENTIC_CONTROLLER_GEN_PATHS = paths=$(AGENTIC_OPERATOR_DIR)/api/... paths=$(AGENTIC_OPERATOR_DIR)/controller/...
 
 .PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: manifests-ols manifests-agentic ## Generate all CRDs, RBAC, and webhook manifests.
+
+.PHONY: manifests-ols
+manifests-ols: controller-gen ## Generate OLS CRDs and RBAC.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook $(CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases
+
+.PHONY: manifests-agentic
+manifests-agentic: controller-gen ## Generate agentic CRDs and RBAC.
+	$(CONTROLLER_GEN) rbac:roleName=agentic-manager-role crd $(AGENTIC_CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases output:rbac:artifacts:config=config/rbac-agentic
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.

@@ -3,6 +3,11 @@
 # It should be run by config/default
 resources:
 - bases/ols.openshift.io_olsconfigs.yaml
+- bases/agentic.openshift.io_agents.yaml
+- bases/agentic.openshift.io_componenttools.yaml
+- bases/agentic.openshift.io_llmproviders.yaml
+- bases/agentic.openshift.io_proposals.yaml
+- bases/agentic.openshift.io_workflows.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:

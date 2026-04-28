@@ -1,0 +1,54 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agentic-manager-role
+rules:
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - agents
+  - componenttools
+  - llmproviders
+  - workflows
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - proposals
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - proposals/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - proposals/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
