@@ -60,18 +60,10 @@ spec:
         displayName: Azure OpenAI API Version
         path: llm.providers[0].apiVersion
       - description: |-
-          Arbitrary configuration for the provider (Llama Stack Generic mode only)
-          This map is passed directly to Llama Stack provider configuration.
-          Credentials are automatically injected as environment variable substitutions.
-          Example: {"url": "https://...", "custom_field": "value"}
-        displayName: Llama Stack Provider Config
-        path: llm.providers[0].config
-      - description: |-
           Secret key name for provider credentials (defaults to "apitoken" if not set).
           Specifies which key inside credentialsSecretRef to read the credential value from.
-          The credential value is always exposed to the container as env var {PROVIDER_NAME}_API_KEY
-          (derived from the provider name, not this field), and referenced in the Llama Stack config
-          YAML as ${env.PROVIDER_NAME_API_KEY}. This field only controls which secret data key is read.
+          The credential value is exposed to the app server container as env var {PROVIDER_NAME}_API_KEY
+          (derived from the provider name, not this field). This field only controls which secret data key is read.
         displayName: Credential Key Name
         path: llm.providers[0].credentialKey
       - description: Deployment name for Azure OpenAI provider
@@ -80,6 +72,24 @@ spec:
       - description: Fake Provider MCP Tool Call
         displayName: Fake Provider MCP Tool Call
         path: llm.providers[0].fakeProviderMCPToolCall
+      - description: Google Vertex Anthropic Config
+        displayName: Google Vertex Anthropic Config
+        path: llm.providers[0].googleVertexAnthropicConfig
+      - description: Server region location
+        displayName: Server Region Location
+        path: llm.providers[0].googleVertexAnthropicConfig.location
+      - description: Google Cloud project ID
+        displayName: Google Cloud Project ID
+        path: llm.providers[0].googleVertexAnthropicConfig.projectID
+      - description: Google Vertex Config
+        displayName: Google Vertex Config
+        path: llm.providers[0].googleVertexConfig
+      - description: Server region location
+        displayName: Server Region Location
+        path: llm.providers[0].googleVertexConfig.location
+      - description: Google Cloud project ID
+        displayName: Google Cloud Project ID
+        path: llm.providers[0].googleVertexConfig.projectID
       - description: List of models from the provider
         displayName: Models
         path: llm.providers[0].models
@@ -97,7 +107,7 @@ spec:
         displayName: Max Tokens For Response
         path: llm.providers[0].models[0].parameters.maxTokensForResponse
       - description: Ratio of context window size allocated for tool token budget.
-          Must be between 0.1 and 0.5. The default is 0.25.
+          Must be between 0.1 and 0.5. The default is 0.5.
         displayName: Tool Budget Ratio
         path: llm.providers[0].models[0].parameters.toolBudgetRatio
       - description: Model API URL
@@ -106,12 +116,6 @@ spec:
       - description: Watsonx Project ID
         displayName: Watsonx Project ID
         path: llm.providers[0].projectID
-      - description: |-
-          Llama Stack Generic provider type for provider configuration (e.g., "remote::openai", "inline::sentence-transformers")
-          When set, this provider uses Llama Stack Generic mode instead of legacy mode.
-          Must follow pattern: (inline|remote)::<provider-name>
-        displayName: Llama Stack Provider Type
-        path: llm.providers[0].providerType
       - description: TLS Security Profile used by connection to provider
         displayName: TLS Security Profile
         path: llm.providers[0].tlsSecurityProfile
@@ -223,9 +227,6 @@ spec:
         path: ols.deployment.database.replicas
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podCount
-      - description: Llama Stack container settings.
-        displayName: Llama Stack Container
-        path: ols.deployment.llamaStack
       - description: MCP server container settings.
         displayName: MCP Server Container
         path: ols.deployment.mcpServer

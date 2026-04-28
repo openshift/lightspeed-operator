@@ -21,13 +21,10 @@ type TestReconciler struct {
 	AppServerImage      string
 	McpServerImage      string
 	DataverseExporter   string
-	LCoreImage          string
 	openShiftMajor      string
 	openShiftMinor      string
 	PrometheusAvailable bool
 	watcherConfig       interface{}
-	useLCore            bool
-	lcoreServerMode     bool
 }
 
 func (r *TestReconciler) GetScheme() *runtime.Scheme {
@@ -70,10 +67,6 @@ func (r *TestReconciler) GetDataverseExporterImage() string {
 	return r.DataverseExporter
 }
 
-func (r *TestReconciler) GetLCoreImage() string {
-	return r.LCoreImage
-}
-
 func (r *TestReconciler) IsPrometheusAvailable() bool {
 	return r.PrometheusAvailable
 }
@@ -82,24 +75,8 @@ func (r *TestReconciler) GetWatcherConfig() interface{} {
 	return r.watcherConfig
 }
 
-func (r *TestReconciler) UseLCore() bool {
-	return r.useLCore
-}
-
-func (r *TestReconciler) GetLCoreServerMode() bool {
-	return r.lcoreServerMode
-}
-
-func (r *TestReconciler) SetLCoreServerMode(lcoreServerMode bool) {
-	r.lcoreServerMode = lcoreServerMode
-}
-
 func (r *TestReconciler) SetWatcherConfig(config interface{}) {
 	r.watcherConfig = config
-}
-
-func (r *TestReconciler) SetUseLCore(useLCore bool) {
-	r.useLCore = useLCore
 }
 
 // NewTestReconciler creates a new TestReconciler instance with the provided parameters
@@ -118,7 +95,6 @@ func NewTestReconciler(
 		ConsoleImage:        ConsoleUIImageDefault,
 		AppServerImage:      OLSAppServerImageDefault,
 		McpServerImage:      OLSAppServerImageDefault,
-		LCoreImage:          LlamaStackImageDefault,
 		DataverseExporter:   DataverseExporterImageDefault,
 		openShiftMajor:      "123",
 		openShiftMinor:      "456",

@@ -10,7 +10,7 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
-func generateLLMTokenSecret(name string) (*corev1.Secret, error) { // nolint:unused
+func generateLLMTokenSecret(name string) (*corev1.Secret, error) {
 	token := os.Getenv(LLMTokenEnvVar)
 	var tenantID = os.Getenv(AzureTenantID)
 	var clientID = os.Getenv(AzureClientID)
@@ -43,7 +43,7 @@ func generateLLMTokenSecret(name string) (*corev1.Secret, error) { // nolint:unu
 	}
 }
 
-func generateOLSConfig() (*olsv1alpha1.OLSConfig, error) { // nolint:unused
+func generateOLSConfig() (*olsv1alpha1.OLSConfig, error) {
 	llmProvider := os.Getenv(LLMProviderEnvVar)
 	if llmProvider == "" {
 		llmProvider = LLMDefaultProvider

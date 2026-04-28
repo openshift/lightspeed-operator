@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-04-28T13:14:59Z"
+    createdAt: "2026-04-28T19:21:45Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -55,7 +55,7 @@ metadata:
     operators.operatorframework.io/builder: operator-sdk-v1.36.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openshift/lightspeed-operator
-  name: lightspeed-operator.v1.0.12
+  name: lightspeed-operator.v1.0.11
   namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
@@ -94,18 +94,10 @@ spec:
             displayName: Azure OpenAI API Version
             path: llm.providers[0].apiVersion
           - description: |-
-              Arbitrary configuration for the provider (Llama Stack Generic mode only)
-              This map is passed directly to Llama Stack provider configuration.
-              Credentials are automatically injected as environment variable substitutions.
-              Example: {"url": "https://...", "custom_field": "value"}
-            displayName: Llama Stack Provider Config
-            path: llm.providers[0].config
-          - description: |-
               Secret key name for provider credentials (defaults to "apitoken" if not set).
               Specifies which key inside credentialsSecretRef to read the credential value from.
-              The credential value is always exposed to the container as env var {PROVIDER_NAME}_API_KEY
-              (derived from the provider name, not this field), and referenced in the Llama Stack config
-              YAML as ${env.PROVIDER_NAME_API_KEY}. This field only controls which secret data key is read.
+              The credential value is exposed to the app server container as env var {PROVIDER_NAME}_API_KEY
+              (derived from the provider name, not this field). This field only controls which secret data key is read.
             displayName: Credential Key Name
             path: llm.providers[0].credentialKey
           - description: Deployment name for Azure OpenAI provider
@@ -156,12 +148,6 @@ spec:
           - description: Watsonx Project ID
             displayName: Watsonx Project ID
             path: llm.providers[0].projectID
-          - description: |-
-              Llama Stack Generic provider type for provider configuration (e.g., "remote::openai", "inline::sentence-transformers")
-              When set, this provider uses Llama Stack Generic mode instead of legacy mode.
-              Must follow pattern: (inline|remote)::<provider-name>
-            displayName: Llama Stack Provider Type
-            path: llm.providers[0].providerType
           - description: TLS Security Profile used by connection to provider
             displayName: TLS Security Profile
             path: llm.providers[0].tlsSecurityProfile
@@ -271,9 +257,6 @@ spec:
             path: ols.deployment.database.replicas
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:podCount
-          - description: Llama Stack container settings.
-            displayName: Llama Stack Container
-            path: ols.deployment.llamaStack
           - description: MCP server container settings.
             displayName: MCP Server Container
             path: ols.deployment.mcpServer
@@ -400,7 +383,6 @@ spec:
                 - tls.crt: Server certificate (PEM format) - REQUIRED
                 - tls.key: Private key (PEM format) - REQUIRED
                 - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
-
 
               If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
             displayName: TLS Certificate Secret Reference
@@ -889,9 +871,6 @@ spec:
                       - --metrics-bind-address=:8443
                       - --secure-metrics-server
                       - --cert-dir=/etc/tls/private
-                      - --lcore-image=quay.io/lightspeed-core/lightspeed-stack:dev-latest
-                      - --use-lcore=false
-                      - --lcore-server=true
                       - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:fefb1c9a1bc80d6c400d82ba399192743f3cbcefa9ddb231dfbebe02f6b42b28
                       - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:dca5b865c05d23f4084a901fe3ec12b39f6d5055072a2bd9d3e0d109ccfb1b04
                       - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:b478030eccecbcd9799ef70c0121536fa689629226bbce76d3e3b85ec4e031aa
@@ -1015,7 +994,7 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/openshift/lightspeed-service
-  version: 1.0.12
+  version: 1.0.11
   relatedImages:
     - name: lightspeed-service-api
       image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:fefb1c9a1bc80d6c400d82ba399192743f3cbcefa9ddb231dfbebe02f6b42b28
