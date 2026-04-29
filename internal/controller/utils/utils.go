@@ -11,7 +11,7 @@
 //   - Configuration data structures for OLS components
 //
 // The utilities in this package are designed to be reusable across all operator
-// components (appserver, postgres, console) and promote consistency in resource
+// components (`appserver`, `postgres`, `console`) and promote consistency in resource
 // naming, labeling, and error handling throughout the codebase.
 package utils
 
@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -44,82 +43,6 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 )
-
-// setDeploymentContainerEnvs sets the envs for a specific container in a given deployment.
-func SetDeploymentContainerEnvs(deployment *appsv1.Deployment, desiredEnvs []corev1.EnvVar, containerName string) (bool, error) {
-	containerIndex, err := GetContainerIndex(deployment, containerName)
-	if err != nil {
-		return false, err
-	}
-	existingEnvs := deployment.Spec.Template.Spec.Containers[containerIndex].Env
-	if !apiequality.Semantic.DeepEqual(existingEnvs, desiredEnvs) {
-		deployment.Spec.Template.Spec.Containers[containerIndex].Env = desiredEnvs
-		return true, nil
-	}
-	return false, nil
-}
-
-// setDeploymentContainerResources sets the resource requirements for a specific container in a given deployment.
-// setDeploymentContainerVolumeMounts sets the volume mounts for a specific container in a given deployment.
-func SetDeploymentContainerVolumeMounts(deployment *appsv1.Deployment, containerName string, volumeMounts []corev1.VolumeMount) (bool, error) {
-	containerIndex, err := GetContainerIndex(deployment, containerName)
-	if err != nil {
-		return false, err
-	}
-	existingVolumeMounts := deployment.Spec.Template.Spec.Containers[containerIndex].VolumeMounts
-	if !apiequality.Semantic.DeepEqual(existingVolumeMounts, volumeMounts) {
-		deployment.Spec.Template.Spec.Containers[containerIndex].VolumeMounts = volumeMounts
-		return true, nil
-	}
-
-	return false, nil
-}
-
-// getContainerIndex returns the index of the container with the specified name in a given deployment.
-func GetContainerIndex(deployment *appsv1.Deployment, containerName string) (int, error) {
-	for i, container := range deployment.Spec.Template.Spec.Containers {
-		if container.Name == containerName {
-			return i, nil
-		}
-	}
-	return -1, fmt.Errorf("container %s not found in deployment %s", containerName, deployment.Name)
-}
-
-// ProviderNameToEnvVarName converts a provider name to a valid environment variable name.
-// Kubernetes resource names typically use hyphens (DNS-1123), but environment variable
-// names cannot contain hyphens. This function replaces hyphens with underscores and
-// converts to uppercase for consistency with environment variable naming conventions.
-// Characters that are not valid in POSIX environment variable names ([A-Za-z0-9_])
-// are stripped before conversion. Hyphens are replaced with underscores.
-// IMPORTANT: Names that sanitize to empty or start with digits are prefixed with an underscore
-// to ensure compliance with POSIX environment variable naming rules (must not be empty,
-// must not start with a digit).
-//
-// Example: "my-provider"    -> "MY_PROVIDER"
-// Example: "provider@test"  -> "PROVIDERTEST"
-// Example: "123provider"    -> "_123PROVIDER"
-// Example: "!@#$%"          -> "_"
-func ProviderNameToEnvVarName(providerName string) string {
-	// Strip characters that are invalid in POSIX environment variable names.
-	// Only alphanumeric, hyphens (converted below), and underscores are kept.
-	sanitized := envVarSanitizeRegex.ReplaceAllString(providerName, "")
-	// Replace hyphens with underscores for valid environment variable names
-	envVarName := strings.ReplaceAll(sanitized, "-", "_")
-	// Convert to uppercase for standard environment variable convention
-	result := strings.ToUpper(envVarName)
-
-	// POSIX env var names must not be empty and must not start with a digit.
-	// Prefix with underscore to satisfy both rules.
-	if len(result) == 0 || (result[0] >= '0' && result[0] <= '9') {
-		result = "_" + result
-	}
-
-	return result
-}
-
-// envVarSanitizeRegex strips characters that are not valid in environment variable names.
-// Keeps alphanumeric, hyphens (converted to underscores later), and underscores.
-var envVarSanitizeRegex = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 
 // GetResourcesOrDefault returns custom resources from CR if specified, otherwise returns defaults.
 // This is a common pattern used across all component resource getters to avoid repetitive
@@ -165,17 +88,17 @@ func RestrictedContainerSecurityContext() *corev1.SecurityContext {
 // Parameters:
 //   - deployment: The deployment to modify
 //   - config: The PodDeploymentConfig containing the desired settings
-//   - applyReplicas: Whether to apply the Replicas field (only true for appserver/lcore)
+//   - applyReplicas: Whether to apply the Replicas field (only true for appserver)
 //
 // Usage:
 //
 //	// For console/postgres (replicas always 1):
 //	utils.ApplyPodDeploymentConfig(deployment, cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer, false)
 //
-//	// For appserver/lcore (replicas configurable):
+//	// For appserver (replicas configurable):
 //	utils.ApplyPodDeploymentConfig(deployment, cr.Spec.OLSConfig.DeploymentConfig.APIContainer, true)
 func ApplyPodDeploymentConfig(deployment *appsv1.Deployment, config olsv1alpha1.Config, applyReplicas bool) {
-	// Apply replicas if allowed (only for appserver/lcore)
+	// Apply replicas if allowed (only for appserver)
 	if applyReplicas && config.Replicas != nil {
 		deployment.Spec.Replicas = config.Replicas
 	} else {
@@ -209,20 +132,6 @@ func GetSecretContent(rclient client.Client, ctx context.Context, secretName str
 			return nil, fmt.Errorf("secret field %s not present in the secret", field)
 		}
 		secretValues[field] = string(value)
-	}
-
-	return secretValues, nil
-}
-
-func GetAllSecretContent(rclient client.Client, ctx context.Context, secretName string, namespace string, foundSecret *corev1.Secret) (map[string]string, error) {
-	err := rclient.Get(ctx, client.ObjectKey{Name: secretName, Namespace: namespace}, foundSecret)
-	if err != nil {
-		return nil, fmt.Errorf("secret not found: %s. error: %w", secretName, err)
-	}
-
-	secretValues := make(map[string]string)
-	for key, value := range foundSecret.Data {
-		secretValues[key] = string(value)
 	}
 
 	return secretValues, nil
@@ -587,29 +496,6 @@ func GetPostgresCAVolumeMount(mountPath string) corev1.VolumeMount {
 	}
 }
 
-// GetCAFromConfigMap retrieves CA certificate content from a ConfigMap.
-// It accepts any key name in the ConfigMap and returns the first value found.
-func GetCAFromConfigMap(rclient client.Client, ctx context.Context, namespace, configMapName string) (string, error) {
-	configMap := &corev1.ConfigMap{}
-	err := rclient.Get(ctx, client.ObjectKey{
-		Name:      configMapName,
-		Namespace: namespace,
-	}, configMap)
-	if err != nil {
-		return "", fmt.Errorf("ConfigMap not found: %s. error: %w", configMapName, err)
-	}
-
-	if len(configMap.Data) == 0 {
-		return "", fmt.Errorf("ConfigMap %s is empty (no keys found)", configMapName)
-	}
-
-	// Use first key found (works for single or multiple keys)
-	for _, value := range configMap.Data {
-		return value, nil
-	}
-	return "", nil
-}
-
 // GetCAFromSecret retrieves CA certificate content from a Secret.
 // It looks for the "ca.crt" key in the Secret's Data field.
 // Returns empty string if the key doesn't exist (not an error - CA is optional).
@@ -632,29 +518,19 @@ func GetCAFromSecret(rclient client.Client, ctx context.Context, namespace, secr
 	return string(caCert), nil
 }
 
-// ValidateLLMCredentials validates that all LLM provider credentials are present and valid.
-// It checks that each provider's credential secret exists and contains the required keys.
-// For generic providers with custom config, it validates the config JSON is well-formed.
+// ValidateLLMCredentials validates that all LLM provider credentials are present and usable.
+// It rejects unsupported provider type llamaStackGeneric (defensive, for stale CR data).
+// For each provider it requires credentialsSecretRef, loads the secret, then checks Data keys:
+// Azure OpenAI accepts the default credential key or client_id/tenant_id/client_secret;
+// Google Vertex (and Anthropic) use credentialKey when set, otherwise the default key;
+// all other supported types require the default credential key.
 func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	for _, provider := range cr.Spec.LLMConfig.Providers {
-		// Llama Stack Generic providers require LCore backend (AppServer does not support llamaStackGeneric providers)
-		// LCore is the future direction; AppServer is being deprecated
-		if provider.Type == LlamaStackGenericType && !r.UseLCore() {
-			return fmt.Errorf("LLM provider '%s' uses type '%s' which requires LCore backend. Enable LCore with --enable-lcore operator flag", provider.Name, LlamaStackGenericType)
+		if provider.Type == LlamaStackGenericType {
+			return fmt.Errorf("LLM provider '%s' uses type '%s' which is not supported in this operator build", provider.Name, LlamaStackGenericType)
 		}
 
-		// Generic providers may operate without credentials (public/unauthenticated endpoints)
 		if provider.CredentialsSecretRef.Name == "" {
-			if provider.Type == LlamaStackGenericType {
-				// Still validate Config JSON for public endpoints, even without credentials
-				if provider.Config != nil && provider.Config.Raw != nil {
-					var config map[string]interface{}
-					if err := json.Unmarshal(provider.Config.Raw, &config); err != nil {
-						return fmt.Errorf("LLM provider %s config is not valid JSON: %w", provider.Name, err)
-					}
-				}
-				continue
-			}
 			return fmt.Errorf("provider %s missing credentials secret", provider.Name)
 		}
 
@@ -668,33 +544,7 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 		}
 
 		// Validate credential keys based on provider configuration
-		if provider.ProviderType != "" {
-			// Generic provider configuration: validate credentialKey exists
-			credentialKey := provider.CredentialKey
-			if credentialKey == "" {
-				credentialKey = DefaultCredentialKey
-			}
-
-			// Validate credentialKey is not empty (should be caught by CRD validation but double-check)
-			if strings.TrimSpace(credentialKey) == "" {
-				return fmt.Errorf("LLM provider %s: credentialKey must not be empty or whitespace", provider.Name)
-			}
-
-			// Check if the specified credential key exists in secret
-			if _, ok := secret.Data[credentialKey]; !ok {
-				return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, credentialKey)
-			}
-
-			// Validate provider config JSON is well-formed
-			if provider.Config != nil && provider.Config.Raw != nil {
-				var config map[string]interface{}
-				if err := json.Unmarshal(provider.Config.Raw, &config); err != nil {
-					// Strict validation: reject malformed JSON in generic provider config
-					return fmt.Errorf("LLM provider %s config is not valid JSON: %w", provider.Name, err)
-				}
-			}
-
-		} else if provider.Type == AzureOpenAIType {
+		if provider.Type == AzureOpenAIType {
 			// Azure OpenAI provider: secret must contain default credential key or 3 keys named "client_id", "tenant_id", "client_secret"
 			if _, ok := secret.Data[DefaultCredentialKey]; ok {
 				continue
@@ -838,16 +688,6 @@ func GetProxyCACertHash(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 
 	hash := sha256.Sum256([]byte(certData))
 	return hex.EncodeToString(hash[:]), nil
-}
-
-// GetSecretResourceVersion returns the ResourceVersion of a Secret.
-func GetSecretResourceVersion(r reconciler.Reconciler, ctx context.Context, secretName string) (string, error) {
-	secret := &corev1.Secret{}
-	err := r.Get(ctx, client.ObjectKey{Name: secretName, Namespace: r.GetNamespace()}, secret)
-	if err != nil {
-		return "", err
-	}
-	return secret.ResourceVersion, nil
 }
 
 // The callback function receives:
