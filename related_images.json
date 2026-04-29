@@ -1,8 +1,8 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:acaca3c7eeda30b1bf423f40af280056429a1713cd06d174540f9361ddec2c0c",
-    "revision": "2f58abf76f20dcfac44d1697c840700553148d4c"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:d10017efd4fdb0e1fd77f99a7c0a42dd1ecfe50f73342a6e2bf614f653cf0cec",
+    "revision": "dda3a537520bea0b9a8d886be9e6acd6f652416a"
   },
   {
     "name": "lightspeed-console-plugin",

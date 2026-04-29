@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-04-29T17:00:03Z"
+    createdAt: "2026-04-29T19:47:51Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -892,7 +892,7 @@ spec:
                       - --lcore-image=quay.io/lightspeed-core/lightspeed-stack:dev-latest
                       - --use-lcore=false
                       - --lcore-server=true
-                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:acaca3c7eeda30b1bf423f40af280056429a1713cd06d174540f9361ddec2c0c
+                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:d10017efd4fdb0e1fd77f99a7c0a42dd1ecfe50f73342a6e2bf614f653cf0cec
                       - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:dca5b865c05d23f4084a901fe3ec12b39f6d5055072a2bd9d3e0d109ccfb1b04
                       - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:b478030eccecbcd9799ef70c0121536fa689629226bbce76d3e3b85ec4e031aa
                       - --console-image-4-19=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:dfb9aed8a3b0f7a29266518516fd92694c48bc7e86054dd28d4bf89dd13c4f37
@@ -1018,7 +1018,7 @@ spec:
   version: 1.0.12
   relatedImages:
     - name: lightspeed-service-api
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:acaca3c7eeda30b1bf423f40af280056429a1713cd06d174540f9361ddec2c0c
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:d10017efd4fdb0e1fd77f99a7c0a42dd1ecfe50f73342a6e2bf614f653cf0cec
     - name: lightspeed-console-plugin
       image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:dca5b865c05d23f4084a901fe3ec12b39f6d5055072a2bd9d3e0d109ccfb1b04
     - name: lightspeed-console-plugin-pf5
