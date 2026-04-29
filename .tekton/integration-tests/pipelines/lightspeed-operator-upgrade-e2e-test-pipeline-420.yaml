@@ -216,9 +216,14 @@ spec:
               echo "---------------------------------------------"
               oc create namespace $(params.namespace)
               oc label namespaces $(params.namespace) openshift.io/cluster-monitoring=true --overwrite=true
-              LATEST_BUNDLE=$(ls lightspeed-catalog-4.20/bundle-v* | sort -V -r | head -n 2 | tail -n 1)
-              export BUNDLE_IMAGE=$(cat $LATEST_BUNDLE | yq '.relatedImages[] | select(.name == "lightspeed-operator-bundle") | .image')
-              echo "installing ${LATEST_BUNDLE} bundle image"
+              BUNDLE_COUNT=$(ls -d lightspeed-catalog-4.20/bundle-v* 2>/dev/null | wc -l)
+              if [ "$BUNDLE_COUNT" -lt 2 ]; then
+                echo "ERROR: need at least 2 bundles to test an upgrade, found $BUNDLE_COUNT"
+                exit 1
+              fi
+              PREVIOUS_BUNDLE=$(ls lightspeed-catalog-4.20/bundle-v* | sort -V -r | head -n 2 | tail -n 1)
+              export BUNDLE_IMAGE=$(cat $PREVIOUS_BUNDLE | yq '.relatedImages[] | select(.name == "lightspeed-operator-bundle") | .image')
+              echo "installing ${PREVIOUS_BUNDLE} bundle image"
               operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
               echo "---------------------------------------------"
               echo "---------------------------------------------"

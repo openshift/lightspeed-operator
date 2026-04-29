@@ -3,6 +3,8 @@ package e2e
 const (
 	// OLSNameSpace is the namespace where the operator is deployed
 	OLSNameSpace = "openshift-lightspeed"
+	// OperatorPackageName is the OLM catalog package name for the operator
+	OperatorPackageName = "lightspeed-operator"
 	// OperatorDeploymentName is the name of the operator deployment
 	OperatorDeploymentName = "lightspeed-operator-controller-manager"
 	// LLMTokenEnvVar is the environment variable containing the LLM API token

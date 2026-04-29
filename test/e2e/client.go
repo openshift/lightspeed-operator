@@ -871,18 +871,32 @@ func (c *Client) UpgradeOperator(namespace string) error {
 		return fmt.Errorf("failed to list subscriptions in namespace %s: %w", namespace, err)
 	}
 
-	if len(subscriptionList.Items) == 0 {
-		return fmt.Errorf("no subscriptions found in namespace %s", namespace)
+	var subscription *unstructured.Unstructured
+	for i := range subscriptionList.Items {
+		name, _, _ := unstructured.NestedString(subscriptionList.Items[i].Object, "spec", "name")
+		if name == OperatorPackageName {
+			subscription = &subscriptionList.Items[i]
+			break
+		}
 	}
 
-	subscription := &subscriptionList.Items[0]
+	if subscription == nil {
+		return fmt.Errorf("%s subscription not found in namespace %s", OperatorPackageName, namespace)
+	}
 
-	currentCSV, found, err := unstructured.NestedString(subscription.Object, "spec", "name")
+	currentCSV, found, err := unstructured.NestedString(subscription.Object, "status", "installedCSV")
 	if err != nil || !found {
 		return fmt.Errorf("failed to get current CSV from subscription: %w", err)
 	}
 
 	logf.Log.Info("Current CSV", "csv", currentCSV)
+
+	subscriptionChannel, found, err := unstructured.NestedString(subscription.Object, "spec", "channel")
+	if err != nil || !found {
+		return fmt.Errorf("failed to get channel from subscription: %w", err)
+	}
+
+	logf.Log.Info("Subscription channel", "channel", subscriptionChannel)
 
 	packageManifestList := &unstructured.UnstructuredList{}
 	packageManifestList.SetGroupVersionKind(schema.GroupVersionKind{
@@ -899,14 +913,14 @@ func (c *Client) UpgradeOperator(namespace string) error {
 	var lightspeedPackageManifest *unstructured.Unstructured
 	for i := range packageManifestList.Items {
 		name, _, _ := unstructured.NestedString(packageManifestList.Items[i].Object, "metadata", "name")
-		if name == "lightspeed-operator" {
+		if name == OperatorPackageName {
 			lightspeedPackageManifest = &packageManifestList.Items[i]
 			break
 		}
 	}
 
 	if lightspeedPackageManifest == nil {
-		return fmt.Errorf("lightspeed-operator packagemanifest not found in openshift-marketplace")
+		return fmt.Errorf("%s packagemanifest not found in openshift-marketplace", OperatorPackageName)
 	}
 
 	channels, found, err := unstructured.NestedSlice(lightspeedPackageManifest.Object, "status", "channels")
@@ -914,14 +928,39 @@ func (c *Client) UpgradeOperator(namespace string) error {
 		return fmt.Errorf("failed to get channels from packagemanifest: %w", err)
 	}
 
-	firstChannel, ok := channels[0].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("invalid channel format in packagemanifest")
+	// Determine which channel to look up in the PackageManifest.
+	// When installed via "operator-sdk run bundle", the subscription has a
+	// synthetic channel ("operator-sdk-run-bundle") that doesn't exist in
+	// the PackageManifest, so fall back to the manifest's defaultChannel.
+	targetChannel := subscriptionChannel
+
+	channelsByName := make(map[string]map[string]interface{}, len(channels))
+	for _, ch := range channels {
+		chMap, ok := ch.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _, _ := unstructured.NestedString(chMap, "name")
+		channelsByName[name] = chMap
 	}
 
-	latestCSV, found, err := unstructured.NestedString(firstChannel, "currentCSV")
+	if _, ok := channelsByName[targetChannel]; !ok {
+		defaultChannel, found, err := unstructured.NestedString(lightspeedPackageManifest.Object, "status", "defaultChannel")
+		if err != nil || !found {
+			return fmt.Errorf("subscription channel %q not found in packagemanifest and no defaultChannel available: %w", targetChannel, err)
+		}
+		logf.Log.Info("Subscription channel not in packagemanifest, falling back to defaultChannel", "subscriptionChannel", targetChannel, "defaultChannel", defaultChannel)
+		targetChannel = defaultChannel
+	}
+
+	matchedChannel, ok := channelsByName[targetChannel]
+	if !ok {
+		return fmt.Errorf("channel %q not found in packagemanifest", targetChannel)
+	}
+
+	latestCSV, found, err := unstructured.NestedString(matchedChannel, "currentCSV")
 	if err != nil || !found {
-		return fmt.Errorf("failed to get latest CSV from packagemanifest: %w", err)
+		return fmt.Errorf("failed to get latest CSV from channel %q: %w", targetChannel, err)
 	}
 
 	logf.Log.Info("Latest CSV", "csv", latestCSV)
@@ -939,11 +978,18 @@ func (c *Client) UpgradeOperator(namespace string) error {
 			return err
 		}
 
-		if len(subscriptionList.Items) == 0 {
-			return fmt.Errorf("subscription disappeared during update")
+		var subscription *unstructured.Unstructured
+		for i := range subscriptionList.Items {
+			name, _, _ := unstructured.NestedString(subscriptionList.Items[i].Object, "spec", "name")
+			if name == OperatorPackageName {
+				subscription = &subscriptionList.Items[i]
+				break
+			}
 		}
 
-		subscription := &subscriptionList.Items[0]
+		if subscription == nil {
+			return fmt.Errorf("%s subscription disappeared during update", OperatorPackageName)
+		}
 
 		if err := unstructured.SetNestedField(subscription.Object, latestCSV, "spec", "startingCSV"); err != nil {
 			return fmt.Errorf("failed to set startingCSV in subscription: %w", err)
