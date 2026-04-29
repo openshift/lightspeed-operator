@@ -124,7 +124,7 @@ var _ = Describe("BYOK", Ordered, Label("BYOK"), FlakeAttempts(5), func() {
 		By("Testing HTTPS POST on /v1/query endpoint by OLS user")
 		reqBody := []byte(`{"query": "what CPU architectures does the assisted installer support?"}`)
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
-		CheckErrorAndRestartPortForwardingTestEnvironment(env, err)
+		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))

@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
@@ -133,7 +134,7 @@ func SetupOLSTestEnvironment(crModifier func(*olsv1alpha1.OLSConfig), callback f
 	return env, nil
 }
 
-func CheckErrorAndRestartPortForwardingTestEnvironment(env *OLSTestEnvironment, err error) {
+func CheckEOFAndRestartPortForwarding(env *OLSTestEnvironment, err error) {
 	if err == nil {
 		return
 	}
@@ -253,6 +254,88 @@ func TestHTTPSQueryEndpoint(env *OLSTestEnvironment, secret *corev1.Secret, requ
 	}
 
 	return resp, body, nil
+}
+
+// GetPodLogs retrieves logs from a pod in the specified namespace.
+// containerName can be empty to get logs from the first container.
+// sinceTime can be nil to get all logs, or a time.Time to get logs since that time.
+func GetPodLogs(c *Client, namespace, podName, containerName string, sinceTime *time.Time) (string, error) {
+	logOptions := &corev1.PodLogOptions{}
+	if containerName != "" {
+		logOptions.Container = containerName
+	}
+	if sinceTime != nil {
+		metaTime := metav1.NewTime(*sinceTime)
+		logOptions.SinceTime = &metaTime
+	}
+
+	req := c.clientset.CoreV1().Pods(namespace).GetLogs(podName, logOptions)
+	podLogs, err := req.Stream(context.Background())
+	if err != nil {
+		return "", fmt.Errorf("failed to get pod logs: %w", err)
+	}
+	defer podLogs.Close()
+
+	logs, err := io.ReadAll(podLogs)
+	if err != nil {
+		return "", fmt.Errorf("failed to read pod logs: %w", err)
+	}
+
+	return string(logs), nil
+}
+
+// GetAppServerPodLogs retrieves logs from an OLS app server pod.
+// It finds the first running app server pod and returns its logs from the lightspeed-service-api container.
+func GetAppServerPodLogs(c *Client, sinceTime *time.Time) (string, string, error) {
+	// Get app server deployment to find pod selector
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      AppServerDeploymentName,
+			Namespace: OLSNameSpace,
+		},
+	}
+	err := c.Get(deployment)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get app server deployment: %w", err)
+	}
+
+	// Get pods matching the deployment selector
+	selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to parse deployment selector: %w", err)
+	}
+
+	podList := &corev1.PodList{}
+	err = c.List(podList, client.InNamespace(OLSNameSpace), client.MatchingLabelsSelector{Selector: selector})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to list pods: %w", err)
+	}
+
+	if len(podList.Items) == 0 {
+		return "", "", fmt.Errorf("no app server pods found")
+	}
+
+	// Find first running pod
+	var targetPod *corev1.Pod
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		if pod.Status.Phase == corev1.PodRunning {
+			targetPod = pod
+			break
+		}
+	}
+
+	if targetPod == nil {
+		return "", "", fmt.Errorf("no running app server pods found")
+	}
+
+	// Get logs from the lightspeed-service-api container
+	logs, err := GetPodLogs(c, OLSNameSpace, targetPod.Name, "lightspeed-service-api", sinceTime)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get logs from pod %s: %w", targetPod.Name, err)
+	}
+
+	return logs, targetPod.Name, nil
 }
 
 // CreateOLSRoute creates a route for the OLS application
@@ -395,6 +478,61 @@ func WriteLogsToFile(client *Client, clusterDir string) error {
 	}
 
 	return nil
+}
+
+// QueryPostgresDB executes a SQL query in the postgres pod and returns the output.
+func QueryPostgresDB(c *Client, podName, sqlQuery string) (string, error) {
+	cmd := exec.CommandContext(
+		context.TODO(),
+		"oc",
+		"--kubeconfig", c.kubeconfigPath,
+		"exec", podName,
+		"-n", OLSNameSpace,
+		"--",
+		"psql",
+		"-c", sqlQuery,
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to execute SQL command: %w, output: %s", err, string(output))
+	}
+	return string(output), nil
+}
+
+// GetDatabasePod returns the most recent running postgres pod from the given deployment.
+func GetDatabasePod(c *Client, deployment *appsv1.Deployment) (*corev1.Pod, error) {
+	selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse deployment selector: %w", err)
+	}
+
+	podList := &corev1.PodList{}
+	err = c.List(podList, client.InNamespace(OLSNameSpace), client.MatchingLabelsSelector{Selector: selector})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pods: %w", err)
+	}
+
+	if len(podList.Items) == 0 {
+		return nil, fmt.Errorf("no database pod found")
+	}
+
+	// Find the most recent running or pending pod
+	var latestPod *corev1.Pod
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		if pod.Status.Phase != corev1.PodRunning && pod.Status.Phase != corev1.PodPending {
+			continue
+		}
+		if latestPod == nil || pod.CreationTimestamp.After(latestPod.CreationTimestamp.Time) {
+			latestPod = pod
+		}
+	}
+
+	if latestPod == nil {
+		return nil, fmt.Errorf("no running or pending database pod found")
+	}
+
+	return latestPod, nil
 }
 
 func mustGather(test_case string) error {

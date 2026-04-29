@@ -18,7 +18,7 @@ func invokeOLS(env *OLSTestEnvironment, secret *corev1.Secret, query string, exp
 	reqBody := []byte(`{"query": "` + query + `"}`)
 	Eventually(func() bool {
 		resp, body, err := TestHTTPSQueryEndpoint(env, secret, reqBody)
-		CheckErrorAndRestartPortForwardingTestEnvironment(env, err)
+		CheckEOFAndRestartPortForwarding(env, err)
 		if err != nil && strings.Contains(err.Error(), "EOF") {
 			// retry in next iteration after port forwarding restarts
 			return !expected_success
