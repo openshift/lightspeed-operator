@@ -31,7 +31,7 @@ for profile in "${SKILLS_PROFILES[@]}"; do
     push_image "lightspeed-skills-${profile}" "${NS_OPERATOR}" "${img_tag}"
 done
 
-step "Restarting agent pod"
-restart_pod "lightspeed-chat" "${NS_OPERATOR}" "Agent pod"
+# Sandbox pods use OCI image volumes — new sandboxes will automatically
+# pick up the updated skills images. No pod restart needed.
 
 echo -e "\n${GREEN}All skills images redeployed.${NC}"

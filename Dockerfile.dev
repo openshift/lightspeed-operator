@@ -1,0 +1,39 @@
+# Dev build — uses local lightspeed-agentic-operator source instead of fetching from GitHub.
+# Build context must be the workspace root (parent of lightspeed-operator/).
+#
+# Usage: docker build -f lightspeed-operator/Dockerfile.dev -t operator:dev .
+FROM registry.redhat.io/ubi9/go-toolset:9.7-1777043046 AS builder
+
+WORKDIR /workspace
+
+# Copy the local agentic operator module first
+COPY lightspeed-agentic-operator/ /workspace/lightspeed-agentic-operator/
+
+# Copy the operator module manifests
+COPY lightspeed-operator/go.mod lightspeed-operator/go.sum ./
+
+USER 0
+
+# Point to the local agentic operator instead of the remote
+RUN go mod edit -replace github.com/openshift/lightspeed-agentic-operator=./lightspeed-agentic-operator \
+    && go mod edit -replace github.com/harche/lightspeed-agentic-operator=./lightspeed-agentic-operator
+
+RUN go mod download
+
+# Copy the operator source
+COPY lightspeed-operator/cmd/ cmd/
+COPY lightspeed-operator/api/ api/
+COPY lightspeed-operator/internal/ internal/
+COPY lightspeed-operator/LICENSE /licenses/
+
+USER 0
+
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} go build -a -tags strictfipsruntime -o manager cmd/main.go
+
+FROM registry.redhat.io/ubi9/ubi-minimal:9.7-1776645941
+WORKDIR /
+COPY --from=builder /workspace/manager .
+RUN mkdir /licenses
+COPY lightspeed-operator/LICENSE /licenses/.
+USER 65532:65532
+ENTRYPOINT ["/manager"]

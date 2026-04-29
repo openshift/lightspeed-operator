@@ -15,7 +15,7 @@ get_registry
 # Build all
 ###############################################################################
 step "Building all images"
-build_image "operator" "${OPERATOR_DIR}" "${IMG_OPERATOR}"
+build_image "operator" "${OPERATOR_DIR}" "${IMG_OPERATOR}" "Dockerfile.dev" "${WORKSPACE_ROOT}"
 
 if [[ -d "${AGENT_DIR}" ]]; then
     build_image "lightspeed-agentic-sandbox" "${AGENT_DIR}" "${IMG_AGENT}"

@@ -8,9 +8,8 @@ rules:
   - agentic.openshift.io
   resources:
   - agents
-  - componenttools
   - llmproviders
-  - workflows
+  - proposaltemplates
   verbs:
   - get
   - list

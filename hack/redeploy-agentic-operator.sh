@@ -10,8 +10,9 @@ parse_args "$@"
 check_cluster
 get_registry
 
-# Build
-build_image "operator" "${OPERATOR_DIR}" "${IMG_OPERATOR}"
+# Build — use Dockerfile.dev with workspace root as context so local
+# lightspeed-agentic-operator changes are picked up without pushing.
+build_image "operator" "${OPERATOR_DIR}" "${IMG_OPERATOR}" "Dockerfile.dev" "${WORKSPACE_ROOT}"
 
 # Push
 step "Pushing operator image"

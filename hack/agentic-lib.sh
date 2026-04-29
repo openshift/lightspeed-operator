@@ -26,7 +26,7 @@ NS_CONSOLE="openshift-lightspeed"
 
 # Deployment names (match operator constants.go)
 DEPLOY_OPERATOR="lightspeed-operator-controller-manager"
-DEPLOY_CONSOLE="lightspeed-console-plugin"
+DEPLOY_CONSOLE="lightspeed-agentic-console-plugin"
 
 # Image tag — unique per worktree so concurrent deploys don't clobber each other.
 # .worktrees/<name>/ → "wt-<name>", main repo → "latest".
@@ -95,6 +95,7 @@ get_registry() {
 # Build an image for linux/amd64 (cross-compile from arm64 Mac)
 build_image() {
     local name="$1" dir="$2" tag="$3" containerfile="${4:-Dockerfile}"
+    local context="${5:-${dir}}"
     if [[ "${SKIP_BUILD}" == "true" ]]; then
         warn "Skipping build of ${name}"
         return
@@ -104,7 +105,7 @@ build_image() {
     local build_log
     build_log=$(mktemp /tmp/lightspeed-build-XXXXXX)
     if ! ${CONTAINER_ENGINE} build --platform linux/amd64 \
-        -f "${dir}/${containerfile}" -t "${tag}" "${dir}" >"${build_log}" 2>&1; then
+        -f "${dir}/${containerfile}" -t "${tag}" "${context}" >"${build_log}" 2>&1; then
         echo ""
         tail -20 "${build_log}"
         rm -f "${build_log}"
@@ -131,6 +132,10 @@ push_image() {
         skopeo copy --dest-tls-verify=false --dest-creds="unused:${token}" \
             "docker-daemon:${tag}" "docker://${REGISTRY}/${ns}/${name}:${TAG}" >/dev/null 2>&1
     fi
+    # Also tag as :latest so default configs work regardless of worktree
+    if [[ "${TAG}" != "latest" ]]; then
+        oc tag "${ns}/${name}:${TAG}" "${ns}/${name}:latest" >/dev/null 2>&1
+    fi
     info "${name} pushed"
 }
 
@@ -148,8 +153,15 @@ restart_pod() {
 rollout() {
     local deploy="$1" ns="$2" label="$3"
     echo "    Restarting ${label}..."
-    oc rollout restart "deployment/${deploy}" -n "${ns}" >/dev/null 2>&1
-    oc rollout status "deployment/${deploy}" -n "${ns}" --timeout=180s >/dev/null 2>&1
+    if ! oc rollout restart "deployment/${deploy}" -n "${ns}" 2>&1; then
+        warn "rollout restart failed for ${deploy} — may already be in progress"
+    fi
+    echo "    Waiting for ${label} rollout..."
+    if ! oc rollout status "deployment/${deploy}" -n "${ns}" --timeout=180s 2>&1; then
+        warn "${label} rollout did not complete within 180s — checking pod status"
+        oc get pods -n "${ns}" -l "app=${deploy}" --no-headers 2>/dev/null
+        fail "${label} rollout failed"
+    fi
     info "${label} ready"
 }
 

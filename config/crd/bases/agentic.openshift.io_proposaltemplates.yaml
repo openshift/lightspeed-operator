@@ -1,0 +1,124 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: proposaltemplates.agentic.openshift.io
+spec:
+  group: agentic.openshift.io
+  names:
+    kind: ProposalTemplate
+    listKind: ProposalTemplateList
+    plural: proposaltemplates
+    singular: proposaltemplate
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.analysis.agent
+      name: Analysis
+      type: string
+    - jsonPath: .spec.execution.agent
+      name: Execution
+      type: string
+    - jsonPath: .spec.verification.agent
+      name: Verification
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: "ProposalTemplate defines a reusable workflow shape that controls
+          which\nagent tier handles analysis, execution, and verification. It is\ncluster-scoped
+          and created by the cluster admin.\n\nExample — advisory (analysis only):\n\n\tapiVersion:
+          agentic.openshift.io/v1alpha1\n\tkind: ProposalTemplate\n\tmetadata:\n\t
+          \ name: advisory\n\tspec:\n\t  analysis:\n\t    agent: smart\n\nExample
+          — remediation (full pipeline):\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          ProposalTemplate\n\tmetadata:\n\t  name: remediation\n\tspec:\n\t  maxAttempts:
+          3\n\t  analysis:\n\t    agent: smart\n\t  execution: {}\n\t  verification:\n\t
+          \   agent: fast\n\nExample — assisted (analysis + verification, no execution):\n\n\tapiVersion:
+          agentic.openshift.io/v1alpha1\n\tkind: ProposalTemplate\n\tmetadata:\n\t
+          \ name: assisted\n\tspec:\n\t  analysis:\n\t    agent: smart\n\t  verification:\n\t
+          \   agent: fast"
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of ProposalTemplate.
+            properties:
+              analysis:
+                description: |-
+                  analysis defines the analysis step. The analysis agent examines
+                  cluster state, produces a diagnosis, remediation proposal,
+                  verification plan, and RBAC permissions needed for execution.
+                properties:
+                  agent:
+                    default: default
+                    description: |-
+                      agent is the name of the cluster-scoped Agent to use for this step.
+                      Defaults to "default" when omitted.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                type: object
+              execution:
+                description: |-
+                  execution defines the execution step. When omitted, the proposal
+                  transitions to AwaitingSync after approval (advisory/assisted patterns).
+                properties:
+                  agent:
+                    default: default
+                    description: |-
+                      agent is the name of the cluster-scoped Agent to use for this step.
+                      Defaults to "default" when omitted.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                type: object
+              maxAttempts:
+                description: maxAttempts is the default retry limit for proposals
+                  using this template.
+                format: int32
+                maximum: 20
+                minimum: 0
+                type: integer
+              verification:
+                description: |-
+                  verification defines the verification step. When omitted, the
+                  proposal completes immediately after execution without verification.
+                properties:
+                  agent:
+                    default: default
+                    description: |-
+                      agent is the name of the cluster-scoped Agent to use for this step.
+                      Defaults to "default" when omitted.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                type: object
+            required:
+            - analysis
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}
