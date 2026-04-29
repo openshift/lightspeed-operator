@@ -1,0 +1,87 @@
+# lightspeed-agentic-admin grants cluster admins full management of the
+# agentic platform's infrastructure CRDs (LLMProvider, Agent, ProposalTemplate)
+# plus read and approve/deny access to Proposals.
+#
+# Per the actor model (see gist ac8e8399a9bf69091a38a5cf6e3bc56b):
+#   - Cluster Admin: installs the operator, configures LLM infrastructure,
+#     creates workflow templates, provides runtime credentials (Day 0).
+#   - Component Owner: only creates Proposals (Day N, use lightspeed-component-owner).
+#   - Operator: uses agentic-manager-role (separate ClusterRole).
+#
+# Bind to cluster admin users/groups via ClusterRoleBinding.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: lightspeed-agentic-admin
+rules:
+  # Full management of LLM infrastructure — provider configs, credentials,
+  # model selection. Only cluster admins should create/modify these.
+  - apiGroups:
+      - agentic.openshift.io
+    resources:
+      - llmproviders
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  # Full management of agent tiers — LLM provider binding, timeouts,
+  # max turns, provider-specific settings (reasoningEffort, etc.).
+  - apiGroups:
+      - agentic.openshift.io
+    resources:
+      - agents
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - agentic.openshift.io
+    resources:
+      - agents/status
+    verbs:
+      - get
+  # Full management of workflow templates — defines which steps run
+  # and which agent tier handles each step.
+  - apiGroups:
+      - agentic.openshift.io
+    resources:
+      - proposaltemplates
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  # Read, approve/deny, and manage Proposals across all namespaces.
+  # Admins can also delete proposals for cleanup, but typically do
+  # not create them (that is the component owner's role).
+  - apiGroups:
+      - agentic.openshift.io
+    resources:
+      - proposals
+    verbs:
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - agentic.openshift.io
+    resources:
+      - proposals/status
+    verbs:
+      - get
+      - patch
+      - update

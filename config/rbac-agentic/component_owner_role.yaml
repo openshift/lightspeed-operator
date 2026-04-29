@@ -1,0 +1,80 @@
+# lightspeed-component-owner grants product teams (ACS, CVO, CMO, etc.)
+# the minimum permissions needed to integrate with the agentic platform.
+#
+# Per the actor model (see gist ac8e8399a9bf69091a38a5cf6e3bc56b):
+#   - Component Owner: ships skills images + adapter (webhook, event source)
+#     that creates Proposal CRs at runtime. They do NOT manage LLMProvider,
+#     Agent, or ProposalTemplate — those are cluster admin concerns.
+#   - Proposals can only reference Secrets in their own namespace (K8s RBAC
+#     enforces isolation without any custom logic).
+#
+# Bind with a RoleBinding (namespace-scoped) to restrict component teams
+# to creating proposals in their own namespace only:
+#
+#   kind: RoleBinding
+#   metadata:
+#     name: acs-lightspeed-component-owner
+#     namespace: stackrox
+#   roleRef:
+#     kind: ClusterRole
+#     name: lightspeed-component-owner
+#   subjects:
+#     - kind: ServiceAccount
+#       name: acs-violation-webhook
+#       namespace: stackrox
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: lightspeed-component-owner
+rules:
+  # Create, read, and manage Proposals. Component teams create proposals
+  # via their adapter (webhook) and read status to track progress.
+  # Patch is needed for spec.maxAttempts (at approval) and spec.revision
+  # (iterative feedback). Delete allows cleanup of completed proposals.
+  - apiGroups:
+      - agentic.openshift.io
+    resources:
+      - proposals
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - watch
+  # Read proposal status to track lifecycle progress. Patch is needed
+  # for the approve/deny flow (setting the Approved condition).
+  - apiGroups:
+      - agentic.openshift.io
+    resources:
+      - proposals/status
+    verbs:
+      - get
+      - patch
+  # Read-only access to ProposalTemplates — component teams reference
+  # templates by name (spec.templateRef) and need to discover which
+  # templates are available.
+  - apiGroups:
+      - agentic.openshift.io
+    resources:
+      - proposaltemplates
+    verbs:
+      - get
+      - list
+      - watch
+  # Read-only access to Agents — needed for inline proposals (no
+  # templateRef) where the component team specifies agent tiers
+  # directly (e.g., analysis.agent: smart). Also useful for
+  # understanding available tiers when authoring proposals.
+  - apiGroups:
+      - agentic.openshift.io
+    resources:
+      - agents
+    verbs:
+      - get
+      - list
+      - watch
+  # No access to LLMProviders — LLM infrastructure (credentials,
+  # models, endpoints) is a cluster admin concern. Component teams
+  # interact with agents by name, not with the underlying providers.

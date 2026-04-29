@@ -58,7 +58,8 @@ case "${LLM_PROVIDER}" in
 esac
 
 ###############################################################################
-# Common setup
+# Day 0 — Operator Installation (Cluster Admin)
+# Timeline ref: gist harche/ac8e8399a9bf69091a38a5cf6e3bc56b
 ###############################################################################
 check_cluster
 ensure_registry_route
@@ -71,7 +72,7 @@ ensure_agent_rbac
 ensure_agent_service
 
 ###############################################################################
-# Provider-specific LLM credentials
+# Day 0, Step 1 — LLM credentials + LLMProvider CRs (Cluster Admin)
 ###############################################################################
 LLM_SECRET="llm-credentials"
 
@@ -118,7 +119,8 @@ elif [[ "${LLM_PROVIDER}" == "bedrock" ]]; then
 fi
 
 ###############################################################################
-# Common: tool secrets + build/push
+# Day 0, Step 4 — Runtime secrets in operator namespace (Cluster Admin)
+# Tool credentials (GitHub, Red Hat API, ACS) for agent sandbox pods.
 ###############################################################################
 ensure_tool_secrets
 build_push_agent_and_skills
@@ -137,6 +139,7 @@ metadata:
   name: lightspeed-agent
   namespace: openshift-lightspeed
 spec:
+  networkPolicyManagement: Unmanaged
   podTemplate:
     spec:
       serviceAccountName: lightspeed-agent
@@ -151,14 +154,7 @@ spec:
         env:
           - name: LIGHTSPEED_SKILLS_DIR
             value: /app/skills
-          - name: TLS_CERT_PATH
-            value: /etc/tls/tls.crt
-          - name: TLS_KEY_PATH
-            value: /etc/tls/tls.key
         volumeMounts:
-          - name: serving-cert
-            mountPath: /etc/tls
-            readOnly: true
           - name: skills
             mountPath: /app/skills
           - name: home
@@ -169,14 +165,12 @@ spec:
           httpGet:
             path: /health
             port: 8080
-            scheme: HTTPS
           initialDelaySeconds: 30
           periodSeconds: 30
         readinessProbe:
           httpGet:
             path: /health
             port: 8080
-            scheme: HTTPS
           initialDelaySeconds: 10
           periodSeconds: 10
         resources:
@@ -187,9 +181,6 @@ spec:
             cpu: "4"
             memory: 4Gi
       volumes:
-      - name: serving-cert
-        secret:
-          secretName: lightspeed-agent-tls
       - name: skills
         image:
           reference: placeholder:latest
@@ -207,9 +198,11 @@ SANDBOXEOF
 build_push_console
 
 ###############################################################################
-# Proposal API — LlmProvider CRs (provider-specific models)
+# Day 0, Steps 1-3 — Proposal API chain (Cluster Admin)
+# LLMProvider → Agent → ProposalTemplate
+# See timeline: gist harche/ac8e8399a9bf69091a38a5cf6e3bc56b
 ###############################################################################
-step "Setting up proposal API chain"
+step "Setting up proposal API chain (Day 0)"
 
 if oc get secret "${LLM_SECRET}" -n "${NS_OPERATOR}" >/dev/null 2>&1; then
     if [[ "${LLM_PROVIDER}" == "vertex" ]]; then
@@ -275,5 +268,5 @@ fi
 verify_deploy
 
 echo -e "\n${GREEN}Full agentic stack deployed (provider: ${LLM_PROVIDER}).${NC}"
-echo -e "    Proposal API chain: LlmProvider → Agent → Workflow → Proposal"
-echo -e "    Create a proposal:  oc apply -f ../lightspeed-agentic-operator/examples/setup/04-proposals.yaml"
+echo -e "    Day 0 complete: LLMProvider → Agent → ProposalTemplate"
+echo -e "    Day 1 (create a proposal):  oc apply -f ../lightspeed-agentic-operator/examples/setup/03-proposals.yaml"

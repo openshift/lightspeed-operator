@@ -272,7 +272,7 @@ deploy_operator_manifests() {
 }
 
 build_push_operator() {
-    build_image "operator" "${OPERATOR_DIR}" "${IMG_OPERATOR}"
+    build_image "operator" "${OPERATOR_DIR}" "${IMG_OPERATOR}" "Dockerfile.dev" "${WORKSPACE_ROOT}"
     step "Pushing operator image"
     push_image "lightspeed-operator" "${NS_OPERATOR}" "${IMG_OPERATOR}"
 
@@ -601,31 +601,42 @@ build_push_console() {
         step "Pushing console plugin image"
         push_image "lightspeed-console-plugin" "${NS_CONSOLE}" "${IMG_CONSOLE}"
         info "Console image pushed (operator deploys it via --agentic-console-image)"
+        oc policy add-role-to-user system:image-puller \
+            system:serviceaccount:${NS_CONSOLE}:lightspeed-agentic-console-plugin \
+            -n "${NS_CONSOLE}" >/dev/null 2>&1
+        info "Console SA granted image-puller"
     else
         warn "Console directory or Dockerfile not found: ${CONSOLE_DIR}"
     fi
 }
 
-# Setup proposal API chain: agents, component tools, workflows, monitoring RBAC.
-# Caller must create LLMProvider CRs before calling this.
+# Setup the Day 0 proposal API chain, following the timeline from the CRD
+# design doc (see gist: harche/ac8e8399a9bf69091a38a5cf6e3bc56b).
+#
+# Timeline — Who creates what, when:
+#   Day 0 (Cluster Admin):
+#     1. LLMProvider CRs        — LLM backend config (created by caller, provider-specific)
+#     2. Agent CRs              — Agent tiers: default, smart, fast (cluster-scoped)
+#     3. ProposalTemplate CRs   — Workflow shapes: advisory, remediation, assisted (cluster-scoped)
+#     4. Runtime secrets        — Tool credentials in component namespaces
+#   Day 1 (Component Owner):
+#     5. Proposal CRs           — Created by adapters at runtime (namespaced)
+#
+# This function handles steps 2-4. Step 1 (LLMProvider) is done by the caller.
+# Step 5 (Proposals) happens at runtime via adapters or manual creation.
 setup_proposal_agents_and_workflows() {
-    local SKILLS_IMG="${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-skills:${TAG}"
-    local SKILLS_REMEDIATE_IMG="${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-skills-remediate:${TAG}"
-
     local AGENTIC_OPERATOR_DIR="${WORKSPACE_ROOT}/lightspeed-agentic-operator"
 
-    # Apply example manifests from lightspeed-agentic-operator if available
-    for f in "${AGENTIC_OPERATOR_DIR}/examples/setup/01-agents.yaml" \
-             "${AGENTIC_OPERATOR_DIR}/examples/setup/02-component-tools.yaml" \
-             "${AGENTIC_OPERATOR_DIR}/examples/setup/03-workflows.yaml"; do
-        if [[ -f "${f}" ]]; then
-            oc apply -f "${f}" >/dev/null 2>&1
-            info "Applied $(basename "${f}")"
-        fi
-    done
-
-    # Create Agent tiers (cluster-scoped)
-    cat <<'AGENTEOF' | oc apply -f - >/dev/null 2>&1
+    ###########################################################################
+    # Step 2: Agent tiers (cluster-scoped) — Cluster Admin
+    # Maps LLMProvider names to agent configurations with different
+    # reasoning/cost profiles. The "default" agent is required.
+    ###########################################################################
+    if [[ -f "${AGENTIC_OPERATOR_DIR}/examples/setup/01-agents.yaml" ]]; then
+        oc apply -f "${AGENTIC_OPERATOR_DIR}/examples/setup/01-agents.yaml" >/dev/null 2>&1
+        info "Agent CRs applied from examples/setup/01-agents.yaml"
+    else
+        cat <<'AGENTEOF' | oc apply -f - >/dev/null 2>&1
 apiVersion: agentic.openshift.io/v1alpha1
 kind: Agent
 metadata:
@@ -657,98 +668,58 @@ spec:
   providerSettings:
     reasoningEffort: "low"
 AGENTEOF
-    info "Agent CRs created (default, smart, fast)"
+        info "Agent CRs created (default, smart, fast)"
+    fi
 
-    # Create ComponentTools (namespace-scoped)
-    cat <<CTEOF | oc apply -f - >/dev/null 2>&1
+    ###########################################################################
+    # Step 3: ProposalTemplates (cluster-scoped) — Cluster Admin
+    # Define reusable workflow shapes that component teams reference via
+    # templateRef. Each template specifies which steps run and which agent
+    # tier handles each step.
+    ###########################################################################
+    if [[ -f "${AGENTIC_OPERATOR_DIR}/examples/setup/02-proposal-templates.yaml" ]]; then
+        oc apply -f "${AGENTIC_OPERATOR_DIR}/examples/setup/02-proposal-templates.yaml" >/dev/null 2>&1
+        info "ProposalTemplate CRs applied from examples/setup/02-proposal-templates.yaml"
+    else
+        cat <<'TMPLEOF' | oc apply -f - >/dev/null 2>&1
 apiVersion: agentic.openshift.io/v1alpha1
-kind: ComponentTools
+kind: ProposalTemplate
 metadata:
-  name: cluster-ops-analysis
-  namespace: ${NS_OPERATOR}
+  name: advisory
 spec:
-  skills:
-    - image: ${SKILLS_IMG}
-  systemPrompt: |
-    You are an expert SRE agent for OpenShift clusters. Investigate the issue,
-    gather evidence from metrics/logs/events, identify the root cause, and
-    propose remediation options.
+  analysis:
+    agent: smart
 ---
 apiVersion: agentic.openshift.io/v1alpha1
-kind: ComponentTools
-metadata:
-  name: cluster-ops-execution
-  namespace: ${NS_OPERATOR}
-spec:
-  skills:
-    - image: ${SKILLS_REMEDIATE_IMG}
-  systemPrompt: |
-    You are an expert SRE agent. Execute the approved remediation plan.
-    Verify each action took effect. Do NOT perform changes beyond what was approved.
----
-apiVersion: agentic.openshift.io/v1alpha1
-kind: ComponentTools
-metadata:
-  name: cluster-ops-verification
-  namespace: ${NS_OPERATOR}
-spec:
-  skills:
-    - image: ${SKILLS_IMG}
-  systemPrompt: |
-    You are an independent verification agent. Verify the remediation was
-    successful by checking actual cluster state. Do NOT trust execution results.
-CTEOF
-    info "ComponentTools CRs created (cluster-ops-analysis, execution, verification)"
-
-    # Create Workflows (namespace-scoped)
-    cat <<WFEOF | oc apply -f - >/dev/null 2>&1
-apiVersion: agentic.openshift.io/v1alpha1
-kind: Workflow
+kind: ProposalTemplate
 metadata:
   name: remediation
-  namespace: ${NS_OPERATOR}
 spec:
+  maxAttempts: 3
   analysis:
     agent: smart
-    componentTools:
-      name: cluster-ops-analysis
-  execution:
+  execution: {}
+  verification:
     agent: fast
-    componentTools:
-      name: cluster-ops-execution
-  verification:
-    agent: smart
-    componentTools:
-      name: cluster-ops-verification
 ---
 apiVersion: agentic.openshift.io/v1alpha1
-kind: Workflow
+kind: ProposalTemplate
 metadata:
-  name: gitops-remediation
-  namespace: ${NS_OPERATOR}
+  name: assisted
 spec:
   analysis:
     agent: smart
-    componentTools:
-      name: cluster-ops-analysis
   verification:
-    agent: smart
-    componentTools:
-      name: cluster-ops-verification
----
-apiVersion: agentic.openshift.io/v1alpha1
-kind: Workflow
-metadata:
-  name: advisory-only
-  namespace: ${NS_OPERATOR}
-spec:
-  analysis:
-    agent: smart
-    componentTools:
-      name: cluster-ops-analysis
-WFEOF
-    info "Workflow CRs created (remediation, gitops-remediation, advisory-only)"
+    agent: fast
+TMPLEOF
+        info "ProposalTemplate CRs created (advisory, remediation, assisted)"
+    fi
 
+    ###########################################################################
+    # Step 4: Monitoring RBAC — Cluster Admin
+    # Grant the agent SA read access to cluster monitoring (Thanos/Prometheus)
+    # so analysis agents can query metrics.
+    ###########################################################################
     if ! oc get clusterrolebinding lightspeed-agent-monitoring >/dev/null 2>&1; then
         oc adm policy add-cluster-role-to-user cluster-monitoring-view \
             -z lightspeed-agent -n "${NS_OPERATOR}" >/dev/null 2>&1

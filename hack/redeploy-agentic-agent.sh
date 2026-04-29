@@ -18,7 +18,7 @@ check_cluster
 get_registry
 
 # Build and push agent image
-build_image "lightspeed-agentic-sandbox" "${AGENT_DIR}" "${IMG_AGENT}"
+build_image "lightspeed-agentic-sandbox" "${AGENT_DIR}" "${IMG_AGENT}" "Containerfile"
 
 step "Pushing agent sandbox image"
 push_image "lightspeed-agentic-sandbox" "${NS_OPERATOR}" "${IMG_AGENT}"
