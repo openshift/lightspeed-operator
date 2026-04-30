@@ -104,11 +104,12 @@ make test-e2e   # E2E tests (requires cluster)
 
 ## AI Assistant Skills
 
-Available skills for code review:
+Available skills:
 
 - **`/go-code-review`** - Review Go code for error handling, concurrency, resource leaks, naming conventions
 - **`/go-testing-code-review`** - Review test code for table-driven tests, cleanup patterns, error messages
 - **`/review-pr`** - Structured PR review process with issue verification
+- **`/resolve-cve`** - Resolve CVE vulnerability issues from Jira (assess impact, bump deps or fix code, update Jira)
 
 Invoke by typing `/skill-name` in chat.
 
