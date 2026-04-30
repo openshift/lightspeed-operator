@@ -233,7 +233,7 @@ spec:
           authentication
         displayName: Image Pull Secrets
         path: ols.imagePullSecrets
-      - description: Enable introspection features
+      - description: Enable introspection features (defaults to enabled)
         displayName: Introspection Enabled
         path: ols.introspectionEnabled
         x-descriptors:

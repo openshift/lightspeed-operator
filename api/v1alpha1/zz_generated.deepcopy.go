@@ -431,7 +431,7 @@ func (in *OLSSpec) DeepCopyInto(out *OLSSpec) {
 	if in.MCPKubeServerConfig != nil {
 		in, out := &in.MCPKubeServerConfig, &out.MCPKubeServerConfig
 		*out = new(MCPKubeServerConfiguration)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 	if in.ProxyConfig != nil {
 		in, out := &in.ProxyConfig, &out.ProxyConfig

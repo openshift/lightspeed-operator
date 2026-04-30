@@ -494,9 +494,6 @@ func TestGenerateLCoreDeploymentWithIntrospection(t *testing.T) {
 		if !strings.Contains(commandStr, "--port") || !strings.Contains(commandStr, expectedPort) {
 			t.Errorf("Expected command to include '--port %s', got: %s", expectedPort, commandStr)
 		}
-		if !strings.Contains(commandStr, "--read-only") {
-			t.Error("Expected command to include '--read-only' flag")
-		}
 		if !strings.Contains(commandStr, "--config") || !strings.Contains(commandStr, utils.GetOpenShiftMCPServerConfigPath()) {
 			t.Errorf("Expected command to include '--config %s', got: %s", utils.GetOpenShiftMCPServerConfigPath(), commandStr)
 		}

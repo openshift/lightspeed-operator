@@ -206,10 +206,11 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Security Profile",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	TLSSecurityProfile *configv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
-	// Enable introspection features
+	// Enable introspection features (defaults to enabled)
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=true
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Introspection Enabled",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
-	IntrospectionEnabled bool `json:"introspectionEnabled,omitempty"`
+	IntrospectionEnabled bool `json:"introspectionEnabled"`
 	// MCP Kubernetes server configuration
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Kube Server Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:validation:Optional
