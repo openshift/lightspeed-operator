@@ -1,5 +1,5 @@
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:6ede130eb9d271393a7af2fbe3f0c755360193cd60c777fec7b279ebded2aee9
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:65be0204be903e50c2a9c347a43e4764ddc17292223137cce8300be8459443cb
 name: lightspeed-operator.v1.0.12
 package: lightspeed-operator
 properties:
@@ -51,7 +51,7 @@ properties:
           ]
         capabilities: Seamless Upgrades
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2026-04-29T19:47:51Z"
+        createdAt: "2026-04-30T01:22:25Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -524,7 +524,7 @@ relatedImages:
   - name: lightspeed-console-plugin
     image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:dca5b865c05d23f4084a901fe3ec12b39f6d5055072a2bd9d3e0d109ccfb1b04
   - name: lightspeed-console-plugin-pf5
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:b478030eccecbcd9799ef70c0121536fa689629226bbce76d3e3b85ec4e031aa
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:606681e8111884523d638c0855b46ccc1ce30f50df6ec61f41ec702f5a998922
   - name: lightspeed-console-plugin-4-19
     image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:dfb9aed8a3b0f7a29266518516fd92694c48bc7e86054dd28d4bf89dd13c4f37
   - name: lightspeed-operator
@@ -538,5 +538,5 @@ relatedImages:
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:6ede130eb9d271393a7af2fbe3f0c755360193cd60c777fec7b279ebded2aee9
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:65be0204be903e50c2a9c347a43e4764ddc17292223137cce8300be8459443cb
 schema: olm.bundle
