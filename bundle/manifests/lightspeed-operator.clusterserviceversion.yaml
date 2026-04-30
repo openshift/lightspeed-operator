@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-04-29T19:47:51Z"
+    createdAt: "2026-04-30T01:22:25Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -894,7 +894,7 @@ spec:
                       - --lcore-server=true
                       - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:d10017efd4fdb0e1fd77f99a7c0a42dd1ecfe50f73342a6e2bf614f653cf0cec
                       - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:dca5b865c05d23f4084a901fe3ec12b39f6d5055072a2bd9d3e0d109ccfb1b04
-                      - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:b478030eccecbcd9799ef70c0121536fa689629226bbce76d3e3b85ec4e031aa
+                      - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:606681e8111884523d638c0855b46ccc1ce30f50df6ec61f41ec702f5a998922
                       - --console-image-4-19=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:dfb9aed8a3b0f7a29266518516fd92694c48bc7e86054dd28d4bf89dd13c4f37
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
                       - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:55d0959cea804c215c6c44521c2c9fec2de2f0769aee65335820bf1680bd542f
@@ -1022,7 +1022,7 @@ spec:
     - name: lightspeed-console-plugin
       image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:dca5b865c05d23f4084a901fe3ec12b39f6d5055072a2bd9d3e0d109ccfb1b04
     - name: lightspeed-console-plugin-pf5
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:b478030eccecbcd9799ef70c0121536fa689629226bbce76d3e3b85ec4e031aa
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:606681e8111884523d638c0855b46ccc1ce30f50df6ec61f41ec702f5a998922
     - name: lightspeed-console-plugin-4-19
       image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:dfb9aed8a3b0f7a29266518516fd92694c48bc7e86054dd28d4bf89dd13c4f37
     - name: lightspeed-operator
@@ -1036,4 +1036,4 @@ spec:
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     - name: lightspeed-operator-bundle
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:d0688443df6d0cf572f507277794258689710aeb379fb289d0de6fbf0ec10531
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:6ede130eb9d271393a7af2fbe3f0c755360193cd60c777fec7b279ebded2aee9
