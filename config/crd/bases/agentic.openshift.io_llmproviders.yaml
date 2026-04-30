@@ -37,12 +37,15 @@ spec:
           analysis, \"fast\" for\nroutine execution) and then reference them from
           multiple Agent resources.\n\nExample — a high-capability provider for analysis
           tasks:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind: LLMProvider\n\tmetadata:\n\t
-          \ name: smart\n\tspec:\n\t  type: vertex\n\t  model: claude-opus-4-6\n\t
-          \ credentialsSecret:\n\t    name: llm-credentials\n\t    namespace: lightspeed-operator\n\nExample
-          — a fast, cost-efficient provider for execution tasks:\n\n\tapiVersion:
-          agentic.openshift.io/v1alpha1\n\tkind: LLMProvider\n\tmetadata:\n\t  name:
-          fast\n\tspec:\n\t  type: vertex\n\t  model: claude-haiku-4-5\n\t  credentialsSecret:\n\t
-          \   name: llm-credentials\n\t    namespace: lightspeed-operator"
+          \ name: smart\n\tspec:\n\t  type: GoogleCloudVertex\n\t  model: claude-opus-4-6\n\t
+          \ googleCloudVertex:\n\t    credentialsSecret:\n\t      name: llm-credentials\n\t
+          \     namespace: openshift-lightspeed\n\t    project: my-gcp-project\n\t
+          \   region: us-central1\n\nExample — a fast, cost-efficient provider for
+          execution tasks:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          LLMProvider\n\tmetadata:\n\t  name: fast\n\tspec:\n\t  type: GoogleCloudVertex\n\t
+          \ model: claude-haiku-4-5\n\t  googleCloudVertex:\n\t    credentialsSecret:\n\t
+          \     name: llm-credentials\n\t      namespace: openshift-lightspeed\n\t
+          \   project: my-gcp-project\n\t    region: us-central1"
         properties:
           apiVersion:
             description: |-
@@ -64,27 +67,153 @@ spec:
           spec:
             description: spec defines the desired state of LLMProvider.
             properties:
-              credentialsSecret:
+              anthropic:
                 description: |-
-                  credentialsSecret references a Secret containing the provider credentials.
-                  Since LLMProvider is cluster-scoped, both name and namespace must be
-                  specified. The required keys depend on the provider type (see
-                  LLMProviderType for details). The operator reads this secret and injects
-                  the credentials into agent sandbox pods at runtime.
+                  anthropic contains Anthropic-specific configuration.
+                  Required when type is "Anthropic".
                 properties:
-                  name:
-                    description: name of the Secret.
-                    maxLength: 253
-                    minLength: 1
-                    type: string
-                  namespace:
-                    description: namespace of the Secret.
+                  credentialsSecret:
+                    description: |-
+                      credentialsSecret references a Secret containing an ANTHROPIC_API_KEY.
+                      Since LLMProvider is cluster-scoped, both name and namespace are required.
+                    properties:
+                      name:
+                        description: name of the Secret.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: namespace of the Secret.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                required:
+                - credentialsSecret
+                type: object
+              awsBedrock:
+                description: |-
+                  awsBedrock contains AWS Bedrock-specific configuration.
+                  Required when type is "AWSBedrock".
+                properties:
+                  credentialsSecret:
+                    description: |-
+                      credentialsSecret references a Secret containing AWS_ACCESS_KEY_ID
+                      and AWS_SECRET_ACCESS_KEY. Since LLMProvider is cluster-scoped,
+                      both name and namespace are required.
+                    properties:
+                      name:
+                        description: name of the Secret.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: namespace of the Secret.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  region:
+                    description: region is the AWS region for the Bedrock endpoint
+                      (e.g., "us-east-1").
                     maxLength: 63
                     minLength: 1
                     type: string
                 required:
-                - name
-                - namespace
+                - credentialsSecret
+                - region
+                type: object
+              azureOpenAI:
+                description: |-
+                  azureOpenAI contains Azure OpenAI Service-specific configuration.
+                  Required when type is "AzureOpenAI".
+                properties:
+                  apiVersion:
+                    description: |-
+                      apiVersion is the Azure OpenAI API version (e.g., "2024-02-01").
+                      When omitted, the SDK default is used.
+                    maxLength: 32
+                    type: string
+                  credentialsSecret:
+                    description: |-
+                      credentialsSecret references a Secret containing an AZURE_OPENAI_API_KEY.
+                      Since LLMProvider is cluster-scoped, both name and namespace are required.
+                    properties:
+                      name:
+                        description: name of the Secret.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: namespace of the Secret.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  endpoint:
+                    description: |-
+                      endpoint is the Azure OpenAI resource endpoint
+                      (e.g., "https://my-resource.openai.azure.com").
+                    maxLength: 2048
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: endpoint must be a valid HTTP or HTTPS URL
+                      rule: isURL(self) && url(self).getScheme() in ['http', 'https']
+                required:
+                - credentialsSecret
+                - endpoint
+                type: object
+              googleCloudVertex:
+                description: |-
+                  googleCloudVertex contains Google Cloud Vertex AI-specific configuration.
+                  Required when type is "GoogleCloudVertex".
+                properties:
+                  credentialsSecret:
+                    description: |-
+                      credentialsSecret references a Secret containing a service account JSON
+                      key (stored under the key GOOGLE_APPLICATION_CREDENTIALS). Since
+                      LLMProvider is cluster-scoped, both name and namespace are required.
+                    properties:
+                      name:
+                        description: name of the Secret.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: namespace of the Secret.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  project:
+                    description: project is the GCP project ID where Vertex AI is
+                      enabled.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                  region:
+                    description: region is the GCP region for the Vertex AI endpoint
+                      (e.g., "us-central1").
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - credentialsSecret
+                - project
+                - region
                 type: object
               model:
                 description: |-
@@ -92,27 +221,55 @@ spec:
                   (e.g., "claude-opus-4-6", "claude-haiku-4-5", "gpt-4o").
                   Different agents can reference different LLMProviders to use different
                   models for different tasks (e.g., a capable model for analysis,
-                  a fast model for execution). Must be 1-256 characters.
+                  a fast model for execution). Must be 1-256 characters, starting with
+                  an alphanumeric character and containing only alphanumerics, dots,
+                  hyphens, underscores, slashes, colons, and at-signs.
                 maxLength: 256
                 minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: model must start with an alphanumeric character and contain
+                    only alphanumerics, dots, hyphens, underscores, slashes, colons,
+                    and at-signs
+                  rule: self.matches('^[a-zA-Z0-9][a-zA-Z0-9._\\-/:@]*$')
+              openAI:
+                description: |-
+                  openAI contains OpenAI-specific configuration.
+                  Required when type is "OpenAI".
+                properties:
+                  credentialsSecret:
+                    description: |-
+                      credentialsSecret references a Secret containing an OPENAI_API_KEY.
+                      Since LLMProvider is cluster-scoped, both name and namespace are required.
+                    properties:
+                      name:
+                        description: name of the Secret.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: namespace of the Secret.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                required:
+                - credentialsSecret
+                type: object
               type:
                 description: |-
-                  type is the LLM provider backend. Allowed values:
-                    - "Anthropic"   — Direct Anthropic API (secret needs ANTHROPIC_API_KEY).
-                    - "Vertex"      — Google Cloud Vertex AI (secret needs service account JSON,
-                      GCP_PROJECT, and GCP_REGION).
-                    - "OpenAI"      — OpenAI-compatible API (secret needs OPENAI_API_KEY).
-                    - "AzureOpenAI" — Azure OpenAI Service (secret needs AZURE_OPENAI_API_KEY,
-                      AZURE_OPENAI_ENDPOINT, and optionally AZURE_OPENAI_API_VERSION).
-                    - "Bedrock"     — AWS Bedrock (secret needs AWS_ACCESS_KEY_ID,
-                      AWS_SECRET_ACCESS_KEY, and AWS_REGION).
+                  type is the LLM provider backend. Determines which per-provider
+                  configuration field must be set. Allowed values: "Anthropic",
+                  "GoogleCloudVertex", "OpenAI", "AzureOpenAI", "AWSBedrock".
                 enum:
                 - Anthropic
-                - Vertex
+                - GoogleCloudVertex
                 - OpenAI
                 - AzureOpenAI
-                - Bedrock
+                - AWSBedrock
                 type: string
               url:
                 description: |-
@@ -131,10 +288,25 @@ spec:
                 - message: url must be a valid HTTP or HTTPS URL
                   rule: isURL(self) && url(self).getScheme() in ['http', 'https']
             required:
-            - credentialsSecret
             - model
             - type
             type: object
+            x-kubernetes-validations:
+            - message: anthropic is required when type is Anthropic, and forbidden
+                otherwise
+              rule: 'self.type == ''Anthropic'' ? has(self.anthropic) : !has(self.anthropic)'
+            - message: googleCloudVertex is required when type is GoogleCloudVertex,
+                and forbidden otherwise
+              rule: 'self.type == ''GoogleCloudVertex'' ? has(self.googleCloudVertex)
+                : !has(self.googleCloudVertex)'
+            - message: openAI is required when type is OpenAI, and forbidden otherwise
+              rule: 'self.type == ''OpenAI'' ? has(self.openAI) : !has(self.openAI)'
+            - message: azureOpenAI is required when type is AzureOpenAI, and forbidden
+                otherwise
+              rule: 'self.type == ''AzureOpenAI'' ? has(self.azureOpenAI) : !has(self.azureOpenAI)'
+            - message: awsBedrock is required when type is AWSBedrock, and forbidden
+                otherwise
+              rule: 'self.type == ''AWSBedrock'' ? has(self.awsBedrock) : !has(self.awsBedrock)'
         required:
         - spec
         type: object

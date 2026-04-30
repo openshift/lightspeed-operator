@@ -9,7 +9,6 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/agentic-lib.sh"
 parse_args "$@"
 
-AGENT_POD="lightspeed-chat"
 SKILLS_IMAGE="${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-skills:${TAG}"
 
 [[ -d "${AGENT_DIR}" ]] || fail "Agent directory not found: ${AGENT_DIR}"
@@ -18,7 +17,11 @@ check_cluster
 get_registry
 
 # Build and push agent image
-build_image "lightspeed-agentic-sandbox" "${AGENT_DIR}" "${IMG_AGENT}" "Containerfile"
+agent_containerfile="Containerfile"
+if [[ -f "${AGENT_DIR}/Containerfile.dev" ]] && [[ "$(uname -m)" == "arm64" || "$(uname -m)" == "aarch64" ]]; then
+    agent_containerfile="Containerfile.dev"
+fi
+build_image "lightspeed-agentic-sandbox" "${AGENT_DIR}" "${IMG_AGENT}" "${agent_containerfile}"
 
 step "Pushing agent sandbox image"
 push_image "lightspeed-agentic-sandbox" "${NS_OPERATOR}" "${IMG_AGENT}"
@@ -33,11 +36,11 @@ fi
 
 # Ensure SandboxTemplate uses image volume for skills (not emptyDir)
 step "Ensuring skills image volume in SandboxTemplate"
-CURRENT_SKILLS_VOL=$(oc get sandboxtemplate lightspeed-chat -n "${NS_OPERATOR}" \
+CURRENT_SKILLS_VOL=$(oc get sandboxtemplate lightspeed-agent -n "${NS_OPERATOR}" \
     -o jsonpath='{.spec.podTemplate.spec.volumes[?(@.name=="skills")].image.reference}' 2>/dev/null)
 if [[ -z "${CURRENT_SKILLS_VOL}" ]]; then
     echo "    Patching SandboxTemplate: emptyDir → image volume..."
-    VOL_INDEX=$(oc get sandboxtemplate lightspeed-chat -n "${NS_OPERATOR}" \
+    VOL_INDEX=$(oc get sandboxtemplate lightspeed-agent -n "${NS_OPERATOR}" \
         -o json 2>/dev/null | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
@@ -45,7 +48,7 @@ for i,v in enumerate(d['spec']['podTemplate']['spec']['volumes']):
     if v.get('name')=='skills': print(i); break
 " 2>/dev/null)
     if [[ -n "${VOL_INDEX}" ]]; then
-        oc patch sandboxtemplate lightspeed-chat -n "${NS_OPERATOR}" --type=json -p "[
+        oc patch sandboxtemplate lightspeed-agent -n "${NS_OPERATOR}" --type=json -p "[
           {\"op\": \"replace\", \"path\": \"/spec/podTemplate/spec/volumes/${VOL_INDEX}\", \"value\": {
             \"name\": \"skills\",
             \"image\": {
@@ -62,15 +65,8 @@ else
     info "SandboxTemplate already uses image volume: ${CURRENT_SKILLS_VOL}"
 fi
 
-step "Restarting agent pod"
-restart_pod "${AGENT_POD}" "${NS_OPERATOR}" "Agent pod"
-
-# Verify skills are mounted
-SKILLS_COUNT=$(oc exec -n "${NS_OPERATOR}" "${AGENT_POD}" -c agent -- ls /app/skills/.claude/skills/ 2>/dev/null | wc -l)
-if [[ "${SKILLS_COUNT}" -gt 0 ]]; then
-    info "Skills mounted: ${SKILLS_COUNT} skills in /app/skills/.claude/skills/"
-else
-    warn "Skills directory is empty — check image volume configuration"
-fi
+# Sandbox pods are ephemeral — created per-proposal by the operator.
+# Existing sandbox templates are garbage-collected when config changes.
+info "Agent image updated. New sandbox pods will use the updated image."
 
 echo -e "\n${GREEN}Agent redeployed.${NC}"

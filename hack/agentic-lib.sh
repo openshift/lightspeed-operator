@@ -539,7 +539,11 @@ ensure_tool_secrets() {
 build_push_agent_and_skills() {
     local AGENT_DIR="${AGENT_DIR:-${WORKSPACE_ROOT}/lightspeed-agentic-sandbox}"
     if [[ -d "${AGENT_DIR}" ]]; then
-        build_image "agent" "${AGENT_DIR}" "${IMG_AGENT}" "Containerfile"
+        local agent_containerfile="Containerfile"
+        if [[ -f "${AGENT_DIR}/Containerfile.dev" ]] && [[ "$(uname -m)" == "arm64" || "$(uname -m)" == "aarch64" ]]; then
+            agent_containerfile="Containerfile.dev"
+        fi
+        build_image "agent" "${AGENT_DIR}" "${IMG_AGENT}" "${agent_containerfile}"
         step "Pushing agent image"
         push_image "lightspeed-agentic-sandbox" "${NS_OPERATOR}" "${IMG_AGENT}"
     else
@@ -582,7 +586,7 @@ metadata:
   name: cluster
 spec:
   sandbox:
-    baseTemplate: lightspeed-chat
+    baseTemplate: lightspeed-agent
 OLSEOF
         info "OLSConfig created"
         echo "    Waiting for console plugin deployment..."
@@ -672,48 +676,11 @@ AGENTEOF
     fi
 
     ###########################################################################
-    # Step 3: ProposalTemplates (cluster-scoped) — Cluster Admin
-    # Define reusable workflow shapes that component teams reference via
-    # templateRef. Each template specifies which steps run and which agent
-    # tier handles each step.
+    # Step 3: ProposalTemplates — removed
+    # Workflow steps are now defined inline on each Proposal spec.
+    # No separate ProposalTemplate CRD exists.
     ###########################################################################
-    if [[ -f "${AGENTIC_OPERATOR_DIR}/examples/setup/02-proposal-templates.yaml" ]]; then
-        oc apply -f "${AGENTIC_OPERATOR_DIR}/examples/setup/02-proposal-templates.yaml" >/dev/null 2>&1
-        info "ProposalTemplate CRs applied from examples/setup/02-proposal-templates.yaml"
-    else
-        cat <<'TMPLEOF' | oc apply -f - >/dev/null 2>&1
-apiVersion: agentic.openshift.io/v1alpha1
-kind: ProposalTemplate
-metadata:
-  name: advisory
-spec:
-  analysis:
-    agent: smart
----
-apiVersion: agentic.openshift.io/v1alpha1
-kind: ProposalTemplate
-metadata:
-  name: remediation
-spec:
-  maxAttempts: 3
-  analysis:
-    agent: smart
-  execution: {}
-  verification:
-    agent: fast
----
-apiVersion: agentic.openshift.io/v1alpha1
-kind: ProposalTemplate
-metadata:
-  name: assisted
-spec:
-  analysis:
-    agent: smart
-  verification:
-    agent: fast
-TMPLEOF
-        info "ProposalTemplate CRs created (advisory, remediation, assisted)"
-    fi
+    info "ProposalTemplate CRD removed — workflow steps are inline on Proposals"
 
     ###########################################################################
     # Step 4: Monitoring RBAC — Cluster Admin

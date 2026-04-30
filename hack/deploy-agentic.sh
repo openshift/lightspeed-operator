@@ -4,7 +4,7 @@
 #
 # Components deployed:
 #   - Operator (lightspeed-operator-controller-manager)
-#   - Agent sandbox (lightspeed-chat pod via SandboxTemplate)
+#   - Agent sandbox (lightspeed-agent pod via SandboxTemplate)
 #   - Skills OCI images (full + per-profile: design, remediate, escalate, monitor)
 #   - Console plugin (lightspeed-agentic-console)
 #   - Proposal API chain (LlmProvider → Agent → Workflow CRs)
@@ -212,24 +212,30 @@ kind: LLMProvider
 metadata:
   name: smart
 spec:
-  type: Vertex
-  credentialsSecret:
-    name: ${LLM_SECRET}
-    namespace: ${NS_OPERATOR}
+  type: GoogleCloudVertex
   model: claude-opus-4-6
+  googleCloudVertex:
+    credentialsSecret:
+      name: ${LLM_SECRET}
+      namespace: ${NS_OPERATOR}
+    project: ${VERTEX_PROJECT}
+    region: ${VERTEX_REGION}
 ---
 apiVersion: agentic.openshift.io/v1alpha1
 kind: LLMProvider
 metadata:
   name: fast
 spec:
-  type: Vertex
-  credentialsSecret:
-    name: ${LLM_SECRET}
-    namespace: ${NS_OPERATOR}
+  type: GoogleCloudVertex
   model: claude-haiku-4-5
+  googleCloudVertex:
+    credentialsSecret:
+      name: ${LLM_SECRET}
+      namespace: ${NS_OPERATOR}
+    project: ${VERTEX_PROJECT}
+    region: ${VERTEX_REGION}
 LLMEOF
-        info "LLMProvider CRs created (smart=opus-4.6, fast=haiku-4.5 via Vertex)"
+        info "LLMProvider CRs created (smart=opus-4.6, fast=haiku-4.5 via GoogleCloudVertex)"
 
     elif [[ "${LLM_PROVIDER}" == "bedrock" ]]; then
         cat <<LLMEOF | oc apply -f - >/dev/null 2>&1
@@ -238,24 +244,28 @@ kind: LLMProvider
 metadata:
   name: smart
 spec:
-  type: Bedrock
-  credentialsSecret:
-    name: ${LLM_SECRET}
-    namespace: ${NS_OPERATOR}
+  type: AWSBedrock
   model: us.anthropic.claude-opus-4-6-v1
+  awsBedrock:
+    credentialsSecret:
+      name: ${LLM_SECRET}
+      namespace: ${NS_OPERATOR}
+    region: ${BEDROCK_REGION}
 ---
 apiVersion: agentic.openshift.io/v1alpha1
 kind: LLMProvider
 metadata:
   name: fast
 spec:
-  type: Bedrock
-  credentialsSecret:
-    name: ${LLM_SECRET}
-    namespace: ${NS_OPERATOR}
+  type: AWSBedrock
   model: us.anthropic.claude-haiku-4-5-20251001-v1:0
+  awsBedrock:
+    credentialsSecret:
+      name: ${LLM_SECRET}
+      namespace: ${NS_OPERATOR}
+    region: ${BEDROCK_REGION}
 LLMEOF
-        info "LLMProvider CRs created (smart=opus-4.6, fast=haiku-4.5 via Bedrock)"
+        info "LLMProvider CRs created (smart=opus-4.6, fast=haiku-4.5 via AWSBedrock)"
     fi
 fi
 

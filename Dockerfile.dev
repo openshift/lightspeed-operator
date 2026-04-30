@@ -16,6 +16,7 @@ USER 0
 
 # Point to the local agentic operator instead of the remote
 RUN go mod edit -replace github.com/openshift/lightspeed-agentic-operator=./lightspeed-agentic-operator \
+    && go mod edit -replace github.com/openshift/lightspeed-agentic-operator/api=./lightspeed-agentic-operator/api \
     && go mod edit -replace github.com/harche/lightspeed-agentic-operator=./lightspeed-agentic-operator
 
 RUN go mod download

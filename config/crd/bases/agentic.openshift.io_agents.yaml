@@ -29,9 +29,9 @@ spec:
       openAPIV3Schema:
         description: "Agent defines a cluster-scoped agent tier (e.g., \"default\",
           \"smart\", \"fast\").\nThe cluster admin creates Agent resources to configure
-          LLM infrastructure\nand runtime settings. ProposalTemplates reference agents
-          by name per step.\n\nAgent is cluster-scoped. The metadata.name serves as
-          the tier identifier.\nThe \"default\" agent must exist; \"smart\" and \"fast\"
+          LLM infrastructure\nand runtime settings. Proposals reference agents by
+          name per step.\n\nAgent is cluster-scoped. The metadata.name serves as the
+          tier identifier.\nThe \"default\" agent must exist; \"smart\" and \"fast\"
           are optional (the\noperator auto-links to \"default\" if absent).\n\nExample
           — a high-capability agent tier:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
           Agent\n\tmetadata:\n\t  name: smart\n\tspec:\n\t  llmProvider:\n\t    name:
@@ -190,7 +190,6 @@ spec:
                   - type
                   type: object
                 maxItems: 8
-                minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - type

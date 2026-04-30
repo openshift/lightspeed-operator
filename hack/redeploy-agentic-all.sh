@@ -72,11 +72,8 @@ step "Rolling out all deployments"
 pause_operator
 rollout "${DEPLOY_OPERATOR}" "${NS_OPERATOR}" "Operator"
 
-# Restart agent sandbox pod if it exists
-if oc get pod lightspeed-chat -n "${NS_OPERATOR}" >/dev/null 2>&1; then
-    oc delete pod lightspeed-chat -n "${NS_OPERATOR}" >/dev/null 2>&1
-    info "Agent pod restarted"
-fi
+# Sandbox pods are ephemeral — created per-proposal by the operator.
+info "Agent image updated. New sandbox pods will use the updated image."
 
 if oc get "deployment/${DEPLOY_CONSOLE}" -n "${NS_CONSOLE}" >/dev/null 2>&1; then
     patch_console_image

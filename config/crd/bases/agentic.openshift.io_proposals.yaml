@@ -15,12 +15,6 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.phase
-      name: Phase
-      type: string
-    - jsonPath: .spec.templateRef.name
-      name: Template
-      type: string
     - jsonPath: .spec.request
       name: Request
       priority: 1
@@ -33,22 +27,22 @@ spec:
       openAPIV3Schema:
         description: "Proposal represents a unit of work managed by the agentic platform.\nIt
           is the primary resource component teams and adapters interact with.\n\nA
-          Proposal either references a ProposalTemplate (via templateRef) that\ndefines
-          the workflow shape, or defines the workflow inline. Tools\n(skills images,
-          required secrets) are specified directly on the Proposal.\n\nExample — ACS
-          remediation using a template:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
-          Proposal\n\tmetadata:\n\t  name: fix-nginx-cve-2024-1234\n\t  namespace:
-          stackrox\n\tspec:\n\t  request: |\n\t    ACS violation: Deployment nginx
-          in namespace lightspeed-demo\n\t    is running nginx:1.21 which has CVE-2024-1234
-          (Critical).\n\t  templateRef:\n\t    name: remediation\n\t  targetNamespaces:\n\t
-          \   - lightspeed-demo\n\t  tools:\n\t    skills:\n\t      - image: registry.redhat.io/acs/acs-lightspeed-skills:latest\n\t
-          \   requiredSecrets:\n\t      - name: acs-api-token\n\t        mountAs:
-          ACS_API_TOKEN\n\nExample — fully inline (no template):\n\n\tapiVersion:
+          Proposal defines the workflow shape inline: which steps run and which\nagent
+          handles each step. Analysis is always required. Omit execution\nand/or verification
+          to skip those steps.\n\nExample — analysis only (advisory):\n\n\tapiVersion:
           agentic.openshift.io/v1alpha1\n\tkind: Proposal\n\tmetadata:\n\t  name:
           one-off-investigation\n\tspec:\n\t  request: \"Investigate why pod foo is
           crashlooping\"\n\t  targetNamespaces:\n\t    - lightspeed-demo\n\t  tools:\n\t
           \   skills:\n\t      - image: registry.redhat.io/acs/acs-lightspeed-skills:latest\n\t
-          \ analysis:\n\t    agent: smart"
+          \ analysis:\n\t    agent: smart\n\nExample — full remediation (analyze →
+          execute → verify):\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          Proposal\n\tmetadata:\n\t  name: fix-nginx-cve-2024-1234\n\t  namespace:
+          stackrox\n\tspec:\n\t  request: \"Fix CVE-2024-1234 in nginx:1.21\"\n\t
+          \ targetNamespaces:\n\t    - lightspeed-demo\n\t  maxAttempts: 3\n\t  tools:\n\t
+          \   skills:\n\t      - image: registry.redhat.io/acs/acs-lightspeed-skills:latest\n\t
+          \   requiredSecrets:\n\t      - name: acs-api-token\n\t        mountAs:
+          ACS_API_TOKEN\n\t  analysis:\n\t    agent: smart\n\t  execution: {}\n\t
+          \ verification:\n\t    agent: fast"
         properties:
           apiVersion:
             description: |-
@@ -72,22 +66,17 @@ spec:
             properties:
               analysis:
                 description: |-
-                  analysis defines per-step configuration for the analysis step.
-                  When templateRef is not set, analysis.agent selects the agent tier
-                  (inline workflow definition). When templateRef is set, only
-                  analysis.tools is meaningful (per-step tools override).
+                  analysis defines per-step configuration for the analysis step,
+                  including which agent handles it and any per-step tools.
 
-                  Immutable: agent tier and per-step tools are fixed at creation.
+                  Immutable: agent and per-step tools are fixed at creation.
                 properties:
                   agent:
                     description: |-
-                      agent is the name of the cluster-scoped Agent to use for this step.
-                      When templateRef is set, overrides the template's agent for this step.
-                      When templateRef is not set (inline), selects the agent tier directly.
-                    enum:
-                    - default
-                    - smart
-                    - fast
+                      agent is the name of the cluster-scoped Agent CR to use for this step.
+                      Defaults to "default" when omitted.
+                    maxLength: 253
+                    minLength: 1
                     type: string
                   tools:
                     description: |-
@@ -108,8 +97,8 @@ spec:
                             \   url: https://mcp.openshift-lightspeed.svc:8443/sse\n\t
                             \   timeoutSeconds: 10\n\t    headers:\n\t      - name:
                             Authorization\n\t        valueFrom:\n\t          type:
-                            Kubernetes\n\nExample — connecting to an external API
-                            with secret-based auth:\n\n\tmcpServers:\n\t  - name:
+                            ServiceAccountToken\n\nExample — connecting to an external
+                            API with secret-based auth:\n\n\tmcpServers:\n\t  - name:
                             pagerduty\n\t    url: https://mcp-pagerduty.example.com/sse\n\t
                             \   headers:\n\t      - name: X-API-Key\n\t        valueFrom:\n\t
                             \         type: Secret\n\t          secret:\n\t            name:
@@ -156,26 +145,23 @@ spec:
                                           type specifies the source type for the header value. Allowed values:
                                             - "Secret"     — reads the value from a Kubernetes Secret (use for
                                               API keys and tokens). Requires the secret field to be set.
-                                            - "Kubernetes" — auto-injects a Kubernetes service account token
+                                            - "ServiceAccountToken" — auto-injects a Kubernetes service account token
                                               (for MCP servers that accept K8s auth).
                                             - "Client"     — the value is provided by the calling client at
                                               runtime (e.g., forwarded from a user session).
                                         enum:
                                         - Secret
-                                        - Kubernetes
+                                        - ServiceAccountToken
                                         - Client
                                         type: string
                                     required:
                                     - type
                                     type: object
                                     x-kubernetes-validations:
-                                    - message: secret is required when type is 'Secret'
+                                    - message: secret is required when type is Secret,
+                                        and forbidden otherwise
                                       rule: 'self.type == ''Secret'' ? has(self.secret)
-                                        : true'
-                                    - message: secret must not be set when type is
-                                        'Kubernetes' or 'Client'
-                                      rule: 'self.type != ''Secret'' ? !has(self.secret)
-                                        : true'
+                                        : !has(self.secret)'
                                 required:
                                 - name
                                 - valueFrom
@@ -187,14 +173,21 @@ spec:
                               - name
                               x-kubernetes-list-type: map
                             name:
-                              description: name of the MCP server. Must be 1-253 characters.
+                              description: |-
+                                name of the MCP server. Must start with a letter and contain only
+                                lowercase alphanumeric characters and hyphens. Must be 1-253 characters.
                               maxLength: 253
                               minLength: 1
                               type: string
+                              x-kubernetes-validations:
+                              - message: name must start with a lowercase letter and
+                                  contain only lowercase alphanumerics and hyphens
+                                rule: self.matches('^[a-z][a-z0-9-]*$')
                             timeoutSeconds:
                               default: 5
                               description: |-
-                                timeoutSeconds is the timeout for the MCP server in seconds, default is 5.
+                                timeoutSeconds is the per-request timeout for calls to this MCP server,
+                                in seconds. Default is 5.
                                 Valid range: 1-300.
                               format: int32
                               maximum: 300
@@ -226,6 +219,7 @@ spec:
                           outputSchema is a JSON Schema object that defines additional structured
                           output fields beyond the base schema that every agent produces (diagnosis,
                           proposal, RBAC, verification plan).
+                        type: object
                         x-kubernetes-preserve-unknown-fields: true
                       requiredSecrets:
                         description: |-
@@ -275,7 +269,7 @@ spec:
                           skills defines one or more OCI images containing skills to mount
                           in the agent's sandbox pod. The operator creates Kubernetes image
                           volumes (requires K8s 1.34+) and mounts them into the agent's
-                          skills directory.
+                          skills directory. Each image must be unique within the list.
                         items:
                           description: "SkillsSource defines an OCI image containing
                             skills and optionally which\npaths within that image to
@@ -378,7 +372,9 @@ spec:
                         maxItems: 20
                         minItems: 1
                         type: array
-                        x-kubernetes-list-type: atomic
+                        x-kubernetes-list-map-keys:
+                        - image
+                        x-kubernetes-list-type: map
                     type: object
                 type: object
                 x-kubernetes-validations:
@@ -387,19 +383,16 @@ spec:
               execution:
                 description: |-
                   execution defines per-step configuration for the execution step.
-                  Only execution.tools is meaningful (per-step tools override).
+                  Omit to skip execution (advisory/assisted patterns).
 
-                  Immutable: agent tier and per-step tools are fixed at creation.
+                  Immutable: agent and per-step tools are fixed at creation.
                 properties:
                   agent:
                     description: |-
-                      agent is the name of the cluster-scoped Agent to use for this step.
-                      When templateRef is set, overrides the template's agent for this step.
-                      When templateRef is not set (inline), selects the agent tier directly.
-                    enum:
-                    - default
-                    - smart
-                    - fast
+                      agent is the name of the cluster-scoped Agent CR to use for this step.
+                      Defaults to "default" when omitted.
+                    maxLength: 253
+                    minLength: 1
                     type: string
                   tools:
                     description: |-
@@ -420,8 +413,8 @@ spec:
                             \   url: https://mcp.openshift-lightspeed.svc:8443/sse\n\t
                             \   timeoutSeconds: 10\n\t    headers:\n\t      - name:
                             Authorization\n\t        valueFrom:\n\t          type:
-                            Kubernetes\n\nExample — connecting to an external API
-                            with secret-based auth:\n\n\tmcpServers:\n\t  - name:
+                            ServiceAccountToken\n\nExample — connecting to an external
+                            API with secret-based auth:\n\n\tmcpServers:\n\t  - name:
                             pagerduty\n\t    url: https://mcp-pagerduty.example.com/sse\n\t
                             \   headers:\n\t      - name: X-API-Key\n\t        valueFrom:\n\t
                             \         type: Secret\n\t          secret:\n\t            name:
@@ -468,26 +461,23 @@ spec:
                                           type specifies the source type for the header value. Allowed values:
                                             - "Secret"     — reads the value from a Kubernetes Secret (use for
                                               API keys and tokens). Requires the secret field to be set.
-                                            - "Kubernetes" — auto-injects a Kubernetes service account token
+                                            - "ServiceAccountToken" — auto-injects a Kubernetes service account token
                                               (for MCP servers that accept K8s auth).
                                             - "Client"     — the value is provided by the calling client at
                                               runtime (e.g., forwarded from a user session).
                                         enum:
                                         - Secret
-                                        - Kubernetes
+                                        - ServiceAccountToken
                                         - Client
                                         type: string
                                     required:
                                     - type
                                     type: object
                                     x-kubernetes-validations:
-                                    - message: secret is required when type is 'Secret'
+                                    - message: secret is required when type is Secret,
+                                        and forbidden otherwise
                                       rule: 'self.type == ''Secret'' ? has(self.secret)
-                                        : true'
-                                    - message: secret must not be set when type is
-                                        'Kubernetes' or 'Client'
-                                      rule: 'self.type != ''Secret'' ? !has(self.secret)
-                                        : true'
+                                        : !has(self.secret)'
                                 required:
                                 - name
                                 - valueFrom
@@ -499,14 +489,21 @@ spec:
                               - name
                               x-kubernetes-list-type: map
                             name:
-                              description: name of the MCP server. Must be 1-253 characters.
+                              description: |-
+                                name of the MCP server. Must start with a letter and contain only
+                                lowercase alphanumeric characters and hyphens. Must be 1-253 characters.
                               maxLength: 253
                               minLength: 1
                               type: string
+                              x-kubernetes-validations:
+                              - message: name must start with a lowercase letter and
+                                  contain only lowercase alphanumerics and hyphens
+                                rule: self.matches('^[a-z][a-z0-9-]*$')
                             timeoutSeconds:
                               default: 5
                               description: |-
-                                timeoutSeconds is the timeout for the MCP server in seconds, default is 5.
+                                timeoutSeconds is the per-request timeout for calls to this MCP server,
+                                in seconds. Default is 5.
                                 Valid range: 1-300.
                               format: int32
                               maximum: 300
@@ -538,6 +535,7 @@ spec:
                           outputSchema is a JSON Schema object that defines additional structured
                           output fields beyond the base schema that every agent produces (diagnosis,
                           proposal, RBAC, verification plan).
+                        type: object
                         x-kubernetes-preserve-unknown-fields: true
                       requiredSecrets:
                         description: |-
@@ -587,7 +585,7 @@ spec:
                           skills defines one or more OCI images containing skills to mount
                           in the agent's sandbox pod. The operator creates Kubernetes image
                           volumes (requires K8s 1.34+) and mounts them into the agent's
-                          skills directory.
+                          skills directory. Each image must be unique within the list.
                         items:
                           description: "SkillsSource defines an OCI image containing
                             skills and optionally which\npaths within that image to
@@ -690,7 +688,9 @@ spec:
                         maxItems: 20
                         minItems: 1
                         type: array
-                        x-kubernetes-list-type: atomic
+                        x-kubernetes-list-map-keys:
+                        - image
+                        x-kubernetes-list-type: map
                     type: object
                 type: object
                 x-kubernetes-validations:
@@ -698,7 +698,7 @@ spec:
                   rule: self == oldSelf
               maxAttempts:
                 description: |-
-                  maxAttempts overrides the template's retry limit for this proposal.
+                  maxAttempts sets the maximum number of retry attempts for this proposal.
 
                   Mutable: the console UI patches this at approval time so the user
                   can set a custom retry limit before execution begins.
@@ -772,26 +772,6 @@ spec:
                   rule: self.all(ns, !format.dns1123Label().validate(ns).hasValue())
                 - message: targetNamespaces is immutable after creation
                   rule: self == oldSelf
-              templateRef:
-                description: |-
-                  templateRef references a cluster-scoped ProposalTemplate that
-                  defines the workflow shape (which steps run, which agent tier
-                  handles each step).
-
-                  Immutable: the workflow shape is fixed at creation. A different
-                  template requires a new Proposal.
-                properties:
-                  name:
-                    description: name of the ProposalTemplate.
-                    maxLength: 253
-                    minLength: 1
-                    type: string
-                required:
-                - name
-                type: object
-                x-kubernetes-validations:
-                - message: templateRef is immutable after creation
-                  rule: self == oldSelf
               tools:
                 description: |-
                   tools defines the default tools for all steps: skills images,
@@ -815,7 +795,7 @@ spec:
                         — connecting to an OpenShift MCP server with SA token auth:\n\n\tmcpServers:\n\t
                         \ - name: openshift\n\t    url: https://mcp.openshift-lightspeed.svc:8443/sse\n\t
                         \   timeoutSeconds: 10\n\t    headers:\n\t      - name: Authorization\n\t
-                        \       valueFrom:\n\t          type: Kubernetes\n\nExample
+                        \       valueFrom:\n\t          type: ServiceAccountToken\n\nExample
                         — connecting to an external API with secret-based auth:\n\n\tmcpServers:\n\t
                         \ - name: pagerduty\n\t    url: https://mcp-pagerduty.example.com/sse\n\t
                         \   headers:\n\t      - name: X-API-Key\n\t        valueFrom:\n\t
@@ -863,26 +843,23 @@ spec:
                                       type specifies the source type for the header value. Allowed values:
                                         - "Secret"     — reads the value from a Kubernetes Secret (use for
                                           API keys and tokens). Requires the secret field to be set.
-                                        - "Kubernetes" — auto-injects a Kubernetes service account token
+                                        - "ServiceAccountToken" — auto-injects a Kubernetes service account token
                                           (for MCP servers that accept K8s auth).
                                         - "Client"     — the value is provided by the calling client at
                                           runtime (e.g., forwarded from a user session).
                                     enum:
                                     - Secret
-                                    - Kubernetes
+                                    - ServiceAccountToken
                                     - Client
                                     type: string
                                 required:
                                 - type
                                 type: object
                                 x-kubernetes-validations:
-                                - message: secret is required when type is 'Secret'
+                                - message: secret is required when type is Secret,
+                                    and forbidden otherwise
                                   rule: 'self.type == ''Secret'' ? has(self.secret)
-                                    : true'
-                                - message: secret must not be set when type is 'Kubernetes'
-                                    or 'Client'
-                                  rule: 'self.type != ''Secret'' ? !has(self.secret)
-                                    : true'
+                                    : !has(self.secret)'
                             required:
                             - name
                             - valueFrom
@@ -894,14 +871,21 @@ spec:
                           - name
                           x-kubernetes-list-type: map
                         name:
-                          description: name of the MCP server. Must be 1-253 characters.
+                          description: |-
+                            name of the MCP server. Must start with a letter and contain only
+                            lowercase alphanumeric characters and hyphens. Must be 1-253 characters.
                           maxLength: 253
                           minLength: 1
                           type: string
+                          x-kubernetes-validations:
+                          - message: name must start with a lowercase letter and contain
+                              only lowercase alphanumerics and hyphens
+                            rule: self.matches('^[a-z][a-z0-9-]*$')
                         timeoutSeconds:
                           default: 5
                           description: |-
-                            timeoutSeconds is the timeout for the MCP server in seconds, default is 5.
+                            timeoutSeconds is the per-request timeout for calls to this MCP server,
+                            in seconds. Default is 5.
                             Valid range: 1-300.
                           format: int32
                           maximum: 300
@@ -933,6 +917,7 @@ spec:
                       outputSchema is a JSON Schema object that defines additional structured
                       output fields beyond the base schema that every agent produces (diagnosis,
                       proposal, RBAC, verification plan).
+                    type: object
                     x-kubernetes-preserve-unknown-fields: true
                   requiredSecrets:
                     description: |-
@@ -982,7 +967,7 @@ spec:
                       skills defines one or more OCI images containing skills to mount
                       in the agent's sandbox pod. The operator creates Kubernetes image
                       volumes (requires K8s 1.34+) and mounts them into the agent's
-                      skills directory.
+                      skills directory. Each image must be unique within the list.
                     items:
                       description: "SkillsSource defines an OCI image containing skills
                         and optionally which\npaths within that image to mount. Skills
@@ -1084,7 +1069,9 @@ spec:
                     maxItems: 20
                     minItems: 1
                     type: array
-                    x-kubernetes-list-type: atomic
+                    x-kubernetes-list-map-keys:
+                    - image
+                    x-kubernetes-list-type: map
                 type: object
                 x-kubernetes-validations:
                 - message: tools is immutable after creation
@@ -1092,19 +1079,16 @@ spec:
               verification:
                 description: |-
                   verification defines per-step configuration for the verification step.
-                  Only verification.tools is meaningful (per-step tools override).
+                  Omit to skip verification.
 
-                  Immutable: agent tier and per-step tools are fixed at creation.
+                  Immutable: agent and per-step tools are fixed at creation.
                 properties:
                   agent:
                     description: |-
-                      agent is the name of the cluster-scoped Agent to use for this step.
-                      When templateRef is set, overrides the template's agent for this step.
-                      When templateRef is not set (inline), selects the agent tier directly.
-                    enum:
-                    - default
-                    - smart
-                    - fast
+                      agent is the name of the cluster-scoped Agent CR to use for this step.
+                      Defaults to "default" when omitted.
+                    maxLength: 253
+                    minLength: 1
                     type: string
                   tools:
                     description: |-
@@ -1125,8 +1109,8 @@ spec:
                             \   url: https://mcp.openshift-lightspeed.svc:8443/sse\n\t
                             \   timeoutSeconds: 10\n\t    headers:\n\t      - name:
                             Authorization\n\t        valueFrom:\n\t          type:
-                            Kubernetes\n\nExample — connecting to an external API
-                            with secret-based auth:\n\n\tmcpServers:\n\t  - name:
+                            ServiceAccountToken\n\nExample — connecting to an external
+                            API with secret-based auth:\n\n\tmcpServers:\n\t  - name:
                             pagerduty\n\t    url: https://mcp-pagerduty.example.com/sse\n\t
                             \   headers:\n\t      - name: X-API-Key\n\t        valueFrom:\n\t
                             \         type: Secret\n\t          secret:\n\t            name:
@@ -1173,26 +1157,23 @@ spec:
                                           type specifies the source type for the header value. Allowed values:
                                             - "Secret"     — reads the value from a Kubernetes Secret (use for
                                               API keys and tokens). Requires the secret field to be set.
-                                            - "Kubernetes" — auto-injects a Kubernetes service account token
+                                            - "ServiceAccountToken" — auto-injects a Kubernetes service account token
                                               (for MCP servers that accept K8s auth).
                                             - "Client"     — the value is provided by the calling client at
                                               runtime (e.g., forwarded from a user session).
                                         enum:
                                         - Secret
-                                        - Kubernetes
+                                        - ServiceAccountToken
                                         - Client
                                         type: string
                                     required:
                                     - type
                                     type: object
                                     x-kubernetes-validations:
-                                    - message: secret is required when type is 'Secret'
+                                    - message: secret is required when type is Secret,
+                                        and forbidden otherwise
                                       rule: 'self.type == ''Secret'' ? has(self.secret)
-                                        : true'
-                                    - message: secret must not be set when type is
-                                        'Kubernetes' or 'Client'
-                                      rule: 'self.type != ''Secret'' ? !has(self.secret)
-                                        : true'
+                                        : !has(self.secret)'
                                 required:
                                 - name
                                 - valueFrom
@@ -1204,14 +1185,21 @@ spec:
                               - name
                               x-kubernetes-list-type: map
                             name:
-                              description: name of the MCP server. Must be 1-253 characters.
+                              description: |-
+                                name of the MCP server. Must start with a letter and contain only
+                                lowercase alphanumeric characters and hyphens. Must be 1-253 characters.
                               maxLength: 253
                               minLength: 1
                               type: string
+                              x-kubernetes-validations:
+                              - message: name must start with a lowercase letter and
+                                  contain only lowercase alphanumerics and hyphens
+                                rule: self.matches('^[a-z][a-z0-9-]*$')
                             timeoutSeconds:
                               default: 5
                               description: |-
-                                timeoutSeconds is the timeout for the MCP server in seconds, default is 5.
+                                timeoutSeconds is the per-request timeout for calls to this MCP server,
+                                in seconds. Default is 5.
                                 Valid range: 1-300.
                               format: int32
                               maximum: 300
@@ -1243,6 +1231,7 @@ spec:
                           outputSchema is a JSON Schema object that defines additional structured
                           output fields beyond the base schema that every agent produces (diagnosis,
                           proposal, RBAC, verification plan).
+                        type: object
                         x-kubernetes-preserve-unknown-fields: true
                       requiredSecrets:
                         description: |-
@@ -1292,7 +1281,7 @@ spec:
                           skills defines one or more OCI images containing skills to mount
                           in the agent's sandbox pod. The operator creates Kubernetes image
                           volumes (requires K8s 1.34+) and mounts them into the agent's
-                          skills directory.
+                          skills directory. Each image must be unique within the list.
                         items:
                           description: "SkillsSource defines an OCI image containing
                             skills and optionally which\npaths within that image to
@@ -1395,26 +1384,29 @@ spec:
                         maxItems: 20
                         minItems: 1
                         type: array
-                        x-kubernetes-list-type: atomic
+                        x-kubernetes-list-map-keys:
+                        - image
+                        x-kubernetes-list-type: map
                     type: object
                 type: object
                 x-kubernetes-validations:
                 - message: verification is immutable after creation
                   rule: self == oldSelf
             required:
+            - analysis
             - request
             type: object
             x-kubernetes-validations:
-            - message: either templateRef or inline analysis must be provided
-              rule: has(self.templateRef) || has(self.analysis)
+            - message: analysis must be provided
+              rule: has(self.analysis)
           status:
             description: status defines the observed state of Proposal.
             properties:
-              attempt:
+              attempts:
                 description: |-
-                  attempt is the current attempt number (1-based). Incremented each
-                  time the proposal is retried after a failure. Starts at 1 for the
-                  first attempt.
+                  attempts is the number of times this proposal has been attempted
+                  (1-based). Incremented each time the proposal is retried after a
+                  failure. Starts at 1 for the first attempt.
                 format: int32
                 type: integer
               conditions:
@@ -1477,30 +1469,10 @@ spec:
                   - type
                   type: object
                 maxItems: 8
-                minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              phase:
-                description: |-
-                  phase summarizes the proposal's lifecycle state for display purposes.
-                  Derived by the operator from conditions on every reconcile. Conditions
-                  are the source of truth; this field is for human consumption
-                  (oc get, console list views).
-                enum:
-                - Pending
-                - Analyzing
-                - Proposed
-                - Approved
-                - Executing
-                - AwaitingSync
-                - Verifying
-                - Completed
-                - Failed
-                - Denied
-                - Escalated
-                type: string
               previousAttempts:
                 description: |-
                   previousAttempts contains the failure history from earlier attempts.

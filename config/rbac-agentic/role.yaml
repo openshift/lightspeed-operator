@@ -9,7 +9,6 @@ rules:
   resources:
   - agents
   - llmproviders
-  - proposaltemplates
   verbs:
   - get
   - list
