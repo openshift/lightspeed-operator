@@ -191,7 +191,7 @@ endif
 ifndef BUNDLE_IMAGE
 	$(error BUNDLE_IMAGE  environment variable is not set)
 endif
-	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="Upgrade" --ginkgo.timeout=2h
+	go test -tags=exclude_graphdriver_btrfs ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="Upgrade" --ginkgo.timeout=2h
 
 .PHONY: test-e2e-all-features
 test-e2e-all-features: ## Run comprehensive all-features E2E test. Requires KUBECONFIG and LLM_TOKEN environment variables.
@@ -211,7 +211,7 @@ endif
 ifndef LLM_TOKEN
 	$(error LLM_TOKEN  environment variable is not set)
 endif
-	go test ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast" --ginkgo.label-filter="!Database-Persistency"
+	go test -tags=exclude_graphdriver_btrfs ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast" --ginkgo.label-filter="!Database-Persistency"
 
 .PHONY: lint
 lint: ## Run golangci-lint against code.

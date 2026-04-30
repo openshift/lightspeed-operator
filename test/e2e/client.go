@@ -28,8 +28,10 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -854,20 +856,153 @@ func (c *Client) CreateClusterRoleBinding(namespace, serviceAccount, clusterRole
 }
 
 func (c *Client) UpgradeOperator(namespace string) error {
-	ctx, cancel := context.WithCancel(c.ctx)
-	bundleImage := os.Getenv("BUNDLE_IMAGE")
-	cmd := exec.CommandContext(ctx, "operator-sdk", "run", "bundle-upgrade", bundleImage, "--namespace", namespace, "--timeout", "20m", "--verbose", "--kubeconfig", c.kubeconfigPath)
+	ctx, cancel := context.WithTimeout(c.ctx, c.timeout)
+	defer cancel()
 
-	cleanUp := func() {
-		cancel()
-		_ = cmd.Wait() // wait to clean up resources but ignore returned error since cancel kills the process
-	}
+	subscriptionList := &unstructured.UnstructuredList{}
+	subscriptionList.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "operators.coreos.com",
+		Version: "v1alpha1",
+		Kind:    "SubscriptionList",
+	})
 
-	err := cmd.Run()
+	err := c.kClient.List(ctx, subscriptionList, client.InNamespace(namespace))
 	if err != nil {
-		cleanUp()
-		return fmt.Errorf("fail to run upgrade command. Please check upgrade version is different from initial: %w", err)
+		return fmt.Errorf("failed to list subscriptions in namespace %s: %w", namespace, err)
 	}
+
+	var subscription *unstructured.Unstructured
+	for i := range subscriptionList.Items {
+		name, _, _ := unstructured.NestedString(subscriptionList.Items[i].Object, "spec", "name")
+		if name == OperatorPackageName {
+			subscription = &subscriptionList.Items[i]
+			break
+		}
+	}
+
+	if subscription == nil {
+		return fmt.Errorf("%s subscription not found in namespace %s", OperatorPackageName, namespace)
+	}
+
+	currentCSV, found, err := unstructured.NestedString(subscription.Object, "status", "installedCSV")
+	if err != nil || !found {
+		return fmt.Errorf("failed to get current CSV from subscription: %w", err)
+	}
+
+	logf.Log.Info("Current CSV", "csv", currentCSV)
+
+	subscriptionChannel, found, err := unstructured.NestedString(subscription.Object, "spec", "channel")
+	if err != nil || !found {
+		return fmt.Errorf("failed to get channel from subscription: %w", err)
+	}
+
+	logf.Log.Info("Subscription channel", "channel", subscriptionChannel)
+
+	packageManifestList := &unstructured.UnstructuredList{}
+	packageManifestList.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "packages.operators.coreos.com",
+		Version: "v1",
+		Kind:    "PackageManifestList",
+	})
+
+	err = c.kClient.List(ctx, packageManifestList, client.InNamespace("openshift-marketplace"))
+	if err != nil {
+		return fmt.Errorf("failed to list packagemanifests in openshift-marketplace: %w", err)
+	}
+
+	var lightspeedPackageManifest *unstructured.Unstructured
+	for i := range packageManifestList.Items {
+		name, _, _ := unstructured.NestedString(packageManifestList.Items[i].Object, "metadata", "name")
+		if name == OperatorPackageName {
+			lightspeedPackageManifest = &packageManifestList.Items[i]
+			break
+		}
+	}
+
+	if lightspeedPackageManifest == nil {
+		return fmt.Errorf("%s packagemanifest not found in openshift-marketplace", OperatorPackageName)
+	}
+
+	channels, found, err := unstructured.NestedSlice(lightspeedPackageManifest.Object, "status", "channels")
+	if err != nil || !found || len(channels) == 0 {
+		return fmt.Errorf("failed to get channels from packagemanifest: %w", err)
+	}
+
+	// Determine which channel to look up in the PackageManifest.
+	// When installed via "operator-sdk run bundle", the subscription has a
+	// synthetic channel ("operator-sdk-run-bundle") that doesn't exist in
+	// the PackageManifest, so fall back to the manifest's defaultChannel.
+	targetChannel := subscriptionChannel
+
+	channelsByName := make(map[string]map[string]interface{}, len(channels))
+	for _, ch := range channels {
+		chMap, ok := ch.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _, _ := unstructured.NestedString(chMap, "name")
+		channelsByName[name] = chMap
+	}
+
+	if _, ok := channelsByName[targetChannel]; !ok {
+		defaultChannel, found, err := unstructured.NestedString(lightspeedPackageManifest.Object, "status", "defaultChannel")
+		if err != nil || !found {
+			return fmt.Errorf("subscription channel %q not found in packagemanifest and no defaultChannel available: %w", targetChannel, err)
+		}
+		logf.Log.Info("Subscription channel not in packagemanifest, falling back to defaultChannel", "subscriptionChannel", targetChannel, "defaultChannel", defaultChannel)
+		targetChannel = defaultChannel
+	}
+
+	matchedChannel, ok := channelsByName[targetChannel]
+	if !ok {
+		return fmt.Errorf("channel %q not found in packagemanifest", targetChannel)
+	}
+
+	latestCSV, found, err := unstructured.NestedString(matchedChannel, "currentCSV")
+	if err != nil || !found {
+		return fmt.Errorf("failed to get latest CSV from channel %q: %w", targetChannel, err)
+	}
+
+	logf.Log.Info("Latest CSV", "csv", latestCSV)
+
+	// Update the subscription with retry logic to handle concurrent modifications
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		subscriptionList := &unstructured.UnstructuredList{}
+		subscriptionList.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "operators.coreos.com",
+			Version: "v1alpha1",
+			Kind:    "SubscriptionList",
+		})
+
+		if err := c.kClient.List(ctx, subscriptionList, client.InNamespace(namespace)); err != nil {
+			return err
+		}
+
+		var subscription *unstructured.Unstructured
+		for i := range subscriptionList.Items {
+			name, _, _ := unstructured.NestedString(subscriptionList.Items[i].Object, "spec", "name")
+			if name == OperatorPackageName {
+				subscription = &subscriptionList.Items[i]
+				break
+			}
+		}
+
+		if subscription == nil {
+			return fmt.Errorf("%s subscription disappeared during update", OperatorPackageName)
+		}
+
+		if err := unstructured.SetNestedField(subscription.Object, latestCSV, "spec", "startingCSV"); err != nil {
+			return fmt.Errorf("failed to set startingCSV in subscription: %w", err)
+		}
+
+		return c.kClient.Update(ctx, subscription)
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to update subscription with new startingCSV: %w", err)
+	}
+
+	logf.Log.Info("Successfully upgraded operator", "from", currentCSV, "to", latestCSV)
 	return nil
 }
 
