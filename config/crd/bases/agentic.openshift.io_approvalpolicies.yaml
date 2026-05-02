@@ -1,0 +1,94 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: approvalpolicies.agentic.openshift.io
+spec:
+  group: agentic.openshift.io
+  names:
+    kind: ApprovalPolicy
+    listKind: ApprovalPolicyList
+    plural: approvalpolicies
+    singular: approvalpolicy
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: "ApprovalPolicy is a cluster-scoped singleton that configures
+          default\napproval behavior for proposal workflow steps. The cluster admin
+          creates\na single ApprovalPolicy named \"cluster\" to control which steps
+          auto-approve.\n\nSteps not listed in the policy default to Manual (require
+          explicit\nuser approval on the ProposalApproval resource).\n\nExample:\n\n\tapiVersion:
+          agentic.openshift.io/v1alpha1\n\tkind: ApprovalPolicy\n\tmetadata:\n\t  name:
+          cluster\n\tspec:\n\t  stages:\n\t    - name: Analysis\n\t      approval:
+          Automatic\n\t    - name: Execution\n\t      approval: Manual\n\t    - name:
+          Verification\n\t      approval: Automatic"
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ApprovalPolicySpec defines the desired state of ApprovalPolicy.
+            properties:
+              stages:
+                description: |-
+                  stages configures the approval mode for each workflow step.
+                  Omitted steps default to Manual.
+                items:
+                  description: ApprovalPolicyStage configures the approval mode for
+                    a single workflow step.
+                  properties:
+                    approval:
+                      description: |-
+                        approval controls whether this step auto-approves or requires
+                        explicit user approval on the ProposalApproval resource.
+                      enum:
+                      - Automatic
+                      - Manual
+                      type: string
+                    name:
+                      description: name is the workflow step this policy applies to.
+                      enum:
+                      - Analysis
+                      - Execution
+                      - Verification
+                      type: string
+                  required:
+                  - approval
+                  - name
+                  type: object
+                maxItems: 3
+                type: array
+                x-kubernetes-list-type: atomic
+            type: object
+            x-kubernetes-validations:
+            - message: stage names must be unique
+              rule: self.stages.all(s1, self.stages.all(s2, s1 == s2 || s1.name !=
+                s2.name))
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}

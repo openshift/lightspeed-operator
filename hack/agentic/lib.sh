@@ -10,15 +10,16 @@ info()  { echo -e "    ${GREEN}✓${NC} $1"; }
 warn()  { echo -e "    ${YELLOW}!${NC} $1"; }
 fail()  { echo -e "    ${RED}✗${NC} $1"; exit 1; }
 
-# Paths — this file lives in lightspeed-operator/hack/
+# Paths — this file lives in lightspeed-operator/hack/agentic/
 # Sibling repos are next to the operator repo in the workspace.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
-OPERATOR_DIR="$(dirname "${SCRIPT_DIR}")"
+OPERATOR_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 WORKSPACE_ROOT="$(dirname "${OPERATOR_DIR}")"
 
 CONSOLE_DIR="${CONSOLE_DIR:-${WORKSPACE_ROOT}/lightspeed-agentic-console}"
 SKILLS_DIR="${SKILLS_DIR:-${WORKSPACE_ROOT}/lightspeed-skills}"
 AGENT_DIR="${AGENT_DIR:-${WORKSPACE_ROOT}/lightspeed-agentic-sandbox}"
+AGENTIC_OPERATOR_DIR="${AGENTIC_OPERATOR_DIR:-${WORKSPACE_ROOT}/lightspeed-agentic-operator}"
 
 # Namespaces
 NS_OPERATOR="openshift-lightspeed"
@@ -36,30 +37,16 @@ else
     TAG="latest"
 fi
 
-# Container engine — prefer podman, fall back to docker
-if command -v podman >/dev/null 2>&1; then
-    CONTAINER_ENGINE="podman"
-elif command -v docker >/dev/null 2>&1; then
-    CONTAINER_ENGINE="docker"
-else
-    CONTAINER_ENGINE=""
-fi
-
-# Local image tags (used for container build, then pushed via skopeo)
-IMG_OPERATOR="lightspeed-operator:${TAG}"
-IMG_CONSOLE="lightspeed-console-plugin:${TAG}"
-IMG_AGENT="lightspeed-agentic-sandbox:${TAG}"
-IMG_SKILLS="lightspeed-skills:${TAG}"
-IMG_SKILLS_DESIGN="lightspeed-skills-design:${TAG}"
-IMG_SKILLS_REMEDIATE="lightspeed-skills-remediate:${TAG}"
-IMG_SKILLS_ESCALATE="lightspeed-skills-escalate:${TAG}"
-IMG_SKILLS_MONITOR="lightspeed-skills-monitor:${TAG}"
-
-# Skills profiles — order matters for iteration
-SKILLS_PROFILES=(design remediate escalate monitor)
+# BuildConfig names — match ImageStream names in ensure_buildconfigs()
+BC_OPERATOR="lightspeed-operator"
+BC_CONSOLE="lightspeed-console-plugin"
+BC_AGENT="lightspeed-agentic-sandbox"
+BC_SKILLS="lightspeed-skills"
 
 # Internal registry endpoint (for image references inside the cluster)
 INTERNAL_REG="image-registry.openshift-image-registry.svc:5000"
+
+show_usage() { echo "Usage: KUBECONFIG=<path> bash $0 [--skip-build]"; }
 
 # Parse flags: --skip-build, --provider=<vertex|bedrock>, --with-demo
 SKIP_BUILD=false
@@ -85,68 +72,221 @@ check_cluster() {
     info "Cluster: $(oc whoami --show-server 2>/dev/null | sed 's|https://||')"
 }
 
-# Get the external registry route
-get_registry() {
-    REGISTRY=$(oc get route default-route -n openshift-image-registry \
-        -o jsonpath='{.spec.host}' 2>/dev/null) \
-        || fail "Registry route not found. Enable with:\n    oc patch configs.imageregistry.operator.openshift.io/cluster --type merge -p '{\"spec\":{\"defaultRoute\":true}}'"
+# Ensure ImageStreams and BuildConfigs exist for all components.
+# BuildConfigs use Binary source + Docker strategy — builds run on the
+# cluster natively (no local container engine or cross-compilation needed).
+# Idempotent (oc apply), safe to call from every script.
+ensure_buildconfigs() {
+    step "Ensuring BuildConfigs and ImageStreams"
+    cat <<EOF | oc apply -f - >/dev/null 2>&1
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: lightspeed-operator
+  namespace: ${NS_OPERATOR}
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: lightspeed-console-plugin
+  namespace: ${NS_OPERATOR}
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: lightspeed-agentic-sandbox
+  namespace: ${NS_OPERATOR}
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: lightspeed-skills
+  namespace: ${NS_OPERATOR}
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: lightspeed-operator
+  namespace: ${NS_OPERATOR}
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: "lightspeed-operator:${TAG}"
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: lightspeed-operator/Dockerfile.dev
+  resources:
+    requests:
+      cpu: "1"
+      memory: 4Gi
+    limits:
+      memory: 8Gi
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: lightspeed-console-plugin
+  namespace: ${NS_OPERATOR}
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: "lightspeed-console-plugin:${TAG}"
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      memory: 4Gi
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: lightspeed-agentic-sandbox
+  namespace: ${NS_OPERATOR}
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: "lightspeed-agentic-sandbox:${TAG}"
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile.dev
+  resources:
+    requests:
+      cpu: "1"
+      memory: 4Gi
+    limits:
+      memory: 8Gi
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: lightspeed-skills
+  namespace: ${NS_OPERATOR}
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: "lightspeed-skills:${TAG}"
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+EOF
+    info "BuildConfigs and ImageStreams ready"
 }
 
-# Build an image for linux/amd64 (cross-compile from arm64 Mac)
-build_image() {
-    local name="$1" dir="$2" tag="$3" containerfile="${4:-Dockerfile}"
-    local context="${5:-${dir}}"
+# Build an image on the cluster via binary build.
+# Uploads the source directory to a builder pod, which runs the Dockerfile
+# natively on amd64 and pushes to the internal registry — no local container
+# engine, cross-compilation, registry route, or auth tokens needed.
+build_on_cluster() {
+    local bc_name="$1" from_dir="$2" label="$3"
     if [[ "${SKIP_BUILD}" == "true" ]]; then
-        warn "Skipping build of ${name}"
-        return
+        warn "Skipping build of ${label}"
+        return 0
     fi
-    [[ -z "${CONTAINER_ENGINE}" ]] && fail "podman or docker is required but neither is installed"
-    echo "    Building ${name} for linux/amd64..."
-    local build_log
-    build_log=$(mktemp /tmp/lightspeed-build-XXXXXX)
-    if ! ${CONTAINER_ENGINE} build --platform linux/amd64 \
-        -f "${dir}/${containerfile}" -t "${tag}" "${context}" >"${build_log}" 2>&1; then
-        echo ""
-        tail -20 "${build_log}"
-        rm -f "${build_log}"
-        fail "Failed to build ${name}. See output above."
-    fi
-    rm -f "${build_log}"
-    info "${name} built ($(${CONTAINER_ENGINE} inspect "${tag}" --format '{{.Id}}' | cut -c8-19))"
-}
-
-# Push a locally built image to the OpenShift internal registry
-push_image() {
-    local name="$1" ns="$2" tag="$3"
-    if ! ${CONTAINER_ENGINE} image inspect "${tag}" >/dev/null 2>&1; then
-        fail "Image ${tag} not found locally. Build it first:\n    ${CONTAINER_ENGINE} build --platform linux/amd64 -t ${tag} <source-dir>\n  Or re-run without --skip-build."
-    fi
-    local token
-    token=$(oc create token builder -n "${ns}" --duration=10m 2>/dev/null) \
-        || fail "Cannot create builder token in ${ns}"
-    echo "    Pushing ${name}..."
-    if [[ "${CONTAINER_ENGINE}" == "podman" ]]; then
-        podman push --tls-verify=false --creds="unused:${token}" \
-            "localhost/${tag}" "docker://${REGISTRY}/${ns}/${name}:${TAG}" >/dev/null 2>&1
-    else
-        skopeo copy --dest-tls-verify=false --dest-creds="unused:${token}" \
-            "docker-daemon:${tag}" "docker://${REGISTRY}/${ns}/${name}:${TAG}" >/dev/null 2>&1
-    fi
-    # Also tag as :latest so default configs work regardless of worktree
+    oc patch "bc/${bc_name}" -n "${NS_OPERATOR}" --type=merge \
+        -p "{\"spec\":{\"output\":{\"to\":{\"name\":\"${bc_name}:${TAG}\"}}}}" >/dev/null 2>&1
+    echo "    Building ${label} on cluster (uploading source)..."
+    oc start-build "${bc_name}" -n "${NS_OPERATOR}" \
+        --from-dir="${from_dir}" --follow \
+        || fail "Failed to build ${label}"
     if [[ "${TAG}" != "latest" ]]; then
-        oc tag "${ns}/${name}:${TAG}" "${ns}/${name}:latest" >/dev/null 2>&1
+        oc tag "${NS_OPERATOR}/${bc_name}:${TAG}" "${NS_OPERATOR}/${bc_name}:latest" >/dev/null 2>&1
     fi
-    info "${name} pushed"
+    info "${label} built"
 }
 
-# Delete and wait for a standalone pod (managed by SandboxTemplate, not a Deployment)
-restart_pod() {
-    local pod="$1" ns="$2" label="${3:-${pod}}"
-    echo "    Deleting pod ${pod}..."
-    oc delete pod -n "${ns}" "${pod}" --ignore-not-found >/dev/null 2>&1
-    echo "    Waiting for pod to restart..."
-    oc wait --for=condition=Ready pod/"${pod}" -n "${ns}" --timeout=120s >/dev/null 2>&1
-    info "${label} ready"
+# Parallel build support — start builds without blocking, then wait for all.
+PENDING_BUILDS=()
+PENDING_LABELS=()
+PENDING_BCS=()
+
+start_build_async() {
+    local bc_name="$1" from_dir="$2" label="$3"
+    if [[ "${SKIP_BUILD}" == "true" ]]; then
+        warn "Skipping build of ${label}"
+        return 0
+    fi
+    oc patch "bc/${bc_name}" -n "${NS_OPERATOR}" --type=merge \
+        -p "{\"spec\":{\"output\":{\"to\":{\"name\":\"${bc_name}:${TAG}\"}}}}" >/dev/null 2>&1
+    echo "    Starting ${label} build (uploading source)..."
+    local build_output build_name
+    build_output=$(oc start-build "${bc_name}" -n "${NS_OPERATOR}" \
+        --from-dir="${from_dir}" -o name 2>/dev/null) \
+        || fail "Failed to start build for ${label}"
+    build_name=$(echo "${build_output}" | tail -1)
+    build_name="${build_name#build.build.openshift.io/}"
+    PENDING_BUILDS+=("${build_name}")
+    PENDING_LABELS+=("${label}")
+    PENDING_BCS+=("${bc_name}")
+    info "${label} build started (${build_name})"
+}
+
+wait_all_builds() {
+    if [[ ${#PENDING_BUILDS[@]} -eq 0 ]]; then return; fi
+    step "Waiting for ${#PENDING_BUILDS[@]} parallel builds"
+    local build_args=()
+    for b in "${PENDING_BUILDS[@]}"; do build_args+=("build/${b}"); done
+
+    local all_done=false
+    while [[ "${all_done}" != "true" ]]; do
+        all_done=true
+        local status_line=""
+        local phases
+        phases=$(oc get "${build_args[@]}" -n "${NS_OPERATOR}" \
+            -o custom-columns='NAME:.metadata.name,PHASE:.status.phase' --no-headers 2>/dev/null)
+        for i in "${!PENDING_BUILDS[@]}"; do
+            local build="${PENDING_BUILDS[$i]}"
+            local label="${PENDING_LABELS[$i]}"
+            local phase
+            phase=$(echo "${phases}" | awk -v b="${build}" '$1==b {print $2}')
+            phase="${phase:-Unknown}"
+            status_line+="  ${label}=${phase}"
+            if [[ "${phase}" == "Failed" ]] || [[ "${phase}" == "Error" ]] || [[ "${phase}" == "Cancelled" ]]; then
+                echo ""
+                echo "    Build ${build} failed (${phase}):"
+                oc logs "build/${build}" -n "${NS_OPERATOR}" --tail=30 2>/dev/null
+                fail "Build failed: ${label}"
+            fi
+            if [[ "${phase}" != "Complete" ]]; then
+                all_done=false
+            fi
+        done
+        if [[ "${all_done}" != "true" ]]; then
+            printf "\r    %s" "${status_line}"
+            sleep 15
+        fi
+    done
+    echo ""
+    for i in "${!PENDING_BUILDS[@]}"; do
+        local bc_name="${PENDING_BCS[$i]}"
+        local label="${PENDING_LABELS[$i]}"
+        if [[ "${TAG}" != "latest" ]]; then
+            oc tag "${NS_OPERATOR}/${bc_name}:${TAG}" "${NS_OPERATOR}/${bc_name}:latest" >/dev/null 2>&1
+        fi
+        info "${label} built"
+    done
+    PENDING_BUILDS=()
+    PENDING_LABELS=()
+    PENDING_BCS=()
 }
 
 # Rollout restart a deployment and wait for it
@@ -195,25 +335,18 @@ show_digest() {
 }
 
 ###############################################################################
-# Full deploy helpers — shared by deploy-agentic.sh
+# Full deploy helpers — shared by deploy.sh
 ###############################################################################
 
-ensure_registry_route() {
-    step "Ensuring internal registry route"
-    if oc get route default-route -n openshift-image-registry >/dev/null 2>&1; then
-        info "Registry route already exposed"
-    else
-        oc patch configs.imageregistry.operator.openshift.io/cluster \
-            --type merge -p '{"spec":{"defaultRoute":true}}' >/dev/null 2>&1
-        for i in {1..30}; do
-            oc get route default-route -n openshift-image-registry >/dev/null 2>&1 && break
-            sleep 2
-        done
-        oc get route default-route -n openshift-image-registry >/dev/null 2>&1 \
-            || fail "Registry route not available after 60s"
-        info "Registry route exposed"
-    fi
-    get_registry
+update_crds_and_rbac() {
+    step "Updating CRDs and RBAC"
+    cd "${OPERATOR_DIR}"
+    make manifests kustomize >/dev/null 2>&1
+    oc apply -f config/crd/bases/ >/dev/null 2>&1
+    bin/kustomize build config/default \
+        | oc apply -f - -l app.kubernetes.io/component=rbac --server-side --force-conflicts >/dev/null 2>&1 \
+        || warn "RBAC update via kustomize failed — may need full deploy"
+    info "CRDs and RBAC updated"
 }
 
 install_crds() {
@@ -257,9 +390,8 @@ deploy_operator_manifests() {
         done
     fi
 
-    local CONSOLE_IMG_REF="${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-console-plugin:${TAG}"
     bin/kustomize build config/default \
-        | awk -v console_img="${CONSOLE_IMG_REF}" '/- --leader-elect/{print; print "        - --enable-agentic"; print "        - --agentic-console-image=" console_img; next}1' \
+        | awk -v console_img="${CONSOLE_IMG}" '/- --leader-elect/{print; print "        - --enable-agentic"; print "        - --agentic-console-image=" console_img; next}1' \
         | oc apply -f - >/dev/null 2>&1
     cp "${PATCH_FILE}.bak" "${PATCH_FILE}"
     rm -f "${PATCH_FILE}.bak"
@@ -271,15 +403,31 @@ deploy_operator_manifests() {
     info "Operator cluster-admin bound"
 }
 
-build_push_operator() {
-    build_image "operator" "${OPERATOR_DIR}" "${IMG_OPERATOR}" "Dockerfile.dev" "${WORKSPACE_ROOT}"
-    step "Pushing operator image"
-    push_image "lightspeed-operator" "${NS_OPERATOR}" "${IMG_OPERATOR}"
+_make_operator_context() {
+    local ctx
+    ctx=$(mktemp -d /tmp/lightspeed-operator-ctx-XXXXXX)
+    cp -rL "${OPERATOR_DIR}" "${ctx}/lightspeed-operator"
+    cp -rL "${AGENTIC_OPERATOR_DIR}" "${ctx}/lightspeed-agentic-operator"
+    echo "${ctx}"
+}
 
-    step "Waiting for operator rollout"
-    oc rollout restart "deployment/${DEPLOY_OPERATOR}" -n "${NS_OPERATOR}" >/dev/null 2>&1
-    oc rollout status "deployment/${DEPLOY_OPERATOR}" -n "${NS_OPERATOR}" --timeout=180s >/dev/null 2>&1
-    info "Operator ready"
+build_operator() {
+    local ctx
+    ctx=$(_make_operator_context)
+    build_on_cluster "${BC_OPERATOR}" "${ctx}" "operator"
+    rm -rf "${ctx}"
+}
+
+start_operator_build_async() {
+    local ctx
+    ctx=$(_make_operator_context)
+    start_build_async "${BC_OPERATOR}" "${ctx}" "operator"
+    rm -rf "${ctx}"
+}
+
+build_push_operator() {
+    build_operator
+    rollout "${DEPLOY_OPERATOR}" "${NS_OPERATOR}" "Operator"
 }
 
 install_agent_sandbox_controller() {
@@ -363,10 +511,7 @@ spec:
       targetPort: 8080
       protocol: TCP
 SVCEOF
-        for i in {1..30}; do
-            oc get secret lightspeed-agent-tls -n "${NS_OPERATOR}" >/dev/null 2>&1 && break
-            sleep 2
-        done
+        oc wait --for=create secret/lightspeed-agent-tls -n "${NS_OPERATOR}" --timeout=60s >/dev/null 2>&1
         info "Agent service created (TLS secret ready)"
     else
         info "Agent service already exists"
@@ -536,92 +681,14 @@ ensure_tool_secrets() {
     fi
 }
 
-build_push_agent_and_skills() {
-    local AGENT_DIR="${AGENT_DIR:-${WORKSPACE_ROOT}/lightspeed-agentic-sandbox}"
-    if [[ -d "${AGENT_DIR}" ]]; then
-        local agent_containerfile="Containerfile"
-        if [[ -f "${AGENT_DIR}/Containerfile.dev" ]] && [[ "$(uname -m)" == "arm64" || "$(uname -m)" == "aarch64" ]]; then
-            agent_containerfile="Containerfile.dev"
-        fi
-        build_image "agent" "${AGENT_DIR}" "${IMG_AGENT}" "${agent_containerfile}"
-        step "Pushing agent image"
-        push_image "lightspeed-agentic-sandbox" "${NS_OPERATOR}" "${IMG_AGENT}"
-    else
-        warn "Agent directory not found: ${AGENT_DIR}"
-    fi
-
-    if [[ -d "${SKILLS_DIR}" ]]; then
-        build_image "skills" "${SKILLS_DIR}" "${IMG_SKILLS}" "Containerfile"
-        step "Pushing skills image"
-        push_image "lightspeed-skills" "${NS_OPERATOR}" "${IMG_SKILLS}"
-
-        for profile in "${SKILLS_PROFILES[@]}"; do
-            local img_var="IMG_SKILLS_${profile^^}"
-            local img_tag="${!img_var}"
-            build_image "skills-${profile}" "${SKILLS_DIR}" "${img_tag}" "Containerfile.${profile}"
-            step "Pushing skills-${profile} image"
-            push_image "lightspeed-skills-${profile}" "${NS_OPERATOR}" "${img_tag}"
-        done
-    else
-        warn "Skills directory not found: ${SKILLS_DIR}"
-    fi
-}
-
-# Apply a base SandboxTemplate — minimal pod spec without LLM credentials,
-# skills, or phase config. The operator derives per-step templates at runtime
-# from the CRD chain (Agent + ComponentTools + LLMProvider).
-deploy_base_template() {
-    step "Deploying base SandboxTemplate"
-    cat | oc apply -f - >/dev/null 2>&1
-    info "Base SandboxTemplate created"
-}
-
-ensure_olsconfig() {
-    step "Ensuring OLSConfig"
-    if ! oc get olsconfig cluster >/dev/null 2>&1; then
-        cat <<'OLSEOF' | oc apply -f - >/dev/null 2>&1
-apiVersion: agentic.openshift.io/v1alpha1
-kind: OLSConfig
-metadata:
-  name: cluster
-spec:
-  sandbox:
-    baseTemplate: lightspeed-agent
-OLSEOF
-        info "OLSConfig created"
-        echo "    Waiting for console plugin deployment..."
-        for i in {1..30}; do
-            oc get "deployment/${DEPLOY_CONSOLE}" -n "${NS_CONSOLE}" >/dev/null 2>&1 && break
-            sleep 3
-        done
-    else
-        info "OLSConfig already exists"
-    fi
-}
-
-build_push_console() {
-    if [[ -d "${CONSOLE_DIR}" ]] && [[ -f "${CONSOLE_DIR}/Dockerfile" ]]; then
-        build_image "console-plugin" "${CONSOLE_DIR}" "${IMG_CONSOLE}"
-        step "Pushing console plugin image"
-        push_image "lightspeed-console-plugin" "${NS_CONSOLE}" "${IMG_CONSOLE}"
-        info "Console image pushed (operator deploys it via --agentic-console-image)"
-        oc policy add-role-to-user system:image-puller \
-            system:serviceaccount:${NS_CONSOLE}:lightspeed-agentic-console-plugin \
-            -n "${NS_CONSOLE}" >/dev/null 2>&1
-        info "Console SA granted image-puller"
-    else
-        warn "Console directory or Dockerfile not found: ${CONSOLE_DIR}"
-    fi
-}
-
 # Setup the Day 0 proposal API chain, following the timeline from the CRD
 # design doc (see gist: harche/ac8e8399a9bf69091a38a5cf6e3bc56b).
 #
 # Timeline — Who creates what, when:
 #   Day 0 (Cluster Admin):
 #     1. LLMProvider CRs        — LLM backend config (created by caller, provider-specific)
-#     2. Agent CRs              — Agent tiers: default, smart, fast (cluster-scoped)
-#     3. ProposalTemplate CRs   — Workflow shapes: advisory, remediation, assisted (cluster-scoped)
+#     2. Agent CRs              — Agent tiers: default, smart, fast (cluster-scoped, model on Agent)
+#     3. ApprovalPolicy CR      — Per-stage approval defaults (cluster-scoped singleton)
 #     4. Runtime secrets        — Tool credentials in component namespaces
 #   Day 1 (Component Owner):
 #     5. Proposal CRs           — Created by adapters at runtime (namespaced)
@@ -633,8 +700,8 @@ setup_proposal_agents_and_workflows() {
 
     ###########################################################################
     # Step 2: Agent tiers (cluster-scoped) — Cluster Admin
-    # Maps LLMProvider names to agent configurations with different
-    # reasoning/cost profiles. The "default" agent is required.
+    # Each agent references an LLMProvider and specifies a model.
+    # Different agents = different cost/reasoning profiles. The "default" agent is required.
     ###########################################################################
     if [[ -f "${AGENTIC_OPERATOR_DIR}/examples/setup/01-agents.yaml" ]]; then
         oc apply -f "${AGENTIC_OPERATOR_DIR}/examples/setup/01-agents.yaml" >/dev/null 2>&1
@@ -647,7 +714,8 @@ metadata:
   name: default
 spec:
   llmProvider:
-    name: smart
+    name: vertex-ai
+  model: claude-opus-4-6
   maxTurns: 200
 ---
 apiVersion: agentic.openshift.io/v1alpha1
@@ -656,10 +724,9 @@ metadata:
   name: smart
 spec:
   llmProvider:
-    name: smart
+    name: vertex-ai
+  model: claude-opus-4-6
   maxTurns: 200
-  providerSettings:
-    reasoningEffort: "high"
 ---
 apiVersion: agentic.openshift.io/v1alpha1
 kind: Agent
@@ -667,20 +734,37 @@ metadata:
   name: fast
 spec:
   llmProvider:
-    name: fast
+    name: vertex-ai
+  model: claude-haiku-4-5
   maxTurns: 100
-  providerSettings:
-    reasoningEffort: "low"
 AGENTEOF
         info "Agent CRs created (default, smart, fast)"
     fi
 
     ###########################################################################
-    # Step 3: ProposalTemplates — removed
-    # Workflow steps are now defined inline on each Proposal spec.
-    # No separate ProposalTemplate CRD exists.
+    # Step 3: ApprovalPolicy — Cluster Admin
+    # Auto-approve analysis and verification; require manual execution approval.
     ###########################################################################
-    info "ProposalTemplate CRD removed — workflow steps are inline on Proposals"
+    if [[ -f "${AGENTIC_OPERATOR_DIR}/examples/setup/02-approval-policy.yaml" ]]; then
+        oc apply -f "${AGENTIC_OPERATOR_DIR}/examples/setup/02-approval-policy.yaml" >/dev/null 2>&1
+        info "ApprovalPolicy applied from examples/setup/02-approval-policy.yaml"
+    else
+        cat <<'POLICYEOF' | oc apply -f - >/dev/null 2>&1
+apiVersion: agentic.openshift.io/v1alpha1
+kind: ApprovalPolicy
+metadata:
+  name: cluster
+spec:
+  stages:
+    - name: Analysis
+      approval: Automatic
+    - name: Execution
+      approval: Manual
+    - name: Verification
+      approval: Automatic
+POLICYEOF
+        info "ApprovalPolicy created (analysis=auto, execution=manual, verification=auto)"
+    fi
 
     ###########################################################################
     # Step 4: Monitoring RBAC — Cluster Admin

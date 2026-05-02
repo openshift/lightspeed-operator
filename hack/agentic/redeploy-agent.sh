@@ -4,9 +4,9 @@
 # uses an OCI image volume (not emptyDir) for /app/skills.
 #
 # Usage:
-#   KUBECONFIG=/path/to/kubeconfig bash hack/redeploy-agent.sh
-#   KUBECONFIG=/path/to/kubeconfig bash hack/redeploy-agent.sh --skip-build
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/agentic-lib.sh"
+#   KUBECONFIG=/path/to/kubeconfig bash hack/agentic/redeploy-agent.sh
+#   KUBECONFIG=/path/to/kubeconfig bash hack/agentic/redeploy-agent.sh --skip-build
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 parse_args "$@"
 
 SKILLS_IMAGE="${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-skills:${TAG}"
@@ -14,24 +14,13 @@ SKILLS_IMAGE="${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-skills:${TAG}"
 [[ -d "${AGENT_DIR}" ]] || fail "Agent directory not found: ${AGENT_DIR}"
 
 check_cluster
-get_registry
+ensure_buildconfigs
 
-# Build and push agent image
-agent_containerfile="Containerfile"
-if [[ -f "${AGENT_DIR}/Containerfile.dev" ]] && [[ "$(uname -m)" == "arm64" || "$(uname -m)" == "aarch64" ]]; then
-    agent_containerfile="Containerfile.dev"
-fi
-build_image "lightspeed-agentic-sandbox" "${AGENT_DIR}" "${IMG_AGENT}" "${agent_containerfile}"
+# Build agent and skills on cluster (no local container engine needed)
+build_on_cluster "${BC_AGENT}" "${AGENT_DIR}" "agent sandbox"
 
-step "Pushing agent sandbox image"
-push_image "lightspeed-agentic-sandbox" "${NS_OPERATOR}" "${IMG_AGENT}"
-
-# Build and push skills image (if skills dir exists)
 if [[ -d "${SKILLS_DIR}" ]]; then
-    build_image "lightspeed-skills" "${SKILLS_DIR}" "${IMG_SKILLS}" "Containerfile"
-
-    step "Pushing skills image"
-    push_image "lightspeed-skills" "${NS_OPERATOR}" "${IMG_SKILLS}"
+    build_on_cluster "${BC_SKILLS}" "${SKILLS_DIR}" "skills"
 fi
 
 # Ensure SandboxTemplate uses image volume for skills (not emptyDir)

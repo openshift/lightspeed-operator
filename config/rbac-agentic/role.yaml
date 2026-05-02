@@ -8,6 +8,7 @@ rules:
   - agentic.openshift.io
   resources:
   - agents
+  - approvalpolicies
   - llmproviders
   verbs:
   - get
@@ -16,6 +17,7 @@ rules:
 - apiGroups:
   - agentic.openshift.io
   resources:
+  - proposalapprovals
   - proposals
   verbs:
   - create
@@ -28,16 +30,17 @@ rules:
 - apiGroups:
   - agentic.openshift.io
   resources:
-  - proposals/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - agentic.openshift.io
-  resources:
+  - proposalapprovals/status
   - proposals/status
   verbs:
   - get
   - patch
+  - update
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - proposals/finalizers
+  verbs:
   - update
 - apiGroups:
   - rbac.authorization.k8s.io

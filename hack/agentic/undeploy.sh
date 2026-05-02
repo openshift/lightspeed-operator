@@ -2,10 +2,10 @@
 # Remove the full agentic stack from an OpenShift cluster.
 #
 # Usage:
-#   KUBECONFIG=/path/to/kubeconfig bash hack/undeploy-agentic.sh
-#   KUBECONFIG=/path/to/kubeconfig VERTEX_PROJECT=my-project bash hack/undeploy-agentic.sh  # also cleans GCP SA
+#   KUBECONFIG=/path/to/kubeconfig bash hack/agentic/undeploy.sh
+#   KUBECONFIG=/path/to/kubeconfig VERTEX_PROJECT=my-project bash hack/agentic/undeploy.sh  # also cleans GCP SA
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/agentic-lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
 check_cluster
 
@@ -31,9 +31,12 @@ step "Removing CRDs"
 oc delete crd \
     olsconfigs.ols.openshift.io \
     agents.agentic.openshift.io \
+    approvalpolicies.agentic.openshift.io \
     componenttools.agentic.openshift.io \
     llmproviders.agentic.openshift.io \
+    proposalapprovals.agentic.openshift.io \
     proposals.agentic.openshift.io \
+    proposaltemplates.agentic.openshift.io \
     workflows.agentic.openshift.io \
     --ignore-not-found >/dev/null 2>&1
 info "CRDs removed"

@@ -6,7 +6,10 @@ resources:
 - bases/agentic.openshift.io_agents.yaml
 - bases/agentic.openshift.io_componenttools.yaml
 - bases/agentic.openshift.io_llmproviders.yaml
+- bases/agentic.openshift.io_approvalpolicies.yaml
+- bases/agentic.openshift.io_proposalapprovals.yaml
 - bases/agentic.openshift.io_proposals.yaml
+- bases/agentic.openshift.io_proposaltemplates.yaml
 - bases/agentic.openshift.io_workflows.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 

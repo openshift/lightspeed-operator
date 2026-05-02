@@ -18,9 +18,6 @@ spec:
     - jsonPath: .spec.type
       name: Type
       type: string
-    - jsonPath: .spec.model
-      name: Model
-      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -31,21 +28,16 @@ spec:
           first link in\nthe CRD chain (LLMProvider -> Agent -> Workflow -> Proposal)
           and is\nreferenced by Agent resources via spec.llmProvider.\n\nLLMProvider
           is cluster-scoped — the cluster admin manages LLM infrastructure\ncentrally.
-          The operator uses the credentials and model to configure the LLM\nclient
-          inside agent sandbox pods.\n\nTypically you create a small number of providers
-          representing different\ncapability/cost tiers (e.g., \"smart\" for complex
-          analysis, \"fast\" for\nroutine execution) and then reference them from
-          multiple Agent resources.\n\nExample — a high-capability provider for analysis
-          tasks:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind: LLMProvider\n\tmetadata:\n\t
-          \ name: smart\n\tspec:\n\t  type: GoogleCloudVertex\n\t  model: claude-opus-4-6\n\t
+          The operator uses the credentials to configure the LLM client\ninside agent
+          sandbox pods. The model is specified on the Agent CR, allowing\nmultiple
+          agents to share one LLMProvider with different models.\n\nTypically you
+          create one provider per backend (e.g., one for Vertex AI)\nand then reference
+          it from multiple Agent resources with different models.\n\nExample — a Vertex
+          AI provider (model specified on Agent, not here):\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          LLMProvider\n\tmetadata:\n\t  name: vertex-ai\n\tspec:\n\t  type: GoogleCloudVertex\n\t
           \ googleCloudVertex:\n\t    credentialsSecret:\n\t      name: llm-credentials\n\t
           \     namespace: openshift-lightspeed\n\t    project: my-gcp-project\n\t
-          \   region: us-central1\n\nExample — a fast, cost-efficient provider for
-          execution tasks:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
-          LLMProvider\n\tmetadata:\n\t  name: fast\n\tspec:\n\t  type: GoogleCloudVertex\n\t
-          \ model: claude-haiku-4-5\n\t  googleCloudVertex:\n\t    credentialsSecret:\n\t
-          \     name: llm-credentials\n\t      namespace: openshift-lightspeed\n\t
-          \   project: my-gcp-project\n\t    region: us-central1"
+          \   region: us-central1"
         properties:
           apiVersion:
             description: |-
@@ -215,23 +207,6 @@ spec:
                 - project
                 - region
                 type: object
-              model:
-                description: |-
-                  model is the LLM model identifier as recognized by the provider
-                  (e.g., "claude-opus-4-6", "claude-haiku-4-5", "gpt-4o").
-                  Different agents can reference different LLMProviders to use different
-                  models for different tasks (e.g., a capable model for analysis,
-                  a fast model for execution). Must be 1-256 characters, starting with
-                  an alphanumeric character and containing only alphanumerics, dots,
-                  hyphens, underscores, slashes, colons, and at-signs.
-                maxLength: 256
-                minLength: 1
-                type: string
-                x-kubernetes-validations:
-                - message: model must start with an alphanumeric character and contain
-                    only alphanumerics, dots, hyphens, underscores, slashes, colons,
-                    and at-signs
-                  rule: self.matches('^[a-zA-Z0-9][a-zA-Z0-9._\\-/:@]*$')
               openAI:
                 description: |-
                   openAI contains OpenAI-specific configuration.
@@ -288,7 +263,6 @@ spec:
                 - message: url must be a valid HTTP or HTTPS URL
                   rule: isURL(self) && url(self).getScheme() in ['http', 'https']
             required:
-            - model
             - type
             type: object
             x-kubernetes-validations:

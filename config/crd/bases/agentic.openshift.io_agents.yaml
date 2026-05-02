@@ -18,6 +18,9 @@ spec:
     - jsonPath: .spec.llmProvider.name
       name: LLM
       type: string
+    - jsonPath: .spec.model
+      name: Model
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -35,12 +38,12 @@ spec:
           are optional (the\noperator auto-links to \"default\" if absent).\n\nExample
           — a high-capability agent tier:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
           Agent\n\tmetadata:\n\t  name: smart\n\tspec:\n\t  llmProvider:\n\t    name:
-          vertex-opus\n\t  timeouts:\n\t    analysisSeconds: 300\n\t    executionSeconds:
-          600\n\t  maxTurns: 200\n\t  providerSettings:\n\t    reasoningEffort: \"high\"\n\nExample
-          — a fast, cost-efficient agent tier:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          vertex-ai\n\t  model: claude-opus-4-6\n\t  timeouts:\n\t    analysisSeconds:
+          300\n\t    executionSeconds: 600\n\t  maxTurns: 200\n\nExample — a fast,
+          cost-efficient agent tier:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
           Agent\n\tmetadata:\n\t  name: fast\n\tspec:\n\t  llmProvider:\n\t    name:
-          vertex-haiku\n\t  timeouts:\n\t    analysisSeconds: 120\n\t    executionSeconds:
-          300\n\t  maxTurns: 100\n\t  providerSettings:\n\t    reasoningEffort: \"low\""
+          vertex-ai\n\t  model: claude-haiku-4-5\n\t  timeouts:\n\t    analysisSeconds:
+          120\n\t    executionSeconds: 300\n\t  maxTurns: 100"
         properties:
           apiVersion:
             description: |-
@@ -83,15 +86,18 @@ spec:
                 maximum: 500
                 minimum: 1
                 type: integer
-              providerSettings:
-                additionalProperties:
-                  type: string
+              model:
                 description: |-
-                  providerSettings is a freeform key-value map passed through to the
-                  LLM SDK. Use this for provider-specific tuning parameters such as
-                  temperature, reasoningEffort, topP, etc. The operator does not
-                  validate these keys — they are forwarded as-is to the SDK.
-                type: object
+                  model is the LLM model identifier as recognized by the provider
+                  (e.g., "claude-opus-4-6", "claude-haiku-4-5", "gpt-4o").
+                maxLength: 256
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: model must start with an alphanumeric character and contain
+                    only alphanumerics, dots, hyphens, underscores, slashes, colons,
+                    and at-signs
+                  rule: self.matches('^[a-zA-Z0-9][a-zA-Z0-9._\\-/:@]*$')
               timeouts:
                 description: timeouts configures per-step and per-turn timeout limits.
                 properties:
@@ -126,6 +132,7 @@ spec:
                 type: object
             required:
             - llmProvider
+            - model
             type: object
           status:
             description: status defines the observed state of Agent.

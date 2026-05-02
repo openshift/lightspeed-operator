@@ -5,15 +5,15 @@
 # Components deployed:
 #   - Operator (lightspeed-operator-controller-manager)
 #   - Agent sandbox (lightspeed-agent pod via SandboxTemplate)
-#   - Skills OCI images (full + per-profile: design, remediate, escalate, monitor)
+#   - Skills OCI image
 #   - Console plugin (lightspeed-agentic-console)
-#   - Proposal API chain (LlmProvider → Agent → Workflow CRs)
+#   - Proposal API chain (LLMProvider → Agent → ApprovalPolicy)
 #
 # Usage:
-#   KUBECONFIG=/path/to/kubeconfig bash hack/deploy-agentic.sh --provider=vertex
-#   KUBECONFIG=/path/to/kubeconfig bash hack/deploy-agentic.sh --provider=bedrock
-#   KUBECONFIG=/path/to/kubeconfig bash hack/deploy-agentic.sh --provider=vertex --skip-build
-#   KUBECONFIG=/path/to/kubeconfig bash hack/deploy-agentic.sh --provider=vertex --with-demo
+#   KUBECONFIG=/path/to/kubeconfig bash hack/agentic/deploy.sh --provider=vertex
+#   KUBECONFIG=/path/to/kubeconfig bash hack/agentic/deploy.sh --provider=bedrock
+#   KUBECONFIG=/path/to/kubeconfig bash hack/agentic/deploy.sh --provider=vertex --skip-build
+#   KUBECONFIG=/path/to/kubeconfig bash hack/agentic/deploy.sh --provider=vertex --with-demo
 #
 # Environment variables:
 #   KUBECONFIG          - Required. Path to cluster kubeconfig.
@@ -34,21 +34,19 @@
 #     RH_API_OFFLINE_TOKEN  - Red Hat API offline token for support tools.
 
 show_usage() {
-    echo "Usage: KUBECONFIG=<path> bash hack/deploy-agentic.sh --provider=<vertex|bedrock> [--skip-build] [--with-demo]"
+    echo "Usage: KUBECONFIG=<path> bash hack/agentic/deploy.sh --provider=<vertex|bedrock> [--skip-build] [--with-demo]"
     echo ""
     echo "Flags:"
     echo "  --provider=<vertex|bedrock>  LLM provider (required)"
     echo "  --skip-build                 Skip container image builds"
     echo "  --with-demo                  Deploy test fixtures (crash-looping demo app)"
     echo ""
-    echo "See hack/AGENTIC_DEPLOY.md for full documentation."
+    echo "See hack/agentic/CLAUDE.md for documentation."
 }
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/agentic-lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 parse_args "$@"
 
-# Provider can come from --provider flag or LLM_PROVIDER env var
-LLM_PROVIDER="${LLM_PROVIDER:-}"
 if [[ -z "${LLM_PROVIDER}" ]]; then
     fail "LLM provider not set. Use --provider=vertex or --provider=bedrock"
 fi
@@ -62,9 +60,27 @@ esac
 # Timeline ref: gist harche/ac8e8399a9bf69091a38a5cf6e3bc56b
 ###############################################################################
 check_cluster
-ensure_registry_route
 install_crds
 ensure_namespace
+ensure_buildconfigs
+
+# Build agent + skills in parallel (agent is heavy, skills is instant).
+# Console runs after to avoid memory pressure from concurrent heavy builds.
+# Operator must wait for manifests (which reference the console image).
+step "Building images (agent + skills parallel, then console)"
+[[ -d "${AGENT_DIR}" ]] && start_build_async "${BC_AGENT}" "${AGENT_DIR}" "agent sandbox"
+[[ -d "${SKILLS_DIR}" ]] && start_build_async "${BC_SKILLS}" "${SKILLS_DIR}" "skills"
+wait_all_builds
+
+[[ -d "${CONSOLE_DIR}" ]] && build_on_cluster "${BC_CONSOLE}" "${CONSOLE_DIR}" "console plugin"
+
+if [[ -d "${CONSOLE_DIR}" ]]; then
+    oc policy add-role-to-user system:image-puller \
+        system:serviceaccount:${NS_CONSOLE}:lightspeed-agentic-console-plugin \
+        -n "${NS_CONSOLE}" >/dev/null 2>&1
+    info "Console SA granted image-puller"
+fi
+
 deploy_operator_manifests
 build_push_operator
 install_agent_sandbox_controller
@@ -123,7 +139,6 @@ fi
 # Tool credentials (GitHub, Red Hat API, ACS) for agent sandbox pods.
 ###############################################################################
 ensure_tool_secrets
-build_push_agent_and_skills
 
 ###############################################################################
 # Base SandboxTemplate — provider-agnostic. The operator patches in LLM
@@ -132,7 +147,8 @@ build_push_agent_and_skills
 ###############################################################################
 AGENT_IMAGE="${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-agentic-sandbox:${TAG}"
 
-deploy_base_template <<SANDBOXEOF
+step "Deploying base SandboxTemplate"
+cat <<SANDBOXEOF | oc apply -f - >/dev/null 2>&1
 apiVersion: extensions.agents.x-k8s.io/v1alpha1
 kind: SandboxTemplate
 metadata:
@@ -190,16 +206,11 @@ spec:
       - name: tmp
         emptyDir: {}
 SANDBOXEOF
-
-###############################################################################
-# Console plugin — built and pushed here, deployed by the operator's
-# console reconciler via --agentic-console-image flag.
-###############################################################################
-build_push_console
+info "Base SandboxTemplate created"
 
 ###############################################################################
 # Day 0, Steps 1-3 — Proposal API chain (Cluster Admin)
-# LLMProvider → Agent → ProposalTemplate
+# LLMProvider → Agent → ApprovalPolicy
 # See timeline: gist harche/ac8e8399a9bf69091a38a5cf6e3bc56b
 ###############################################################################
 step "Setting up proposal API chain (Day 0)"
@@ -210,24 +221,9 @@ if oc get secret "${LLM_SECRET}" -n "${NS_OPERATOR}" >/dev/null 2>&1; then
 apiVersion: agentic.openshift.io/v1alpha1
 kind: LLMProvider
 metadata:
-  name: smart
+  name: vertex-ai
 spec:
   type: GoogleCloudVertex
-  model: claude-opus-4-6
-  googleCloudVertex:
-    credentialsSecret:
-      name: ${LLM_SECRET}
-      namespace: ${NS_OPERATOR}
-    project: ${VERTEX_PROJECT}
-    region: ${VERTEX_REGION}
----
-apiVersion: agentic.openshift.io/v1alpha1
-kind: LLMProvider
-metadata:
-  name: fast
-spec:
-  type: GoogleCloudVertex
-  model: claude-haiku-4-5
   googleCloudVertex:
     credentialsSecret:
       name: ${LLM_SECRET}
@@ -235,37 +231,23 @@ spec:
     project: ${VERTEX_PROJECT}
     region: ${VERTEX_REGION}
 LLMEOF
-        info "LLMProvider CRs created (smart=opus-4.6, fast=haiku-4.5 via GoogleCloudVertex)"
+        info "LLMProvider CR created (vertex-ai via GoogleCloudVertex)"
 
     elif [[ "${LLM_PROVIDER}" == "bedrock" ]]; then
         cat <<LLMEOF | oc apply -f - >/dev/null 2>&1
 apiVersion: agentic.openshift.io/v1alpha1
 kind: LLMProvider
 metadata:
-  name: smart
+  name: bedrock
 spec:
   type: AWSBedrock
-  model: us.anthropic.claude-opus-4-6-v1
-  awsBedrock:
-    credentialsSecret:
-      name: ${LLM_SECRET}
-      namespace: ${NS_OPERATOR}
-    region: ${BEDROCK_REGION}
----
-apiVersion: agentic.openshift.io/v1alpha1
-kind: LLMProvider
-metadata:
-  name: fast
-spec:
-  type: AWSBedrock
-  model: us.anthropic.claude-haiku-4-5-20251001-v1:0
   awsBedrock:
     credentialsSecret:
       name: ${LLM_SECRET}
       namespace: ${NS_OPERATOR}
     region: ${BEDROCK_REGION}
 LLMEOF
-        info "LLMProvider CRs created (smart=opus-4.6, fast=haiku-4.5 via AWSBedrock)"
+        info "LLMProvider CR created (bedrock via AWSBedrock)"
     fi
 fi
 
@@ -278,5 +260,5 @@ fi
 verify_deploy
 
 echo -e "\n${GREEN}Full agentic stack deployed (provider: ${LLM_PROVIDER}).${NC}"
-echo -e "    Day 0 complete: LLMProvider → Agent → ProposalTemplate"
+echo -e "    Day 0 complete: LLMProvider → Agent → ApprovalPolicy"
 echo -e "    Day 1 (create a proposal):  oc apply -f ../lightspeed-agentic-operator/examples/setup/03-proposals.yaml"
