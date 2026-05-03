@@ -145,8 +145,8 @@ spec:
             - message: 'stages are append-only: existing stages cannot be removed'
               rule: oldSelf.stages.all(old, self.stages.exists(s, s.type == old.type))
             - message: denied cannot be unset once set to true
-              rule: oldSelf.stages.all(old, !old.denied || self.stages.exists(s, s.type
-                == old.type && s.denied))
+              rule: oldSelf.stages.all(old, !(has(old.denied) && old.denied) || self.stages.exists(s,
+                s.type == old.type && has(s.denied) && s.denied))
             - message: stage types must be unique
               rule: self.stages.all(s1, self.stages.all(s2, s1 == s2 || s1.type !=
                 s2.type))

@@ -261,4 +261,9 @@ verify_deploy
 
 echo -e "\n${GREEN}Full agentic stack deployed (provider: ${LLM_PROVIDER}).${NC}"
 echo -e "    Day 0 complete: LLMProvider → Agent → ApprovalPolicy"
-echo -e "    Day 1 (create a proposal):  oc apply -f ../lightspeed-agentic-operator/examples/setup/03-proposals.yaml"
+if [[ "${WITH_DEMO}" == "true" ]]; then
+    echo -e "    Demo: JVM OOMKill pod deployed in lightspeed-demo, AlertManager proposal submitted"
+else
+    echo -e "    Day 1 (create a proposal):  oc apply -f ../lightspeed-agentic-operator/examples/setup/03-proposals.yaml"
+    echo -e "    Or deploy JVM OOMKill demo: re-run with --with-demo"
+fi

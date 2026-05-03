@@ -751,6 +751,17 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              revisionFeedback:
+                description: |-
+                  revisionFeedback is the user's free-text feedback that accompanies a
+                  revision request. When the user increments spec.revision, they set
+                  this field to describe what they want changed about the analysis.
+                  The operator includes this text in the revision context sent to the
+                  analysis agent.
+
+                  Mutable: updated alongside spec.revision to provide revision context.
+                maxLength: 32768
+                type: string
               targetNamespaces:
                 description: |-
                   targetNamespaces are the Kubernetes namespace(s) this proposal

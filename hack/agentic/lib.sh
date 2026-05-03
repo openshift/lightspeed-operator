@@ -570,14 +570,17 @@ ensure_vertex_credentials() {
         info "Service account created with roles/aiplatform.user only"
     fi
 
+    # gcloud may exit non-zero due to org policy warnings (e.g. key expiry
+    # constraints) even when the key is created successfully. Check the output
+    # file instead of trusting the exit code.
+    rm -f "${output_file}"
     gcloud iam service-accounts keys create "${output_file}" \
-        --iam-account="${sa_email}" --quiet 2>/dev/null \
-        || fail "Failed to create SA key for ${sa_email}"
+        --iam-account="${sa_email}" --quiet 2>/dev/null || true
 
     local key_id
     key_id=$(python3 -c "import json,sys; print(json.load(open('${output_file}'))['private_key_id'])" 2>/dev/null)
     if [[ -z "${key_id}" ]]; then
-        fail "Could not extract key ID from ${output_file}"
+        fail "Failed to create SA key for ${sa_email} (key file empty or missing)"
     fi
 
     local ttl_hours=$(( ttl / 3600 ))
@@ -757,13 +760,13 @@ metadata:
 spec:
   stages:
     - name: Analysis
-      approval: Automatic
+      approval: Manual
     - name: Execution
       approval: Manual
     - name: Verification
-      approval: Automatic
+      approval: Manual
 POLICYEOF
-        info "ApprovalPolicy created (analysis=auto, execution=manual, verification=auto)"
+        info "ApprovalPolicy created (all stages manual)"
     fi
 
     ###########################################################################
@@ -781,54 +784,103 @@ POLICYEOF
 }
 
 deploy_test_fixtures() {
-    step "Deploying test fixtures"
-    oc create namespace demo --dry-run=client -o yaml | oc apply -f - >/dev/null 2>&1
+    step "Deploying JVM OOMKill demo"
+    oc create namespace lightspeed-demo --dry-run=client -o yaml | oc apply -f - >/dev/null 2>&1
+
+    # JVM OOMKill demo — container memory limit (256Mi) is too low for the JVM
+    # footprint (256MB Xms + metaspace + threads ≈ 450MB). The fix is to increase
+    # the limit to 768Mi.
     cat <<'DEMOEOF' | oc apply -f - >/dev/null 2>&1
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: demo-app
-  namespace: demo
+  name: jvm-oomkill-demo
+  namespace: lightspeed-demo
   labels:
-    app: demo-app
+    app: jvm-oomkill-demo
+  annotations:
+    description: "Demo app: JVM OOMKill due to container memory limit < JVM heap size"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: demo-app
+      app: jvm-oomkill-demo
   template:
     metadata:
       labels:
-        app: demo-app
+        app: jvm-oomkill-demo
     spec:
       containers:
-      - name: app
-        image: registry.access.redhat.com/ubi9-minimal:latest
-        command: ["sh", "-c", "echo Starting demo-app... && sleep 2 && exit 1"]
+      - name: jvm
+        image: registry.access.redhat.com/ubi9/openjdk-21:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo 'public class App { public static void main(String[] a) throws Exception { System.out.println("Starting JVM service..."); byte[][] cache = new byte[200][]; for (int i = 0; i < 200; i++) { cache[i] = new byte[1024*1024]; } System.out.println("Cache loaded: 200MB. Service ready."); Thread.sleep(Long.MAX_VALUE); }}' > /tmp/App.java &&
+          java -Xms256m -Xmx512m /tmp/App.java
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            memory: 256Mi
 DEMOEOF
-    info "Demo app deployed (crash-looping)"
+    info "JVM OOMKill demo deployed (crash-looping in lightspeed-demo)"
 
     cat <<'RULEEOF' | oc apply -f - >/dev/null 2>&1
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: lightspeed-test-crashloop
-  namespace: openshift-monitoring
+  name: lightspeed-demo-alerts
+  namespace: openshift-lightspeed
 spec:
   groups:
-  - name: lightspeed-test
+  - name: lightspeed-demo
     rules:
     - alert: KubePodCrashLooping
       annotations:
-        description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
-        summary: "Pod is crash looping"
+        description: >-
+          Pod {{ $labels.namespace }}/{{ $labels.pod }} ({{ $labels.container }})
+          is in a CrashLoopBackOff state and has restarted {{ $value }} times
+          in the last 5 minutes.
+        summary: Pod is crash-looping.
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodcrashlooping
       expr: |
-        max_over_time(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}[5m]) >= 1
+        rate(kube_pod_container_status_restarts_total{namespace="lightspeed-demo"}[5m]) * 60 * 5 > 0
       for: 1m
       labels:
         severity: warning
 RULEEOF
-    info "Test PrometheusRule created (KubePodCrashLooping, 1m 'for' duration)"
+    info "PrometheusRule created (KubePodCrashLooping for lightspeed-demo, 1m)"
+
+    cat <<PROPOSALEOF | oc apply -f - >/dev/null 2>&1
+apiVersion: agentic.openshift.io/v1alpha1
+kind: Proposal
+metadata:
+  name: alertmanager-jvm-oomkill
+  namespace: ${NS_OPERATOR}
+  labels:
+    agentic.openshift.io/source: alertmanager
+spec:
+  request: |
+    AlertManager alert fired: KubePodCrashLooping (warning)
+    Pod jvm-oomkill-demo in namespace lightspeed-demo is in a CrashLoopBackOff
+    state. The container is being OOMKilled — the JVM heap configuration exceeds
+    the container memory limit.
+    Labels: severity=warning, namespace=lightspeed-demo, pod=jvm-oomkill-demo, container=jvm
+  targetNamespaces:
+    - lightspeed-demo
+  maxAttempts: 3
+  tools:
+    skills:
+      - image: ${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-skills:${TAG}
+  analysis:
+    agent: smart
+  execution: {}
+  verification:
+    agent: fast
+PROPOSALEOF
+    info "Proposal created (alertmanager-jvm-oomkill)"
 }
 
 verify_deploy() {
