@@ -67,6 +67,14 @@ spec:
                       - Automatic
                       - Manual
                       type: string
+                    defaultOption:
+                      description: |-
+                        defaultOption is the 0-based index into the analysis options array
+                        to use when execution is auto-approved. Required when name is
+                        Execution and approval is Automatic.
+                      format: int32
+                      minimum: 0
+                      type: integer
                     name:
                       description: name is the workflow step this policy applies to.
                       enum:
@@ -79,6 +87,11 @@ spec:
                   - approval
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: defaultOption is required when execution approval is
+                      Automatic
+                    rule: self.name != 'Execution' || self.approval != 'Automatic'
+                      || has(self.defaultOption)
                 maxItems: 4
                 type: array
                 x-kubernetes-list-type: atomic

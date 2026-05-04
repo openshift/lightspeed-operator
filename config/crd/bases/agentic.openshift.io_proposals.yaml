@@ -40,9 +40,10 @@ spec:
           stackrox\n\tspec:\n\t  request: \"Fix CVE-2024-1234 in nginx:1.21\"\n\t
           \ targetNamespaces:\n\t    - lightspeed-demo\n\t  maxAttempts: 3\n\t  tools:\n\t
           \   skills:\n\t      - image: registry.redhat.io/acs/acs-lightspeed-skills:latest\n\t
-          \   requiredSecrets:\n\t      - name: acs-api-token\n\t        mountAs:
-          ACS_API_TOKEN\n\t  analysis:\n\t    agent: smart\n\t  execution: {}\n\t
-          \ verification:\n\t    agent: fast"
+          \   requiredSecrets:\n\t      - name: acs-api-token\n\t        mountAs:\n\t
+          \         type: EnvVar\n\t          envVar:\n\t            name: ACS_API_TOKEN\n\t
+          \ analysis:\n\t    agent: smart\n\t  execution: {}\n\t  verification:\n\t
+          \   agent: fast"
         properties:
           apiVersion:
             description: |-
@@ -133,10 +134,16 @@ spec:
                                           Required when type is "Secret".
                                         properties:
                                           name:
-                                            description: name of the Secret.
+                                            description: name of the Secret. Must
+                                              be a valid RFC 1123 DNS subdomain.
                                             maxLength: 253
                                             minLength: 1
                                             type: string
+                                            x-kubernetes-validations:
+                                            - message: 'must be a valid DNS subdomain:
+                                                lowercase alphanumeric characters,
+                                                hyphens, and dots'
+                                              rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                                         required:
                                         - name
                                         type: object
@@ -240,20 +247,86 @@ spec:
                               minLength: 1
                               type: string
                             mountAs:
-                              description: |-
-                                mountAs specifies how the secret is exposed in the sandbox pod.
-                                Use an environment variable name (e.g., "GITHUB_TOKEN") to inject
-                                as an env var, or a file path (e.g., "/etc/secrets/token") to
-                                mount as a file.
-                              maxLength: 512
-                              minLength: 1
-                              type: string
+                              description: mountAs specifies how the secret is exposed
+                                in the sandbox pod.
+                              properties:
+                                envVar:
+                                  description: |-
+                                    envVar configures environment variable injection.
+                                    Required when type is "EnvVar".
+                                  properties:
+                                    name:
+                                      description: |-
+                                        name is the environment variable name (e.g., "GITHUB_TOKEN").
+                                        Must be uppercase letters, digits, and underscores, starting
+                                        with a letter or underscore.
+                                      maxLength: 256
+                                      minLength: 1
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: 'must be a valid environment variable
+                                          name: uppercase letters, digits, and underscores,
+                                          starting with a letter or underscore'
+                                        rule: self.matches('^[A-Z_][A-Z0-9_]*$')
+                                  required:
+                                  - name
+                                  type: object
+                                filePath:
+                                  description: |-
+                                    filePath configures file mount.
+                                    Required when type is "FilePath".
+                                  properties:
+                                    path:
+                                      description: |-
+                                        path is the absolute file path (e.g., "/etc/secrets/tls.crt").
+                                        Must start with a forward slash.
+                                      maxLength: 512
+                                      minLength: 2
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: path must be an absolute path starting
+                                          with '/'
+                                        rule: self.startsWith('/')
+                                  required:
+                                  - path
+                                  type: object
+                                type:
+                                  description: |-
+                                    type specifies how the secret is exposed. Allowed values: "EnvVar",
+                                    "FilePath".
+
+                                    When set to EnvVar, the secret value is injected as an environment
+                                    variable, and the 'envVar' field must be configured.
+
+                                    When set to FilePath, the secret is mounted as a file, and the
+                                    'filePath' field must be configured.
+                                  enum:
+                                  - EnvVar
+                                  - FilePath
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                              x-kubernetes-validations:
+                              - message: envVar is required when type is EnvVar, and
+                                  forbidden otherwise
+                                rule: 'self.type == ''EnvVar'' ? has(self.envVar)
+                                  : !has(self.envVar)'
+                              - message: filePath is required when type is FilePath,
+                                  and forbidden otherwise
+                                rule: 'self.type == ''FilePath'' ? has(self.filePath)
+                                  : !has(self.filePath)'
                             name:
-                              description: name of the Secret (must exist in the same
-                                namespace as the Proposal).
+                              description: |-
+                                name of the Secret (must exist in the same namespace as the Proposal).
+                                Must be a valid RFC 1123 DNS subdomain.
                               maxLength: 253
                               minLength: 1
                               type: string
+                              x-kubernetes-validations:
+                              - message: 'must be a valid DNS subdomain: lowercase
+                                  alphanumeric characters, hyphens, and dots'
+                                rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                           required:
                           - mountAs
                           - name
@@ -377,9 +450,6 @@ spec:
                         x-kubernetes-list-type: map
                     type: object
                 type: object
-                x-kubernetes-validations:
-                - message: analysis is immutable after creation
-                  rule: self == oldSelf
               execution:
                 description: |-
                   execution defines per-step configuration for the execution step.
@@ -449,10 +519,16 @@ spec:
                                           Required when type is "Secret".
                                         properties:
                                           name:
-                                            description: name of the Secret.
+                                            description: name of the Secret. Must
+                                              be a valid RFC 1123 DNS subdomain.
                                             maxLength: 253
                                             minLength: 1
                                             type: string
+                                            x-kubernetes-validations:
+                                            - message: 'must be a valid DNS subdomain:
+                                                lowercase alphanumeric characters,
+                                                hyphens, and dots'
+                                              rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                                         required:
                                         - name
                                         type: object
@@ -556,20 +632,86 @@ spec:
                               minLength: 1
                               type: string
                             mountAs:
-                              description: |-
-                                mountAs specifies how the secret is exposed in the sandbox pod.
-                                Use an environment variable name (e.g., "GITHUB_TOKEN") to inject
-                                as an env var, or a file path (e.g., "/etc/secrets/token") to
-                                mount as a file.
-                              maxLength: 512
-                              minLength: 1
-                              type: string
+                              description: mountAs specifies how the secret is exposed
+                                in the sandbox pod.
+                              properties:
+                                envVar:
+                                  description: |-
+                                    envVar configures environment variable injection.
+                                    Required when type is "EnvVar".
+                                  properties:
+                                    name:
+                                      description: |-
+                                        name is the environment variable name (e.g., "GITHUB_TOKEN").
+                                        Must be uppercase letters, digits, and underscores, starting
+                                        with a letter or underscore.
+                                      maxLength: 256
+                                      minLength: 1
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: 'must be a valid environment variable
+                                          name: uppercase letters, digits, and underscores,
+                                          starting with a letter or underscore'
+                                        rule: self.matches('^[A-Z_][A-Z0-9_]*$')
+                                  required:
+                                  - name
+                                  type: object
+                                filePath:
+                                  description: |-
+                                    filePath configures file mount.
+                                    Required when type is "FilePath".
+                                  properties:
+                                    path:
+                                      description: |-
+                                        path is the absolute file path (e.g., "/etc/secrets/tls.crt").
+                                        Must start with a forward slash.
+                                      maxLength: 512
+                                      minLength: 2
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: path must be an absolute path starting
+                                          with '/'
+                                        rule: self.startsWith('/')
+                                  required:
+                                  - path
+                                  type: object
+                                type:
+                                  description: |-
+                                    type specifies how the secret is exposed. Allowed values: "EnvVar",
+                                    "FilePath".
+
+                                    When set to EnvVar, the secret value is injected as an environment
+                                    variable, and the 'envVar' field must be configured.
+
+                                    When set to FilePath, the secret is mounted as a file, and the
+                                    'filePath' field must be configured.
+                                  enum:
+                                  - EnvVar
+                                  - FilePath
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                              x-kubernetes-validations:
+                              - message: envVar is required when type is EnvVar, and
+                                  forbidden otherwise
+                                rule: 'self.type == ''EnvVar'' ? has(self.envVar)
+                                  : !has(self.envVar)'
+                              - message: filePath is required when type is FilePath,
+                                  and forbidden otherwise
+                                rule: 'self.type == ''FilePath'' ? has(self.filePath)
+                                  : !has(self.filePath)'
                             name:
-                              description: name of the Secret (must exist in the same
-                                namespace as the Proposal).
+                              description: |-
+                                name of the Secret (must exist in the same namespace as the Proposal).
+                                Must be a valid RFC 1123 DNS subdomain.
                               maxLength: 253
                               minLength: 1
                               type: string
+                              x-kubernetes-validations:
+                              - message: 'must be a valid DNS subdomain: lowercase
+                                  alphanumeric characters, hyphens, and dots'
+                                rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                           required:
                           - mountAs
                           - name
@@ -693,9 +835,6 @@ spec:
                         x-kubernetes-list-type: map
                     type: object
                 type: object
-                x-kubernetes-validations:
-                - message: execution is immutable after creation
-                  rule: self == oldSelf
               maxAttempts:
                 description: |-
                   maxAttempts sets the maximum number of retry attempts for this proposal.
@@ -703,7 +842,7 @@ spec:
                   Mutable: the console UI patches this at approval time so the user
                   can set a custom retry limit before execution begins.
                 format: int32
-                maximum: 20
+                maximum: 3
                 minimum: 0
                 type: integer
               request:
@@ -748,6 +887,11 @@ spec:
                   targetNamespaces are the Kubernetes namespace(s) this proposal
                   operates on. Used for RBAC scoping and context to the analysis agent.
 
+                  When omitted, the proposal is not namespace-scoped — the analysis
+                  agent determines the relevant namespaces from the request context.
+                  Adapters (AlertManager, ACS) typically set this automatically from
+                  the source event.
+
                   Immutable: RBAC scoping is fixed at creation. Changing target
                   namespaces mid-flight would invalidate the analysis and any
                   granted execution RBAC.
@@ -762,8 +906,6 @@ spec:
                 x-kubernetes-validations:
                 - message: each namespace must be a valid DNS label
                   rule: self.all(ns, !format.dns1123Label().validate(ns).hasValue())
-                - message: targetNamespaces is immutable after creation
-                  rule: self == oldSelf
               tools:
                 description: |-
                   tools defines the default tools for all steps: skills images,
@@ -823,10 +965,16 @@ spec:
                                       Required when type is "Secret".
                                     properties:
                                       name:
-                                        description: name of the Secret.
+                                        description: name of the Secret. Must be a
+                                          valid RFC 1123 DNS subdomain.
                                         maxLength: 253
                                         minLength: 1
                                         type: string
+                                        x-kubernetes-validations:
+                                        - message: 'must be a valid DNS subdomain:
+                                            lowercase alphanumeric characters, hyphens,
+                                            and dots'
+                                          rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                                     required:
                                     - name
                                     type: object
@@ -930,20 +1078,85 @@ spec:
                           minLength: 1
                           type: string
                         mountAs:
-                          description: |-
-                            mountAs specifies how the secret is exposed in the sandbox pod.
-                            Use an environment variable name (e.g., "GITHUB_TOKEN") to inject
-                            as an env var, or a file path (e.g., "/etc/secrets/token") to
-                            mount as a file.
-                          maxLength: 512
-                          minLength: 1
-                          type: string
+                          description: mountAs specifies how the secret is exposed
+                            in the sandbox pod.
+                          properties:
+                            envVar:
+                              description: |-
+                                envVar configures environment variable injection.
+                                Required when type is "EnvVar".
+                              properties:
+                                name:
+                                  description: |-
+                                    name is the environment variable name (e.g., "GITHUB_TOKEN").
+                                    Must be uppercase letters, digits, and underscores, starting
+                                    with a letter or underscore.
+                                  maxLength: 256
+                                  minLength: 1
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: 'must be a valid environment variable
+                                      name: uppercase letters, digits, and underscores,
+                                      starting with a letter or underscore'
+                                    rule: self.matches('^[A-Z_][A-Z0-9_]*$')
+                              required:
+                              - name
+                              type: object
+                            filePath:
+                              description: |-
+                                filePath configures file mount.
+                                Required when type is "FilePath".
+                              properties:
+                                path:
+                                  description: |-
+                                    path is the absolute file path (e.g., "/etc/secrets/tls.crt").
+                                    Must start with a forward slash.
+                                  maxLength: 512
+                                  minLength: 2
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: path must be an absolute path starting
+                                      with '/'
+                                    rule: self.startsWith('/')
+                              required:
+                              - path
+                              type: object
+                            type:
+                              description: |-
+                                type specifies how the secret is exposed. Allowed values: "EnvVar",
+                                "FilePath".
+
+                                When set to EnvVar, the secret value is injected as an environment
+                                variable, and the 'envVar' field must be configured.
+
+                                When set to FilePath, the secret is mounted as a file, and the
+                                'filePath' field must be configured.
+                              enum:
+                              - EnvVar
+                              - FilePath
+                              type: string
+                          required:
+                          - type
+                          type: object
+                          x-kubernetes-validations:
+                          - message: envVar is required when type is EnvVar, and forbidden
+                              otherwise
+                            rule: 'self.type == ''EnvVar'' ? has(self.envVar) : !has(self.envVar)'
+                          - message: filePath is required when type is FilePath, and
+                              forbidden otherwise
+                            rule: 'self.type == ''FilePath'' ? has(self.filePath)
+                              : !has(self.filePath)'
                         name:
-                          description: name of the Secret (must exist in the same
-                            namespace as the Proposal).
+                          description: |-
+                            name of the Secret (must exist in the same namespace as the Proposal).
+                            Must be a valid RFC 1123 DNS subdomain.
                           maxLength: 253
                           minLength: 1
                           type: string
+                          x-kubernetes-validations:
+                          - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                              characters, hyphens, and dots'
+                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                       required:
                       - mountAs
                       - name
@@ -1065,9 +1278,6 @@ spec:
                     - image
                     x-kubernetes-list-type: map
                 type: object
-                x-kubernetes-validations:
-                - message: tools is immutable after creation
-                  rule: self == oldSelf
               verification:
                 description: |-
                   verification defines per-step configuration for the verification step.
@@ -1137,10 +1347,16 @@ spec:
                                           Required when type is "Secret".
                                         properties:
                                           name:
-                                            description: name of the Secret.
+                                            description: name of the Secret. Must
+                                              be a valid RFC 1123 DNS subdomain.
                                             maxLength: 253
                                             minLength: 1
                                             type: string
+                                            x-kubernetes-validations:
+                                            - message: 'must be a valid DNS subdomain:
+                                                lowercase alphanumeric characters,
+                                                hyphens, and dots'
+                                              rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                                         required:
                                         - name
                                         type: object
@@ -1244,20 +1460,86 @@ spec:
                               minLength: 1
                               type: string
                             mountAs:
-                              description: |-
-                                mountAs specifies how the secret is exposed in the sandbox pod.
-                                Use an environment variable name (e.g., "GITHUB_TOKEN") to inject
-                                as an env var, or a file path (e.g., "/etc/secrets/token") to
-                                mount as a file.
-                              maxLength: 512
-                              minLength: 1
-                              type: string
+                              description: mountAs specifies how the secret is exposed
+                                in the sandbox pod.
+                              properties:
+                                envVar:
+                                  description: |-
+                                    envVar configures environment variable injection.
+                                    Required when type is "EnvVar".
+                                  properties:
+                                    name:
+                                      description: |-
+                                        name is the environment variable name (e.g., "GITHUB_TOKEN").
+                                        Must be uppercase letters, digits, and underscores, starting
+                                        with a letter or underscore.
+                                      maxLength: 256
+                                      minLength: 1
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: 'must be a valid environment variable
+                                          name: uppercase letters, digits, and underscores,
+                                          starting with a letter or underscore'
+                                        rule: self.matches('^[A-Z_][A-Z0-9_]*$')
+                                  required:
+                                  - name
+                                  type: object
+                                filePath:
+                                  description: |-
+                                    filePath configures file mount.
+                                    Required when type is "FilePath".
+                                  properties:
+                                    path:
+                                      description: |-
+                                        path is the absolute file path (e.g., "/etc/secrets/tls.crt").
+                                        Must start with a forward slash.
+                                      maxLength: 512
+                                      minLength: 2
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: path must be an absolute path starting
+                                          with '/'
+                                        rule: self.startsWith('/')
+                                  required:
+                                  - path
+                                  type: object
+                                type:
+                                  description: |-
+                                    type specifies how the secret is exposed. Allowed values: "EnvVar",
+                                    "FilePath".
+
+                                    When set to EnvVar, the secret value is injected as an environment
+                                    variable, and the 'envVar' field must be configured.
+
+                                    When set to FilePath, the secret is mounted as a file, and the
+                                    'filePath' field must be configured.
+                                  enum:
+                                  - EnvVar
+                                  - FilePath
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                              x-kubernetes-validations:
+                              - message: envVar is required when type is EnvVar, and
+                                  forbidden otherwise
+                                rule: 'self.type == ''EnvVar'' ? has(self.envVar)
+                                  : !has(self.envVar)'
+                              - message: filePath is required when type is FilePath,
+                                  and forbidden otherwise
+                                rule: 'self.type == ''FilePath'' ? has(self.filePath)
+                                  : !has(self.filePath)'
                             name:
-                              description: name of the Secret (must exist in the same
-                                namespace as the Proposal).
+                              description: |-
+                                name of the Secret (must exist in the same namespace as the Proposal).
+                                Must be a valid RFC 1123 DNS subdomain.
                               maxLength: 253
                               minLength: 1
                               type: string
+                              x-kubernetes-validations:
+                              - message: 'must be a valid DNS subdomain: lowercase
+                                  alphanumeric characters, hyphens, and dots'
+                                rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                           required:
                           - mountAs
                           - name
@@ -1381,9 +1663,6 @@ spec:
                         x-kubernetes-list-type: map
                     type: object
                 type: object
-                x-kubernetes-validations:
-                - message: verification is immutable after creation
-                  rule: self == oldSelf
             required:
             - analysis
             - request
@@ -1391,6 +1670,20 @@ spec:
             x-kubernetes-validations:
             - message: analysis must be provided
               rule: has(self.analysis)
+            - message: targetNamespaces is immutable once set
+              rule: '!has(oldSelf.targetNamespaces) || (has(self.targetNamespaces)
+                && self.targetNamespaces == oldSelf.targetNamespaces)'
+            - message: tools is immutable once set
+              rule: '!has(oldSelf.tools) || (has(self.tools) && self.tools == oldSelf.tools)'
+            - message: analysis is immutable once set
+              rule: '!has(oldSelf.analysis) || (has(self.analysis) && self.analysis
+                == oldSelf.analysis)'
+            - message: execution is immutable once set
+              rule: '!has(oldSelf.execution) || (has(self.execution) && self.execution
+                == oldSelf.execution)'
+            - message: verification is immutable once set
+              rule: '!has(oldSelf.verification) || (has(self.verification) && self.verification
+                == oldSelf.verification)'
           status:
             description: status defines the observed state of Proposal.
             properties:
@@ -1474,10 +1767,6 @@ spec:
                   analysis:
                     description: analysis is the observed state of the analysis step.
                     properties:
-                      completionTime:
-                        description: completionTime is when the step completed.
-                        format: date-time
-                        type: string
                       conditions:
                         description: conditions for this step.
                         items:
@@ -1563,13 +1852,17 @@ spec:
                               maxLength: 253
                               minLength: 1
                               type: string
-                            success:
-                              description: success indicates the outcome of this step
-                                attempt.
-                              type: boolean
+                            outcome:
+                              description: |-
+                                outcome indicates the result of this step attempt.
+                                Must be one of: Succeeded, Failed.
+                              enum:
+                              - Succeeded
+                              - Failed
+                              type: string
                           required:
                           - name
-                          - success
+                          - outcome
                           type: object
                         maxItems: 20
                         type: array
@@ -1614,19 +1907,11 @@ spec:
                         format: int32
                         minimum: 0
                         type: integer
-                      startTime:
-                        description: startTime is when the step started.
-                        format: date-time
-                        type: string
                     type: object
                   escalation:
                     description: escalation is the observed state of the escalation
                       step.
                     properties:
-                      completionTime:
-                        description: completionTime is when the step completed.
-                        format: date-time
-                        type: string
                       conditions:
                         description: conditions for this step.
                         items:
@@ -1703,13 +1988,17 @@ spec:
                               maxLength: 253
                               minLength: 1
                               type: string
-                            success:
-                              description: success indicates the outcome of this step
-                                attempt.
-                              type: boolean
+                            outcome:
+                              description: |-
+                                outcome indicates the result of this step attempt.
+                                Must be one of: Succeeded, Failed.
+                              enum:
+                              - Succeeded
+                              - Failed
+                              type: string
                           required:
                           - name
-                          - success
+                          - outcome
                           type: object
                         maxItems: 20
                         type: array
@@ -1747,19 +2036,11 @@ spec:
                             format: date-time
                             type: string
                         type: object
-                      startTime:
-                        description: startTime is when the step started.
-                        format: date-time
-                        type: string
                     type: object
                   execution:
                     description: execution is the observed state of the execution
                       step.
                     properties:
-                      completionTime:
-                        description: completionTime is when the step completed.
-                        format: date-time
-                        type: string
                       conditions:
                         description: conditions for this step.
                         items:
@@ -1837,13 +2118,17 @@ spec:
                               maxLength: 253
                               minLength: 1
                               type: string
-                            success:
-                              description: success indicates the outcome of this step
-                                attempt.
-                              type: boolean
+                            outcome:
+                              description: |-
+                                outcome indicates the result of this step attempt.
+                                Must be one of: Succeeded, Failed.
+                              enum:
+                              - Succeeded
+                              - Failed
+                              type: string
                           required:
                           - name
-                          - success
+                          - outcome
                           type: object
                         maxItems: 20
                         type: array
@@ -1890,19 +2175,11 @@ spec:
                             format: date-time
                             type: string
                         type: object
-                      startTime:
-                        description: startTime is when the step started.
-                        format: date-time
-                        type: string
                     type: object
                   verification:
                     description: verification is the observed state of the verification
                       step.
                     properties:
-                      completionTime:
-                        description: completionTime is when the step completed.
-                        format: date-time
-                        type: string
                       conditions:
                         description: conditions for this step.
                         items:
@@ -1980,13 +2257,17 @@ spec:
                               maxLength: 253
                               minLength: 1
                               type: string
-                            success:
-                              description: success indicates the outcome of this step
-                                attempt.
-                              type: boolean
+                            outcome:
+                              description: |-
+                                outcome indicates the result of this step attempt.
+                                Must be one of: Succeeded, Failed.
+                              enum:
+                              - Succeeded
+                              - Failed
+                              type: string
                           required:
                           - name
-                          - success
+                          - outcome
                           type: object
                         maxItems: 20
                         type: array
@@ -2024,10 +2305,6 @@ spec:
                             format: date-time
                             type: string
                         type: object
-                      startTime:
-                        description: startTime is when the step started.
-                        format: date-time
-                        type: string
                     type: object
                 type: object
             type: object

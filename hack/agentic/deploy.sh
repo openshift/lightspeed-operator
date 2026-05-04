@@ -227,8 +227,7 @@ spec:
   googleCloudVertex:
     credentialsSecret:
       name: ${LLM_SECRET}
-      namespace: ${NS_OPERATOR}
-    project: ${VERTEX_PROJECT}
+    projectID: ${VERTEX_PROJECT}
     region: ${VERTEX_REGION}
 LLMEOF
         info "LLMProvider CR created (vertex-ai via GoogleCloudVertex)"
@@ -244,7 +243,6 @@ spec:
   awsBedrock:
     credentialsSecret:
       name: ${LLM_SECRET}
-      namespace: ${NS_OPERATOR}
     region: ${BEDROCK_REGION}
 LLMEOF
         info "LLMProvider CR created (bedrock via AWSBedrock)"

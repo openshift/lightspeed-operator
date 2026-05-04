@@ -415,14 +415,14 @@ build_operator() {
     local ctx
     ctx=$(_make_operator_context)
     build_on_cluster "${BC_OPERATOR}" "${ctx}" "operator"
-    rm -rf "${ctx}"
+    chmod -R u+w "${ctx}" 2>/dev/null; rm -rf "${ctx}"
 }
 
 start_operator_build_async() {
     local ctx
     ctx=$(_make_operator_context)
     start_build_async "${BC_OPERATOR}" "${ctx}" "operator"
-    rm -rf "${ctx}"
+    chmod -R u+w "${ctx}" 2>/dev/null; rm -rf "${ctx}"
 }
 
 build_push_operator() {

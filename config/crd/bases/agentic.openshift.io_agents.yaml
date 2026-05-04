@@ -71,10 +71,15 @@ spec:
                   LLM backend for this agent tier.
                 properties:
                   name:
-                    description: name of the LLMProvider.
+                    description: name of the LLMProvider. Must be a valid RFC 1123
+                      DNS subdomain.
                     maxLength: 253
                     minLength: 1
                     type: string
+                    x-kubernetes-validations:
+                    - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                        characters, hyphens, and dots'
+                      rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                 required:
                 - name
                 type: object
