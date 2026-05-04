@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	configv1 "github.com/openshift/api/config/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 
@@ -102,6 +103,11 @@ var _ = Describe("App server assets", func() {
 					TLSConfig: utils.TLSConfig{
 						TLSCertificatePath: path.Join(utils.OLSAppCertsMountRoot, utils.OLSCertsSecretName, "tls.crt"),
 						TLSKeyPath:         path.Join(utils.OLSAppCertsMountRoot, utils.OLSCertsSecretName, "tls.key"),
+					},
+					TLSSecurityProfile: &utils.TLSSecurityProfileConfig{
+						ProfileType:   "IntermediateType",
+						MinTLSVersion: string(configv1.TLSProfiles[configv1.TLSProfileIntermediateType].MinTLSVersion),
+						Ciphers:       configv1.TLSProfiles[configv1.TLSProfileIntermediateType].Ciphers,
 					},
 					ReferenceContent: utils.ReferenceContent{
 						EmbeddingsModelPath: "/app-root/embeddings_model",
@@ -201,6 +207,48 @@ var _ = Describe("App server assets", func() {
 			Expect(olsconfigGenerated.LLMProviders[0].Models).To(HaveLen(1))
 			Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.ToolBudgetRatio).To(Equal(0.5))
 			Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.MaxTokensForResponse).To(Equal(0))
+		})
+
+		It("should generate configmap with modern TLS security profile", func() {
+			cr.Spec.OLSConfig.TLSSecurityProfile = &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileModernType,
+			}
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tlsSecurityProfile", MatchKeys(Options(IgnoreExtras), Keys{
+				"type":          Equal("ModernType"),
+				"minTLSVersion": Equal(string(configv1.TLSProfiles[configv1.TLSProfileModernType].MinTLSVersion)),
+			}))))
+		})
+
+		It("should generate configmap with custom TLS security profile", func() {
+			cr.Spec.OLSConfig.TLSSecurityProfile = &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						MinTLSVersion: configv1.VersionTLS13,
+						Ciphers: []string{
+							"TLS_AES_128_GCM_SHA256",
+							"TLS_AES_256_GCM_SHA384",
+						},
+					},
+				},
+			}
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tlsSecurityProfile", MatchKeys(Options(IgnoreExtras), Keys{
+				"type":          Equal("Custom"),
+				"minTLSVersion": Equal("VersionTLS13"),
+				"ciphers":       ContainElements("TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"),
+			}))))
 		})
 
 		It("should generate configmap with queryFilters", func() {
@@ -868,6 +916,19 @@ ols_config:
     - product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
       product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
       product_docs_origin: Red Hat OpenShift 123.456 documentation
+  tlsSecurityProfile:
+    ciphers:
+    - TLS_AES_128_GCM_SHA256
+    - TLS_AES_256_GCM_SHA384
+    - TLS_CHACHA20_POLY1305_SHA256
+    - ECDHE-ECDSA-AES128-GCM-SHA256
+    - ECDHE-RSA-AES128-GCM-SHA256
+    - ECDHE-ECDSA-AES256-GCM-SHA384
+    - ECDHE-RSA-AES256-GCM-SHA384
+    - ECDHE-ECDSA-CHACHA20-POLY1305
+    - ECDHE-RSA-CHACHA20-POLY1305
+    minTLSVersion: VersionTLS12
+    type: IntermediateType
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
@@ -931,6 +992,19 @@ ols_config:
     - product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
       product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
       product_docs_origin: Red Hat OpenShift 123.456 documentation
+  tlsSecurityProfile:
+    ciphers:
+    - TLS_AES_128_GCM_SHA256
+    - TLS_AES_256_GCM_SHA384
+    - TLS_CHACHA20_POLY1305_SHA256
+    - ECDHE-ECDSA-AES128-GCM-SHA256
+    - ECDHE-RSA-AES128-GCM-SHA256
+    - ECDHE-ECDSA-AES256-GCM-SHA384
+    - ECDHE-RSA-AES256-GCM-SHA384
+    - ECDHE-ECDSA-CHACHA20-POLY1305
+    - ECDHE-RSA-CHACHA20-POLY1305
+    minTLSVersion: VersionTLS12
+    type: IntermediateType
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
