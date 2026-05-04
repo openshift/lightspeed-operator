@@ -73,12 +73,13 @@ spec:
                       - Analysis
                       - Execution
                       - Verification
+                      - Escalation
                       type: string
                   required:
                   - approval
                   - name
                   type: object
-                maxItems: 3
+                maxItems: 4
                 type: array
                 x-kubernetes-list-type: atomic
             type: object

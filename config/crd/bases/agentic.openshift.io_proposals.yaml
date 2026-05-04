@@ -706,25 +706,6 @@ spec:
                 maximum: 20
                 minimum: 0
                 type: integer
-              parent:
-                description: |-
-                  parent references the parent proposal in an escalation chain.
-                  Set at creation by the operator (auto-escalation) or console
-                  (manual escalation). Component teams should not set this field.
-
-                  Immutable: the escalation lineage cannot change after creation.
-                properties:
-                  name:
-                    description: name of the parent Proposal.
-                    maxLength: 253
-                    minLength: 1
-                    type: string
-                required:
-                - name
-                type: object
-                x-kubernetes-validations:
-                - message: parent is immutable after creation
-                  rule: self == oldSelf
               request:
                 description: |-
                   request is the user's original request, alert description, or a
@@ -1633,6 +1614,139 @@ spec:
                         format: int32
                         minimum: 0
                         type: integer
+                      startTime:
+                        description: startTime is when the step started.
+                        format: date-time
+                        type: string
+                    type: object
+                  escalation:
+                    description: escalation is the observed state of the escalation
+                      step.
+                    properties:
+                      completionTime:
+                        description: completionTime is when the step completed.
+                        format: date-time
+                        type: string
+                      conditions:
+                        description: conditions for this step.
+                        items:
+                          description: Condition contains details for one aspect of
+                            the current state of this API Resource.
+                          properties:
+                            lastTransitionTime:
+                              description: |-
+                                lastTransitionTime is the last time the condition transitioned from one status to another.
+                                This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                              format: date-time
+                              type: string
+                            message:
+                              description: |-
+                                message is a human readable message indicating details about the transition.
+                                This may be an empty string.
+                              maxLength: 32768
+                              type: string
+                            observedGeneration:
+                              description: |-
+                                observedGeneration represents the .metadata.generation that the condition was set based upon.
+                                For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                                with respect to the current state of the instance.
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            reason:
+                              description: |-
+                                reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                                Producers of specific condition types may define expected values and meanings for this field,
+                                and whether the values are considered a guaranteed API.
+                                The value should be a CamelCase string.
+                                This field may not be empty.
+                              maxLength: 1024
+                              minLength: 1
+                              pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                              type: string
+                            status:
+                              description: status of the condition, one of True, False,
+                                Unknown.
+                              enum:
+                              - "True"
+                              - "False"
+                              - Unknown
+                              type: string
+                            type:
+                              description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                              maxLength: 316
+                              pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                              type: string
+                          required:
+                          - lastTransitionTime
+                          - message
+                          - reason
+                          - status
+                          - type
+                          type: object
+                        maxItems: 8
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - type
+                        x-kubernetes-list-type: map
+                      results:
+                        description: results references EscalationResult CRs, newest
+                          last.
+                        items:
+                          description: |-
+                            StepResultRef is a lightweight reference to a result CR with an inline
+                            success field for quick scanning without fetching the CR.
+                          properties:
+                            name:
+                              description: name is the name of the result CR.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                            success:
+                              description: success indicates the outcome of this step
+                                attempt.
+                              type: boolean
+                          required:
+                          - name
+                          - success
+                          type: object
+                        maxItems: 20
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      sandbox:
+                        description: sandbox tracks the sandbox used.
+                        properties:
+                          claimName:
+                            description: |-
+                              claimName is the name of the SandboxClaim resource that owns the
+                              sandbox pod. Omit when no sandbox has been claimed; an empty string
+                              is treated the same as omitted. Maximum 253 characters.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          completionTime:
+                            description: completionTime is when the sandbox pod finished
+                              (success or failure).
+                            format: date-time
+                            type: string
+                          namespace:
+                            description: |-
+                              namespace is the namespace where the SandboxClaim and its pod live.
+                              Must be a valid RFC 1123 DNS label.
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                            x-kubernetes-validations:
+                            - message: 'must be a valid DNS label: lowercase alphanumeric
+                                characters and hyphens, starting with an alphabetic
+                                character and ending with an alphanumeric character'
+                              rule: '!format.dns1123Label().validate(self).hasValue()'
+                          startTime:
+                            description: startTime is when the sandbox pod was created.
+                            format: date-time
+                            type: string
+                        type: object
                       startTime:
                         description: startTime is when the step started.
                         format: date-time

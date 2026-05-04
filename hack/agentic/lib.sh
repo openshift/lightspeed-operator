@@ -474,6 +474,9 @@ rules:
   - apiGroups: ["monitoring.coreos.com"]
     resources: ["prometheuses", "prometheusrules", "servicemonitors", "alertmanagers"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["agentic.openshift.io"]
+    resources: ["proposals", "analysisresults", "executionresults", "verificationresults", "escalationresults"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

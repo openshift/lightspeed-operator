@@ -84,6 +84,18 @@ spec:
                         denied indicates the user has denied this step, making the entire
                         proposal terminal. Once set to true, it cannot be unset.
                       type: boolean
+                    escalation:
+                      description: |-
+                        escalation contains approval parameters for the escalation step.
+                        Required when type is Escalation.
+                      properties:
+                        agent:
+                          description: agent overrides the Agent CR for this step,
+                            enabling cost control.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                      type: object
                     execution:
                       description: |-
                         execution contains approval parameters for the execution step.
@@ -110,6 +122,7 @@ spec:
                       - Analysis
                       - Execution
                       - Verification
+                      - Escalation
                       type: string
                     verification:
                       description: |-
@@ -137,7 +150,10 @@ spec:
                       forbidden otherwise
                     rule: 'self.type == ''Verification'' ? has(self.verification)
                       : !has(self.verification)'
-                maxItems: 3
+                  - message: escalation is required when type is Escalation, and forbidden
+                      otherwise
+                    rule: 'self.type == ''Escalation'' ? has(self.escalation) : !has(self.escalation)'
+                maxItems: 4
                 type: array
                 x-kubernetes-list-type: atomic
             type: object
@@ -228,7 +244,7 @@ spec:
                   required:
                   - name
                   type: object
-                maxItems: 3
+                maxItems: 4
                 type: array
                 x-kubernetes-list-type: atomic
             type: object

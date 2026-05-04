@@ -18,6 +18,7 @@ rules:
   - agentic.openshift.io
   resources:
   - analysisresults
+  - escalationresults
   - executionresults
   - verificationresults
   verbs:
