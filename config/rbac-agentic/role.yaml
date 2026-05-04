@@ -17,6 +17,17 @@ rules:
 - apiGroups:
   - agentic.openshift.io
   resources:
+  - analysisresults
+  - executionresults
+  - verificationresults
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - agentic.openshift.io
+  resources:
   - proposalapprovals
   - proposals
   verbs:

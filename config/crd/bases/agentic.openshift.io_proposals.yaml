@@ -1484,53 +1484,11 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              previousAttempts:
-                description: |-
-                  previousAttempts contains the failure history from earlier attempts.
-                  Each entry records which step failed and why, giving the analysis
-                  agent on the next attempt context to avoid repeating the same mistake.
-                  Maximum 20 items.
-                items:
-                  description: |-
-                    PreviousAttempt captures the state of a failed attempt. When a proposal
-                    fails and retries, the operator records the failure context here so that
-                    the analysis agent on the next attempt can learn from previous failures.
-                    If maxAttempts is reached, the full history of PreviousAttempts is
-                    included in the escalation child proposal.
-                  properties:
-                    attempt:
-                      description: attempt is the 1-based attempt number that failed.
-                      format: int32
-                      minimum: 1
-                      type: integer
-                    failedStep:
-                      description: failedStep is which workflow step failed (analysis,
-                        execution, or verification).
-                      enum:
-                      - Analysis
-                      - Execution
-                      - Verification
-                      type: string
-                    failureReason:
-                      description: |-
-                        failureReason is the error message or explanation from the failed step.
-                        Omit when no failure has occurred; an empty string is treated the same
-                        as omitted (no failure). Maximum 8192 characters.
-                      maxLength: 8192
-                      minLength: 1
-                      type: string
-                  required:
-                  - attempt
-                  type: object
-                maxItems: 20
-                minItems: 1
-                type: array
-                x-kubernetes-list-type: atomic
               steps:
                 description: |-
                   steps contains the per-step observed state (analysis, execution,
                   verification). Each step independently tracks its timing, sandbox
-                  info, and results.
+                  info, and references to result CRs.
                 properties:
                   analysis:
                     description: analysis is the observed state of the analysis step.
@@ -1539,16 +1497,6 @@ spec:
                         description: completionTime is when the step completed.
                         format: date-time
                         type: string
-                      components:
-                        description: |-
-                          components contains optional adapter-specific UI components that
-                          apply to the analysis step as a whole.
-                        items:
-                          x-kubernetes-preserve-unknown-fields: true
-                        maxItems: 20
-                        minItems: 1
-                        type: array
-                        x-kubernetes-list-type: atomic
                       conditions:
                         description: conditions for this step.
                         items:
@@ -1620,460 +1568,29 @@ spec:
                         format: int32
                         minimum: 0
                         type: integer
-                      options:
+                      results:
                         description: |-
-                          options contains one or more remediation options returned by the
-                          analysis agent. Each option has its own diagnosis, plan,
-                          verification strategy, and RBAC requirements.
+                          results references AnalysisResult CRs, newest last.
+                          Each entry corresponds to one analysis attempt.
                         items:
                           description: |-
-                            RemediationOption represents a single remediation approach produced by
-                            the analysis agent. The agent may return multiple options, each with
-                            its own diagnosis, remediation plan, verification strategy, and RBAC
-                            requirements. The user selects one option after analysis
-                            (recorded in AnalysisStepStatus.selectedOption), and the operator uses
-                            that option's RBAC and plan for the execution step.
-
-                            The components field is an extensibility point for adapter-specific UI
-                            data. For example, an ACS adapter might include violation details or
-                            affected deployment information as components that the console plugin
-                            renders with custom components.
+                            StepResultRef is a lightweight reference to a result CR with an inline
+                            success field for quick scanning without fetching the CR.
                           properties:
-                            components:
-                              description: |-
-                                components contains optional adapter-defined structured data for
-                                custom console UI rendering. Each entry is a raw JSON object.
-                                Maximum 20 items.
-                              items:
-                                x-kubernetes-preserve-unknown-fields: true
-                              maxItems: 20
-                              minItems: 1
-                              type: array
-                              x-kubernetes-list-type: atomic
-                            diagnosis:
-                              description: diagnosis contains the root cause analysis
-                                specific to this option.
-                              properties:
-                                confidence:
-                                  description: |-
-                                    confidence is the agent's self-assessed confidence in its diagnosis.
-                                    Higher confidence generally correlates with clearer symptoms and
-                                    more deterministic root causes.
-                                  enum:
-                                  - Low
-                                  - Medium
-                                  - High
-                                  type: string
-                                rootCause:
-                                  description: |-
-                                    rootCause is a concise Markdown-formatted description of the identified
-                                    root cause (e.g., "OOMKilled due to memory limit of 256Mi").
-                                    Maximum 1024 characters.
-                                  maxLength: 1024
-                                  minLength: 1
-                                  type: string
-                                summary:
-                                  description: |-
-                                    summary is a Markdown-formatted diagnosis summary explaining the
-                                    problem, its symptoms, and the agent's findings. Maximum 8192 characters.
-                                  maxLength: 8192
-                                  minLength: 1
-                                  type: string
-                              required:
-                              - confidence
-                              - rootCause
-                              - summary
-                              type: object
-                            proposal:
-                              description: proposal contains the remediation plan
-                                for this option.
-                              properties:
-                                actions:
-                                  description: |-
-                                    actions is the ordered list of discrete actions the agent proposes.
-                                    Maximum 50 items.
-                                  items:
-                                    description: |-
-                                      ProposedAction describes a single discrete action the analysis agent
-                                      recommends as part of its remediation plan. Actions are displayed to
-                                      the user after analysis for review before approval.
-                                    properties:
-                                      description:
-                                        description: |-
-                                          description is a Markdown-formatted explanation of what this action
-                                          will do (e.g., "Increase memory limit from 256Mi to 512Mi").
-                                          Maximum 4096 characters.
-                                        maxLength: 4096
-                                        minLength: 1
-                                        type: string
-                                      type:
-                                        description: |-
-                                          type is the action category (e.g., "patch", "scale", "restart",
-                                          "create", "delete", "rollout"). Free-form string to allow agents
-                                          to express domain-specific action types. Must be 1-256 characters.
-                                        maxLength: 256
-                                        minLength: 1
-                                        type: string
-                                    required:
-                                    - description
-                                    - type
-                                    type: object
-                                  maxItems: 50
-                                  minItems: 1
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                                description:
-                                  description: |-
-                                    description is a Markdown-formatted summary of the overall remediation
-                                    approach. Maximum 8192 characters.
-                                  maxLength: 8192
-                                  minLength: 1
-                                  type: string
-                                estimatedImpact:
-                                  description: |-
-                                    estimatedImpact is a Markdown-formatted description of the expected
-                                    impact of the remediation on the system
-                                    (e.g., "Brief pod restart, ~30s downtime"). Omit when impact is
-                                    unknown; an empty string is treated the same as omitted.
-                                    Maximum 1024 characters.
-                                  maxLength: 1024
-                                  minLength: 1
-                                  type: string
-                                reversible:
-                                  description: |-
-                                    reversible indicates whether the remediation can be rolled back
-                                    if something goes wrong. See rollbackPlan for details.
-                                    Must be one of: Reversible, Irreversible, Partial.
-                                  enum:
-                                  - Reversible
-                                  - Irreversible
-                                  - Partial
-                                  type: string
-                                risk:
-                                  description: |-
-                                    risk is the agent's assessment of how risky the remediation is.
-                                    Critical-risk proposals typically require explicit human review.
-                                  enum:
-                                  - Low
-                                  - Medium
-                                  - High
-                                  - Critical
-                                  type: string
-                                rollbackPlan:
-                                  description: |-
-                                    rollbackPlan describes how to undo the remediation if execution fails
-                                    or causes unexpected issues. Only the execution step mutates cluster
-                                    state, so rollback lives here alongside the actions it would undo.
-                                  properties:
-                                    command:
-                                      description: |-
-                                        command is the rollback command or steps to execute.
-                                        Must be 1-4096 characters.
-                                      maxLength: 4096
-                                      minLength: 1
-                                      type: string
-                                    description:
-                                      description: |-
-                                        description is a Markdown-formatted explanation of the rollback strategy.
-                                        Must be 1-4096 characters.
-                                      maxLength: 4096
-                                      minLength: 1
-                                      type: string
-                                  required:
-                                  - command
-                                  - description
-                                  type: object
-                              required:
-                              - actions
-                              - description
-                              - risk
-                              type: object
-                            rbac:
-                              description: |-
-                                rbac contains the RBAC permissions the execution agent will need.
-                                The operator's policy engine validates these before creating the
-                                actual Kubernetes RBAC resources. Omitted for advisory-only options.
-                              properties:
-                                clusterScoped:
-                                  description: |-
-                                    clusterScoped are rules that will be applied via ClusterRole +
-                                    ClusterRoleBinding. Used when the agent needs cross-namespace or
-                                    non-namespaced resource access (e.g., reading nodes, CRDs).
-                                    Maximum 50 items.
-                                  items:
-                                    description: |-
-                                      RBACRule describes a single RBAC permission that the analysis agent
-                                      requests for the execution step. The operator's policy engine validates
-                                      these requests against a 6-layer defense model before creating the
-                                      actual Role/ClusterRole bindings. Each rule must include a justification
-                                      so that users and policy can audit why the permission is needed.
-                                    properties:
-                                      apiGroups:
-                                        description: |-
-                                          apiGroups are the API groups for this rule (e.g., "", "apps", "batch").
-                                          Maximum 20 items.
-                                        items:
-                                          maxLength: 253
-                                          minLength: 1
-                                          type: string
-                                        maxItems: 20
-                                        minItems: 1
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                      justification:
-                                        description: |-
-                                          justification is a Markdown-formatted explanation of why this
-                                          permission is needed for the remediation
-                                          (e.g., "Need to patch deployment to increase memory limit").
-                                          Required for audit and policy enforcement. Maximum 1024 characters.
-                                        maxLength: 1024
-                                        minLength: 1
-                                        type: string
-                                      namespace:
-                                        description: |-
-                                          namespace is the target namespace for namespace-scoped rules.
-                                          Must match one of the proposal's targetNamespaces. Ignored for
-                                          cluster-scoped rules. Validation is deferred to the operator's
-                                          policy engine at runtime. Must be a valid RFC 1123 DNS label.
-                                        maxLength: 63
-                                        minLength: 1
-                                        type: string
-                                        x-kubernetes-validations:
-                                        - message: 'must be a valid DNS label: lowercase
-                                            alphanumeric characters and hyphens, starting
-                                            with an alphabetic character and ending
-                                            with an alphanumeric character'
-                                          rule: '!format.dns1123Label().validate(self).hasValue()'
-                                      resourceNames:
-                                        description: |-
-                                          resourceNames restricts the rule to specific named resources.
-                                          When empty, the rule applies to all resources of the given type.
-                                          Maximum 50 items.
-                                        items:
-                                          maxLength: 253
-                                          minLength: 1
-                                          type: string
-                                        maxItems: 50
-                                        minItems: 1
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                      resources:
-                                        description: |-
-                                          resources are the resource types (e.g., "pods", "deployments").
-                                          Maximum 20 items.
-                                        items:
-                                          maxLength: 253
-                                          minLength: 1
-                                          type: string
-                                        maxItems: 20
-                                        minItems: 1
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                      verbs:
-                                        description: |-
-                                          verbs are the allowed operations (e.g., "get", "patch", "delete").
-                                          Maximum 10 items.
-                                        items:
-                                          maxLength: 63
-                                          minLength: 1
-                                          type: string
-                                        maxItems: 10
-                                        minItems: 1
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                    required:
-                                    - apiGroups
-                                    - justification
-                                    - resources
-                                    - verbs
-                                    type: object
-                                  maxItems: 50
-                                  minItems: 1
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                                namespaceScoped:
-                                  description: |-
-                                    namespaceScoped are rules that will be applied via Role + RoleBinding
-                                    in the proposal's target namespaces. These are the most common rules.
-                                    Maximum 50 items.
-                                  items:
-                                    description: |-
-                                      RBACRule describes a single RBAC permission that the analysis agent
-                                      requests for the execution step. The operator's policy engine validates
-                                      these requests against a 6-layer defense model before creating the
-                                      actual Role/ClusterRole bindings. Each rule must include a justification
-                                      so that users and policy can audit why the permission is needed.
-                                    properties:
-                                      apiGroups:
-                                        description: |-
-                                          apiGroups are the API groups for this rule (e.g., "", "apps", "batch").
-                                          Maximum 20 items.
-                                        items:
-                                          maxLength: 253
-                                          minLength: 1
-                                          type: string
-                                        maxItems: 20
-                                        minItems: 1
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                      justification:
-                                        description: |-
-                                          justification is a Markdown-formatted explanation of why this
-                                          permission is needed for the remediation
-                                          (e.g., "Need to patch deployment to increase memory limit").
-                                          Required for audit and policy enforcement. Maximum 1024 characters.
-                                        maxLength: 1024
-                                        minLength: 1
-                                        type: string
-                                      namespace:
-                                        description: |-
-                                          namespace is the target namespace for namespace-scoped rules.
-                                          Must match one of the proposal's targetNamespaces. Ignored for
-                                          cluster-scoped rules. Validation is deferred to the operator's
-                                          policy engine at runtime. Must be a valid RFC 1123 DNS label.
-                                        maxLength: 63
-                                        minLength: 1
-                                        type: string
-                                        x-kubernetes-validations:
-                                        - message: 'must be a valid DNS label: lowercase
-                                            alphanumeric characters and hyphens, starting
-                                            with an alphabetic character and ending
-                                            with an alphanumeric character'
-                                          rule: '!format.dns1123Label().validate(self).hasValue()'
-                                      resourceNames:
-                                        description: |-
-                                          resourceNames restricts the rule to specific named resources.
-                                          When empty, the rule applies to all resources of the given type.
-                                          Maximum 50 items.
-                                        items:
-                                          maxLength: 253
-                                          minLength: 1
-                                          type: string
-                                        maxItems: 50
-                                        minItems: 1
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                      resources:
-                                        description: |-
-                                          resources are the resource types (e.g., "pods", "deployments").
-                                          Maximum 20 items.
-                                        items:
-                                          maxLength: 253
-                                          minLength: 1
-                                          type: string
-                                        maxItems: 20
-                                        minItems: 1
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                      verbs:
-                                        description: |-
-                                          verbs are the allowed operations (e.g., "get", "patch", "delete").
-                                          Maximum 10 items.
-                                        items:
-                                          maxLength: 63
-                                          minLength: 1
-                                          type: string
-                                        maxItems: 10
-                                        minItems: 1
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                    required:
-                                    - apiGroups
-                                    - justification
-                                    - resources
-                                    - verbs
-                                    type: object
-                                  maxItems: 50
-                                  minItems: 1
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                              type: object
-                            summary:
-                              description: |-
-                                summary is an optional Markdown-formatted one-line summary for
-                                collapsed views in the console UI. Maximum 1024 characters.
-                              maxLength: 1024
+                            name:
+                              description: name is the name of the result CR.
+                              maxLength: 253
                               minLength: 1
                               type: string
-                            title:
-                              description: |-
-                                title is a short Markdown-formatted name for this option
-                                (e.g., "Increase memory limit", "Restart with backoff").
-                                Must be 1-256 characters.
-                              maxLength: 256
-                              minLength: 1
-                              type: string
-                            verification:
-                              description: |-
-                                verification contains the verification plan. Omitted when
-                                verification is skipped in the workflow.
-                              properties:
-                                description:
-                                  description: |-
-                                    description is a Markdown-formatted summary of the verification approach.
-                                    Maximum 4096 characters.
-                                  maxLength: 4096
-                                  minLength: 1
-                                  type: string
-                                steps:
-                                  description: |-
-                                    steps is the ordered list of verification checks to run.
-                                    Maximum 20 items.
-                                  items:
-                                    description: |-
-                                      VerificationStep describes a single verification check that the
-                                      verification agent should run after execution. Populated by the
-                                      analysis agent as part of the RemediationOption.
-                                    properties:
-                                      command:
-                                        description: |-
-                                          command is the command or API call to run for this check
-                                          (e.g., "oc get pod -n production -l app=web -o jsonpath='{.items[0].status.phase}'").
-                                          Must be 1-4096 characters.
-                                        maxLength: 4096
-                                        minLength: 1
-                                        type: string
-                                      expected:
-                                        description: |-
-                                          expected is the expected output or condition
-                                          (e.g., "Running", "ready=true"). Maximum 1024 characters.
-                                        maxLength: 1024
-                                        minLength: 1
-                                        type: string
-                                      name:
-                                        description: |-
-                                          name is a short identifier for this check (e.g., "pod-running").
-                                          Must be 1-253 characters.
-                                        maxLength: 253
-                                        minLength: 1
-                                        type: string
-                                      type:
-                                        description: |-
-                                          type categorizes the check (e.g., "command", "metric", "condition").
-                                          Must be 1-256 characters.
-                                        maxLength: 256
-                                        minLength: 1
-                                        type: string
-                                    required:
-                                    - command
-                                    - expected
-                                    - name
-                                    - type
-                                    type: object
-                                  maxItems: 20
-                                  minItems: 1
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                              required:
-                              - description
-                              type: object
+                            success:
+                              description: success indicates the outcome of this step
+                                attempt.
+                              type: boolean
                           required:
-                          - diagnosis
-                          - proposal
-                          - title
+                          - name
+                          - success
                           type: object
-                        maxItems: 10
-                        minItems: 1
+                        maxItems: 20
                         type: array
                         x-kubernetes-list-type: atomic
                       sandbox:
@@ -2112,9 +1629,7 @@ spec:
                       selectedOption:
                         description: |-
                           selectedOption is the 0-based index into the options array
-                          that the user approved. Set when the user approves the proposal.
-                          The operator uses this to determine which option's RBAC and plan
-                          to use for execution. Minimum value: 0.
+                          of the latest AnalysisResult CR that the user approved.
                         format: int32
                         minimum: 0
                         type: integer
@@ -2127,72 +1642,10 @@ spec:
                     description: execution is the observed state of the execution
                       step.
                     properties:
-                      actionsTaken:
-                        description: actionsTaken lists what the agent did.
-                        items:
-                          description: |-
-                            ExecutionAction describes a single action taken by the execution agent
-                            during the execution step. These are recorded in ExecutionStepStatus
-                            to provide an audit trail of what the agent actually did.
-                          properties:
-                            description:
-                              description: |-
-                                description is a Markdown-formatted explanation of what the agent did
-                                (e.g., "Patched deployment/web to set memory limit to 512Mi").
-                                Maximum 4096 characters.
-                              maxLength: 4096
-                              minLength: 1
-                              type: string
-                            error:
-                              description: |-
-                                error is the error message if the action failed.
-                                Maximum 8192 characters.
-                              maxLength: 8192
-                              minLength: 1
-                              type: string
-                            outcome:
-                              description: |-
-                                outcome indicates whether this individual action succeeded.
-                                Must be one of: Succeeded, Failed.
-                              enum:
-                              - Succeeded
-                              - Failed
-                              type: string
-                            output:
-                              description: |-
-                                output is the command output or API response from the action.
-                                Maximum 32768 characters.
-                              maxLength: 32768
-                              minLength: 1
-                              type: string
-                            type:
-                              description: |-
-                                type is the action category (e.g., "patch", "scale", "restart").
-                                Maximum 256 characters.
-                              maxLength: 256
-                              minLength: 1
-                              type: string
-                          required:
-                          - description
-                          - type
-                          type: object
-                        maxItems: 100
-                        minItems: 1
-                        type: array
-                        x-kubernetes-list-type: atomic
                       completionTime:
                         description: completionTime is when the step completed.
                         format: date-time
                         type: string
-                      components:
-                        description: components contains optional adapter-defined
-                          structured data.
-                        items:
-                          x-kubernetes-preserve-unknown-fields: true
-                        maxItems: 20
-                        minItems: 1
-                        type: array
-                        x-kubernetes-list-type: atomic
                       conditions:
                         description: conditions for this step.
                         items:
@@ -2256,6 +1709,31 @@ spec:
                         x-kubernetes-list-map-keys:
                         - type
                         x-kubernetes-list-type: map
+                      results:
+                        description: |-
+                          results references ExecutionResult CRs, newest last.
+                          Each entry corresponds to one execution attempt (including retries).
+                        items:
+                          description: |-
+                            StepResultRef is a lightweight reference to a result CR with an inline
+                            success field for quick scanning without fetching the CR.
+                          properties:
+                            name:
+                              description: name is the name of the result CR.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                            success:
+                              description: success indicates the outcome of this step
+                                attempt.
+                              type: boolean
+                          required:
+                          - name
+                          - success
+                          type: object
+                        maxItems: 20
+                        type: array
+                        x-kubernetes-list-type: atomic
                       retryCount:
                         description: |-
                           retryCount tracks how many times execution+verification has been
@@ -2302,100 +1780,15 @@ spec:
                         description: startTime is when the step started.
                         format: date-time
                         type: string
-                      success:
-                        description: success indicates whether the execution agent
-                          reported overall success.
-                        type: boolean
-                      verification:
-                        description: |-
-                          verification is the lightweight inline verification the execution
-                          agent performs immediately after completing its actions.
-                        properties:
-                          conditionOutcome:
-                            description: |-
-                              conditionOutcome indicates whether the target condition improved
-                              after the remediation (e.g., pod is no longer CrashLoopBackOff).
-                              Must be one of: Improved, Unchanged, Degraded.
-                            enum:
-                            - Improved
-                            - Unchanged
-                            - Degraded
-                            type: string
-                          summary:
-                            description: |-
-                              summary is a Markdown-formatted summary of the inline verification.
-                              Maximum 4096 characters.
-                            maxLength: 4096
-                            minLength: 1
-                            type: string
-                        required:
-                        - summary
-                        type: object
                     type: object
                   verification:
                     description: verification is the observed state of the verification
                       step.
                     properties:
-                      checks:
-                        description: checks contains individual verification check
-                          results.
-                        items:
-                          description: |-
-                            VerifyCheck is a single verification check result from the verification
-                            agent. Each check corresponds to a VerificationStep from the analysis
-                            agent's verification plan.
-                          properties:
-                            name:
-                              description: |-
-                                name is the check identifier, matching the VerificationStep name.
-                                Maximum 253 characters.
-                              maxLength: 253
-                              minLength: 1
-                              type: string
-                            result:
-                              description: |-
-                                result indicates whether the check's observed value matches
-                                the expected value. Must be one of: Passed, Failed.
-                              enum:
-                              - Passed
-                              - Failed
-                              type: string
-                            source:
-                              description: |-
-                                source is what performed the check (e.g., "oc", "promql", "curl").
-                                Maximum 256 characters.
-                              maxLength: 256
-                              minLength: 1
-                              type: string
-                            value:
-                              description: |-
-                                value is the actual observed value (e.g., "Running", "3 replicas").
-                                Maximum 4096 characters.
-                              maxLength: 4096
-                              minLength: 1
-                              type: string
-                          required:
-                          - name
-                          - source
-                          - value
-                          type: object
-                        maxItems: 50
-                        minItems: 1
-                        type: array
-                        x-kubernetes-list-type: atomic
                       completionTime:
                         description: completionTime is when the step completed.
                         format: date-time
                         type: string
-                      components:
-                        description: components contains optional adapter-defined
-                          structured data.
-                        items:
-                          x-kubernetes-preserve-unknown-fields: true
-                        maxItems: 20
-                        minItems: 1
-                        type: array
-                        x-kubernetes-list-type: atomic
                       conditions:
                         description: conditions for this step.
                         items:
@@ -2459,6 +1852,31 @@ spec:
                         x-kubernetes-list-map-keys:
                         - type
                         x-kubernetes-list-type: map
+                      results:
+                        description: |-
+                          results references VerificationResult CRs, newest last.
+                          Each entry corresponds to one verification attempt (including retries).
+                        items:
+                          description: |-
+                            StepResultRef is a lightweight reference to a result CR with an inline
+                            success field for quick scanning without fetching the CR.
+                          properties:
+                            name:
+                              description: name is the name of the result CR.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                            success:
+                              description: success indicates the outcome of this step
+                                attempt.
+                              type: boolean
+                          required:
+                          - name
+                          - success
+                          type: object
+                        maxItems: 20
+                        type: array
+                        x-kubernetes-list-type: atomic
                       sandbox:
                         description: sandbox tracks the sandbox used.
                         properties:
@@ -2495,16 +1913,6 @@ spec:
                       startTime:
                         description: startTime is when the step started.
                         format: date-time
-                        type: string
-                      success:
-                        description: success indicates whether the verification agent
-                          reported overall success.
-                        type: boolean
-                      summary:
-                        description: summary is a Markdown-formatted verification
-                          summary.
-                        maxLength: 32768
-                        minLength: 1
                         type: string
                     type: object
                 type: object

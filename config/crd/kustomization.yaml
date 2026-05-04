@@ -9,6 +9,9 @@ resources:
 - bases/agentic.openshift.io_approvalpolicies.yaml
 - bases/agentic.openshift.io_proposalapprovals.yaml
 - bases/agentic.openshift.io_proposals.yaml
+- bases/agentic.openshift.io_analysisresults.yaml
+- bases/agentic.openshift.io_executionresults.yaml
+- bases/agentic.openshift.io_verificationresults.yaml
 - bases/agentic.openshift.io_proposaltemplates.yaml
 - bases/agentic.openshift.io_workflows.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
