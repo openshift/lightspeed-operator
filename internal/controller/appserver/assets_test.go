@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -97,8 +98,15 @@ var _ = Describe("App server assets", func() {
 						UvicornLogLevel: string(olsv1alpha1.LogLevelInfo),
 					},
 					ConversationCache: utils.ConversationCacheConfig{
-						Type:     utils.OLSDefaultCacheType,
-						Postgres: utils.GetTestPostgresCacheConfig(),
+						Type: utils.OLSDefaultCacheType,
+						Postgres: utils.PostgresCacheConfig{
+							Host: strings.Join([]string{utils.PostgresServiceName, utils.OLSNamespaceDefault, "svc"}, "."),
+							Port: utils.PostgresServicePort, User: utils.PostgresDefaultUser,
+							DbName:       utils.PostgresDefaultDbName,
+							PasswordPath: path.Join(utils.CredentialsMountRoot, utils.PostgresSecretName, utils.OLSComponentPasswordFileName),
+							SSLMode:      utils.PostgresDefaultSSLMode,
+							CACertPath:   path.Join(utils.OLSAppCertsMountRoot, "postgres-ca", "service-ca.crt"),
+						},
 					},
 					TLSConfig: utils.TLSConfig{
 						TLSCertificatePath: path.Join(utils.OLSAppCertsMountRoot, utils.OLSCertsSecretName, "tls.crt"),
@@ -252,8 +260,10 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate configmap with queryFilters", func() {
-			crWithFilters := utils.WithQueryFilters(cr)
-			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), crWithFilters)
+			cr.Spec.OLSConfig.QueryFilters = []olsv1alpha1.QueryFiltersSpec{
+				{Name: "testFilter", Pattern: "testPattern", ReplaceWith: "testReplace"},
+			}
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(utils.OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
@@ -321,8 +331,13 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate configmap with token quota limiters", func() {
-			crWithFilters := utils.WithQuotaLimiters(cr)
-			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), crWithFilters)
+			cr.Spec.OLSConfig.QuotaHandlersConfig = &olsv1alpha1.QuotaHandlersConfig{
+				LimitersConfig: []olsv1alpha1.LimiterConfig{
+					{Name: "my_user_limiter", Type: "user_limiter", InitialQuota: 10000, QuotaIncrease: 100, Period: "1d"},
+					{Name: "my_cluster_limiter", Type: "cluster_limiter", InitialQuota: 20000, QuotaIncrease: 200, Period: "30d"},
+				},
+			}
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(utils.OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
@@ -368,8 +383,9 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate configmap with IBM watsonx provider", func() {
-			watsonx := utils.WithWatsonxProvider(cr)
-			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), watsonx)
+			setFirstLLMProviderNameAndType(cr, "watsonx", "watsonx")
+			cr.Spec.LLMConfig.Providers[0].WatsonProjectID = "testProjectID"
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			var olsConfigMap map[string]interface{}
@@ -383,8 +399,8 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate configmap with rhoai_vllm provider", func() {
-			provider := utils.WithRHOAIProvider(cr)
-			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), provider)
+			setFirstLLMProviderNameAndType(cr, "rhoai_vllm", "rhoai_vllm")
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			var olsConfigMap map[string]interface{}
@@ -397,8 +413,8 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate configmap with rhelia_vllm provider", func() {
-			provider := utils.WithRHELAIProvider(cr)
-			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), provider)
+			setFirstLLMProviderNameAndType(cr, "rhelai_vllm", "rhelai_vllm")
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			var olsConfigMap map[string]interface{}
@@ -857,7 +873,11 @@ var _ = Describe("App server assets", func() {
 
 	Context("empty custom resource", func() {
 		BeforeEach(func() {
-			cr = utils.GetEmptyOLSConfigCR()
+			cr = &olsv1alpha1.OLSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+			}
 			By("create the OpenShift certificates config map")
 			configmap, _ = utils.GenerateRandomConfigMap()
 			configmap.SetOwnerReferences([]metav1.OwnerReference{
@@ -1595,3 +1615,9 @@ var _ = Describe("Helper function unit tests", func() {
 		})
 	})
 })
+
+// setFirstLLMProviderNameAndType sets Providers[0] name and type; use utils.With* helpers for richer shapes.
+func setFirstLLMProviderNameAndType(cr *olsv1alpha1.OLSConfig, name, providerType string) {
+	cr.Spec.LLMConfig.Providers[0].Name = name
+	cr.Spec.LLMConfig.Providers[0].Type = providerType
+}

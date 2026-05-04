@@ -289,7 +289,24 @@ var _ = Describe("App postgres server assets", func() {
 
 	Context("complete custom resource", func() {
 		BeforeEach(func() {
-			testCr = utils.GetOLSConfigWithCacheCR()
+			testCr = &olsv1alpha1.OLSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cluster",
+					Namespace: utils.OLSNamespaceDefault,
+					UID:       "OLSConfig_created_in_getOLSConfigWithCacheCR",
+				},
+				Spec: olsv1alpha1.OLSConfigSpec{
+					OLSConfig: olsv1alpha1.OLSSpec{
+						ConversationCache: olsv1alpha1.ConversationCacheSpec{
+							Type: olsv1alpha1.Postgres,
+							Postgres: olsv1alpha1.PostgresSpec{
+								SharedBuffers:  utils.PostgresSharedBuffers,
+								MaxConnections: utils.PostgresMaxConnections,
+							},
+						},
+					},
+				},
+			}
 		})
 
 		It("should generate the OLS postgres deployment", func() {
@@ -469,7 +486,13 @@ var _ = Describe("App postgres server assets", func() {
 
 	Context("empty custom resource", func() {
 		BeforeEach(func() {
-			testCr = utils.GetNoCacheCR()
+			testCr = &olsv1alpha1.OLSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cluster",
+					Namespace: utils.OLSNamespaceDefault,
+					UID:       "OLSConfig_created_in_getNoCacheCR",
+				},
+			}
 		})
 
 		It("should generate the OLS postgres deployment", func() {
