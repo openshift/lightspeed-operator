@@ -1878,11 +1878,6 @@ spec:
                             maxLength: 253
                             minLength: 1
                             type: string
-                          completionTime:
-                            description: completionTime is when the sandbox pod finished
-                              (success or failure).
-                            format: date-time
-                            type: string
                           namespace:
                             description: |-
                               namespace is the namespace where the SandboxClaim and its pod live.
@@ -1895,10 +1890,6 @@ spec:
                                 characters and hyphens, starting with an alphabetic
                                 character and ending with an alphanumeric character'
                               rule: '!format.dns1123Label().validate(self).hasValue()'
-                          startTime:
-                            description: startTime is when the sandbox pod was created.
-                            format: date-time
-                            type: string
                         type: object
                       selectedOption:
                         description: |-
@@ -2014,11 +2005,6 @@ spec:
                             maxLength: 253
                             minLength: 1
                             type: string
-                          completionTime:
-                            description: completionTime is when the sandbox pod finished
-                              (success or failure).
-                            format: date-time
-                            type: string
                           namespace:
                             description: |-
                               namespace is the namespace where the SandboxClaim and its pod live.
@@ -2031,10 +2017,6 @@ spec:
                                 characters and hyphens, starting with an alphabetic
                                 character and ending with an alphanumeric character'
                               rule: '!format.dns1123Label().validate(self).hasValue()'
-                          startTime:
-                            description: startTime is when the sandbox pod was created.
-                            format: date-time
-                            type: string
                         type: object
                     type: object
                   execution:
@@ -2153,11 +2135,6 @@ spec:
                             maxLength: 253
                             minLength: 1
                             type: string
-                          completionTime:
-                            description: completionTime is when the sandbox pod finished
-                              (success or failure).
-                            format: date-time
-                            type: string
                           namespace:
                             description: |-
                               namespace is the namespace where the SandboxClaim and its pod live.
@@ -2170,10 +2147,6 @@ spec:
                                 characters and hyphens, starting with an alphabetic
                                 character and ending with an alphanumeric character'
                               rule: '!format.dns1123Label().validate(self).hasValue()'
-                          startTime:
-                            description: startTime is when the sandbox pod was created.
-                            format: date-time
-                            type: string
                         type: object
                     type: object
                   verification:
@@ -2283,11 +2256,6 @@ spec:
                             maxLength: 253
                             minLength: 1
                             type: string
-                          completionTime:
-                            description: completionTime is when the sandbox pod finished
-                              (success or failure).
-                            format: date-time
-                            type: string
                           namespace:
                             description: |-
                               namespace is the namespace where the SandboxClaim and its pod live.
@@ -2300,10 +2268,6 @@ spec:
                                 characters and hyphens, starting with an alphabetic
                                 character and ending with an alphanumeric character'
                               rule: '!format.dns1123Label().validate(self).hasValue()'
-                          startTime:
-                            description: startTime is when the sandbox pod was created.
-                            format: date-time
-                            type: string
                         type: object
                     type: object
                 type: object
