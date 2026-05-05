@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-05-05T12:17:24Z"
+    createdAt: "2026-05-05T17:50:25Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -907,7 +907,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ec5829577a1f38d1ad4f2699e302693813b57c46c24ec266ff3d3d43775bc525
+                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:2a75bed43ec6765f65e178483671cd8f66bbccfade134742602c81e0feb48f79
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1026,7 +1026,7 @@ spec:
     - name: lightspeed-console-plugin-4-19
       image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:44dbbce17bdfd0afaa30e2476e510c1fd13a00dec4ee2fe62e3205239721f8ef
     - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ec5829577a1f38d1ad4f2699e302693813b57c46c24ec266ff3d3d43775bc525
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:2a75bed43ec6765f65e178483671cd8f66bbccfade134742602c81e0feb48f79
     - name: openshift-mcp-server
       image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:2f52c860f91ab3c8a5129b727bdef0d620e733013f073b10355866c45eafd053
     - name: lightspeed-to-dataverse-exporter
