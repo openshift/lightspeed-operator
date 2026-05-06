@@ -70,6 +70,7 @@ spec:
                   including which agent handles it and any per-step tools.
 
                   Immutable: agent and per-step tools are fixed at creation.
+                minProperties: 1
                 properties:
                   agent:
                     description: |-
@@ -78,6 +79,10 @@ spec:
                     maxLength: 253
                     minLength: 1
                     type: string
+                    x-kubernetes-validations:
+                    - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                        characters, hyphens, and dots'
+                      rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                   tools:
                     description: |-
                       tools provides per-step tools that replace the shared spec.tools
@@ -456,6 +461,7 @@ spec:
                   Omit to skip execution (advisory/assisted patterns).
 
                   Immutable: agent and per-step tools are fixed at creation.
+                minProperties: 1
                 properties:
                   agent:
                     description: |-
@@ -464,6 +470,10 @@ spec:
                     maxLength: 253
                     minLength: 1
                     type: string
+                    x-kubernetes-validations:
+                    - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                        characters, hyphens, and dots'
+                      rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                   tools:
                     description: |-
                       tools provides per-step tools that replace the shared spec.tools
@@ -1265,6 +1275,7 @@ spec:
                   Omit to skip verification.
 
                   Immutable: agent and per-step tools are fixed at creation.
+                minProperties: 1
                 properties:
                   agent:
                     description: |-
@@ -1273,6 +1284,10 @@ spec:
                     maxLength: 253
                     minLength: 1
                     type: string
+                    x-kubernetes-validations:
+                    - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                        characters, hyphens, and dots'
+                      rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                   tools:
                     description: |-
                       tools provides per-step tools that replace the shared spec.tools
@@ -1750,6 +1765,7 @@ spec:
                 properties:
                   analysis:
                     description: analysis is the observed state of the analysis step.
+                    minProperties: 1
                     properties:
                       conditions:
                         description: conditions for this step.
@@ -1888,6 +1904,7 @@ spec:
                   escalation:
                     description: escalation is the observed state of the escalation
                       step.
+                    minProperties: 1
                     properties:
                       conditions:
                         description: conditions for this step.
@@ -2010,6 +2027,7 @@ spec:
                   execution:
                     description: execution is the observed state of the execution
                       step.
+                    minProperties: 1
                     properties:
                       conditions:
                         description: conditions for this step.
@@ -2142,6 +2160,7 @@ spec:
                   verification:
                     description: verification is the observed state of the verification
                       step.
+                    minProperties: 1
                     properties:
                       conditions:
                         description: conditions for this step.

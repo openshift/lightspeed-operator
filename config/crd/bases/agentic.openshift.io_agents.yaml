@@ -87,6 +87,8 @@ spec:
                 description: |-
                   maxTurns is the maximum number of tool-use turns the agent may take
                   in a single step invocation. Prevents runaway loops.
+                  When omitted, the agent sandbox uses its built-in default.
+                  Minimum 1, maximum 500.
                 format: int32
                 maximum: 500
                 minimum: 1
@@ -95,6 +97,9 @@ spec:
                 description: |-
                   model is the LLM model identifier as recognized by the provider
                   (e.g., "claude-opus-4-6", "claude-haiku-4-5", "gpt-4o").
+                  Must start with an alphanumeric character and may contain
+                  alphanumerics, dots, hyphens, underscores, slashes, colons,
+                  and at-signs. Maximum 256 characters.
                 maxLength: 256
                 minLength: 1
                 type: string
@@ -104,7 +109,10 @@ spec:
                     and at-signs
                   rule: self.matches('^[a-zA-Z0-9][a-zA-Z0-9._\\-/:@]*$')
               timeouts:
-                description: timeouts configures per-step and per-turn timeout limits.
+                description: |-
+                  timeouts configures per-step and per-turn timeout limits.
+                  When omitted, the agent sandbox uses its built-in defaults.
+                minProperties: 1
                 properties:
                   analysisSeconds:
                     description: analysisSeconds is the timeout for the analysis step

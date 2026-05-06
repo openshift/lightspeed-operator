@@ -78,6 +78,10 @@ spec:
                           maxLength: 253
                           minLength: 1
                           type: string
+                          x-kubernetes-validations:
+                          - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                              characters, hyphens, and dots'
+                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                       type: object
                     decision:
                       description: |-
@@ -99,6 +103,10 @@ spec:
                           maxLength: 253
                           minLength: 1
                           type: string
+                          x-kubernetes-validations:
+                          - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                              characters, hyphens, and dots'
+                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                       type: object
                     execution:
                       description: |-
@@ -111,6 +119,10 @@ spec:
                           maxLength: 253
                           minLength: 1
                           type: string
+                          x-kubernetes-validations:
+                          - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                              characters, hyphens, and dots'
+                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                         maxAttempts:
                           description: |-
                             maxAttempts is the number of execution retry attempts approved
@@ -148,6 +160,10 @@ spec:
                           maxLength: 253
                           minLength: 1
                           type: string
+                          x-kubernetes-validations:
+                          - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                              characters, hyphens, and dots'
+                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                       type: object
                   required:
                   - type

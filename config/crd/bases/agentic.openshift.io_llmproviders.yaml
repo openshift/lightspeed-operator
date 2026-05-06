@@ -88,15 +88,19 @@ spec:
                       Only needed for custom deployments or API proxies.
                       Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
                       parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
                     maxLength: 2048
                     minLength: 1
                     type: string
                     x-kubernetes-validations:
-                    - message: url must be a valid HTTP or HTTPS URL with a hostname;
-                        fragments and userinfo are not allowed
+                    - message: must use http or https scheme
                       rule: isURL(self) && url(self).getScheme() in ['http', 'https']
-                        && url(self).getHostname() != '' && !self.contains('@') &&
-                        !self.contains('#')
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
                 required:
                 - credentialsSecret
                 type: object
@@ -127,8 +131,9 @@ spec:
                   region:
                     description: |-
                       region is the AWS region for the Bedrock endpoint.
-                      Must contain only lowercase letters, digits, and hyphens
-                      (e.g., "us-east-1", "eu-west-2", "ap-southeast-1").
+                      Must begin with a lowercase letter and end with a lowercase
+                      alphanumeric character. May contain lowercase letters, digits,
+                      and hyphens (e.g., "us-east-1", "eu-west-2", "ap-southeast-1").
                     maxLength: 63
                     minLength: 2
                     type: string
@@ -142,15 +147,19 @@ spec:
                       Only needed for custom deployments or API proxies.
                       Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
                       parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
                     maxLength: 2048
                     minLength: 1
                     type: string
                     x-kubernetes-validations:
-                    - message: url must be a valid HTTP or HTTPS URL with a hostname;
-                        fragments and userinfo are not allowed
+                    - message: must use http or https scheme
                       rule: isURL(self) && url(self).getScheme() in ['http', 'https']
-                        && url(self).getHostname() != '' && !self.contains('@') &&
-                        !self.contains('#')
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
                 required:
                 - credentialsSecret
                 - region
@@ -197,15 +206,19 @@ spec:
                       (e.g., "https://my-resource.openai.azure.com").
                       Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
                       parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
                     maxLength: 2048
                     minLength: 1
                     type: string
                     x-kubernetes-validations:
-                    - message: endpoint must be a valid HTTP or HTTPS URL with a hostname;
-                        fragments and userinfo are not allowed
+                    - message: must use http or https scheme
                       rule: isURL(self) && url(self).getScheme() in ['http', 'https']
-                        && url(self).getHostname() != '' && !self.contains('@') &&
-                        !self.contains('#')
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
                   url:
                     description: |-
                       url is an optional override for the Azure OpenAI API endpoint.
@@ -213,15 +226,19 @@ spec:
                       from the required 'endpoint' field which identifies the Azure resource.
                       Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
                       parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
                     maxLength: 2048
                     minLength: 1
                     type: string
                     x-kubernetes-validations:
-                    - message: url must be a valid HTTP or HTTPS URL with a hostname;
-                        fragments and userinfo are not allowed
+                    - message: must use http or https scheme
                       rule: isURL(self) && url(self).getScheme() in ['http', 'https']
-                        && url(self).getHostname() != '' && !self.contains('@') &&
-                        !self.contains('#')
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
                 required:
                 - credentialsSecret
                 - endpoint
@@ -267,8 +284,9 @@ spec:
                   region:
                     description: |-
                       region is the GCP region for the Vertex AI endpoint.
-                      Must contain only lowercase letters, digits, and hyphens
-                      (e.g., "us-central1", "europe-west4", "asia-southeast1").
+                      Must begin with a lowercase letter and end with a lowercase
+                      alphanumeric character. May contain lowercase letters, digits,
+                      and hyphens (e.g., "us-central1", "europe-west4", "asia-southeast1").
                     maxLength: 63
                     minLength: 2
                     type: string
@@ -282,15 +300,19 @@ spec:
                       Only needed for custom deployments or API proxies.
                       Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
                       parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
                     maxLength: 2048
                     minLength: 1
                     type: string
                     x-kubernetes-validations:
-                    - message: url must be a valid HTTP or HTTPS URL with a hostname;
-                        fragments and userinfo are not allowed
+                    - message: must use http or https scheme
                       rule: isURL(self) && url(self).getScheme() in ['http', 'https']
-                        && url(self).getHostname() != '' && !self.contains('@') &&
-                        !self.contains('#')
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
                 required:
                 - credentialsSecret
                 - projectID
@@ -326,15 +348,19 @@ spec:
                       Only needed for custom deployments or API proxies.
                       Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
                       parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
                     maxLength: 2048
                     minLength: 1
                     type: string
                     x-kubernetes-validations:
-                    - message: url must be a valid HTTP or HTTPS URL with a hostname;
-                        fragments and userinfo are not allowed
+                    - message: must use http or https scheme
                       rule: isURL(self) && url(self).getScheme() in ['http', 'https']
-                        && url(self).getHostname() != '' && !self.contains('@') &&
-                        !self.contains('#')
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
                 required:
                 - credentialsSecret
                 type: object

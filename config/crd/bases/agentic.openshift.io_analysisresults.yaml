@@ -305,11 +305,17 @@ spec:
                       - estimatedImpact
                       - risk
                       type: object
+                      x-kubernetes-validations:
+                      - message: rollbackPlan is required when reversible is Reversible
+                          or Partial
+                        rule: '!has(self.reversible) || self.reversible == ''Irreversible''
+                          || has(self.rollbackPlan)'
                     rbac:
                       description: |-
                         rbac contains the RBAC permissions the execution agent will need.
                         The operator's policy engine validates these before creating the
                         actual Kubernetes RBAC resources. Omitted for advisory-only options.
+                      minProperties: 1
                       properties:
                         clusterScoped:
                           description: |-
@@ -328,10 +334,10 @@ spec:
                               apiGroups:
                                 description: |-
                                   apiGroups are the API groups for this rule (e.g., "", "apps", "batch").
-                                  Maximum 20 items.
+                                  The empty string "" represents the core API group (pods, services, etc.).
+                                  Maximum 20 items, each up to 253 characters.
                                 items:
                                   maxLength: 253
-                                  minLength: 1
                                   type: string
                                 maxItems: 20
                                 minItems: 1
@@ -423,10 +429,10 @@ spec:
                               apiGroups:
                                 description: |-
                                   apiGroups are the API groups for this rule (e.g., "", "apps", "batch").
-                                  Maximum 20 items.
+                                  The empty string "" represents the core API group (pods, services, etc.).
+                                  Maximum 20 items, each up to 253 characters.
                                 items:
                                   maxLength: 253
-                                  minLength: 1
                                   type: string
                                 maxItems: 20
                                 minItems: 1
