@@ -18,9 +18,6 @@ spec:
     - jsonPath: .spec.proposalName
       name: Proposal
       type: string
-    - jsonPath: .spec.attempt
-      name: Attempt
-      type: integer
     - jsonPath: .spec.retryIndex
       name: Retry
       type: integer
@@ -58,11 +55,6 @@ spec:
           spec:
             description: spec contains the immutable identity fields for this result.
             properties:
-              attempt:
-                description: attempt is the 1-based overall attempt number.
-                format: int32
-                minimum: 1
-                type: integer
               proposalName:
                 description: proposalName is the name of the parent Proposal in the
                   same namespace.
@@ -74,11 +66,10 @@ spec:
                   retryIndex is the 0-based retry index within the current analysis.
                   First execution has retryIndex 0, first retry has retryIndex 1, etc.
                 format: int32
-                maximum: 10
+                maximum: 2
                 minimum: 0
                 type: integer
             required:
-            - attempt
             - proposalName
             - retryIndex
             type: object

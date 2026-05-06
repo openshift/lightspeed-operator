@@ -86,8 +86,9 @@ spec:
                     decision:
                       description: |-
                         decision indicates whether this stage is approved or denied.
-                        Denied is terminal — the entire proposal is denied.
-                        Once set to Denied, it cannot be changed.
+                        Denying any stage terminates the entire proposal, even if
+                        earlier stages were already approved. Once set to Denied,
+                        it cannot be changed.
                       enum:
                       - Approved
                       - Denied
@@ -198,15 +199,15 @@ spec:
             x-kubernetes-validations:
             - message: 'stages are append-only: existing stages cannot be removed'
               rule: oldSelf.stages.all(old, self.stages.exists(s, s.type == old.type))
-            - message: decision cannot be changed once set to Denied
+            - message: decisions once set cannot be changed
               rule: oldSelf.stages.all(old, !(has(old.decision) && old.decision ==
                 'Denied') || self.stages.exists(s, s.type == old.type && has(s.decision)
                 && s.decision == 'Denied'))
-            - message: execution maxAttempts cannot be reduced once set
+            - message: maxAttempts once set cannot be changed
               rule: oldSelf.stages.all(old, old.type != 'Execution' || !has(old.execution)
                 || !has(old.execution.maxAttempts) || old.execution.maxAttempts ==
                 0 || self.stages.exists(s, s.type == 'Execution' && has(s.execution)
-                && has(s.execution.maxAttempts) && s.execution.maxAttempts >= old.execution.maxAttempts))
+                && has(s.execution.maxAttempts) && s.execution.maxAttempts == old.execution.maxAttempts))
           status:
             description: status defines the observed approval state.
             minProperties: 1

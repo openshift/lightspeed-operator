@@ -1686,15 +1686,6 @@ spec:
             description: status defines the observed state of Proposal.
             minProperties: 1
             properties:
-              attempts:
-                description: |-
-                  attempts is the number of times this proposal has been attempted
-                  (1-based). Incremented each time the proposal is retried after a
-                  failure. Starts at 1 for the first attempt.
-                format: int32
-                maximum: 2147483647
-                minimum: 1
-                type: integer
               conditions:
                 description: |-
                   conditions represent the latest available observations using the
@@ -1834,15 +1825,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - type
                         x-kubernetes-list-type: map
-                      observedGeneration:
-                        description: |-
-                          observedGeneration is the metadata.generation of the Proposal that
-                          this analysis was produced for. When metadata.generation >
-                          observedGeneration, the operator re-runs analysis with revision
-                          feedback appended.
-                        format: int64
-                        minimum: 1
-                        type: integer
                       results:
                         description: |-
                           results references AnalysisResult CRs, newest last.
