@@ -52,7 +52,6 @@ spec:
             type: object
           spec:
             description: spec defines the desired approval state.
-            minProperties: 1
             properties:
               stages:
                 description: |-
@@ -289,8 +288,6 @@ spec:
                 type: array
                 x-kubernetes-list-type: atomic
             type: object
-        required:
-        - spec
         type: object
     served: true
     storage: true

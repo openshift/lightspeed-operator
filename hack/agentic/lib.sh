@@ -879,7 +879,8 @@ spec:
       - image: ${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-skills:${TAG}
   analysis:
     agent: smart
-  execution: {}
+  execution:
+    agent: default
   verification:
     agent: fast
 PROPOSALEOF
