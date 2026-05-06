@@ -50,63 +50,6 @@ spec:
             format: int32
             minimum: 1
             type: integer
-          checks:
-            description: checks contains individual verification check results.
-            items:
-              description: |-
-                VerifyCheck is a single verification check result from the verification
-                agent. Each check corresponds to a VerificationStep from the analysis
-                agent's verification plan.
-              properties:
-                name:
-                  description: |-
-                    name is the check identifier, matching the VerificationStep name.
-                    Maximum 253 characters.
-                  maxLength: 253
-                  minLength: 1
-                  type: string
-                result:
-                  description: |-
-                    result indicates whether the check's observed value matches
-                    the expected value. Must be one of: Passed, Failed.
-                  enum:
-                  - Passed
-                  - Failed
-                  type: string
-                source:
-                  description: |-
-                    source is what performed the check (e.g., "oc", "promql", "curl").
-                    Maximum 256 characters.
-                  maxLength: 256
-                  minLength: 1
-                  type: string
-                value:
-                  description: |-
-                    value is the actual observed value (e.g., "Running", "3 replicas").
-                    Maximum 4096 characters.
-                  maxLength: 4096
-                  minLength: 1
-                  type: string
-              required:
-              - name
-              - source
-              - value
-              type: object
-            maxItems: 50
-            type: array
-            x-kubernetes-list-type: atomic
-          components:
-            description: components contains optional adapter-defined structured data.
-            items:
-              x-kubernetes-preserve-unknown-fields: true
-            maxItems: 20
-            type: array
-            x-kubernetes-list-type: atomic
-          failureReason:
-            description: failureReason is populated when the step failed due to a
-              system error.
-            maxLength: 8192
-            type: string
           kind:
             description: |-
               Kind is a string value representing the REST resource this object represents.
@@ -129,33 +72,55 @@ spec:
             format: int32
             minimum: 0
             type: integer
-          sandbox:
-            description: sandbox tracks the sandbox pod used for this verification.
-            properties:
-              claimName:
-                description: |-
-                  claimName is the name of the SandboxClaim resource that owns the
-                  sandbox pod. Omit when no sandbox has been claimed; an empty string
-                  is treated the same as omitted. Maximum 253 characters.
-                maxLength: 253
-                minLength: 1
-                type: string
-              namespace:
-                description: |-
-                  namespace is the namespace where the SandboxClaim and its pod live.
-                  Must be a valid RFC 1123 DNS label.
-                maxLength: 63
-                minLength: 1
-                type: string
-                x-kubernetes-validations:
-                - message: 'must be a valid DNS label: lowercase alphanumeric characters
-                    and hyphens, starting with an alphabetic character and ending
-                    with an alphanumeric character'
-                  rule: '!format.dns1123Label().validate(self).hasValue()'
-            type: object
           status:
-            description: status contains conditions tracking the result lifecycle.
+            description: status contains result data and conditions.
             properties:
+              checks:
+                description: checks contains individual verification check results.
+                items:
+                  description: |-
+                    VerifyCheck is a single verification check result from the verification
+                    agent. Each check corresponds to a VerificationStep from the analysis
+                    agent's verification plan.
+                  properties:
+                    name:
+                      description: |-
+                        name is the check identifier, matching the VerificationStep name.
+                        Maximum 253 characters.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    result:
+                      description: |-
+                        result indicates whether the check's observed value matches
+                        the expected value. Must be one of: Passed, Failed.
+                      enum:
+                      - Passed
+                      - Failed
+                      type: string
+                    source:
+                      description: |-
+                        source is what performed the check (e.g., "oc", "promql", "curl").
+                        Maximum 256 characters.
+                      maxLength: 256
+                      minLength: 1
+                      type: string
+                    value:
+                      description: |-
+                        value is the actual observed value (e.g., "Running", "3 replicas").
+                        Maximum 4096 characters.
+                      maxLength: 4096
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  - result
+                  - source
+                  - value
+                  type: object
+                maxItems: 50
+                type: array
+                x-kubernetes-list-type: atomic
               conditions:
                 description: conditions track the lifecycle of this result.
                 items:
@@ -217,11 +182,42 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              failureReason:
+                description: failureReason is populated when the step failed due to
+                  a system error.
+                maxLength: 8192
+                type: string
+              sandbox:
+                description: sandbox tracks the sandbox pod used for this verification.
+                properties:
+                  claimName:
+                    description: |-
+                      claimName is the name of the SandboxClaim resource that owns the
+                      sandbox pod. Maximum 253 characters.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: |-
+                      namespace is the namespace where the SandboxClaim and its pod live.
+                      Must be a valid RFC 1123 DNS label.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: 'must be a valid DNS label: lowercase alphanumeric
+                        characters and hyphens, starting with an alphabetic character
+                        and ending with an alphanumeric character'
+                      rule: '!format.dns1123Label().validate(self).hasValue()'
+                required:
+                - claimName
+                - namespace
+                type: object
+              summary:
+                description: summary is a Markdown-formatted verification summary.
+                maxLength: 32768
+                type: string
             type: object
-          summary:
-            description: summary is a Markdown-formatted verification summary.
-            maxLength: 32768
-            type: string
         required:
         - attempt
         - proposalName

@@ -79,11 +79,15 @@ spec:
                           minLength: 1
                           type: string
                       type: object
-                    denied:
+                    decision:
                       description: |-
-                        denied indicates the user has denied this step, making the entire
-                        proposal terminal. Once set to true, it cannot be unset.
-                      type: boolean
+                        decision indicates whether this stage is approved or denied.
+                        Denied is terminal — the entire proposal is denied.
+                        Once set to Denied, it cannot be changed.
+                      enum:
+                      - Approved
+                      - Denied
+                      type: string
                     escalation:
                       description: |-
                         escalation contains approval parameters for the escalation step.
@@ -164,17 +168,17 @@ spec:
                     rule: 'self.type == ''Escalation'' ? has(self.escalation) : !has(self.escalation)'
                 maxItems: 4
                 type: array
-                x-kubernetes-list-type: atomic
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
             type: object
             x-kubernetes-validations:
             - message: 'stages are append-only: existing stages cannot be removed'
               rule: oldSelf.stages.all(old, self.stages.exists(s, s.type == old.type))
-            - message: denied cannot be unset once set to true
-              rule: oldSelf.stages.all(old, !(has(old.denied) && old.denied) || self.stages.exists(s,
-                s.type == old.type && has(s.denied) && s.denied))
-            - message: stage types must be unique
-              rule: self.stages.all(s1, self.stages.all(s2, s1 == s2 || s1.type !=
-                s2.type))
+            - message: decision cannot be changed once set to Denied
+              rule: oldSelf.stages.all(old, !(has(old.decision) && old.decision ==
+                'Denied') || self.stages.exists(s, s.type == old.type && has(s.decision)
+                && s.decision == 'Denied'))
             - message: execution maxAttempts cannot be reduced once set
               rule: oldSelf.stages.all(old, old.type != 'Execution' || !has(old.execution)
                 || !has(old.execution.maxAttempts) || old.execution.maxAttempts ==
@@ -262,6 +266,8 @@ spec:
                 type: array
                 x-kubernetes-list-type: atomic
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

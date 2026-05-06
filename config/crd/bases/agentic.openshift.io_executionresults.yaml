@@ -38,58 +38,6 @@ spec:
           Created by the operator after the execution agent completes. Owned by
           the parent Proposal for garbage collection.
         properties:
-          actionsTaken:
-            description: actionsTaken lists what the agent did.
-            items:
-              description: |-
-                ExecutionAction describes a single action taken by the execution agent
-                during the execution step. These are recorded in ExecutionStepStatus
-                to provide an audit trail of what the agent actually did.
-              properties:
-                description:
-                  description: |-
-                    description is a Markdown-formatted explanation of what the agent did
-                    (e.g., "Patched deployment/web to set memory limit to 512Mi").
-                    Maximum 4096 characters.
-                  maxLength: 4096
-                  minLength: 1
-                  type: string
-                error:
-                  description: |-
-                    error is the error message if the action failed.
-                    Maximum 8192 characters.
-                  maxLength: 8192
-                  minLength: 1
-                  type: string
-                outcome:
-                  description: |-
-                    outcome indicates whether this individual action succeeded.
-                    Must be one of: Succeeded, Failed.
-                  enum:
-                  - Succeeded
-                  - Failed
-                  type: string
-                output:
-                  description: |-
-                    output is the command output or API response from the action.
-                    Maximum 32768 characters.
-                  maxLength: 32768
-                  minLength: 1
-                  type: string
-                type:
-                  description: |-
-                    type is the action category (e.g., "patch", "scale", "restart").
-                    Maximum 256 characters.
-                  maxLength: 256
-                  minLength: 1
-                  type: string
-              required:
-              - description
-              - type
-              type: object
-            maxItems: 100
-            type: array
-            x-kubernetes-list-type: atomic
           apiVersion:
             description: |-
               APIVersion defines the versioned schema of this representation of an object.
@@ -102,18 +50,6 @@ spec:
             format: int32
             minimum: 1
             type: integer
-          components:
-            description: components contains optional adapter-defined structured data.
-            items:
-              x-kubernetes-preserve-unknown-fields: true
-            maxItems: 20
-            type: array
-            x-kubernetes-list-type: atomic
-          failureReason:
-            description: failureReason is populated when the step failed due to a
-              system error.
-            maxLength: 8192
-            type: string
           kind:
             description: |-
               Kind is a string value representing the REST resource this object represents.
@@ -137,33 +73,62 @@ spec:
             format: int32
             minimum: 0
             type: integer
-          sandbox:
-            description: sandbox tracks the sandbox pod used for this execution.
-            properties:
-              claimName:
-                description: |-
-                  claimName is the name of the SandboxClaim resource that owns the
-                  sandbox pod. Omit when no sandbox has been claimed; an empty string
-                  is treated the same as omitted. Maximum 253 characters.
-                maxLength: 253
-                minLength: 1
-                type: string
-              namespace:
-                description: |-
-                  namespace is the namespace where the SandboxClaim and its pod live.
-                  Must be a valid RFC 1123 DNS label.
-                maxLength: 63
-                minLength: 1
-                type: string
-                x-kubernetes-validations:
-                - message: 'must be a valid DNS label: lowercase alphanumeric characters
-                    and hyphens, starting with an alphabetic character and ending
-                    with an alphanumeric character'
-                  rule: '!format.dns1123Label().validate(self).hasValue()'
-            type: object
           status:
-            description: status contains conditions tracking the result lifecycle.
+            description: status contains result data and conditions.
             properties:
+              actionsTaken:
+                description: actionsTaken lists what the agent did.
+                items:
+                  description: |-
+                    ExecutionAction describes a single action taken by the execution agent
+                    during the execution step. These are recorded in ExecutionStepStatus
+                    to provide an audit trail of what the agent actually did.
+                  properties:
+                    description:
+                      description: |-
+                        description is a Markdown-formatted explanation of what the agent did
+                        (e.g., "Patched deployment/web to set memory limit to 512Mi").
+                        Maximum 4096 characters.
+                      maxLength: 4096
+                      minLength: 1
+                      type: string
+                    error:
+                      description: |-
+                        error is the error message if the action failed.
+                        Maximum 8192 characters.
+                      maxLength: 8192
+                      minLength: 1
+                      type: string
+                    outcome:
+                      description: |-
+                        outcome indicates whether this individual action succeeded.
+                        Must be one of: Succeeded, Failed.
+                      enum:
+                      - Succeeded
+                      - Failed
+                      type: string
+                    output:
+                      description: |-
+                        output is the command output or API response from the action.
+                        Maximum 32768 characters.
+                      maxLength: 32768
+                      minLength: 1
+                      type: string
+                    type:
+                      description: |-
+                        type is the action category (e.g., "patch", "scale", "restart").
+                        Maximum 256 characters.
+                      maxLength: 256
+                      minLength: 1
+                      type: string
+                  required:
+                  - description
+                  - outcome
+                  - type
+                  type: object
+                maxItems: 100
+                type: array
+                x-kubernetes-list-type: atomic
               conditions:
                 description: conditions track the lifecycle of this result.
                 items:
@@ -225,31 +190,63 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-            type: object
-          verification:
-            description: |-
-              verification is the lightweight inline verification the execution
-              agent performs immediately after completing its actions.
-            properties:
-              conditionOutcome:
-                description: |-
-                  conditionOutcome indicates whether the target condition improved
-                  after the remediation (e.g., pod is no longer CrashLoopBackOff).
-                  Must be one of: Improved, Unchanged, Degraded.
-                enum:
-                - Improved
-                - Unchanged
-                - Degraded
+              failureReason:
+                description: failureReason is populated when the step failed due to
+                  a system error.
+                maxLength: 8192
                 type: string
-              summary:
+              sandbox:
+                description: sandbox tracks the sandbox pod used for this execution.
+                properties:
+                  claimName:
+                    description: |-
+                      claimName is the name of the SandboxClaim resource that owns the
+                      sandbox pod. Maximum 253 characters.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: |-
+                      namespace is the namespace where the SandboxClaim and its pod live.
+                      Must be a valid RFC 1123 DNS label.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: 'must be a valid DNS label: lowercase alphanumeric
+                        characters and hyphens, starting with an alphabetic character
+                        and ending with an alphanumeric character'
+                      rule: '!format.dns1123Label().validate(self).hasValue()'
+                required:
+                - claimName
+                - namespace
+                type: object
+              verification:
                 description: |-
-                  summary is a Markdown-formatted summary of the inline verification.
-                  Maximum 4096 characters.
-                maxLength: 4096
-                minLength: 1
-                type: string
-            required:
-            - summary
+                  verification is the lightweight inline verification the execution
+                  agent performs immediately after completing its actions.
+                properties:
+                  conditionOutcome:
+                    description: |-
+                      conditionOutcome indicates whether the target condition improved
+                      after the remediation (e.g., pod is no longer CrashLoopBackOff).
+                      Must be one of: Improved, Unchanged, Degraded.
+                    enum:
+                    - Improved
+                    - Unchanged
+                    - Degraded
+                    type: string
+                  summary:
+                    description: |-
+                      summary is a Markdown-formatted summary of the inline verification.
+                      Maximum 4096 characters.
+                    maxLength: 4096
+                    minLength: 1
+                    type: string
+                required:
+                - conditionOutcome
+                - summary
+                type: object
             type: object
         required:
         - attempt

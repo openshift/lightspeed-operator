@@ -1857,8 +1857,7 @@ spec:
                           claimName:
                             description: |-
                               claimName is the name of the SandboxClaim resource that owns the
-                              sandbox pod. Omit when no sandbox has been claimed; an empty string
-                              is treated the same as omitted. Maximum 253 characters.
+                              sandbox pod. Maximum 253 characters.
                             maxLength: 253
                             minLength: 1
                             type: string
@@ -1874,6 +1873,9 @@ spec:
                                 characters and hyphens, starting with an alphabetic
                                 character and ending with an alphanumeric character'
                               rule: '!format.dns1123Label().validate(self).hasValue()'
+                        required:
+                        - claimName
+                        - namespace
                         type: object
                       selectedOption:
                         description: |-
@@ -1984,8 +1986,7 @@ spec:
                           claimName:
                             description: |-
                               claimName is the name of the SandboxClaim resource that owns the
-                              sandbox pod. Omit when no sandbox has been claimed; an empty string
-                              is treated the same as omitted. Maximum 253 characters.
+                              sandbox pod. Maximum 253 characters.
                             maxLength: 253
                             minLength: 1
                             type: string
@@ -2001,6 +2002,9 @@ spec:
                                 characters and hyphens, starting with an alphabetic
                                 character and ending with an alphanumeric character'
                               rule: '!format.dns1123Label().validate(self).hasValue()'
+                        required:
+                        - claimName
+                        - namespace
                         type: object
                     type: object
                   execution:
@@ -2114,8 +2118,7 @@ spec:
                           claimName:
                             description: |-
                               claimName is the name of the SandboxClaim resource that owns the
-                              sandbox pod. Omit when no sandbox has been claimed; an empty string
-                              is treated the same as omitted. Maximum 253 characters.
+                              sandbox pod. Maximum 253 characters.
                             maxLength: 253
                             minLength: 1
                             type: string
@@ -2131,6 +2134,9 @@ spec:
                                 characters and hyphens, starting with an alphabetic
                                 character and ending with an alphanumeric character'
                               rule: '!format.dns1123Label().validate(self).hasValue()'
+                        required:
+                        - claimName
+                        - namespace
                         type: object
                     type: object
                   verification:
@@ -2235,8 +2241,7 @@ spec:
                           claimName:
                             description: |-
                               claimName is the name of the SandboxClaim resource that owns the
-                              sandbox pod. Omit when no sandbox has been claimed; an empty string
-                              is treated the same as omitted. Maximum 253 characters.
+                              sandbox pod. Maximum 253 characters.
                             maxLength: 253
                             minLength: 1
                             type: string
@@ -2252,6 +2257,9 @@ spec:
                                 characters and hyphens, starting with an alphabetic
                                 character and ending with an alphanumeric character'
                               rule: '!format.dns1123Label().validate(self).hasValue()'
+                        required:
+                        - claimName
+                        - namespace
                         type: object
                     type: object
                 type: object
