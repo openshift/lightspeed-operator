@@ -65,12 +65,14 @@ spec:
             type: string
           status:
             description: status contains result data and conditions.
+            minProperties: 1
             properties:
               components:
                 description: components contains optional adapter-specific UI components.
                 items:
                   x-kubernetes-preserve-unknown-fields: true
                 maxItems: 20
+                minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
               conditions:
@@ -130,6 +132,7 @@ spec:
                   - type
                   type: object
                 maxItems: 8
+                minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - type
@@ -138,6 +141,7 @@ spec:
                 description: failureReason is populated when the step failed due to
                   a system error.
                 maxLength: 8192
+                minLength: 1
                 type: string
               options:
                 description: options contains the remediation options returned by
@@ -594,6 +598,7 @@ spec:
                   - title
                   type: object
                 maxItems: 10
+                minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
               sandbox:

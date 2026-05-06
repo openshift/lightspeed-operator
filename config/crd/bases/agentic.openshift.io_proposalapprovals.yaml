@@ -51,11 +51,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              ProposalApprovalSpec defines the desired state of ProposalApproval.
-
-              spec.stages is append-only: once a stage is added, it cannot be removed.
-              Once denied is set to true on a stage, it cannot be unset.
+            description: spec defines the desired approval state.
+            minProperties: 1
             properties:
               stages:
                 description: |-
@@ -71,6 +68,7 @@ spec:
                       description: |-
                         analysis contains approval parameters for the analysis step.
                         Required when type is Analysis.
+                      minProperties: 1
                       properties:
                         agent:
                           description: agent overrides the Agent CR for this step,
@@ -96,6 +94,7 @@ spec:
                       description: |-
                         escalation contains approval parameters for the escalation step.
                         Required when type is Escalation.
+                      minProperties: 1
                       properties:
                         agent:
                           description: agent overrides the Agent CR for this step,
@@ -112,6 +111,7 @@ spec:
                       description: |-
                         execution contains approval parameters for the execution step.
                         Required when type is Execution.
+                      minProperties: 1
                       properties:
                         agent:
                           description: agent overrides the Agent CR for this step,
@@ -153,6 +153,7 @@ spec:
                       description: |-
                         verification contains approval parameters for the verification step.
                         Required when type is Verification.
+                      minProperties: 1
                       properties:
                         agent:
                           description: agent overrides the Agent CR for this step,
@@ -183,6 +184,7 @@ spec:
                       otherwise
                     rule: 'self.type == ''Escalation'' ? has(self.escalation) : !has(self.escalation)'
                 maxItems: 4
+                minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - type
@@ -201,7 +203,8 @@ spec:
                 0 || self.stages.exists(s, s.type == 'Execution' && has(s.execution)
                 && has(s.execution.maxAttempts) && s.execution.maxAttempts >= old.execution.maxAttempts))
           status:
-            description: ProposalApprovalStatus defines the observed state of ProposalApproval.
+            description: status defines the observed approval state.
+            minProperties: 1
             properties:
               stages:
                 description: stages contains the per-stage approval status set by
@@ -268,17 +271,21 @@ spec:
                         - type
                         type: object
                       maxItems: 8
+                      minItems: 1
                       type: array
                       x-kubernetes-list-map-keys:
                       - type
                       x-kubernetes-list-type: map
                     name:
                       description: name identifies the workflow step.
+                      maxLength: 253
+                      minLength: 1
                       type: string
                   required:
                   - name
                   type: object
                 maxItems: 4
+                minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
             type: object

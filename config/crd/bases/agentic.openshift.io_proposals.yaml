@@ -871,6 +871,7 @@ spec:
                   Mutable: this is the only mutable spec field. All other spec fields
                   are immutable via CEL rules, so generation changes signal revision.
                 maxLength: 32768
+                minLength: 1
                 type: string
               targetNamespaces:
                 description: |-
@@ -1683,6 +1684,7 @@ spec:
                 == oldSelf.verification)'
           status:
             description: status defines the observed state of Proposal.
+            minProperties: 1
             properties:
               attempts:
                 description: |-
@@ -1753,6 +1755,7 @@ spec:
                   - type
                   type: object
                 maxItems: 8
+                minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - type
@@ -1762,6 +1765,7 @@ spec:
                   steps contains the per-step observed state (analysis, execution,
                   verification). Each step independently tracks its timing, sandbox
                   info, and references to result CRs.
+                minProperties: 1
                 properties:
                   analysis:
                     description: analysis is the observed state of the analysis step.
@@ -1837,6 +1841,7 @@ spec:
                           observedGeneration, the operator re-runs analysis with revision
                           feedback appended.
                         format: int64
+                        minimum: 1
                         type: integer
                       results:
                         description: |-
@@ -1865,6 +1870,7 @@ spec:
                           - outcome
                           type: object
                         maxItems: 20
+                        minItems: 1
                         type: array
                         x-kubernetes-list-type: atomic
                       sandbox:
@@ -1995,6 +2001,7 @@ spec:
                           - outcome
                           type: object
                         maxItems: 20
+                        minItems: 1
                         type: array
                         x-kubernetes-list-type: atomic
                       sandbox:
@@ -2119,6 +2126,7 @@ spec:
                           - outcome
                           type: object
                         maxItems: 20
+                        minItems: 1
                         type: array
                         x-kubernetes-list-type: atomic
                       retryCount:
@@ -2252,6 +2260,7 @@ spec:
                           - outcome
                           type: object
                         maxItems: 20
+                        minItems: 1
                         type: array
                         x-kubernetes-list-type: atomic
                       sandbox:

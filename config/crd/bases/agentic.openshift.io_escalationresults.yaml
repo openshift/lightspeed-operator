@@ -65,6 +65,7 @@ spec:
             type: string
           status:
             description: status contains result data and conditions.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions track the lifecycle of this result.
@@ -123,6 +124,7 @@ spec:
                   - type
                   type: object
                 maxItems: 8
+                minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - type
@@ -131,11 +133,13 @@ spec:
                 description: content is freeform escalation content produced by the
                   agent.
                 maxLength: 65536
+                minLength: 1
                 type: string
               failureReason:
                 description: failureReason is populated when the step failed due to
                   a system error.
                 maxLength: 8192
+                minLength: 1
                 type: string
               sandbox:
                 description: sandbox tracks the sandbox pod used for this escalation.
@@ -166,6 +170,7 @@ spec:
               summary:
                 description: summary is a Markdown-formatted escalation summary.
                 maxLength: 32768
+                minLength: 1
                 type: string
             type: object
         required:

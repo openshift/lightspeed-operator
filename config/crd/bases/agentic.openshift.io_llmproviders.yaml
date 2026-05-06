@@ -176,6 +176,7 @@ spec:
                       (e.g., "2024-02-01", "2024-08-01-preview").
                       When omitted, the SDK default is used.
                     maxLength: 32
+                    minLength: 1
                     type: string
                     x-kubernetes-validations:
                     - message: apiVersion must be a date in YYYY-MM-DD format with
