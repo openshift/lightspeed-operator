@@ -581,7 +581,6 @@ spec:
                                 type: string
                             required:
                             - command
-                            - expected
                             - name
                             - type
                             type: object

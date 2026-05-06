@@ -52,11 +52,13 @@ spec:
             type: object
           spec:
             description: spec defines the desired approval state.
+            minProperties: 1
             properties:
               stages:
                 description: |-
                   stages lists the approved (or denied) workflow steps. Each entry is
-                  a discriminated union keyed by type.
+                  a discriminated union keyed by type. Users add stages one at a time
+                  via patch as they approve each step.
                 items:
                   description: |-
                     ApprovalStage is a discriminated union representing approval for one
@@ -70,8 +72,9 @@ spec:
                       minProperties: 1
                       properties:
                         agent:
-                          description: agent overrides the Agent CR for this step,
-                            enabling cost control.
+                          default: default
+                          description: agent is the Agent CR for this step. Defaults
+                            to "default".
                           maxLength: 253
                           minLength: 1
                           type: string
@@ -96,8 +99,9 @@ spec:
                       minProperties: 1
                       properties:
                         agent:
-                          description: agent overrides the Agent CR for this step,
-                            enabling cost control.
+                          default: default
+                          description: agent is the Agent CR for this step. Defaults
+                            to "default".
                           maxLength: 253
                           minLength: 1
                           type: string
@@ -113,8 +117,9 @@ spec:
                       minProperties: 1
                       properties:
                         agent:
-                          description: agent overrides the Agent CR for this step,
-                            enabling cost control.
+                          default: default
+                          description: agent is the Agent CR for this step. Defaults
+                            to "default".
                           maxLength: 253
                           minLength: 1
                           type: string
@@ -155,8 +160,9 @@ spec:
                       minProperties: 1
                       properties:
                         agent:
-                          description: agent overrides the Agent CR for this step,
-                            enabling cost control.
+                          default: default
+                          description: agent is the Agent CR for this step. Defaults
+                            to "default".
                           maxLength: 253
                           minLength: 1
                           type: string
