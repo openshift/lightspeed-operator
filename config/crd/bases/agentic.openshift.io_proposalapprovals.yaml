@@ -107,6 +107,15 @@ spec:
                           maxLength: 253
                           minLength: 1
                           type: string
+                        maxAttempts:
+                          description: |-
+                            maxAttempts is the number of execution retry attempts approved
+                            for this proposal. Must not exceed ApprovalPolicy.spec.maxAttempts.
+                            Defaults to 1 if unset.
+                          format: int32
+                          maximum: 3
+                          minimum: 1
+                          type: integer
                         option:
                           description: |-
                             option is the 0-based index into the analysis options array
@@ -166,6 +175,11 @@ spec:
             - message: stage types must be unique
               rule: self.stages.all(s1, self.stages.all(s2, s1 == s2 || s1.type !=
                 s2.type))
+            - message: execution maxAttempts cannot be reduced once set
+              rule: oldSelf.stages.all(old, old.type != 'Execution' || !has(old.execution)
+                || !has(old.execution.maxAttempts) || old.execution.maxAttempts ==
+                0 || self.stages.exists(s, s.type == 'Execution' && has(s.execution)
+                && has(s.execution.maxAttempts) && s.execution.maxAttempts >= old.execution.maxAttempts))
           status:
             description: ProposalApprovalStatus defines the observed state of ProposalApproval.
             properties:

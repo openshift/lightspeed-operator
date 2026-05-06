@@ -38,12 +38,11 @@ spec:
           execute → verify):\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
           Proposal\n\tmetadata:\n\t  name: fix-nginx-cve-2024-1234\n\t  namespace:
           stackrox\n\tspec:\n\t  request: \"Fix CVE-2024-1234 in nginx:1.21\"\n\t
-          \ targetNamespaces:\n\t    - lightspeed-demo\n\t  maxAttempts: 3\n\t  tools:\n\t
-          \   skills:\n\t      - image: registry.redhat.io/acs/acs-lightspeed-skills:latest\n\t
-          \   requiredSecrets:\n\t      - name: acs-api-token\n\t        mountAs:\n\t
-          \         type: EnvVar\n\t          envVar:\n\t            name: ACS_API_TOKEN\n\t
-          \ analysis:\n\t    agent: smart\n\t  execution: {}\n\t  verification:\n\t
-          \   agent: fast"
+          \ targetNamespaces:\n\t    - lightspeed-demo\n\t  tools:\n\t    skills:\n\t
+          \     - image: registry.redhat.io/acs/acs-lightspeed-skills:latest\n\t    requiredSecrets:\n\t
+          \     - name: acs-api-token\n\t        mountAs:\n\t          type: EnvVar\n\t
+          \         envVar:\n\t            name: ACS_API_TOKEN\n\t  analysis:\n\t
+          \   agent: smart\n\t  execution: {}\n\t  verification:\n\t    agent: fast"
         properties:
           apiVersion:
             description: |-
@@ -83,6 +82,7 @@ spec:
                     description: |-
                       tools provides per-step tools that replace the shared spec.tools
                       for this step. Use this when different steps need different skills.
+                    minProperties: 1
                     properties:
                       mcpServers:
                         description: |-
@@ -468,6 +468,7 @@ spec:
                     description: |-
                       tools provides per-step tools that replace the shared spec.tools
                       for this step. Use this when different steps need different skills.
+                    minProperties: 1
                     properties:
                       mcpServers:
                         description: |-
@@ -835,16 +836,6 @@ spec:
                         x-kubernetes-list-type: map
                     type: object
                 type: object
-              maxAttempts:
-                description: |-
-                  maxAttempts sets the maximum number of retry attempts for this proposal.
-
-                  Mutable: the console UI patches this at approval time so the user
-                  can set a custom retry limit before execution begins.
-                format: int32
-                maximum: 3
-                minimum: 0
-                type: integer
               request:
                 description: |-
                   request is the user's original request, alert description, or a
@@ -852,34 +843,23 @@ spec:
                   the analysis agent as the primary input.
 
                   Immutable: Proposals are run-to-completion (like Jobs). To change
-                  the request, create a new Proposal. Use spec.revision for iterative
-                  feedback on an existing analysis.
+                  the request, create a new Proposal. Use spec.revisionFeedback for
+                  iterative feedback on an existing analysis.
                 maxLength: 32768
                 minLength: 1
                 type: string
                 x-kubernetes-validations:
                 - message: request is immutable after creation
                   rule: self == oldSelf
-              revision:
-                description: |-
-                  revision is incremented by the user (or console UI) each time they
-                  submit revision feedback for the analysis.
-
-                  Mutable: this is the designated mutation point for iterative
-                  feedback. Incrementing revision triggers re-analysis with the
-                  user's revision context appended to the original request.
-                format: int32
-                minimum: 0
-                type: integer
               revisionFeedback:
                 description: |-
-                  revisionFeedback is the user's free-text feedback that accompanies a
-                  revision request. When the user increments spec.revision, they set
-                  this field to describe what they want changed about the analysis.
-                  The operator includes this text in the revision context sent to the
-                  analysis agent.
+                  revisionFeedback is the user's free-text feedback requesting changes
+                  to the analysis. Patching this field bumps metadata.generation, which
+                  the operator detects (generation > observedGeneration) and triggers
+                  re-analysis with the feedback appended to the original request.
 
-                  Mutable: updated alongside spec.revision to provide revision context.
+                  Mutable: this is the only mutable spec field. All other spec fields
+                  are immutable via CEL rules, so generation changes signal revision.
                 maxLength: 32768
                 type: string
               targetNamespaces:
@@ -916,6 +896,7 @@ spec:
                   Immutable: the skills and secrets available to the agent are
                   fixed at creation. Changing tools mid-flight could violate the
                   assumptions of an in-progress analysis or execution.
+                minProperties: 1
                 properties:
                   mcpServers:
                     description: |-
@@ -1296,6 +1277,7 @@ spec:
                     description: |-
                       tools provides per-step tools that replace the shared spec.tools
                       for this step. Use this when different steps need different skills.
+                    minProperties: 1
                     properties:
                       mcpServers:
                         description: |-
@@ -1693,6 +1675,8 @@ spec:
                   (1-based). Incremented each time the proposal is retried after a
                   failure. Starts at 1 for the first attempt.
                 format: int32
+                maximum: 2147483647
+                minimum: 1
                 type: integer
               conditions:
                 description: |-
@@ -1830,13 +1814,13 @@ spec:
                         x-kubernetes-list-map-keys:
                         - type
                         x-kubernetes-list-type: map
-                      observedRevision:
+                      observedGeneration:
                         description: |-
-                          observedRevision is the revision number from spec.revision that this
-                          analysis was produced for. When spec.revision > observedRevision,
-                          the operator re-runs analysis with revision context.
-                        format: int32
-                        minimum: 0
+                          observedGeneration is the metadata.generation of the Proposal that
+                          this analysis was produced for. When metadata.generation >
+                          observedGeneration, the operator re-runs analysis with revision
+                          feedback appended.
+                        format: int64
                         type: integer
                       results:
                         description: |-

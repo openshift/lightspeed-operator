@@ -761,6 +761,7 @@ kind: ApprovalPolicy
 metadata:
   name: cluster
 spec:
+  maxAttempts: 3
   stages:
     - name: Analysis
       approval: Manual
@@ -873,7 +874,6 @@ spec:
     Labels: severity=warning, namespace=lightspeed-demo, pod=jvm-oomkill-demo, container=jvm
   targetNamespaces:
     - lightspeed-demo
-  maxAttempts: 3
   tools:
     skills:
       - image: ${INTERNAL_REG}/${NS_OPERATOR}/lightspeed-skills:${TAG}

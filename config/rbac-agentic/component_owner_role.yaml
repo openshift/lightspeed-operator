@@ -30,8 +30,8 @@ metadata:
 rules:
   # Create, read, and manage Proposals. Component teams create proposals
   # via their adapter (webhook) and read status to track progress.
-  # Patch is needed for spec.maxAttempts (at approval) and spec.revision
-  # (iterative feedback). Delete allows cleanup of completed proposals.
+  # Patch is needed for spec.revisionFeedback (iterative feedback).
+  # Delete allows cleanup of completed proposals.
   - apiGroups:
       - agentic.openshift.io
     resources:

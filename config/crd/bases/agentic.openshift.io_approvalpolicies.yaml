@@ -51,6 +51,15 @@ spec:
           spec:
             description: ApprovalPolicySpec defines the desired state of ApprovalPolicy.
             properties:
+              maxAttempts:
+                description: |-
+                  maxAttempts sets the maximum number of execution retry attempts
+                  allowed for proposals. When verification fails, the operator retries
+                  execution up to this limit before escalating. Defaults to 1 if omitted.
+                format: int32
+                maximum: 3
+                minimum: 1
+                type: integer
               stages:
                 description: |-
                   stages configures the approval mode for each workflow step.
