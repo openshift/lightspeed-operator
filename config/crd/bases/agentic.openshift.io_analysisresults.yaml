@@ -289,7 +289,7 @@ spec:
                             command:
                               description: |-
                                 command is the rollback command or steps to execute.
-                                Must be 1-4096 characters.
+                                Maximum 4096 characters.
                               maxLength: 4096
                               minLength: 1
                               type: string
@@ -301,7 +301,6 @@ spec:
                               minLength: 1
                               type: string
                           required:
-                          - command
                           - description
                           type: object
                       required:
@@ -310,11 +309,6 @@ spec:
                       - estimatedImpact
                       - risk
                       type: object
-                      x-kubernetes-validations:
-                      - message: rollbackPlan is required when reversible is Reversible
-                          or Partial
-                        rule: '!has(self.reversible) || self.reversible == ''Irreversible''
-                          || has(self.rollbackPlan)'
                     rbac:
                       description: |-
                         rbac contains the RBAC permissions the execution agent will need.
@@ -555,7 +549,7 @@ spec:
                                 description: |-
                                   command is the command or API call to run for this check
                                   (e.g., "oc get pod -n production -l app=web -o jsonpath='{.items[0].status.phase}'").
-                                  Must be 1-4096 characters.
+                                  Maximum 4096 characters.
                                 maxLength: 4096
                                 minLength: 1
                                 type: string
@@ -581,7 +575,6 @@ spec:
                                 minLength: 1
                                 type: string
                             required:
-                            - command
                             - name
                             - type
                             type: object
