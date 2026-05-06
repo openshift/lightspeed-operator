@@ -15,10 +15,10 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .proposalName
+    - jsonPath: .spec.proposalName
       name: Proposal
       type: string
-    - jsonPath: .attempt
+    - jsonPath: .spec.attempt
       name: Attempt
       type: integer
     - jsonPath: .status.conditions[?(@.type=="Completed")].reason
@@ -42,11 +42,6 @@ spec:
               may reject unrecognized values.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
-          attempt:
-            description: attempt is the 1-based overall attempt number.
-            format: int32
-            minimum: 1
-            type: integer
           kind:
             description: |-
               Kind is a string value representing the REST resource this object represents.
@@ -57,12 +52,27 @@ spec:
             type: string
           metadata:
             type: object
-          proposalName:
-            description: proposalName is the name of the parent Proposal in the same
-              namespace.
-            maxLength: 253
-            minLength: 1
-            type: string
+          spec:
+            description: spec contains the immutable identity fields for this result.
+            properties:
+              attempt:
+                description: attempt is the 1-based overall attempt number.
+                format: int32
+                minimum: 1
+                type: integer
+              proposalName:
+                description: proposalName is the name of the parent Proposal in the
+                  same namespace.
+                maxLength: 253
+                minLength: 1
+                type: string
+            required:
+            - attempt
+            - proposalName
+            type: object
+            x-kubernetes-validations:
+            - message: spec is immutable
+              rule: self == oldSelf
           status:
             description: status contains result data and conditions.
             minProperties: 1
@@ -174,8 +184,7 @@ spec:
                 type: string
             type: object
         required:
-        - attempt
-        - proposalName
+        - spec
         type: object
     served: true
     storage: true
