@@ -421,7 +421,7 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			By("Disable introspection initially")
 			err := k8sClient.Get(ctx, crNamespacedName, cr)
 			Expect(err).NotTo(HaveOccurred())
-			cr.Spec.OLSConfig.IntrospectionEnabled = false
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 			err = k8sClient.Update(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -444,7 +444,7 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			By("Enable introspection")
 			err = k8sClient.Get(ctx, crNamespacedName, cr)
 			Expect(err).NotTo(HaveOccurred())
-			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			err = k8sClient.Update(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -467,7 +467,7 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			By("Disable introspection again")
 			err = k8sClient.Get(ctx, crNamespacedName, cr)
 			Expect(err).NotTo(HaveOccurred())
-			cr.Spec.OLSConfig.IntrospectionEnabled = false
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 			err = k8sClient.Update(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -494,7 +494,7 @@ var _ = Describe("LCore reconciliator", Ordered, func() {
 			By("Enable introspection")
 			err := k8sClient.Get(ctx, crNamespacedName, cr)
 			Expect(err).NotTo(HaveOccurred())
-			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			err = k8sClient.Update(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
 

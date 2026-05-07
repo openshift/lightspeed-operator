@@ -100,7 +100,7 @@ var _ = Describe("Upgrade operator tests", Ordered, Label("Upgrade"), func() {
 				Size:  resource.MustParse("768Mi"),
 				Class: storageClassName,
 			}
-			cr.Spec.OLSConfig.IntrospectionEnabled = true
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    false,
 				TranscriptsDisabled: false,

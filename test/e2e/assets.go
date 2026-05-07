@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
 func generateLLMTokenSecret(name string) (*corev1.Secret, error) { // nolint:unused
@@ -234,7 +235,7 @@ func generateAllFeaturesOLSConfig() (*olsv1alpha1.OLSConfig, error) { // nolint:
 
 	return generateBaseOLSConfig(opts, func(config *olsv1alpha1.OLSConfig) {
 		// Add all additional features not in base config
-		config.Spec.OLSConfig.IntrospectionEnabled = true
+		config.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 		config.Spec.OLSConfig.ByokRAGOnly = true
 		config.Spec.OLSConfig.QuerySystemPrompt = "You are a comprehensive test assistant for OpenShift."
 		config.Spec.OLSConfig.MaxIterations = 10

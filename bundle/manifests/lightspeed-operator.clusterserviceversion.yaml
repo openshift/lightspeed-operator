@@ -114,24 +114,6 @@ spec:
           - description: Fake Provider MCP Tool Call
             displayName: Fake Provider MCP Tool Call
             path: llm.providers[0].fakeProviderMCPToolCall
-          - description: Google Vertex Anthropic Config
-            displayName: Google Vertex Anthropic Config
-            path: llm.providers[0].googleVertexAnthropicConfig
-          - description: Server region location
-            displayName: Server Region Location
-            path: llm.providers[0].googleVertexAnthropicConfig.location
-          - description: Google Cloud project ID
-            displayName: Google Cloud Project ID
-            path: llm.providers[0].googleVertexAnthropicConfig.projectID
-          - description: Google Vertex Config
-            displayName: Google Vertex Config
-            path: llm.providers[0].googleVertexConfig
-          - description: Server region location
-            displayName: Server Region Location
-            path: llm.providers[0].googleVertexConfig.location
-          - description: Google Cloud project ID
-            displayName: Google Cloud Project ID
-            path: llm.providers[0].googleVertexConfig.projectID
           - description: List of models from the provider
             displayName: Models
             path: llm.providers[0].models

@@ -220,7 +220,7 @@ func buildToolFilteringConfig(cr *olsv1alpha1.OLSConfig, mcpServers []utils.MCPS
 	if len(mcpServers) == 0 {
 		r.GetLogger().Info(
 			"ToolFilteringConfig specified but no MCP servers configured. Tool filtering will be disabled.",
-			"IntrospectionEnabled", cr.Spec.OLSConfig.IntrospectionEnabled,
+			"IntrospectionEnabled", utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true),
 			"MCPServersCount", len(cr.Spec.MCPServers),
 		)
 		return nil
@@ -349,7 +349,7 @@ func generateMCPServerConfigs(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig
 	servers := []utils.MCPServerConfig{}
 
 	// Add OpenShift MCP server if introspection is enabled
-	if cr.Spec.OLSConfig.IntrospectionEnabled {
+	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		// Get timeout from MCPKubeServerConfig if specified, otherwise use default
 		timeout := utils.OpenShiftMCPServerTimeout
 		if cr.Spec.OLSConfig.MCPKubeServerConfig != nil && cr.Spec.OLSConfig.MCPKubeServerConfig.Timeout != 0 {

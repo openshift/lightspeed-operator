@@ -54,7 +54,7 @@ func TestBuildLCoreMCPServersConfig_NoServers(t *testing.T) {
 		},
 		Spec: olsv1alpha1.OLSConfigSpec{
 			OLSConfig: olsv1alpha1.OLSSpec{
-				IntrospectionEnabled: false,
+				IntrospectionEnabled: utils.BoolPtr(false),
 			},
 		},
 	}
@@ -75,7 +75,7 @@ func TestBuildLCoreMCPServersConfig_IntrospectionOnly(t *testing.T) {
 		},
 		Spec: olsv1alpha1.OLSConfigSpec{
 			OLSConfig: olsv1alpha1.OLSSpec{
-				IntrospectionEnabled: true,
+				IntrospectionEnabled: utils.BoolPtr(true),
 			},
 		},
 	}
@@ -119,7 +119,7 @@ func TestBuildLCoreMCPServersConfig_UserDefinedServers_KubernetesPlaceholder(t *
 		Spec: olsv1alpha1.OLSConfigSpec{
 			FeatureGates: []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer},
 			OLSConfig: olsv1alpha1.OLSSpec{
-				IntrospectionEnabled: false,
+				IntrospectionEnabled: utils.BoolPtr(false),
 			},
 			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
@@ -181,7 +181,7 @@ func TestBuildLCoreMCPServersConfig_UserDefinedServers_WithSecretRef(t *testing.
 		Spec: olsv1alpha1.OLSConfigSpec{
 			FeatureGates: []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer},
 			OLSConfig: olsv1alpha1.OLSSpec{
-				IntrospectionEnabled: false,
+				IntrospectionEnabled: utils.BoolPtr(false),
 			},
 			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
@@ -243,7 +243,7 @@ func TestBuildLCoreMCPServersConfig_Combined(t *testing.T) {
 		Spec: olsv1alpha1.OLSConfigSpec{
 			FeatureGates: []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer},
 			OLSConfig: olsv1alpha1.OLSSpec{
-				IntrospectionEnabled: true,
+				IntrospectionEnabled: utils.BoolPtr(true),
 			},
 			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
@@ -293,7 +293,7 @@ func TestBuildLCoreMCPServersConfig_FiltersNonHTTP(t *testing.T) {
 		Spec: olsv1alpha1.OLSConfigSpec{
 			FeatureGates: []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer},
 			OLSConfig: olsv1alpha1.OLSSpec{
-				IntrospectionEnabled: false,
+				IntrospectionEnabled: utils.BoolPtr(false),
 			},
 			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
@@ -335,7 +335,7 @@ func TestBuildLCoreMCPServersConfig_EmptyHeadersNotAdded(t *testing.T) {
 		Spec: olsv1alpha1.OLSConfigSpec{
 			FeatureGates: []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer},
 			OLSConfig: olsv1alpha1.OLSSpec{
-				IntrospectionEnabled: false,
+				IntrospectionEnabled: utils.BoolPtr(false),
 			},
 			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
@@ -368,6 +368,9 @@ func TestBuildLCoreMCPServersConfig_SkipsEmptySecretRefs(t *testing.T) {
 		},
 		Spec: olsv1alpha1.OLSConfigSpec{
 			FeatureGates: []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer},
+			OLSConfig: olsv1alpha1.OLSSpec{
+				IntrospectionEnabled: utils.BoolPtr(false),
+			},
 			MCPServers: []olsv1alpha1.MCPServerConfig{
 				{
 					Name: "server-with-mixed-headers",
@@ -425,7 +428,7 @@ func TestBuildLCoreConfigYAML_WithMCPServers(t *testing.T) {
 		},
 		Spec: olsv1alpha1.OLSConfigSpec{
 			OLSConfig: olsv1alpha1.OLSSpec{
-				IntrospectionEnabled: true,
+				IntrospectionEnabled: utils.BoolPtr(true),
 			},
 		},
 	}
@@ -455,7 +458,7 @@ func TestBuildLCoreConfigYAML_WithoutMCPServers(t *testing.T) {
 		},
 		Spec: olsv1alpha1.OLSConfigSpec{
 			OLSConfig: olsv1alpha1.OLSSpec{
-				IntrospectionEnabled: false,
+				IntrospectionEnabled: utils.BoolPtr(false),
 			},
 		},
 	}

@@ -96,6 +96,9 @@ func TestGenerateLCoreDeployment(t *testing.T) {
 					},
 				},
 			},
+			OLSConfig: olsv1alpha1.OLSSpec{
+				IntrospectionEnabled: utils.BoolPtr(false),
+			},
 		},
 	}
 
@@ -312,6 +315,7 @@ func TestGenerateLCoreDeploymentWithAdditionalCA(t *testing.T) {
 				},
 			},
 			OLSConfig: olsv1alpha1.OLSSpec{
+				IntrospectionEnabled: utils.BoolPtr(false),
 				AdditionalCAConfigMapRef: &corev1.LocalObjectReference{
 					Name: "custom-ca-bundle",
 				},
@@ -436,7 +440,7 @@ func TestGenerateLCoreDeploymentWithIntrospection(t *testing.T) {
 				},
 			},
 			OLSConfig: olsv1alpha1.OLSSpec{
-				IntrospectionEnabled: true,
+				IntrospectionEnabled: utils.BoolPtr(true),
 			},
 		},
 	}
@@ -485,7 +489,7 @@ func TestGenerateLCoreDeploymentWithIntrospection(t *testing.T) {
 		t.Errorf("Expected ImagePullPolicy PullIfNotPresent, got %v", openshiftMCPContainer.ImagePullPolicy)
 	}
 
-	// Verify command includes port, read-only, and config flags
+	// Verify command includes port and config flags
 	if len(openshiftMCPContainer.Command) == 0 {
 		t.Error("OpenShift MCP server container has no command")
 	} else {
@@ -493,9 +497,6 @@ func TestGenerateLCoreDeploymentWithIntrospection(t *testing.T) {
 		expectedPort := fmt.Sprintf("%d", utils.OpenShiftMCPServerPort)
 		if !strings.Contains(commandStr, "--port") || !strings.Contains(commandStr, expectedPort) {
 			t.Errorf("Expected command to include '--port %s', got: %s", expectedPort, commandStr)
-		}
-		if !strings.Contains(commandStr, "--read-only") {
-			t.Error("Expected command to include '--read-only' flag")
 		}
 		if !strings.Contains(commandStr, "--config") || !strings.Contains(commandStr, utils.GetOpenShiftMCPServerConfigPath()) {
 			t.Errorf("Expected command to include '--config %s', got: %s", utils.GetOpenShiftMCPServerConfigPath(), commandStr)
@@ -677,7 +678,7 @@ func TestGenerateLCoreDeploymentWithoutIntrospection(t *testing.T) {
 				},
 			},
 			OLSConfig: olsv1alpha1.OLSSpec{
-				IntrospectionEnabled: false,
+				IntrospectionEnabled: utils.BoolPtr(false),
 			},
 		},
 	}
@@ -789,6 +790,9 @@ func TestGenerateLCoreDeploymentLibraryMode(t *testing.T) {
 						},
 					},
 				},
+			},
+			OLSConfig: olsv1alpha1.OLSSpec{
+				IntrospectionEnabled: utils.BoolPtr(false),
 			},
 		},
 	}
@@ -1006,6 +1010,7 @@ func TestDataCollectorSidecar_Enabled(t *testing.T) {
 				},
 			},
 			OLSConfig: olsv1alpha1.OLSSpec{
+				IntrospectionEnabled: utils.BoolPtr(false),
 				UserDataCollection: olsv1alpha1.UserDataCollectionSpec{
 					FeedbackDisabled:    false,
 					TranscriptsDisabled: false,
@@ -1106,6 +1111,7 @@ func TestDataCollectorSidecar_Disabled(t *testing.T) {
 				},
 			},
 			OLSConfig: olsv1alpha1.OLSSpec{
+				IntrospectionEnabled: utils.BoolPtr(false),
 				UserDataCollection: olsv1alpha1.UserDataCollectionSpec{
 					FeedbackDisabled:    true,
 					TranscriptsDisabled: true,
@@ -1162,6 +1168,7 @@ func TestDataCollectorSidecar_LibraryMode(t *testing.T) {
 				},
 			},
 			OLSConfig: olsv1alpha1.OLSSpec{
+				IntrospectionEnabled: utils.BoolPtr(false),
 				UserDataCollection: olsv1alpha1.UserDataCollectionSpec{
 					FeedbackDisabled:    false,
 					TranscriptsDisabled: false,

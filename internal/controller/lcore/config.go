@@ -753,7 +753,7 @@ func buildLCoreMCPServersConfig(r reconciler.Reconciler, cr *olsv1alpha1.OLSConf
 	mcpServers := []map[string]interface{}{}
 
 	// Add OpenShift MCP server if introspection is enabled
-	if cr.Spec.OLSConfig.IntrospectionEnabled {
+	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		mcpServers = append(mcpServers, map[string]interface{}{
 			"name": "openshift",
 			"url":  fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort),
