@@ -110,6 +110,15 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Status().Update(context.TODO(), clusterVersion)
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Create the APIServer object")
+	apiServer := &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+	}
+	err = k8sClient.Create(context.TODO(), apiServer)
+	Expect(err).NotTo(HaveOccurred())
+
 	By("Create the namespace openshift-lightspeed")
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
