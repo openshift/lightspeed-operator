@@ -7,10 +7,13 @@ metadata:
   name: rapidast-tests-pipeline
 spec:
   description: |
-    This pipeline automates the process of running Rapidast tests for Openshift Lightspeed
-    using a ROSA (Red Hat OpenShift Service on AWS) cluster. The pipeline provisions
-    the ROSA cluster, installs the openshift lightspeed operator using the installer, runs the Rapidast tests,
-    and finally deprovisions the ROSA cluster.
+    Runs product security Rapidast against OpenShift Lightspeed on a Konflux ephemeral OpenShift
+    cluster (EaaS). The pipeline provisions the cluster, installs the operator with OLM via
+    operator-sdk run bundle (snapshot bundle image), executes Ginkgo tests labeled Rapidast,
+    runs the Rapidast container against the cluster, then deprovisions.
+
+    Set params.openshift-version-prefix (e.g. 4.16.) to pick the z-stream; set params.test-name
+    to the Konflux integration test id. params.namespace is the target namespace (default openshift-lightspeed).
   params:
     - name: SNAPSHOT
       description: 'The JSON string representing the snapshot of the application under test.'
@@ -19,9 +22,15 @@ spec:
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
       default: 'ols-operator-e2e-tests'
+      type: string
     - name: namespace
       description: 'Namespace to run tests in'
       default: 'openshift-lightspeed'
+      type: string
+    - name: openshift-version-prefix
+      description: 'Minor line prefix for eaas-get-latest-openshift-version-by-prefix (include trailing dot, e.g. 4.16.)'
+      default: '4.16.'
+      type: string
   tasks:
     - name: eaas-provision-space
       taskRef:
@@ -43,7 +52,13 @@ spec:
     - name: provision-cluster
       runAfter:
         - eaas-provision-space
+      params:
+        - name: openshift-version-prefix
+          value: $(params.openshift-version-prefix)
       taskSpec:
+        params:
+          - name: openshift-version-prefix
+            type: string
         results:
           - name: clusterName
             value: "$(steps.create-cluster.results.clusterName)"
@@ -60,7 +75,7 @@ spec:
                   value: stepactions/eaas-get-latest-openshift-version-by-prefix/0.1/eaas-get-latest-openshift-version-by-prefix.yaml
             params:
               - name: prefix
-                value: "4.16."
+                value: "$(params.openshift-version-prefix)"
           - name: create-cluster
             ref:
               resolver: git
@@ -79,7 +94,7 @@ spec:
               - name: instanceType
                 value: "m5.large"
     - name: ols-install
-      description: Task to install bundle onto ephemeral namespace
+      description: Install operator via OLM bundle (Rapidast); calls run-konflux-operator-install.sh bundle only.
       runAfter:
         - provision-cluster
       params:
@@ -88,6 +103,11 @@ spec:
         - name: namespace
           value: "$(params.namespace)"
       taskSpec:
+        results:
+          - name: bundle-image
+            value: "$(steps.get-snapshot-component.results.bundle-image)"
+          - name: commit
+            value: "$(steps.get-snapshot-component.results.commit)"
         params:
           - name: SNAPSHOT
           - name: namespace
@@ -113,6 +133,26 @@ spec:
                 value: "$(tasks.provision-cluster.results.clusterName)"
               - name: credentials
                 value: credentials
+          - name: get-snapshot-component
+            image: registry.redhat.io/openshift4/ose-cli:latest
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+              - name: KONFLUX_COMPONENT_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['appstudio.openshift.io/component']
+            results:
+              - name: bundle-image
+                type: string
+                description: "SNAPSHOT containerImage for the PipelineRun-labeled Konflux component (bundle index image)."
+              - name: commit
+                type: string
+                description: "Git revision from SNAPSHOT for the labeled Konflux component (tests checkout)."
+            script: |
+              dnf -y install jq
+              echo -n "$(jq -r --arg component_name "${KONFLUX_COMPONENT_NAME}" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
+              echo -n "$(jq -r --arg component_name "${KONFLUX_COMPONENT_NAME}" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")" > $(step.results.commit.path)
           - name: install-operator
             env:
               - name: SNAPSHOT
@@ -123,40 +163,38 @@ spec:
                     fieldPath: metadata.labels['appstudio.openshift.io/component']
               - name: KUBECONFIG
                 value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
+              - name: OLS_NAMESPACE
+                value: "$(params.namespace)"
+              - name: IMAGE_DIGEST_MIRROR_SET_URL
+                value: "https://raw.githubusercontent.com/openshift/lightspeed-operator/main/config/manager/imagedigestmirrorset.yaml"
             volumeMounts:
               - name: credentials
                 mountPath: /credentials
             image: registry.redhat.io/openshift4/ose-cli:latest
             script: |
-              echo "---------------------------------------------"
-              cat $KUBECONFIG
-              echo "---------------------------------------------"
-              dnf -y install jq python3-pip
-              export OPERATOR_SDK_VERSION=1.36.1
-              export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
-              export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v${OPERATOR_SDK_VERSION}
-              curl -Lo /usr/local/bin/operator-sdk ${OPERATOR_SDK_DL_URL}/operator-sdk_linux_${ARCH}
-              chmod +x /usr/local/bin/operator-sdk
-              operator-sdk version
-              echo "---------------------------------------------"
-              oc create namespace $(params.namespace)
-              oc label namespaces $(params.namespace) openshift.io/cluster-monitoring=true --overwrite=true
-              export IMAGE_DIGEST_MIRROR_SET=https://raw.githubusercontent.com/openshift/lightspeed-operator/main/config/manager/imagedigestmirrorset.yaml
-              curl -Lo /usr/tmp/imagedigestmirrorset "$IMAGE_DIGEST_MIRROR_SET"
-              oc apply -f /usr/tmp/imagedigestmirrorset
-              echo "---------------------------------------------"
-              echo ${KONFLUX_COMPONENT_NAME}
-              export BUNDLE_IMAGE="$(jq -r --arg component_name "$KONFLUX_COMPONENT_NAME" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")"
-              echo "${BUNDLE_IMAGE}"
-              echo "---------------------------------------------"
-              operator-sdk run bundle --timeout=30m --namespace "$(params.namespace)" "$BUNDLE_IMAGE" --verbose
-              echo "---------------------------------------------"
-              oc get deployment lightspeed-operator-controller-manager -n "$(params.namespace)"
+              set -euo pipefail
+              dnf -y install jq python3-pip git curl
+              COMMIT="$(jq -r --arg component_name "${KONFLUX_COMPONENT_NAME}" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")"
+              echo "Cloning lightspeed-operator@${COMMIT} for Konflux operator install"
+              rm -rf /workspace/lightspeed-operator
+              mkdir -p /workspace/lightspeed-operator
+              cd /workspace/lightspeed-operator
+              git init -q
+              git remote add origin https://github.com/openshift/lightspeed-operator.git
+              git fetch --depth 1 origin "${COMMIT}"
+              git checkout -q FETCH_HEAD
+              ./.tekton/integration-tests/scripts/run-konflux-operator-install.sh bundle
     - name: ols-e2e-tests
-      description: Task to run tests from service repository
+      description: Run Rapidast-tagged operator e2e tests and the Rapidast scan container at the snapshot commit.
+      params:
+        - name: commit
+          value: $(tasks.ols-install.results.commit)
       runAfter:
         - ols-install
       taskSpec:
+        params:
+          - name: commit
+            type: string
         volumes:
           - name: openai-token
             secret:
@@ -194,21 +232,31 @@ spec:
                 value: "$(steps.get-kubeconfig.results.consoleURL)"
               - name: LLM_TOKEN_PATH
                 value: "/var/run/openai/token"
+              - name: COMMIT_SHA
+                value: "$(params.commit)"
             image: registry.redhat.io/openshift4/ose-cli:latest
             script: |
+              set -euo pipefail
               echo "---------------------------------------------"
               export LLM_TOKEN=$(cat ${LLM_TOKEN_PATH})
               echo $CONSOLE_URL
               echo "---------------------------------------------"
-              dnf -y install git make
+              dnf -y install git make jq
               curl -Lo /go.tar.gz https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
               tar -C /usr/local -xzf /go.tar.gz
               export PATH=$PATH:/usr/local/go/bin
               go version
-              git clone https://github.com/openshift/lightspeed-operator.git
-              cd lightspeed-operator
+              echo "Cloning lightspeed-operator@${COMMIT_SHA} for Rapidast e2e (matches snapshot)"
+              rm -rf /workspace/lightspeed-operator
+              mkdir -p /workspace/lightspeed-operator
+              cd /workspace/lightspeed-operator
+              git init -q
+              git remote add origin https://github.com/openshift/lightspeed-operator.git
+              git fetch --depth 1 origin "${COMMIT_SHA}"
+              git checkout -q FETCH_HEAD
               echo "---------------------------------------------"
-              go test ./test/e2e -timeout=120m --ginkgo.label-filter="Rapidast" -ginkgo.v -test.v -ginkgo.show-node-events
+              # Build tags: keep in sync with Makefile E2E_GO_TAGS (minimal images / no gpgme CGO).
+              go test -tags=exclude_graphdriver_btrfs,containers_image_openpgp ./test/e2e -timeout=120m --ginkgo.label-filter="Rapidast" -ginkgo.v -test.v -ginkgo.show-node-events
               echo "---------------------------------------------"
               dnf -y install podman
               podman run -v ./ols-rapidast-config-updated.yaml:/opt/rapidast/config/config.yaml:Z quay.io/redhatproductsecurity/rapidast:latest ./rapidast.py

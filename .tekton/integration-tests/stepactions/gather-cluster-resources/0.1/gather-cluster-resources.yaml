@@ -1,0 +1,78 @@
+# Vendored from konflux-ci/tekton-integration-catalog stepactions/gather-cluster-resources/0.1.
+# Delta: param gather-script-url selects gather-extra.sh (default: main branch of this repo).
+apiVersion: tekton.dev/v1alpha1
+kind: StepAction
+metadata:
+  name: gather-cluster-resources
+  labels:
+    upstream-usable: "true"
+spec:
+  description: >-
+    Gathers Konflux-related cluster resources and pod logs. Uses openshift/lightspeed-operator
+    gather-extra.sh by default (restart-aware previous logs).
+  image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+  params:
+    - name: credentials
+      type: string
+      description: A volume containing credentials to the remote cluster
+    - name: kubeconfig
+      type: string
+      description: Relative path to the kubeconfig in the mounted cluster credentials volume
+      default: ""
+    - name: oc-login-command
+      type: string
+      description: Command to log in to the OpenShift cluster
+      default: ""
+    - name: gather-urls
+      type: array
+      description: A list of URLs for the custom resource gathering script
+      default: []
+    - name: artifact-dir
+      type: string
+      description: Relative path to where you want the artifacts to be stored
+      default: "/workspace"
+    - name: gather-script-url
+      type: string
+      description: >-
+        URL to gather-extra.sh. When empty, uses openshift/lightspeed-operator main branch.
+      default: ""
+  args:
+    - $(params.gather-urls[*])
+  workingDir: $(params.artifact-dir)
+  env:
+    - name: KUBECONFIG
+      value: "/credentials/$(params.kubeconfig)"
+    - name: ARTIFACT_DIR
+      value: "$(params.artifact-dir)"
+    - name: OC_LOGIN_COMMAND
+      value: "$(params.oc-login-command)"
+    # Param substitution in spec.script is rejected by the pipeline validating webhook; use env.
+    - name: GATHER_SCRIPT_URL
+      value: "$(params.gather-script-url)"
+  volumeMounts:
+    - name: "$(params.credentials)"
+      mountPath: /credentials
+  script: |
+    #!/bin/bash
+    set -x
+    export AUX=${KUBECONFIG#*"/credentials/"}
+    if [ -z "${AUX}" ]; then
+      unset KUBECONFIG
+      if [[ "${OC_LOGIN_COMMAND}" = *"oc login"* ]]; then
+        echo "${OC_LOGIN_COMMAND}" | bash
+      else
+        echo "Login error. Please provide a valid kubeconfig or a valid oc login command."
+        exit 1
+      fi
+    fi
+
+    if [ -z "${GATHER_SCRIPT_URL}" ]; then
+      export GATHER_SCRIPT_URL="https://raw.githubusercontent.com/openshift/lightspeed-operator/main/.tekton/integration-tests/scripts/gather-extra.sh"
+    fi
+    curl -fsSL "${GATHER_SCRIPT_URL}" | bash
+    for url in "$@"; do
+      if ! [ -z "${url}" ]; then
+        echo "curling ${url}"
+        curl -fsSL "${url}" | bash
+      fi
+    done
