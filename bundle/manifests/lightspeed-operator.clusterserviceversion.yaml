@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-05-06T14:29:56Z"
+    createdAt: "2026-05-07T12:08:38Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -114,6 +114,24 @@ spec:
           - description: Fake Provider MCP Tool Call
             displayName: Fake Provider MCP Tool Call
             path: llm.providers[0].fakeProviderMCPToolCall
+          - description: Google Vertex Anthropic Config
+            displayName: Google Vertex Anthropic Config
+            path: llm.providers[0].googleVertexAnthropicConfig
+          - description: Server region location
+            displayName: Server Region Location
+            path: llm.providers[0].googleVertexAnthropicConfig.location
+          - description: Google Cloud project ID
+            displayName: Google Cloud Project ID
+            path: llm.providers[0].googleVertexAnthropicConfig.projectID
+          - description: Google Vertex Config
+            displayName: Google Vertex Config
+            path: llm.providers[0].googleVertexConfig
+          - description: Server region location
+            displayName: Server Region Location
+            path: llm.providers[0].googleVertexConfig.location
+          - description: Google Cloud project ID
+            displayName: Google Cloud Project ID
+            path: llm.providers[0].googleVertexConfig.projectID
           - description: List of models from the provider
             displayName: Models
             path: llm.providers[0].models
@@ -262,7 +280,9 @@ spec:
           - description: Pull secrets for BYOK RAG images from image registries requiring authentication
             displayName: Image Pull Secrets
             path: ols.imagePullSecrets
-          - description: Enable introspection features
+          - description: |-
+              Enable introspection features (e.g. built-in OpenShift MCP server). Omitted means use the
+              CRD default (true); explicit false disables introspection.
             displayName: Introspection Enabled
             path: ols.introspectionEnabled
             x-descriptors:
@@ -382,7 +402,6 @@ spec:
                 - tls.crt: Server certificate (PEM format) - REQUIRED
                 - tls.key: Private key (PEM format) - REQUIRED
                 - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
-
 
               If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
             displayName: TLS Certificate Secret Reference

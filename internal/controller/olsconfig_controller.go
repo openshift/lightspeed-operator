@@ -210,11 +210,12 @@ func (r *OLSConfigReconciler) handleFinalizer(ctx context.Context, req ctrl.Requ
 				return &ctrl.Result{}, fmt.Errorf("failed to re-fetch OLSConfig CR before finalizer removal: %w", err)
 			}
 
-			// Remove finalizer
+			// Remove finalizer via metadata-only patch so spec is not round-tripped through the apiserver.
+			base := olsconfig.DeepCopy()
 			controllerutil.RemoveFinalizer(olsconfig, utils.OLSConfigFinalizer)
-			if err := r.Update(ctx, olsconfig); err != nil {
+			if err := r.Patch(ctx, olsconfig, client.MergeFrom(base)); err != nil {
 				if apierrors.IsNotFound(err) {
-					// CR was deleted between Get and Update, that's fine
+					// CR was deleted between Get and Patch, that's fine
 					r.Logger.V(1).Info("OLSConfig CR deleted during finalizer removal, skipping")
 					return &ctrl.Result{}, nil
 				}
@@ -234,8 +235,13 @@ func (r *OLSConfigReconciler) handleFinalizer(ctx context.Context, req ctrl.Requ
 	// Add finalizer if not present (for new or existing CRs without finalizer)
 	if !controllerutil.ContainsFinalizer(olsconfig, utils.OLSConfigFinalizer) {
 		r.Logger.Info("Adding finalizer to OLSConfig CR")
+		base := olsconfig.DeepCopy()
 		controllerutil.AddFinalizer(olsconfig, utils.OLSConfigFinalizer)
-		if err := r.Update(ctx, olsconfig); err != nil {
+		if err := r.Patch(ctx, olsconfig, client.MergeFrom(base)); err != nil {
+			if apierrors.IsConflict(err) {
+				r.Logger.V(1).Info("Conflict adding finalizer, will retry")
+				return &ctrl.Result{}, fmt.Errorf("conflict adding finalizer: %w", err)
+			}
 			r.Logger.Error(err, "Failed to add finalizer to OLSConfig CR")
 			return &ctrl.Result{}, fmt.Errorf("failed to add finalizer to OLSConfig CR: %w", err)
 		}
