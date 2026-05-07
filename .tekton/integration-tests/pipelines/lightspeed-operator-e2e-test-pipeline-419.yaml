@@ -343,3 +343,23 @@ spec:
                   value: main
                 - name: pathInRepo
                   value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
+  finally:
+    - name: export-logs-for-retention
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/export-logs/0.1/export-logs-to-quay.yaml
+      params:
+        - name: pipeline-run-name
+          value: $(context.pipelineRun.name)
+        - name: namespace
+          value: $(context.pipelineRun.namespace)
+        - name: quay-repo
+          value: "quay.io/openshift-lightspeed/ols-operator-artifacts"
+        - name: artifact-credentials-secret
+          value: ols-konflux-artifacts-bot
