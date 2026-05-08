@@ -328,11 +328,20 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		ProxyConfig: proxyConfig,
 	}
 
-	tlsProfileType := utiltls.DefaultTLSProfileType
-	if cr.Spec.OLSConfig.TLSSecurityProfile != nil && cr.Spec.OLSConfig.TLSSecurityProfile.Type != "" {
-		tlsProfileType = cr.Spec.OLSConfig.TLSSecurityProfile.Type
+	tlsProfile := cr.Spec.OLSConfig.TLSSecurityProfile
+	if tlsProfile == nil {
+		apiServerProfile, err := utiltls.FetchAPIServerTlsProfile(r)
+		if err != nil {
+			r.GetLogger().Error(err, "failed to fetch TLS profile from APIServer, using defaults")
+		} else {
+			tlsProfile = apiServerProfile
+		}
 	}
-	tlsProfileSpec := utiltls.GetTLSProfileSpec(cr.Spec.OLSConfig.TLSSecurityProfile)
+	tlsProfileType := utiltls.DefaultTLSProfileType
+	if tlsProfile != nil && tlsProfile.Type != "" {
+		tlsProfileType = tlsProfile.Type
+	}
+	tlsProfileSpec := utiltls.GetTLSProfileSpec(tlsProfile)
 	olsConfig.TLSSecurityProfile = &utils.TLSSecurityProfileConfig{
 		ProfileType:   serviceTLSProfileType(tlsProfileType),
 		MinTLSVersion: utiltls.MinTLSVersion(tlsProfileSpec),

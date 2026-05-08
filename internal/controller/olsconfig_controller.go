@@ -52,9 +52,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	imagev1 "github.com/openshift/api/image/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -70,7 +72,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
@@ -79,6 +83,7 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	"github.com/openshift/lightspeed-operator/internal/controller/watchers"
+	utiltls "github.com/openshift/lightspeed-operator/internal/tls"
 )
 
 // OLSConfigReconciler reconciles a OLSConfig object.
@@ -916,6 +921,26 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					// Ignore delete events - nothing to reconcile when resource is gone
 					return false
 				},
+			})).
+		Watches(&configv1.APIServer{},
+			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, _ client.Object) []reconcile.Request {
+				return []reconcile.Request{{NamespacedName: client.ObjectKey{Name: utils.OLSConfigName}}}
+			}),
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(_ event.CreateEvent) bool { return false },
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					if e.ObjectNew.GetName() != utiltls.APIServerName {
+						return false
+					}
+					oldAS, oldOK := e.ObjectOld.(*configv1.APIServer)
+					newAS, newOK := e.ObjectNew.(*configv1.APIServer)
+					if !oldOK || !newOK {
+						return false
+					}
+					return !reflect.DeepEqual(oldAS.Spec.TLSSecurityProfile, newAS.Spec.TLSSecurityProfile)
+				},
+				DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
+				GenericFunc: func(_ event.GenericEvent) bool { return false },
 			})).
 		Owns(&consolev1.ConsolePlugin{}).
 		Owns(&monitoringv1.ServiceMonitor{}).
