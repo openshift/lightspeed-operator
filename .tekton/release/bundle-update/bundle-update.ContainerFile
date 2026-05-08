@@ -1,16 +1,16 @@
-FROM registry.access.redhat.com/ubi9/ubi-minimal
+FROM registry.redhat.io/ubi9/go-toolset:9.7-1778171507
 ARG KUSTOMIZE_VERSION=v5.3.0
 ARG OPERATOR_SDK_VERSION=v1.33.0
 ARG YQ_VERSION=v4.44.6
 
-RUN microdnf install -y \
+USER root
+RUN dnf install -y \
     jq \
     tar \
     git \
     make \
-    golang \
     gpgme-devel \
-    && microdnf clean all
+    && dnf clean all
 # openshift client
 RUN curl -L -o oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-4.19/openshift-client-linux-amd64-rhel9.tar.gz \
     && tar -xvzf oc.tar.gz \
@@ -29,5 +29,5 @@ RUN YQ=$(go env GOPATH)/bin/yq && OS=$(go env GOOS) && ARCH=$(go env GOARCH) && 
     curl -sSLo ${YQ} https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_${OS}_${ARCH} && \
     chmod +x ${YQ}
 
-# set path for go binaries such as kustomize
+# set path for go binaries such as kustomize and operator-sdk
 ENV PATH="/root/go/bin:$PATH"
