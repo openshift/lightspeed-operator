@@ -209,7 +209,6 @@ type OLSSpec struct {
 	// Enable introspection features (e.g. built-in OpenShift MCP server). Omitted means use the
 	// CRD default (true); explicit false disables introspection.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=true
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Introspection Enabled",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	IntrospectionEnabled *bool `json:"introspectionEnabled,omitempty"`
 	// MCP Kubernetes server configuration
