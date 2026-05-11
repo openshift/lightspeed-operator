@@ -1,8 +1,8 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:42fa5b741e50185b981ede26fabbc4a09e9664aafc03a30d62abd4d74c6e2f78",
-    "revision": "59bd31f4286cb60c5a56e35d46df438066bd37e2"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:5287134ee84c4837e74db54a36f9abe71dcbd46d067b04d99bfaa972a4f149cd",
+    "revision": "f63f367ea17e54e13e93aeb545b9b1f292f88a57"
   },
   {
     "name": "lightspeed-console-plugin",
@@ -21,13 +21,13 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:1f6a0960f0006b69442ce8f314f28cd86b2180855779a4010d6232aa8b6721ba",
-    "revision": "34b178f0a34b7655743d9a3b73ffc3bc780d4d55"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:f05274b329f44d050aa0e8ad7131c190c1ea80fe779c0883b7d55b80bf35e42b",
+    "revision": "31ba9d0b485316554a924b5ce632956f02b5335d"
   },
   {
     "name": "openshift-mcp-server",
-    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:94869deee4f495e699c3cc06c997efef6c9d7dca89de26e7d4df0be3b4e157f4",
-    "revision": "d05bf24a72986555b8b0bdd9b81c23967d645a8f"
+    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:a7860fe67549e33f6f5bc517934cc28cc512e212b1d37ae4ee58b96cffcc530a",
+    "revision": "e4bda021b0d457c127061064d092af576949363d"
   },
   {
     "name": "lightspeed-to-dataverse-exporter",
@@ -36,8 +36,8 @@
   },
   {
     "name": "lightspeed-ocp-rag",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:7c767e15becc806167c53a2507e906bc43aa51be9bb95b738e679b67c23dddb3",
-    "revision": "6b266677dab9a9351279303f253a068670e92284"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:d3c3352ba9da396b3eaac3825d2fcd72843eb06e745ec406905d19e9530b567b",
+    "revision": "8d91d2d4f1d2abfff10235cd339dd8dfec2b5eca"
   },
   {
     "name": "lightspeed-postgresql",
