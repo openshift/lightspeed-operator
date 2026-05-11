@@ -5,10 +5,9 @@ metadata:
   name: ols-console-pre-commits
 spec:
   description: |
-    This pipeline automates the process of running end-to-end tests for OpenShift Lightspeed
-    using a ROSA (Red Hat OpenShift Service on AWS) cluster. The pipeline provisions
-    the ROSA cluster, installs the OpenShift Lightspeed operator using the installer, runs the tests, collects artifacts,
-    and finally deprovisions the ROSA cluster.
+    Runs OpenShift Lightspeed console e2e (Cypress) on a Konflux ephemeral OpenShift cluster (EaaS).
+    Provisions the cluster, installs the operator bundle from the snapshot, runs console tests,
+    collects artifacts, then deprovisions.
   params:
     - name: SNAPSHOT
       description: 'The JSON string representing the snapshot of the application under test.'
@@ -77,7 +76,7 @@ spec:
               - name: instanceType
                 value: "m5.large"
     - name: ols-install
-      description: Task to install bundle onto ephemeral namespace
+      description: Install operator bundle; record SNAPSHOT containerImage and commit for console tests.
       runAfter:
         - provision-cluster
       params:
@@ -104,17 +103,21 @@ spec:
             env:
               - name: SNAPSHOT
                 value: $(params.SNAPSHOT)
+              - name: KONFLUX_COMPONENT_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['appstudio.openshift.io/component']
             results:
               - name: bundle-image
                 type: string
-                description: "bundle image from snapshot"
+                description: "SNAPSHOT containerImage for the PipelineRun-labeled Konflux component (bundle index image)."
               - name: commit
                 type: string
                 description: "commit sha to be used in console tests"
             script: |
               dnf -y install jq
-              echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
-              echo -n "$(jq -r --arg component_name "ols-bundle" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")" > $(step.results.commit.path)
+              echo -n "$(jq -r --arg component_name "${KONFLUX_COMPONENT_NAME}" '.components[] | select(.name == $component_name) | .containerImage' <<< "$SNAPSHOT")" > $(step.results.bundle-image.path)
+              echo -n "$(jq -r --arg component_name "${KONFLUX_COMPONENT_NAME}" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")" > $(step.results.commit.path)
     - name: ols-e2e-tests
       description: Task to run tests from service repository
       runAfter:
@@ -187,78 +190,26 @@ spec:
                 value: "$(params.bundle-image)"
             image: cypress/browsers:24.13.0
             script: |
-              apt update && apt install -y jq
-              echo "COMMIT_SHA: ${COMMIT_SHA}"
-              echo "CYPRESS_BASE_URL: ${CYPRESS_BASE_URL}"
-              echo "CYPRESS_CONSOLE_IMAGE: ${CYPRESS_CONSOLE_IMAGE}"
-              echo "CYPRESS_KUBECONFIG_PATH: ${CYPRESS_KUBECONFIG_PATH}"
-              echo "---------------------------------------------"
-              cat "${CYPRESS_KUBECONFIG_PATH}"
-              echo "---------------------------------------------"
-              export CYPRESS_LOGIN_PASSWORD=$(cat ${PASSWORD_PATH})
-              echo "${CYPRESS_LOGIN_PASSWORD}"
-              echo "---------------------------------------------"
-              echo "---------------------------------------------"
-              wget --no-verbose -O oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest/openshift-client-linux.tar.gz \
-                  && tar -xvzf oc.tar.gz \
-                  && chmod +x kubectl oc \
-                  && mv oc kubectl /usr/local/bin/
-              echo "---------------------------------------------"
-              export OPERATOR_SDK_VERSION=1.36.1
-              export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
-              export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v${OPERATOR_SDK_VERSION}
-              wget --no-verbose -O /usr/local/bin/operator-sdk ${OPERATOR_SDK_DL_URL}/operator-sdk_linux_${ARCH}
-              chmod +x /usr/local/bin/operator-sdk
-              echo "---------------------------------------------"
-              operator-sdk version
-              echo "---------------------------------------------"
-              mkdir -pv ~/.cache/xdgr
-              export XDG_RUNTIME_DIR=$PATH:~/.cache/xdgr
-              echo "---------------------------------------------"
+              set -euo pipefail
+              apt update && apt install -y jq git curl
               cd /home
               git init lightspeed-operator
               cd lightspeed-operator
               git remote add origin https://github.com/openshift/lightspeed-operator.git
-              git fetch --depth=1 --filter=blob:none origin ${COMMIT_SHA}
-              TEST_SOURCE_COMMIT=$(
-                git show ${COMMIT_SHA}:related_images.json |
-                jq -r '.[] | select(.name=="lightspeed-console-plugin") | .revision'
-              )
-              cd /home
-              rm -rf lightspeed-console
-              git init lightspeed-console
-              cd lightspeed-console
-              git remote add origin https://github.com/openshift/lightspeed-console.git
-              git fetch --depth=1 --filter=blob:none origin ${TEST_SOURCE_COMMIT}
-              git checkout ${TEST_SOURCE_COMMIT}
-              echo "---------------------------------------------"
-              echo "npm version: $(npm -v)"
-              echo "---------------------------------------------"
-              NODE_OPTIONS=--max-old-space-size=4096 npm ci --omit=optional --no-fund
-              echo "---------------------------------------------"
-              export CYPRESS_LOGIN_PASSWORD=$(cat ${PASSWORD_PATH})
-              set +e
-              NO_COLOR=1 npx cypress run
-              err_status=$?
-              echo -n "${err_status}" > /workspace/cypress-exit-code
-              echo "---------------------------------------------"
-              ls ./gui_test_screenshots
-              mv ./gui_test_screenshots /workspace/artifacts/
-              set -e
-              echo "Cypress exit code: ${err_status}"
-              exit ${err_status}
-              echo "---------------------------------------------"
+              git fetch --depth=1 --filter=blob:none origin "${COMMIT_SHA}"
+              git checkout "${COMMIT_SHA}"
+              git show "${COMMIT_SHA}:.tekton/integration-tests/scripts/run-console-cypress-tests.sh" | bash -s -- "lightspeed-console-plugin" "latest-4.19"
           - name: gather-cluster-resources
             onError: continue
             ref:
               resolver: git
               params:
                 - name: url
-                  value: https://github.com/konflux-ci/tekton-integration-catalog
+                  value: https://github.com/openshift/lightspeed-operator
                 - name: revision
-                  value: main
+                  value: $(params.commit)
                 - name: pathInRepo
-                  value: stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
+                  value: .tekton/integration-tests/stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
             params:
               - name: credentials
                 value: "credentials"
@@ -266,6 +217,8 @@ spec:
                 value: "$(steps.get-kubeconfig.results.kubeconfig)"
               - name: artifact-dir
                 value: "/workspace/artifacts/konflux-artifacts"
+              - name: gather-script-url
+                value: "https://raw.githubusercontent.com/openshift/lightspeed-operator/$(params.commit)/.tekton/integration-tests/scripts/gather-extra.sh"
           # validate that the cluster resources are available in another tekton step
           - name: list-artifacts
             onError: continue

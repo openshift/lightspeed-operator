@@ -109,6 +109,10 @@ help: ## Display this help.
 # Controller-gen paths exclude test/e2e to avoid loading containers/image and its CGO deps (gpgme, etc.)
 CONTROLLER_GEN_PATHS = paths=./api/... paths=./internal/... paths=./cmd/...
 
+# test/e2e pulls containers/storage (optional btrfs graph driver) and containers/image.
+# containers_image_openpgp avoids gpgme CGO so e2e builds on minimal images without gpgme-devel.
+E2E_GO_TAGS := exclude_graphdriver_btrfs,containers_image_openpgp
+
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook $(CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases
@@ -123,7 +127,7 @@ fmt: ## Run go fmt against code.
 
 .PHONY: vet
 vet: ## Run go vet against code.
-	go vet -tags=exclude_graphdriver_btrfs ./...
+	go vet -tags=$(E2E_GO_TAGS) ./...
 
 .PHONY: test
 test: manifests generate fmt vet envtest test-crds ## Run local tests.
@@ -178,7 +182,7 @@ endif
 ifndef LLM_TOKEN
 	$(error LLM_TOKEN  environment variable is not set)
 endif
-	go test -tags=exclude_graphdriver_btrfs ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade && !AllFeatures" --ginkgo.timeout=2h
+	go test -tags=$(E2E_GO_TAGS) ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade && !AllFeatures" --ginkgo.timeout=2h
 
 .PHONY: test-upgrade
 test-upgrade: ## Run upgrade tests with an Openshift cluster. Requires KUBECONFIG, LLM_TOKEN and BUNDLE_IMAGE environment variables.
@@ -191,7 +195,7 @@ endif
 ifndef BUNDLE_IMAGE
 	$(error BUNDLE_IMAGE  environment variable is not set)
 endif
-	go test -tags=exclude_graphdriver_btrfs ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="Upgrade" --ginkgo.timeout=2h
+	go test -tags=$(E2E_GO_TAGS) ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="Upgrade" --ginkgo.timeout=2h
 
 .PHONY: test-e2e-all-features
 test-e2e-all-features: ## Run comprehensive all-features E2E test. Requires KUBECONFIG and LLM_TOKEN environment variables.
@@ -211,11 +215,11 @@ endif
 ifndef LLM_TOKEN
 	$(error LLM_TOKEN  environment variable is not set)
 endif
-	go test -tags=exclude_graphdriver_btrfs ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast" --ginkgo.label-filter="!Database-Persistency"
+	go test -tags=$(E2E_GO_TAGS) ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast" --ginkgo.label-filter="!Database-Persistency"
 
 .PHONY: lint
 lint: ## Run golangci-lint against code.
-	golangci-lint run --config=.golangci.yaml --build-tags "exclude_graphdriver_btrfs"
+	golangci-lint run --config=.golangci.yaml --build-tags "$(E2E_GO_TAGS)"
 
 .PHONY: lint-fix
 lint-fix: ## Fix found issues (if it's supported by the linter).
@@ -350,7 +354,7 @@ ENVTEST_VERSION ?= release-0.19
 ## Tool Binaries
 KUBECTL ?= kubectl
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
-CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen --load-build-tags=exclude_graphdriver_btrfs
+CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen --load-build-tags=$(E2E_GO_TAGS)
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 .PHONY: kustomize

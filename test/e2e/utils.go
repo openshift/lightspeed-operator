@@ -274,7 +274,7 @@ func GetPodLogs(c *Client, namespace, podName, containerName string, sinceTime *
 	if err != nil {
 		return "", fmt.Errorf("failed to get pod logs: %w", err)
 	}
-	defer podLogs.Close()
+	defer func() { _ = podLogs.Close() }()
 
 	logs, err := io.ReadAll(podLogs)
 	if err != nil {
