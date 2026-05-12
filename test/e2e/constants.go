@@ -34,7 +34,7 @@ const (
 	// AzureClientID is the environment variable containing the client id for azure openai authentication
 	AzureClientID = "AZUREOPENAI_ENTRA_ID_CLIENT_ID"
 	// AzureClientSecret is the environment variable containing the client secret for azure openai authentication
-	AzureClientSecret = "AZUREOPENAI_ENTRA_ID_CLIENT_SECRET"
+	AzureClientSecret = "AZUREOPENAI_ENTRA_ID_CLIENT_SECRET" //nolint:gosec // env var name, not a credential
 	// AzureOpenaiTenantID
 	AzureOpenaiTenantID = "tenant_id"
 	// AzureOpenaiClientID
@@ -75,7 +75,7 @@ const (
 	ConditionTimeoutEnvVar = "CONDITION_TIMEOUT"
 
 	// ServiceAnnotationKeyTLSSecret is the annotation key for TLS secret
-	ServiceAnnotationKeyTLSSecret = "service.beta.openshift.io/serving-cert-secret-name"
+	ServiceAnnotationKeyTLSSecret = "service.beta.openshift.io/serving-cert-secret-name" //nolint:gosec // well-known OpenShift annotation key
 	// TestSAName is the name of the test service account
 	TestSAName = "test-sa"
 	// TestSAOutsiderName is the name of the test service account for outsider tests

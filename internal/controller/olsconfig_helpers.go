@@ -26,7 +26,7 @@ import (
 //   - External resource annotation: Mark user-provided secrets/configmaps for change tracking
 
 // Interface implementation methods for reconciler.Reconciler
-// These getters allow component packages (appserver, postgres, console, lcore) to access
+// These getters allow component packages (appserver, postgres, console) to access
 // reconciler capabilities without importing the controller package, preventing circular dependencies.
 
 func (r *OLSConfigReconciler) GetScheme() *runtime.Scheme {
@@ -69,24 +69,12 @@ func (r *OLSConfigReconciler) GetDataverseExporterImage() string {
 	return r.Options.DataverseExporterImage
 }
 
-func (r *OLSConfigReconciler) GetLCoreImage() string {
-	return r.Options.LightspeedCoreImage
-}
-
 func (r *OLSConfigReconciler) IsPrometheusAvailable() bool {
 	return r.Options.PrometheusAvailable
 }
 
 func (r *OLSConfigReconciler) GetWatcherConfig() interface{} {
 	return r.WatcherConfig
-}
-
-func (r *OLSConfigReconciler) UseLCore() bool {
-	return r.Options.UseLCore
-}
-
-func (r *OLSConfigReconciler) GetLCoreServerMode() bool {
-	return r.Options.LCoreServerMode
 }
 
 // Status management

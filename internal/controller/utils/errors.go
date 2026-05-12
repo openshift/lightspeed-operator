@@ -113,12 +113,6 @@ const (
 	ErrListOldPostgresSecrets     = "failed to list old OLS Postgres secrets"
 	ErrDeleteOldPostgresSecrets   = "failed to delete old OLS Postgres secret"
 
-	// Llama Stack specific errors
-	ErrCreateLlamaStackConfigMap   = "failed to create Llama Stack configmap"
-	ErrGenerateLlamaStackConfigMap = "failed to generate Llama Stack configmap"
-	ErrGetLlamaStackConfigMap      = "failed to get Llama Stack configmap"
-	ErrUpdateLlamaStackConfigMap   = "failed to update Llama Stack configmap"
-
 	// OpenShift MCP server config errors
 	ErrCreateMCPServerConfigMap = "failed to create MCP server config configmap"
 	ErrDeleteMCPServerConfigMap = "failed to delete MCP server config configmap"

@@ -16,7 +16,6 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
-	"github.com/openshift/lightspeed-operator/internal/controller/lcore"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
@@ -238,9 +237,8 @@ func SecretWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj clien
 		inClusterValue = inCluster[0]
 	}
 
-	// Get watcherConfig and useLCore from reconciler
+	// Get watcherConfig from reconciler
 	watcherConfig, _ := r.GetWatcherConfig().(*utils.WatcherConfig)
-	useLCore := r.UseLCore()
 
 	// Check 1: Check against configured system secrets (no hardcoded values!)
 	if watcherConfig != nil {
@@ -253,7 +251,7 @@ func SecretWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj clien
 
 				// Restart all affected deployments
 				if inClusterValue {
-					restartDeployment(r, ctx, systemSecret.AffectedDeployments, systemSecret.Namespace, systemSecret.Name, useLCore)
+					restartDeployment(r, ctx, systemSecret.AffectedDeployments, systemSecret.Namespace, systemSecret.Name)
 				}
 				return
 			}
@@ -283,7 +281,7 @@ func SecretWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj clien
 			"secret", secretName,
 			"affectedDeployments", affectedDeployments)
 		if inClusterValue {
-			restartDeployment(r, ctx, affectedDeployments, obj.GetNamespace(), secretName, useLCore)
+			restartDeployment(r, ctx, affectedDeployments, obj.GetNamespace(), secretName)
 		}
 		return
 	}
@@ -309,9 +307,8 @@ func ConfigMapWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj cl
 		inClusterValue = inCluster[0]
 	}
 
-	// Get watcherConfig and useLCore from reconciler
+	// Get watcherConfig from reconciler
 	watcherConfig, _ := r.GetWatcherConfig().(*utils.WatcherConfig)
-	useLCore := r.UseLCore()
 
 	// Check 1: Check against configured system configmaps (no hardcoded values!)
 	if watcherConfig != nil {
@@ -324,7 +321,7 @@ func ConfigMapWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj cl
 
 				// Restart all affected deployments
 				if inClusterValue {
-					restartDeployment(r, ctx, systemCM.AffectedDeployments, systemCM.Namespace, systemCM.Name, useLCore)
+					restartDeployment(r, ctx, systemCM.AffectedDeployments, systemCM.Namespace, systemCM.Name)
 				}
 				return
 			}
@@ -354,7 +351,7 @@ func ConfigMapWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj cl
 			"configmap", configMapName,
 			"affectedDeployments", affectedDeployments)
 		if inClusterValue {
-			restartDeployment(r, ctx, affectedDeployments, obj.GetNamespace(), configMapName, useLCore)
+			restartDeployment(r, ctx, affectedDeployments, obj.GetNamespace(), configMapName)
 		}
 		return
 	}
@@ -367,22 +364,17 @@ type RestartFunc func(reconciler.Reconciler, context.Context, ...*appsv1.Deploym
 // restartFuncs maps deployment names to their restart functions
 var restartFuncs = map[string]RestartFunc{
 	utils.OLSAppServerDeploymentName: appserver.RestartAppServer,
-	utils.LCoreDeploymentName:        lcore.RestartLCore,
 	utils.PostgresDeploymentName:     postgres.RestartPostgres,
 	utils.ConsoleUIDeploymentName:    console.RestartConsoleUI,
 }
 
 // restart corresponding deployment
-func restartDeployment(r reconciler.Reconciler, ctx context.Context, affectedDeployments []string, namespace string, name string, useLCore bool) {
+func restartDeployment(r reconciler.Reconciler, ctx context.Context, affectedDeployments []string, namespace string, name string) {
 
 	for _, depName := range affectedDeployments {
 		// Resolve ACTIVE_BACKEND to actual deployment name
 		if depName == "ACTIVE_BACKEND" {
-			if useLCore {
-				depName = utils.LCoreDeploymentName
-			} else {
-				depName = utils.OLSAppServerDeploymentName
-			}
+			depName = utils.OLSAppServerDeploymentName
 		}
 
 		// Restart the deployment using the appropriate function

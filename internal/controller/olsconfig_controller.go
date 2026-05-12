@@ -19,7 +19,7 @@ limitations under the License.
 //
 // This package contains the OLSConfigReconciler, which is the central orchestrator
 // for the entire operator. It coordinates reconciliation across all components
-// (appserver/lcore, postgres, console) and manages the OLSConfig custom resource.
+// (appserver, postgres, console) and manages the OLSConfig custom resource.
 //
 // The controller code is organized into multiple files:
 //   - olsconfig_controller.go: Core type definition, Reconcile(), and SetupWithManager()
@@ -29,7 +29,7 @@ limitations under the License.
 //
 // Key Responsibilities:
 //   - Reconcile the OLSConfig custom resource
-//   - Coordinate component reconciliation (console, postgres, appserver/lcore)
+//   - Coordinate component reconciliation (console, postgres, appserver)
 //   - Manage status conditions and CR status updates
 //   - Set up resource watchers for automatic updates (secrets, configmaps)
 //   - Manage operator-level resources (service monitors, network policies)
@@ -75,7 +75,6 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
-	"github.com/openshift/lightspeed-operator/internal/controller/lcore"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	"github.com/openshift/lightspeed-operator/internal/controller/watchers"
@@ -297,22 +296,12 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		}},
 	}
 
-	// Conditionally add either LCore or AppServer resource reconciliation
-	if r.Options.UseLCore {
-		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
-			Name: "LCore resources",
-			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-				return lcore.ReconcileLCoreResources(r, ctx, cr)
-			},
-		})
-	} else {
-		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
-			Name: "application server resources",
-			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-				return appserver.ReconcileAppServerResources(r, ctx, cr)
-			},
-		})
-	}
+	resourceSteps = append(resourceSteps, utils.ReconcileSteps{
+		Name: "application server resources",
+		Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return appserver.ReconcileAppServerResources(r, ctx, cr)
+		},
+	})
 
 	// Reconcile all independent resources (continue on error to reconcile as many as possible)
 	resourceFailures := make(map[string]error)
@@ -380,26 +369,14 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		}, ConditionType: utils.TypeCacheReady, Deployment: utils.PostgresDeploymentName},
 	}
 
-	// Conditionally add either LCore or AppServer deployment reconciliation
-	if r.Options.UseLCore {
-		deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
-			Name: "LCore deployment",
-			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-				return lcore.ReconcileLCoreDeployment(r, ctx, cr)
-			},
-			ConditionType: utils.TypeApiReady,
-			Deployment:    "lightspeed-stack-deployment",
-		})
-	} else {
-		deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
-			Name: "application server deployment",
-			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-				return appserver.ReconcileAppServerDeployment(r, ctx, cr)
-			},
-			ConditionType: utils.TypeApiReady,
-			Deployment:    utils.OLSAppServerDeploymentName,
-		})
-	}
+	deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
+		Name: "application server deployment",
+		Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return appserver.ReconcileAppServerDeployment(r, ctx, cr)
+		},
+		ConditionType: utils.TypeApiReady,
+		Deployment:    utils.OLSAppServerDeploymentName,
+	})
 
 	// Execute deployment reconciliation (fail-fast on errors)
 	// Create status structure to populate as we check each deployment
@@ -530,7 +507,7 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 // 3. Reconciles operator-level resources (ServiceMonitor, NetworkPolicy)
 // 4. Annotates external resources (secrets, configmaps) for watching
 // 5. Phase 1: Reconciles independent resources (ConfigMaps, Secrets, ServiceAccounts, Roles, etc.)
-// 6. Phase 2: Reconciles deployments (Console UI, Postgres, LCore/AppServer) and updates status
+// 6. Phase 2: Reconciles deployments (Console UI, Postgres, AppServer) and updates status
 //
 // Returns:
 // - ctrl.Result{}, nil: Reconciliation completed successfully

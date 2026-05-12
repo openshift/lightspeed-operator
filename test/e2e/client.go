@@ -497,7 +497,7 @@ func (c *Client) ForwardPortV2(serviceName, namespaceName string, port int) (str
 
 	// Find the port that matches the requested port
 	for _, svcPort := range service.Spec.Ports {
-		if svcPort.Port == int32(port) {
+		if int(svcPort.Port) == port {
 			if svcPort.TargetPort.IntVal != 0 {
 				targetPort = svcPort.TargetPort.IntVal
 			} else {

@@ -10,12 +10,12 @@ This guide provides instructions for contributing to the OpenShift Lightspeed Op
 ## Quick Context
 
 The operator uses a **modular, component-based architecture**:
-- Each component (appserver, lcore, postgres, console) is a self-contained package
+- Each component (`appserver`, `postgres`, `console`) is a self-contained package
 - Components use the `reconciler.Reconciler` interface (no circular dependencies)
 - Task-based reconciliation pattern (list of tasks executed sequentially)
 - Two resource approaches: **Owned** (operator-created, ResourceVersion tracking) vs **External** (user-provided, data comparison)
 
-**Best way to learn**: Read existing component code (`appserver/`, `postgres/`, `console/`, `lcore/`)
+**Best way to learn**: Read existing component code (`appserver/`, `postgres/`, `console/`)
 
 ---
 
@@ -58,7 +58,7 @@ func ReconcileMyComponent(r reconciler.Reconciler, ctx context.Context, cr *olsv
 }
 ```
 
-**Reference**: See `appserver/reconciler.go`, `postgres/reconciler.go`, or `lcore/reconciler.go`
+**Reference**: See `appserver/reconciler.go` or `postgres/reconciler.go`
 
 ### Step 3: Implement Asset Generation
 
@@ -70,7 +70,7 @@ func ReconcileMyComponent(r reconciler.Reconciler, ctx context.Context, cr *olsv
 - Always set owner references with `controllerutil.SetControllerReference()`
 - Use `utils.DefaultLabels()` for consistent labeling
 
-**Reference**: See `appserver/assets.go`, `postgres/assets.go`, or `lcore/assets.go`
+**Reference**: See `appserver/assets.go` or `postgres/assets.go`
 
 ### Step 4: Add Constants
 
@@ -139,7 +139,7 @@ The OLM bundle needs regeneration when changes affect how the operator is deploy
 **Bundle Update Required:**
 - **RBAC Changes**: Modified `//+kubebuilder:rbac` markers in Go code OR changed files in `config/rbac/`
 - **CRD Changes**: Modified API types in `api/v1alpha1/olsconfig_types.go`
-- **Image Changes**: New operator image, new operand images (appserver, lcore, postgres, console), or image version changes
+- **Image Changes**: New operator image, new operand images (appserver, postgres, console), or image version changes
 - **CSV Metadata**: Changed operator description, keywords, maintainers, links, or other metadata
 
 **Bundle Update NOT Required:**
