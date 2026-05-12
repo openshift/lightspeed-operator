@@ -20,6 +20,8 @@ entries:
     replaces: lightspeed-operator.v1.0.10
   - name: lightspeed-operator.v1.0.12
     replaces: lightspeed-operator.v1.0.11
+  - name: lightspeed-operator.v1.0.13
+    replaces: lightspeed-operator.v1.0.12
 ---
 schema: olm.channel
 package: lightspeed-operator
@@ -35,3 +37,5 @@ entries:
     replaces: lightspeed-operator.v1.0.10
   - name: lightspeed-operator.v1.0.12
     replaces: lightspeed-operator.v1.0.11
+  - name: lightspeed-operator.v1.0.13
+    replaces: lightspeed-operator.v1.0.12
