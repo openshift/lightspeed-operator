@@ -6,23 +6,23 @@
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:97730cfd3d8cd526cea5ada957daa9247287830e911da8dca098ef81d072583f",
-    "revision": "2a7d256d40eb6c3217406f3e2d8d226884a6f11d"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:a6d59d2a2a63afb37d37ebee9e86c803c3a0bf5c1f2331bd4355d5bc70cc61dd",
+    "revision": "b032e3ad01d4f541cd774c7ea5fd1c1b601cc18a"
   },
   {
     "name": "lightspeed-console-plugin-pf5",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:4866c666e4aec02d6e9e93f43845da602b4ea97626b8fc42edfe664d84c5c7af",
-    "revision": "63b0f49abc333336bb89195aaac1588646fda720"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:86ac43e54a7d121762265cfbb9b32d3b75226e75ef25abaff2adb22c1171f00a",
+    "revision": "61cc4d94a92e39887f1843b879d5ce74e3b0d1f8"
   },
   {
     "name": "lightspeed-console-plugin-4-19",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:3c06f883ef9c3251d0b23aa083eb21ccfa6cd7724667ca52725ed225d1026a26",
-    "revision": "5bc11f60ca03f9483b871c9ae6022204451f0301"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:aac1f5610a446155dc65693b6a005ac613791117844ea61e98539ff06788f756",
+    "revision": "3f191dfd5a7bae0124b41292dcfb72939cd47dc7"
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:f05274b329f44d050aa0e8ad7131c190c1ea80fe779c0883b7d55b80bf35e42b",
-    "revision": "31ba9d0b485316554a924b5ce632956f02b5335d"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ac846577ffa0001f6f40f7b4c6885b96f615eb9da48cdd13c91b4eb7dc6c78d1",
+    "revision": "f3dd08dd90c3b76414e5aaaf27e1952b6fb049fc"
   },
   {
     "name": "openshift-mcp-server",
