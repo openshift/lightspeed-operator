@@ -44,6 +44,16 @@
     "image": "registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b"
   },
   {
+    "name": "lightspeed-agentic-console",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:012eb7276d789d7a75bc1954672204c1253ad13f501c0b620cd8d2bd23da11d3",
+    "revision": "a874703fc985c76191b929a396531728069626b0"
+  },
+  {
+    "name": "lightspeed-agentic-sandbox",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox:ea2c8a5ed2f95708ae2e9e612bad9c7a5edf3528-linux-x86-64",
+    "revision": "ea2c8a5ed2f95708ae2e9e612bad9c7a5edf3528"
+  },
+  {
     "name": "lightspeed-operator-bundle",
     "image": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:cdc864002eaaa40409e894c75777eb549b647df8f7119963fffe56fb231847a9",
     "revision": "29945f3cff6f50b75ba7cdb11f88ece16fde16a0"

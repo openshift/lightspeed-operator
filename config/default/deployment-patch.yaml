@@ -24,6 +24,12 @@
 - op: add
   path: /spec/template/spec/containers/0/args/-
   value: --ocp-rag-image=__REPLACE_LIGHTSPEED_OCP_RAG__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --agentic-console-image=__REPLACE_LIGHTSPEED_AGENTIC_CONSOLE__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --agentic-sandbox-image=__REPLACE_LIGHTSPEED_AGENTIC_SANDBOX__
 - op: replace
   path: /spec/template/spec/containers/0/image
   value: __REPLACE_LIGHTSPEED_OPERATOR__

@@ -81,6 +81,9 @@ import (
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 
+	agenticv1alpha1 "github.com/openshift/lightspeed-agentic-operator/api/v1alpha1"
+	agenticcontroller "github.com/openshift/lightspeed-agentic-operator/controller"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/lightspeed-operator/internal/controller"
@@ -114,6 +117,7 @@ func init() {
 	utilruntime.Must(configv1.AddToScheme(scheme))
 
 	utilruntime.Must(olsv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(agenticv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -179,6 +183,8 @@ func main() {
 	var openshiftMCPServerImage string
 	var dataverseExporterImage string
 	var ocpRagImage string
+	var agenticConsoleImage string
+	var agenticSandboxImage string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -198,6 +204,8 @@ func main() {
 	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", utils.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
 	flag.StringVar(&dataverseExporterImage, "dataverse-exporter-image", utils.DataverseExporterImageDefault, "The image of the dataverse exporter container.")
 	flag.StringVar(&ocpRagImage, "ocp-rag-image", utils.OcpRagImageDefault, "The image with the OCP RAG databases.")
+	flag.StringVar(&agenticConsoleImage, "agentic-console-image", utils.AgenticConsoleImageDefault, "The image of the agentic console plugin container.")
+	flag.StringVar(&agenticSandboxImage, "agentic-sandbox-image", utils.AgenticSandboxImageDefault, "The image of the agentic sandbox container.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -431,6 +439,26 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OLSConfig")
 		os.Exit(1)
+	}
+	var agenticEnabled bool
+	{
+		olscfg := &olsv1alpha1.OLSConfig{}
+		if err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, olscfg); err == nil {
+			agenticEnabled = slices.Contains(olscfg.Spec.FeatureGates, olsv1alpha1.FeatureGate(utils.FeatureGateLightspeedAgents))
+		}
+	}
+	if agenticEnabled {
+		if err = agenticcontroller.Setup(mgr, agenticcontroller.Options{
+			Namespace:           namespace,
+			AgenticConsoleImage: agenticConsoleImage,
+			AgenticSandboxImage: agenticSandboxImage,
+		}); err != nil {
+			setupLog.Error(err, "unable to set up agentic controllers")
+			os.Exit(1)
+		}
+		setupLog.Info("Agentic controllers registered")
+	} else {
+		setupLog.Info("LightspeedAgents feature gate not enabled — skipping agentic controllers")
 	}
 	//+kubebuilder:scaffold:builder
 

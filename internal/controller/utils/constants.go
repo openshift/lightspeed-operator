@@ -96,6 +96,9 @@ const (
 	FeatureGateMCPServer = "MCPServer"
 	// FeatureGateToolFiltering is the feature gate flag activating tool filtering
 	FeatureGateToolFiltering = "ToolFiltering"
+	// FeatureGateLightspeedAgents is the feature gate flag activating the agentic stack
+	FeatureGateLightspeedAgents = "LightspeedAgents"
+
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
 	// LLMProviderHashKey is the key of the hash value of OLS LLM provider credentials consolidated
@@ -374,4 +377,6 @@ var (
 	OpenShiftMCPServerImageDefault = relatedimages.GetDefaultImage("openshift-mcp-server")
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
 	OcpRagImageDefault             = relatedimages.GetDefaultImage("lightspeed-ocp-rag")
+	AgenticConsoleImageDefault     = relatedimages.GetDefaultImage("lightspeed-agentic-console")
+	AgenticSandboxImageDefault     = relatedimages.GetDefaultImage("lightspeed-agentic-sandbox")
 )
