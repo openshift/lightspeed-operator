@@ -235,44 +235,6 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 		})
 	})
 
-	Describe("SetDeploymentContainerEnvs", func() {
-		It("should set environment variables when different", func() {
-			newEnvs := []corev1.EnvVar{
-				{Name: "ENV2", Value: "value2"},
-				{Name: "ENV3", Value: "value3"},
-			}
-			changed, err := SetDeploymentContainerEnvs(deployment, newEnvs, "app-container")
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(changed).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.Containers[0].Env).To(Equal(newEnvs))
-		})
-
-		It("should not update when envs are the same", func() {
-			existingEnvs := deployment.Spec.Template.Spec.Containers[0].Env
-			changed, err := SetDeploymentContainerEnvs(deployment, existingEnvs, "app-container")
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(changed).To(BeFalse())
-		})
-
-		It("should return error for non-existent container", func() {
-			envs := []corev1.EnvVar{{Name: "ENV1", Value: "value1"}}
-			_, err := SetDeploymentContainerEnvs(deployment, envs, "non-existent")
-
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("container non-existent not found"))
-		})
-
-		It("should handle empty env vars", func() {
-			changed, err := SetDeploymentContainerEnvs(deployment, []corev1.EnvVar{}, "app-container")
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(changed).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.Containers[0].Env).To(BeEmpty())
-		})
-	})
-
 	Describe("DeploymentSpecEqual - Resources", func() {
 		It("should detect when resources are different", func() {
 			desiredDeployment := deployment.DeepCopy()
@@ -294,59 +256,6 @@ var _ = Describe("Deployment Manipulation Functions", func() {
 			equal := DeploymentSpecEqual(&deployment.Spec, &desiredDeployment.Spec, true)
 
 			Expect(equal).To(BeTrue())
-		})
-	})
-
-	Describe("SetDeploymentContainerVolumeMounts", func() {
-		It("should set volume mounts when different", func() {
-			newMounts := []corev1.VolumeMount{
-				{Name: "vol2", MountPath: "/config"},
-			}
-			changed, err := SetDeploymentContainerVolumeMounts(deployment, "app-container", newMounts)
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(changed).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(Equal(newMounts))
-		})
-
-		It("should not update when volume mounts are the same", func() {
-			existingMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-			changed, err := SetDeploymentContainerVolumeMounts(deployment, "app-container", existingMounts)
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(changed).To(BeFalse())
-		})
-
-		It("should return error for non-existent container", func() {
-			mounts := []corev1.VolumeMount{{Name: "vol1", MountPath: "/data"}}
-			_, err := SetDeploymentContainerVolumeMounts(deployment, "non-existent", mounts)
-
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("container non-existent not found"))
-		})
-	})
-
-	Describe("GetContainerIndex", func() {
-		It("should return correct index for existing container", func() {
-			index, err := GetContainerIndex(deployment, "app-container")
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(index).To(Equal(0))
-		})
-
-		It("should return correct index for second container", func() {
-			index, err := GetContainerIndex(deployment, "sidecar-container")
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(index).To(Equal(1))
-		})
-
-		It("should return error for non-existent container", func() {
-			_, err := GetContainerIndex(deployment, "non-existent")
-
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("container non-existent not found"))
-			Expect(err.Error()).To(ContainSubstring("test-deployment"))
 		})
 	})
 

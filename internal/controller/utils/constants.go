@@ -120,8 +120,6 @@ const (
 	// Annotation key for serving certificate secret name
 	// #nosec G101
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
-	// LlamaStackGenericType is the provider type for Llama Stack Generic mode
-	LlamaStackGenericType = "llamaStackGeneric"
 	// DefaultCredentialKey is the default secret key name for provider credentials
 	DefaultCredentialKey = "apitoken"
 	// AzureOpenAIType is the name of the Azure OpenAI provider type
@@ -230,31 +228,17 @@ const (
 	// PostgresDefaultSSLMode is the default ssl mode for postgres
 	PostgresDefaultSSLMode = "require"
 	// PostgresBootStrapScriptContent is the postgres's bootstrap script content
-	// NOTE: Database name must match LlamaStackDatabaseName constant (hardcoded by llama-stack)
 	PostgresBootStrapScriptContent = `
 #!/bin/bash
 
 cat /var/lib/pgsql/data/userdata/postgresql.conf
 
-echo "attempting to create llama-stack database and pg_trgm extension if they do not exist"
+echo "attempting to create extensions and schemas if they do not exist"
 
 _psql () { psql --set ON_ERROR_STOP=1 "$@" ; }
 
-# Create database for llama-stack conversation storage
-# Database name is hardcoded by llama-stack internally (value from LlamaStackDatabaseName: ` + LlamaStackDatabaseName + `)
-DB_NAME="` + LlamaStackDatabaseName + `"
-
-echo "SELECT 'CREATE DATABASE $DB_NAME' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DB_NAME')\gexec" | _psql -d $POSTGRESQL_DATABASE
-
 # Create pg_trgm extension in default database (for OLS conversation cache)
 echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $POSTGRESQL_DATABASE
-
-# Create pg_trgm extension in llama-stack database (for text search if needed)
-echo "CREATE EXTENSION IF NOT EXISTS pg_trgm;" | _psql -d $DB_NAME
-
-# Create schemas for isolating different components' data
-# lcore schema: main lightspeed-stack data (general database operations)
-echo "CREATE SCHEMA IF NOT EXISTS lcore;" | _psql -d $POSTGRESQL_DATABASE
 
 # quota schema: token quota tracking and limits
 echo "CREATE SCHEMA IF NOT EXISTS quota;" | _psql -d $POSTGRESQL_DATABASE
@@ -346,8 +330,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	ExporterConfigFilename = "config.yaml"
 	// OLSUserDataMountPath is the path where user data is mounted in the app server container
 	OLSUserDataMountPath = "/app-root/ols-user-data"
-	// LCoreUserDataMountPath is the path where user data is mounted in the lcore container
-	LCoreUserDataMountPath = "/tmp/data"
 	// ServiceIDOLS is the service ID used by the data exporter
 	ServiceIDOLS = "ols"
 	// RHOSOLightspeedOwnerIDLabel is the label used to identify RHOSO Lightspeed deployment
@@ -366,56 +348,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	PostgresContainerName = "lightspeed-postgres-server"
 	// OpenShiftMCPServerContainerName is the name of the OpenShift MCP server container
 	OpenShiftMCPServerContainerName = "openshift-mcp-server"
-
-	/*** LCore specific Settings ***/
-	// LlamaStackConfigCmName name for the Llama stack config map
-	LlamaStackConfigCmName = "llama-stack-config"
-	// LCoreConfigCmName name for the LCore config map
-	LCoreConfigCmName = "lightspeed-stack-config"
-	// LlamaStackImageDefault default image for Llama Stack
-	LlamaStackImageDefault = "quay.io/lightspeed-core/lightspeed-stack:dev-20260125-5f817cd"
-	// LlamaStackConfigHashKey is the key of the hash value of the Llama Stack configmap
-	LlamaStackConfigHashKey = "hash/llamastackconfig"
-	// LCoreDeploymentName is the name of the LCore deployment (used for testing)
-	LCoreDeploymentName = "lightspeed-stack-deployment"
-	// LCoreAppLabel is the app label for LCore resources (used for testing)
-	LCoreAppLabel = "lightspeed-stack"
-	// LlamaStackContainerName is the name of the Llama Stack container (used for testing)
-	LlamaStackContainerName = "llama-stack"
-	// LCoreContainerName is the name of the LCore container (used for testing)
-	LCoreContainerName = "lightspeed-stack"
-	// LlamaStackContainerPort is the port for the Llama Stack container (used for testing)
-	LlamaStackContainerPort = 8321
-	// LlamaCacheVolumeName is the name of the Llama cache volume (used for testing)
-	LlamaCacheVolumeName = "llama-cache"
-	// LlamaStackConfigFilename is the filename for Llama Stack config (used for testing)
-	LlamaStackConfigFilename = "run.yaml"
-	// LCoreConfigFilename is the filename for LCore config (used for testing)
-	LCoreConfigFilename = "lightspeed-stack.yaml"
-	// LlamaStackConfigMountPath is the mount path for Llama Stack config file
-	LlamaStackConfigMountPath = "/app-root/run.yaml"
-	// LCoreConfigMountPath is the mount path for LCore config file
-	LCoreConfigMountPath = "/app-root/lightspeed-stack.yaml"
-	// KubeRootCAMountPath is the mount path for kube-root-ca.crt (used for testing)
-	KubeRootCAMountPath = "/etc/pki/ca-trust/extracted/pem"
-	// AdditionalCAMountPath is the mount path for additional CA certificates (used for testing)
-	AdditionalCAMountPath = "/etc/pki/ca-trust/source/anchors"
-	// LlamaStackHealthPath is the health check path for Llama Stack (used for testing)
-	LlamaStackHealthPath = "/v1/health"
 	// OLSConfigMapResourceVersionAnnotation is the annotation key for tracking OLS ConfigMap ResourceVersion
 	OLSConfigMapResourceVersionAnnotation = "ols.openshift.io/olsconfig-configmap-version"
-	// LlamaStackConfigMapResourceVersionAnnotation is the annotation key for tracking Llama Stack ConfigMap ResourceVersion
-	LlamaStackConfigMapResourceVersionAnnotation = "ols.openshift.io/llamastack-configmap-version"
-	// LCoreConfigMapResourceVersionAnnotation is the annotation key for tracking LCore ConfigMap ResourceVersion
-	LCoreConfigMapResourceVersionAnnotation = "ols.openshift.io/lcore-configmap-version"
 	// OpenShiftMCPServerConfigMapResourceVersionAnnotation is the annotation key for tracking MCP Server ConfigMap ResourceVersion
 	OpenShiftMCPServerConfigMapResourceVersionAnnotation = "ols.openshift.io/mcp-server-configmap-version"
-	// LlamaStackDatabaseName is the PostgreSQL database name for llama-stack conversation storage.
-	// CRITICAL: This value is HARDCODED in llama-stack's internal PostgreSQL adapter.
-	// DO NOT CHANGE THIS VALUE UNDER ANY CIRCUMSTANCES - llama-stack expects exactly "llamastack".
-	// Changing this will break llama-stack's database connectivity.
-	// This database is created in PostgresBootStrapScriptContent.
-	LlamaStackDatabaseName = "llamastack"
 
 	/*** Environment Variable Suffixes ***/
 	// EnvVarSuffixAPIKey is the environment variable suffix for API key credentials

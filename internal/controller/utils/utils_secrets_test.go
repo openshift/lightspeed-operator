@@ -81,47 +81,6 @@ var _ = Describe("Secret Functions", func() {
 		})
 	})
 
-	Describe("GetAllSecretContent", func() {
-		It("should retrieve all fields from secret", func() {
-			foundSecret := &corev1.Secret{}
-
-			result, err := GetAllSecretContent(testClient, ctx, "test-secret-utils", OLSNamespaceDefault, foundSecret)
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(HaveLen(3))
-			Expect(result["username"]).To(Equal("admin"))
-			Expect(result["password"]).To(Equal("secret123"))
-			Expect(result["apitoken"]).To(Equal("token456"))
-		})
-
-		It("should return error for non-existent secret", func() {
-			foundSecret := &corev1.Secret{}
-
-			_, err := GetAllSecretContent(testClient, ctx, "non-existent", OLSNamespaceDefault, foundSecret)
-
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("secret not found"))
-		})
-
-		It("should handle empty secret", func() {
-			emptySecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "empty-secret",
-					Namespace: OLSNamespaceDefault,
-				},
-				Data: map[string][]byte{},
-			}
-			Expect(testClient.Create(ctx, emptySecret)).To(Succeed())
-			defer testClient.Delete(ctx, emptySecret)
-
-			foundSecret := &corev1.Secret{}
-			result, err := GetAllSecretContent(testClient, ctx, "empty-secret", OLSNamespaceDefault, foundSecret)
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeEmpty())
-		})
-	})
-
 	Describe("AnnotateSecretWatcher", func() {
 		It("should add watcher annotation to secret with nil annotations", func() {
 			secret := &corev1.Secret{

@@ -50,7 +50,7 @@ func loadImages() map[string]string {
 			filePath = filepath.Join(root, "related_images.json")
 		}
 
-		data, err := os.ReadFile(filePath)
+		data, err := os.ReadFile(filePath) //nolint:gosec // G304: RELATED_IMAGES_FILE or module-root related_images.json
 		if err != nil {
 			return
 		}

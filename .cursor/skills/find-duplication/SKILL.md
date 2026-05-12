@@ -93,7 +93,7 @@ For each duplicate found, classify:
 |----------|--------|
 | **Extract** — identical logic in 3+ places | Recommend a shared helper in utils |
 | **Parameterize** — same structure, different values | Recommend a common function with parameters |
-| **Acceptable** — similar but serving different domains (app server vs lcore) | Note it, no action needed |
+| **Acceptable** — similar but serving different domains (e.g. appserver vs postgres) | Note it, no action needed |
 | **Boilerplate** — kubebuilder/controller-runtime patterns | Skip, this is framework convention |
 | **Test-only** — repeated test setup/fixtures | Recommend shared test fixture (only if user asked) |
 

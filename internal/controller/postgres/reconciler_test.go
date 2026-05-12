@@ -49,7 +49,19 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Creating default StorageClass")
-			sc = utils.BuildDefaultStorageClass()
+			trueVal := true
+			immediate := storagev1.VolumeBindingImmediate
+			sc = &storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "standard",
+					Annotations: map[string]string{
+						"storageclass.kubernetes.io/is-default-class": "true",
+					},
+				},
+				Provisioner:          "kubernetes.io/no-provisioner",
+				AllowVolumeExpansion: &trueVal,
+				VolumeBindingMode:    &immediate,
+			}
 			storageClassCreationErr := testReconcilerInstance.Create(ctx, sc)
 			Expect(storageClassCreationErr).NotTo(HaveOccurred())
 

@@ -363,7 +363,7 @@ func UpdateRapidastConfig(hostURL, token string) error {
 	newContent := strings.ReplaceAll(string(configContent), "$HOST", hostURL)
 	newContent = strings.ReplaceAll(newContent, "$BEARER_TOKEN", token)
 
-	err = os.WriteFile("../../ols-rapidast-config-updated.yaml", []byte(newContent), 0644)
+	err = os.WriteFile("../../ols-rapidast-config-updated.yaml", []byte(newContent), 0600) //nolint:gosec // test artifact path
 	if err != nil {
 		return fmt.Errorf("error writing config file: %w", err)
 	}
@@ -436,13 +436,13 @@ func WriteResourceToFile(client *Client, clusterDir string, filename string, res
 	ctx, cancel := context.WithCancel(client.ctx)
 	defer cancel()
 	// Create file and file handler
-	f, err := os.OpenFile(clusterDir+"/"+filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(clusterDir+"/"+filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600) //nolint:gosec // test artifact dir
 	if err != nil {
 		return fmt.Errorf("failed to create %s: %w", filename, err)
 	}
 	defer func() { _ = f.Close() }()
 	// Execute command and write output to file
-	cmd, err := exec.CommandContext(ctx, "oc", "get", resource, "-n", OLSNameSpace, "--kubeconfig", client.kubeconfigPath, "-o", "yaml").Output()
+	cmd, err := exec.CommandContext(ctx, "oc", "get", resource, "-n", OLSNameSpace, "--kubeconfig", client.kubeconfigPath, "-o", "yaml").Output() //nolint:gosec // test helper: oc get
 	if err != nil {
 		return fmt.Errorf("failed to write to %s: %w", filename, err)
 	}
@@ -456,19 +456,19 @@ func WriteLogsToFile(client *Client, clusterDir string) error {
 	// Create file and file handler
 
 	// Execute command and write output to file
-	pod_names, err := exec.CommandContext(ctx, "oc", "get", "pods", "-o", "name", "--no-headers", "-n", OLSNameSpace, "--kubeconfig", client.kubeconfigPath).Output()
+	pod_names, err := exec.CommandContext(ctx, "oc", "get", "pods", "-o", "name", "--no-headers", "-n", OLSNameSpace, "--kubeconfig", client.kubeconfigPath).Output() //nolint:gosec // test helper: oc get pods
 	if err != nil {
 		fmt.Printf("failed to get pods: %s \n", err)
 	}
 	pods := strings.Split(string(pod_names), "\n")
 	for _, SinglePod := range pods {
 		if SinglePod != "" {
-			f, err := os.OpenFile(clusterDir+"/"+SinglePod+".txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			f, err := os.OpenFile(clusterDir+"/"+SinglePod+".txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600) //nolint:gosec // test artifact path
 			if err != nil {
 				return fmt.Errorf("failed to create %s: %w", SinglePod, err)
 			}
 			defer func() { _ = f.Close() }()
-			cmd, err := exec.CommandContext(ctx, "oc", "logs", "-n", OLSNameSpace, SinglePod, "--kubeconfig", client.kubeconfigPath).Output()
+			cmd, err := exec.CommandContext(ctx, "oc", "logs", "-n", OLSNameSpace, SinglePod, "--kubeconfig", client.kubeconfigPath).Output() //nolint:gosec // test helper: oc logs
 			if err != nil {
 				fmt.Printf("failed to get logs: %s \n", err)
 			}
@@ -482,7 +482,7 @@ func WriteLogsToFile(client *Client, clusterDir string) error {
 
 // QueryPostgresDB executes a SQL query in the postgres pod and returns the output.
 func QueryPostgresDB(c *Client, podName, sqlQuery string) (string, error) {
-	cmd := exec.CommandContext(
+	cmd := exec.CommandContext( //nolint:gosec // test helper: oc exec psql
 		context.TODO(),
 		"oc",
 		"--kubeconfig", c.kubeconfigPath,
@@ -548,11 +548,11 @@ func mustGather(test_case string) error {
 	}
 	llmProvider := os.Getenv(LLMProviderEnvVar)
 	clusterDir := artifact_dir + "/" + llmProvider + "/" + test_case
-	err = os.MkdirAll(clusterDir, os.ModePerm)
+	err = os.MkdirAll(clusterDir, 0750) //nolint:gosec // test artifact dir from env
 	if err != nil {
 		return fmt.Errorf("failed to create folder %w", err)
 	}
-	err = os.MkdirAll(clusterDir+"/pod", os.ModePerm)
+	err = os.MkdirAll(clusterDir+"/pod", 0750) //nolint:gosec // test artifact dir from env
 	if err != nil {
 		return fmt.Errorf("failed to create folder %w", err)
 	}

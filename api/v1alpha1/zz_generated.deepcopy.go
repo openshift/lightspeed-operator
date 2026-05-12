@@ -116,7 +116,6 @@ func (in *DeploymentConfig) DeepCopyInto(out *DeploymentConfig) {
 	in.APIContainer.DeepCopyInto(&out.APIContainer)
 	in.DataCollectorContainer.DeepCopyInto(&out.DataCollectorContainer)
 	in.MCPServerContainer.DeepCopyInto(&out.MCPServerContainer)
-	in.LlamaStackContainer.DeepCopyInto(&out.LlamaStackContainer)
 	in.ConsoleContainer.DeepCopyInto(&out.ConsoleContainer)
 	in.DatabaseContainer.DeepCopyInto(&out.DatabaseContainer)
 }
@@ -529,10 +528,6 @@ func (in *ProviderSpec) DeepCopyInto(out *ProviderSpec) {
 	}
 	if in.TLSSecurityProfile != nil {
 		in, out := &in.TLSSecurityProfile, &out.TLSSecurityProfile
-		*out = (*in).DeepCopy()
-	}
-	if in.Config != nil {
-		in, out := &in.Config, &out.Config
 		*out = (*in).DeepCopy()
 	}
 }

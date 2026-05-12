@@ -43,7 +43,7 @@ OLSConfigReconciler.Reconcile() →
 ├── reconcileLLMSecrets()
 ├── reconcileConsoleUI()
 ├── reconcilePostgresServer()
-└── reconcileAppServer() OR reconcileLCore()  [MUTUALLY EXCLUSIVE via --enable-lcore flag]
+└── reconcileAppServer() (application server via `appserver` package)
     └── [12+ sub-tasks via ReconcileTask pattern]
 ```
 
@@ -73,8 +73,7 @@ make test-e2e   # E2E tests (requires cluster)
 
 ### Controllers
 - `internal/controller/olsconfig_controller.go` - Main reconciler with finalizer logic
-- `internal/controller/appserver/` - App server (LEGACY)
-- `internal/controller/lcore/` - Lightspeed Core (NEW)
+- `internal/controller/appserver/` - App server
 - `internal/controller/postgres/` - PostgreSQL
 - `internal/controller/console/` - Console UI
 - `internal/controller/watchers/` - External resource watching
@@ -83,8 +82,10 @@ make test-e2e   # E2E tests (requires cluster)
 
 ### Tests
 - `*_test.go` - Unit tests (co-located)
-- `test/e2e/` - E2E tests
-- `internal/controller/utils/testing.go` - Test utilities
+- `test/e2e/` - E2E tests (shared helpers in `assets.go`, `utils.go`, `client.go`, and related files)
+- `internal/controller/utils/test_fixtures.go` - Shared controller **unit-test** fixtures (default `OLSConfig` CR, random secret/configmap/TLS helpers, telemetry pull-secret create/delete, shared `With*` provider mutators). Add here when the same shape is reused across tests or packages.
+- For **one-off** CR or spec fragments used only in one file, **inline** next to the test (or use a file-local unexported helper in that `*_test.go`) instead of `test_fixtures.go`, so refactors do not leave unused exported helpers.
+- `internal/controller/utils/testing.go` - `TestReconciler`, `NewTestReconciler`, and `StatusHasCondition` for envtest-based suites
 - `internal/controller/suite_test.go` - Test suite setup, shared helpers
   - `cleanupOLSConfig()` - Reusable CR cleanup helper (removes finalizers, waits for deletion)
 
