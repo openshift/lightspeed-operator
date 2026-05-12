@@ -40,13 +40,13 @@ type OLSConfigSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Settings"
 	MCPServers []MCPServerConfig `json:"mcpServers,omitempty"`
 	// Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
-	// possible values: MCPServer, ToolFiltering
+	// possible values: MCPServer, ToolFiltering, LightspeedAgents
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Feature Gates"
 	FeatureGates []FeatureGate `json:"featureGates,omitempty"`
 }
 
-// +kubebuilder:validation:Enum=MCPServer;ToolFiltering
+// +kubebuilder:validation:Enum=MCPServer;ToolFiltering;LightspeedAgents
 type FeatureGate string
 
 // OLSConfigStatus defines the observed state of OLS deployment.

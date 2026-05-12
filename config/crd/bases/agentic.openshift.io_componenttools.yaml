@@ -1,0 +1,448 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: componenttools.agentic.openshift.io
+spec:
+  group: agentic.openshift.io
+  names:
+    kind: ComponentTools
+    listKind: ComponentToolsList
+    plural: componenttools
+    singular: componenttools
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.skills[0].image
+      name: Skills Image
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: "ComponentTools defines the domain-specific tools and configuration
+          that a\ncomponent owner (CVO, ACS, CMO, etc.) brings to the agentic platform.
+          It\nis owned by the component team and lives in their namespace alongside
+          any\nrequired secrets.\n\nComponentTools is referenced by Workflow steps
+          via componentTools. The\noperator combines it with a cluster-scoped Agent
+          (selected by tier) to\nproduce the full sandbox configuration at runtime.\n\nExample
+          — ACS security tools:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          ComponentTools\n\tmetadata:\n\t  name: acs-tools\n\t  namespace: stackrox\n\tspec:\n\t
+          \ skills:\n\t    - image: quay.io/stackrox/acs-skills:latest\n\t  mcpServers:\n\t
+          \   - name: acs-api\n\t      url: https://central.stackrox.svc:8443/v1\n\t
+          \     headers:\n\t        - name: Authorization\n\t          valueFrom:\n\t
+          \           type: Secret\n\t            secret:\n\t              name: acs-api-token\n\t
+          \ systemPrompt: |\n\t    You are an ACS security remediation agent. Analyze
+          violations\n\t    and propose fixes that address the security policy.\n\t
+          \ requiredSecrets:\n\t    - name: acs-api-token\n\t      description: \"ACS
+          Central API token for querying violations\"\n\t      mountAs: ACS_API_TOKEN"
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of ComponentTools.
+            properties:
+              mcpServers:
+                description: |-
+                  mcpServers defines external MCP (Model Context Protocol) servers the
+                  agent can connect to for additional tools and context beyond its
+                  built-in skills. Each server is identified by name and URL.
+                  Maximum 20 items.
+                items:
+                  description: "MCPServerConfig defines the configuration for an MCP
+                    (Model Context Protocol)\nserver that the agent can connect to
+                    for additional tools and context.\nMCP servers extend the agent's
+                    capabilities beyond its built-in skills.\n\nExample — connecting
+                    to an OpenShift MCP server with SA token auth:\n\n\tmcpServers:\n\t
+                    \ - name: openshift\n\t    url: https://mcp.openshift-lightspeed.svc:8443/sse\n\t
+                    \   timeoutSeconds: 10\n\t    headers:\n\t      - name: Authorization\n\t
+                    \       valueFrom:\n\t          type: Kubernetes\n\nExample —
+                    connecting to an external API with secret-based auth:\n\n\tmcpServers:\n\t
+                    \ - name: pagerduty\n\t    url: https://mcp-pagerduty.example.com/sse\n\t
+                    \   headers:\n\t      - name: X-API-Key\n\t        valueFrom:\n\t
+                    \         type: Secret\n\t          secret:\n\t            name:
+                    pagerduty-api-key"
+                  properties:
+                    headers:
+                      description: headers to send to the MCP server. Maximum 20 items.
+                      items:
+                        description: |-
+                          MCPHeader defines an HTTP header to send with every request to an
+                          MCP server. Used for authentication and routing.
+                        properties:
+                          name:
+                            description: |-
+                              name of the header (e.g., "Authorization", "X-API-Key").
+                              Must be at least 1 character, containing only letters, digits, and hyphens.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                            x-kubernetes-validations:
+                            - message: name must start with a letter and contain only
+                                letters, digits, and hyphens
+                              rule: self.matches('^[A-Za-z][A-Za-z0-9-]*$')
+                          valueFrom:
+                            description: valueFrom is the source of the header value.
+                            properties:
+                              secret:
+                                description: |-
+                                  secret references a Secret containing the header value.
+                                  Required when type is "Secret".
+                                properties:
+                                  name:
+                                    description: name of the Secret.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              type:
+                                description: |-
+                                  type specifies the source type for the header value. Allowed values:
+                                    - "Secret"     — reads the value from a Kubernetes Secret (use for
+                                      API keys and tokens). Requires the secret field to be set.
+                                    - "Kubernetes" — auto-injects a Kubernetes service account token
+                                      (for MCP servers that accept K8s auth).
+                                    - "Client"     — the value is provided by the calling client at
+                                      runtime (e.g., forwarded from a user session).
+                                enum:
+                                - Secret
+                                - Kubernetes
+                                - Client
+                                type: string
+                            required:
+                            - type
+                            type: object
+                            x-kubernetes-validations:
+                            - message: secret is required when type is 'Secret'
+                              rule: 'self.type == ''Secret'' ? has(self.secret) :
+                                true'
+                            - message: secret must not be set when type is 'Kubernetes'
+                                or 'Client'
+                              rule: 'self.type != ''Secret'' ? !has(self.secret) :
+                                true'
+                        required:
+                        - name
+                        - valueFrom
+                        type: object
+                      maxItems: 20
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
+                    name:
+                      description: name of the MCP server. Must be 1-253 characters.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    timeoutSeconds:
+                      default: 5
+                      description: |-
+                        timeoutSeconds is the timeout for the MCP server in seconds, default is 5.
+                        Valid range: 1-300.
+                      format: int32
+                      maximum: 300
+                      minimum: 1
+                      type: integer
+                    url:
+                      description: |-
+                        url of the MCP server (HTTP/HTTPS). Must be an HTTP or HTTPS URL,
+                        maximum 2048 characters.
+                      maxLength: 2048
+                      minLength: 1
+                      type: string
+                      x-kubernetes-validations:
+                      - message: url must be a valid HTTP or HTTPS URL
+                        rule: isURL(self) && url(self).getScheme() in ['http', 'https']
+                  required:
+                  - name
+                  - url
+                  type: object
+                maxItems: 20
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              outputSchema:
+                description: |-
+                  outputSchema is a JSON Schema object that defines additional structured
+                  output fields beyond the base schema that every agent produces (diagnosis,
+                  proposal, RBAC, verification plan). The operator merges this schema into
+                  the base output schema sent to the agent. Use this to request
+                  domain-specific structured data from the agent (e.g., an ACS adapter
+                  might add a "violationId" string field).
+                x-kubernetes-preserve-unknown-fields: true
+              requiredSecrets:
+                description: |-
+                  requiredSecrets declares Kubernetes Secrets that the sandbox pod needs
+                  at runtime. The component owner defines what secrets are needed; the
+                  cluster admin or customer creates the actual Secrets in the same
+                  namespace as this ComponentTools resource.
+                  Maximum 20 items.
+                items:
+                  description: |-
+                    SecretRequirement declares a Kubernetes Secret that the sandbox needs
+                    at runtime. The component owner defines what secrets are needed; the
+                    cluster admin or customer creates the actual Secret in the same namespace.
+                  properties:
+                    description:
+                      description: |-
+                        description explains what this secret is used for, helping the
+                        cluster admin understand what credentials to provide.
+                      maxLength: 1024
+                      minLength: 1
+                      type: string
+                    mountAs:
+                      description: |-
+                        mountAs specifies how the secret is exposed in the sandbox pod.
+                        Use an environment variable name (e.g., "GITHUB_TOKEN") to inject
+                        as an env var, or a file path (e.g., "/etc/secrets/token") to
+                        mount as a file.
+                      maxLength: 512
+                      minLength: 1
+                      type: string
+                    name:
+                      description: name of the Secret (must exist in the same namespace
+                        as the ComponentTools).
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                  required:
+                  - mountAs
+                  - name
+                  type: object
+                maxItems: 20
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              skills:
+                description: |-
+                  skills defines one or more OCI images containing skills to mount
+                  in the agent's sandbox pod. Each entry specifies an image and optionally
+                  which paths within that image to mount. The operator creates Kubernetes
+                  image volumes (requires K8s 1.34+) and mounts them into the agent's
+                  skills directory. Requires 1-20 items.
+
+                  Multiple entries allow composing skills from different images:
+
+                    skills:
+                      - image: registry.ci.openshift.org/ocp/5.0:agentic-skills
+                        paths:
+                          - /skills/prometheus
+                          - /skills/cluster-update/update-advisor
+                      - image: quay.io/my-org/custom-skills:latest
+                items:
+                  description: "SkillsSource defines an OCI image containing skills
+                    and optionally which\npaths within that image to mount. Skills
+                    are mounted as Kubernetes image\nvolumes in the agent's sandbox
+                    pod.\n\nWhen paths is omitted, the entire image is mounted. When
+                    paths is specified,\nonly those directories are mounted (each
+                    as a separate subPath volumeMount),\nallowing selective composition
+                    of skills from large shared images.\n\nExample — mount all skills
+                    from a custom image:\n\n\tskills:\n\t  - image: quay.io/my-org/my-skills:latest\n\nExample
+                    — selectively mount two skills from a shared image:\n\n\tskills:\n\t
+                    \ - image: registry.ci.openshift.org/ocp/5.0:agentic-skills\n\t
+                    \   paths:\n\t      - /skills/prometheus\n\t      - /skills/cluster-update/update-advisor"
+                  properties:
+                    image:
+                      description: |-
+                        image is the OCI image reference containing skills.
+                        The operator mounts this as a Kubernetes image volume (requires K8s 1.34+).
+                        Must be a valid OCI image pullspec: a domain, followed by a repository path,
+                        ending with either a tag (:tag) or a digest (@algorithm:hex).
+                        Must be 1-512 characters.
+                      maxLength: 512
+                      minLength: 1
+                      type: string
+                      x-kubernetes-validations:
+                      - message: must start with a valid domain. valid domains must
+                          be alphanumeric characters (lowercase and uppercase) separated
+                          by the '.' character.
+                        rule: self.matches('^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])((\\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+)?(:[0-9]+)?\\b')
+                      - message: a valid name is required. valid names must contain
+                          lowercase alphanumeric characters separated only by the
+                          '.', '_', '__', '-' characters.
+                        rule: self.find('(/[a-z0-9]+((([._]|__|[-]*)[a-z0-9]+)+)?((/[a-z0-9]+((([._]|__|[-]*)[a-z0-9]+)+)?)+)?)')
+                          != ''
+                      - message: must end with a digest or a tag
+                        rule: self.find('(@.*:)') != '' || self.find(':.*$') != ''
+                      - message: tag must not be more than 127 characters
+                        rule: 'self.find(''(@.*:)'') == '''' ? (self.find('':.*$'')
+                          != '''' ? self.find('':.*$'').substring(1).size() <= 127
+                          : true) : true'
+                      - message: tag is invalid. valid tags must begin with a word
+                          character followed by word characters, '.', or '-'
+                        rule: 'self.find(''(@.*:)'') == '''' ? (self.find('':.*$'')
+                          != '''' ? self.find('':.*$'').matches('':[\\w][\\w.-]*$'')
+                          : true) : true'
+                      - message: digest algorithm is not valid. valid algorithms must
+                          start with an alpha character followed by alphanumeric characters
+                          and may contain '-', '_', '+', and '.' characters.
+                        rule: 'self.find(''(@.*:)'') != '''' ? self.find(''(@.*:)'').matches(''(@[A-Za-z][A-Za-z0-9]*([_+.][A-Za-z][A-Za-z0-9]*)*[:])'')
+                          : true'
+                      - message: digest must be at least 32 characters
+                        rule: 'self.find(''(@.*:)'') != '''' ? self.find('':.*$'').substring(1).size()
+                          >= 32 : true'
+                      - message: digest must only contain hex characters (A-F, a-f,
+                          0-9)
+                        rule: 'self.find(''(@.*:)'') != '''' ? self.find('':.*$'').matches('':[0-9A-Fa-f]*$'')
+                          : true'
+                    paths:
+                      description: |-
+                        paths restricts which directories from the image are mounted.
+                        Each path is mounted as a separate subPath volumeMount into the agent's
+                        skills directory. The last segment of each path becomes the mount name
+                        (e.g., "/skills/prometheus" mounts as "prometheus").
+
+                        Each path must be an absolute file path: starts with "/", no ".."
+                        or "." segments, no double slashes, no trailing slash, and only
+                        alphanumeric characters, hyphens, underscores, dots, and slashes.
+
+                        When omitted, the entire image is mounted as a single volume.
+                        Maximum 50 items.
+                      items:
+                        maxLength: 512
+                        minLength: 2
+                        type: string
+                      maxItems: 50
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: atomic
+                      x-kubernetes-validations:
+                      - message: each path must be 2-512 characters
+                        rule: self.all(p, p.size() >= 2 && p.size() <= 512)
+                      - message: each path must be absolute (start with '/')
+                        rule: self.all(p, p.startsWith('/'))
+                      - message: paths must not end with '/'
+                        rule: self.all(p, !p.endsWith('/'))
+                      - message: paths must not contain double slashes
+                        rule: self.all(p, !p.contains('//'))
+                      - message: paths must not contain '.' or '..' segments
+                        rule: self.all(p, !p.contains('/../') && !p.endsWith('/..')
+                          && !p.contains('/./') && !p.endsWith('/.'))
+                      - message: paths may only contain alphanumeric characters, '/',
+                          '_', '.', and '-'
+                        rule: self.all(p, p.matches('^[a-zA-Z0-9/_.-]+$'))
+                  required:
+                  - image
+                  type: object
+                maxItems: 20
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: atomic
+              systemPrompt:
+                description: |-
+                  systemPrompt is the system prompt text that shapes the agent's
+                  behavior for its role (analysis, execution, or verification).
+                  When omitted, the agent uses a default prompt appropriate for
+                  its workflow step. Maximum 32768 characters.
+                maxLength: 32768
+                minLength: 1
+                type: string
+            required:
+            - skills
+            type: object
+          status:
+            description: status defines the observed state of ComponentTools.
+            properties:
+              conditions:
+                description: |-
+                  conditions represent the latest available observations of the
+                  ComponentTools' state. The Ready condition summarizes whether all
+                  referenced resources (Secrets, OCI images) are present.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 8
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

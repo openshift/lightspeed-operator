@@ -1,0 +1,423 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: llmproviders.agentic.openshift.io
+spec:
+  group: agentic.openshift.io
+  names:
+    kind: LLMProvider
+    listKind: LLMProviderList
+    plural: llmproviders
+    singular: llmprovider
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.type
+      name: Type
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: "LLMProvider defines an LLM provider configuration. It is the
+          first link in\nthe CRD chain (LLMProvider -> Agent -> Workflow -> Proposal)
+          and is\nreferenced by Agent resources via spec.llmProvider.\n\nLLMProvider
+          is cluster-scoped — the cluster admin manages LLM infrastructure\ncentrally.
+          The operator uses the credentials to configure the LLM client\ninside agent
+          sandbox pods. The model is specified on the Agent CR, allowing\nmultiple
+          agents to share one LLMProvider with different models.\n\nTypically you
+          create one provider per backend (e.g., one for Vertex AI)\nand then reference
+          it from multiple Agent resources with different models.\n\nExample — a Vertex
+          AI provider (model specified on Agent, not here):\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          LLMProvider\n\tmetadata:\n\t  name: vertex-ai\n\tspec:\n\t  type: GoogleCloudVertex\n\t
+          \ googleCloudVertex:\n\t    credentialsSecret:\n\t      name: llm-credentials\n\t
+          \   projectID: my-gcp-project\n\t    region: us-central1"
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of LLMProvider.
+            properties:
+              anthropic:
+                description: |-
+                  anthropic contains Anthropic-specific configuration.
+                  Required when type is "Anthropic".
+                properties:
+                  credentialsSecret:
+                    description: |-
+                      credentialsSecret references a Secret in the operator namespace
+                      (openshift-lightspeed) containing the Anthropic API credentials.
+                      The Secret must contain the key ANTHROPIC_API_KEY.
+                    properties:
+                      name:
+                        description: name of the Secret. Must be a valid RFC 1123
+                          DNS subdomain.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                        x-kubernetes-validations:
+                        - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                            characters, hyphens, and dots'
+                          rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                    required:
+                    - name
+                    type: object
+                  url:
+                    description: |-
+                      url is an optional override for the Anthropic API endpoint.
+                      Only needed for custom deployments or API proxies.
+                      Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
+                      parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
+                    maxLength: 2048
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: must use http or https scheme
+                      rule: isURL(self) && url(self).getScheme() in ['http', 'https']
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
+                required:
+                - credentialsSecret
+                type: object
+              awsBedrock:
+                description: |-
+                  awsBedrock contains AWS Bedrock-specific configuration.
+                  Required when type is "AWSBedrock".
+                properties:
+                  credentialsSecret:
+                    description: |-
+                      credentialsSecret references a Secret in the operator namespace
+                      (openshift-lightspeed) containing AWS credentials. The Secret must
+                      contain the keys AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.
+                    properties:
+                      name:
+                        description: name of the Secret. Must be a valid RFC 1123
+                          DNS subdomain.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                        x-kubernetes-validations:
+                        - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                            characters, hyphens, and dots'
+                          rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                    required:
+                    - name
+                    type: object
+                  region:
+                    description: |-
+                      region is the AWS region for the Bedrock endpoint.
+                      Must begin with a lowercase letter and end with a lowercase
+                      alphanumeric character. May contain lowercase letters, digits,
+                      and hyphens (e.g., "us-east-1", "eu-west-2", "ap-southeast-1").
+                    maxLength: 63
+                    minLength: 2
+                    type: string
+                    x-kubernetes-validations:
+                    - message: region must contain only lowercase letters, digits,
+                        and hyphens, start with a letter, and not end with a hyphen
+                      rule: self.matches('^[a-z][a-z0-9-]*[a-z0-9]$')
+                  url:
+                    description: |-
+                      url is an optional override for the AWS Bedrock API endpoint.
+                      Only needed for custom deployments or API proxies.
+                      Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
+                      parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
+                    maxLength: 2048
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: must use http or https scheme
+                      rule: isURL(self) && url(self).getScheme() in ['http', 'https']
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
+                required:
+                - credentialsSecret
+                - region
+                type: object
+              azureOpenAI:
+                description: |-
+                  azureOpenAI contains Azure OpenAI Service-specific configuration.
+                  Required when type is "AzureOpenAI".
+                properties:
+                  apiVersion:
+                    description: |-
+                      apiVersion is the Azure OpenAI API version. Azure API versions use
+                      a date-based format: YYYY-MM-DD with an optional "-preview" suffix
+                      (e.g., "2024-02-01", "2024-08-01-preview").
+                      When omitted, the SDK default is used.
+                    maxLength: 32
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: apiVersion must be a date in YYYY-MM-DD format with
+                        an optional -preview suffix
+                      rule: self.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}(-preview)?$')
+                  credentialsSecret:
+                    description: |-
+                      credentialsSecret references a Secret in the operator namespace
+                      (openshift-lightspeed) containing the Azure OpenAI API credentials.
+                      The Secret must contain the key AZURE_OPENAI_API_KEY.
+                    properties:
+                      name:
+                        description: name of the Secret. Must be a valid RFC 1123
+                          DNS subdomain.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                        x-kubernetes-validations:
+                        - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                            characters, hyphens, and dots'
+                          rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                    required:
+                    - name
+                    type: object
+                  endpoint:
+                    description: |-
+                      endpoint is the Azure OpenAI resource endpoint
+                      (e.g., "https://my-resource.openai.azure.com").
+                      Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
+                      parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
+                    maxLength: 2048
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: must use http or https scheme
+                      rule: isURL(self) && url(self).getScheme() in ['http', 'https']
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
+                  url:
+                    description: |-
+                      url is an optional override for the Azure OpenAI API endpoint.
+                      Only needed for custom deployments or API proxies. This is separate
+                      from the required 'endpoint' field which identifies the Azure resource.
+                      Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
+                      parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
+                    maxLength: 2048
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: must use http or https scheme
+                      rule: isURL(self) && url(self).getScheme() in ['http', 'https']
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
+                required:
+                - credentialsSecret
+                - endpoint
+                type: object
+              googleCloudVertex:
+                description: |-
+                  googleCloudVertex contains Google Cloud Vertex AI-specific configuration.
+                  Required when type is "GoogleCloudVertex".
+                properties:
+                  credentialsSecret:
+                    description: |-
+                      credentialsSecret references a Secret in the operator namespace
+                      (openshift-lightspeed) containing a GCP service account JSON key.
+                      The Secret must contain the key GOOGLE_APPLICATION_CREDENTIALS.
+                    properties:
+                      name:
+                        description: name of the Secret. Must be a valid RFC 1123
+                          DNS subdomain.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                        x-kubernetes-validations:
+                        - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                            characters, hyphens, and dots'
+                          rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                    required:
+                    - name
+                    type: object
+                  projectID:
+                    description: |-
+                      projectID is the Google Cloud Project ID where Vertex AI is enabled.
+                      A Project ID is a globally unique identifier that must be 6 to 30
+                      characters in length, can only contain lowercase letters, digits, and
+                      hyphens, must start with a letter, and cannot end with a hyphen.
+                    maxLength: 30
+                    minLength: 6
+                    type: string
+                    x-kubernetes-validations:
+                    - message: projectID must start with a lowercase letter, contain
+                        only lowercase letters, digits, and hyphens, and cannot end
+                        with a hyphen
+                      rule: self.matches('^[a-z][a-z0-9-]*[a-z0-9]$')
+                  region:
+                    description: |-
+                      region is the GCP region for the Vertex AI endpoint.
+                      Must begin with a lowercase letter and end with a lowercase
+                      alphanumeric character. May contain lowercase letters, digits,
+                      and hyphens (e.g., "us-central1", "europe-west4", "asia-southeast1").
+                    maxLength: 63
+                    minLength: 2
+                    type: string
+                    x-kubernetes-validations:
+                    - message: region must contain only lowercase letters, digits,
+                        and hyphens, start with a letter, and not end with a hyphen
+                      rule: self.matches('^[a-z][a-z0-9-]*[a-z0-9]$')
+                  url:
+                    description: |-
+                      url is an optional override for the Vertex AI API endpoint.
+                      Only needed for custom deployments or API proxies.
+                      Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
+                      parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
+                    maxLength: 2048
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: must use http or https scheme
+                      rule: isURL(self) && url(self).getScheme() in ['http', 'https']
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
+                required:
+                - credentialsSecret
+                - projectID
+                - region
+                type: object
+              openAI:
+                description: |-
+                  openAI contains OpenAI-specific configuration.
+                  Required when type is "OpenAI".
+                properties:
+                  credentialsSecret:
+                    description: |-
+                      credentialsSecret references a Secret in the operator namespace
+                      (openshift-lightspeed) containing the OpenAI API credentials.
+                      The Secret must contain the key OPENAI_API_KEY.
+                    properties:
+                      name:
+                        description: name of the Secret. Must be a valid RFC 1123
+                          DNS subdomain.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                        x-kubernetes-validations:
+                        - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                            characters, hyphens, and dots'
+                          rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                    required:
+                    - name
+                    type: object
+                  url:
+                    description: |-
+                      url is an optional override for the OpenAI API endpoint.
+                      Only needed for custom deployments or API proxies.
+                      Must be a valid HTTP or HTTPS URL with a hostname. Paths and query
+                      parameters are allowed. Fragments and userinfo are not permitted.
+                      Maximum 2048 characters.
+                    maxLength: 2048
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: must use http or https scheme
+                      rule: isURL(self) && url(self).getScheme() in ['http', 'https']
+                    - message: must include a hostname
+                      rule: isURL(self) && url(self).getHostname() != ''
+                    - message: userinfo is not allowed in URL
+                      rule: '!self.contains(''@'')'
+                    - message: fragments are not allowed in URL
+                      rule: '!self.contains(''#'')'
+                required:
+                - credentialsSecret
+                type: object
+              type:
+                description: |-
+                  type is a required field that configures which LLM provider backend
+                  should be used.
+
+                  Allowed values are Anthropic, GoogleCloudVertex, OpenAI, AzureOpenAI,
+                  and AWSBedrock.
+
+                  When set to Anthropic, agents referencing this provider will use the
+                  Anthropic API directly, and the 'anthropic' field must be configured.
+
+                  When set to GoogleCloudVertex, agents referencing this provider will
+                  use Google Cloud Vertex AI, and the 'googleCloudVertex' field must be
+                  configured.
+
+                  When set to OpenAI, agents referencing this provider will use an
+                  OpenAI-compatible API, and the 'openAI' field must be configured.
+
+                  When set to AzureOpenAI, agents referencing this provider will use
+                  the Azure OpenAI Service, and the 'azureOpenAI' field must be
+                  configured.
+
+                  When set to AWSBedrock, agents referencing this provider will use
+                  AWS Bedrock, and the 'awsBedrock' field must be configured.
+                enum:
+                - Anthropic
+                - GoogleCloudVertex
+                - OpenAI
+                - AzureOpenAI
+                - AWSBedrock
+                type: string
+            required:
+            - type
+            type: object
+            x-kubernetes-validations:
+            - message: anthropic is required when type is Anthropic, and forbidden
+                otherwise
+              rule: 'self.type == ''Anthropic'' ? has(self.anthropic) : !has(self.anthropic)'
+            - message: googleCloudVertex is required when type is GoogleCloudVertex,
+                and forbidden otherwise
+              rule: 'self.type == ''GoogleCloudVertex'' ? has(self.googleCloudVertex)
+                : !has(self.googleCloudVertex)'
+            - message: openAI is required when type is OpenAI, and forbidden otherwise
+              rule: 'self.type == ''OpenAI'' ? has(self.openAI) : !has(self.openAI)'
+            - message: azureOpenAI is required when type is AzureOpenAI, and forbidden
+                otherwise
+              rule: 'self.type == ''AzureOpenAI'' ? has(self.azureOpenAI) : !has(self.azureOpenAI)'
+            - message: awsBedrock is required when type is AWSBedrock, and forbidden
+                otherwise
+              rule: 'self.type == ''AWSBedrock'' ? has(self.awsBedrock) : !has(self.awsBedrock)'
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}

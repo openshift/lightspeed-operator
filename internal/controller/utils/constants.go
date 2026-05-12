@@ -96,6 +96,13 @@ const (
 	FeatureGateMCPServer = "MCPServer"
 	// FeatureGateToolFiltering is the feature gate flag activating tool filtering
 	FeatureGateToolFiltering = "ToolFiltering"
+	// FeatureGateLightspeedAgents is the feature gate flag activating the agentic stack
+	FeatureGateLightspeedAgents = "LightspeedAgents"
+
+	// AgenticConsoleImageDefault is the default image for the agentic console plugin
+	AgenticConsoleImageDefault = ""
+	// AgenticSandboxImageDefault is the default image for the agentic sandbox
+	AgenticSandboxImageDefault = ""
 	// OLSConfigHashKey is the key of the hash value of the OLSConfig configmap
 	OLSConfigHashKey = "hash/olsconfig"
 	// LLMProviderHashKey is the key of the hash value of OLS LLM provider credentials consolidated

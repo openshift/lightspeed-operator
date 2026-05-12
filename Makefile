@@ -64,7 +64,8 @@ OPERATOR_SDK_VERSION ?= v1.36.1
 IMG ?= $(IMAGE_TAG_BASE):$(VERSION)
 export IMG
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.27.1
+# lightspeed Agentic Operator uses >= 1.31 for CRD CEL rules (format.dns1123Subdomain).
+ENVTEST_K8S_VERSION = 1.35.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
