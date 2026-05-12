@@ -6,8 +6,8 @@
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:a6d59d2a2a63afb37d37ebee9e86c803c3a0bf5c1f2331bd4355d5bc70cc61dd",
-    "revision": "b032e3ad01d4f541cd774c7ea5fd1c1b601cc18a"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:c613e471cd3b77fb85dacb337b5b9c6b9fddd06563485b0189809690b142dd4f",
+    "revision": "0ad02258cb5d373ef320b8c4a41477ea02d5ec2b"
   },
   {
     "name": "lightspeed-console-plugin-pf5",
