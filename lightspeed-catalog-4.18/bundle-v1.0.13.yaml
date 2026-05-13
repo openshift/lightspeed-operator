@@ -1,5 +1,5 @@
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:e025ab7af45795e675b0503328327af2259f3462f009ea82dfd6925ae2b75760
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:e4cb255b92fe49f2ff2d4ad9d7a68f4ee869a2594fc552e1f710ed1422fb6be4
 name: lightspeed-operator.v1.0.13
 package: lightspeed-operator
 properties:
@@ -51,7 +51,7 @@ properties:
           ]
         capabilities: Seamless Upgrades
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2026-05-12T04:48:16Z"
+        createdAt: "2026-05-13T00:21:52Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -104,18 +104,10 @@ properties:
                 displayName: Azure OpenAI API Version
                 path: llm.providers[0].apiVersion
               - description: |-
-                  Arbitrary configuration for the provider (Llama Stack Generic mode only)
-                  This map is passed directly to Llama Stack provider configuration.
-                  Credentials are automatically injected as environment variable substitutions.
-                  Example: {"url": "https://...", "custom_field": "value"}
-                displayName: Llama Stack Provider Config
-                path: llm.providers[0].config
-              - description: |-
                   Secret key name for provider credentials (defaults to "apitoken" if not set).
                   Specifies which key inside credentialsSecretRef to read the credential value from.
-                  The credential value is always exposed to the container as env var {PROVIDER_NAME}_API_KEY
-                  (derived from the provider name, not this field), and referenced in the Llama Stack config
-                  YAML as ${env.PROVIDER_NAME_API_KEY}. This field only controls which secret data key is read.
+                  The credential value is exposed to the app server container as env var {PROVIDER_NAME}_API_KEY
+                  (derived from the provider name, not this field). This field only controls which secret data key is read.
                 displayName: Credential Key Name
                 path: llm.providers[0].credentialKey
               - description: Deployment name for Azure OpenAI provider
@@ -166,12 +158,6 @@ properties:
               - description: Watsonx Project ID
                 displayName: Watsonx Project ID
                 path: llm.providers[0].projectID
-              - description: |-
-                  Llama Stack Generic provider type for provider configuration (e.g., "remote::openai", "inline::sentence-transformers")
-                  When set, this provider uses Llama Stack Generic mode instead of legacy mode.
-                  Must follow pattern: (inline|remote)::<provider-name>
-                displayName: Llama Stack Provider Type
-                path: llm.providers[0].providerType
               - description: TLS Security Profile used by connection to provider
                 displayName: TLS Security Profile
                 path: llm.providers[0].tlsSecurityProfile
@@ -281,9 +267,6 @@ properties:
                 path: ols.deployment.database.replicas
                 x-descriptors:
                   - urn:alm:descriptor:com.tectonic.ui:podCount
-              - description: Llama Stack container settings.
-                displayName: Llama Stack Container
-                path: ols.deployment.llamaStack
               - description: MCP server container settings.
                 displayName: MCP Server Container
                 path: ols.deployment.mcpServer
@@ -524,21 +507,21 @@ relatedImages:
   - name: lightspeed-service-api
     image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:5287134ee84c4837e74db54a36f9abe71dcbd46d067b04d99bfaa972a4f149cd
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:c613e471cd3b77fb85dacb337b5b9c6b9fddd06563485b0189809690b142dd4f
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:ab79970d8604802b147bf64987777e2dfbe449664893d715df7ae1a16d75c3c1
   - name: lightspeed-console-plugin-pf5
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:86ac43e54a7d121762265cfbb9b32d3b75226e75ef25abaff2adb22c1171f00a
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:e39263a2934039d4ad9302b2602fae7f5fffcfc9ad97ed6b22e072ad0ddfb3ba
   - name: lightspeed-console-plugin-4-19
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:aac1f5610a446155dc65693b6a005ac613791117844ea61e98539ff06788f756
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:0f6de587f01f97681dc1b1acc8618bfb75262b40e9bb2b8f15a56fc8d92de729
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ac846577ffa0001f6f40f7b4c6885b96f615eb9da48cdd13c91b4eb7dc6c78d1
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:e617bbb5e4098c0a3e4e0ce626dce2ec02b127f7eec0f96326a4e7170783d3d5
   - name: openshift-mcp-server
     image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:a7860fe67549e33f6f5bc517934cc28cc512e212b1d37ae4ee58b96cffcc530a
   - name: lightspeed-to-dataverse-exporter
     image: registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:dc071421c925dbe55fd03765f7a2ede7140e9a4d49aa95c0b4d2435cbee95f0f
   - name: lightspeed-ocp-rag
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:d3c3352ba9da396b3eaac3825d2fcd72843eb06e745ec406905d19e9530b567b
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:a5109af1488b1c23babbe585abfe66d9631e933dd28aebd2a0d5620a8c415879
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:e025ab7af45795e675b0503328327af2259f3462f009ea82dfd6925ae2b75760
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:e4cb255b92fe49f2ff2d4ad9d7a68f4ee869a2594fc552e1f710ed1422fb6be4
 schema: olm.bundle
