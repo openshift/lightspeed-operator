@@ -28,6 +28,8 @@ var _ = Describe("App postgres server assets", func() {
 		volumeDefaultMode := utils.VolumeDefaultMode
 		Expect(dep.Name).To(Equal(utils.PostgresDeploymentName))
 		Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
+		Expect(dep.Spec.Strategy.Type).To(Equal(appsv1.RecreateDeploymentStrategyType))
+		Expect(dep.Spec.Strategy.RollingUpdate).To(BeNil())
 		Expect(dep.Spec.Template.Spec.ServiceAccountName).To(Equal(utils.PostgreServiceAccountName))
 		Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.PostgresServerImageDefault))
 		Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.PostgresContainerName))

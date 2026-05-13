@@ -247,6 +247,12 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 	// Apply pod-level scheduling constraints (replicas not configurable for postgres)
 	utils.ApplyPodDeploymentConfig(&deployment, cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer, false)
 
+	// Recreate is required when the data volume is RWO: RollingUpdate with maxSurge would start a
+	// second pod before the old one terminates, causing Multi-Attach / ContainerCreating deadlock.
+	deployment.Spec.Strategy = appsv1.DeploymentStrategy{
+		Type: appsv1.RecreateDeploymentStrategyType,
+	}
+
 	if err := controllerutil.SetControllerReference(cr, &deployment, r.GetScheme()); err != nil {
 		return nil, err
 	}
