@@ -1,5 +1,5 @@
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:398c73569584f1a02d4aa6fa623d18d891de51c4ec5de7078c607850116d85ba
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:965aaa0f91524c406cd3bb2088bcd908ad7e768443f7baab75fcef10ae1a394e
 name: lightspeed-operator.v1.0.13
 package: lightspeed-operator
 properties:
@@ -51,7 +51,7 @@ properties:
           ]
         capabilities: Seamless Upgrades
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2026-05-13T13:12:43Z"
+        createdAt: "2026-05-14T11:29:17Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -507,9 +507,9 @@ relatedImages:
   - name: lightspeed-service-api
     image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:5287134ee84c4837e74db54a36f9abe71dcbd46d067b04d99bfaa972a4f149cd
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:ab79970d8604802b147bf64987777e2dfbe449664893d715df7ae1a16d75c3c1
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:89df5cd4e72f8db4b13b67e4f5397b0dddb1415a9416d21de9cdd41858e7e0b2
   - name: lightspeed-console-plugin-pf5
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:2deba7b0245363044ce836d2c70b673da00d46791d11032d26d8e4bcf15f4026
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:33695543337defd5efd1d90cf38b0a6866a63d8a0a70e1d98f90782dbc4a5ea7
   - name: lightspeed-console-plugin-4-19
     image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:0f6de587f01f97681dc1b1acc8618bfb75262b40e9bb2b8f15a56fc8d92de729
   - name: lightspeed-operator
@@ -523,5 +523,5 @@ relatedImages:
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:398c73569584f1a02d4aa6fa623d18d891de51c4ec5de7078c607850116d85ba
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:965aaa0f91524c406cd3bb2088bcd908ad7e768443f7baab75fcef10ae1a394e
 schema: olm.bundle
