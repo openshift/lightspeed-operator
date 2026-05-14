@@ -1,5 +1,5 @@
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:4bd66ba989163edc48969f483760a717b702e1711ce2e343c554d0f2dd607305
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:398c73569584f1a02d4aa6fa623d18d891de51c4ec5de7078c607850116d85ba
 name: lightspeed-operator.v1.0.13
 package: lightspeed-operator
 properties:
@@ -51,7 +51,7 @@ properties:
           ]
         capabilities: Seamless Upgrades
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2026-05-13T08:27:45Z"
+        createdAt: "2026-05-13T13:12:43Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -523,5 +523,5 @@ relatedImages:
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:4bd66ba989163edc48969f483760a717b702e1711ce2e343c554d0f2dd607305
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:398c73569584f1a02d4aa6fa623d18d891de51c4ec5de7078c607850116d85ba
 schema: olm.bundle
