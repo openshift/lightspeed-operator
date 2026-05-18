@@ -117,6 +117,8 @@ E2E_GO_TAGS := exclude_graphdriver_btrfs,containers_image_openpgp
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook $(CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) crd paths="github.com/openshift/lightspeed-agentic-operator/api/v1alpha1/..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) crd paths="github.com/openshift/lightspeed-agentic-operator/controller/proposal/..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.

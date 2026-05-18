@@ -33,13 +33,13 @@ spec:
           agentic.openshift.io/v1alpha1\n\tkind: Proposal\n\tmetadata:\n\t  name:
           one-off-investigation\n\tspec:\n\t  request: \"Investigate why pod foo is
           crashlooping\"\n\t  targetNamespaces:\n\t    - lightspeed-demo\n\t  tools:\n\t
-          \   skills:\n\t      - image: registry.redhat.io/acs/acs-agentic-skills:latest\n\t
+          \   skills:\n\t      - image: registry.redhat.io/acs/acs-lightspeed-skills:latest\n\t
           \ analysis:\n\t    agent: smart\n\nExample — full remediation (analyze →
           execute → verify):\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
           Proposal\n\tmetadata:\n\t  name: fix-nginx-cve-2024-1234\n\t  namespace:
           stackrox\n\tspec:\n\t  request: \"Fix CVE-2024-1234 in nginx:1.21\"\n\t
           \ targetNamespaces:\n\t    - lightspeed-demo\n\t  tools:\n\t    skills:\n\t
-          \     - image: registry.redhat.io/acs/acs-agentic-skills:latest\n\t    requiredSecrets:\n\t
+          \     - image: registry.redhat.io/acs/acs-lightspeed-skills:latest\n\t    requiredSecrets:\n\t
           \     - name: acs-api-token\n\t        mountAs:\n\t          type: EnvVar\n\t
           \         envVar:\n\t            name: ACS_API_TOKEN\n\t  analysis:\n\t
           \   agent: smart\n\t  execution: {}\n\t  verification:\n\t    agent: fast"
@@ -234,8 +234,8 @@ spec:
                         items:
                           description: |-
                             SecretRequirement declares a Kubernetes Secret that the sandbox needs
-                            at runtime. The Secret must exist in the operator namespace (where
-                            sandbox pods run), not in the Proposal's namespace.
+                            at runtime. The cluster admin creates the actual Secret in the same
+                            namespace as the Proposal.
                           properties:
                             description:
                               description: |-
@@ -316,7 +316,7 @@ spec:
                                   : !has(self.filePath)'
                             name:
                               description: |-
-                                name of the Secret (must exist in the operator namespace).
+                                name of the Secret (must exist in the same namespace as the Proposal).
                                 Must be a valid RFC 1123 DNS subdomain.
                               maxLength: 253
                               minLength: 1
@@ -343,14 +343,17 @@ spec:
                           skills directory. Each image must be unique within the list.
                         items:
                           description: "SkillsSource defines an OCI image containing
-                            skills and which paths\nwithin that image to mount. Skills
-                            are mounted as Kubernetes image\nvolumes in the agent's
-                            sandbox pod.\n\nEach path is mounted as a separate subPath
-                            volumeMount, allowing\nselective composition of skills
-                            from shared images.\n\nExample — mount specific skills
-                            from the agentic-skills image:\n\n\tskills:\n\t  - image:
-                            registry.ci.openshift.org/ocp/5.0:agentic-skills\n\t    paths:\n\t
-                            \     - /skills/cluster-update/update-advisor"
+                            skills and optionally which\npaths within that image to
+                            mount. Skills are mounted as Kubernetes image\nvolumes
+                            in the agent's sandbox pod.\n\nWhen paths is omitted,
+                            the entire image is mounted. When paths is specified,\nonly
+                            those directories are mounted (each as a separate subPath
+                            volumeMount),\nallowing selective composition of skills
+                            from large shared images.\n\nExample — mount all skills
+                            from a custom image:\n\n\tskills:\n\t  - image: quay.io/my-org/my-skills:latest\n\nExample
+                            — selectively mount two skills from a shared image:\n\n\tskills:\n\t
+                            \ - image: registry.ci.openshift.org/ocp/5.0:agentic-skills\n\t
+                            \   paths:\n\t      - /skills/prometheus\n\t      - /skills/cluster-update/update-advisor"
                           properties:
                             image:
                               description: |-
@@ -400,7 +403,7 @@ spec:
                                   : true'
                             paths:
                               description: |-
-                                paths specifies which directories from the image are mounted.
+                                paths restricts which directories from the image are mounted.
                                 Each path is mounted as a separate subPath volumeMount into the agent's
                                 skills directory. The last segment of each path becomes the mount name
                                 (e.g., "/skills/prometheus" mounts as "prometheus").
@@ -409,6 +412,7 @@ spec:
                                 or "." segments, no double slashes, no trailing slash, and only
                                 alphanumeric characters, hyphens, underscores, dots, and slashes.
 
+                                When omitted, the entire image is mounted as a single volume.
                                 Maximum 50 items.
                               items:
                                 maxLength: 512
@@ -435,7 +439,6 @@ spec:
                                 rule: self.all(p, p.matches('^[a-zA-Z0-9/_.-]+$'))
                           required:
                           - image
-                          - paths
                           type: object
                         maxItems: 20
                         minItems: 1
@@ -651,8 +654,8 @@ spec:
                         items:
                           description: |-
                             SecretRequirement declares a Kubernetes Secret that the sandbox needs
-                            at runtime. The Secret must exist in the operator namespace (where
-                            sandbox pods run), not in the Proposal's namespace.
+                            at runtime. The cluster admin creates the actual Secret in the same
+                            namespace as the Proposal.
                           properties:
                             description:
                               description: |-
@@ -733,7 +736,7 @@ spec:
                                   : !has(self.filePath)'
                             name:
                               description: |-
-                                name of the Secret (must exist in the operator namespace).
+                                name of the Secret (must exist in the same namespace as the Proposal).
                                 Must be a valid RFC 1123 DNS subdomain.
                               maxLength: 253
                               minLength: 1
@@ -760,14 +763,17 @@ spec:
                           skills directory. Each image must be unique within the list.
                         items:
                           description: "SkillsSource defines an OCI image containing
-                            skills and which paths\nwithin that image to mount. Skills
-                            are mounted as Kubernetes image\nvolumes in the agent's
-                            sandbox pod.\n\nEach path is mounted as a separate subPath
-                            volumeMount, allowing\nselective composition of skills
-                            from shared images.\n\nExample — mount specific skills
-                            from the agentic-skills image:\n\n\tskills:\n\t  - image:
-                            registry.ci.openshift.org/ocp/5.0:agentic-skills\n\t    paths:\n\t
-                            \     - /skills/cluster-update/update-advisor"
+                            skills and optionally which\npaths within that image to
+                            mount. Skills are mounted as Kubernetes image\nvolumes
+                            in the agent's sandbox pod.\n\nWhen paths is omitted,
+                            the entire image is mounted. When paths is specified,\nonly
+                            those directories are mounted (each as a separate subPath
+                            volumeMount),\nallowing selective composition of skills
+                            from large shared images.\n\nExample — mount all skills
+                            from a custom image:\n\n\tskills:\n\t  - image: quay.io/my-org/my-skills:latest\n\nExample
+                            — selectively mount two skills from a shared image:\n\n\tskills:\n\t
+                            \ - image: registry.ci.openshift.org/ocp/5.0:agentic-skills\n\t
+                            \   paths:\n\t      - /skills/prometheus\n\t      - /skills/cluster-update/update-advisor"
                           properties:
                             image:
                               description: |-
@@ -817,7 +823,7 @@ spec:
                                   : true'
                             paths:
                               description: |-
-                                paths specifies which directories from the image are mounted.
+                                paths restricts which directories from the image are mounted.
                                 Each path is mounted as a separate subPath volumeMount into the agent's
                                 skills directory. The last segment of each path becomes the mount name
                                 (e.g., "/skills/prometheus" mounts as "prometheus").
@@ -826,6 +832,7 @@ spec:
                                 or "." segments, no double slashes, no trailing slash, and only
                                 alphanumeric characters, hyphens, underscores, dots, and slashes.
 
+                                When omitted, the entire image is mounted as a single volume.
                                 Maximum 50 items.
                               items:
                                 maxLength: 512
@@ -852,7 +859,6 @@ spec:
                                 rule: self.all(p, p.matches('^[a-zA-Z0-9/_.-]+$'))
                           required:
                           - image
-                          - paths
                           type: object
                         maxItems: 20
                         minItems: 1
@@ -1068,8 +1074,8 @@ spec:
                     items:
                       description: |-
                         SecretRequirement declares a Kubernetes Secret that the sandbox needs
-                        at runtime. The Secret must exist in the operator namespace (where
-                        sandbox pods run), not in the Proposal's namespace.
+                        at runtime. The cluster admin creates the actual Secret in the same
+                        namespace as the Proposal.
                       properties:
                         description:
                           description: |-
@@ -1149,7 +1155,7 @@ spec:
                               : !has(self.filePath)'
                         name:
                           description: |-
-                            name of the Secret (must exist in the operator namespace).
+                            name of the Secret (must exist in the same namespace as the Proposal).
                             Must be a valid RFC 1123 DNS subdomain.
                           maxLength: 253
                           minLength: 1
@@ -1176,13 +1182,17 @@ spec:
                       skills directory. Each image must be unique within the list.
                     items:
                       description: "SkillsSource defines an OCI image containing skills
-                        and which paths\nwithin that image to mount. Skills are mounted
-                        as Kubernetes image\nvolumes in the agent's sandbox pod.\n\nEach
-                        path is mounted as a separate subPath volumeMount, allowing\nselective
-                        composition of skills from shared images.\n\nExample — mount
-                        specific skills from the agentic-skills image:\n\n\tskills:\n\t
-                        \ - image: registry.ci.openshift.org/ocp/5.0:agentic-skills\n\t
-                        \   paths:\n\t      - /skills/cluster-update/update-advisor"
+                        and optionally which\npaths within that image to mount. Skills
+                        are mounted as Kubernetes image\nvolumes in the agent's sandbox
+                        pod.\n\nWhen paths is omitted, the entire image is mounted.
+                        When paths is specified,\nonly those directories are mounted
+                        (each as a separate subPath volumeMount),\nallowing selective
+                        composition of skills from large shared images.\n\nExample
+                        — mount all skills from a custom image:\n\n\tskills:\n\t  -
+                        image: quay.io/my-org/my-skills:latest\n\nExample — selectively
+                        mount two skills from a shared image:\n\n\tskills:\n\t  -
+                        image: registry.ci.openshift.org/ocp/5.0:agentic-skills\n\t
+                        \   paths:\n\t      - /skills/prometheus\n\t      - /skills/cluster-update/update-advisor"
                       properties:
                         image:
                           description: |-
@@ -1231,7 +1241,7 @@ spec:
                               : true'
                         paths:
                           description: |-
-                            paths specifies which directories from the image are mounted.
+                            paths restricts which directories from the image are mounted.
                             Each path is mounted as a separate subPath volumeMount into the agent's
                             skills directory. The last segment of each path becomes the mount name
                             (e.g., "/skills/prometheus" mounts as "prometheus").
@@ -1240,6 +1250,7 @@ spec:
                             or "." segments, no double slashes, no trailing slash, and only
                             alphanumeric characters, hyphens, underscores, dots, and slashes.
 
+                            When omitted, the entire image is mounted as a single volume.
                             Maximum 50 items.
                           items:
                             maxLength: 512
@@ -1266,7 +1277,6 @@ spec:
                             rule: self.all(p, p.matches('^[a-zA-Z0-9/_.-]+$'))
                       required:
                       - image
-                      - paths
                       type: object
                     maxItems: 20
                     minItems: 1
@@ -1445,8 +1455,8 @@ spec:
                         items:
                           description: |-
                             SecretRequirement declares a Kubernetes Secret that the sandbox needs
-                            at runtime. The Secret must exist in the operator namespace (where
-                            sandbox pods run), not in the Proposal's namespace.
+                            at runtime. The cluster admin creates the actual Secret in the same
+                            namespace as the Proposal.
                           properties:
                             description:
                               description: |-
@@ -1527,7 +1537,7 @@ spec:
                                   : !has(self.filePath)'
                             name:
                               description: |-
-                                name of the Secret (must exist in the operator namespace).
+                                name of the Secret (must exist in the same namespace as the Proposal).
                                 Must be a valid RFC 1123 DNS subdomain.
                               maxLength: 253
                               minLength: 1
@@ -1554,14 +1564,17 @@ spec:
                           skills directory. Each image must be unique within the list.
                         items:
                           description: "SkillsSource defines an OCI image containing
-                            skills and which paths\nwithin that image to mount. Skills
-                            are mounted as Kubernetes image\nvolumes in the agent's
-                            sandbox pod.\n\nEach path is mounted as a separate subPath
-                            volumeMount, allowing\nselective composition of skills
-                            from shared images.\n\nExample — mount specific skills
-                            from the agentic-skills image:\n\n\tskills:\n\t  - image:
-                            registry.ci.openshift.org/ocp/5.0:agentic-skills\n\t    paths:\n\t
-                            \     - /skills/cluster-update/update-advisor"
+                            skills and optionally which\npaths within that image to
+                            mount. Skills are mounted as Kubernetes image\nvolumes
+                            in the agent's sandbox pod.\n\nWhen paths is omitted,
+                            the entire image is mounted. When paths is specified,\nonly
+                            those directories are mounted (each as a separate subPath
+                            volumeMount),\nallowing selective composition of skills
+                            from large shared images.\n\nExample — mount all skills
+                            from a custom image:\n\n\tskills:\n\t  - image: quay.io/my-org/my-skills:latest\n\nExample
+                            — selectively mount two skills from a shared image:\n\n\tskills:\n\t
+                            \ - image: registry.ci.openshift.org/ocp/5.0:agentic-skills\n\t
+                            \   paths:\n\t      - /skills/prometheus\n\t      - /skills/cluster-update/update-advisor"
                           properties:
                             image:
                               description: |-
@@ -1611,7 +1624,7 @@ spec:
                                   : true'
                             paths:
                               description: |-
-                                paths specifies which directories from the image are mounted.
+                                paths restricts which directories from the image are mounted.
                                 Each path is mounted as a separate subPath volumeMount into the agent's
                                 skills directory. The last segment of each path becomes the mount name
                                 (e.g., "/skills/prometheus" mounts as "prometheus").
@@ -1620,6 +1633,7 @@ spec:
                                 or "." segments, no double slashes, no trailing slash, and only
                                 alphanumeric characters, hyphens, underscores, dots, and slashes.
 
+                                When omitted, the entire image is mounted as a single volume.
                                 Maximum 50 items.
                               items:
                                 maxLength: 512
@@ -1646,7 +1660,6 @@ spec:
                                 rule: self.all(p, p.matches('^[a-zA-Z0-9/_.-]+$'))
                           required:
                           - image
-                          - paths
                           type: object
                         maxItems: 20
                         minItems: 1

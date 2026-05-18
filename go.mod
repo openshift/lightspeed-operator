@@ -5,9 +5,11 @@ go 1.25.7
 require (
 	github.com/Jeffail/gabs/v2 v2.7.0
 	github.com/go-logr/logr v1.4.3
-	github.com/onsi/ginkgo/v2 v2.28.3
-	github.com/onsi/gomega v1.40.0
-	github.com/openshift/client-go v0.0.0-20260512113608-deb4dc54551a
+	github.com/onsi/ginkgo/v2 v2.28.2
+	github.com/onsi/gomega v1.39.1
+	github.com/openshift/client-go v0.0.0-20260424153654-c280f7942f94
+	github.com/openshift/lightspeed-agentic-operator v0.0.0-20260515155741-a54ec75cdb3d
+	github.com/openshift/lightspeed-agentic-operator/api v0.0.0
 	k8s.io/api v0.35.4
 	k8s.io/apimachinery v0.35.4
 	k8s.io/client-go v0.35.4
@@ -123,8 +125,6 @@ require (
 
 require (
 	github.com/containers/image/v5 v5.36.2
-	github.com/openshift/lightspeed-agentic-operator v0.0.0-20260515155741-a54ec75cdb3d
-	github.com/openshift/lightspeed-agentic-operator/api v0.0.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.90.1
 )
 
