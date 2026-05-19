@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit — OpenShift Lightspeed Operator
+# Docs: https://docs.coderabbit.ai/guides/configure-coderabbit
+language: en-US
+
+reviews:
+  profile: chill
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+    ignore_title_keywords:
+      - WIP
+      - DO NOT MERGE
+
+  # Skip generated, snapshot, and mechanical paths (review source + hand-edited OLM instead)
+  path_filters:
+    - '!**/zz_generated.deepcopy.go'
+    - '!config/crd/bases/**'
+    - '!bundle/manifests/ols.openshift.io_olsconfigs.yaml'
+    - '!config/rbac/role.yaml'
+    - '!go.sum'
+    - '!api/go.sum'
+    - '!vendor/**'
+    - '!bin/**'
+    - '!cover.out'
+    - '!**/*.log'
+    - '!lightspeed-catalog-4.*/**'
+    - '!lightspeed-catalog-4.*.Dockerfile'
+    - '!lightspeed-catalog.Dockerfile'
+    - '!related_images.json'
+    - '!hack/boilerplate.go.txt'
+
+  path_instructions:
+    - path: 'api/v1alpha1/**/*.go'
+      instructions: |
+        - API changes drive CRD/bundle regeneration (`make generate`, `make manifests`, `make bundle`); flag if only generated YAML changed without matching API edits.
+        - Preserve backward compatibility for cluster-scoped OLSConfig: avoid breaking existing fields without a clear migration path.
+        - kubebuilder markers, validation, and defaulting must stay consistent with controller behavior in `internal/controller/`.
+    - path: 'cmd/**/*.go'
+      instructions: |
+        - Treat manager flags, controller-runtime wiring, and health/metrics endpoints as high-signal areas.
+        - New flags should be reflected in deployment/CSV args under `config/manager/` and `bundle/manifests/` when they affect the shipped operator.
+    - path: 'internal/controller/**/*.go'
+      instructions: |
+        - Follow the ReconcileTask pattern and `reconciler.Reconciler` interface; avoid circular imports between component packages.
+        - Wrap errors with shared constants from `internal/controller/utils/errors.go` using `fmt.Errorf("%s: %w", ErrX, err)`.
+        - Distinguish owned resources (controller-runtime ownership) vs external resources (watchers in `internal/controller/watchers/`).
+        - Keep component packages focused (appserver, postgres, console); do not reintroduce removed alternate backends without an explicit product decision.
+    - path: 'internal/controller/**/*_test.go'
+      instructions: |
+        - Use Ginkgo v2 and Gomega; prefer envtest patterns from `internal/controller/suite_test.go` and `utils/testing.go`.
+        - Contributors run `make test`, not bare `go test` — flag tests that skip Makefile/envtest setup assumptions.
+        - Reject tests that only mirror implementation without asserting behavior or reconciliation outcomes.
+    - path: 'test/e2e/**/*.go'
+      instructions: |
+        - E2E tests require a cluster; check helpers in `test/e2e/` for consistency and stable cleanup (OLSConfig finalizers, namespaces).
+        - Flag flaky timing, missing teardown, or assumptions about optional components not deployed in bundle/operator CI jobs.
+    - path: 'bundle/manifests/lightspeed-operator.clusterserviceversion.yaml'
+      instructions: |
+        - CSV changes affect OLM install: relatedImages, deployment args, permissions, and version must align with `related_images.json` and `cmd/main.go` flags.
+        - Version bumps must match `bundle.Dockerfile` labels per AGENTS.md.
+    - path: 'config/manager/**'
+      instructions: |
+        - Kustomize manager deployment must stay aligned with operator flags and image references used in the bundle.
+    - path: '**/*.md'
+      instructions: |
+        - Cross-check commands and architecture descriptions against AGENTS.md, ARCHITECTURE.md, and CONTRIBUTING.md.
+        - Flag stale paths (e.g. removed packages) or docs that contradict the current reconciliation flow.
+
+  collapse_walkthrough: true
+  poem: false
+  high_level_summary: true
+  review_status: true
+  commit_status: true
+  sequence_diagrams: true
+  suggested_labels: false
+
+  tools:
+    golangci-lint:
+      enabled: true
+      config_file: .golangci.yaml
+    gitleaks:
+      enabled: true
+
+chat:
+  auto_reply: false
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - AGENTS.md
+      - ARCHITECTURE.md
+      - CONTRIBUTING.md
+  learnings:
+    scope: local
