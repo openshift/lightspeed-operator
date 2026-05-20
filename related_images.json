@@ -1,8 +1,8 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:c3b78dafa28166cc5a9830986abb4b80db5ebe0ad539ffae58166fccf7ca50ac",
-    "revision": "5a6bdfe710361ecea4a20881cee5a869e4504234"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:6de7fa294e6c482c48c9ed81b9c4d27241a821665c2485c9b14371cd2a77766b",
+    "revision": "6f38dc2e17e033ff471bec441db29b11e9c2d653"
   },
   {
     "name": "lightspeed-console-plugin",
@@ -11,13 +11,13 @@
   },
   {
     "name": "lightspeed-console-plugin-pf5",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:9857594facc631775691613069b0202a98a85ce824a94df79acff2c270665d26",
-    "revision": "74912405eb9ada655efd7a2f34bc4b67aea98938"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:bf1052cf922689eb3e802eeca41374294c61c6d27ed9f93584a800b7292a76ff",
+    "revision": "d8ba40de742d3a0700f3c15755f34f29e9d816ca"
   },
   {
     "name": "lightspeed-console-plugin-4-19",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:21ff5fe0b6c6eb41b5fcf896c82845693ae8d55ffcbefe5d0b610207678575db",
-    "revision": "058717071f39d2779aabe12194d4fac3916a480d"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:4afa6a9f49903fe44735a7480a2631ad8da5fb1f43f7c8225bd366e3487e1cdd",
+    "revision": "844f5e119cfec77609f98b68fdbaa0d1f018f03b"
   },
   {
     "name": "lightspeed-operator",
