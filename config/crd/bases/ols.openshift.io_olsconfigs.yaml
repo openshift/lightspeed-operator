@@ -462,7 +462,17 @@ spec:
                 maxItems: 20
                 type: array
               ols:
-                description: OLSSpec defines the desired state of OLS deployment.
+                description: |-
+                  OLSSpec defines the desired state of OLS deployment.
+
+                  OKP (Offline Knowledge Portal) / Solr hybrid RAG is operator-managed, not configured on this CR:
+                    - Enabled by default. The operator deploys the RHOKP sidecar and writes ols_config.solr_hybrid
+                      into olsconfig.yaml (Solr URL, hybrid tuning, and related keys use operator defaults).
+                    - The app-server pod receives OCP_CLUSTER_VERSION for Solr chunk_filter_query resolution.
+                    - OCP documentation is retrieved via the search_openshift_documentation tool (Solr hybrid), not
+                      direct prompt RAG. BYOK content remains on spec.rag (FAISS indexes).
+                    - Set byokRAGOnly to disable OKP: no RHOKP sidecar, no solr_hybrid section, and no built-in
+                      OCP documentation retrieval—only BYOK FAISS indexes from spec.rag are used.
                 properties:
                   additionalCAConfigMapRef:
                     description: Additional CA certificates for TLS communication
@@ -480,8 +490,8 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   byokRAGOnly:
-                    description: Only use BYOK RAG sources, ignore the OpenShift documentation
-                      RAG
+                    description: Only use BYOK RAG sources. Disables OKP (RHOKP sidecar,
+                      solr_hybrid config, and built-in OCP documentation retrieval).
                     type: boolean
                   conversationCache:
                     description: Conversation cache settings
@@ -1280,6 +1290,72 @@ spec:
                                 type: object
                             type: object
                         type: object
+                      rhokp:
+                        description: RHOKP sidecar container settings (Solr / OKP).
+                        properties:
+                          resources:
+                            description: |-
+                              Resource requirements (CPU, memory)
+                              Uses standard corev1.ResourceRequirements
+                            properties:
+                              claims:
+                                description: |-
+                                  Claims lists the names of resources, defined in spec.resourceClaims,
+                                  that are used by this container.
+
+                                  This field depends on the
+                                  DynamicResourceAllocation feature gate.
+
+                                  This field is immutable. It can only be set for containers.
+                                items:
+                                  description: ResourceClaim references one entry
+                                    in PodSpec.ResourceClaims.
+                                  properties:
+                                    name:
+                                      description: |-
+                                        Name must match the name of one entry in pod.spec.resourceClaims of
+                                        the Pod where this field is used. It makes that resource available
+                                        inside a container.
+                                      type: string
+                                    request:
+                                      description: |-
+                                        Request is the name chosen for a request in the referenced claim.
+                                        If empty, everything from the claim is made available, otherwise
+                                        only the result of this request.
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                description: |-
+                                  Limits describes the maximum amount of compute resources allowed.
+                                  More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                description: |-
+                                  Requests describes the minimum amount of compute resources required.
+                                  If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                                  otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                                  More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                                type: object
+                            type: object
+                        type: object
                     type: object
                   imagePullSecrets:
                     description: Pull secrets for BYOK RAG images from image registries
@@ -1435,23 +1511,25 @@ spec:
                         type: array
                     type: object
                   rag:
-                    description: RAG databases
+                    description: BYOK RAG databases (bring-your-own container images
+                      with FAISS vector indexes).
                     items:
-                      description: RAGSpec defines how to retrieve RAG databases.
+                      description: RAGSpec defines a BYOK RAG database (container
+                        image and index path).
                       properties:
                         image:
                           description: The URL of the container image to use as a
-                            RAG source
+                            BYOK RAG source
                           type: string
                         indexID:
                           default: ""
-                          description: The Index ID of the RAG database. Only needed
-                            if there are multiple indices in the database.
+                          description: The Index ID of the BYOK RAG database. Only
+                            needed if there are multiple indices in the database.
                           type: string
                         indexPath:
                           default: /rag/vector_db
-                          description: The path to the RAG database inside of the
-                            container image
+                          description: The path to the BYOK RAG database inside of
+                            the container image
                           type: string
                       required:
                       - image

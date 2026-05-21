@@ -132,6 +132,7 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 `api` | `api` | `Config` | API container. Replicas configurable (default 1, min 0)
 `dataCollector` | `dataCollector` | `ContainerConfig` | Data collector container. Resources only
 `mcpServer` | `mcpServer` | `ContainerConfig` | MCP server container. Resources only
+`rhokp` | `rhokp` | `ContainerConfig` | RHOKP sidecar container (Solr / OKP). Resources only
 `console` | `console` | `Config` | Console container. Has replicas field but operator forces 1
 `database` | `database` | `Config` | Database container. Has replicas field but operator forces 1
 `alertsAdapter` | `alertsAdapter` | `AlertsAdapterSpec` | Agentic alerts adapter deployment and user-managed runtime config reference. Replicas forced to 1
@@ -236,7 +237,16 @@ Field | JSON key | Go type | Required | Validation
 
 #### Boolean/String Fields
 
-39. `spec.ols.byokRAGOnly` -- `bool`, optional. When true, only BYOK RAG sources are used; built-in OpenShift documentation RAG is ignored.
+39. `spec.ols.byokRAGOnly` -- `bool`, optional. When true, only BYOK RAG sources are used: the operator does not deploy the RHOKP sidecar, does not write `solr_hybrid` into `olsconfig.yaml`, and does not set `OCP_CLUSTER_VERSION` on the app-server pod.
+
+#### Operator-managed OKP (not on CR)
+
+OKP / Solr hybrid RAG has no `spec.ols.solrHybrid` (or similar) field. It is enabled by default and turned off only via `byokRAGOnly`. When active, the operator:
+- deploys the RHOKP sidecar and writes `ols_config.solr_hybrid` with operator defaults (`http://localhost:9080`, hybrid tuning);
+- sets `OCP_CLUSTER_VERSION` on the app-server container for Solr version filtering;
+- serves OCP product documentation via Solr hybrid only; `reference_content.indexes` lists BYOK FAISS indexes from `spec.ols.rag` only.
+
+RHOKP sidecar CPU, memory, and ephemeral storage are overridable via `spec.ols.deployment.rhokp.resources` (defaults: 2 CPU, 2 GiB memory, and 75 GiB ephemeral storage requests).
 40. `spec.ols.querySystemPrompt` -- `string`, optional. Custom system prompt for LLM queries. If unset, the default OpenShift Lightspeed prompt is used.
 41. `spec.ols.maxIterations` -- `int`. Default: `5`. Minimum=1. Maximum number of iterations for agent execution.
 42. `spec.ols.imagePullSecrets` -- `[]corev1.LocalObjectReference`, optional. Pull secrets for BYOK RAG images.
@@ -382,6 +392,8 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.deployment.dataCollector.resources` | `*ResourceRequirements` | -- | No | -- | Data collector resources
 `spec.ols.deployment.mcpServer` | `ContainerConfig` | -- | No | -- | MCP server container
 `spec.ols.deployment.mcpServer.resources` | `*ResourceRequirements` | -- | No | -- | MCP server resources
+`spec.ols.deployment.rhokp` | `ContainerConfig` | -- | No | -- | RHOKP sidecar container
+`spec.ols.deployment.rhokp.resources` | `*ResourceRequirements` | -- | No | -- | RHOKP sidecar resources (default requests: 2 CPU, 2 GiB memory, 75 GiB ephemeral storage)
 `spec.ols.deployment.console` | `Config` | -- | No | -- | Console container
 `spec.ols.deployment.console.replicas` | `*int32` | `1` | No | Min=0 | Console replicas (operator forces 1)
 `spec.ols.deployment.console.resources` | `*ResourceRequirements` | -- | No | -- | Console resources
@@ -437,7 +449,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.storage` | `*Storage` | -- | No | -- | Persistent storage
 `spec.ols.storage.size` | `resource.Quantity` | -- | No | -- | Volume size
 `spec.ols.storage.class` | `string` | -- | No | -- | Storage class
-`spec.ols.byokRAGOnly` | `bool` | -- | No | -- | Use only BYOK RAG sources
+`spec.ols.byokRAGOnly` | `bool` | -- | No | -- | Disable operator-managed OKP; BYOK FAISS only
 `spec.ols.querySystemPrompt` | `string` | -- | No | -- | Custom system prompt
 `spec.ols.maxIterations` | `int` | `5` | No | Min=1 | Max agent iterations
 `spec.ols.imagePullSecrets` | `[]LocalObjectReference` | -- | No | -- | Image pull secrets

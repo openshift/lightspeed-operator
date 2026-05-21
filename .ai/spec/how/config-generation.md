@@ -68,16 +68,15 @@ ols_config:
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
-  reference_content:                          # only when spec.ols.rag is configured (BYOK)
-    indexes:
-      - path: /app-root/rag/rag-0            # one per spec.ols.rag entry
+  reference_content:
+    indexes:                                  # one per spec.ols.rag entry; empty when no BYOK RAG
+      - path: /app-root/rag/rag-0
         index_id: <rag.IndexID>
         origin: <rag.Image>
     embeddings_model_path: /app-root/embeddings_model
-  # OCP docs FAISS index entry removed — OCP docs are served by OKP via the RHOKP sidecar.
 
-  solr_hybrid:                                # always present unless byokRAGOnly
-    solr_http_base: "http://localhost:8080"
+  solr_hybrid:                                # unless byokRAGOnly
+    solr_http_base: "http://localhost:9080"
     max_results: 10
     hybrid_vector_boost: 8.0
     hybrid_pool_docs: 100
@@ -207,8 +206,9 @@ These schemas are created by the bootstrap script.
 | Log level | CR `spec.ols.logLevel` | Enum: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default: INFO |
 | PostgreSQL connection | `utils/constants.go` | Host built from service name + namespace + ".svc" |
 | TLS certs | Service-ca operator or user-provided secret | Path: `/etc/certs/lightspeed-tls/` |
-| BYOK RAG indexes | CR `spec.ols.rag[]` | File paths in config YAML (BYOK only) |
-| RHOKP image | `--rhokp-image` flag | Image for RHOKP sidecar container |
+| BYOK RAG indexes | CR `spec.ols.rag[]` | Local FAISS indexes only; empty list when no BYOK RAG configured |
+| `solr_hybrid` | Operator defaults + `!byokRAGOnly` | OCP product docs via OKP Solr at `http://localhost:9080` |
+| RHOKP image | `--rhokp-image` flag | Sidecar image; not in `related_images.json` until bundle productization |
 | ROSA product | Console brand + Infrastructure topology | `OLS_ROSA_PRODUCT` env var on app-server (not in config YAML). [PLANNED: OLS-1894] |
 | MCP servers | CR `spec.mcpServers[]` + `spec.ols.introspectionEnabled` | Feature gated by `MCPServer` gate |
 | Tool filtering | CR `spec.ols.toolFilteringConfig` | Feature gated by `ToolFiltering` gate; requires MCP servers |

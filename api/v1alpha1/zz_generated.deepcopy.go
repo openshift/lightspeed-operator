@@ -164,6 +164,7 @@ func (in *DeploymentConfig) DeepCopyInto(out *DeploymentConfig) {
 	in.APIContainer.DeepCopyInto(&out.APIContainer)
 	in.DataCollectorContainer.DeepCopyInto(&out.DataCollectorContainer)
 	in.MCPServerContainer.DeepCopyInto(&out.MCPServerContainer)
+	in.RHOKPContainer.DeepCopyInto(&out.RHOKPContainer)
 	in.ConsoleContainer.DeepCopyInto(&out.ConsoleContainer)
 	in.AgenticConsoleContainer.DeepCopyInto(&out.AgenticConsoleContainer)
 	in.DatabaseContainer.DeepCopyInto(&out.DatabaseContainer)
@@ -401,7 +402,7 @@ func (in *OLSConfigSpec) DeepCopyInto(out *OLSConfigSpec) {
 	if in.Audit != nil {
 		in, out := &in.Audit, &out.Audit
 		*out = new(AuditConfig)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 }
 

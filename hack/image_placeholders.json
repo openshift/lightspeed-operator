@@ -43,5 +43,10 @@
     "name": "lightspeed-agentic-alerts-adapter",
     "placeholder": "__REPLACE_LIGHTSPEED_AGENTIC_ALERTS_ADAPTER__",
     "target": "args"
+  },
+  {
+    "name": "rhokp",
+    "placeholder": "__REPLACE_RHOKP__",
+    "target": "args"
   }
 ]
