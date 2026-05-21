@@ -236,7 +236,15 @@ Field | JSON key | Go type | Required | Validation
 
 #### Boolean/String Fields
 
-39. `spec.ols.byokRAGOnly` -- `bool`, optional. When true, only BYOK RAG sources are used; built-in OpenShift documentation RAG is ignored.
+39. `spec.ols.byokRAGOnly` -- `bool`, optional. When true, only BYOK RAG sources are used: the operator does not deploy the RHOKP sidecar, does not write `solr_hybrid` into `olsconfig.yaml`, does not emit the built-in OCP FAISS index, and does not set `OCP_CLUSTER_VERSION` on the app-server pod.
+
+#### Operator-managed OKP (not on CR)
+
+OKP / Solr hybrid RAG has no `spec.ols.solrHybrid` (or similar) field. It is enabled by default and turned off only via `byokRAGOnly`. When active, the operator:
+- deploys the RHOKP sidecar and writes `ols_config.solr_hybrid` with operator defaults (`http://localhost:8080`, hybrid tuning);
+- sets `OCP_CLUSTER_VERSION` on the app-server container for Solr `chunk_filter_query` resolution;
+- sets `byok_index: true` on all `reference_content.indexes` entries;
+- still emits the versioned OCP FAISS index entry until FAISS removal (follow-up change).
 40. `spec.ols.querySystemPrompt` -- `string`, optional. Custom system prompt for LLM queries. If unset, the default OpenShift Lightspeed prompt is used.
 41. `spec.ols.maxIterations` -- `int`. Default: `5`. Minimum=1. Maximum number of iterations for agent execution.
 42. `spec.ols.imagePullSecrets` -- `[]corev1.LocalObjectReference`, optional. Pull secrets for BYOK RAG images.
@@ -437,7 +445,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.storage` | `*Storage` | -- | No | -- | Persistent storage
 `spec.ols.storage.size` | `resource.Quantity` | -- | No | -- | Volume size
 `spec.ols.storage.class` | `string` | -- | No | -- | Storage class
-`spec.ols.byokRAGOnly` | `bool` | -- | No | -- | Use only BYOK RAG sources
+`spec.ols.byokRAGOnly` | `bool` | -- | No | -- | Disable operator-managed OKP; BYOK FAISS only
 `spec.ols.querySystemPrompt` | `string` | -- | No | -- | Custom system prompt
 `spec.ols.maxIterations` | `int` | `5` | No | Min=1 | Max agent iterations
 `spec.ols.imagePullSecrets` | `[]LocalObjectReference` | -- | No | -- | Image pull secrets

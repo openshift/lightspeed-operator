@@ -401,7 +401,7 @@ func (in *OLSConfigSpec) DeepCopyInto(out *OLSConfigSpec) {
 	if in.Audit != nil {
 		in, out := &in.Audit, &out.Audit
 		*out = new(AuditConfig)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 }
 

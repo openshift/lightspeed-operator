@@ -82,6 +82,14 @@ func RestrictedContainerSecurityContext() *corev1.SecurityContext {
 	}
 }
 
+// RHOOKPContainerSecurityContext is restricted PSS except readOnlyRootFilesystem: the RHOKP image
+// writes Solr pid files, logs, and httpd config patches at startup.
+func RHOOKPContainerSecurityContext() *corev1.SecurityContext {
+	sc := RestrictedContainerSecurityContext()
+	sc.ReadOnlyRootFilesystem = &[]bool{false}[0]
+	return sc
+}
+
 // ApplyPodDeploymentConfig applies PodDeploymentConfig settings to a Deployment.
 // This centralizes the logic for applying pod-level configurations (NodeSelector, Tolerations, etc.)
 // to avoid code duplication across different deployment generators.

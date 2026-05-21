@@ -75,13 +75,13 @@ var _ = Describe("App server deployment generation", func() {
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(1)))
 
 			By("generate deployment without data collector when telemetry pull secret does not contain telemetry token")
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, false)
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(1)))
 
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
@@ -93,7 +93,7 @@ var _ = Describe("App server deployment generation", func() {
 			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{}
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelInfo)))
 
@@ -140,7 +140,7 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(dep.Name).To(Equal(utils.OLSAppServerDeploymentName))
 
 			// Should have 3 containers: main app, telemetry, and MCP server
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(3)))
 
 			// Verify OpenShift MCP server container
 			openshiftMCPServerContainer := dep.Spec.Template.Spec.Containers[2]
@@ -159,7 +159,7 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Should have only 2 containers: main app and dataverse exporter (no MCP server)
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 
@@ -170,7 +170,7 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Default is enabled, so MCP sidecar should be present again.
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(3)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[2].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
@@ -187,7 +187,7 @@ var _ = Describe("App server deployment generation", func() {
 
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(3)))
 			Expect(dep.Spec.Template.Spec.Containers[2].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
 
 			By("introspection enabled, data collection disabled")
@@ -198,7 +198,7 @@ var _ = Describe("App server deployment generation", func() {
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
 
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
@@ -214,7 +214,7 @@ var _ = Describe("App server deployment generation", func() {
 
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
 
@@ -264,12 +264,7 @@ var _ = Describe("App server deployment generation", func() {
 					Protocol:      corev1.ProtocolTCP,
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", utils.OLSConfigFilename),
-				},
-			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal(expectedAppServerEnv()))
 			Expect(dep.Spec.Selector.MatchLabels).To(Equal(utils.GenerateAppServerSelectorLabels()))
 			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe).ToNot(BeNil())
 			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe.HTTPGet.Port).To(Equal(intstr.FromString("https")))
@@ -374,7 +369,7 @@ var _ = Describe("App server deployment generation", func() {
 
 			deployment, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(1)))
 			Expect(deployment.Spec.Template.Spec.Volumes).To(Not(ContainElement(
 				corev1.Volume{
 					Name: "ols-user-data",
@@ -398,7 +393,7 @@ var _ = Describe("App server deployment generation", func() {
 
 			deployment, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(deployment.Spec.Template.Spec.Containers[1].Image).To(Equal(utils.DataverseExporterImageDefault))
 			Expect(deployment.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 			Expect(deployment.Spec.Template.Spec.Containers[1].Resources).ToNot(BeNil())
@@ -650,6 +645,98 @@ var _ = Describe("App server deployment generation", func() {
 					ReadOnly:  true,
 				},
 			))
+		})
+
+		It("should add RHOKP sidecar by default", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var rhokpContainer *corev1.Container
+			for i := range dep.Spec.Template.Spec.Containers {
+				if dep.Spec.Template.Spec.Containers[i].Name == utils.RHOOKPContainerName {
+					rhokpContainer = &dep.Spec.Template.Spec.Containers[i]
+					break
+				}
+			}
+			Expect(rhokpContainer).NotTo(BeNil(), "expected RHOKP sidecar container")
+			Expect(rhokpContainer.Image).To(Equal(testReconcilerInstance.GetRHOOKPImage()))
+			Expect(rhokpContainer.Ports).To(ContainElement(
+				MatchFields(IgnoreExtras, Fields{
+					"ContainerPort": Equal(int32(utils.RHOOKPHTTPPort)),
+					"Name":          Equal("solr-http"),
+					"Protocol":      Equal(corev1.ProtocolTCP),
+				}),
+			))
+			Expect(rhokpContainer.Command).To(Equal(rhokpContainerCommand()))
+			Expect(rhokpContainer.Args).To(Equal(rhokpContainerArgs()))
+			Expect(rhokpContainer.StartupProbe).To(Equal(rhokpStartupProbe()))
+			Expect(rhokpContainer.ReadinessProbe).To(Equal(rhokpReadinessProbe()))
+			Expect(rhokpContainer.LivenessProbe).To(Equal(rhokpLivenessProbe()))
+			Expect(rhokpContainer.SecurityContext.ReadOnlyRootFilesystem).NotTo(BeNil())
+			Expect(*rhokpContainer.SecurityContext.ReadOnlyRootFilesystem).To(BeFalse())
+			Expect(rhokpContainer.Env).To(ContainElement(
+				MatchFields(IgnoreExtras, Fields{
+					"Name":  Equal("ACCESS_KEY"),
+					"Value": BeEmpty(),
+					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+						"SecretKeyRef": PointTo(MatchFields(IgnoreExtras, Fields{
+							"LocalObjectReference": Equal(corev1.LocalObjectReference{Name: utils.RHOOKPAccessKeySecretName}),
+							"Key":                  Equal(utils.RHOOKPAccessKeySecretKey),
+							"Optional":             PointTo(BeTrue()),
+						})),
+					})),
+				}),
+			))
+			for _, ic := range dep.Spec.Template.Spec.InitContainers {
+				Expect(ic.Name).NotTo(HavePrefix("rhokp"), "RHOKP must not use an init container")
+			}
+
+			var apiContainer *corev1.Container
+			for i := range dep.Spec.Template.Spec.Containers {
+				if dep.Spec.Template.Spec.Containers[i].Name == "lightspeed-service-api" {
+					apiContainer = &dep.Spec.Template.Spec.Containers[i]
+					break
+				}
+			}
+			Expect(apiContainer).NotTo(BeNil())
+			Expect(apiContainer.Env).To(ContainElement(corev1.EnvVar{
+				Name:  utils.OCPClusterVersionEnvVar,
+				Value: testReconcilerInstance.GetOpenShiftMajor() + "." + testReconcilerInstance.GetOpenshiftMinor(),
+			}))
+		})
+
+		It("should not add RHOKP sidecar or OCP_CLUSTER_VERSION when byokRAGOnly is true", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+			cr.Spec.OLSConfig.ByokRAGOnly = true
+
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			for i := range dep.Spec.Template.Spec.Containers {
+				Expect(dep.Spec.Template.Spec.Containers[i].Name).NotTo(Equal(utils.RHOOKPContainerName))
+			}
+
+			var apiContainer *corev1.Container
+			for i := range dep.Spec.Template.Spec.Containers {
+				if dep.Spec.Template.Spec.Containers[i].Name == "lightspeed-service-api" {
+					apiContainer = &dep.Spec.Template.Spec.Containers[i]
+					break
+				}
+			}
+			Expect(apiContainer).NotTo(BeNil())
+			for _, env := range apiContainer.Env {
+				Expect(env.Name).NotTo(Equal(utils.OCPClusterVersionEnvVar))
+			}
 		})
 
 	})

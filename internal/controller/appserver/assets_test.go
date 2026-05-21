@@ -126,9 +126,11 @@ var _ = Describe("App server assets", func() {
 								ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
 								ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
 								ProductDocsOrigin:    "Red Hat OpenShift 123.456 documentation",
+								ByokIndex:            true,
 							},
 						},
 					},
+					SolrHybrid: buildSolrHybridSettings(),
 					UserDataCollection: utils.UserDataCollectionConfig{
 						FeedbackDisabled:    false,
 						FeedbackStorage:     "/app-root/ols-user-data/feedback",
@@ -613,6 +615,33 @@ var _ = Describe("App server assets", func() {
 			})))
 		})
 
+		It("should generate configmap with solr_hybrid defaults when OKP is enabled", func() {
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var appSrvConfigFile utils.AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &appSrvConfigFile)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(appSrvConfigFile.OLSConfig.SolrHybrid).NotTo(BeNil())
+			Expect(appSrvConfigFile.OLSConfig.SolrHybrid).To(PointTo(MatchFields(IgnoreExtras, Fields{
+				"SolrHTTPBase":             Equal(fmt.Sprintf("http://localhost:%d", utils.RHOOKPHTTPPort)),
+				"MaxResults":               Equal(utils.SolrHybridMaxResultsDefault),
+				"HybridVectorBoost":        Equal(utils.SolrHybridVectorBoostDefault),
+				"HybridPoolDocs":           Equal(utils.SolrHybridPoolDocsDefault),
+				"HybridScoreThreshold":     Equal(utils.SolrHybridScoreThresholdDefault),
+				"HybridSolrTimeoutSeconds": Equal(utils.SolrHybridSolrTimeoutSecondsDefault),
+			})))
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("solr_direct_rag"))
+		})
+
+		It("should omit solr_hybrid from configmap when byokRAGOnly is true", func() {
+			cr.Spec.OLSConfig.ByokRAGOnly = true
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("solr_hybrid:"))
+		})
+
 		It("should skip MCP server with missing header secret during config generation", func() {
 			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
 			// Note: We don't create the secret - config generation doesn't validate secrets
@@ -797,12 +826,7 @@ var _ = Describe("App server assets", func() {
 					Protocol:      corev1.ProtocolTCP,
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", utils.OLSConfigFilename),
-				},
-			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal(expectedAppServerEnv()))
 			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get10RequiredVolumeMounts()))
 			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("4Gi")},
@@ -838,7 +862,7 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(utils.OLSAppServerDeploymentName))
 			Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(1)))
 			// application container
 			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.OLSAppServerImageDefault))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
@@ -850,12 +874,7 @@ var _ = Describe("App server assets", func() {
 					Protocol:      corev1.ProtocolTCP,
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", utils.OLSConfigFilename),
-				},
-			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal(expectedAppServerEnv()))
 			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get8RequiredVolumeMounts()))
 			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(8))
 
@@ -866,7 +885,7 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Name).To(Equal(utils.OLSAppServerDeploymentName))
 			Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(1)))
 			// application container
 			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.OLSAppServerImageDefault))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
@@ -878,12 +897,7 @@ var _ = Describe("App server assets", func() {
 					Protocol:      corev1.ProtocolTCP,
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", utils.OLSConfigFilename),
-				},
-			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal(expectedAppServerEnv()))
 			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get8RequiredVolumeMounts()))
 			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(8))
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
@@ -896,7 +910,7 @@ var _ = Describe("App server assets", func() {
 			cr.Spec.OLSDataCollectorConfig = olsv1alpha1.OLSDataCollectorSpec{}
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			// data collector container should be the second container
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelInfo)))
@@ -907,7 +921,7 @@ var _ = Describe("App server assets", func() {
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(Equal([]string{
 				"--mode",
@@ -926,7 +940,7 @@ var _ = Describe("App server assets", func() {
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelWarning)))
 
@@ -936,7 +950,7 @@ var _ = Describe("App server assets", func() {
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelError)))
 
@@ -946,7 +960,7 @@ var _ = Describe("App server assets", func() {
 			}
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Args).To(ContainElement(string(olsv1alpha1.LogLevelCritical)))
 
@@ -1071,7 +1085,7 @@ var _ = Describe("App server assets", func() {
 
 			deployment, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(1)))
 			Expect(deployment.Spec.Template.Spec.Volumes).To(Not(ContainElement(
 				corev1.Volume{
 					Name: "ols-user-data",
@@ -1095,7 +1109,7 @@ var _ = Describe("App server assets", func() {
 
 			deployment, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(deployment.Spec.Template.Spec.Containers[1].Image).To(Equal(utils.DataverseExporterImageDefault))
 			Expect(deployment.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 			Expect(deployment.Spec.Template.Spec.Containers[1].Resources).ToNot(BeNil())
@@ -1239,6 +1253,7 @@ var _ = Describe("App server assets", func() {
 				ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
 				ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
 				ProductDocsOrigin:    "Red Hat OpenShift 123.456 documentation",
+				ByokIndex:            true,
 			}
 
 			// OLS-1823: prioritize BYOK content over OCP docs
@@ -1247,11 +1262,13 @@ var _ = Describe("App server assets", func() {
 					ProductDocsIndexId:   "ocp-product-docs-4_19",
 					ProductDocsIndexPath: utils.RAGVolumeMountPath + "/rag-0",
 					ProductDocsOrigin:    "rag-ocp-product-docs:4.19",
+					ByokIndex:            true,
 				},
 				{
 					ProductDocsIndexId:   "ansible-docs-2_18",
 					ProductDocsIndexPath: utils.RAGVolumeMountPath + "/rag-1",
 					ProductDocsOrigin:    "rag-ansible-docs:2.18",
+					ByokIndex:            true,
 				},
 				ocpIndex,
 			}))
@@ -1265,6 +1282,86 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(ConsistOf(ocpIndex))
 
+		})
+
+		It("should include OCP and BYOK FAISS indexes with byok_index when OKP is enabled", func() {
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					IndexPath: "/rag/vector_db/ansible_docs/2.18",
+					IndexID:   "ansible-docs-2_18",
+					Image:     "rag-ansible-docs:2.18",
+				},
+			}
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			var olsconfigGenerated utils.AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]utils.ReferenceIndex{
+				{
+					ProductDocsIndexId:   "ansible-docs-2_18",
+					ProductDocsIndexPath: utils.RAGVolumeMountPath + "/rag-0",
+					ProductDocsOrigin:    "rag-ansible-docs:2.18",
+					ByokIndex:            true,
+				},
+				{
+					ProductDocsIndexId:   "ocp-product-docs-123_456",
+					ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/123.456",
+					ProductDocsOrigin:    "Red Hat OpenShift 123.456 documentation",
+					ByokIndex:            true,
+				},
+			}))
+			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).NotTo(BeNil())
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("byok_index: true"))
+		})
+
+		It("should include OCP FAISS index with byok_index when OKP is enabled", func() {
+			cr.Spec.OLSConfig.RAG = nil
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			var olsconfigGenerated utils.AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]utils.ReferenceIndex{
+				{
+					ProductDocsIndexId:   "ocp-product-docs-123_456",
+					ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/123.456",
+					ProductDocsOrigin:    "Red Hat OpenShift 123.456 documentation",
+					ByokIndex:            true,
+				},
+			}))
+			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).NotTo(BeNil())
+		})
+
+		It("should omit solr_hybrid and OCP FAISS index when byokRAGOnly is true", func() {
+			cr.Spec.OLSConfig.ByokRAGOnly = true
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					IndexPath: "/rag/vector_db/ansible_docs/2.18",
+					IndexID:   "ansible-docs-2_18",
+					Image:     "rag-ansible-docs:2.18",
+				},
+			}
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			var olsconfigGenerated utils.AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(BeNil())
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("solr_hybrid:"))
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]utils.ReferenceIndex{
+				{
+					ProductDocsIndexId:   "ansible-docs-2_18",
+					ProductDocsIndexPath: utils.RAGVolumeMountPath + "/rag-0",
+					ProductDocsOrigin:    "rag-ansible-docs:2.18",
+				},
+			}))
 		})
 
 		// This test covers ByokRAGOnly == true. ByokRAGOnly == false is covered by the previous test.
@@ -1308,7 +1405,7 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
 
 			// Should have 3 containers: main app, telemetry, and MCP server
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(3)))
 
 			// Verify OpenShift MCP server container (should be the third container)
 			openshiftMCPServerContainer := dep.Spec.Template.Spec.Containers[2]
@@ -1342,7 +1439,7 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Should have only 2 containers: main app and dataverse exporter (no MCP server)
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 		})
@@ -1358,7 +1455,7 @@ var _ = Describe("App server assets", func() {
 
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(3))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(3)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[2].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
@@ -1371,7 +1468,7 @@ var _ = Describe("App server assets", func() {
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
 
@@ -1384,7 +1481,7 @@ var _ = Describe("App server assets", func() {
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
 
@@ -1397,7 +1494,7 @@ var _ = Describe("App server assets", func() {
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(1)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
@@ -1413,7 +1510,7 @@ var _ = Describe("App server assets", func() {
 
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
 
@@ -1495,71 +1592,27 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(utils.OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
-			expectedConfigStr := `llm_providers: []
-ols_config:
-  conversation_cache:
-    postgres:
-      ca_cert_path: /etc/certs/postgres-ca/service-ca.crt
-      dbname: postgres
-      host: lightspeed-postgres-server.openshift-lightspeed.svc
-      password_path: /etc/credentials/lightspeed-postgres-secret/password
-      port: 5432
-      ssl_mode: require
-      user: postgres
-    type: postgres
-  extra_ca:
-    - /etc/certs/ols-additional-ca/service-ca.crt
-  certificate_directory: /etc/certs/cert-bundle
-  logging_config:
-    app_log_level: ""
-    lib_log_level: ""
-    uvicorn_log_level: ""
-  reference_content:
-    embeddings_model_path: /app-root/embeddings_model
-    indexes:
-    - product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
-      product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
-      product_docs_origin: Red Hat OpenShift 123.456 documentation
-  tlsSecurityProfile:
-    ciphers:
-    - TLS_AES_128_GCM_SHA256
-    - TLS_AES_256_GCM_SHA384
-    - TLS_CHACHA20_POLY1305_SHA256
-    - ECDHE-ECDSA-AES128-GCM-SHA256
-    - ECDHE-RSA-AES128-GCM-SHA256
-    - ECDHE-ECDSA-AES256-GCM-SHA384
-    - ECDHE-RSA-AES256-GCM-SHA384
-    - ECDHE-ECDSA-CHACHA20-POLY1305
-    - ECDHE-RSA-CHACHA20-POLY1305
-    minTLSVersion: VersionTLS12
-    type: IntermediateType
-  tls_config:
-    tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
-    tls_key_path: /etc/certs/lightspeed-tls/tls.key
-  tools_approval:
-    approval_timeout: 600
-    approval_type: tool_annotations
-  audit:
-    logging: Enabled
-  user_data_collection:
-    feedback_disabled: false
-    feedback_storage: /app-root/ols-user-data/feedback
-    transcripts_disabled: false
-    transcripts_storage: /app-root/ols-user-data/transcripts
-user_data_collector_config:
-  data_storage: /app-root/ols-user-data
 
-`
-			// unmarshal to ensure the key order
-			var actualConfig map[string]interface{}
-			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &actualConfig)
+			var olsconfigGenerated utils.AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(olsconfigGenerated.LLMProviders).To(BeEmpty())
+			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(Equal(buildSolrHybridSettings()))
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]utils.ReferenceIndex{
+				{
+					ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
+					ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+					ProductDocsOrigin:    "Red Hat OpenShift 123.456 documentation",
+					ByokIndex:            true,
+				},
+			}))
+			Expect(olsconfigGenerated.OLSConfig.Audit).To(Equal(&utils.AuditYAMLConfig{Logging: "Enabled"}))
+			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeFalse())
+			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeFalse())
+			Expect(olsconfigGenerated.UserDataCollectorConfig.DataStorage).To(Equal("/app-root/ols-user-data"))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("solr_hybrid:"))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("byok_index: true"))
 
-			var expectedConfig map[string]interface{}
-			err = yaml.Unmarshal([]byte(expectedConfigStr), &expectedConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(actualConfig).To(Equal(expectedConfig))
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
 
@@ -1573,70 +1626,24 @@ user_data_collector_config:
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(utils.OLSConfigCmName))
 			Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
-			expectedConfigStr := `llm_providers: []
-ols_config:
-  conversation_cache:
-    postgres:
-      ca_cert_path: /etc/certs/postgres-ca/service-ca.crt
-      dbname: postgres
-      host: lightspeed-postgres-server.openshift-lightspeed.svc
-      password_path: /etc/credentials/lightspeed-postgres-secret/password
-      port: 5432
-      ssl_mode: require
-      user: postgres
-    type: postgres
-  extra_ca:
-    - /etc/certs/ols-additional-ca/service-ca.crt
-  certificate_directory: /etc/certs/cert-bundle
-  logging_config:
-    app_log_level: ""
-    lib_log_level: ""
-    uvicorn_log_level: ""
-  reference_content:
-    embeddings_model_path: /app-root/embeddings_model
-    indexes:
-    - product_docs_index_id: ocp-product-docs-` + major + `_` + minor + `
-      product_docs_index_path: /app-root/vector_db/ocp_product_docs/` + major + `.` + minor + `
-      product_docs_origin: Red Hat OpenShift 123.456 documentation
-  tlsSecurityProfile:
-    ciphers:
-    - TLS_AES_128_GCM_SHA256
-    - TLS_AES_256_GCM_SHA384
-    - TLS_CHACHA20_POLY1305_SHA256
-    - ECDHE-ECDSA-AES128-GCM-SHA256
-    - ECDHE-RSA-AES128-GCM-SHA256
-    - ECDHE-ECDSA-AES256-GCM-SHA384
-    - ECDHE-RSA-AES256-GCM-SHA384
-    - ECDHE-ECDSA-CHACHA20-POLY1305
-    - ECDHE-RSA-CHACHA20-POLY1305
-    minTLSVersion: VersionTLS12
-    type: IntermediateType
-  tls_config:
-    tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
-    tls_key_path: /etc/certs/lightspeed-tls/tls.key
-  tools_approval:
-    approval_timeout: 600
-    approval_type: tool_annotations
-  audit:
-    logging: Enabled
-  user_data_collection:
-    feedback_disabled: true
-    feedback_storage: /app-root/ols-user-data/feedback
-    transcripts_disabled: true
-    transcripts_storage: /app-root/ols-user-data/transcripts
-user_data_collector_config: {}
 
-`
-			// unmarshal to ensure the key order
-			var actualConfig map[string]interface{}
-			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &actualConfig)
+			var olsconfigGenerated utils.AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(Equal(buildSolrHybridSettings()))
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]utils.ReferenceIndex{
+				{
+					ProductDocsIndexId:   "ocp-product-docs-" + major + "_" + minor,
+					ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + major + "." + minor,
+					ProductDocsOrigin:    "Red Hat OpenShift 123.456 documentation",
+					ByokIndex:            true,
+				},
+			}))
+			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeTrue())
+			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeTrue())
+			Expect(olsconfigGenerated.UserDataCollectorConfig).To(Equal(utils.UserDataCollectorConfig{}))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("solr_hybrid:"))
 
-			var expectedConfig map[string]interface{}
-			err = yaml.Unmarshal([]byte(expectedConfigStr), &expectedConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(actualConfig).To(Equal(expectedConfig))
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
 
@@ -1673,12 +1680,7 @@ user_data_collector_config: {}
 					Protocol:      corev1.ProtocolTCP,
 				},
 			}))
-			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
-				{
-					Name:  "OLS_CONFIG_FILE",
-					Value: path.Join("/etc/ols", utils.OLSConfigFilename),
-				},
-			}))
+			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal(expectedAppServerEnv()))
 			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(
 				append(get7RequiredVolumeMounts(),
 					corev1.VolumeMount{
@@ -2347,7 +2349,7 @@ var _ = Describe("Helper function unit tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(servers).To(HaveLen(1))
 			Expect(servers[0].Name).To(Equal("openshift"))
-			Expect(servers[0].URL).To(ContainSubstring("8080"))
+			Expect(servers[0].URL).To(Equal(fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort)))
 			Expect(servers[0].Headers).To(HaveKey(utils.K8S_AUTH_HEADER))
 		})
 
