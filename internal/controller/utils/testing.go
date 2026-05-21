@@ -21,6 +21,7 @@ type TestReconciler struct {
 	AppServerImage      string
 	McpServerImage      string
 	DataverseExporter   string
+	RhokpImage          string
 	openShiftMajor      string
 	openShiftMinor      string
 	PrometheusAvailable bool
@@ -67,6 +68,10 @@ func (r *TestReconciler) GetDataverseExporterImage() string {
 	return r.DataverseExporter
 }
 
+func (r *TestReconciler) GetRHOOKPImage() string {
+	return r.RhokpImage
+}
+
 func (r *TestReconciler) IsPrometheusAvailable() bool {
 	return r.PrometheusAvailable
 }
@@ -94,8 +99,9 @@ func NewTestReconciler(
 		PostgresImage:       PostgresServerImageDefault,
 		ConsoleImage:        ConsoleUIImageDefault,
 		AppServerImage:      OLSAppServerImageDefault,
-		McpServerImage:      OLSAppServerImageDefault,
+		McpServerImage:      OpenShiftMCPServerImageDefault,
 		DataverseExporter:   DataverseExporterImageDefault,
+		RhokpImage:          RHOOKPImageDefault,
 		openShiftMajor:      "123",
 		openShiftMinor:      "456",
 		PrometheusAvailable: true, // Default to true for tests to maintain backward compatibility

@@ -652,6 +652,75 @@ var _ = Describe("App server deployment generation", func() {
 			))
 		})
 
+		It("should add RHOKP sidecar when solrHybrid is configured", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+			cr.Spec.OLSConfig.SolrHybrid = &olsv1alpha1.SolrHybridSettings{}
+
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var rhokpContainer *corev1.Container
+			for i := range dep.Spec.Template.Spec.Containers {
+				if dep.Spec.Template.Spec.Containers[i].Name == utils.RHOOKPContainerName {
+					rhokpContainer = &dep.Spec.Template.Spec.Containers[i]
+					break
+				}
+			}
+			Expect(rhokpContainer).NotTo(BeNil(), "expected RHOKP sidecar container")
+			Expect(rhokpContainer.Image).To(Equal(testReconcilerInstance.GetRHOOKPImage()))
+			Expect(rhokpContainer.Ports).To(ContainElement(
+				MatchFields(IgnoreExtras, Fields{
+					"ContainerPort": Equal(int32(utils.RHOOKPHTTPPort)),
+					"Name":          Equal("solr-http"),
+					"Protocol":      Equal(corev1.ProtocolTCP),
+				}),
+			))
+			Expect(rhokpContainer.Command).To(Equal(rhokpContainerCommand()))
+			Expect(rhokpContainer.Args).To(Equal(rhokpContainerArgs()))
+			Expect(rhokpContainer.StartupProbe).To(BeNil())
+			Expect(rhokpContainer.ReadinessProbe).To(Equal(rhokpHealthProbe()))
+			Expect(rhokpContainer.LivenessProbe).To(Equal(rhokpHealthProbe()))
+			Expect(rhokpContainer.SecurityContext.ReadOnlyRootFilesystem).NotTo(BeNil())
+			Expect(*rhokpContainer.SecurityContext.ReadOnlyRootFilesystem).To(BeFalse())
+			Expect(rhokpContainer.Env).To(ContainElement(
+				MatchFields(IgnoreExtras, Fields{
+					"Name":  Equal("ACCESS_KEY"),
+					"Value": BeEmpty(),
+					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+						"SecretKeyRef": PointTo(MatchFields(IgnoreExtras, Fields{
+							"LocalObjectReference": Equal(corev1.LocalObjectReference{Name: utils.RHOOKPAccessKeySecretName}),
+							"Key":                  Equal(utils.RHOOKPAccessKeySecretKey),
+							"Optional":             PointTo(BeTrue()),
+						})),
+					})),
+				}),
+			))
+			for _, ic := range dep.Spec.Template.Spec.InitContainers {
+				Expect(ic.Name).NotTo(HavePrefix("rhokp"), "RHOKP must not use an init container")
+			}
+		})
+
+		It("should not add RHOKP sidecar when byokRAGOnly is true even if solrHybrid is set", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+			cr.Spec.OLSConfig.ByokRAGOnly = true
+			cr.Spec.OLSConfig.SolrHybrid = &olsv1alpha1.SolrHybridSettings{}
+
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			for i := range dep.Spec.Template.Spec.Containers {
+				Expect(dep.Spec.Template.Spec.Containers[i].Name).NotTo(Equal(utils.RHOOKPContainerName))
+			}
+		})
+
 	})
 
 })

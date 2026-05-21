@@ -293,8 +293,29 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
 	// MCP server URL
 	OpenShiftMCPServerURL = "http://localhost:%d/mcp"
-	// MCP server port
-	OpenShiftMCPServerPort = 8080
+	// MCP server port (8081 so RH OKP can use 8080 in the same pod network namespace).
+	OpenShiftMCPServerPort = 8081
+	// RHOOKPHTTPPort is the Solr HTTP proxy port for the RH OKP sidecar (Apache on 8080 per RHOKP image).
+	RHOOKPHTTPPort = 8080
+	// RHOOKPReadinessHTTPPath is probed once Apache is up (Solr logs "Happy searching!" shortly after).
+	RHOOKPReadinessHTTPPath = "/"
+	// RHOOKPProbeInitialDelaySeconds allows Solr to finish startup before liveness can restart the sidecar.
+	RHOOKPProbeInitialDelaySeconds = 60
+	RHOOKPProbePeriodSeconds       = 10
+	RHOOKPProbeTimeoutSeconds      = 5
+	RHOOKPProbeFailureThreshold    = 3
+	RHOOKPAccessKeySecretName      = "rhokp-access-key" // #nosec G101 -- user-created secret for RHOKP portal access
+	RHOOKPAccessKeySecretKey       = "ACCESS_KEY"
+	// RHOKP image paths: disable Apache SSL Listen on 8443 so lightspeed-service-api can use 8443 in the same pod.
+	RHOOKPHTTPDSSLConfPath    = "/etc/httpd/conf.d/ssl.conf"
+	RHOOKPContainerEntrypoint = "/usr/bin/container-entrypoint"
+	RHOOKPMainCommand         = "/usr/local/bin/mel"
+	// Solr hybrid defaults written to the OLS config file (not exposed on OLSConfig CR).
+	SolrHybridMaxResultsDefault         = 5
+	SolrHybridVectorBoostDefault        = 8.0
+	SolrHybridPoolDocsDefault           = 100
+	SolrHybridScoreThresholdDefault     = 0.0
+	SolrHybridSolrTimeoutSecondsDefault = 60.0
 	// MCP server timeout, sec
 	OpenShiftMCPServerTimeout = 60
 	// MCP server SSE read timeout, sec
@@ -348,6 +369,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	PostgresContainerName = "lightspeed-postgres-server"
 	// OpenShiftMCPServerContainerName is the name of the OpenShift MCP server container
 	OpenShiftMCPServerContainerName = "openshift-mcp-server"
+	// RHOOKPContainerName is the RH Offline Knowledge Portal (Solr) sidecar container name.
+	RHOOKPContainerName = "rhokp"
 	// OLSConfigMapResourceVersionAnnotation is the annotation key for tracking OLS ConfigMap ResourceVersion
 	OLSConfigMapResourceVersionAnnotation = "ols.openshift.io/olsconfig-configmap-version"
 	// OpenShiftMCPServerConfigMapResourceVersionAnnotation is the annotation key for tracking MCP Server ConfigMap ResourceVersion
@@ -374,4 +397,5 @@ var (
 	OpenShiftMCPServerImageDefault = relatedimages.GetDefaultImage("openshift-mcp-server")
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
 	OcpRagImageDefault             = relatedimages.GetDefaultImage("lightspeed-ocp-rag")
+	RHOOKPImageDefault             = relatedimages.GetDefaultImage("rhokp")
 )

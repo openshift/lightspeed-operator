@@ -440,7 +440,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   byokRAGOnly:
                     description: Only use BYOK RAG sources, ignore the OpenShift documentation
-                      RAG
+                      RAG and Solr hybrid RAG
                     type: boolean
                   conversationCache:
                     description: Conversation cache settings
@@ -4450,28 +4450,42 @@ spec:
                         type: array
                     type: object
                   rag:
-                    description: RAG databases
+                    description: BYOK RAG databases (bring-your-own container images
+                      with FAISS vector indexes).
                     items:
-                      description: RAGSpec defines how to retrieve RAG databases.
+                      description: RAGSpec defines a BYOK RAG database (container
+                        image and index path).
                       properties:
                         image:
                           description: The URL of the container image to use as a
-                            RAG source
+                            BYOK RAG source
                           type: string
                         indexID:
                           default: ""
-                          description: The Index ID of the RAG database. Only needed
-                            if there are multiple indices in the database.
+                          description: The Index ID of the BYOK RAG database. Only
+                            needed if there are multiple indices in the database.
                           type: string
                         indexPath:
                           default: /rag/vector_db
-                          description: The path to the RAG database inside of the
-                            container image
+                          description: The path to the BYOK RAG database inside of
+                            the container image
                           type: string
                       required:
                       - image
                       type: object
                     type: array
+                  solrHybrid:
+                    description: Solr hybrid RAG (portal-rag /hybrid-search). When
+                      set, RHOKP sidecar and solr_hybrid are configured; local FAISS
+                      indexes remain for readiness until removed. Ignored when byokRAGOnly
+                      is true.
+                    properties:
+                      solrDirectRag:
+                        description: |-
+                          When true, merge Solr hybrid hits into the prompt as direct RAG context.
+                          When false, expose documentation search via tool only. Omitted is treated as false by the operator.
+                        type: boolean
+                    type: object
                   storage:
                     description: Persistent Storage Configuration
                     properties:

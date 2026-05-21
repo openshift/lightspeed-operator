@@ -218,10 +218,14 @@ type OLSSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy Settings",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:validation:Optional
 	ProxyConfig *ProxyConfig `json:"proxyConfig,omitempty"`
-	// RAG databases
+	// BYOK RAG databases (bring-your-own container images with FAISS vector indexes).
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RAG Databases",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="BYOK RAG Databases",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	RAG []RAGSpec `json:"rag,omitempty"`
+	// Solr hybrid RAG (portal-rag /hybrid-search). When set, RHOKP sidecar and solr_hybrid are configured; local FAISS indexes remain for readiness until removed. Ignored when byokRAGOnly is true.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Solr Hybrid RAG",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	SolrHybrid *SolrHybridSettings `json:"solrHybrid,omitempty"`
 	// LLM Token Quota Configuration
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="LLM Token Quota Configuration"
 	QuotaHandlersConfig *QuotaHandlersConfig `json:"quotaHandlersConfig,omitempty"`
@@ -229,7 +233,7 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Persistent Storage Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	Storage *Storage `json:"storage,omitempty"`
-	// Only use BYOK RAG sources, ignore the OpenShift documentation RAG
+	// Only use BYOK RAG sources, ignore the OpenShift documentation RAG and Solr hybrid RAG
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Only use BYOK RAG sources",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	ByokRAGOnly bool `json:"byokRAGOnly,omitempty"`
@@ -277,21 +281,30 @@ type MCPKubeServerConfiguration struct {
 	Timeout int `json:"timeout,omitempty"`
 }
 
-// RAGSpec defines how to retrieve RAG databases.
+// RAGSpec defines a BYOK RAG database (container image and index path).
 type RAGSpec struct {
-	// The path to the RAG database inside of the container image
+	// The path to the BYOK RAG database inside of the container image
 	// +kubebuilder:default="/rag/vector_db"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index Path in the Image"
 	IndexPath string `json:"indexPath,omitempty"`
-	// The Index ID of the RAG database. Only needed if there are multiple indices in the database.
+	// The Index ID of the BYOK RAG database. Only needed if there are multiple indices in the database.
 	// +kubebuilder:default=""
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index ID"
 	IndexID string `json:"indexID,omitempty"`
-	// The URL of the container image to use as a RAG source
+	// The URL of the container image to use as a BYOK RAG source
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image"
 	Image string `json:"image"`
+}
+
+// SolrHybridSettings enables Solr hybrid RAG (portal-rag /hybrid-search) using the operator RHOKP sidecar.
+// Retrieval tuning and Solr URL are set in the OLS config file by the operator, not on this CR.
+type SolrHybridSettings struct {
+	// When true, merge Solr hybrid hits into the prompt as direct RAG context.
+	// When false, expose documentation search via tool only. Omitted is treated as false by the operator.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Solr Direct RAG",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	SolrDirectRAG *bool `json:"solrDirectRag,omitempty"`
 }
 
 // QuotaHandlersConfig defines the token quota configuration

@@ -149,6 +149,7 @@ var _ = BeforeSuite(func() {
 		tr.AppServerImage = utils.OLSAppServerImageDefault
 		tr.DataverseExporter = utils.DataverseExporterImageDefault
 		tr.McpServerImage = utils.OpenShiftMCPServerImageDefault
+		tr.RhokpImage = utils.RHOOKPImageDefault
 		tr.PrometheusAvailable = true
 	}
 
