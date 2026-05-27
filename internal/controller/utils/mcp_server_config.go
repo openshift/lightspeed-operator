@@ -20,11 +20,14 @@ import (
 // Other sensitive resource types (RBAC) are also denied as defense in depth.
 // Toolsets are listed explicitly so upstream default changes do not affect OLS; the metrics toolset
 // uses in-cluster Thanos Querier and Alertmanager endpoints.
+// read_only = false is required: openshift-mcp-server-rhel9 sets ReadOnly=true in build-time defaults;
+// omitting this leaves only readOnlyHint tools (no resources_create_or_update, etc.).
 const OpenShiftMCPServerConfigTOML = `# Denied resources prevent the MCP server from accessing these Kubernetes resource types.
 # This ensures secret data never reaches the LLM through the shipped MCP server.
 # User-brought MCP servers (spec.mcpServers) are the user's responsibility to secure.
 # Toolsets are pinned explicitly so upstream default changes do not affect OLS.
 
+read_only = false
 toolsets = ["core", "config", "helm", "metrics"]
 
 [[denied_resources]]

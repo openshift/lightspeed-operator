@@ -32,7 +32,7 @@ The operator enforces security boundaries through RBAC, network policies, pod se
 15. MCP server header secrets must contain a specific key `header` (constant `MCPSECRETDATAPATH`) and are mounted read-only at `/etc/mcp/headers/<secretName>/`.
 
 ### OpenShift MCP Server Security
-16. The shipped OpenShift MCP server runs with the `--read-only` flag and is configured via a TOML config file that blocks access to Secret and RBAC resources, preventing secret data from reaching the LLM.
+16. The shipped OpenShift MCP server is configured via a TOML config file (`read_only = false`, denied Secret/RBAC resources) so the LLM can use core write tools (e.g. `resources_create_or_update`) while secret data stays blocked at the server level. The sidecar does not pass `--read-only` on the command line; `read_only = false` in TOML overrides the RHEL image build default of `ReadOnly: true`.
 17. The denied resources are configured in the `openshift-mcp-server-config` ConfigMap as a TOML config with entries blocking `core/v1/secrets`, `rbac.authorization.k8s.io/v1/roles`, `rbac.authorization.k8s.io/v1/rolebindings`, `rbac.authorization.k8s.io/v1/clusterroles`, and `rbac.authorization.k8s.io/v1/clusterrolebindings`.
 18. User-defined MCP servers (via `spec.mcpServers`) are the user's responsibility to secure.
 
