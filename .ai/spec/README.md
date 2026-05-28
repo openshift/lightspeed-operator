@@ -39,6 +39,7 @@ AI agents (Claude). Content is optimized for precision and machine consumption o
 | Understand security constraints | `what/security.md` |
 | Debug external resource watching | `what/resource-lifecycle.md` + `how/reconciliation.md` |
 | Add metrics or alerts | `what/observability.md` |
+| Understand the OLM bundle (both controllers) | `what/bundle-composition.md` |
 
 ## Conventions
 
