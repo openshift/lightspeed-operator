@@ -101,6 +101,10 @@ Both must be true. The service ID is `"ols"` unless the CR has `openstack.org/li
 | Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY from cluster |
 | RAG images | CR `spec.ols.rag[].image` | Container images for init containers |
 
+## Agentic Controller Deployment (OLM-managed)
+
+Unlike the AppServer, PostgreSQL, and Console UI deployments (which are reconciled by the lightspeed-operator controller at runtime), the agentic controller deployment is statically defined in the CSV and managed by OLM. The lightspeed-operator controller has no code to generate, update, or restart the agentic controller deployment. The agentic controller's operand images (agentic console plugin, etc.) are configured via startup flags on its deployment in the CSV, not via the lightspeed-operator's flags.
+
 ## Implementation Notes
 
 - `RevisionHistoryLimit` is set to 1 for all deployments to minimize stored ReplicaSets.

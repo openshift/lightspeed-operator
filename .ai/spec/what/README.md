@@ -11,7 +11,8 @@ Defines what the operator must do. Each spec contains numbered behavioral rules,
 | `reconciliation.md` | Reconciliation behavioral rules: ordering, idempotency, error handling, status updates, finalizer semantics. |
 | `app-server.md` | Application server backend behavioral rules: deployment shape, configuration generation, health checks, resource requirements. |
 | `postgres.md` | PostgreSQL component behavioral rules: deployment, secret management, TLS, connection parameters, PVC lifecycle. |
-| `console-ui.md` | Console UI plugin behavioral rules: ConsolePlugin CR, service proxy, OCP version-based image selection, enable/disable lifecycle. |
+| `console-ui.md` | Console UI plugin (Lightspeed chat) behavioral rules: ConsolePlugin CR, service proxy, OCP version-based image selection, enable/disable lifecycle. |
+| `bundle-composition.md` | OLM bundle structure for co-deploying lightspeed-operator and lightspeed-agentic-operator: CRD ownership, git-based sync, image references, controller independence, console plugin separation. |
 | `tls.md` | TLS behavioral rules: service-ca integration, custom certificate support, TLS profile inheritance, CA bundle management. |
 | `security.md` | Security behavioral rules: RBAC, network policies, secret handling, security contexts, pod security standards. |
 | `resource-lifecycle.md` | Resource lifecycle: owned resources (OwnerReferences, Owns()), external resources (annotation-based watching, change detection, restart mapping). |
