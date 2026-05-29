@@ -41,6 +41,19 @@ AI agents (Claude). Content is optimized for precision and machine consumption o
 | Add metrics or alerts | `what/observability.md` |
 | Understand the OLM bundle (both controllers) | `what/bundle-composition.md` |
 
+## Cross-Reference
+
+When what/ and how/ file names don't match 1:1, this table maps behavioral specs to their implementation guides:
+
+| what/ | how/ |
+|---|---|
+| `reconciliation.md` | `how/reconciliation.md` -- implementation patterns, code locations, task registration |
+| `app-server.md`, `postgres.md`, `console-ui.md` | `how/deployment-generation.md` -- how deployments/services/configmaps are generated |
+| `crd-api.md` | `how/config-generation.md` -- how CRD fields map to generated configuration |
+| `system-overview.md` | `how/project-structure.md` -- codebase layout, package responsibilities |
+
+The `what/` specs are authoritative for behavior. The `how/` specs are authoritative for implementation. When they conflict, the `what/` spec wins and the `how/` spec should be updated.
+
 ## Conventions
 
 ### Planned changes

@@ -47,3 +47,7 @@ The operator manages TLS certificates for all inter-component communication and 
 2. Custom TLS secrets must be in the operator's namespace (`openshift-lightspeed` by default).
 3. PostgreSQL always uses SSL mode `require` with the service-ca certificate. This is not configurable.
 4. The proxy CA certificate ConfigMap key is validated as a valid x509 PEM certificate during reconciliation.
+
+## Planned Changes
+
+None.

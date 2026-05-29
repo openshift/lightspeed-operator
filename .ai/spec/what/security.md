@@ -45,3 +45,7 @@ Security behavior is not directly user-configurable beyond the TLS and network-r
 1. The operator must not store credentials in ConfigMaps or environment variables directly. Secrets are always file-mounted as read-only volumes.
 2. Network policies require a CNI plugin that supports NetworkPolicy enforcement.
 3. All containers must run as non-root with read-only root filesystems.
+
+## Planned Changes
+
+None.

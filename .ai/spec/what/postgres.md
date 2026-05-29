@@ -54,3 +54,7 @@ The operator deploys a single-replica PostgreSQL server that provides persistent
 1. Replicas are always 1 regardless of configuration.
 2. Password secrets are write-once; the operator never updates them after creation.
 3. SSL is always enabled with certificates from the service-ca operator.
+
+## Planned Changes
+
+None.

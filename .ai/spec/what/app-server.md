@@ -78,3 +78,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 2. Tool filtering requires MCP servers to be configured (either introspection or user-defined).
 3. The service always connects to PostgreSQL via the internal cluster service DNS.
 4. RAG init containers run in index order, copying data to subdirectories of the shared RAG volume.
+
+## Planned Changes
+
+None.

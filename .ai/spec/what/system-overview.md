@@ -79,8 +79,4 @@ The OpenShift Lightspeed Operator is a Kubernetes operator that manages the life
 
 ## Planned Changes
 
-| Jira | Summary |
-|---|---|
-| OLS-2322 | Streamline OLSConfig CR deployment configuration |
-| OLS-2323 | Extend OLSConfig CR to report specific deployment errors |
-| OLS-2325 | Create type-safe log-level definition in the operator CR |
+None.
