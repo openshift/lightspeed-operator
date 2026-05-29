@@ -58,3 +58,7 @@ Resource lifecycle behavior is not directly user-configurable. External resource
 3. System resources are always watched regardless of CR configuration. They are defined in `WatcherConfig.Secrets.SystemResources` and `WatcherConfig.ConfigMaps.SystemResources`.
 4. Owned resources with an OwnerReference are skipped by the external resource Create handler to avoid redundant processing; they are handled via the `Owns()` relationship.
 5. Owned resources are not deleted individually during normal operation. They are only explicitly deleted during finalizer cleanup on CR deletion.
+
+## Planned Changes
+
+None.

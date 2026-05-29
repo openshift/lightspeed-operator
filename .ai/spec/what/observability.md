@@ -50,3 +50,7 @@ The operator configures monitoring, health probes, and status reporting for all 
 2. Data collection requires the telemetry pull secret with `cloud.openshift.com` auth; removing the secret or the auth entry disables collection.
 3. Diagnostics are cleared from status when the corresponding deployment becomes healthy (the entire `diagnosticInfo` array is rebuilt from scratch on each status update).
 4. Health probe parameters are internal constants and cannot be customized via the CR.
+
+## Planned Changes
+
+None.

@@ -47,3 +47,7 @@ The lightspeed-operator OLM bundle installs both the lightspeed-operator control
 1. The lightspeed-operator controller code does not import, reference, or reconcile any `agentic.openshift.io` types.
 2. The agentic CRD YAML in `bundle/manifests/` must not be hand-edited — it is synced from the agentic-operator repo via the make target.
 3. Both controllers must be able to run in disconnected (air-gapped) environments. All image references must be overridable.
+
+## Planned Changes
+
+None.

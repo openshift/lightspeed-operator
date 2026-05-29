@@ -58,3 +58,7 @@ Reconciliation behavior is not directly user-configurable. It is driven by the O
 2. Finalizer removal must succeed even if cleanup partially fails, to prevent stuck CRs.
 3. The operator must not create ServiceMonitor or PrometheusRule resources if Prometheus Operator CRDs are not installed.
 4. Status updates must always set OverallStatus (required field after first reconciliation).
+
+## Planned Changes
+
+None.

@@ -35,19 +35,32 @@ Field path (relative to each provider) | JSON key | Go type | Required | Descrip
 `url` | `url` | `string` | No | Provider API URL. Pattern: `^https?://.*$`
 `credentialsSecretRef` | `credentialsSecretRef` | `corev1.LocalObjectReference` | Yes | Secret containing API credentials
 `models` | `models` | `[]ModelSpec` | Yes | Provider models. MaxItems=50
-`type` | `type` | `string` | Yes | Provider type enum: `azure_openai`, `bam`, `openai`, `watsonx`, `rhoai_vllm`, `rhelai_vllm`, `fake_provider`
+`type` | `type` | `string` | Yes | Provider type enum: `azure_openai`, `bam`, `openai`, `watsonx`, `rhoai_vllm`, `rhelai_vllm`, `fake_provider`, `google_vertex`, `google_vertex_anthropic`
 `deploymentName` | `deploymentName` | `string` | No | Azure OpenAI deployment name
 `apiVersion` | `apiVersion` | `string` | No | Azure OpenAI API version
 `projectID` | `projectID` | `string` | No | Watsonx project ID
+`googleVertexConfig` | `googleVertexConfig` | `*VertexConfig` | No | Google Vertex provider configuration. Required when `type == "google_vertex"`, forbidden otherwise
+`googleVertexAnthropicConfig` | `googleVertexAnthropicConfig` | `*VertexConfig` | No | Google Vertex Anthropic provider configuration. Required when `type == "google_vertex_anthropic"`, forbidden otherwise
 `fakeProviderMCPToolCall` | `fakeProviderMCPToolCall` | `bool` | No | Fake provider MCP tool call flag
 `tlsSecurityProfile` | `tlsSecurityProfile` | `*configv1.TLSSecurityProfile` | No | TLS profile for provider connection
 `credentialKey` | `credentialKey` | `string` | No | Key name within `credentialsSecretRef` to read credential from. Defaults to `"apitoken"` if unset
+
+#### VertexConfig Fields
+
+Field path (relative to VertexConfig) | JSON key | Go type | Required | Description
+---|---|---|---|---
+`projectID` | `projectID` | `string` | No | Google Cloud project ID
+`location` | `location` | `string` | No | Server region location
 
 #### Provider XValidation Rules
 
 8. Azure OpenAI requires `deploymentName`: when `type == "azure_openai"`, `deploymentName` must not be empty.
 9. Watsonx requires `projectID`: when `type == "watsonx"`, `projectID` must not be empty.
 10. `credentialKey` must not be empty or whitespace: if set, it must not match `^[ \t\n\r\v\f]*$`.
+11. Google Vertex requires `googleVertexConfig`: when `type == "google_vertex"`, `googleVertexConfig` must be present.
+12. Google Vertex Anthropic requires `googleVertexAnthropicConfig`: when `type == "google_vertex_anthropic"`, `googleVertexAnthropicConfig` must be present.
+13. `googleVertexConfig` may only be set when `type == "google_vertex"`.
+14. `googleVertexAnthropicConfig` may only be set when `type == "google_vertex_anthropic"`.
 
 #### ModelSpec Fields
 
@@ -309,6 +322,12 @@ Path | Type | Default | Required | Validation | Description
 `spec.llm.providers[].deploymentName` | `string` | -- | No | XValidation (rule 8) | Azure deployment name
 `spec.llm.providers[].apiVersion` | `string` | -- | No | -- | Azure API version
 `spec.llm.providers[].projectID` | `string` | -- | No | XValidation (rule 9) | Watsonx project ID
+`spec.llm.providers[].googleVertexConfig` | `*VertexConfig` | -- | No | XValidation (rules 11, 13) | Google Vertex config
+`spec.llm.providers[].googleVertexConfig.projectID` | `string` | -- | No | -- | Google Cloud project ID
+`spec.llm.providers[].googleVertexConfig.location` | `string` | -- | No | -- | Server region location
+`spec.llm.providers[].googleVertexAnthropicConfig` | `*VertexConfig` | -- | No | XValidation (rules 12, 14) | Google Vertex Anthropic config
+`spec.llm.providers[].googleVertexAnthropicConfig.projectID` | `string` | -- | No | -- | Google Cloud project ID
+`spec.llm.providers[].googleVertexAnthropicConfig.location` | `string` | -- | No | -- | Server region location
 `spec.llm.providers[].fakeProviderMCPToolCall` | `bool` | -- | No | -- | Fake provider MCP flag
 `spec.llm.providers[].tlsSecurityProfile` | `*TLSSecurityProfile` | -- | No | -- | Provider TLS profile
 `spec.llm.providers[].credentialKey` | `string` | -- | No | XValidation (rule 10) | Secret key name
@@ -428,3 +447,7 @@ Path | Type | Default | Required | Validation | Description
 8. MCP server functionality requires the `MCPServer` feature gate in `spec.featureGates`.
 11. There is exactly one allowed CacheType value: `postgres`.
 12. `ToolFilteringConfig.alpha` and `ToolFilteringConfig.threshold` are validated via XValidation (not kubebuilder min/max) to enforce 0.0-1.0 range.
+
+## Planned Changes
+
+None.

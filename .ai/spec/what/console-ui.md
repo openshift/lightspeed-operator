@@ -42,3 +42,7 @@ The operator deploys the OpenShift Lightspeed **chat** console plugin, which int
 2. The ConsolePlugin CR is cluster-scoped and cannot have namespace-scoped owner references in the standard way.
 3. Image selection happens at operator startup and is based on the detected OCP version, not runtime configuration.
 4. The plugin name in the Console CR must exactly match the ConsolePlugin CR name for activation.
+
+## Planned Changes
+
+None.
