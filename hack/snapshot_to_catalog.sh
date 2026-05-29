@@ -155,8 +155,9 @@ for snapshot in "${!SNAPSHOT_REFS[@]}"; do
   BUNDLE_VERSIONS+=("${BUNDLE_VERSION}")
   # restore bundle image to the catalog file
   ${YQ} eval -i '.image='"\"${BUNDLE_IMAGE}\"" "${TEMP_BUNDLE_FILE}"
-  # restore bundle related images and the bundle itself to the catalog file
-  ${YQ} eval -i '.relatedImages='"${RELATED_IMAGES}" "${TEMP_BUNDLE_FILE}"
+  # restore bundle related images to the catalog file (exclude bundle image, already referenced by .image field)
+  RELATED_IMAGES_CATALOG=$(jq 'map(select(.name != "lightspeed-operator-bundle"))' <<<"${RELATED_IMAGES}")
+  ${YQ} eval -i '.relatedImages='"${RELATED_IMAGES_CATALOG}" "${TEMP_BUNDLE_FILE}"
 
   # Create version-specific bundle file
   BUNDLE_FILE="$(dirname "${CATALOG_FILE}")/bundle-v${BUNDLE_VERSION}.yaml"

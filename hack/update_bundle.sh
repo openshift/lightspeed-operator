@@ -157,7 +157,8 @@ ${JQ} -c '.[]' <<<"${PLACEHOLDERS}" | while IFS= read -r entry; do
 done
 
 # Set spec.relatedImages from related_images.json (strip revision for CSV if present).
-RELATED_IMAGES_CSV=$(${JQ} 'map(del(.revision))' <<<"${RELATED_IMAGES}")
+# The bundle image is only referenced in catalog files, not in the CSV.
+RELATED_IMAGES_CSV=$(${JQ} 'map(del(.revision)) | map(select(.name != "lightspeed-operator-bundle"))' <<<"${RELATED_IMAGES}")
 # set related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES_CSV}" ${CSV_FILE}
 # add compatibility labels to the annotations file
