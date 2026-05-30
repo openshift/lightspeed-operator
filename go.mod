@@ -148,7 +148,7 @@ require (
 	github.com/openshift/api v0.0.0-20260420151639-34e60874783e
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.67.5 // indirect
+	github.com/prometheus/common v0.68.0 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
