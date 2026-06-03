@@ -243,6 +243,9 @@ spec:
           - name: watsonx-token
             secret:
               secretName: watsonx-apitoken
+          - name: vertex-token
+            secret:
+              secretName: vertex-apitoken
           - name: insights-stage-upload-offline-token
             secret:
               secretName: insights-stage-upload-offline-token
@@ -288,6 +291,8 @@ spec:
                 mountPath: /var/run/openai
               - name: watsonx-token
                 mountPath: /var/run/watsonx
+              - name: vertex-token
+                mountPath: /var/run/vertex
               - name: insights-stage-upload-offline-token
                 mountPath: /var/run/insights-stage-upload-offline-token
               - name: credentials
@@ -301,6 +306,8 @@ spec:
                 value: "/var/run/openai/token"
               - name: WATSONX_PROVIDER_KEY_PATH
                 value: "/var/run/watsonx/token"
+              - name: VERTEX_PROVIDER_KEY_PATH
+                value: "/var/run/vertex/token"
               - name: KUBECONFIG
                 value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
               - name: ARTIFACT_DIR
