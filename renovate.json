@@ -8,10 +8,13 @@
         "approved",
         "lgtm"
     ],
-    "regexManagers": [
+    "customManagers": [
         {
+            "customType": "regex",
             "description": "Track openshift-mcp-server image digest in related_images.json. The image is built by the OCP MCP team; Renovate polls for new digests and opens a PR when one is available.",
-            "fileMatch": ["^related_images\\.json$"],
+            "managerFilePatterns": [
+                "/^related_images\\.json$/"
+            ],
             "matchStrings": [
                 "\"name\":\\s*\"openshift-mcp-server\",\\s*\"image\":\\s*\"(?<depName>[^@]+)@(?<currentDigest>sha256:[a-f0-9]+)\""
             ],
