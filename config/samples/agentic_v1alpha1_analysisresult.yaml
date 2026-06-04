@@ -1,0 +1,7 @@
+apiVersion: agentic.openshift.io/v1alpha1
+kind: AnalysisResult
+metadata:
+  name: fix-crashloop
+  namespace: openshift-lightspeed
+spec:
+  proposalName: fix-crashloop

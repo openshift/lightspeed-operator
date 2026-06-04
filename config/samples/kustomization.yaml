@@ -1,4 +1,13 @@
 ## Append samples of your project ##
 resources:
 - ols_v1alpha1_olsconfig.yaml
+- agentic_v1alpha1_agent.yaml
+- agentic_v1alpha1_analysisresult.yaml
+- agentic_v1alpha1_approvalpolicy.yaml
+- agentic_v1alpha1_escalationresult.yaml
+- agentic_v1alpha1_executionresult.yaml
+- agentic_v1alpha1_llmprovider.yaml
+- agentic_v1alpha1_proposalapproval.yaml
+- agentic_v1alpha1_proposal.yaml
+- agentic_v1alpha1_verificationresult.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

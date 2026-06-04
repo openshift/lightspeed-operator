@@ -1,0 +1,12 @@
+apiVersion: agentic.openshift.io/v1alpha1
+kind: ProposalApproval
+metadata:
+  name: fix-crashloop
+  namespace: openshift-lightspeed
+spec:
+  stages:
+    - type: Analysis
+      analysis: {}
+    - type: Execution
+      execution:
+        option: 0

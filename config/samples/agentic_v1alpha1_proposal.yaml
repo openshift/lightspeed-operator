@@ -1,0 +1,15 @@
+apiVersion: agentic.openshift.io/v1alpha1
+kind: Proposal
+metadata:
+  name: fix-crashloop
+  namespace: openshift-lightspeed
+spec:
+  request: "Pod api-server-xyz is crash looping in production namespace"
+  targetNamespaces:
+    - production
+  analysis:
+    agent: smart
+  execution:
+    agent: default
+  verification:
+    agent: fast

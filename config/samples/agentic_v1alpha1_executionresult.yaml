@@ -1,0 +1,8 @@
+apiVersion: agentic.openshift.io/v1alpha1
+kind: ExecutionResult
+metadata:
+  name: fix-crashloop-0
+  namespace: openshift-lightspeed
+spec:
+  proposalName: fix-crashloop
+  retryIndex: 0
