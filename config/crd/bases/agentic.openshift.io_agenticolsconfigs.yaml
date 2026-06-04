@@ -1,0 +1,75 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: agenticolsconfigs.agentic.openshift.io
+spec:
+  group: agentic.openshift.io
+  names:
+    kind: AgenticOLSConfig
+    listKind: AgenticOLSConfigList
+    plural: agenticolsconfigs
+    singular: agenticolsconfig
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.suspended
+      name: Suspended
+      type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: "AgenticOLSConfig is a cluster-scoped singleton that controls
+          system-wide\nagentic behavior. The cluster admin creates a single AgenticOLSConfig\nnamed
+          \"cluster\". When spec.suspended is true, all non-terminal proposals\nare
+          terminated and no new workflow steps are started.\n\nWhen no AgenticOLSConfig
+          CR exists, the system behaves as if\nsuspended is false — the CR is not
+          required for normal operation.\n\nExample:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          AgenticOLSConfig\n\tmetadata:\n\t  name: cluster\n\tspec:\n\t  suspended:
+          false"
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired system configuration.
+            minProperties: 1
+            properties:
+              suspended:
+                default: false
+                description: |-
+                  suspended halts all agentic operations cluster-wide when set to true.
+                  All non-terminal proposals are immediately terminated with an
+                  EmergencyStopped condition. Setting back to false re-enables the
+                  system for new proposals only — EmergencyStopped proposals remain
+                  terminal and must be recreated explicitly.
+                type: boolean
+            type: object
+        required:
+        - spec
+        type: object
+        x-kubernetes-validations:
+        - message: AgenticOLSConfig must be named 'cluster' (singleton)
+          rule: self.metadata.name == 'cluster'
+    served: true
+    storage: true
+    subresources: {}

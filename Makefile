@@ -5,6 +5,10 @@
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION ?= latest
 
+AGENTIC_OPERATOR_REPO ?= https://github.com/openshift/lightspeed-agentic-operator
+AGENTIC_OPERATOR_REF ?= main
+AGENTIC_CRD_DIR = config/crd/bases
+
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
@@ -64,7 +68,7 @@ OPERATOR_SDK_VERSION ?= v1.36.1
 IMG ?= $(IMAGE_TAG_BASE):$(VERSION)
 export IMG
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.27.1
+ENVTEST_K8S_VERSION = 1.32.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -116,6 +120,10 @@ E2E_GO_TAGS := exclude_graphdriver_btrfs,containers_image_openpgp
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook $(CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases
+
+.PHONY: sync-agentic-crds
+sync-agentic-crds: ## Fetch agentic CRDs from lightspeed-agentic-operator at pinned ref.
+	hack/sync_agentic_crds.sh $(AGENTIC_OPERATOR_REPO) $(AGENTIC_OPERATOR_REF) $(AGENTIC_CRD_DIR)
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -401,7 +409,7 @@ endif
 ## to set the default channel, use the DEFAULT_CHANNEL variable
 ## to use image digests instead of version tag, set the USE_IMAGE_DIGESTS variable to true
 .PHONY: bundle
-bundle: manifests kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
+bundle: manifests sync-agentic-crds kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
 	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i related_images.json
 
 parking:
