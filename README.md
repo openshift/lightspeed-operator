@@ -233,18 +233,18 @@ conversationCache:
 
 ### Syncing Agentic CRDs
 
-The OLM bundle includes CRDs from the [lightspeed-agentic-operator](https://github.com/openshift/lightspeed-agentic-operator). These are fetched via a make target — do not hand-edit the agentic CRD or sample files.
+The OLM bundle includes CRDs, samples, and RBAC from the [lightspeed-agentic-operator](https://github.com/openshift/lightspeed-agentic-operator). These are fetched via a make target — do not hand-edit the agentic CRD, sample, or RBAC files.
 
-To sync agentic CRDs and samples from the pinned ref (defaults to `main`):
+To sync from the pinned ref (defaults to `main`):
 
 ```shell
-make sync-agentic-crds
+make sync-agentic-operator
 ```
 
 To sync from a specific tag or commit:
 
 ```shell
-make sync-agentic-crds AGENTIC_OPERATOR_REF=v0.1.0
+make sync-agentic-operator AGENTIC_OPERATOR_REF=v0.1.0
 ```
 
 The pinned ref is controlled by `AGENTIC_OPERATOR_REF` in the Makefile. This target is also run automatically as part of `make bundle`.

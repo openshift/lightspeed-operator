@@ -186,7 +186,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-06-15T08:23:09Z"
+    createdAt: "2026-06-15T08:25:11Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -833,6 +833,161 @@ spec:
     spec:
       clusterPermissions:
         - rules:
+            - apiGroups:
+                - ""
+              resources:
+                - configmaps
+                - services
+              verbs:
+                - create
+                - get
+                - list
+                - update
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - pods
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - serviceaccounts
+              verbs:
+                - create
+                - delete
+                - get
+            - apiGroups:
+                - agentic.openshift.io
+              resources:
+                - agenticolsconfigs
+                - agents
+                - approvalpolicies
+                - llmproviders
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - agentic.openshift.io
+              resources:
+                - analysisresults
+                - escalationresults
+                - executionresults
+                - verificationresults
+              verbs:
+                - create
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - agentic.openshift.io
+              resources:
+                - analysisresults/status
+                - escalationresults/status
+                - executionresults/status
+                - proposalapprovals/status
+                - proposals/status
+                - verificationresults/status
+              verbs:
+                - get
+                - patch
+                - update
+            - apiGroups:
+                - agentic.openshift.io
+              resources:
+                - proposalapprovals
+                - proposals
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - agentic.openshift.io
+              resources:
+                - proposals/finalizers
+              verbs:
+                - update
+            - apiGroups:
+                - agents.x-k8s.io
+              resources:
+                - sandboxes
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apps
+              resources:
+                - deployments
+              verbs:
+                - create
+                - get
+                - list
+                - update
+                - watch
+            - apiGroups:
+                - console.openshift.io
+              resources:
+                - consoleplugins
+              verbs:
+                - create
+                - get
+                - list
+                - update
+                - watch
+            - apiGroups:
+                - extensions.agents.x-k8s.io
+              resources:
+                - sandboxclaims
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - extensions.agents.x-k8s.io
+              resources:
+                - sandboxtemplates
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - update
+                - watch
+            - apiGroups:
+                - operator.openshift.io
+              resources:
+                - consoles
+              verbs:
+                - get
+                - list
+                - update
+                - watch
+            - apiGroups:
+                - rbac.authorization.k8s.io
+              resources:
+                - clusterrolebindings
+                - clusterroles
+                - rolebindings
+                - roles
+              verbs:
+                - create
+                - delete
+                - get
+          serviceAccountName: lightspeed-operator-agentic-controller-manager
+        - rules:
             - nonResourceURLs:
                 - /ls-access
                 - /ols-metrics-access
@@ -1024,6 +1179,72 @@ spec:
           serviceAccountName: lightspeed-operator-controller-manager
       deployments:
         - label:
+            control-plane: agentic-controller-manager
+          name: lightspeed-operator-agentic-controller-manager
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                control-plane: agentic-controller-manager
+            strategy: {}
+            template:
+              metadata:
+                labels:
+                  control-plane: agentic-controller-manager
+              spec:
+                containers:
+                  - args:
+                      - --metrics-bind-address=:8080
+                      - --health-probe-bind-address=:8081
+                      - --agentic-console-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:9f4292e63e718778bbc3cb8f92f89594f85385c842f7a82197e9ec6391151898
+                      - --agentic-sandbox-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox@sha256:2457cb2b46962b79315a39f39101a4fb4385fad22e34d10ca855e6ff65eb2f2d
+                    command:
+                      - /manager
+                    env:
+                      - name: POD_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.namespace
+                    image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-operator@sha256:68bebe528ca08a17080e4d95add87be4d8f7ad633f8b4a3c04cc2eabe095a254
+                    imagePullPolicy: IfNotPresent
+                    livenessProbe:
+                      httpGet:
+                        path: /healthz
+                        port: health
+                      initialDelaySeconds: 15
+                      periodSeconds: 20
+                    name: manager
+                    ports:
+                      - containerPort: 8080
+                        name: metrics
+                        protocol: TCP
+                      - containerPort: 8081
+                        name: health
+                        protocol: TCP
+                    readinessProbe:
+                      httpGet:
+                        path: /readyz
+                        port: health
+                      initialDelaySeconds: 5
+                      periodSeconds: 10
+                    resources:
+                      limits:
+                        cpu: 500m
+                        memory: 512Mi
+                      requests:
+                        cpu: 10m
+                        memory: 64Mi
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop:
+                          - ALL
+                      readOnlyRootFilesystem: true
+                securityContext:
+                  runAsNonRoot: true
+                serviceAccountName: lightspeed-operator-agentic-controller-manager
+                terminationGracePeriodSeconds: 10
+        - label:
             app.kubernetes.io/component: manager
             app.kubernetes.io/created-by: lightspeed-operator
             app.kubernetes.io/instance: controller-manager
@@ -1052,14 +1273,14 @@ spec:
                       - --metrics-bind-address=:8443
                       - --secure-metrics-server
                       - --cert-dir=/etc/tls/private
-                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:26f9e07ff6a54d3930a5693b4638995ff7e2f4e8b526e32b4e949b6bb422f2b4
-                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:94011900ed85cca5cd654346ce0e8cbed276464c061ae76320a7bf8e79939b32
-                      - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:129d6580971ec5c90b4206cd593fc856dcb766808d7f6e29cb1ec2496a1af39b
-                      - --console-image-4-19=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:08140093c340fc20fca849ac3a118b50aa338fde7fa930373a55fd0b3e1167c5
+                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:6de7fa294e6c482c48c9ed81b9c4d27241a821665c2485c9b14371cd2a77766b
+                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:3413b67d587bddc6ff21bdb6a2c14aca348db7374740c621664f3a48f5548af4
+                      - --console-image-pf5=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:bf1052cf922689eb3e802eeca41374294c61c6d27ed9f93584a800b7292a76ff
+                      - --console-image-4-19=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:4afa6a9f49903fe44735a7480a2631ad8da5fb1f43f7c8225bd366e3487e1cdd
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
                       - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:83f288c04aad9c742cf2cee51f45e1be1982e1fcc388d2112cf5483e381fff62
-                      - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
-                      - --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:6154de4ade379d23b8b983f8223fb219b275ba6339b4cfc150e151433e905e5c
+                      - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:dc071421c925dbe55fd03765f7a2ede7140e9a4d49aa95c0b4d2435cbee95f0f
+                      - --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:a5109af1488b1c23babbe585abfe66d9631e933dd28aebd2a0d5620a8c415879
                     command:
                       - /manager
                     env:
@@ -1067,7 +1288,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:90b3971b1b23a3f517f321e1997e5d2b712e8044bb28b886d9736d03d1b6b1f7
+                    image: quay.io/openshift-lightspeed/lightspeed-operator:latest
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1112,6 +1333,39 @@ spec:
                     secret:
                       secretName: controller-manager-tls
       permissions:
+        - rules:
+            - apiGroups:
+                - ""
+              resources:
+                - configmaps
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - coordination.k8s.io
+              resources:
+                - leases
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - ""
+              resources:
+                - events
+              verbs:
+                - create
+                - patch
+          serviceAccountName: lightspeed-operator-agentic-controller-manager
         - rules:
             - apiGroups:
                 - ""
@@ -1195,3 +1449,9 @@ spec:
       image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:6154de4ade379d23b8b983f8223fb219b275ba6339b4cfc150e151433e905e5c
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
+    - name: lightspeed-agentic-operator
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-operator@sha256:68bebe528ca08a17080e4d95add87be4d8f7ad633f8b4a3c04cc2eabe095a254
+    - name: lightspeed-agentic-console
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:9f4292e63e718778bbc3cb8f92f89594f85385c842f7a82197e9ec6391151898
+    - name: lightspeed-agentic-sandbox
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox@sha256:2457cb2b46962b79315a39f39101a4fb4385fad22e34d10ca855e6ff65eb2f2d

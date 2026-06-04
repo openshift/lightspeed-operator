@@ -15,6 +15,8 @@ resources:
   - ../crd
   - ../rbac
   - ../manager
+  - ../agentic-rbac
+  - ../agentic-manager
   - ../user-access
   # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
   # crd/kustomization.yaml
@@ -31,6 +33,12 @@ patches:
       version: v1
       kind: Deployment
       name: controller-manager
+  - path: agentic-deployment-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: agentic-controller-manager
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
 #- manager_webhook_patch.yaml

@@ -43,5 +43,20 @@
     "name": "lightspeed-postgresql",
     "placeholder": "__REPLACE_LIGHTSPEED_POSTGRESQL__",
     "target": "args"
+  },
+  {
+    "name": "lightspeed-agentic-operator",
+    "placeholder": "__REPLACE_LIGHTSPEED_AGENTIC_OPERATOR__",
+    "target": "image"
+  },
+  {
+    "name": "lightspeed-agentic-console",
+    "placeholder": "__REPLACE_LIGHTSPEED_AGENTIC_CONSOLE__",
+    "target": "args"
+  },
+  {
+    "name": "lightspeed-agentic-sandbox",
+    "placeholder": "__REPLACE_LIGHTSPEED_AGENTIC_SANDBOX__",
+    "target": "args"
   }
 ]

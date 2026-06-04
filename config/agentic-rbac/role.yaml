@@ -1,0 +1,159 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agentic-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - services
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - agenticolsconfigs
+  - agents
+  - approvalpolicies
+  - llmproviders
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - analysisresults
+  - escalationresults
+  - executionresults
+  - verificationresults
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - analysisresults/status
+  - escalationresults/status
+  - executionresults/status
+  - proposalapprovals/status
+  - proposals/status
+  - verificationresults/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - proposalapprovals
+  - proposals
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - proposals/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - agents.x-k8s.io
+  resources:
+  - sandboxes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - console.openshift.io
+  resources:
+  - consoleplugins
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - extensions.agents.x-k8s.io
+  resources:
+  - sandboxclaims
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions.agents.x-k8s.io
+  resources:
+  - sandboxtemplates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - operator.openshift.io
+  resources:
+  - consoles
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
+  - get

@@ -121,9 +121,9 @@ E2E_GO_TAGS := exclude_graphdriver_btrfs,containers_image_openpgp
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook $(CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases
 
-.PHONY: sync-agentic-crds
-sync-agentic-crds: ## Fetch agentic CRDs from lightspeed-agentic-operator at pinned ref.
-	hack/sync_agentic_crds.sh $(AGENTIC_OPERATOR_REPO) $(AGENTIC_OPERATOR_REF) $(AGENTIC_CRD_DIR)
+.PHONY: sync-agentic-operator
+sync-agentic-operator: ## Fetch agentic CRDs, samples, and RBAC from lightspeed-agentic-operator at pinned ref.
+	hack/sync_agentic_operator.sh $(AGENTIC_OPERATOR_REPO) $(AGENTIC_OPERATOR_REF) $(AGENTIC_CRD_DIR)
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -307,6 +307,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 PATCH_FILE = config/default/deployment-patch.yaml
+AGENTIC_PATCH_FILE = config/default/agentic-deployment-patch.yaml
 
 .PHONY: deploy
 deploy: manifests kustomize jq ## Deploy controller to the K8s cluster specified in ~/.kube/config. Override operator image with: make deploy IMG=myregistry/my-operator:mytag
@@ -323,6 +324,10 @@ deploy: manifests kustomize jq ## Deploy controller to the K8s cluster specified
 		echo "error: $(PATCH_FILE) not found"; \
 		exit 1; \
 	fi; \
+	if [ ! -f "$(AGENTIC_PATCH_FILE)" ]; then \
+		echo "error: $(AGENTIC_PATCH_FILE) not found"; \
+		exit 1; \
+	fi; \
 	if [ -z "$$OPERATOR_IMG" ]; then \
 		OPERATOR_IMG=$$($(JQ) -r '.[] | select(.name=="lightspeed-operator") | .image' related_images.json); \
 	fi; \
@@ -336,7 +341,7 @@ deploy: manifests kustomize jq ## Deploy controller to the K8s cluster specified
 		if [ "$$name" != "lightspeed-operator" ]; then \
 			img=$$($(JQ) -r --arg n "$$name" '.[] | select(.name==$$n) | .image' related_images.json); \
 			if [ -n "$$img" ] && [ "$$img" != "null" ]; then \
-				sed -i "s|$$placeholder|$$img|g" $(PATCH_FILE); \
+				sed -i "s|$$placeholder|$$img|g" $(PATCH_FILE) $(AGENTIC_PATCH_FILE); \
 			fi; \
 		fi; \
 	done
@@ -409,7 +414,7 @@ endif
 ## to set the default channel, use the DEFAULT_CHANNEL variable
 ## to use image digests instead of version tag, set the USE_IMAGE_DIGESTS variable to true
 .PHONY: bundle
-bundle: manifests sync-agentic-crds kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
+bundle: manifests sync-agentic-operator kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
 	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i related_images.json
 
 parking:

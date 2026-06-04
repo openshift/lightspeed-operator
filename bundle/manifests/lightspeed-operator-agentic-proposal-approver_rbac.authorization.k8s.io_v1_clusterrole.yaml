@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: lightspeed-operator-agentic-proposal-approver
+rules:
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - proposalapprovals
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - proposals
+  verbs:
+  - get
+  - list
+  - watch
