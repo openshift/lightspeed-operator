@@ -41,6 +41,7 @@ The lightspeed-operator OLM bundle installs both the lightspeed-operator control
 | Agentic CRD pinned ref | lightspeed-operator repo (Makefile or config) | Git ref/tag for fetching agentic CRD YAML |
 | Agentic controller image | CSV deployment spec | Container image for the agentic controller |
 | Agentic controller startup flags | CSV deployment spec args | Operand image overrides for the agentic controller |
+| Agentic controller `--sandbox-mode` | CSV deployment spec args | `bare-pod` (default) or `sandbox-claim` — selects sandbox provisioning strategy |
 
 ## Constraints
 
