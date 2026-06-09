@@ -62,6 +62,7 @@ echo "---------------------------------------------"
 echo "npm version: $(npm -v)"
 echo "---------------------------------------------"
 NODE_OPTIONS=--max-old-space-size=4096 npm ci --omit=optional --no-fund
+npx cypress install
 echo "---------------------------------------------"
 export CYPRESS_LOGIN_PASSWORD="$(cat "${PASSWORD_PATH}")"
 # Ephemeral clusters + console OAuth + plugin proxy are slow; before() often runs bundle then UI.
