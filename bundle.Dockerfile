@@ -1,5 +1,7 @@
 FROM registry.redhat.io/ubi9/ubi-minimal:9.7-1776645941
 
+# Test - Do not merge
+
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
 LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/

@@ -1,4 +1,4 @@
-# OpenShift Lightspeed Operator
+# OpenShift Lightspeed Operator - Test
 
 For users who just want to run OpenShift Lightspeed, please refer to the [OpenShift Lightspeed Repository](https://github.com/openshift/lightspeed-service). This documentation provides instructions needed for setting up and using the service.
 
