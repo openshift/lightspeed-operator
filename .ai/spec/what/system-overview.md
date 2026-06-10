@@ -43,7 +43,7 @@ The OpenShift Lightspeed Operator is a Kubernetes operator that manages the life
 
 ### Integration Points
 
-22. The operator reads OpenShift cluster version to select the correct console plugin image: PatternFly 5 for OCP < 4.19, a 4.19-specific PatternFly 6 image for OCP 4.19–4.21, and the current PatternFly 6 image for OCP >= 4.22.
+22. The operator deploys a single console plugin image configured via `--console-image`. After detecting the OpenShift cluster version (major.minor), it sets `OCP_VERSION` on the console plugin container so the console image entrypoint can select the correct UI library at runtime. The operator no longer chooses among multiple console images by OCP minor version; version detection is still used for this env var and for other component configuration.
 23. The operator detects Prometheus Operator availability and conditionally creates ServiceMonitor and PrometheusRule resources.
 24. The operator uses the OpenShift service-ca operator for automatic TLS certificate generation (unless custom certificates are provided).
 25. The operator watches the telemetry pull secret in openshift-config namespace to determine whether data collection is enabled.
@@ -58,9 +58,7 @@ The OpenShift Lightspeed Operator is a Kubernetes operator that manages the life
 | `--leader-elect` | bool | `false` | Enable leader election |
 | `--secure-metrics-server` | bool | `false` | Enable mTLS for operator metrics |
 | `--service-image` | string | built-in default | Override lightspeed-service container image |
-| `--console-image` | string | built-in default | Override console plugin image (PatternFly 6, OCP >= 4.22) |
-| `--console-image-pf5` | string | built-in default | Override console plugin image (PatternFly 5, OCP < 4.19) |
-| `--console-image-4-19` | string | built-in default | Override console plugin image (PatternFly 6, OCP 4.19–4.21) |
+| `--console-image` | string | built-in default | Override console plugin image |
 | `--postgres-image` | string | built-in default | Override PostgreSQL image |
 | `--openshift-mcp-server-image` | string | built-in default | Override OpenShift MCP server image |
 | `--dataverse-exporter-image` | string | built-in default | Override dataverse exporter image |

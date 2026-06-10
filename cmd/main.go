@@ -23,7 +23,7 @@ limitations under the License.
 //   - Parses command-line flags for configuration (image URLs, namespaces, intervals)
 //   - Sets up the Kubernetes scheme with required API types (Console, Monitoring, etc.)
 //   - Configures the controller manager with metrics, health probes, and leader election
-//   - Detects OpenShift version and selects appropriate console plugin image
+//   - Detects OpenShift version for component configuration
 //   - Configures TLS security for metrics server (if enabled)
 //   - Initializes and starts the OLSConfigReconciler
 //
@@ -33,8 +33,7 @@ limitations under the License.
 //   - leader-elect: Enable leader election for HA deployments
 //   - secure-metrics-server: Enable mTLS for metrics server
 //   - service-image: Override default lightspeed-service image
-//   - console-image: Override default console plugin image (PatternFly 6)
-//   - console-image-pf5: Override default console plugin image (PatternFly 5)
+//   - console-image: Override default console plugin image
 //   - postgres-image: Override default PostgreSQL image
 //   - openshift-mcp-server-image: Override default MCP server image
 //   - namespace: Operator namespace (defaults to WATCH_NAMESPACE env var or "openshift-lightspeed")
@@ -55,7 +54,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"strconv"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -97,8 +95,6 @@ var (
 		"lightspeed-service":         utils.OLSAppServerImageDefault,
 		"postgres-image":             utils.PostgresServerImageDefault,
 		"console-plugin":             utils.ConsoleUIImageDefault,
-		"console-plugin-pf5":         utils.ConsoleUIImagePF5Default,
-		"console-plugin-4-19":        utils.ConsoleUIImage419Default,
 		"openshift-mcp-server-image": utils.OpenShiftMCPServerImageDefault,
 		"dataverse-exporter-image":   utils.DataverseExporterImageDefault,
 		"ocp-rag-image":              utils.OcpRagImageDefault,
@@ -119,19 +115,13 @@ func init() {
 
 // overrideImages overrides the default images with the images provided by the user.
 // If an image is not provided, the default is used.
-func overrideImages(serviceImage string, consoleImage string, consoleImage_pf5 string, consoleImage_419 string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
+func overrideImages(serviceImage string, consoleImage string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
 	res := defaultImages
 	if serviceImage != "" {
 		res["lightspeed-service"] = serviceImage
 	}
 	if consoleImage != "" {
 		res["console-plugin"] = consoleImage
-	}
-	if consoleImage_pf5 != "" {
-		res["console-plugin-pf5"] = consoleImage_pf5
-	}
-	if consoleImage_419 != "" {
-		res["console-plugin-4-19"] = consoleImage_419
 	}
 	if postgresImage != "" {
 		res["postgres-image"] = postgresImage
@@ -172,8 +162,6 @@ func main() {
 	var metricsClientCA string
 	var serviceImage string
 	var consoleImage string
-	var consoleImage_pf5 string
-	var consoleImage_419 string
 	var namespace string
 	var postgresImage string
 	var openshiftMCPServerImage string
@@ -190,9 +178,7 @@ func main() {
 	flag.StringVar(&keyName, "key-name", utils.OperatorKeyNameDefault, "The name of the TLS key file.")
 	flag.StringVar(&caCertPath, "ca-cert", utils.OperatorCACertPathDefault, "The path to the CA certificate file.")
 	flag.StringVar(&serviceImage, "service-image", utils.OLSAppServerImageDefault, "The image of the lightspeed-service container.")
-	flag.StringVar(&consoleImage, "console-image", utils.ConsoleUIImageDefault, "The image of the console-plugin container using PatternFly 6.")
-	flag.StringVar(&consoleImage_pf5, "console-image-pf5", utils.ConsoleUIImagePF5Default, "The image of the console-plugin container using PatternFly 5.")
-	flag.StringVar(&consoleImage_419, "console-image-4-19", utils.ConsoleUIImage419Default, "The image of the console-plugin container for OCP 4.19 - 4.21.")
+	flag.StringVar(&consoleImage, "console-image", utils.ConsoleUIImageDefault, "The image of the console-plugin container.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
 	flag.StringVar(&postgresImage, "postgres-image", utils.PostgresServerImageDefault, "The image of the PostgreSQL server.")
 	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", utils.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
@@ -210,7 +196,7 @@ func main() {
 		namespace = getWatchNamespace()
 	}
 
-	imagesMap := overrideImages(serviceImage, consoleImage, consoleImage_pf5, consoleImage_419, postgresImage, openshiftMCPServerImage, dataverseExporterImage, ocpRagImage)
+	imagesMap := overrideImages(serviceImage, consoleImage, postgresImage, openshiftMCPServerImage, dataverseExporterImage, ocpRagImage)
 	setupLog.Info("Images setting loaded", "images", listImages())
 
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
@@ -318,23 +304,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Setup required console image
-	mVersion, err := strconv.Atoi(minor)
-	if err != nil {
-		setupLog.Error(err, "failed to get Openshift version.")
-		os.Exit(1)
-	}
-	if mVersion < 19 {
-		// Use PF5
-		consoleImage = imagesMap["console-plugin-pf5"]
-	} else if mVersion < 22 {
-		// Use 4.19 - 4.21 PF6 image
-		consoleImage = imagesMap["console-plugin-4-19"]
-	} else {
-		// Use 4.22+ image
-		consoleImage = imagesMap["console-plugin"]
-	}
-
 	// Check if Prometheus Operator CRDs are available
 	prometheusAvailable := utils.IsPrometheusOperatorAvailable(ctx, k8sClient)
 	prometheusStatus := "NOT AVAILABLE"
@@ -419,7 +388,7 @@ func main() {
 		Options: utils.OLSConfigReconcilerOptions{
 			OpenShiftMajor:                 major,
 			OpenshiftMinor:                 minor,
-			ConsoleUIImage:                 consoleImage,
+			ConsoleUIImage:                 imagesMap["console-plugin"],
 			LightspeedServiceImage:         imagesMap["lightspeed-service"],
 			LightspeedServicePostgresImage: imagesMap["postgres-image"],
 			OpenShiftMCPServerImage:        imagesMap["openshift-mcp-server-image"],
