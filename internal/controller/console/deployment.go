@@ -60,8 +60,11 @@ func GenerateConsoleUIDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSCon
 							},
 							SecurityContext: utils.RestrictedContainerSecurityContext(),
 							ImagePullPolicy: corev1.PullAlways,
-							Env:             utils.GetProxyEnvVars(),
-							Resources:       *resources,
+							Env: append(utils.GetProxyEnvVars(), corev1.EnvVar{
+								Name:  "OCP_VERSION",
+								Value: r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor(),
+							}),
+							Resources: *resources,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      certVolumeName,
