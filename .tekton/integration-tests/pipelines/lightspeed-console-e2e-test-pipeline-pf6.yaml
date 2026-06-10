@@ -5,7 +5,7 @@ metadata:
   name: ols-console-pre-commits
 spec:
   description: |
-    Runs OpenShift Lightspeed console e2e (Cypress) on a Konflux ephemeral OpenShift cluster (EaaS).
+    Runs OpenShift Lightspeed console e2e (Playwright) on a Konflux ephemeral OpenShift cluster (EaaS).
     Provisions the cluster, installs the operator bundle from the snapshot, runs console tests,
     collects artifacts, then deprovisions.
   params:
@@ -172,9 +172,9 @@ spec:
               - name: credentials
                 mountPath: /credentials
             env:
-              - name: CYPRESS_KUBECONFIG_PATH
+              - name: KUBECONFIG_PATH
                 value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
-              - name: CYPRESS_LOGIN_IDP
+              - name: LOGIN_IDP
                 value: "kube:admin"
               - name: LLM_TOKEN_PATH
                 value: "/var/run/openai/token"
@@ -182,14 +182,15 @@ spec:
                 value: "$(params.commit)"
               - name: PASSWORD_PATH
                 value: "/credentials/$(steps.get-kubeconfig.results.passwordPath)"
-              - name: CYPRESS_BASE_URL
+              - name: BASE_URL
                 value: "$(steps.get-kubeconfig.results.consoleURL)"
               - name: BUNDLE_COMMIT_SHA
                 value: "$(params.commit)"
-              - name: CYPRESS_BUNDLE_IMAGE
+              - name: BUNDLE_IMAGE
                 value: "$(params.bundle-image)"
-            image: cypress/browsers:26.0.0
+            image: mcr.microsoft.com/playwright:v1.60.0-noble
             script: |
+              #!/bin/bash
               set -euo pipefail
               apt update && apt install -y jq git curl
               cd /home
@@ -198,7 +199,7 @@ spec:
               git remote add origin https://github.com/openshift/lightspeed-operator.git
               git fetch --depth=1 --filter=blob:none origin "${COMMIT_SHA}"
               git checkout "${COMMIT_SHA}"
-              git show "${COMMIT_SHA}:.tekton/integration-tests/scripts/run-console-cypress-tests.sh" | bash -s -- "lightspeed-console-plugin" "latest-4.19"
+              git show "${COMMIT_SHA}:.tekton/integration-tests/scripts/run-console-playwright-tests.sh" | bash -s -- "lightspeed-console-plugin" "latest-4.19"
           - name: gather-cluster-resources
             onError: continue
             ref:
