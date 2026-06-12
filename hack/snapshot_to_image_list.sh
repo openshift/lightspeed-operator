@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 usage() {
-	echo "Usage: $0 -s <snapshot-ref> -b <bundle-snapshot-ref> -o <output-file> -p"
+	echo "Usage: $0 -s <snapshot-ref> -b <bundle-snapshot-ref> -o <output-file> -r <registry>"
 	echo "  -s snapshot-ref: required, the snapshot's references, example: ols-cq8sl"
 	echo "  -b bundle-snapshot-ref: optional, the ols-bundle snapshot's references, example: ols-bundle-wf8st"
 	echo "  -o output-file: optional, the catalog index file to update, default is empty (output to stdout)"
@@ -128,6 +128,13 @@ SERVICE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service"
 SERVICE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
 OCP_RAG_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-ocp-rag") | .containerImage' "${TMP_SNAPSHOT_JSON}")
 OCP_RAG_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-ocp-rag") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
+AGENTIC_OPERATOR_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-agentic-operator") | .containerImage' "${TMP_SNAPSHOT_JSON}")
+AGENTIC_OPERATOR_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-agentic-operator") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
+LIGHTSPEED_AGENTIC_CONSOLE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-agentic-console") | .containerImage' "${TMP_SNAPSHOT_JSON}")
+LIGHTSPEED_AGENTIC_CONSOLE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-agentic-console") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
+LIGHTSPEED_AGENTIC_SANDBOX_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-agentic-sandbox") | .containerImage' "${TMP_SNAPSHOT_JSON}")
+LIGHTSPEED_AGENTIC_SANDBOX_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-agentic-sandbox") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
+
 if [ "${USE_REGISTRY}" = "preview" ]; then
 	OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator"
 	CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9"
@@ -217,6 +224,31 @@ if [ -z "${OPENSHIFT_MCP_SERVER_IMAGE}" ] || [ "${OPENSHIFT_MCP_SERVER_IMAGE}" =
 	exit 1
 fi
 
+# lightspeed-agentic-console and lightspeed-agentic-sandbox may or may not be in the snapshot.
+# When absent, preserve versions from the existing related images file.
+for agentic_name in lightspeed-agentic-console lightspeed-agentic-sandbox; do
+	var_name=$(echo "${agentic_name}" | tr '-' '_' | tr '[:lower:]' '[:upper:]')_IMAGE
+	eval "val=\${${var_name}:-}"
+	if [ -n "${val}" ] && [ "${val}" != "null" ]; then
+		continue
+	fi
+	if [ -n "${OUTPUT_FILE}" ] && [ -f "${OUTPUT_FILE}" ]; then
+		eval "${var_name}=$(${JQ} -r --arg n "${agentic_name}" '.[] | select(.name == $n) | .image' "${OUTPUT_FILE}")"
+	fi
+	eval "val=\${${var_name}:-}"
+	if [ -z "${val}" ] || [ "${val}" == "null" ]; then
+		DEFAULT_RELATED_IMAGES="${SCRIPT_DIR}/../related_images.json"
+		if [ -f "${DEFAULT_RELATED_IMAGES}" ]; then
+			eval "${var_name}=$(${JQ} -r --arg n "${agentic_name}" '.[] | select(.name == $n) | .image' "${DEFAULT_RELATED_IMAGES}")"
+		fi
+	fi
+	eval "val=\${${var_name}:-}"
+	if [ -z "${val}" ] || [ "${val}" == "null" ]; then
+		echo "${agentic_name} image not found: use -o with an existing related_images.json, or ensure ${SCRIPT_DIR}/../related_images.json lists it." >&2
+		exit 1
+	fi
+done
+
 RELATED_IMAGES=$(
 	cat <<-EOF
 		[
@@ -262,12 +294,41 @@ RELATED_IMAGES=$(
 		  {
 		    "name": "lightspeed-postgresql",
 		    "image": "${POSTGRES_IMAGE}"
+		  },
+		  {
+		    "name": "lightspeed-agentic-operator",
+		    "image": "${AGENTIC_OPERATOR_IMAGE}",
+		    "revision": "${AGENTIC_OPERATOR_REVISION}"
+		  },
+		  {
+		    "name": "lightspeed-agentic-console",
+		    "image": "${LIGHTSPEED_AGENTIC_CONSOLE_IMAGE}",
+		    "revision": "${LIGHTSPEED_AGENTIC_CONSOLE_REVISION}"
+		  },
+		  {
+		    "name": "lightspeed-agentic-sandbox",
+		    "image": "${LIGHTSPEED_AGENTIC_SANDBOX_IMAGE}",
+		    "revision": "${LIGHTSPEED_AGENTIC_SANDBOX_REVISION}"
 		  }
 		]
 	EOF
 )
 
-if [ -n "${BUNDLE_IMAGE}" ]; then
+if [ -z "${BUNDLE_IMAGE}" ] || [ "${BUNDLE_IMAGE}" == "null" ]; then
+	if [ -n "${OUTPUT_FILE}" ] && [ -f "${OUTPUT_FILE}" ]; then
+		BUNDLE_IMAGE=$(${JQ} -r '.[] | select(.name == "lightspeed-operator-bundle") | .image' "${OUTPUT_FILE}")
+		BUNDLE_REVISION=$(${JQ} -r '.[] | select(.name == "lightspeed-operator-bundle") | .revision // empty' "${OUTPUT_FILE}")
+	fi
+	if [ -z "${BUNDLE_IMAGE}" ] || [ "${BUNDLE_IMAGE}" == "null" ]; then
+		DEFAULT_RELATED_IMAGES="${SCRIPT_DIR}/../related_images.json"
+		if [ -f "${DEFAULT_RELATED_IMAGES}" ]; then
+			BUNDLE_IMAGE=$(${JQ} -r '.[] | select(.name == "lightspeed-operator-bundle") | .image' "${DEFAULT_RELATED_IMAGES}")
+			BUNDLE_REVISION=$(${JQ} -r '.[] | select(.name == "lightspeed-operator-bundle") | .revision // empty' "${DEFAULT_RELATED_IMAGES}")
+		fi
+	fi
+fi
+
+if [ -n "${BUNDLE_IMAGE}" ] && [ "${BUNDLE_IMAGE}" != "null" ]; then
 	RELATED_IMAGES=$(echo "${RELATED_IMAGES}" | ${JQ} \
 		--arg img "${BUNDLE_IMAGE}" \
 		--arg rev "${BUNDLE_REVISION}" \
