@@ -368,8 +368,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 var (
 	OLSAppServerImageDefault       = relatedimages.GetDefaultImage("lightspeed-service-api")
 	ConsoleUIImageDefault          = relatedimages.GetDefaultImage("lightspeed-console-plugin")
-	ConsoleUIImagePF5Default       = relatedimages.GetDefaultImage("lightspeed-console-plugin-pf5")
-	ConsoleUIImage419Default       = relatedimages.GetDefaultImage("lightspeed-console-plugin-4-19")
 	PostgresServerImageDefault     = relatedimages.GetDefaultImage("lightspeed-postgresql")
 	OpenShiftMCPServerImageDefault = relatedimages.GetDefaultImage("openshift-mcp-server")
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
