@@ -43,5 +43,10 @@
     "name": "lightspeed-postgresql",
     "placeholder": "__REPLACE_LIGHTSPEED_POSTGRESQL__",
     "target": "args"
+  },
+  {
+    "name": "rhokp",
+    "placeholder": "__REPLACE_RHOKP__",
+    "target": "args"
   }
 ]

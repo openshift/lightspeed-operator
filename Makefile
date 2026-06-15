@@ -235,7 +235,8 @@ build: manifests generate fmt vet ## Build manager binary.
 dev-setup: manifests kustomize install ## Setup RBAC and resources for local development (idempotent, safe to run multiple times)
 	@echo "📦 Setting up local development environment..."
 	@$(KUBECTL) create namespace openshift-lightspeed --dry-run=client -o yaml | $(KUBECTL) apply -f - 2>/dev/null || true
-	@$(KUBECTL) apply -f bundle/manifests/lightspeed-operator-metrics-reader_v1_serviceaccount.yaml 2>/dev/null || true
+	@$(KUBECTL) apply -n openshift-lightspeed -f bundle/manifests/lightspeed-operator-metrics-reader_v1_serviceaccount.yaml 2>/dev/null || true
+	@$(KUBECTL) apply -n openshift-lightspeed -f config/dev/metrics-reader-token.yaml 2>/dev/null || true
 	@$(KUBECTL) apply -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrole.yaml 2>/dev/null || true
 	@$(KUBECTL) apply -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml 2>/dev/null || true
 	@$(KUBECTL) apply -k config/user-access/ 2>/dev/null || true
@@ -246,7 +247,8 @@ dev-teardown: uninstall ## Teardown local development environment (removes RBAC,
 	@echo "🧹 Cleaning up local development environment..."
 	@$(KUBECTL) delete -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml --ignore-not-found=true 2>/dev/null || true
 	@$(KUBECTL) delete -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrole.yaml --ignore-not-found=true 2>/dev/null || true
-	@$(KUBECTL) delete -f bundle/manifests/lightspeed-operator-metrics-reader_v1_serviceaccount.yaml --ignore-not-found=true 2>/dev/null || true
+	@$(KUBECTL) delete -n openshift-lightspeed -f config/dev/metrics-reader-token.yaml --ignore-not-found=true 2>/dev/null || true
+	@$(KUBECTL) delete -n openshift-lightspeed -f bundle/manifests/lightspeed-operator-metrics-reader_v1_serviceaccount.yaml --ignore-not-found=true 2>/dev/null || true
 	@$(KUBECTL) delete -k config/user-access/ --ignore-not-found=true 2>/dev/null || true
 	@$(KUBECTL) delete namespace openshift-lightspeed --ignore-not-found=true 2>/dev/null || true
 	@echo "✅ Development environment cleaned up."

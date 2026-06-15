@@ -293,7 +293,8 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		}
 		referenceIndexes = append(referenceIndexes, referenceIndex)
 	}
-	// Add OCP documentation index unless BYOK-only mode is enabled
+	// Add OCP documentation (FAISS) index unless BYOK-only. Kept with Solr hybrid for readiness
+	// until FAISS is removed; solr_hybrid remains the primary docs path for queries.
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
 		ocpReferenceIndex := utils.ReferenceIndex{
 			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor(),
@@ -301,6 +302,11 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 			ProductDocsOrigin:    "Red Hat OpenShift " + r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor() + " documentation",
 		}
 		referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
+	}
+	if solrHybridEnabled(cr.Spec.OLSConfig) {
+		for i := range referenceIndexes {
+			referenceIndexes[i].ByokIndex = true
+		}
 	}
 
 	// Assemble the main OLS configuration
@@ -348,7 +354,34 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		Ciphers:       utiltls.TLSCiphers(tlsProfileSpec),
 	}
 
+	if solrHybridEnabled(cr.Spec.OLSConfig) {
+		olsConfig.SolrHybrid = buildSolrHybridSettings(cr.Spec.OLSConfig.SolrHybrid)
+	}
+
 	return olsConfig, nil
+}
+
+// solrHybridEnabled reports whether the operator should configure Solr hybrid RAG.
+// byokRAGOnly takes precedence: Solr hybrid is ignored when that flag is true.
+func solrHybridEnabled(ols olsv1alpha1.OLSSpec) bool {
+	return ols.SolrHybrid != nil && !ols.ByokRAGOnly
+}
+
+// buildSolrHybridSettings maps CR Solr hybrid enablement to the OLS config file (snake_case keys).
+// Solr URL and retrieval tuning use operator defaults (RHOKP sidecar on localhost:RHOOKPHTTPPort).
+func buildSolrHybridSettings(spec *olsv1alpha1.SolrHybridSettings) *utils.SolrHybridSettings {
+	if spec == nil {
+		return nil
+	}
+	return &utils.SolrHybridSettings{
+		SolrHTTPBase:             fmt.Sprintf("http://localhost:%d", utils.RHOOKPHTTPPort),
+		MaxResults:               utils.SolrHybridMaxResultsDefault,
+		HybridVectorBoost:        utils.SolrHybridVectorBoostDefault,
+		HybridPoolDocs:           utils.SolrHybridPoolDocsDefault,
+		HybridScoreThreshold:     utils.SolrHybridScoreThresholdDefault,
+		HybridSolrTimeoutSeconds: utils.SolrHybridSolrTimeoutSecondsDefault,
+		SolrDirectRAG:            utils.BoolDeref(spec.SolrDirectRAG, false),
+	}
 }
 
 // generateMCPServerConfigs builds MCP (Model Context Protocol) server configurations.

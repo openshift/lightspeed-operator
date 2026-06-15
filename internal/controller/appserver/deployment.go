@@ -56,6 +56,46 @@ func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequire
 	)
 }
 
+func rhokpHTTPProbeHandler() corev1.ProbeHandler {
+	return corev1.ProbeHandler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Path:   utils.RHOOKPReadinessHTTPPath,
+			Port:   intstr.FromInt32(utils.RHOOKPHTTPPort),
+			Scheme: corev1.URISchemeHTTP,
+		},
+	}
+}
+
+func rhokpHealthProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler:        rhokpHTTPProbeHandler(),
+		InitialDelaySeconds: utils.RHOOKPProbeInitialDelaySeconds,
+		PeriodSeconds:       utils.RHOOKPProbePeriodSeconds,
+		TimeoutSeconds:      utils.RHOOKPProbeTimeoutSeconds,
+		FailureThreshold:    utils.RHOOKPProbeFailureThreshold,
+		SuccessThreshold:    1,
+	}
+}
+
+func getRHOOKPResources() *corev1.ResourceRequirements {
+	// RHOKP recommended pod sizing per product docs (2 CPU, 2 GiB memory, 75 GiB disk).
+	return utils.GetResourcesOrDefault(
+		nil,
+		&corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:              resource.MustParse("2"),
+				corev1.ResourceMemory:           resource.MustParse("2Gi"),
+				corev1.ResourceEphemeralStorage: resource.MustParse("75Gi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:              resource.MustParse("2"),
+				corev1.ResourceMemory:           resource.MustParse("2Gi"),
+				corev1.ResourceEphemeralStorage: resource.MustParse("75Gi"),
+			},
+		},
+	)
+}
+
 func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	ctx := context.Background()
 	const OLSConfigVolumeName = "cm-olsconfig"
@@ -363,6 +403,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	ols_server_resources := getOLSServerResources(cr)
 	data_collector_resources := getOLSDataCollectorResources(cr)
 	mcp_server_resources := getOLSMCPServerResources(cr)
+	rhokp_resources := getRHOOKPResources()
 
 	// Get ResourceVersions for tracking - these resources should already exist
 	// If they don't exist (NotFound), we'll get empty strings which is fine for initial creation
@@ -472,6 +513,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Add additional containers in a consistent order:
 	// 1. Data collector container (if enabled)
 	// 2. MCP server container (if enabled)
+	// 3. RHOKP Solr sidecar (if Solr hybrid RAG is configured)
 
 	if dataCollectorEnabled {
 		// Add data exporter container
@@ -507,9 +549,8 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// preventing secret data from reaching the LLM.
 	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		configVolume, configMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
-
 		openshiftMCPServerSidecarContainer := corev1.Container{
-			Name:            "openshift-mcp-server",
+			Name:            utils.OpenShiftMCPServerContainerName,
 			Image:           r.GetOpenShiftMCPServerImage(),
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			SecurityContext: utils.RestrictedContainerSecurityContext(),
@@ -523,6 +564,30 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		}
 		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, configVolume)
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, openshiftMCPServerSidecarContainer)
+	}
+
+	if solrHybridEnabled(cr.Spec.OLSConfig) {
+		rhokpSidecarContainer := corev1.Container{
+			Name:            utils.RHOOKPContainerName,
+			Image:           r.GetRHOOKPImage(),
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Command:         rhokpContainerCommand(),
+			Args:            rhokpContainerArgs(),
+			SecurityContext: utils.RHOOKPContainerSecurityContext(),
+			Env:             generateRHOOKPEnv(),
+			Ports: []corev1.ContainerPort{
+				{
+					ContainerPort: utils.RHOOKPHTTPPort,
+					Name:          "solr-http",
+					Protocol:      corev1.ProtocolTCP,
+				},
+			},
+			// HTTP on :8080 once Apache/Solr are up; initial delay avoids liveness restarts during Solr startup.
+			ReadinessProbe: rhokpHealthProbe(),
+			LivenessProbe:  rhokpHealthProbe(),
+			Resources:      *rhokp_resources,
+		}
+		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, rhokpSidecarContainer)
 	}
 
 	return &deployment, nil

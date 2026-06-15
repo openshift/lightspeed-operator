@@ -69,6 +69,10 @@ func (r *OLSConfigReconciler) GetDataverseExporterImage() string {
 	return r.Options.DataverseExporterImage
 }
 
+func (r *OLSConfigReconciler) GetRHOOKPImage() string {
+	return r.Options.RHOOKPImage
+}
+
 func (r *OLSConfigReconciler) IsPrometheusAvailable() bool {
 	return r.Options.PrometheusAvailable
 }

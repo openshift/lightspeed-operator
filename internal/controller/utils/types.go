@@ -23,6 +23,7 @@ type OLSConfigReconcilerOptions struct {
 	ConsoleUIImage                 string
 	DataverseExporterImage         string
 	OpenShiftMCPServerImage        string
+	RHOOKPImage                    string
 	Namespace                      string
 	PrometheusAvailable            bool
 }
@@ -199,6 +200,20 @@ type OLSConfig struct {
 	ToolFiltering *ToolFilteringConfig `json:"tool_filtering,omitempty"`
 	// Tool execution approval configuration
 	ToolsApproval *ToolsApprovalConfig `json:"tools_approval,omitempty"`
+	// Solr hybrid RAG (portal-rag /hybrid-search); mirrors lightspeed-service solr_hybrid
+	SolrHybrid *SolrHybridSettings `json:"solr_hybrid,omitempty"`
+}
+
+// SolrHybridSettings configures Solr hybrid RAG retrieval for the OLS application config file.
+type SolrHybridSettings struct {
+	SolrHTTPBase             string  `json:"solr_http_base,omitempty"`
+	MaxResults               int     `json:"max_results,omitempty"`
+	ChunkFilterQuery         string  `json:"chunk_filter_query,omitempty"`
+	HybridVectorBoost        float64 `json:"hybrid_vector_boost,omitempty"`
+	HybridPoolDocs           int     `json:"hybrid_pool_docs,omitempty"`
+	HybridScoreThreshold     float64 `json:"hybrid_score_threshold,omitempty"`
+	HybridSolrTimeoutSeconds float64 `json:"hybrid_solr_timeout_s,omitempty"`
+	SolrDirectRAG            bool    `json:"solr_direct_rag"`
 }
 
 type TLSSecurityProfileConfig struct {
@@ -321,6 +336,8 @@ type ReferenceIndex struct {
 	ProductDocsIndexId string `json:"product_docs_index_id,omitempty"`
 	// Where the database was copied from, i.e. BYOK image name.
 	ProductDocsOrigin string `json:"product_docs_origin,omitempty"`
+	// Required by lightspeed-service when solr_hybrid is enabled alongside local FAISS indexes.
+	ByokIndex bool `json:"byok_index,omitempty"`
 }
 
 type ReferenceContent struct {

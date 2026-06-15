@@ -526,6 +526,52 @@ var _ = Describe("App server assets", func() {
 			})))
 		})
 
+		It("should generate configmap with solrHybrid defaults when Solr hybrid RAG is enabled", func() {
+			cr.Spec.OLSConfig.SolrHybrid = &olsv1alpha1.SolrHybridSettings{}
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var appSrvConfigFile utils.AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &appSrvConfigFile)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(appSrvConfigFile.OLSConfig.SolrHybrid).NotTo(BeNil())
+			Expect(appSrvConfigFile.OLSConfig.SolrHybrid).To(PointTo(MatchFields(IgnoreExtras, Fields{
+				"SolrHTTPBase":             Equal(fmt.Sprintf("http://localhost:%d", utils.RHOOKPHTTPPort)),
+				"MaxResults":               Equal(utils.SolrHybridMaxResultsDefault),
+				"HybridVectorBoost":        Equal(utils.SolrHybridVectorBoostDefault),
+				"HybridPoolDocs":           Equal(utils.SolrHybridPoolDocsDefault),
+				"HybridScoreThreshold":     Equal(utils.SolrHybridScoreThresholdDefault),
+				"HybridSolrTimeoutSeconds": Equal(utils.SolrHybridSolrTimeoutSecondsDefault),
+				"SolrDirectRAG":            BeFalse(),
+			})))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("solr_direct_rag: false"))
+		})
+
+		It("should generate configmap with solr_direct_rag when set on Solr hybrid CR", func() {
+			cr.Spec.OLSConfig.SolrHybrid = &olsv1alpha1.SolrHybridSettings{
+				SolrDirectRAG: utils.BoolPtr(true),
+			}
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var appSrvConfigFile utils.AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &appSrvConfigFile)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(appSrvConfigFile.OLSConfig.SolrHybrid).NotTo(BeNil())
+			Expect(appSrvConfigFile.OLSConfig.SolrHybrid.SolrDirectRAG).To(BeTrue())
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("solr_direct_rag: true"))
+		})
+
+		It("should omit solr_hybrid from configmap when Solr hybrid RAG is not configured", func() {
+			cr.Spec.OLSConfig.SolrHybrid = nil
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("solr_hybrid:"))
+		})
+
 		It("should skip MCP server with missing header secret during config generation", func() {
 			cr.Spec.FeatureGates = []olsv1alpha1.FeatureGate{utils.FeatureGateMCPServer}
 			// Note: We don't create the secret - config generation doesn't validate secrets
@@ -1178,6 +1224,89 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(ConsistOf(ocpIndex))
 
+		})
+
+		It("should include OCP and BYOK FAISS indexes with byok_index when solrHybrid is enabled", func() {
+			cr.Spec.OLSConfig.SolrHybrid = &olsv1alpha1.SolrHybridSettings{}
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					IndexPath: "/rag/vector_db/ansible_docs/2.18",
+					IndexID:   "ansible-docs-2_18",
+					Image:     "rag-ansible-docs:2.18",
+				},
+			}
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			var olsconfigGenerated utils.AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]utils.ReferenceIndex{
+				{
+					ProductDocsIndexId:   "ansible-docs-2_18",
+					ProductDocsIndexPath: utils.RAGVolumeMountPath + "/rag-0",
+					ProductDocsOrigin:    "rag-ansible-docs:2.18",
+					ByokIndex:            true,
+				},
+				{
+					ProductDocsIndexId:   "ocp-product-docs-123_456",
+					ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/123.456",
+					ProductDocsOrigin:    "Red Hat OpenShift 123.456 documentation",
+					ByokIndex:            true,
+				},
+			}))
+			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).NotTo(BeNil())
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("byok_index: true"))
+		})
+
+		It("should include OCP FAISS index with byok_index when only solrHybrid is enabled", func() {
+			cr.Spec.OLSConfig.SolrHybrid = &olsv1alpha1.SolrHybridSettings{}
+			cr.Spec.OLSConfig.RAG = nil
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			var olsconfigGenerated utils.AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]utils.ReferenceIndex{
+				{
+					ProductDocsIndexId:   "ocp-product-docs-123_456",
+					ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/123.456",
+					ProductDocsOrigin:    "Red Hat OpenShift 123.456 documentation",
+					ByokIndex:            true,
+				},
+			}))
+			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).NotTo(BeNil())
+		})
+
+		It("should ignore solrHybrid when byokRAGOnly is true", func() {
+			cr.Spec.OLSConfig.ByokRAGOnly = true
+			cr.Spec.OLSConfig.SolrHybrid = &olsv1alpha1.SolrHybridSettings{}
+			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
+				{
+					IndexPath: "/rag/vector_db/ansible_docs/2.18",
+					IndexID:   "ansible-docs-2_18",
+					Image:     "rag-ansible-docs:2.18",
+				},
+			}
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			var olsconfigGenerated utils.AppSrvConfigFile
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(BeNil())
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("solr_hybrid:"))
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]utils.ReferenceIndex{
+				{
+					ProductDocsIndexId:   "ansible-docs-2_18",
+					ProductDocsIndexPath: utils.RAGVolumeMountPath + "/rag-0",
+					ProductDocsOrigin:    "rag-ansible-docs:2.18",
+				},
+			}))
 		})
 
 		// This test covers ByokRAGOnly == true. ByokRAGOnly == false is covered by the previous test.
@@ -2256,7 +2385,7 @@ var _ = Describe("Helper function unit tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(servers).To(HaveLen(1))
 			Expect(servers[0].Name).To(Equal("openshift"))
-			Expect(servers[0].URL).To(ContainSubstring("8080"))
+			Expect(servers[0].URL).To(Equal(fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort)))
 			Expect(servers[0].Headers).To(HaveKey(utils.K8S_AUTH_HEADER))
 		})
 
