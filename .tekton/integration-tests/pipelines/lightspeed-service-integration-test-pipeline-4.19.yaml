@@ -243,6 +243,9 @@ spec:
           - name: watsonx-token
             secret:
               secretName: watsonx-apitoken
+          - name: vertex-token
+            secret:
+              secretName: vertex-apitoken
           - name: insights-stage-upload-offline-token
             secret:
               secretName: insights-stage-upload-offline-token
