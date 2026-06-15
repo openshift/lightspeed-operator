@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentic-controller-manager
+  namespace: system
+  labels:
+    control-plane: agentic-controller-manager
+spec:
+  selector:
+    matchLabels:
+      control-plane: agentic-controller-manager
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: agentic-controller-manager
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: manager
+          image: quay.io/openshift-lightspeed/lightspeed-agentic-operator:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /manager
+          args:
+            - --metrics-bind-address=:8080
+            - --health-probe-bind-address=:8081
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
+            - containerPort: 8081
+              name: health
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      serviceAccountName: agentic-controller-manager
+      terminationGracePeriodSeconds: 10

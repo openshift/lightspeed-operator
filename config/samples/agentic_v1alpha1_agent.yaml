@@ -1,0 +1,9 @@
+apiVersion: agentic.openshift.io/v1alpha1
+kind: Agent
+metadata:
+  name: default
+spec:
+  llmProvider:
+    name: vertex-ai
+  model: claude-opus-4-6
+  maxTurns: 200

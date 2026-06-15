@@ -361,6 +361,7 @@ spec:
             - tls.key: Private key (PEM format) - REQUIRED
             - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
 
+
           If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
         displayName: TLS Certificate Secret Reference
         path: ols.tlsConfig.keyCertSecretRef

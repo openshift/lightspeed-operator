@@ -1,0 +1,11 @@
+# Placeholders (__REPLACE_*__); must match hack/image_placeholders.json.
+# make deploy and hack/update_bundle.sh substitute these from related_images.json.
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-operator@sha256:68bebe528ca08a17080e4d95add87be4d8f7ad633f8b4a3c04cc2eabe095a254
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --agentic-console-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:9f4292e63e718778bbc3cb8f92f89594f85385c842f7a82197e9ec6391151898
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --agentic-sandbox-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox@sha256:2457cb2b46962b79315a39f39101a4fb4385fad22e34d10ca855e6ff65eb2f2d
