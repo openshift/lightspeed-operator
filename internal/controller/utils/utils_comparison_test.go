@@ -127,6 +127,46 @@ var _ = Describe("Container Comparison", func() {
 		It("should handle empty container lists", func() {
 			Expect(ContainersEqual([]corev1.Container{}, []corev1.Container{})).To(BeTrue())
 		})
+
+		It("should return false when lifecycle hooks differ", func() {
+			containers1 := []corev1.Container{
+				{
+					Name:  "app",
+					Image: "myapp:v1",
+					Lifecycle: &corev1.Lifecycle{
+						PreStop: &corev1.LifecycleHandler{
+							Exec: &corev1.ExecAction{
+								Command: []string{"/bin/sh", "-c", "pg_ctl stop"},
+							},
+						},
+					},
+				},
+			}
+			containers2 := []corev1.Container{
+				{
+					Name:  "app",
+					Image: "myapp:v1",
+				},
+			}
+			Expect(ContainersEqual(containers1, containers2)).To(BeFalse())
+		})
+
+		It("should return true when lifecycle hooks are equal", func() {
+			lifecycle := &corev1.Lifecycle{
+				PreStop: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"/bin/sh", "-c", "pg_ctl stop"},
+					},
+				},
+			}
+			containers1 := []corev1.Container{
+				{Name: "app", Image: "myapp:v1", Lifecycle: lifecycle},
+			}
+			containers2 := []corev1.Container{
+				{Name: "app", Image: "myapp:v1", Lifecycle: lifecycle.DeepCopy()},
+			}
+			Expect(ContainersEqual(containers1, containers2)).To(BeTrue())
+		})
 	})
 })
 
@@ -269,6 +309,21 @@ var _ = Describe("Resource Comparison Functions", func() {
 			deployment2.Template.Spec.Containers[0].Image = "myapp:v2"
 
 			Expect(DeploymentSpecEqual(deployment1, deployment2, true)).To(BeFalse())
+		})
+
+		It("should return false when terminationGracePeriodSeconds differs", func() {
+			gracePeriod := int64(60)
+			deployment2.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
+
+			Expect(DeploymentSpecEqual(deployment1, deployment2, true)).To(BeFalse())
+		})
+
+		It("should return true when terminationGracePeriodSeconds is equal", func() {
+			gracePeriod := int64(60)
+			deployment1.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
+			deployment2.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
+
+			Expect(DeploymentSpecEqual(deployment1, deployment2, true)).To(BeTrue())
 		})
 	})
 

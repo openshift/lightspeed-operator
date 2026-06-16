@@ -234,10 +234,21 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 									Value: strconv.Itoa(cr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections),
 								},
 							},
+							Lifecycle: &corev1.Lifecycle{
+								PreStop: &corev1.LifecycleHandler{
+									Exec: &corev1.ExecAction{
+										Command: []string{
+											"/bin/sh", "-c",
+											"pg_ctl stop -D /var/lib/pgsql/data/userdata -m fast -w -t 55",
+										},
+									},
+								},
+							},
 						},
 					},
-					Volumes:            volumes,
-					ServiceAccountName: utils.PostgreServiceAccountName,
+					Volumes:                       volumes,
+					ServiceAccountName:            utils.PostgreServiceAccountName,
+					TerminationGracePeriodSeconds: &[]int64{60}[0],
 				},
 			},
 			RevisionHistoryLimit: &revisionHistoryLimit,

@@ -720,6 +720,20 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		}
 		Expect(foundSharedBuffers).To(BeTrue(), "POSTGRESQL_SHARED_BUFFERS should be set to 512MB")
 		Expect(foundMaxConnections).To(BeTrue(), "POSTGRESQL_MAX_CONNECTIONS should be set to 3000")
+
+		By("Verifying postgres deployment has preStop lifecycle hook")
+		postgresContainer := postgresDeployment.Spec.Template.Spec.Containers[0]
+		Expect(postgresContainer.Lifecycle).NotTo(BeNil(), "postgres container should have a lifecycle configuration")
+		Expect(postgresContainer.Lifecycle.PreStop).NotTo(BeNil(), "postgres container should have a preStop hook")
+		Expect(postgresContainer.Lifecycle.PreStop.Exec).NotTo(BeNil(), "preStop hook should use exec")
+		Expect(postgresContainer.Lifecycle.PreStop.Exec.Command).To(ContainElement(ContainSubstring("pg_ctl stop")),
+			"preStop hook should run pg_ctl stop for clean shutdown")
+
+		By("Verifying postgres deployment has terminationGracePeriodSeconds")
+		Expect(postgresDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds).NotTo(BeNil(),
+			"postgres pod should have terminationGracePeriodSeconds set")
+		Expect(*postgresDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)),
+			"postgres pod should have 60s termination grace period")
 	})
 
 	// Test 10: Resource Limits Validation

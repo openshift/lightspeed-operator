@@ -87,6 +87,18 @@ var _ = Describe("App postgres server assets", func() {
 		Expect(dep.Spec.Selector.MatchLabels).To(Equal(utils.GeneratePostgresSelectorLabels()))
 		Expect(dep.Spec.RevisionHistoryLimit).To(Equal(&revisionHistoryLimit))
 		Expect(dep.Spec.Replicas).To(Equal(&replicas))
+		// Verify preStop lifecycle hook for clean postgres shutdown
+		Expect(dep.Spec.Template.Spec.Containers[0].Lifecycle).NotTo(BeNil())
+		Expect(dep.Spec.Template.Spec.Containers[0].Lifecycle.PreStop).NotTo(BeNil())
+		Expect(dep.Spec.Template.Spec.Containers[0].Lifecycle.PreStop.Exec).NotTo(BeNil())
+		Expect(dep.Spec.Template.Spec.Containers[0].Lifecycle.PreStop.Exec.Command).To(Equal([]string{
+			"/bin/sh", "-c",
+			"pg_ctl stop -D /var/lib/pgsql/data/userdata -m fast -w -t 55",
+		}))
+		// Verify terminationGracePeriodSeconds gives postgres time to shut down
+		Expect(dep.Spec.Template.Spec.TerminationGracePeriodSeconds).NotTo(BeNil())
+		Expect(*dep.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
+
 		Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(Equal([]corev1.VolumeMount{
 			{
 				Name:      "secret-" + utils.PostgresCertsSecretName,
