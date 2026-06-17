@@ -39,9 +39,13 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 22. Deployment updates are triggered when: the deployment spec changes, the config ConfigMap resource version changes, the MCP config ConfigMap resource version changes, or the proxy CA certificate hash changes.
 23. When any of these change, the operator forces a rolling restart by updating a pod template annotation with the current timestamp.
 
+### Health Probes [CHANGED: OLS-3221]
+24. The app server deployment's liveness probe must point to the `/liveness` endpoint with `failureThreshold: 3` and `periodSeconds: 30`, giving the pod 90 seconds to self-heal via the background health-check loop before Kubernetes restarts it. These values are not currently user-configurable.
+25. The app server deployment's readiness probe must point to the `/readiness` endpoint. The readiness probe checks RAG index, LLM reachability, and cache health status (read from the background health-check loop). No changes to existing readiness probe configuration.
+
 ### Observability
-24. The operator creates a ServiceMonitor for Prometheus scraping of the /metrics endpoint.
-25. The operator creates a PrometheusRule with recording rules aggregating query call counts by status code class (2xx, 4xx, 5xx) and provider/model configuration.
+26. The operator creates a ServiceMonitor for Prometheus scraping of the /metrics endpoint.
+27. The operator creates a PrometheusRule with recording rules aggregating query call counts by status code class (2xx, 4xx, 5xx) and provider/model configuration.
 
 ## Configuration Surface
 
@@ -81,4 +85,4 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 
 ## Planned Changes
 
-None.
+- [PLANNED: OLS-3221] Liveness probe now checks PostgreSQL health via the service's background health-check loop status. Probe configuration (failureThreshold, periodSeconds) added to deployment generation. See Rules 24–25.
