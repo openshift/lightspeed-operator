@@ -522,7 +522,7 @@ func GetCAFromSecret(rclient client.Client, ctx context.Context, namespace, secr
 // For each provider it requires credentialsSecretRef, loads the secret, then checks Data keys:
 // Azure OpenAI accepts the default credential key or client_id/tenant_id/client_secret;
 // Google Vertex (and Anthropic) use credentialKey when set, otherwise the default key;
-// all other supported types require the default credential key.
+// all other supported types require the default credential key
 func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	for _, provider := range cr.Spec.LLMConfig.Providers {
 		if provider.CredentialsSecretRef.Name == "" {
