@@ -1,28 +1,28 @@
 [
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:26f9e07ff6a54d3930a5693b4638995ff7e2f4e8b526e32b4e949b6bb422f2b4",
-    "revision": "a8aa7a8a51925f28fcab08af269abd73f9880abc"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:ff3ac9bd89d67399c893820108efdeaa3f8f72b47c2cd37235b8a0c69477cfa7",
+    "revision": "e0fcbfef8048a656e93d4bd1c5132b8737028f1d"
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:38d230f9f77d199c617b1f048d022d87808c1519a237ba55b4078583eb6b0485",
-    "revision": "44776fe091e022762687745fa43827c9c41fef55"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:352bf1693797c2c8892849265dd262a3b4672ceb572d22d032142fa803b1a71d",
+    "revision": "7c5398fef0ed6cb603c2b09f4c867d6255afad87"
   },
   {
     "name": "lightspeed-console-plugin-pf5",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:ff7397dda843380ee8966958fd16a4aa33897ad5ff23614897e570079e7b2701",
-    "revision": "40dc504072ce912237b9ea7fb9eeedb59c813aae"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:76d3d4a2b74d61e738335f6ba21e411a656be9e5d44ebb5e2c7cdf324caeb1d9",
+    "revision": "98dacd5962d4eca619d511fc9a1a365b06e09f78"
   },
   {
     "name": "lightspeed-console-plugin-4-19",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:08140093c340fc20fca849ac3a118b50aa338fde7fa930373a55fd0b3e1167c5",
-    "revision": "719d5786f5503f67e43b86db0d3b8a29002506b5"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:ee1ec4458dd43e7719c84d8230c4185693849a9eaf6ebb43aa379b2c7a817de5",
+    "revision": "1d104cf4eab9be59bbd24e8fc5f7fe86222dd683"
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:09912631f48e64174d2a8a254977f0136a5bdbb8d23a6352d7a422345d95596a",
-    "revision": "a0de2f571c376af021fc698ca16de71f5334bf50"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ae609cbda8ae50052fb09cedfc4d439e6520674e608bb4f53f580122ba154d57",
+    "revision": "1a85789f4b1306cb1d714c9f3fb3b28f33b2267b"
   },
   {
     "name": "openshift-mcp-server",
