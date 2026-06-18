@@ -35,8 +35,8 @@
   },
   {
     "name": "lightspeed-ocp-rag",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:6154de4ade379d23b8b983f8223fb219b275ba6339b4cfc150e151433e905e5c",
-    "revision": "ebc4cf82147a274c544454c80c721adc7f650ce8"
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:7155419a17b950e48266e18da7328cc127d44a4923e76c66295b6079ea3f93d2",
+    "revision": "bd294b432c80a6386a90d075201a29253c2aecec"
   },
   {
     "name": "lightspeed-postgresql",
