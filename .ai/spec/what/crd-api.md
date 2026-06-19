@@ -35,7 +35,7 @@ Field path (relative to each provider) | JSON key | Go type | Required | Descrip
 `url` | `url` | `string` | No | Provider API URL. Pattern: `^https?://.*$`
 `credentialsSecretRef` | `credentialsSecretRef` | `corev1.LocalObjectReference` | Yes | Secret containing API credentials
 `models` | `models` | `[]ModelSpec` | Yes | Provider models. MaxItems=50
-`type` | `type` | `string` | Yes | Provider type enum: `azure_openai`, `bam`, `openai`, `watsonx`, `rhoai_vllm`, `rhelai_vllm`, `fake_provider`, `google_vertex`, `google_vertex_anthropic`
+`type` | `type` | `string` | Yes | Provider type enum: `azure_openai`, `bam`, `openai`, `watsonx`, `rhoai_vllm`, `rhelai_vllm`, `fake_provider`, `google_vertex`, `google_vertex_anthropic`, `bedrock`
 `deploymentName` | `deploymentName` | `string` | No | Azure OpenAI deployment name
 `apiVersion` | `apiVersion` | `string` | No | Azure OpenAI API version
 `projectID` | `projectID` | `string` | No | Watsonx project ID
@@ -318,7 +318,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.llm.providers[].models[].parameters` | `ModelParametersSpec` | -- | No | -- | Model parameters
 `spec.llm.providers[].models[].parameters.maxTokensForResponse` | `int` | -- | No | -- | Max response tokens
 `spec.llm.providers[].models[].parameters.toolBudgetRatio` | `float64` | `0.25` | No | Min=0.1, Max=0.5 | Tool token budget ratio
-`spec.llm.providers[].type` | `string` | -- | Yes | Enum (see rule 7) | Provider type
+`spec.llm.providers[].type` | `string` | -- | Yes | Enum (see rule 7; includes `bedrock`) | Provider type
 `spec.llm.providers[].deploymentName` | `string` | -- | No | XValidation (rule 8) | Azure deployment name
 `spec.llm.providers[].apiVersion` | `string` | -- | No | -- | Azure API version
 `spec.llm.providers[].projectID` | `string` | -- | No | XValidation (rule 9) | Watsonx project ID
@@ -450,4 +450,4 @@ Path | Type | Default | Required | Validation | Description
 
 ## Planned Changes
 
-None.
+- [PLANNED: OLS-1680] Add `bedrockConfig` block to `ProviderSpec` for STS/IAM role authentication fields (`roleARN`, `region`) when STS auth is implemented for the Bedrock provider.
