@@ -122,6 +122,12 @@ const (
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
 	// DefaultCredentialKey is the default secret key name for provider credentials
 	DefaultCredentialKey = "apitoken"
+	// BedrockAccessKeyIDKey is the secret key for AWS access key ID (Bedrock IAM auth)
+	BedrockAccessKeyIDKey = "aws_access_key_id"
+	// BedrockSecretAccessKeyKey is the secret key for AWS secret access key (Bedrock IAM auth)
+	BedrockSecretAccessKeyKey = "aws_secret_access_key" // #nosec G101
+	// BedrockRoleARNKey is the optional secret key for STS role ARN (Bedrock IAM auth)
+	BedrockRoleARNKey = "role_arn"
 	// AzureOpenAIType is the name of the Azure OpenAI provider type
 	AzureOpenAIType = "azure_openai"
 	// FakeProviderType is the name of the fake provider type used for testing
@@ -130,6 +136,8 @@ const (
 	GoogleVertexType = "google_vertex"
 	// GoogleVertexAnthropicType is the name of the Google Vertex Anthropic provider type
 	GoogleVertexAnthropicType = "google_vertex_anthropic"
+	// BedrockType is the name of the AWS Bedrock provider type
+	BedrockType = "bedrock"
 	// DeploymentInProgress message
 	DeploymentInProgress = "In Progress"
 	// OLSSystemPromptFileName is the filename for the system prompt

@@ -507,7 +507,7 @@ type ProviderSpec struct {
 	// Provider type
 	// +kubebuilder:validation:Required
 	// +required
-	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx;rhoai_vllm;rhelai_vllm;fake_provider;google_vertex;google_vertex_anthropic
+	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx;rhoai_vllm;rhelai_vllm;fake_provider;google_vertex;google_vertex_anthropic;bedrock
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Provider Type"
 	Type string `json:"type"`
 	// Deployment name for Azure OpenAI provider

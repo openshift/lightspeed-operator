@@ -453,6 +453,22 @@ var _ = Describe("App server assets", func() {
 			}))))
 		})
 
+		It("should generate configmap with bedrock provider", func() {
+			cr := utils.WithBedrockProvider(cr)
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
+				"name":             Equal("bedrock"),
+				"type":             Equal("bedrock"),
+				"url":              Equal("https://bedrock-mantle.us-east-1.api.aws"),
+				"credentials_path": Equal("/etc/apikeys/test-secret"),
+			}))))
+		})
+
 		It("should generate configmap with googleVertex provider", func() {
 			cr := utils.WithGoogleVertexProvider(cr)
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
