@@ -68,15 +68,21 @@ ols_config:
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
-  reference_content:
+  reference_content:                          # only when spec.ols.rag is configured (BYOK)
     indexes:
-      - path: /app-root/rag/rag-0          # BYOK first (one per spec.ols.rag entry)
+      - path: /app-root/rag/rag-0            # one per spec.ols.rag entry
         index_id: <rag.IndexID>
         origin: <rag.Image>
-      - path: /app-root/vector_db/ocp_product_docs/<major>.<minor>  # OCP docs (unless byokRAGOnly)
-        index_id: ocp-product-docs-<major>_<minor>
-        origin: "Red Hat OpenShift <major>.<minor> documentation"
     embeddings_model_path: /app-root/embeddings_model
+  # OCP docs FAISS index entry removed — OCP docs are served by OKP via the RHOKP sidecar.
+
+  solr_hybrid:                                # always present unless byokRAGOnly
+    solr_http_base: "http://localhost:8080"
+    max_results: 10
+    hybrid_vector_boost: 8.0
+    hybrid_pool_docs: 100
+    hybrid_score_threshold: 0.0
+    hybrid_solr_timeout_s: 60
   user_data_collection:
     feedback_disabled: <computed: CRvalue || !dataCollectorEnabled>
     feedback_storage: /app-root/ols-user-data/feedback
@@ -201,8 +207,8 @@ These schemas are created by the bootstrap script.
 | Log level | CR `spec.ols.logLevel` | Enum: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default: INFO |
 | PostgreSQL connection | `utils/constants.go` | Host built from service name + namespace + ".svc" |
 | TLS certs | Service-ca operator or user-provided secret | Path: `/etc/certs/lightspeed-tls/` |
-| RAG indexes | CR `spec.ols.rag[]` | File paths in config YAML |
-| OpenShift version | Reconciler options | Used for OCP docs RAG index path |
+| BYOK RAG indexes | CR `spec.ols.rag[]` | File paths in config YAML (BYOK only) |
+| RHOKP image | `--rhokp-image` flag | Image for RHOKP sidecar container |
 | MCP servers | CR `spec.mcpServers[]` + `spec.ols.introspectionEnabled` | Feature gated by `MCPServer` gate |
 | Tool filtering | CR `spec.ols.toolFilteringConfig` | Feature gated by `ToolFiltering` gate; requires MCP servers |
 | Proxy config | CR `spec.ols.proxyConfig` | Proxy URL + optional CA cert configmap |

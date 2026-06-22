@@ -39,6 +39,11 @@ GenerateOLSDeployment(r, cr)
   18. Set owner reference to OLSConfig CR
   19. Conditionally add data collector sidecar container ("lightspeed-to-dataverse-exporter")
   20. Conditionally add OpenShift MCP server sidecar container ("openshift-mcp-server")
+  21. Conditionally add RHOKP sidecar container ("rhokp") — always added unless byokRAGOnly is true.
+      Container: image from r.GetRHOKPImage(), port 8080, resources 2 CPU / 2 GiB RAM / 75 GiB ephemeral,
+      startup script disables Apache Listen 0.0.0.0:8443 to avoid port conflict.
+      Optional ACCESS_KEY env from rhokp-access-key secret.
+      Writable root filesystem (Solr data).
 ```
 
 ### Change Detection Pattern
@@ -63,6 +68,7 @@ Default resources by container:
 | AppServer `lightspeed-service-api` | 500m | - | 1Gi | 4Gi |
 | Data collector | 50m | - | 64Mi | 200Mi |
 | MCP server | 50m | - | 64Mi | 200Mi |
+| RHOKP `rhokp` | 2000m | 2000m | 2Gi | 2Gi |
 
 ### Volume/Mount Construction
 Volumes and mounts are built as slices and conditionally appended using inline append patterns.
@@ -100,6 +106,7 @@ Both must be true. The service ID is `"ols"` unless the CR has `openstack.org/li
 | Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config |
 | Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY from cluster |
 | RAG images | CR `spec.ols.rag[].image` | Container images for init containers |
+| RHOKP image | `--rhokp-image` flag | Container image for RHOKP sidecar |
 
 ## Agentic Controller Deployment (OLM-managed)
 
