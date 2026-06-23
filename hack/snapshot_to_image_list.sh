@@ -122,17 +122,21 @@ CONSOLE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-console"
 CONSOLE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-console") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
 SERVICE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service") | .containerImage' "${TMP_SNAPSHOT_JSON}")
 SERVICE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
+OPENSHIFT_MCP_SERVER_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="openshift-mcp-server") | .containerImage' "${TMP_SNAPSHOT_JSON}")
+OPENSHIFT_MCP_SERVER_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="openshift-mcp-server") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
 OCP_RAG_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-ocp-rag") | .containerImage' "${TMP_SNAPSHOT_JSON}")
 OCP_RAG_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-ocp-rag") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
 if [ "${USE_REGISTRY}" = "preview" ]; then
 	OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator"
 	CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9"
 	SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9"
+	OPENSHIFT_MCP_SERVER_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/openshift-mcp-server-rhel9"
 	OCP_RAG_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-ocp-rag-rhel9"
 
 	OPERATOR_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator|'"${OPERATOR_IMAGE_BASE}"'|g' <<<${OPERATOR_IMAGE})
 	CONSOLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console|'"${CONSOLE_IMAGE_BASE}"'|g' <<<${CONSOLE_IMAGE})
 	SERVICE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service|'"${SERVICE_IMAGE_BASE}"'|g' <<<${SERVICE_IMAGE})
+	OPENSHIFT_MCP_SERVER_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server|'"${OPENSHIFT_MCP_SERVER_IMAGE_BASE}"'|g' <<<${OPENSHIFT_MCP_SERVER_IMAGE})
 	OCP_RAG_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag|'"${OCP_RAG_IMAGE_BASE}"'|g' <<<${OCP_RAG_IMAGE})
 	POSTGRES_IMAGE=$(sed "s|quay\.io.*/lightspeed-postgresql|registry.redhat.io/rhel9/postgresql-16|g" <<<"${POSTGRES_IMAGE}")
 
@@ -146,11 +150,17 @@ if [ "${USE_REGISTRY}" = "stable" ]; then
 	OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator"
 	CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9"
 	SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9"
+	CONSOLE_IMAGE_BASE_PF5="registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9"
+	CONSOLE_IMAGE_BASE_419="registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9"
+	OPENSHIFT_MCP_SERVER_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9"
 	OCP_RAG_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9"
 
 	OPERATOR_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator|'"${OPERATOR_IMAGE_BASE}"'|g' <<<${OPERATOR_IMAGE})
 	CONSOLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console|'"${CONSOLE_IMAGE_BASE}"'|g' <<<${CONSOLE_IMAGE})
 	SERVICE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service|'"${SERVICE_IMAGE_BASE}"'|g' <<<${SERVICE_IMAGE})
+	CONSOLE_IMAGE_PF5=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-pf5|'"${CONSOLE_IMAGE_BASE_PF5}"'|g' <<<${CONSOLE_IMAGE_PF5})
+	CONSOLE_IMAGE_419=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-4-19|'"${CONSOLE_IMAGE_BASE_419}"'|g' <<<${CONSOLE_IMAGE_419})
+	OPENSHIFT_MCP_SERVER_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server|'"${OPENSHIFT_MCP_SERVER_IMAGE_BASE}"'|g' <<<${OPENSHIFT_MCP_SERVER_IMAGE})
 	OCP_RAG_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag|'"${OCP_RAG_IMAGE_BASE}"'|g' <<<${OCP_RAG_IMAGE})
 	POSTGRES_IMAGE=$(sed "s|quay\.io.*/lightspeed-postgresql|registry.redhat.io/rhel9/postgresql-16|g" <<<"${POSTGRES_IMAGE}")
 
@@ -188,23 +198,6 @@ if [ -z "${DATAVERSE_EXPORTER_IMAGE}" ] || [ "${DATAVERSE_EXPORTER_IMAGE}" == "n
 	exit 1
 fi
 
-# openshift-mcp-server is built by the downstream OCP MCP team, not by OLS Konflux.
-# Preserve versions from the existing related images file.
-OPENSHIFT_MCP_SERVER_IMAGE=""
-if [ -n "${OUTPUT_FILE}" ] && [ -f "${OUTPUT_FILE}" ]; then
-	OPENSHIFT_MCP_SERVER_IMAGE=$(${JQ} -r '.[] | select(.name == "openshift-mcp-server") | .image' "${OUTPUT_FILE}")
-fi
-if [ -z "${OPENSHIFT_MCP_SERVER_IMAGE}" ] || [ "${OPENSHIFT_MCP_SERVER_IMAGE}" == "null" ]; then
-	DEFAULT_RELATED_IMAGES="${SCRIPT_DIR}/../related_images.json"
-	if [ -f "${DEFAULT_RELATED_IMAGES}" ]; then
-		OPENSHIFT_MCP_SERVER_IMAGE=$(${JQ} -r '.[] | select(.name == "openshift-mcp-server") | .image' "${DEFAULT_RELATED_IMAGES}")
-	fi
-fi
-if [ -z "${OPENSHIFT_MCP_SERVER_IMAGE}" ] || [ "${OPENSHIFT_MCP_SERVER_IMAGE}" == "null" ]; then
-	echo "openshift-mcp-server image not found: use -o with an existing related_images.json, or ensure ${SCRIPT_DIR}/../related_images.json lists it." >&2
-	exit 1
-fi
-
 RELATED_IMAGES=$(
 	cat <<-EOF
 		[
@@ -225,7 +218,8 @@ RELATED_IMAGES=$(
 		  },
 		  {
 		    "name": "openshift-mcp-server",
-		    "image": "${OPENSHIFT_MCP_SERVER_IMAGE}"
+		    "image": "${OPENSHIFT_MCP_SERVER_IMAGE}",
+		    "revision": "${OPENSHIFT_MCP_SERVER_REVISION}"
 		  },
 		  {
 		    "name": "lightspeed-to-dataverse-exporter",
