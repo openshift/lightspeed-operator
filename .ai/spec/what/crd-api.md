@@ -106,8 +106,10 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 `mcpServer` | `mcpServer` | `ContainerConfig` | MCP server container. Resources only
 `console` | `console` | `Config` | Console container. Has replicas field but operator forces 1
 `database` | `database` | `Config` | Database container. Has replicas field but operator forces 1
+`alertsAdapter` | `alertsAdapter` | `Config` | [PLANNED: OLS-3236] Agentic alerts adapter container. Replicas forced to 1
+`agenticConsole` | `agenticConsole` | `Config` | [PLANNED: OLS-3236] Agentic console plugin container. Replicas forced to 1
 
-20. Replicas are only user-configurable for the API container (`spec.ols.deployment.api.replicas`). For console and database, the operator always overrides replicas to 1 regardless of spec value.
+20. Replicas are only user-configurable for the API container (`spec.ols.deployment.api.replicas`). For console, database, alerts adapter, and agentic console, the operator always overrides replicas to 1 regardless of spec value.
 
 ##### Config Fields
 
@@ -276,6 +278,8 @@ Condition types used by the operator:
 - `ApiReady` -- API server deployment health
 - `CacheReady` -- PostgreSQL cache deployment health
 - `ConsolePluginReady` -- Console UI plugin deployment health
+- `AlertsAdapterReady` -- [PLANNED: OLS-3236] Agentic alerts adapter deployment health
+- `AgenticConsolePluginReady` -- [PLANNED: OLS-3236] Agentic console plugin deployment health
 - `ResourceReconciliation` -- Overall resource reconciliation status (set directly, not deployment-based)
 
 #### Overall Status (status.overallStatus)
@@ -366,6 +370,20 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.deployment.database.nodeSelector` | `map[string]string` | -- | No | -- | Database node selector
 `spec.ols.deployment.database.affinity` | `*Affinity` | -- | No | -- | Database affinity
 `spec.ols.deployment.database.topologySpreadConstraints` | `[]TopologySpreadConstraint` | -- | No | -- | Database topology spread
+`spec.ols.deployment.alertsAdapter` | `Config` | -- | No | -- | [PLANNED: OLS-3236] Alerts adapter deployment
+`spec.ols.deployment.alertsAdapter.replicas` | `*int32` | `1` | No | Min=0 | Alerts adapter replicas (operator forces 1)
+`spec.ols.deployment.alertsAdapter.resources` | `*ResourceRequirements` | -- | No | -- | Alerts adapter resources
+`spec.ols.deployment.alertsAdapter.tolerations` | `[]Toleration` | -- | No | -- | Alerts adapter tolerations
+`spec.ols.deployment.alertsAdapter.nodeSelector` | `map[string]string` | -- | No | -- | Alerts adapter node selector
+`spec.ols.deployment.alertsAdapter.affinity` | `*Affinity` | -- | No | -- | Alerts adapter affinity
+`spec.ols.deployment.alertsAdapter.topologySpreadConstraints` | `[]TopologySpreadConstraint` | -- | No | -- | Alerts adapter topology spread
+`spec.ols.deployment.agenticConsole` | `Config` | -- | No | -- | [PLANNED: OLS-3236] Agentic console deployment
+`spec.ols.deployment.agenticConsole.replicas` | `*int32` | `1` | No | Min=0 | Agentic console replicas (operator forces 1)
+`spec.ols.deployment.agenticConsole.resources` | `*ResourceRequirements` | -- | No | -- | Agentic console resources
+`spec.ols.deployment.agenticConsole.tolerations` | `[]Toleration` | -- | No | -- | Agentic console tolerations
+`spec.ols.deployment.agenticConsole.nodeSelector` | `map[string]string` | -- | No | -- | Agentic console node selector
+`spec.ols.deployment.agenticConsole.affinity` | `*Affinity` | -- | No | -- | Agentic console affinity
+`spec.ols.deployment.agenticConsole.topologySpreadConstraints` | `[]TopologySpreadConstraint` | -- | No | -- | Agentic console topology spread
 `spec.ols.queryFilters` | `[]QueryFiltersSpec` | -- | No | -- | Query filters
 `spec.ols.queryFilters[].name` | `string` | -- | No | -- | Filter name
 `spec.ols.queryFilters[].pattern` | `string` | -- | No | -- | Regex pattern
@@ -440,7 +458,7 @@ Path | Type | Default | Required | Validation | Description
 1. `.metadata.name` must be `"cluster"` (XValidation on OLSConfig type).
 2. Only `azure_openai` provider type uses `deploymentName`; it is required for that type and forbidden (by convention) for others.
 3. Only `watsonx` provider type uses `projectID`; it is required for that type.
-4. Replicas are only user-configurable for the API container (`spec.ols.deployment.api`). Console and database always run with 1 replica enforced by the operator.
+4. Replicas are only user-configurable for the API container (`spec.ols.deployment.api`). Console, database, alerts adapter, and agentic console always run with 1 replica enforced by the operator.
 5. Period format for quota limiters must match the regex pattern in rule 36, enforcing human-readable duration strings with correct singular/plural agreement.
 6. `credentialKey` if set must contain at least one non-whitespace character.
 7. Tool filtering requires the `ToolFiltering` feature gate in `spec.featureGates`.
