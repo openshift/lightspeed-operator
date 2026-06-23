@@ -1,5 +1,5 @@
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:d7feaf8f006328b198d3077d7afbe675602d6277544f5adda160819eb98b62a6
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:d191a1b45bcaa0f50ea7e0b676d0cb3646ca6115df910809de07fbc14e074c50
 name: lightspeed-operator.v1.1.1
 package: lightspeed-operator
 properties:
@@ -51,7 +51,7 @@ properties:
           ]
         capabilities: Seamless Upgrades
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2026-06-18T21:13:11Z"
+        createdAt: "2026-06-23T16:53:41Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -505,17 +505,13 @@ properties:
         url: https://github.com/openshift/lightspeed-service
 relatedImages:
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:68de52a4496504a4d557f8a9c691546d52abab06e2bbd16ccd6abbbb3ab9b58c
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:92e6c4726f2370ffb222246dd3ec188f15e4d1f99dafdf78a22332cf0bff6733
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:84f7066517e83f04baa38b726f18ae4bb2590bae5f1502e55d0e1a7c3f699a80
-  - name: lightspeed-console-plugin-pf5
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9@sha256:32bf00ca1fbb4bfff25028c3c86b3569ecfbc39e5800904c8dac9419293e39b3
-  - name: lightspeed-console-plugin-4-19
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9@sha256:ee1ec4458dd43e7719c84d8230c4185693849a9eaf6ebb43aa379b2c7a817de5
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:020735d5c17b37c9bff8d586ad52c0057cbaef0d5b28a0a584b83d2dcab73f67
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ae609cbda8ae50052fb09cedfc4d439e6520674e608bb4f53f580122ba154d57
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:67ae3dff60d08b088544567b402f45695703abf2f2eea68be3f51c7586901b05
   - name: openshift-mcp-server
-    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:83f288c04aad9c742cf2cee51f45e1be1982e1fcc388d2112cf5483e381fff62
+    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:41a659779aa434a0c1b3769f0d0a7ae034461de453aa19ed0e4e8134956b0e8e
   - name: lightspeed-to-dataverse-exporter
     image: registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
   - name: lightspeed-ocp-rag
@@ -523,5 +519,5 @@ relatedImages:
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:d7feaf8f006328b198d3077d7afbe675602d6277544f5adda160819eb98b62a6
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:d191a1b45bcaa0f50ea7e0b676d0cb3646ca6115df910809de07fbc14e074c50
 schema: olm.bundle
