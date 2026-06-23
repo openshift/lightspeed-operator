@@ -31,8 +31,13 @@ The lightspeed-operator OLM bundle installs both the lightspeed-operator control
 
 ### Console Plugins
 
-14. Each controller deploys its own, separate console plugin. The lightspeed-operator deploys the Lightspeed chat console plugin. The lightspeed-agentic-operator deploys the agentic console plugin.
-15. The lightspeed-operator never deploys the agentic console plugin, and vice versa.
+14. [PLANNED: OLS-3236] The lightspeed-operator deploys both console plugins: the Lightspeed chat console plugin and the agentic console plugin. The agentic-operator does not deploy any console plugins.
+15. Prior to OLS-3236, the agentic-operator deployed the agentic console plugin via a fire-and-forget `RunnableFunc`. This is being migrated to the lightspeed-operator for full reconciliation lifecycle management.
+
+### Agentic Operand Deployment
+
+16. [PLANNED: OLS-3236] The lightspeed-operator deploys the agentic alerts adapter and the agentic console plugin as fully reconciled operands, with Phase 1/2 reconciliation, status conditions, health monitoring, and finalizer cleanup. The agentic-operator does not deploy these operands.
+17. [PLANNED: OLS-3236] Agentic operand images default to `:main` tags until Konflux onboarding provides SHA-pinned productized images. CLI flags (`--alerts-adapter-image`, `--agentic-console-image`) on the lightspeed-operator deployment override the defaults.
 
 ## Configuration Surface
 
@@ -42,6 +47,9 @@ The lightspeed-operator OLM bundle installs both the lightspeed-operator control
 | Agentic controller image | CSV deployment spec | Container image for the agentic controller |
 | Agentic controller startup flags | CSV deployment spec args | Operand image overrides for the agentic controller |
 | Agentic controller `--sandbox-mode` | CSV deployment spec args | `bare-pod` (default) or `sandbox-claim` — selects sandbox provisioning strategy |
+| Agentic controller `--agentic-sandbox-image` | CSV deployment spec args | [PLANNED: OLS-3236] Sandbox container image (default: `:main` tag, overridable) |
+| Lightspeed controller `--alerts-adapter-image` | CSV deployment spec args | [PLANNED: OLS-3236] Alerts adapter container image (default: `:main` tag) |
+| Lightspeed controller `--agentic-console-image` | CSV deployment spec args | [PLANNED: OLS-3236] Agentic console plugin container image (default: `:main` tag) |
 
 ## Constraints
 
@@ -51,4 +59,6 @@ The lightspeed-operator OLM bundle installs both the lightspeed-operator control
 
 ## Planned Changes
 
-None.
+| Ticket | Summary |
+|---|---|
+| OLS-3236 | Migrate agentic console deployment from agentic-operator to lightspeed-operator. Add alerts-adapter as new operand. Add `--alerts-adapter-image` and `--agentic-console-image` flags to lightspeed-operator CSV deployment. Remove `--agentic-console-image` from agentic-operator CSV deployment. |
