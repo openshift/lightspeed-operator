@@ -52,6 +52,8 @@ Field path (relative to VertexConfig) | JSON key | Go type | Required | Descript
 `projectID` | `projectID` | `string` | No | Google Cloud project ID
 `location` | `location` | `string` | No | Server region location
 
+For `type == "bedrock"`, use provider `url` for the Mantle gateway endpoint and `credentialsSecretRef` for authentication (Bearer `apitoken` or IAM keys `aws_access_key_id` / `aws_secret_access_key`, with optional `role_arn`). The operator validates credentials at reconcile time and maps them to `credentials_path` for the service.
+
 #### Provider XValidation Rules
 
 8. Azure OpenAI requires `deploymentName`: when `type == "azure_openai"`, `deploymentName` must not be empty.
@@ -465,7 +467,8 @@ Path | Type | Default | Required | Validation | Description
 8. MCP server functionality requires the `MCPServer` feature gate in `spec.featureGates`.
 11. There is exactly one allowed CacheType value: `postgres`.
 12. `ToolFilteringConfig.alpha` and `ToolFilteringConfig.threshold` are validated via XValidation (not kubebuilder min/max) to enforce 0.0-1.0 range.
+13. Bedrock credentials: `credentialsSecretRef` must contain either `apitoken` (Bearer) or both `aws_access_key_id` and `aws_secret_access_key` (IAM). Optional `role_arn` is passed through to the service when present.
 
 ## Planned Changes
 
-- [PLANNED: OLS-1680] Add `bedrockConfig` block to `ProviderSpec` for STS/IAM role authentication fields (`roleARN`, `region`) when STS auth is implemented for the Bedrock provider.
+- None.

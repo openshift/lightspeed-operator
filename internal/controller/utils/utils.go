@@ -522,6 +522,7 @@ func GetCAFromSecret(rclient client.Client, ctx context.Context, namespace, secr
 // For each provider it requires credentialsSecretRef, loads the secret, then checks Data keys:
 // Azure OpenAI accepts the default credential key or client_id/tenant_id/client_secret;
 // Google Vertex (and Anthropic) use credentialKey when set, otherwise the default key;
+// Bedrock accepts either the default credential key (Bearer token) or AWS IAM keys;
 // all other supported types require the default credential key
 func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	for _, provider := range cr.Spec.LLMConfig.Providers {
@@ -560,6 +561,34 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 			if _, ok := secret.Data[credentialKey]; !ok {
 				return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, credentialKey)
 			}
+		} else if provider.Type == BedrockType {
+			accessKey := strings.TrimSpace(string(secret.Data[BedrockAccessKeyIDKey]))
+			secretKey := strings.TrimSpace(string(secret.Data[BedrockSecretAccessKeyKey]))
+			hasAccessKey := accessKey != ""
+			hasSecretKey := secretKey != ""
+			if hasAccessKey != hasSecretKey {
+				return fmt.Errorf(
+					"LLM provider %s credential secret %s: IAM auth requires both '%s' and '%s'",
+					provider.Name,
+					provider.CredentialsSecretRef.Name,
+					BedrockAccessKeyIDKey,
+					BedrockSecretAccessKeyKey,
+				)
+			}
+			if hasAccessKey && hasSecretKey {
+				continue
+			}
+			if strings.TrimSpace(string(secret.Data[DefaultCredentialKey])) != "" {
+				continue
+			}
+			return fmt.Errorf(
+				"LLM provider %s credential secret %s must contain either '%s' (Bearer token) or '%s' and '%s' (IAM credentials)",
+				provider.Name,
+				provider.CredentialsSecretRef.Name,
+				DefaultCredentialKey,
+				BedrockAccessKeyIDKey,
+				BedrockSecretAccessKeyKey,
+			)
 		} else {
 			// Standard providers: must contain the default credential key
 			if _, ok := secret.Data[DefaultCredentialKey]; !ok {

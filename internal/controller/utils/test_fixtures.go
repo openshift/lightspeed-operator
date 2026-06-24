@@ -182,6 +182,22 @@ func WithGoogleVertexAnthropicProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.O
 	return cr
 }
 
+// WithBedrockProvider configures the first LLM provider as AWS Bedrock.
+// Auth mode (Bearer apitoken vs IAM keys) is determined by the referenced secret, not the CR.
+// This modifies the CR in place and returns it for chaining.
+// Requires that Providers[0] already exists.
+func WithBedrockProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.LLMConfig.Providers[0].Name = "bedrock"
+	cr.Spec.LLMConfig.Providers[0].Type = BedrockType
+	cr.Spec.LLMConfig.Providers[0].URL = "https://bedrock-mantle.us-east-1.api.aws"
+	cr.Spec.LLMConfig.Providers[0].Models = []olsv1alpha1.ModelSpec{
+		{
+			Name: "anthropic.claude-opus-4-7",
+		},
+	}
+	return cr
+}
+
 // ========================================
 // Kubernetes Resource Generators
 // ========================================

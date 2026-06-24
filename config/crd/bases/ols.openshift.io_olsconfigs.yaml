@@ -297,6 +297,7 @@ spec:
                           - fake_provider
                           - google_vertex
                           - google_vertex_anthropic
+                          - bedrock
                           type: string
                         url:
                           description: Provider API URL

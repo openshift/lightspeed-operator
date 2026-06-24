@@ -946,6 +946,158 @@ cNHlzbRSivTDuHmXJdCYIdd8cnH6EbPm3zNg0jU5Au6OrvDZYifP+DtuiLmJct4=
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should accept Bedrock secret with Bearer token", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bedrock-bearer-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte("bedrock-api-key"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithBedrockProvider(GetDefaultOLSConfigCR())
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-bedrock-bearer-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should accept Bedrock secret with IAM credentials", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bedrock-iam-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					BedrockAccessKeyIDKey:     []byte("AKIATEST"),
+					BedrockSecretAccessKeyKey: []byte("secret"),
+					BedrockRoleARNKey:         []byte("arn:aws:iam::123456789012:role/TestRole"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithBedrockProvider(GetDefaultOLSConfigCR())
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-bedrock-iam-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should accept Bedrock secret with both IAM credentials and Bearer token (IAM takes precedence)", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bedrock-iam-and-bearer-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					BedrockAccessKeyIDKey:     []byte("AKIATEST"),
+					BedrockSecretAccessKeyKey: []byte("secret"),
+					DefaultCredentialKey:      []byte("bedrock-api-key"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithBedrockProvider(GetDefaultOLSConfigCR())
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-bedrock-iam-and-bearer-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should fail when Bedrock secret has only partial IAM credentials", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bedrock-partial-iam-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					BedrockAccessKeyIDKey: []byte("AKIATEST"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithBedrockProvider(GetDefaultOLSConfigCR())
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-bedrock-partial-iam-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("IAM auth requires both"))
+			Expect(err.Error()).To(ContainSubstring(BedrockAccessKeyIDKey))
+			Expect(err.Error()).To(ContainSubstring(BedrockSecretAccessKeyKey))
+		})
+
+		It("should fail when Bedrock secret has empty Bearer token", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bedrock-empty-bearer-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte(""),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithBedrockProvider(GetDefaultOLSConfigCR())
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-bedrock-empty-bearer-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("must contain either 'apitoken'"))
+		})
+
+		It("should fail when Bedrock secret has empty IAM credentials", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bedrock-empty-iam-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					BedrockAccessKeyIDKey:     []byte(""),
+					BedrockSecretAccessKeyKey: []byte(""),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithBedrockProvider(GetDefaultOLSConfigCR())
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-bedrock-empty-iam-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("must contain either 'apitoken'"))
+		})
+
+		It("should fail when Bedrock secret has neither Bearer token nor IAM credentials", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bedrock-invalid-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"wrongkey": []byte("value"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithBedrockProvider(GetDefaultOLSConfigCR())
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-bedrock-invalid-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("must contain either 'apitoken'"))
+			Expect(err.Error()).To(ContainSubstring("aws_access_key_id"))
+		})
+
 	})
 })
 
