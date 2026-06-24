@@ -1656,6 +1656,8 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe).ToNot(BeNil())
 			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe.HTTPGet.Port).To(Equal(intstr.FromString("https")))
 			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe.HTTPGet.Path).To(Equal("/liveness"))
+			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe.FailureThreshold).To(Equal(int32(3)))
+			Expect(dep.Spec.Template.Spec.Containers[0].LivenessProbe.PeriodSeconds).To(Equal(int32(30)))
 			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe).ToNot(BeNil())
 			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet.Port).To(Equal(intstr.FromString("https")))
 			Expect(dep.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet.Path).To(Equal("/readiness"))
