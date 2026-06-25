@@ -49,21 +49,7 @@ func GenerateConsoleUIConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConf
 				}
 			}`
 
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.ConsoleUIConfigMapName,
-			Namespace: r.GetNamespace(),
-			Labels:    GenerateConsoleUILabels(),
-		},
-		Data: map[string]string{
-			"nginx.conf": nginxConfig,
-		},
-	}
-	if err := controllerutil.SetControllerReference(cr, cm, r.GetScheme()); err != nil {
-		return nil, err
-	}
-
-	return cm, nil
+	return utils.GenerateConsolePluginNginxConfigMap(r, cr, utils.ConsoleUIConfigMapName, GenerateConsoleUILabels(), nginxConfig)
 }
 
 func GenerateConsoleUIService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
@@ -154,51 +140,8 @@ func GenerateConsoleUIPlugin(r reconciler.Reconciler, ctx context.Context, cr *o
 }
 
 func GenerateConsoleUINetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
-	np := networkingv1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.ConsoleUINetworkPolicyName,
-			Namespace: r.GetNamespace(),
-			Labels:    GenerateConsoleUILabels(),
-		},
-		Spec: networkingv1.NetworkPolicySpec{
-			Ingress: []networkingv1.NetworkPolicyIngressRule{
-				{
-					From: []networkingv1.NetworkPolicyPeer{
-						{
-							NamespaceSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"kubernetes.io/metadata.name": "openshift-console",
-								},
-							},
-							PodSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"app": "console",
-								},
-							},
-						},
-					},
-					Ports: []networkingv1.NetworkPolicyPort{
-						{
-							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
-							Port:     &[]intstr.IntOrString{intstr.FromInt(utils.ConsoleUIHTTPSPort)}[0],
-						},
-					},
-				},
-			},
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: GenerateConsoleUILabels(),
-			},
-			PolicyTypes: []networkingv1.PolicyType{
-				networkingv1.PolicyTypeIngress,
-			},
-		},
-	}
-
-	if err := controllerutil.SetControllerReference(cr, &np, r.GetScheme()); err != nil {
-		return nil, err
-	}
-	return &np, nil
-
+	labels := GenerateConsoleUILabels()
+	return utils.GenerateConsolePluginNetworkPolicy(r, cr, utils.ConsoleUINetworkPolicyName, labels, utils.ConsoleUIHTTPSPort)
 }
 
 func GenerateConsoleUIServiceAccount(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ServiceAccount, error) {

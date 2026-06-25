@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/agenticconsole"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
@@ -363,9 +364,10 @@ type RestartFunc func(reconciler.Reconciler, context.Context, ...*appsv1.Deploym
 
 // restartFuncs maps deployment names to their restart functions
 var restartFuncs = map[string]RestartFunc{
-	utils.OLSAppServerDeploymentName: appserver.RestartAppServer,
-	utils.PostgresDeploymentName:     postgres.RestartPostgres,
-	utils.ConsoleUIDeploymentName:    console.RestartConsoleUI,
+	utils.OLSAppServerDeploymentName:     appserver.RestartAppServer,
+	utils.PostgresDeploymentName:         postgres.RestartPostgres,
+	utils.ConsoleUIDeploymentName:        console.RestartConsoleUI,
+	utils.AgenticConsoleUIDeploymentName: agenticconsole.RestartAgenticConsoleUI,
 }
 
 // restart corresponding deployment

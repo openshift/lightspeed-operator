@@ -49,6 +49,10 @@ func (r *OLSConfigReconciler) GetConsoleUIImage() string {
 	return r.Options.ConsoleUIImage
 }
 
+func (r *OLSConfigReconciler) GetAgenticConsoleImage() string {
+	return r.Options.AgenticConsoleUIImage
+}
+
 func (r *OLSConfigReconciler) GetOpenShiftMajor() string {
 	return r.Options.OpenShiftMajor
 }

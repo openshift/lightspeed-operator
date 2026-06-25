@@ -9,10 +9,11 @@ import (
 
 // Definitions to manage status conditions
 const (
-	TypeApiReady           = "ApiReady"
-	TypeCacheReady         = "CacheReady"
-	TypeConsolePluginReady = "ConsolePluginReady"
-	TypeCRReconciled       = "Reconciled"
+	TypeApiReady                  = "ApiReady"
+	TypeCacheReady                = "CacheReady"
+	TypeConsolePluginReady        = "ConsolePluginReady"
+	TypeAgenticConsolePluginReady = "AgenticConsolePluginReady"
+	TypeCRReconciled              = "Reconciled"
 )
 
 type OLSConfigReconcilerOptions struct {
@@ -21,6 +22,7 @@ type OLSConfigReconcilerOptions struct {
 	LightspeedServiceImage         string
 	LightspeedServicePostgresImage string
 	ConsoleUIImage                 string
+	AgenticConsoleUIImage          string
 	DataverseExporterImage         string
 	OpenShiftMCPServerImage        string
 	Namespace                      string

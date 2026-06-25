@@ -35,6 +35,7 @@ AI agents (Claude). Content is optimized for precision and machine consumption o
 | Add a new managed component | `what/system-overview.md` + `how/project-structure.md` |
 | Understand the CRD | `what/crd-api.md` |
 | Navigate the codebase | `how/project-structure.md` |
+| Understand console plugins | `what/console-ui.md` (chat), `what/agentic-console-ui.md` (agentic) |
 | Understand TLS configuration | `what/tls.md` |
 | Understand security constraints | `what/security.md` |
 | Debug external resource watching | `what/resource-lifecycle.md` + `how/reconciliation.md` |
@@ -48,7 +49,8 @@ When what/ and how/ file names don't match 1:1, this table maps behavioral specs
 | what/ | how/ |
 |---|---|
 | `reconciliation.md` | `how/reconciliation.md` -- implementation patterns, code locations, task registration |
-| `app-server.md`, `postgres.md`, `console-ui.md` | `how/deployment-generation.md` -- how deployments/services/configmaps are generated |
+| `app-server.md`, `postgres.md` | `how/deployment-generation.md` -- how deployments/services/configmaps are generated |
+| `console-ui.md`, `agentic-console-ui.md` | `how/deployment-generation.md` -- deployment/service/configmap generation; `how/reconciliation.md` -- ConsolePlugin lifecycle, activation, and cleanup |
 | `crd-api.md` | `how/config-generation.md` -- how CRD fields map to generated configuration |
 | `system-overview.md` | `how/project-structure.md` -- codebase layout, package responsibilities |
 

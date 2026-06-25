@@ -252,9 +252,9 @@ dev-teardown: uninstall ## Teardown local development environment (removes RBAC,
 	@echo "✅ Development environment cleaned up."
 
 .PHONY: run
-run: dev-setup manifests generate fmt vet ## Run a controller from your host (auto-setup RBAC if needed).
+run: dev-setup manifests generate fmt vet ## Run a controller from your host (auto-setup RBAC if needed). Optional: make run ARGS="--agentic-console-image=..."
 	@echo "🔧 Running controller locally - using default images from constants"
-	LOCAL_DEV_MODE=true go run ./cmd/main.go
+	LOCAL_DEV_MODE=true go run ./cmd/main.go $(ARGS)
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.

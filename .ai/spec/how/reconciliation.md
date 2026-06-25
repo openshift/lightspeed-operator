@@ -18,12 +18,14 @@ Reconcile(ctx, req)
   -> handleFinalizer()                      # Add/remove finalizer, run cleanup
   -> reconcileOperatorResources()           # ServiceMonitor, NetworkPolicy (operator-level)
   -> annotateExternalResources()            # Validate secrets, annotate for watching
-  -> reconcileIndependentResources()        # Phase 1: console, postgres, backend resources
+  -> reconcileIndependentResources()        # Phase 1: console, agentic console, postgres, backend resources
   |   |-- console.ReconcileConsoleUIResources()
+  |   |-- agenticconsole.ReconcileAgenticConsoleUIResources()
   |   |-- postgres.ReconcilePostgresResources()
   |   +-- appserver.ReconcileAppServerResources()
   -> reconcileDeploymentsAndStatus()        # Phase 2: deployments + status update
       |-- console.ReconcileConsoleUIDeploymentAndPlugin()
+      |-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin()
       |-- postgres.ReconcilePostgresDeployment()
       |-- appserver.ReconcileAppServerDeployment()
       |-- checkDeploymentStatus() for each  # Collect diagnostics
@@ -33,7 +35,7 @@ Reconcile(ctx, req)
 ## Key Abstractions
 
 ### Reconciler Interface
-The `reconciler.Reconciler` interface breaks the circular dependency between the main controller and component packages. Component packages (appserver, postgres, console) receive this interface instead of importing the controller package directly. It embeds `client.Client` and adds getter methods for images, namespace, and OpenShift version.
+The `reconciler.Reconciler` interface breaks the circular dependency between the main controller and component packages. Component packages (appserver, postgres, console, agenticconsole) receive this interface instead of importing the controller package directly. It embeds `client.Client` and adds getter methods for images, namespace, and OpenShift version.
 
 ### ReconcileSteps Pattern
 Both phases use a slice of `ReconcileSteps` structs, each containing a Name, reconcile function, and (for Phase 2) a ConditionType and Deployment name. Phase 1 iterates with continue-on-error; Phase 2 iterates but tracks all conditions and diagnostics.
@@ -77,5 +79,5 @@ The `finalizeOLSConfig()` method uses `listOwnedResources()` which queries every
 - `SetupWithManager()` registers Owns() for 12 resource types and Watches() for Secrets and ConfigMaps with custom predicates.
 - Secret watch predicates: Create events allowed for all secrets in operator namespace (handles recreated secrets); Update events filtered by watcher annotation; Delete events ignored.
 - ConfigMap watch predicates: Same pattern as secrets.
-- The `LOCAL_DEV_MODE` environment variable skips ServiceMonitor creation when running locally.
+- The `LOCAL_DEV_MODE` environment variable skips operator ServiceMonitor creation and app-server metrics reader secret reconciliation when running locally (`make run`).
 - Phase 1 failures update status with `ResourceReconciliation` condition type (not the component-specific types used in Phase 2).

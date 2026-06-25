@@ -17,6 +17,7 @@ package appserver
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
@@ -373,6 +374,13 @@ func reconcileService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alp
 }
 
 func reconcileMetricsReaderSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	// Skip in local development mode (make run sets LOCAL_DEV_MODE=true); same rationale as
+	// skipping the operator ServiceMonitor in olsconfig_controller.reconcileOperatorResources.
+	if os.Getenv("LOCAL_DEV_MODE") == "true" {
+		r.GetLogger().Info("Skipping metrics reader secret reconciliation in LOCAL_DEV_MODE")
+		return nil
+	}
+
 	secret, err := GenerateMetricsReaderSecret(r, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateMetricsReaderSecret, err)

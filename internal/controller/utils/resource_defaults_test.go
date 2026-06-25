@@ -56,6 +56,7 @@ var _ = Describe("Resource defaults and test reconciler", func() {
 		Expect(r.GetNamespace()).To(Equal("test-ns"))
 		Expect(r.GetPostgresImage()).To(Equal(PostgresServerImageDefault))
 		Expect(r.GetConsoleUIImage()).To(Equal(ConsoleUIImageDefault))
+		Expect(r.GetAgenticConsoleImage()).To(Equal(AgenticConsoleUIImageDefault))
 		Expect(r.GetOpenShiftMajor()).To(Equal("123"))
 		Expect(r.GetOpenshiftMinor()).To(Equal("456"))
 		Expect(r.GetAppServerImage()).To(Equal(OLSAppServerImageDefault))

@@ -77,6 +77,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/agenticconsole"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
@@ -296,6 +297,9 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		{Name: "console UI resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return console.ReconcileConsoleUIResources(r, ctx, cr)
 		}},
+		{Name: "agentic console UI resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return agenticconsole.ReconcileAgenticConsoleUIResources(r, ctx, cr)
+		}},
 		{Name: "postgres resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return postgres.ReconcilePostgresResources(r, ctx, cr)
 		}},
@@ -369,6 +373,9 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		{Name: "console UI deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return console.ReconcileConsoleUIDeploymentAndPlugin(r, ctx, cr)
 		}, ConditionType: utils.TypeConsolePluginReady, Deployment: utils.ConsoleUIDeploymentName},
+		{Name: "agentic console UI deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin(r, ctx, cr)
+		}, ConditionType: utils.TypeAgenticConsolePluginReady, Deployment: utils.AgenticConsoleUIDeploymentName},
 		{Name: "postgres deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return postgres.ReconcilePostgresDeployment(r, ctx, cr)
 		}, ConditionType: utils.TypeCacheReady, Deployment: utils.PostgresDeploymentName},
@@ -570,6 +577,13 @@ func (r *OLSConfigReconciler) finalizeOLSConfig(ctx context.Context, cr *olsv1al
 		// We still want the finalizer to complete to avoid CR being stuck in Terminating
 		// The Console removal functions handle NotFound errors gracefully
 		r.Logger.V(1).Info("Proceeding with finalization despite Console UI removal error")
+	}
+
+	// Step 1b: Remove agentic Console UI (deactivate plugin, delete ConsolePlugin CR)
+	r.Logger.V(1).Info("Removing Agentic Console UI during finalization")
+	if err := agenticconsole.RemoveAgenticConsole(r, ctx); err != nil {
+		r.Logger.Error(err, "Failed to remove Agentic Console UI during finalization")
+		r.Logger.V(1).Info("Proceeding with finalization despite Agentic Console UI removal error")
 	}
 
 	// Step 2: List all owned resources once (avoids duplicate API calls)

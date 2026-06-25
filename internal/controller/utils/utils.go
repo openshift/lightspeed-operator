@@ -35,6 +35,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -840,6 +841,236 @@ func ImageStreamNameFor(image string) string {
 	sum := sha1.Sum([]byte(image)) //nolint:gosec
 	sfx := hex.EncodeToString(sum[:])[:imageStreamSHA1SuffixLength]
 	return fmt.Sprintf("%s-%s", slug, sfx)
+}
+
+// GenerateConsolePluginNginxConfigMap generates a ConfigMap containing nginx.conf for a console plugin.
+func GenerateConsolePluginNginxConfigMap(
+	r reconciler.Reconciler,
+	cr *olsv1alpha1.OLSConfig,
+	name string,
+	labels map[string]string,
+	nginxConfig string,
+) (*corev1.ConfigMap, error) {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.GetNamespace(),
+			Labels:    labels,
+		},
+		Data: map[string]string{
+			"nginx.conf": nginxConfig,
+		},
+	}
+	if err := controllerutil.SetControllerReference(cr, cm, r.GetScheme()); err != nil {
+		return nil, err
+	}
+	return cm, nil
+}
+
+// GenerateConsolePluginNetworkPolicy generates a network policy allowing ingress from OpenShift Console pods.
+func GenerateConsolePluginNetworkPolicy(
+	r reconciler.Reconciler,
+	cr *olsv1alpha1.OLSConfig,
+	name string,
+	labels map[string]string,
+	port int32,
+) (*networkingv1.NetworkPolicy, error) {
+	protocolTCP := corev1.ProtocolTCP
+	servicePort := intstr.FromInt32(port)
+	np := networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.GetNamespace(),
+			Labels:    labels,
+		},
+		Spec: networkingv1.NetworkPolicySpec{
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": "openshift-console",
+								},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "console",
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &protocolTCP,
+							Port:     &servicePort,
+						},
+					},
+				},
+			},
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeIngress,
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &np, r.GetScheme()); err != nil {
+		return nil, err
+	}
+	return &np, nil
+}
+
+// DefaultConsolePluginResourceRequirements returns default resource requirements for console plugin containers.
+func DefaultConsolePluginResourceRequirements() *corev1.ResourceRequirements {
+	return &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("10m"),
+			corev1.ResourceMemory: resource.MustParse("50Mi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("100Mi"),
+		},
+		Claims: []corev1.ResourceClaim{},
+	}
+}
+
+// ConsolePluginDeploymentOptions configures nginx-based console plugin Deployments.
+type ConsolePluginDeploymentOptions struct {
+	Name                string
+	Labels              map[string]string
+	SelectorLabels      map[string]string
+	ServiceAccountName  string
+	ContainerName       string
+	Image               string
+	Port                int32
+	PortName            string
+	CertVolumeName      string
+	CertSecretName      string
+	NginxVolumeName     string
+	NginxConfigMapName  string
+	NginxTempVolumeName string
+	Resources           *corev1.ResourceRequirements
+	Env                 []corev1.EnvVar
+	DeploymentConfig    olsv1alpha1.Config
+}
+
+// GenerateConsolePluginDeployment generates a Deployment for an nginx-served console plugin.
+func GenerateConsolePluginDeployment(
+	r reconciler.Reconciler,
+	cr *olsv1alpha1.OLSConfig,
+	opts ConsolePluginDeploymentOptions,
+) (*appsv1.Deployment, error) {
+	runAsNonRoot := true
+	volumeDefaultMode := VolumeDefaultMode
+	replicas := int32(1)
+
+	containerPort := corev1.ContainerPort{
+		ContainerPort: opts.Port,
+		Protocol:      corev1.ProtocolTCP,
+	}
+	if opts.PortName != "" {
+		containerPort.Name = opts.PortName
+	}
+
+	resources := opts.Resources
+	if resources == nil {
+		resources = DefaultConsolePluginResourceRequirements()
+	}
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      opts.Name,
+			Namespace: r.GetNamespace(),
+			Labels:    opts.Labels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: opts.SelectorLabels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: opts.Labels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            opts.ContainerName,
+							Image:           opts.Image,
+							Ports:           []corev1.ContainerPort{containerPort},
+							SecurityContext: RestrictedContainerSecurityContext(),
+							ImagePullPolicy: corev1.PullAlways,
+							Env:             opts.Env,
+							Resources:       *resources,
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      opts.CertVolumeName,
+									MountPath: "/var/cert",
+									ReadOnly:  true,
+								},
+								{
+									Name:      opts.NginxVolumeName,
+									MountPath: "/etc/nginx/nginx.conf",
+									SubPath:   "nginx.conf",
+									ReadOnly:  true,
+								},
+								{
+									Name:      opts.NginxTempVolumeName,
+									MountPath: "/tmp/nginx",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: opts.CertVolumeName,
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName:  opts.CertSecretName,
+									DefaultMode: &volumeDefaultMode,
+								},
+							},
+						},
+						{
+							Name: opts.NginxVolumeName,
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: opts.NginxConfigMapName,
+									},
+									DefaultMode: &volumeDefaultMode,
+								},
+							},
+						},
+						{
+							Name: opts.NginxTempVolumeName,
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: &runAsNonRoot,
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+					ServiceAccountName: opts.ServiceAccountName,
+				},
+			},
+		},
+	}
+
+	ApplyPodDeploymentConfig(deployment, opts.DeploymentConfig, false)
+
+	if err := controllerutil.SetControllerReference(cr, deployment, r.GetScheme()); err != nil {
+		return nil, err
+	}
+
+	return deployment, nil
 }
 
 // GenerateServiceAccount generates a service account with the given name in the operator namespace

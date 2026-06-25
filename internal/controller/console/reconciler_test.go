@@ -70,54 +70,18 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
-		It("should reconcile from OLSConfig custom resource", func() {
+		It("should reconcile from OLSConfig custom resource and create plugin resources", func() {
 			By("Reconcile the OLSConfig custom resource")
 			err := ReconcileConsoleUI(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			// Note: Status conditions are managed by the main OLSConfigReconciler,
-			// not by the component-specific reconcilers
-		})
 
-		It("should create a service lightspeed-console-plugin", func() {
-			By("Get the service")
-			svc := &corev1.Service{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIServiceName, Namespace: utils.OLSNamespaceDefault}, svc)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("should create a config map lightspeed-console-plugin", func() {
-			By("Get the config map")
-			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIConfigMapName, Namespace: utils.OLSNamespaceDefault}, cm)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("should create a deployment lightspeed-console-plugin", func() {
-			By("Get the deployment")
-			dep := &appsv1.Deployment{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("should create a console plugin lightspeed-console-plugin", func() {
-			By("Get the console plugin")
-			plugin := &consolev1.ConsolePlugin{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIPluginName}, plugin)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("should create a network policy lightspeed-console-plugin", func() {
-			By("Get the network policy")
-			np := &networkingv1.NetworkPolicy{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUINetworkPolicyName, Namespace: utils.OLSNamespaceDefault}, np)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("should create a service account lightspeed-console-plugin", func() {
-			By("Get the service account")
-			sa := &corev1.ServiceAccount{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIServiceAccountName, Namespace: utils.OLSNamespaceDefault}, sa)
-			Expect(err).NotTo(HaveOccurred())
+			By("Verify reconciled resources exist")
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIServiceName, Namespace: utils.OLSNamespaceDefault}, &corev1.Service{})).To(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIConfigMapName, Namespace: utils.OLSNamespaceDefault}, &corev1.ConfigMap{})).To(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, &appsv1.Deployment{})).To(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIPluginName}, &consolev1.ConsolePlugin{})).To(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUINetworkPolicyName, Namespace: utils.OLSNamespaceDefault}, &networkingv1.NetworkPolicy{})).To(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIServiceAccountName, Namespace: utils.OLSNamespaceDefault}, &corev1.ServiceAccount{})).To(Succeed())
 		})
 
 		It("should activate the console plugin", func() {

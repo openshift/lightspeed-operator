@@ -4,7 +4,7 @@ This document describes the internal architecture of the OpenShift Lightspeed Op
 
 ## Overview
 
-The operator follows a modular, component-based architecture where each major component (application server, PostgreSQL, Console UI) is managed by its own dedicated package with independent reconciliation logic.
+The operator follows a modular, component-based architecture where each major component (application server, PostgreSQL, chat console plugin, agentic console plugin) is managed by its own dedicated package with independent reconciliation logic.
 
 ## Key Design Decisions
 
@@ -58,7 +58,7 @@ The operator follows a modular, component-based architecture where each major co
 - Detect OpenShift version and select appropriate images
 - Start controller and handle graceful shutdown
 
-**Key Flags:** Image URLs, `--controller-namespace`, reconcile interval, and related runtime options. See `cmd/main.go` for the complete list.
+**Key Flags:** Image URLs (`--service-image`, `--console-image`, `--agentic-console-image`, etc.), `--namespace`, and related runtime options. See `cmd/main.go` for the complete list. `make run` sets `LOCAL_DEV_MODE=true` to skip operator metrics resources during local development.
 
 ### Reconciler Interface (`internal/controller/reconciler`)
 
@@ -82,9 +82,21 @@ Provides clean contract between main controller and component packages:
 
 ### Console UI Package (`internal/controller/console`)
 
-**Purpose:** Manages OpenShift Console plugin for web UI integration
+**Purpose:** Manages the chat OpenShift Console plugin (Lightspeed assistant UI).
 
-**Entry Points:** `ReconcileConsoleUI()` (setup), `RemoveConsoleUI()` (cleanup when disabled)
+**Entry Points:** `ReconcileConsoleUIResources`, `ReconcileConsoleUIDeploymentAndPlugin`, `RemoveConsoleUI()`.
+
+**Notes:** Includes a `ConsolePlugin` proxy to the app-server for API calls. Shared reconcile logic lives in `utils/console_plugin_reconciler.go`.
+
+### Agentic Console UI Package (`internal/controller/agenticconsole`)
+
+**Purpose:** Manages the agentic OpenShift Console plugin (AI Hub: proposals and configuration UI).
+
+**Entry Points:** `ReconcileAgenticConsoleUIResources`, `ReconcileAgenticConsoleUIDeploymentAndPlugin`, `RemoveAgenticConsole()`.
+
+**Notes:** No app-server proxy on the `ConsolePlugin` CR. Reuses `utils/console_plugin_reconciler.go`. Status condition: `AgenticConsolePluginReady`. CR tuning: `spec.ols.deployment.agenticConsole`.
+
+**Planned:** Alerts adapter operand (`AlertsAdapterReady`) is specified in `.ai/spec/` but not yet implemented in this operator.
 
 ### Utilities Package (`internal/controller/utils`)
 
@@ -92,6 +104,7 @@ Provides clean contract between main controller and component packages:
 
 **Contains:**
 - Constants (resource names, labels, annotations, error messages)
+- Console plugin shared reconcilers (`console_plugin_reconciler.go`)
 - Helper functions (hash computation, resource comparison, equality checks)
 - Status utilities (condition management)
 - Validation (certificates, version detection)
@@ -121,12 +134,17 @@ High-level reconciliation sequence:
 2. Check if CR is being deleted → run finalizer cleanup if needed
 3. Add finalizer if not present
 4. Validate OLSConfig CR exists
-5. Reconcile LLM Secrets (validate credentials)
-6. Reconcile Components:
-   - Console UI (if enabled)
-   - PostgreSQL (if conversation cache enabled)
-   - Application server (`appserver` package)
-7. Update Status Conditions based on deployment readiness
+5. Annotate external resources; validate LLM credentials and TLS secrets
+6. Phase 1 — independent resources (continue on error):
+   - Chat console UI (`console/`)
+   - Agentic console UI (`agenticconsole/`)
+   - PostgreSQL (`postgres/`)
+   - Application server (`appserver/`)
+7. Phase 2 — deployments and status (fail-fast on pod failures):
+   - Chat console UI → ConsolePluginReady
+   - Agentic console UI → AgenticConsolePluginReady
+   - PostgreSQL → CacheReady
+   - Application server → ApiReady
 ```
 
 ### Finalizer Pattern
@@ -134,7 +152,7 @@ High-level reconciliation sequence:
 The operator uses a finalizer (`ols.openshift.io/finalizer`) to ensure proper cleanup when `OLSConfig` CR is deleted.
 
 **Why Needed:**
-- **Console UI cleanup**: ConsolePlugin is cluster-scoped and not cascade-deleted by owner references
+- **Console plugin cleanup**: `ConsolePlugin` is cluster-scoped and not cascade-deleted by owner references; chat and agentic plugins must be deactivated in the Console CR
 - **PVC cleanup**: PersistentVolumeClaims can block deletion if not properly released
 - **Race condition prevention**: Ensures complete cleanup before CR can be recreated (important for tests and sequential deployments)
 
@@ -160,9 +178,10 @@ if !olsconfig.DeletionTimestamp.IsZero() {
 ```
 
 **Cleanup Sequence** (`finalizeOLSConfig`):
-1. **Remove Console UI**: Deactivate plugin from Console CR, delete ConsolePlugin CR
-2. **Wait for owned resources**: Poll for up to 3 minutes until deployments, services, PVCs are deleted (cascade deletion)
-3. **Remove finalizer**: Allows Kubernetes to remove CR from etcd
+1. **Remove chat console UI**: Deactivate plugin from Console CR, delete ConsolePlugin CR
+2. **Remove agentic console UI**: Deactivate plugin from Console CR, delete ConsolePlugin CR
+3. **Wait for owned resources**: Poll for up to 3 minutes until deployments, services, PVCs are deleted (cascade deletion)
+4. **Remove finalizer**: Allows Kubernetes to remove CR from etcd
 
 **Error Handling:**
 - Cleanup errors are logged but don't block finalizer removal
