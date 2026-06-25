@@ -33,10 +33,10 @@ LABEL io.k8s.display-name="Openshift Lightspeed"
 LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
 LABEL name="openshift-lightspeed/lightspeed-operator-bundle"
 LABEL cpe="cpe:/a:redhat:openshift_lightspeed:1::el9"
-LABEL release=1.1.1
+LABEL release=1.1.2
 LABEL url="https://github.com/openshift/lightspeed-operator"
 LABEL vendor="Red Hat, Inc."
-LABEL version=1.1.1
+LABEL version=1.1.2
 LABEL summary="Red Hat OpenShift Lightspeed"
 
 # OCP compatibility labels
