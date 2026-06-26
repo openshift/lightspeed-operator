@@ -23,6 +23,84 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// AuditOTELTLSMode defines TLS behavior for the OTLP exporter.
+// +kubebuilder:validation:Enum=Secure;Insecure
+type AuditOTELTLSMode string
+
+const (
+	AuditOTELTLSSecure   AuditOTELTLSMode = "Secure"
+	AuditOTELTLSInsecure AuditOTELTLSMode = "Insecure"
+)
+
+// AuditLoggingMode defines whether structured audit logging is enabled.
+// +kubebuilder:validation:Enum=Enabled;Disabled
+type AuditLoggingMode string
+
+const (
+	AuditLoggingEnabled  AuditLoggingMode = "Enabled"
+	AuditLoggingDisabled AuditLoggingMode = "Disabled"
+)
+
+// AuditOTELConfig configures OpenTelemetry tracing export.
+//
+// +kubebuilder:validation:MinProperties=1
+type AuditOTELConfig struct {
+	// endpoint is the OTLP gRPC endpoint (e.g., "jaeger-otlp-grpc.observability.svc:4317").
+	// When empty, no OTEL traces are exported (no-op tracer used).
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
+	Endpoint string `json:"endpoint,omitempty"`
+
+	// tlsMode controls TLS for the OTLP connection.
+	// "Secure" (default) requires TLS; "Insecure" disables TLS.
+	// +default="Secure"
+	// +optional
+	TLSMode AuditOTELTLSMode `json:"tlsMode,omitempty"`
+}
+
+// AuditConfig configures compliance audit logging and tracing.
+// Logging and OTEL tracing are independent controls.
+//
+// +kubebuilder:validation:MinProperties=1
+type AuditConfig struct {
+	// logging enables structured JSON audit events to stdout.
+	// Default: Enabled (when field is empty or config CR absent).
+	// +default="Enabled"
+	// +optional
+	Logging AuditLoggingMode `json:"logging,omitempty"`
+
+	// otel configures OpenTelemetry tracing export.
+	// When nil or endpoint empty, uses no-op tracer (no export).
+	// +optional
+	OTEL *AuditOTELConfig `json:"otel,omitempty"`
+}
+
+// LoggingEnabled returns true when audit logging should be enabled.
+// Defaults to true when config is nil or Logging field is empty.
+func (c *AuditConfig) LoggingEnabled() bool {
+	if c == nil || c.Logging == "" {
+		return true
+	}
+	return c.Logging == AuditLoggingEnabled
+}
+
+// OTELEndpoint returns the OTLP endpoint or empty string if not configured.
+func (c *AuditConfig) OTELEndpoint() string {
+	if c == nil || c.OTEL == nil {
+		return ""
+	}
+	return c.OTEL.Endpoint
+}
+
+// OTELInsecure returns whether to use insecure (no TLS) connections.
+func (c *AuditConfig) OTELInsecure() bool {
+	if c == nil || c.OTEL == nil {
+		return false
+	}
+	return c.OTEL.TLSMode == AuditOTELTLSInsecure
+}
+
 // OLSConfigSpec defines the desired state of OLSConfig
 type OLSConfigSpec struct {
 	// +kubebuilder:validation:Required
@@ -44,6 +122,12 @@ type OLSConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Feature Gates"
 	FeatureGates []FeatureGate `json:"featureGates,omitempty"`
+	// Audit logging and tracing configuration.
+	// Logging and OTEL tracing are independent controls.
+	// Default: logging enabled, no OTEL export when absent.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Audit Settings"
+	Audit *AuditConfig `json:"audit,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=MCPServer;ToolFiltering

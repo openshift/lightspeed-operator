@@ -10,21 +10,22 @@ Implementation spec for compliance audit logging support in the lightspeed-opera
 
 ```yaml
 spec:
-  audit:                    # optional block; omitting = audit enabled, no OTEL export
-    enabled: true           # default: true (audit on even if spec.audit is absent)
+  audit:                    # optional block; omitting = logging enabled, no OTEL export
+    logging: Enabled        # Enabled (default) | Disabled; structured JSON audit events to stdout
     otel:
       endpoint: ""          # optional OTLP endpoint; no-op exporter when empty/absent
+      tlsMode: Secure       # Secure (default) | Insecure
 ```
 
-2. `spec.audit.enabled` defaults to `true`. When `spec.audit` is absent entirely, behavior is `enabled: true`.
+2. `spec.audit.logging` controls structured JSON audit events to stdout. Defaults to `Enabled` — when the CR is absent or the field is not set, audit logging is enabled. Set to `Disabled` to disable structured audit log output.
 
-3. `spec.audit.otel.endpoint` is optional. When empty or absent, OTEL export is disabled (no-op exporter). Structured JSON to stdout always emits when audit is enabled.
+3. `spec.audit.otel.endpoint` controls OTEL trace export. When set, the operator configures the service with an OTLP endpoint. When empty or absent, no OTEL traces are exported. Independent of the `logging` field — tracing works regardless of whether logging is on or off.
 
 ### Config Generation
 
 4. The operator MUST propagate `spec.audit` from the `OLSConfig` CR into the generated `olsconfig.yaml` ConfigMap so lightspeed-service can read the audit configuration.
 
-5. The generated `olsconfig.yaml` MUST include the audit section with `enabled` and `otel.endpoint` values, preserving the defaults (enabled=true when absent).
+5. The generated `olsconfig.yaml` MUST include the audit section under `ols_config` with `logging` and `otel` values, preserving the defaults (logging=Enabled when absent).
 
 6. Changes to `spec.audit` MUST trigger a reconciliation that regenerates `olsconfig.yaml` and restarts the service deployment to pick up the new config.
 

@@ -348,6 +348,22 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		Ciphers:       utiltls.TLSCiphers(tlsProfileSpec),
 	}
 
+	auditLogging := string(olsv1alpha1.AuditLoggingEnabled)
+	if cr.Spec.Audit != nil && cr.Spec.Audit.Logging != "" {
+		auditLogging = string(cr.Spec.Audit.Logging)
+	}
+	olsConfig.Audit = &utils.AuditYAMLConfig{Logging: auditLogging}
+	if cr.Spec.Audit != nil && cr.Spec.Audit.OTELEndpoint() != "" {
+		tlsMode := string(olsv1alpha1.AuditOTELTLSSecure)
+		if cr.Spec.Audit.OTEL.TLSMode != "" {
+			tlsMode = string(cr.Spec.Audit.OTEL.TLSMode)
+		}
+		olsConfig.Audit.OTEL = &utils.OTELYAMLConfig{
+			Endpoint: cr.Spec.Audit.OTELEndpoint(),
+			TLSMode:  tlsMode,
+		}
+	}
+
 	return olsConfig, nil
 }
 

@@ -22,6 +22,32 @@ Field path | JSON key | Go type | Required | Description
 `spec.olsDataCollector` | `olsDataCollector` | `OLSDataCollectorSpec` | No | Data collector settings (logLevel only)
 `spec.mcpServers` | `mcpServers` | `[]MCPServerConfig` | No | External MCP server configurations. MaxItems=20
 `spec.featureGates` | `featureGates` | `[]FeatureGate` | No | Feature gates. Enum values: `MCPServer`, `ToolFiltering`
+`spec.audit` | `audit` | `*AuditConfig` | No | Audit logging and OTEL tracing. Default: logging enabled, no OTEL export. MinProperties=1
+
+### Audit Configuration (spec.audit)
+
+Structured JSON audit events and OpenTelemetry trace export. Logging and OTEL are independent controls.
+
+#### AuditConfig Fields
+
+Field path (relative to `spec.audit`) | JSON key | Go type | Required | Default | Validation | Description
+---|---|---|---|---|---|---
+`logging` | `logging` | `AuditLoggingMode` | No | `Enabled` | Enum: `Enabled`, `Disabled` | Enables structured JSON audit events to stdout
+`otel` | `otel` | `*AuditOTELConfig` | No | (nil) | MinProperties=1 | OpenTelemetry tracing export config
+
+#### AuditOTELConfig Fields
+
+Field path (relative to `otel`) | JSON key | Go type | Required | Default | Validation | Description
+---|---|---|---|---|---|---
+`endpoint` | `endpoint` | `string` | No | (empty) | MinLength=1, MaxLength=253 | OTLP gRPC endpoint (e.g., `"jaeger-otlp-grpc.observability.svc:4317"`)
+`tlsMode` | `tlsMode` | `AuditOTELTLSMode` | No | `Secure` | Enum: `Secure`, `Insecure` | TLS behavior for the OTLP connection
+
+#### Audit Behavioral Rules
+
+54. `spec.audit` is a pointer — nil when absent. When absent, the operator defaults `logging` to `Enabled` and uses no OTEL export.
+55. `spec.audit.logging` defaults to `Enabled` (both when field is empty and when the entire `spec.audit` block is absent).
+56. `spec.audit.otel` is a pointer — nil when absent. When present with a non-empty `endpoint`, the operator writes the OTEL config into `olsconfig.yaml` with `tls_mode` always set (defaulting to `Secure` if `tlsMode` is empty).
+57. `spec.audit.otel.tlsMode` defaults to `Secure`. `Insecure` disables TLS for the OTLP connection.
 
 ### LLM Provider Configuration (spec.llm)
 
@@ -443,6 +469,11 @@ Path | Type | Default | Required | Validation | Description
 `spec.mcpServers[].headers[].valueFrom.type` | `MCPHeaderSourceType` | -- | Yes | Enum: secret/kubernetes/client | Source type
 `spec.mcpServers[].headers[].valueFrom.secretRef` | `*LocalObjectReference` | -- | Conditional | XValidation (rules 49-50) | Secret reference
 `spec.featureGates` | `[]FeatureGate` | -- | No | Enum per item: MCPServer/ToolFiltering | Feature gates
+`spec.audit` | `*AuditConfig` | -- | No | MinProperties=1 | Audit logging and tracing
+`spec.audit.logging` | `AuditLoggingMode` | `Enabled` | No | Enum: Enabled/Disabled | Structured JSON audit events to stdout
+`spec.audit.otel` | `*AuditOTELConfig` | -- | No | MinProperties=1 | OTEL tracing export config
+`spec.audit.otel.endpoint` | `string` | -- | No | MinLen=1, MaxLen=253 | OTLP gRPC endpoint
+`spec.audit.otel.tlsMode` | `AuditOTELTLSMode` | `Secure` | No | Enum: Secure/Insecure | OTLP connection TLS mode
 `status.conditions` | `[]metav1.Condition` | -- | -- | -- | Component conditions
 `status.overallStatus` | `OverallStatus` | -- | -- | Enum: Ready/NotReady | Aggregate health
 `status.diagnosticInfo` | `[]PodDiagnostic` | -- | -- | -- | Pod failure diagnostics

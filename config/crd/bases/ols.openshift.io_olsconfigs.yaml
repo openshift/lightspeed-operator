@@ -40,6 +40,46 @@ spec:
           spec:
             description: OLSConfigSpec defines the desired state of OLSConfig
             properties:
+              audit:
+                description: |-
+                  Audit logging and tracing configuration.
+                  Logging and OTEL tracing are independent controls.
+                  Default: logging enabled, no OTEL export when absent.
+                minProperties: 1
+                properties:
+                  logging:
+                    default: Enabled
+                    description: |-
+                      logging enables structured JSON audit events to stdout.
+                      Default: Enabled (when field is empty or config CR absent).
+                    enum:
+                    - Enabled
+                    - Disabled
+                    type: string
+                  otel:
+                    description: |-
+                      otel configures OpenTelemetry tracing export.
+                      When nil or endpoint empty, uses no-op tracer (no export).
+                    minProperties: 1
+                    properties:
+                      endpoint:
+                        description: |-
+                          endpoint is the OTLP gRPC endpoint (e.g., "jaeger-otlp-grpc.observability.svc:4317").
+                          When empty, no OTEL traces are exported (no-op tracer used).
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      tlsMode:
+                        default: Secure
+                        description: |-
+                          tlsMode controls TLS for the OTLP connection.
+                          "Secure" (default) requires TLS; "Insecure" disables TLS.
+                        enum:
+                        - Secure
+                        - Insecure
+                        type: string
+                    type: object
+                type: object
               featureGates:
                 description: |-
                   Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.

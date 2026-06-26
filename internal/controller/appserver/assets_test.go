@@ -143,6 +143,7 @@ var _ = Describe("App server assets", func() {
 						ApprovalType:    "tool_annotations",
 						ApprovalTimeout: utils.ToolsApprovalDefaultTimeout,
 					},
+					Audit: &utils.AuditYAMLConfig{Logging: "Enabled"},
 				},
 				LLMProviders: []utils.ProviderConfig{
 					{
@@ -354,6 +355,76 @@ var _ = Describe("App server assets", func() {
 			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tools_approval", MatchAllKeys(Keys{
 				"approval_type":    Equal("tool_annotations"),
 				"approval_timeout": BeNumerically("==", 600),
+			}))))
+		})
+
+		It("should generate configmap with audit config defaults when spec.audit is absent", func() {
+			cr.Spec.Audit = nil
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfigMap := map[string]interface{}{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", MatchAllKeys(Keys{
+				"logging": Equal("Enabled"),
+			}))))
+		})
+
+		It("should generate configmap with audit config when logging disabled", func() {
+			cr.Spec.Audit = &olsv1alpha1.AuditConfig{
+				Logging: olsv1alpha1.AuditLoggingDisabled,
+			}
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfigMap := map[string]interface{}{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", MatchAllKeys(Keys{
+				"logging": Equal("Disabled"),
+			}))))
+		})
+
+		It("should generate configmap with audit config including OTEL endpoint", func() {
+			cr.Spec.Audit = &olsv1alpha1.AuditConfig{
+				Logging: olsv1alpha1.AuditLoggingEnabled,
+				OTEL: &olsv1alpha1.AuditOTELConfig{
+					Endpoint: "jaeger:4317",
+					TLSMode:  olsv1alpha1.AuditOTELTLSInsecure,
+				},
+			}
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfigMap := map[string]interface{}{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", MatchAllKeys(Keys{
+				"logging": Equal("Enabled"),
+				"otel": MatchAllKeys(Keys{
+					"endpoint": Equal("jaeger:4317"),
+					"tls_mode": Equal("Insecure"),
+				}),
+			}))))
+		})
+
+		It("should generate configmap with audit OTEL endpoint and explicit Secure TLS mode", func() {
+			cr.Spec.Audit = &olsv1alpha1.AuditConfig{
+				Logging: olsv1alpha1.AuditLoggingEnabled,
+				OTEL: &olsv1alpha1.AuditOTELConfig{
+					Endpoint: "otel-collector:4317",
+					TLSMode:  olsv1alpha1.AuditOTELTLSSecure,
+				},
+			}
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfigMap := map[string]interface{}{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", MatchAllKeys(Keys{
+				"logging": Equal("Enabled"),
+				"otel": MatchAllKeys(Keys{
+					"endpoint": Equal("otel-collector:4317"),
+					"tls_mode": Equal("Secure"),
+				}),
 			}))))
 		})
 
@@ -1468,6 +1539,8 @@ ols_config:
   tools_approval:
     approval_timeout: 600
     approval_type: tool_annotations
+  audit:
+    logging: Enabled
   user_data_collection:
     feedback_disabled: false
     feedback_storage: /app-root/ols-user-data/feedback
@@ -1544,6 +1617,8 @@ ols_config:
   tools_approval:
     approval_timeout: 600
     approval_type: tool_annotations
+  audit:
+    logging: Enabled
   user_data_collection:
     feedback_disabled: true
     feedback_storage: /app-root/ols-user-data/feedback
