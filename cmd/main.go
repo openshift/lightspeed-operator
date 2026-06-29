@@ -34,6 +34,7 @@ limitations under the License.
 //   - secure-metrics-server: Enable mTLS for metrics server
 //   - service-image: Override default lightspeed-service image
 //   - console-image: Override default console plugin image
+//   - agentic-console-image: Override default agentic console plugin image
 //   - postgres-image: Override default PostgreSQL image
 //   - openshift-mcp-server-image: Override default MCP server image
 //   - namespace: Operator namespace (defaults to WATCH_NAMESPACE env var or "openshift-lightspeed")
@@ -95,6 +96,7 @@ var (
 		"lightspeed-service":         utils.OLSAppServerImageDefault,
 		"postgres-image":             utils.PostgresServerImageDefault,
 		"console-plugin":             utils.ConsoleUIImageDefault,
+		"agentic-console-plugin":     utils.AgenticConsoleUIImageDefault,
 		"openshift-mcp-server-image": utils.OpenShiftMCPServerImageDefault,
 		"dataverse-exporter-image":   utils.DataverseExporterImageDefault,
 		"ocp-rag-image":              utils.OcpRagImageDefault,
@@ -115,13 +117,16 @@ func init() {
 
 // overrideImages overrides the default images with the images provided by the user.
 // If an image is not provided, the default is used.
-func overrideImages(serviceImage string, consoleImage string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
+func overrideImages(serviceImage string, consoleImage string, agenticConsoleImage string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
 	res := defaultImages
 	if serviceImage != "" {
 		res["lightspeed-service"] = serviceImage
 	}
 	if consoleImage != "" {
 		res["console-plugin"] = consoleImage
+	}
+	if agenticConsoleImage != "" {
+		res["agentic-console-plugin"] = agenticConsoleImage
 	}
 	if postgresImage != "" {
 		res["postgres-image"] = postgresImage
@@ -162,6 +167,7 @@ func main() {
 	var metricsClientCA string
 	var serviceImage string
 	var consoleImage string
+	var agenticConsoleImage string
 	var namespace string
 	var postgresImage string
 	var openshiftMCPServerImage string
@@ -179,6 +185,7 @@ func main() {
 	flag.StringVar(&caCertPath, "ca-cert", utils.OperatorCACertPathDefault, "The path to the CA certificate file.")
 	flag.StringVar(&serviceImage, "service-image", utils.OLSAppServerImageDefault, "The image of the lightspeed-service container.")
 	flag.StringVar(&consoleImage, "console-image", utils.ConsoleUIImageDefault, "The image of the console-plugin container.")
+	flag.StringVar(&agenticConsoleImage, "agentic-console-image", utils.AgenticConsoleUIImageDefault, "The image of the agentic console-plugin container.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
 	flag.StringVar(&postgresImage, "postgres-image", utils.PostgresServerImageDefault, "The image of the PostgreSQL server.")
 	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", utils.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
@@ -196,7 +203,7 @@ func main() {
 		namespace = getWatchNamespace()
 	}
 
-	imagesMap := overrideImages(serviceImage, consoleImage, postgresImage, openshiftMCPServerImage, dataverseExporterImage, ocpRagImage)
+	imagesMap := overrideImages(serviceImage, consoleImage, agenticConsoleImage, postgresImage, openshiftMCPServerImage, dataverseExporterImage, ocpRagImage)
 	setupLog.Info("Images setting loaded", "images", listImages())
 
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
@@ -343,6 +350,12 @@ func main() {
 					AffectedDeployments: []string{utils.ConsoleUIDeploymentName},
 				},
 				{
+					Name:                utils.AgenticConsoleUIServiceCertSecretName,
+					Namespace:           namespace,
+					Description:         "Agentic Console UI TLS certificate",
+					AffectedDeployments: []string{utils.AgenticConsoleUIDeploymentName},
+				},
+				{
 					Name:                utils.PostgresCertsSecretName,
 					Namespace:           namespace,
 					Description:         "PostgreSQL TLS certificate (created by Service CA Operator)",
@@ -389,6 +402,7 @@ func main() {
 			OpenShiftMajor:                 major,
 			OpenshiftMinor:                 minor,
 			ConsoleUIImage:                 imagesMap["console-plugin"],
+			AgenticConsoleUIImage:          imagesMap["agentic-console-plugin"],
 			LightspeedServiceImage:         imagesMap["lightspeed-service"],
 			LightspeedServicePostgresImage: imagesMap["postgres-image"],
 			OpenShiftMCPServerImage:        imagesMap["openshift-mcp-server-image"],

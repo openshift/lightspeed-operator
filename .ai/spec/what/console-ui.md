@@ -1,6 +1,6 @@
 # Console UI
 
-The operator deploys the OpenShift Lightspeed **chat** console plugin, which integrates the Lightspeed chat interface into the OpenShift web console. This spec covers only the Lightspeed chat console plugin. The agentic console plugin is a separate plugin deployed by the lightspeed-agentic-operator controller (see `bundle-composition.md`).
+The operator deploys the OpenShift Lightspeed **chat** console plugin, which integrates the Lightspeed chat interface into the OpenShift web console. This spec covers only the Lightspeed chat console plugin. The agentic console plugin is documented in `agentic-console-ui.md`.
 
 ## Behavioral Rules
 

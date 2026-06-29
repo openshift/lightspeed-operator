@@ -170,6 +170,31 @@ const (
 	// ConsoleUINetworkPolicyName is the name of the network policy for the console UI plugin
 	ConsoleUINetworkPolicyName = "lightspeed-console-plugin"
 
+	/*** agentic console UI plugin ***/
+	// AgenticConsoleUIConfigMapName is the name of the agentic console UI nginx configmap
+	AgenticConsoleUIConfigMapName = "lightspeed-agentic-console-plugin"
+	// AgenticConsoleUIServiceCertSecretName is the name of the agentic console UI service certificate secret
+	AgenticConsoleUIServiceCertSecretName = "lightspeed-agentic-console-plugin-cert"
+	// AgenticConsoleUIServiceName is the name of the agentic console UI service
+	AgenticConsoleUIServiceName = "lightspeed-agentic-console-plugin"
+	// AgenticConsoleUIDeploymentName is the name of the agentic console UI deployment
+	AgenticConsoleUIDeploymentName = "lightspeed-agentic-console-plugin"
+	// AgenticConsoleUIHTTPSPort is the port number of the agentic console UI service
+	AgenticConsoleUIHTTPSPort = 9443
+	// AgenticConsoleUIPluginName is the name of the agentic console UI plugin
+	AgenticConsoleUIPluginName = "lightspeed-agentic-console-plugin"
+	// AgenticConsoleUIPluginDisplayName is the display name of the agentic console UI plugin
+	AgenticConsoleUIPluginDisplayName = "OpenShift Lightspeed Agentic Console Plugin"
+	// AgenticConsoleUIServiceAccountName is the name of the service account for the agentic console UI plugin
+	AgenticConsoleUIServiceAccountName = "lightspeed-agentic-console-plugin"
+	// AgenticConsoleUINetworkPolicyName is the name of the network policy for the agentic console UI plugin
+	AgenticConsoleUINetworkPolicyName = "lightspeed-agentic-console-plugin"
+	// AgenticConsoleUIContainerName is the name of the agentic console UI container
+	AgenticConsoleUIContainerName = "console"
+	// AgenticConsoleUIImageDefault is the default image for the agentic console UI plugin.
+	// Konflux-built image until a productized openshift-lightspeed image is published.
+	AgenticConsoleUIImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main"
+
 	/*** watchers ***/
 	// Watcher Annotation key
 	WatcherAnnotationKey = "ols.openshift.io/watcher"

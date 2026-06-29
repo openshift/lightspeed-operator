@@ -18,6 +18,7 @@ type TestReconciler struct {
 	namespace           string
 	PostgresImage       string
 	ConsoleImage        string
+	AgenticConsoleImage string
 	AppServerImage      string
 	McpServerImage      string
 	DataverseExporter   string
@@ -45,6 +46,10 @@ func (r *TestReconciler) GetPostgresImage() string {
 
 func (r *TestReconciler) GetConsoleUIImage() string {
 	return r.ConsoleImage
+}
+
+func (r *TestReconciler) GetAgenticConsoleImage() string {
+	return r.AgenticConsoleImage
 }
 
 func (r *TestReconciler) GetOpenShiftMajor() string {
@@ -93,6 +98,7 @@ func NewTestReconciler(
 		namespace:           namespace,
 		PostgresImage:       PostgresServerImageDefault,
 		ConsoleImage:        ConsoleUIImageDefault,
+		AgenticConsoleImage: AgenticConsoleUIImageDefault,
 		AppServerImage:      OLSAppServerImageDefault,
 		McpServerImage:      OLSAppServerImageDefault,
 		DataverseExporter:   DataverseExporterImageDefault,

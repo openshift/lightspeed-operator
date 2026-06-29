@@ -49,6 +49,9 @@ type Reconciler interface {
 	// GetConsoleUIImage returns the console UI image to use
 	GetConsoleUIImage() string
 
+	// GetAgenticConsoleImage returns the agentic console UI image to use
+	GetAgenticConsoleImage() string
+
 	// GetOpenShiftMajor returns the OpenShift major version
 	GetOpenShiftMajor() string
 

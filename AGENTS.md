@@ -40,11 +40,17 @@ When updating the operator version for a release, you **MUST** update version nu
 OLSConfigReconciler.Reconcile() →
 ├── [Operator-level resources: ServiceMonitor, NetworkPolicy]
 ├── [Finalizer logic: handle CR deletion if DeletionTimestamp set]
-├── reconcileLLMSecrets()
-├── reconcileConsoleUI()
-├── reconcilePostgresServer()
-└── reconcileAppServer() (application server via `appserver` package)
-    └── [12+ sub-tasks via ReconcileTask pattern]
+├── [Annotate external resources + validate LLM/TLS secrets]
+├── Phase 1 (independent resources):
+│   ├── console UI (`console/`)
+│   ├── agentic console UI (`agenticconsole/`)
+│   ├── postgres (`postgres/`)
+│   └── app server (`appserver/`)
+└── Phase 2 (deployments + status):
+    ├── console UI → ConsolePluginReady
+    ├── agentic console UI → AgenticConsolePluginReady
+    ├── postgres → CacheReady
+    └── app server → ApiReady
 ```
 
 ## Code Conventions
@@ -75,10 +81,12 @@ make test-e2e   # E2E tests (requires cluster)
 - `internal/controller/olsconfig_controller.go` - Main reconciler with finalizer logic
 - `internal/controller/appserver/` - App server
 - `internal/controller/postgres/` - PostgreSQL
-- `internal/controller/console/` - Console UI
+- `internal/controller/console/` - Chat console plugin (Lightspeed assistant UI)
+- `internal/controller/agenticconsole/` - Agentic console plugin (AI Hub / proposals UI)
 - `internal/controller/watchers/` - External resource watching
 - `internal/controller/utils/` - Shared utilities, constants
   - `constants.go` - Includes `OLSConfigFinalizer` constant
+  - `console_plugin_reconciler.go` - Shared ConsolePlugin reconcile helpers (used by `console/` and `agenticconsole/`)
 
 ### Tests
 - `*_test.go` - Unit tests (co-located)
@@ -99,9 +107,14 @@ make test-e2e   # E2E tests (requires cluster)
 
 ### Adding New Reconciliation Step
 - **App Server**: Add to `ReconcileTask` slice in `internal/controller/appserver/reconciler.go`
+- **Console plugin operand**: Add package under `internal/controller/<component>/`, reuse `utils/console_plugin_reconciler.go` where possible, wire Phase 1/2 in `olsconfig_controller.go`
 - **Top-Level**: Create package under `internal/controller/<component>/`, add to `olsconfig_controller.go`
 - Add error constants to `internal/controller/utils/utils.go`
 - Write unit tests in co-located `*_test.go` files
+
+### Local Development (`make run`)
+- Sets `LOCAL_DEV_MODE=true`, which skips operator ServiceMonitor reconciliation and app-server metrics reader secret reconciliation (no local metrics scraping loop).
+- Image overrides: `--console-image`, `--agentic-console-image`, and other flags in `cmd/main.go`.
 
 ## AI Assistant Skills
 

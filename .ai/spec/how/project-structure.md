@@ -9,7 +9,7 @@
 | `api/v1alpha1/zz_generated.deepcopy.go` | Generated `DeepCopyObject()` methods | Auto-generated deep copy |
 | `cmd/main.go` | `main()`, `overrideImages()` | Operator entry point, flag parsing, manager setup |
 | `internal/controller/olsconfig_controller.go` | `OLSConfigReconciler`, `Reconcile()`, `SetupWithManager()` | Main reconciler, orchestration, watcher registration |
-| `internal/controller/olsconfig_helpers.go` | `UpdateStatusCondition()`, `checkDeploymentStatus()`, `annotateExternalResources()`, `shouldWatchSecret()` | Status management, diagnostics, annotation, watcher predicates |
+| `internal/controller/olsconfig_helpers.go` | `UpdateStatusCondition()`, `checkDeploymentStatus()`, `annotateExternalResources()`, `shouldWatchSecret()`, `GetAgenticConsoleImage()` | Status management, diagnostics, annotation, watcher predicates, image getter for agentic console |
 | `internal/controller/operator_assets.go` | `ReconcileServiceMonitorForOperator()`, `ReconcileNetworkPolicyForOperator()` | Operator-level resources |
 | `internal/controller/appserver/reconciler.go` | `ReconcileAppServerResources()`, `ReconcileAppServerDeployment()` | AppServer Phase 1 + Phase 2 orchestration |
 | `internal/controller/appserver/deployment.go` | `GenerateOLSDeployment()`, `updateOLSDeployment()` | AppServer deployment generation, update detection |
@@ -18,9 +18,13 @@
 | `internal/controller/postgres/reconciler.go` | `ReconcilePostgresResources()`, `ReconcilePostgresDeployment()` | PostgreSQL Phase 1 + Phase 2 |
 | `internal/controller/postgres/deployment.go` | `GeneratePostgresDeployment()` | PostgreSQL deployment generation |
 | `internal/controller/postgres/assets.go` | `GeneratePostgresConfigMap()`, `GeneratePostgresBootstrapSecret()`, `GeneratePostgresSecret()` | PostgreSQL config, bootstrap script, credentials |
-| `internal/controller/console/reconciler.go` | `ReconcileConsoleUIResources()`, `ReconcileConsoleUIDeploymentAndPlugin()`, `RemoveConsoleUI()` | Console UI Phase 1 + Phase 2 + cleanup |
-| `internal/controller/console/deployment.go` | `GenerateConsoleUIDeployment()` | Console UI deployment generation |
-| `internal/controller/console/assets.go` | ConsolePlugin CR generator, nginx config, service, network policy | Console UI resource generation |
+| `internal/controller/console/reconciler.go` | `ReconcileConsoleUIResources()`, `ReconcileConsoleUIDeploymentAndPlugin()`, `RemoveConsoleUI()` | Chat console plugin Phase 1 + Phase 2 + cleanup |
+| `internal/controller/console/deployment.go` | `GenerateConsoleUIDeployment()` | Chat console plugin deployment generation |
+| `internal/controller/console/assets.go` | ConsolePlugin CR generator, nginx config, service, network policy | Chat console plugin resource generation |
+| `internal/controller/agenticconsole/reconciler.go` | `ReconcileAgenticConsoleUIResources()`, `ReconcileAgenticConsoleUIDeploymentAndPlugin()`, `RemoveAgenticConsole()` | Agentic console plugin Phase 1 + Phase 2 + cleanup |
+| `internal/controller/agenticconsole/deployment.go` | `GenerateAgenticConsoleUIDeployment()` | Agentic console plugin deployment generation |
+| `internal/controller/agenticconsole/assets.go` | ConsolePlugin CR generator, nginx config, service, network policy | Agentic console plugin resource generation |
+| `internal/controller/utils/console_plugin_reconciler.go` | Shared ConsolePlugin reconcile helpers | Used by `console/` and `agenticconsole/` |
 | `internal/controller/reconciler/interface.go` | `Reconciler` interface | Dependency injection interface for component packages |
 | `internal/controller/utils/constants.go` | ~200 constants | Resource names, ports, paths, annotation keys, defaults |
 | `internal/controller/utils/errors.go` | ~80 error message constants | Structured error messages for all operations |
@@ -67,10 +71,12 @@ OLSConfigReconciler.Reconcile()
   4. annotateExternalResources()    -- Mark external secrets/configmaps for watching
   5. reconcileIndependentResources()  -- Phase 1: ConfigMaps, Secrets, ServiceAccounts, RBAC, NetworkPolicies
      +-- console.ReconcileConsoleUIResources()
+     +-- agenticconsole.ReconcileAgenticConsoleUIResources()
      +-- postgres.ReconcilePostgresResources()
      +-- appserver.ReconcileAppServerResources()
   6. reconcileDeploymentsAndStatus()  -- Phase 2: Deployments, Services, TLS certs, status
      +-- console.ReconcileConsoleUIDeploymentAndPlugin()
+     +-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin()
      +-- postgres.ReconcilePostgresDeployment()
      +-- appserver.ReconcileAppServerDeployment()
      +-- checkDeploymentStatus() per deployment -> build newStatus
@@ -90,25 +96,31 @@ External secret/configmap changes
         -> Match against SystemResources list (by name+namespace)
         -> OR match against WatcherAnnotationKey annotation
         -> Resolve "ACTIVE_BACKEND" to appserver deployment name
-        -> Call RestartAppServer() / RestartPostgres() / RestartConsoleUI()
+        -> Call RestartAppServer() / RestartPostgres() / RestartConsoleUI() / RestartAgenticConsoleUI()
            -> Set force-reload annotation with current timestamp
 ```
 
 ## Key Abstractions
 
 ### Image Management
-Default images are stored in a `defaultImages` map in `cmd/main.go` keyed by logical name (e.g., `"lightspeed-service"`, `"postgres-image"`, `"console-plugin"`). Default values come from `internal/relatedimages/` which reads `related_images.json` at build time. Command-line flags override individual images. The map is passed to the reconciler via `OLSConfigReconcilerOptions` as individual named fields (e.g., `LightspeedServiceImage`, `ConsoleUIImage`).
+Default images are stored in a `defaultImages` map in `cmd/main.go` keyed by logical name (e.g., `"lightspeed-service"`, `"postgres-image"`, `"console-plugin"`, `"agentic-console-plugin"`). Default values come from `internal/relatedimages/` which reads `related_images.json` at build time. Command-line flags override individual images (`--console-image`, `--agentic-console-image`, etc.). The map is passed to the reconciler via `OLSConfigReconcilerOptions` as individual named fields (e.g., `LightspeedServiceImage`, `ConsoleUIImage`, `AgenticConsoleUIImage`).
 
 ### WatcherConfig
-Declarative configuration for external resource watching. Contains:
-- `Secrets.SystemResources`: Fixed list of system secrets with affected deployment names (telemetry pull secret, console TLS cert, postgres TLS cert)
+Declarative configuration for external resource watching. Built in `cmd/main.go` and passed via `OLSConfigReconcilerOptions.WatcherConfig`. Contains:
+- `Secrets.SystemResources`: Fixed list of system secrets with affected deployment names:
+  - Telemetry pull secret → app server (`ACTIVE_BACKEND`)
+  - `lightspeed-console-plugin-cert` → chat console deployment
+  - `lightspeed-agentic-console-plugin-cert` → agentic console deployment (`AgenticConsoleUIDeploymentName`)
+  - Postgres TLS cert → postgres + app server
 - `ConfigMaps.SystemResources`: Fixed list of system configmaps (kube-root-ca.crt, service-ca bundle)
 - `AnnotatedSecretMapping`: Dynamic map populated from CR spec at runtime (maps secret name to deployment names)
 - `AnnotatedConfigMapMapping`: Dynamic map populated from CR spec at runtime (maps configmap name to deployment names)
 The special deployment name `"ACTIVE_BACKEND"` resolves to the AppServer deployment name (`lightspeed-app-server`).
 
+When the service-ca operator rotates or populates a watched TLS secret, `SecretUpdateHandler` restarts the mapped deployment via `RestartConsoleUI()` or `RestartAgenticConsoleUI()` (registered in `watchers/watchers.go`).
+
 ### Component Package Pattern
-Each component (appserver, postgres, console) follows the same package structure:
+Each component (appserver, postgres, console, agenticconsole) follows the same package structure:
 - `reconciler.go`: Phase 1 (resources) and Phase 2 (deployment) entry points
 - `deployment.go`: Deployment spec generation and update detection
 - `assets.go` and/or `config.go`: Resource and config generation
@@ -117,17 +129,20 @@ The packages receive `reconciler.Reconciler` interface, never import the control
 ### Reconciler Interface (`internal/controller/reconciler/interface.go`)
 Embeds `client.Client` and adds getter methods for:
 - `GetScheme()`, `GetLogger()`, `GetNamespace()`
-- Image getters: `GetAppServerImage()`, `GetPostgresImage()`, `GetConsoleUIImage()`, `GetOpenShiftMCPServerImage()`, `GetDataverseExporterImage()`
+- Image getters: `GetAppServerImage()`, `GetPostgresImage()`, `GetConsoleUIImage()`, `GetAgenticConsoleImage()`, `GetOpenShiftMCPServerImage()`, `GetDataverseExporterImage()`
 - Version getters: `GetOpenShiftMajor()`, `GetOpenshiftMinor()`
 - Config getters: `IsPrometheusAvailable()`, `GetWatcherConfig()`
 
+`OLSConfigReconciler` implements the interface in `olsconfig_helpers.go`. Component packages call `r.GetAgenticConsoleImage()` when generating the agentic console deployment; the value comes from `OLSConfigReconcilerOptions.AgenticConsoleUIImage`, set in `cmd/main.go` from `--agentic-console-image` (with default from `defaultImages["agentic-console-plugin"]`).
+
 ### Finalizer Pattern
 The OLSConfig CR uses finalizer `ols.openshift.io/finalizer` (defined in `utils.OLSConfigFinalizer`). On deletion:
-1. Remove Console UI (deactivate plugin, delete ConsolePlugin CR)
-2. List all owned resources via owner references
-3. Explicitly delete owned resources
-4. Wait up to 3 minutes for deletion (poll every 5 seconds)
-5. Remove finalizer (proceeds even if cleanup times out)
+1. Remove chat console UI (deactivate plugin, delete ConsolePlugin CR)
+2. Remove agentic console UI (deactivate plugin, delete ConsolePlugin CR)
+3. List all owned resources via owner references
+4. Explicitly delete owned resources
+5. Wait up to 3 minutes for deletion (poll every 5 seconds)
+6. Remove finalizer (proceeds even if cleanup times out)
 
 ## Integration Points
 
@@ -210,6 +225,20 @@ E2E tests live in `test/e2e/` and run against a real OpenShift cluster with the 
 | `CONDITION_TIMEOUT` | No | Custom timeout in seconds for condition checks |
 | `ARTIFACT_DIR` | No | Directory for must-gather diagnostics output |
 
+## Local Development
+
+`make run` sets `LOCAL_DEV_MODE=true` and runs the operator on the host against the cluster kubeconfig.
+
+| Behavior | When `LOCAL_DEV_MODE=true` |
+|---|---|
+| Operator ServiceMonitor | Skipped in `reconcileOperatorResources()` |
+| App-server metrics reader secret | Skipped in `appserver.reconcileMetricsReaderSecret()` |
+| App-server ServiceMonitor / PrometheusRule | Still reconciled if Prometheus Operator CRDs exist |
+
+Skipping metrics reader secret reconciliation avoids a local reconcile loop: creating the token secret triggers `Owns(Secret)` and immediate requeue.
+
+`make run` also runs `dev-setup` (namespace, metrics RBAC, user-access). Image overrides: `--console-image`, `--agentic-console-image`, and other flags in `cmd/main.go`.
+
 ## Implementation Notes
 
 - The operator uses kubebuilder v3 markers for CRD generation and RBAC.
@@ -218,4 +247,3 @@ E2E tests live in `test/e2e/` and run against a real OpenShift cluster with the 
 - The OLSConfig CRD is cluster-scoped and validated to require `.metadata.name == "cluster"`.
 - `SetupWithManager()` registers `Owns()` watches for: Deployment, ServiceAccount, ClusterRole, ClusterRoleBinding, Service, ConfigMap, Secret, PersistentVolumeClaim, ConsolePlugin, ServiceMonitor, PrometheusRule, ImageStream.
 - Controller-runtime handles retry with exponential backoff; the operator does not use periodic reconciliation.
-- `LOCAL_DEV_MODE=true` env var skips ServiceMonitor creation for local development with `make run-local`.

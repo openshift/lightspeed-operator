@@ -345,6 +345,9 @@ type DeploymentConfig struct {
 	// Console container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Console Deployment"
 	ConsoleContainer Config `json:"console,omitempty"`
+	// Agentic console plugin container settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Agentic Console Deployment"
+	AgenticConsoleContainer Config `json:"agenticConsole,omitempty"`
 	// Database container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Deployment"
 	DatabaseContainer Config `json:"database,omitempty"`
@@ -353,7 +356,7 @@ type DeploymentConfig struct {
 // Config defines pod configuration using standard Kubernetes types
 type Config struct {
 	// Defines the number of desired OLS pods. Default: "1"
-	// Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+	// Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, and Agentic Console containers,
 	// the number of replicas will always be set to 1.
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=0
