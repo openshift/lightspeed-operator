@@ -12,7 +12,7 @@ The operator deploys a single-replica PostgreSQL server that provides persistent
 
 ### Database Initialization
 5. The bootstrap script creates the pg_trgm extension in the default database.
-6. The bootstrap script creates schemas in the default database for component isolation: quota and conversation_cache.
+6. The bootstrap script creates schemas in the default database for component isolation: `quota`, `conversation_cache`, and `templogs` (when `AgenticOLSConfig.spec.templog` is `true` or absent). See `templog.md` for the `templogs` schema DDL.
 
 ### Credential Management
 7. The operator generates a random password for PostgreSQL on first creation.
@@ -32,7 +32,7 @@ The operator deploys a single-replica PostgreSQL server that provides persistent
 
 ### Networking
 17. The PostgreSQL service exposes the standard PostgreSQL port.
-18. The network policy allows ingress only from pods matching the application server labels on the PostgreSQL port.
+18. The network policy allows ingress only from pods matching the application server labels and the OTel Collector labels on the PostgreSQL port.
 
 ## Configuration Surface
 
@@ -55,6 +55,12 @@ The operator deploys a single-replica PostgreSQL server that provides persistent
 2. Password secrets are write-once; the operator never updates them after creation.
 3. SSL is always enabled with certificates from the service-ca operator.
 
+## Cross-References
+
+- `templog.md` — Temporary audit log storage using the `templogs` schema
+
 ## Planned Changes
 
-None.
+| Ticket | Summary |
+|---|---|
+| OLS-3328 | Add `templogs` schema for temporary audit log storage |
