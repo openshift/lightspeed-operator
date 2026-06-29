@@ -201,6 +201,18 @@ type OLSConfig struct {
 	ToolFiltering *ToolFilteringConfig `json:"tool_filtering,omitempty"`
 	// Tool execution approval configuration
 	ToolsApproval *ToolsApprovalConfig `json:"tools_approval,omitempty"`
+	// Audit logging and tracing configuration
+	Audit *AuditYAMLConfig `json:"audit,omitempty"`
+}
+
+type AuditYAMLConfig struct {
+	Logging string          `json:"logging"`
+	OTEL    *OTELYAMLConfig `json:"otel,omitempty"`
+}
+
+type OTELYAMLConfig struct {
+	Endpoint string `json:"endpoint,omitempty"`
+	TLSMode  string `json:"tls_mode,omitempty"`
 }
 
 type TLSSecurityProfileConfig struct {
