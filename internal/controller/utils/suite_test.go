@@ -46,6 +46,9 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
 			filepath.Join("..", "..", "..", ".testcrds"),
 		},
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			MaxTime: EnvTestCRDInstallMaxTime,
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 

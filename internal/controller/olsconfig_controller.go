@@ -78,6 +78,7 @@ import (
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/agenticconsole"
+	"github.com/openshift/lightspeed-operator/internal/controller/alertsadapter"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
@@ -127,7 +128,7 @@ type OLSConfigReconciler struct {
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks;consoleplugins;consoleplugins/finalizers,verbs=get;create;update;delete
 // Modify console CR to activate console plugin
 // +kubebuilder:rbac:groups=operator.openshift.io,resources=consoles,verbs=watch;list;get;update
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=get;list;create;update;patch;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;rolebindings,verbs=get;list;create;update;patch;delete;watch
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=openshift-lightspeed,resources=roles;rolebindings,verbs=*
 // NonResourceURLs for Lightspeed access control and metrics
 // +kubebuilder:rbac:urls=/ls-access,verbs=get
@@ -310,6 +311,11 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return appserver.ReconcileAppServerResources(r, ctx, cr)
 		},
+	}, utils.ReconcileSteps{
+		Name: "alerts adapter resources",
+		Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return alertsadapter.ReconcileAlertsAdapterResources(r, ctx, cr)
+		},
 	})
 
 	// Reconcile all independent resources (continue on error to reconcile as many as possible)
@@ -397,6 +403,26 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		Conditions:     []metav1.Condition{},
 		OverallStatus:  olsv1alpha1.OverallStatusReady,
 		DiagnosticInfo: []olsv1alpha1.PodDiagnostic{},
+	}
+
+	if _, enabled := utils.AlertsAdapterConfigMapRef(olsconfig); enabled {
+		deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
+			Name: "alerts adapter deployment",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return alertsadapter.ReconcileAlertsAdapterDeployment(r, ctx, cr)
+			},
+			ConditionType: utils.TypeAlertsAdapterReady,
+			Deployment:    utils.AlertsAdapterDeploymentName,
+		})
+	} else {
+		newStatus.Conditions = append(newStatus.Conditions, metav1.Condition{
+			Type:               utils.TypeAlertsAdapterReady,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: olsconfig.Generation,
+			Reason:             "NotConfigured",
+			Message:            "Alerts adapter is disabled; spec.ols.deployment.alertsAdapter.configMapRef is not set",
+			LastTransitionTime: metav1.Now(),
+		})
 	}
 
 	for _, step := range deploymentSteps {
@@ -584,6 +610,12 @@ func (r *OLSConfigReconciler) finalizeOLSConfig(ctx context.Context, cr *olsv1al
 	if err := agenticconsole.RemoveAgenticConsole(r, ctx); err != nil {
 		r.Logger.Error(err, "Failed to remove Agentic Console UI during finalization")
 		r.Logger.V(1).Info("Proceeding with finalization despite Agentic Console UI removal error")
+	}
+
+	r.Logger.V(1).Info("Removing alerts adapter operand during finalization")
+	if err := alertsadapter.RemoveAlertsAdapter(r, ctx); err != nil {
+		r.Logger.Error(err, "Failed to remove alerts adapter during finalization")
+		r.Logger.V(1).Info("Proceeding with finalization despite alerts adapter removal error")
 	}
 
 	// Step 2: List all owned resources once (avoids duplicate API calls)

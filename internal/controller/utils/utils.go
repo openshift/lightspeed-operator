@@ -113,12 +113,6 @@ func ApplyPodDeploymentConfig(deployment *appsv1.Deployment, config olsv1alpha1.
 	if config.Tolerations != nil {
 		deployment.Spec.Template.Spec.Tolerations = config.Tolerations
 	}
-	if config.Affinity != nil {
-		deployment.Spec.Template.Spec.Affinity = config.Affinity
-	}
-	if config.TopologySpreadConstraints != nil {
-		deployment.Spec.Template.Spec.TopologySpreadConstraints = config.TopologySpreadConstraints
-	}
 }
 
 func GetSecretContent(rclient client.Client, ctx context.Context, secretName string, namespace string, secretFields []string, foundSecret *corev1.Secret) (map[string]string, error) {
@@ -472,6 +466,17 @@ func GeneratePostgresSelectorLabels() map[string]string {
 	}
 }
 
+// GenerateAlertsAdapterSelectorLabels returns selector labels for the alerts adapter.
+func GenerateAlertsAdapterSelectorLabels() map[string]string {
+	return map[string]string{
+		"app":                          AlertsAdapterDeploymentName,
+		"app.kubernetes.io/component":  AlertsAdapterComponentLabel,
+		"app.kubernetes.io/managed-by": "lightspeed-operator",
+		"app.kubernetes.io/name":       AlertsAdapterDeploymentName,
+		"app.kubernetes.io/part-of":    "openshift-lightspeed",
+	}
+}
+
 // GetPostgresCAConfigVolume returns the CA certificate volume for postgres TLS verification.
 func GetPostgresCAConfigVolume() corev1.Volume {
 	volumeDefaultMode := VolumeDefaultMode
@@ -767,6 +772,16 @@ func ForEachExternalSecret(cr *olsv1alpha1.OLSConfig, fn func(name string, sourc
 	return nil
 }
 
+// AlertsAdapterConfigMapRef returns the referenced ConfigMap name when the alerts adapter
+// is enabled (configMapRef set with a non-empty name). The bool is false when disabled.
+func AlertsAdapterConfigMapRef(cr *olsv1alpha1.OLSConfig) (name string, ok bool) {
+	ref := cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef
+	if ref == nil || ref.Name == "" {
+		return "", false
+	}
+	return ref.Name, true
+}
+
 // ForEachExternalConfigMap calls fn for each external configmap referenced in the OLSConfig CR.
 // The callback function receives:
 //   - name: the configmap name
@@ -797,6 +812,13 @@ func ForEachExternalConfigMap(cr *olsv1alpha1.OLSConfig, fn func(name string, so
 			if err := fn(cmName, "proxy-ca"); err != nil {
 				return err
 			}
+		}
+	}
+
+	// 3. Alerts adapter runtime config (opt-in via configMapRef)
+	if name, ok := AlertsAdapterConfigMapRef(cr); ok {
+		if err := fn(name, "alerts-adapter"); err != nil {
+			return err
 		}
 	}
 

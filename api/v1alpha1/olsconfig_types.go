@@ -162,7 +162,7 @@ type OLSConfigStatus struct {
 // PodDiagnostic describes a pod-level issue
 type PodDiagnostic struct {
 	// FailedComponent identifies which component this diagnostic relates to,
-	// using the same type as the Conditions field (e.g., "ApiReady", "CacheReady")
+	// using the same type as the Conditions field (e.g., "ApiReady", "CacheReady", "AlertsAdapterReady")
 	// This allows easy correlation between condition status and diagnostic details.
 	FailedComponent string `json:"failedComponent"`
 
@@ -435,12 +435,28 @@ type DeploymentConfig struct {
 	// Database container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Deployment"
 	DatabaseContainer Config `json:"database,omitempty"`
+	// Alerts adapter deployment and runtime config reference.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Alerts Adapter"
+	AlertsAdapter AlertsAdapterSpec `json:"alertsAdapter,omitempty"`
+}
+
+// AlertsAdapterSpec defines deployment settings and a reference to user-managed adapter runtime config.
+type AlertsAdapterSpec struct {
+	Config `json:",inline"`
+	// ConfigMapRef enables the alerts adapter when set and references a user-managed ConfigMap
+	// in the operator namespace. When unset, reconciliation is skipped and managed operand
+	// resources are removed. The operator does not create or validate ConfigMap data. When the
+	// referenced ConfigMap exists, it is mounted read-only at /etc/alerts-adapter; when absent,
+	// no config volume is mounted. The adapter reads config.yaml from that path and uses
+	// built-in defaults when the file is missing or invalid.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Alerts Adapter ConfigMap Reference"
+	ConfigMapRef *corev1.LocalObjectReference `json:"configMapRef,omitempty"`
 }
 
 // Config defines pod configuration using standard Kubernetes types
 type Config struct {
 	// Defines the number of desired OLS pods. Default: "1"
-	// Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, and Agentic Console containers,
+	// Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
 	// the number of replicas will always be set to 1.
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=0
@@ -456,14 +472,6 @@ type Config struct {
 
 	// Node selector constraints
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-
-	// Affinity rules (can be added without API version bump)
-	// Uses standard corev1.Affinity
-	Affinity *corev1.Affinity `json:"affinity,omitempty"`
-
-	// Topology spread constraints (can be added without API version bump)
-	// Uses standard corev1.TopologySpreadConstraint
-	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 
 // ContainerConfig defines container configuration using standard Kubernetes types

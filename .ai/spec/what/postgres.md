@@ -42,7 +42,6 @@ The operator deploys a single-replica PostgreSQL server that provides persistent
 | `spec.ols.deployment.database.resources` | PostgreSQL container resource requirements |
 | `spec.ols.deployment.database.tolerations` | Pod tolerations |
 | `spec.ols.deployment.database.nodeSelector` | Node selector constraints |
-| `spec.ols.deployment.database.affinity` | Pod affinity rules |
 | `spec.ols.conversationCache.type` | Cache type (only "postgres" supported) |
 | `spec.ols.conversationCache.postgres.sharedBuffers` | PostgreSQL shared_buffers setting |
 | `spec.ols.conversationCache.postgres.maxConnections` | PostgreSQL max_connections setting |
