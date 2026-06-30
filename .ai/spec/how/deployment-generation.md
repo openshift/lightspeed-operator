@@ -33,7 +33,7 @@ GenerateOLSDeployment(r, cr)
       - Container: "lightspeed-service-api", image: r.GetAppServerImage(), port: 8443
       - Env: OLS_CONFIG_FILE path + proxy vars (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
       - Probes: HTTPS GET on /readiness, /liveness (initial: 30s, period: 30s, timeout: 30s, failure: 15)
-      - Default resources: 500m CPU request, 1Gi-4Gi memory
+      - Default resources: 500m CPU request, 1Gi memory request (no limits)
   16. Apply pod-level config (replicas, nodeSelector, tolerations)
   17. Set ImageStream triggers annotation (if RAG configured)
   18. Set owner reference to OLSConfig CR
@@ -60,15 +60,15 @@ All deployments use the same pattern in their update functions:
 ## Key Abstractions
 
 ### Resource Requirement Defaults
-Each component defines default CPU/memory requests and limits in local `get*Resources()` functions. User-provided values from the CR override defaults via `utils.GetResourcesOrDefault()` which returns user values if non-nil, otherwise defaults.
+Each component defines default CPU/memory requests in local `get*Resources()` functions. Per [OpenShift conventions](https://github.com/openshift/enhancements/blob/master/CONVENTIONS.md#resources-and-limits), operator defaults set requests only and do not set limits. User-provided values from the CR override defaults via `utils.GetResourcesOrDefault()` which returns user values if non-nil, otherwise defaults. Users may still set limits via the CRD if needed for their environment.
 
 Default resources by container:
-| Container | CPU Request | CPU Limit | Memory Request | Memory Limit |
-|---|---|---|---|---|
-| AppServer `lightspeed-service-api` | 500m | - | 1Gi | 4Gi |
-| Data collector | 50m | - | 64Mi | 200Mi |
-| MCP server | 50m | - | 64Mi | 200Mi |
-| RHOKP `rhokp` | 2000m | 2000m | 2Gi | 2Gi |
+| Container | CPU Request | Memory Request |
+|---|---|---|
+| AppServer `lightspeed-service-api` | 500m | 1Gi |
+| Data collector | 50m | 64Mi |
+| MCP server | 50m | 64Mi |
+| RHOKP `rhokp` | 2000m | 2Gi |
 
 ### Volume/Mount Construction
 Volumes and mounts are built as slices and conditionally appended using inline append patterns.

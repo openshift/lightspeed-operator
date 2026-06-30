@@ -83,6 +83,11 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 4. RAG init containers run in index order, copying data to subdirectories of the shared RAG volume.
 5. The RHOKP sidecar requires approximately 75 GiB of ephemeral storage for Solr data. This must be documented in product infrastructure requirements.
 
+### Resource Conventions [OLS-3397]
+28. All operator-managed container defaults follow the [OpenShift resource conventions](https://github.com/openshift/enhancements/blob/master/CONVENTIONS.md#resources-and-limits): defaults declare CPU and memory requests only, and do not set resource limits. This applies to the primary API container and all sidecars (data collector, MCP server, RHOKP).
+29. Users may still set limits via the CRD (`spec.ols.deployment.<component>.resources`) if their environment requires it. The CRD uses standard `corev1.ResourceRequirements` which accepts both requests and limits.
+30. The RHOKP sidecar's ~75 GiB ephemeral storage requirement is unchanged by this convention — it applies only to CPU and memory.
+
 ## Planned Changes
 
 - [PLANNED: OLS-3221] Liveness probe now checks PostgreSQL health via the service's background health-check loop status. Probe configuration (failureThreshold, periodSeconds) added to deployment generation. See Rules 24–25.
