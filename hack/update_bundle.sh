@@ -156,9 +156,9 @@ ${JQ} -c '.[]' <<<"${PLACEHOLDERS}" | while IFS= read -r entry; do
   fi
 done
 
-# Set spec.relatedImages from related_images.json (strip revision for CSV if present).
+# Set spec.relatedImages from related_images.json (strip revision and snapshot metadata for OLM CSV).
 # The bundle image is only referenced in catalog files, not in the CSV.
-RELATED_IMAGES_CSV=$(${JQ} 'map(del(.revision)) | map(select(.name != "lightspeed-operator-bundle"))' <<<"${RELATED_IMAGES}")
+RELATED_IMAGES_CSV=$(${JQ} 'map(del(.revision, .snapshot_component, .snapshot_source, .konflux_prefix, .stable_prefix)) | map(select(.name != "lightspeed-operator-bundle"))' <<<"${RELATED_IMAGES}")
 # set related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES_CSV}" ${CSV_FILE}
 # add compatibility labels to the annotations file

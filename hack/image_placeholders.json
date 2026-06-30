@@ -33,5 +33,15 @@
     "name": "lightspeed-postgresql",
     "placeholder": "__REPLACE_LIGHTSPEED_POSTGRESQL__",
     "target": "args"
+  },
+  {
+    "name": "lightspeed-agentic-console-plugin",
+    "placeholder": "__REPLACE_LIGHTSPEED_AGENTIC_CONSOLE_PLUGIN__",
+    "target": "args"
+  },
+  {
+    "name": "lightspeed-agentic-alerts-adapter",
+    "placeholder": "__REPLACE_LIGHTSPEED_AGENTIC_ALERTS_ADAPTER__",
+    "target": "args"
   }
 ]
