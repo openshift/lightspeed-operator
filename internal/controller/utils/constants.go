@@ -38,6 +38,9 @@ const (
 	ClientCACertKey = "client-ca.crt"
 	// ResourceCreationTimeout is the maximum time in seconds operator waiting for creating resources
 	ResourceCreationTimeout = 60 * time.Second
+	// EnvTestCRDInstallMaxTime is the envtest CRD install wait budget for unit-test suites.
+	// CI runs package tests in parallel; the default envtest deadline is too tight.
+	EnvTestCRDInstallMaxTime = 3 * time.Minute
 
 	/*** application server configuration file ***/
 	// OLSConfigName is the name of the OLSConfig configmap
@@ -290,6 +293,44 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	// PostgresNetworkPolicyName is the name of the network policy for the OLS postgres server
 	PostgresNetworkPolicyName = "lightspeed-postgres-server"
 
+	/*** Alerts Adapter Constants ***/
+	// AlertsAdapterDeploymentName is the name of the agentic alerts adapter deployment
+	AlertsAdapterDeploymentName = "lightspeed-agentic-alerts-adapter"
+	// AlertsAdapterServiceAccountName is the name of the alerts adapter service account
+	AlertsAdapterServiceAccountName = "lightspeed-agentic-alerts-adapter"
+	// AlertsAdapterContainerName is the name of the alerts adapter container
+	AlertsAdapterContainerName = "adapter"
+	// AlertsAdapterNetworkPolicyName is the name of the network policy for the alerts adapter
+	AlertsAdapterNetworkPolicyName = "lightspeed-agentic-alerts-adapter"
+	// AlertsAdapterProposalsClusterRoleName is the cluster role granting Proposal create/list/get
+	AlertsAdapterProposalsClusterRoleName = "lightspeed-agentic-alerts-adapter-proposals"
+	// AlertsAdapterProposalsClusterRoleBindingName binds the proposals ClusterRole to the alerts adapter SA
+	AlertsAdapterProposalsClusterRoleBindingName = "lightspeed-agentic-alerts-adapter-proposals"
+	// AlertsAdapterAlertmanagerRoleBindingName is the RoleBinding in openshift-monitoring for Alertmanager read access
+	AlertsAdapterAlertmanagerRoleBindingName = "lightspeed-agentic-alerts-adapter-alertmanager"
+	// AlertsAdapterConfigMapName is the ConfigMap holding runtime adapter settings (poll interval, cooldown, tools)
+	AlertsAdapterConfigMapName = "alerts-adapter-config"
+	// AlertsAdapterConfigMapDataKey is the key within AlertsAdapterConfigMapName for adapter YAML config
+	AlertsAdapterConfigMapDataKey = "config.yaml"
+	// AlertsAdapterConfigVolumeName is the pod volume name for the mounted runtime config ConfigMap
+	AlertsAdapterConfigVolumeName = "config"
+	// AlertsAdapterConfigVolumeMountPath is where the adapter reads mounted config.yaml
+	AlertsAdapterConfigVolumeMountPath = "/etc/alerts-adapter"
+	// AlertsAdapterConfigRoleName is the legacy Role name removed after config moved to a volume mount
+	AlertsAdapterConfigRoleName = "lightspeed-agentic-alerts-adapter-config"
+	// AlertsAdapterConfigRoleBindingName is the legacy RoleBinding name removed after config moved to a volume mount
+	AlertsAdapterConfigRoleBindingName = "lightspeed-agentic-alerts-adapter-config"
+	// MonitoringAlertmanagerViewRoleName is the OpenShift monitoring Role for read-only Alertmanager API access
+	MonitoringAlertmanagerViewRoleName = "monitoring-alertmanager-view"
+	// OpenShiftMonitoringNamespace is the namespace for platform monitoring RBAC and services
+	OpenShiftMonitoringNamespace = "openshift-monitoring"
+	// AlertsAdapterAlertmanagerURL is the in-cluster Alertmanager API base URL
+	AlertsAdapterAlertmanagerURL = "https://alertmanager-main.openshift-monitoring.svc:9094"
+	// AlertsAdapterAlertmanagerURLEnvVar is the deployment env var for the Alertmanager URL
+	AlertsAdapterAlertmanagerURLEnvVar = "ALERTMANAGER_URL"
+	// AlertsAdapterComponentLabel is the app.kubernetes.io/component label value for alerts adapter resources
+	AlertsAdapterComponentLabel = "alerts-adapter"
+
 	// PostgresPVCName is the name of the PVC for the OLS Postgres server
 	PostgresPVCName = "lightspeed-postgres-pvc"
 
@@ -405,4 +446,6 @@ var (
 	OpenShiftMCPServerImageDefault = relatedimages.GetDefaultImage("openshift-mcp-server")
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
 	OcpRagImageDefault             = relatedimages.GetDefaultImage("lightspeed-ocp-rag")
+	// Konflux-built image until a productized openshift-lightspeed image is published in related_images.json.
+	AlertsAdapterImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
 )

@@ -34,7 +34,7 @@ GenerateOLSDeployment(r, cr)
       - Env: OLS_CONFIG_FILE path + proxy vars (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
       - Probes: HTTPS GET on /readiness, /liveness (initial: 30s, period: 30s, timeout: 30s, failure: 15)
       - Default resources: 500m CPU request, 1Gi-4Gi memory
-  16. Apply pod-level config (replicas, nodeSelector, tolerations, affinity, topologySpreadConstraints)
+  16. Apply pod-level config (replicas, nodeSelector, tolerations)
   17. Set ImageStream triggers annotation (if RAG configured)
   18. Set owner reference to OLSConfig CR
   19. Conditionally add data collector sidecar container ("lightspeed-to-dataverse-exporter")
@@ -92,8 +92,8 @@ Both must be true. The service ID is `"ols"` unless the CR has `openstack.org/li
 - Replicas (configurable for API container; forced to 1 for postgres and console)
 - NodeSelector
 - Tolerations
-- Affinity
-- TopologySpreadConstraints
+
+Affinity and topology spread constraints are not exposed on `Config` (CRD size); use cluster-level defaults or patch deployments out of band if needed.
 
 ## Integration Points
 
@@ -101,7 +101,7 @@ Both must be true. The service ID is `"ols"` unless the CR has `openstack.org/li
 |---|---|---|
 | Deployment spec | `utils/constants.go` | Resource names, ports, mount paths |
 | Container resources | CR `spec.ols.deployment.api.resources` | User-overridable CPU/memory |
-| Pod scheduling | CR `spec.ols.deployment.api` | Tolerations, nodeSelector, affinity, topology |
+| Pod scheduling | CR `spec.ols.deployment.api` | Tolerations, nodeSelector |
 | Volume secrets | Kubernetes Secrets | LLM credentials, TLS certs, PostgreSQL password, MCP header values |
 | Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config |
 | Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY from cluster |

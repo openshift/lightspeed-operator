@@ -56,8 +56,6 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 | `spec.ols.deployment.api.resources` | API container resource requirements |
 | `spec.ols.deployment.api.tolerations` | Pod tolerations |
 | `spec.ols.deployment.api.nodeSelector` | Node selector constraints |
-| `spec.ols.deployment.api.affinity` | Pod affinity rules |
-| `spec.ols.deployment.api.topologySpreadConstraints` | Topology spread constraints |
 | `spec.ols.deployment.dataCollector.resources` | Data collector container resources |
 | `spec.ols.deployment.mcpServer.resources` | MCP server container resources |
 | `spec.ols.defaultModel` | Default LLM model name |

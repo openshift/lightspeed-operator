@@ -40,17 +40,22 @@ When updating the operator version for a release, you **MUST** update version nu
 OLSConfigReconciler.Reconcile() →
 ├── [Operator-level resources: ServiceMonitor, NetworkPolicy]
 ├── [Finalizer logic: handle CR deletion if DeletionTimestamp set]
-├── [Annotate external resources + validate LLM/TLS secrets]
-├── Phase 1 (independent resources):
-│   ├── console UI (`console/`)
-│   ├── agentic console UI (`agenticconsole/`)
-│   ├── postgres (`postgres/`)
-│   └── app server (`appserver/`)
-└── Phase 2 (deployments + status):
-    ├── console UI → ConsolePluginReady
-    ├── agentic console UI → AgenticConsolePluginReady
-    ├── postgres → CacheReady
-    └── app server → ApiReady
+├── annotateExternalResources() (validate LLM/TLS credentials)
+├── Phase 1 — reconcileIndependentResources() (continue-on-error)
+│   ├── console.ReconcileConsoleUIResources()
+│   ├── agenticconsole.ReconcileAgenticConsoleUIResources()
+│   ├── postgres.ReconcilePostgresResources()
+│   ├── appserver.ReconcileAppServerResources()
+│   └── alertsadapter.ReconcileAlertsAdapterResources()
+│       (opt-in via configMapRef; RemoveAlertsAdapter() when unset; no ConfigMap validation—
+│        mount at /etc/alerts-adapter when CM exists, adapter reads config.yaml)
+└── Phase 2 — reconcileDeploymentsAndStatus()
+    ├── console.ReconcileConsoleUIDeploymentAndPlugin()  → ConsolePluginReady
+    ├── agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin() → AgenticConsolePluginReady
+    ├── postgres.ReconcilePostgresDeployment()           → CacheReady
+    ├── appserver.ReconcileAppServerDeployment()         → ApiReady
+    └── alertsadapter.ReconcileAlertsAdapterDeployment() → AlertsAdapterReady
+        (only when configMapRef set; else AlertsAdapterReady=True, Reason=NotConfigured)
 ```
 
 ## Code Conventions
@@ -83,6 +88,7 @@ make test-e2e   # E2E tests (requires cluster)
 - `internal/controller/postgres/` - PostgreSQL
 - `internal/controller/console/` - Chat console plugin (Lightspeed assistant UI)
 - `internal/controller/agenticconsole/` - Agentic console plugin (AI Hub / proposals UI)
+- `internal/controller/alertsadapter/` - Agentic alerts adapter (opt-in via `configMapRef`; mounts user CM at `/etc/alerts-adapter` when present; adapter validates config)
 - `internal/controller/watchers/` - External resource watching
 - `internal/controller/utils/` - Shared utilities, constants
   - `constants.go` - Includes `OLSConfigFinalizer` constant
@@ -108,13 +114,13 @@ make test-e2e   # E2E tests (requires cluster)
 ### Adding New Reconciliation Step
 - **App Server**: Add to `ReconcileTask` slice in `internal/controller/appserver/reconciler.go`
 - **Console plugin operand**: Add package under `internal/controller/<component>/`, reuse `utils/console_plugin_reconciler.go` where possible, wire Phase 1/2 in `olsconfig_controller.go`
-- **Top-Level**: Create package under `internal/controller/<component>/`, add to `olsconfig_controller.go`
-- Add error constants to `internal/controller/utils/utils.go`
+- **Top-Level operand**: Create package under `internal/controller/<component>/`, add to `olsconfig_controller.go` Phase 1 (`reconcileIndependentResources`) and Phase 2 (`reconcileDeploymentsAndStatus`)
+- Add error constants to `internal/controller/utils/errors.go`
 - Write unit tests in co-located `*_test.go` files
 
 ### Local Development (`make run`)
 - Sets `LOCAL_DEV_MODE=true`, which skips operator ServiceMonitor reconciliation and app-server metrics reader secret reconciliation (no local metrics scraping loop).
-- Image overrides: `--console-image`, `--agentic-console-image`, and other flags in `cmd/main.go`.
+- Image overrides: `--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, and other flags in `cmd/main.go`.
 
 ## AI Assistant Skills
 

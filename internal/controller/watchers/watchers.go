@@ -15,6 +15,7 @@ import (
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/agenticconsole"
+	"github.com/openshift/lightspeed-operator/internal/controller/alertsadapter"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
@@ -368,6 +369,7 @@ var restartFuncs = map[string]RestartFunc{
 	utils.PostgresDeploymentName:         postgres.RestartPostgres,
 	utils.ConsoleUIDeploymentName:        console.RestartConsoleUI,
 	utils.AgenticConsoleUIDeploymentName: agenticconsole.RestartAgenticConsoleUI,
+	utils.AlertsAdapterDeploymentName:    alertsadapter.RestartAlertsAdapter,
 }
 
 // restart corresponding deployment

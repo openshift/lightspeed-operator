@@ -13,6 +13,7 @@ const (
 	TypeCacheReady                = "CacheReady"
 	TypeConsolePluginReady        = "ConsolePluginReady"
 	TypeAgenticConsolePluginReady = "AgenticConsolePluginReady"
+	TypeAlertsAdapterReady        = "AlertsAdapterReady"
 	TypeCRReconciled              = "Reconciled"
 )
 
@@ -23,6 +24,7 @@ type OLSConfigReconcilerOptions struct {
 	LightspeedServicePostgresImage string
 	ConsoleUIImage                 string
 	AgenticConsoleUIImage          string
+	AlertsAdapterImage             string
 	DataverseExporterImage         string
 	OpenShiftMCPServerImage        string
 	Namespace                      string

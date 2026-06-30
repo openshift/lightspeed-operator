@@ -124,7 +124,7 @@ Field path (relative to parameters) | JSON key | Go type | Required | Default | 
 
 The deployment config uses two struct types:
 
-- **`Config`**: has `replicas`, `resources`, `tolerations`, `nodeSelector`, `affinity`, `topologySpreadConstraints`.
+- **`Config`**: has `replicas`, `resources`, `tolerations`, `nodeSelector`. Affinity and topology spread constraints are intentionally omitted to keep the CRD OpenAPI schema under the Kubernetes annotation size limit (controller-gen inlines `Config` per operand).
 - **`ContainerConfig`**: has `resources` only.
 
 Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
@@ -134,7 +134,9 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 `mcpServer` | `mcpServer` | `ContainerConfig` | MCP server container. Resources only
 `console` | `console` | `Config` | Console container. Has replicas field but operator forces 1
 `database` | `database` | `Config` | Database container. Has replicas field but operator forces 1
-`alertsAdapter` | `alertsAdapter` | `Config` | [PLANNED: OLS-3236] Agentic alerts adapter container. Replicas forced to 1
+`alertsAdapter` | `alertsAdapter` | `AlertsAdapterSpec` | Agentic alerts adapter deployment and user-managed runtime config reference. Replicas forced to 1
+
+`AlertsAdapterSpec` embeds `Config` (deployment scheduling/resources) and optional `configMapRef` (`LocalObjectReference`). Setting `configMapRef` **enables** the alerts adapter operand. The referenced ConfigMap name is `configMapRef.name` (commonly `alerts-adapter-config`; see [adapter manifests](https://github.com/openshift/lightspeed-agentic-alerts-adapter/tree/main/manifests)). The operator does not create or validate ConfigMap content. When the ConfigMap exists, it is mounted at `/etc/alerts-adapter`; when absent, no config volume is mounted. The adapter reads `config.yaml` from that path and uses built-in defaults when the file is missing or invalid.
 `agenticConsole` | `agenticConsole` | `Config` | [PLANNED: OLS-3236] Agentic console plugin container. Replicas forced to 1
 
 20. Replicas are only user-configurable for the API container (`spec.ols.deployment.api.replicas`). For console, database, alerts adapter, and agentic console, the operator always overrides replicas to 1 regardless of spec value.
@@ -147,8 +149,6 @@ Field path (relative to Config) | JSON key | Go type | Default | Validation
 `resources` | `resources` | `*corev1.ResourceRequirements` | (none) | Standard k8s resource requirements
 `tolerations` | `tolerations` | `[]corev1.Toleration` | (none) | Standard k8s tolerations
 `nodeSelector` | `nodeSelector` | `map[string]string` | (none) | Key-value label selector
-`affinity` | `affinity` | `*corev1.Affinity` | (none) | Standard k8s affinity rules
-`topologySpreadConstraints` | `topologySpreadConstraints` | `[]corev1.TopologySpreadConstraint` | (none) | Standard k8s topology spread
 
 ##### ContainerConfig Fields
 
@@ -306,7 +306,7 @@ Condition types used by the operator:
 - `ApiReady` -- API server deployment health
 - `CacheReady` -- PostgreSQL cache deployment health
 - `ConsolePluginReady` -- Console UI plugin deployment health
-- `AlertsAdapterReady` -- [PLANNED: OLS-3236] Agentic alerts adapter deployment health
+- `AlertsAdapterReady` -- Agentic alerts adapter deployment health
 - `AgenticConsolePluginReady` -- [PLANNED: OLS-3236] Agentic console plugin deployment health
 - `ResourceReconciliation` -- Overall resource reconciliation status (set directly, not deployment-based)
 
@@ -378,8 +378,6 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.deployment.api.resources` | `*ResourceRequirements` | -- | No | -- | API resources
 `spec.ols.deployment.api.tolerations` | `[]Toleration` | -- | No | -- | API tolerations
 `spec.ols.deployment.api.nodeSelector` | `map[string]string` | -- | No | -- | API node selector
-`spec.ols.deployment.api.affinity` | `*Affinity` | -- | No | -- | API affinity
-`spec.ols.deployment.api.topologySpreadConstraints` | `[]TopologySpreadConstraint` | -- | No | -- | API topology spread
 `spec.ols.deployment.dataCollector` | `ContainerConfig` | -- | No | -- | Data collector container
 `spec.ols.deployment.dataCollector.resources` | `*ResourceRequirements` | -- | No | -- | Data collector resources
 `spec.ols.deployment.mcpServer` | `ContainerConfig` | -- | No | -- | MCP server container
@@ -389,29 +387,22 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.deployment.console.resources` | `*ResourceRequirements` | -- | No | -- | Console resources
 `spec.ols.deployment.console.tolerations` | `[]Toleration` | -- | No | -- | Console tolerations
 `spec.ols.deployment.console.nodeSelector` | `map[string]string` | -- | No | -- | Console node selector
-`spec.ols.deployment.console.affinity` | `*Affinity` | -- | No | -- | Console affinity
-`spec.ols.deployment.console.topologySpreadConstraints` | `[]TopologySpreadConstraint` | -- | No | -- | Console topology spread
 `spec.ols.deployment.database` | `Config` | -- | No | -- | Database container
 `spec.ols.deployment.database.replicas` | `*int32` | `1` | No | Min=0 | Database replicas (operator forces 1)
 `spec.ols.deployment.database.resources` | `*ResourceRequirements` | -- | No | -- | Database resources
 `spec.ols.deployment.database.tolerations` | `[]Toleration` | -- | No | -- | Database tolerations
 `spec.ols.deployment.database.nodeSelector` | `map[string]string` | -- | No | -- | Database node selector
-`spec.ols.deployment.database.affinity` | `*Affinity` | -- | No | -- | Database affinity
-`spec.ols.deployment.database.topologySpreadConstraints` | `[]TopologySpreadConstraint` | -- | No | -- | Database topology spread
-`spec.ols.deployment.alertsAdapter` | `Config` | -- | No | -- | [PLANNED: OLS-3236] Alerts adapter deployment
+`spec.ols.deployment.alertsAdapter` | `AlertsAdapterSpec` | -- | No | -- | Alerts adapter deployment and config reference
+`spec.ols.deployment.alertsAdapter.configMapRef` | `LocalObjectReference` | (none) | No | -- | Opt-in switch and runtime config reference: ConfigMap name in operator namespace; mounted at `/etc/alerts-adapter` when present (adapter reads `config.yaml`)
 `spec.ols.deployment.alertsAdapter.replicas` | `*int32` | `1` | No | Min=0 | Alerts adapter replicas (operator forces 1)
 `spec.ols.deployment.alertsAdapter.resources` | `*ResourceRequirements` | -- | No | -- | Alerts adapter resources
 `spec.ols.deployment.alertsAdapter.tolerations` | `[]Toleration` | -- | No | -- | Alerts adapter tolerations
 `spec.ols.deployment.alertsAdapter.nodeSelector` | `map[string]string` | -- | No | -- | Alerts adapter node selector
-`spec.ols.deployment.alertsAdapter.affinity` | `*Affinity` | -- | No | -- | Alerts adapter affinity
-`spec.ols.deployment.alertsAdapter.topologySpreadConstraints` | `[]TopologySpreadConstraint` | -- | No | -- | Alerts adapter topology spread
 `spec.ols.deployment.agenticConsole` | `Config` | -- | No | -- | [PLANNED: OLS-3236] Agentic console deployment
 `spec.ols.deployment.agenticConsole.replicas` | `*int32` | `1` | No | Min=0 | Agentic console replicas (operator forces 1)
 `spec.ols.deployment.agenticConsole.resources` | `*ResourceRequirements` | -- | No | -- | Agentic console resources
 `spec.ols.deployment.agenticConsole.tolerations` | `[]Toleration` | -- | No | -- | Agentic console tolerations
 `spec.ols.deployment.agenticConsole.nodeSelector` | `map[string]string` | -- | No | -- | Agentic console node selector
-`spec.ols.deployment.agenticConsole.affinity` | `*Affinity` | -- | No | -- | Agentic console affinity
-`spec.ols.deployment.agenticConsole.topologySpreadConstraints` | `[]TopologySpreadConstraint` | -- | No | -- | Agentic console topology spread
 `spec.ols.queryFilters` | `[]QueryFiltersSpec` | -- | No | -- | Query filters
 `spec.ols.queryFilters[].name` | `string` | -- | No | -- | Filter name
 `spec.ols.queryFilters[].pattern` | `string` | -- | No | -- | Regex pattern

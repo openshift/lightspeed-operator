@@ -252,7 +252,7 @@ dev-teardown: uninstall ## Teardown local development environment (removes RBAC,
 	@echo "✅ Development environment cleaned up."
 
 .PHONY: run
-run: dev-setup manifests generate fmt vet ## Run a controller from your host (auto-setup RBAC if needed). Optional: make run ARGS="--agentic-console-image=..."
+run: dev-setup manifests generate fmt vet ## Run a controller from your host (auto-setup RBAC if needed). Optional: make run ARGS="--agentic-console-image=..." or ARGS="--alerts-adapter-image=..."
 	@echo "🔧 Running controller locally - using default images from constants"
 	LOCAL_DEV_MODE=true go run ./cmd/main.go $(ARGS)
 

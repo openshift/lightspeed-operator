@@ -60,8 +60,6 @@ Resource names match the prior `lightspeed-agentic-operator` deployment for upgr
 | `spec.ols.deployment.agenticConsole.resources` | Container resource requirements |
 | `spec.ols.deployment.agenticConsole.tolerations` | Pod tolerations |
 | `spec.ols.deployment.agenticConsole.nodeSelector` | Node selector constraints |
-| `spec.ols.deployment.agenticConsole.affinity` | Pod affinity |
-| `spec.ols.deployment.agenticConsole.topologySpreadConstraints` | Topology spread constraints |
 | `--agentic-console-image` (operator flag) | Container image override at operator startup |
 
 ## Constraints

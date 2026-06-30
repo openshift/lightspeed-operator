@@ -52,6 +52,9 @@ type Reconciler interface {
 	// GetAgenticConsoleImage returns the agentic console UI image to use
 	GetAgenticConsoleImage() string
 
+	// GetAlertsAdapterImage returns the alerts adapter image to use
+	GetAlertsAdapterImage() string
+
 	// GetOpenShiftMajor returns the OpenShift major version
 	GetOpenShiftMajor() string
 

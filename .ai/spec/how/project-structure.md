@@ -25,6 +25,9 @@
 | `internal/controller/agenticconsole/deployment.go` | `GenerateAgenticConsoleUIDeployment()` | Agentic console plugin deployment generation |
 | `internal/controller/agenticconsole/assets.go` | ConsolePlugin CR generator, nginx config, service, network policy | Agentic console plugin resource generation |
 | `internal/controller/utils/console_plugin_reconciler.go` | Shared ConsolePlugin reconcile helpers | Used by `console/` and `agenticconsole/` |
+| `internal/controller/alertsadapter/reconciler.go` | `ReconcileAlertsAdapterResources()`, `ReconcileAlertsAdapterDeployment()`, `RemoveAlertsAdapter()`, `RestartAlertsAdapter()` | Alerts adapter Phase 1 + Phase 2 + operand teardown (disable/finalizer) + rolling restart |
+| `internal/controller/alertsadapter/deployment.go` | `GenerateDeployment()` | Alerts adapter deployment generation |
+| `internal/controller/alertsadapter/assets.go` | SA, ClusterRole, ClusterRoleBinding, monitoring RoleBinding, NetworkPolicy generators | Alerts adapter resource generation |
 | `internal/controller/reconciler/interface.go` | `Reconciler` interface | Dependency injection interface for component packages |
 | `internal/controller/utils/constants.go` | ~200 constants | Resource names, ports, paths, annotation keys, defaults |
 | `internal/controller/utils/errors.go` | ~80 error message constants | Structured error messages for all operations |
@@ -74,11 +77,15 @@ OLSConfigReconciler.Reconcile()
      +-- agenticconsole.ReconcileAgenticConsoleUIResources()
      +-- postgres.ReconcilePostgresResources()
      +-- appserver.ReconcileAppServerResources()
+     +-- alertsadapter.ReconcileAlertsAdapterResources()
+        (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
+         mount at /etc/alerts-adapter when CM exists)
   6. reconcileDeploymentsAndStatus()  -- Phase 2: Deployments, Services, TLS certs, status
      +-- console.ReconcileConsoleUIDeploymentAndPlugin()
      +-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin()
      +-- postgres.ReconcilePostgresDeployment()
      +-- appserver.ReconcileAppServerDeployment()
+     +-- alertsadapter.ReconcileAlertsAdapterDeployment()  # when configMapRef set
      +-- checkDeploymentStatus() per deployment -> build newStatus
      +-- UpdateStatusCondition()
 ```
@@ -96,14 +103,14 @@ External secret/configmap changes
         -> Match against SystemResources list (by name+namespace)
         -> OR match against WatcherAnnotationKey annotation
         -> Resolve "ACTIVE_BACKEND" to appserver deployment name
-        -> Call RestartAppServer() / RestartPostgres() / RestartConsoleUI() / RestartAgenticConsoleUI()
+        -> Call RestartAppServer() / RestartPostgres() / RestartConsoleUI() / RestartAgenticConsoleUI() / RestartAlertsAdapter()
            -> Set force-reload annotation with current timestamp
 ```
 
 ## Key Abstractions
 
 ### Image Management
-Default images are stored in a `defaultImages` map in `cmd/main.go` keyed by logical name (e.g., `"lightspeed-service"`, `"postgres-image"`, `"console-plugin"`, `"agentic-console-plugin"`). Default values come from `internal/relatedimages/` which reads `related_images.json` at build time. Command-line flags override individual images (`--console-image`, `--agentic-console-image`, etc.). The map is passed to the reconciler via `OLSConfigReconcilerOptions` as individual named fields (e.g., `LightspeedServiceImage`, `ConsoleUIImage`, `AgenticConsoleUIImage`).
+Default images are stored in a `defaultImages` map in `cmd/main.go` keyed by logical name (e.g., `"lightspeed-service"`, `"postgres-image"`, `"console-plugin"`, `"agentic-console-plugin"`, `"alerts-adapter"`). Default values come from `internal/relatedimages/` which reads `related_images.json` at build time. Command-line flags override individual images (`--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, etc.). The map is passed to the reconciler via `OLSConfigReconcilerOptions` as individual named fields (e.g., `LightspeedServiceImage`, `ConsoleUIImage`, `AgenticConsoleUIImage`, `AlertsAdapterImage`).
 
 ### WatcherConfig
 Declarative configuration for external resource watching. Built in `cmd/main.go` and passed via `OLSConfigReconcilerOptions.WatcherConfig`. Contains:
@@ -120,7 +127,7 @@ The special deployment name `"ACTIVE_BACKEND"` resolves to the AppServer deploym
 When the service-ca operator rotates or populates a watched TLS secret, `SecretUpdateHandler` restarts the mapped deployment via `RestartConsoleUI()` or `RestartAgenticConsoleUI()` (registered in `watchers/watchers.go`).
 
 ### Component Package Pattern
-Each component (appserver, postgres, console, agenticconsole) follows the same package structure:
+Each component (appserver, postgres, console, agenticconsole, alertsadapter) follows the same package structure:
 - `reconciler.go`: Phase 1 (resources) and Phase 2 (deployment) entry points
 - `deployment.go`: Deployment spec generation and update detection
 - `assets.go` and/or `config.go`: Resource and config generation
@@ -129,7 +136,7 @@ The packages receive `reconciler.Reconciler` interface, never import the control
 ### Reconciler Interface (`internal/controller/reconciler/interface.go`)
 Embeds `client.Client` and adds getter methods for:
 - `GetScheme()`, `GetLogger()`, `GetNamespace()`
-- Image getters: `GetAppServerImage()`, `GetPostgresImage()`, `GetConsoleUIImage()`, `GetAgenticConsoleImage()`, `GetOpenShiftMCPServerImage()`, `GetDataverseExporterImage()`
+- Image getters: `GetAppServerImage()`, `GetPostgresImage()`, `GetConsoleUIImage()`, `GetAgenticConsoleImage()`, `GetAlertsAdapterImage()`, `GetOpenShiftMCPServerImage()`, `GetDataverseExporterImage()`
 - Version getters: `GetOpenShiftMajor()`, `GetOpenshiftMinor()`
 - Config getters: `IsPrometheusAvailable()`, `GetWatcherConfig()`
 
@@ -139,6 +146,7 @@ Embeds `client.Client` and adds getter methods for:
 The OLSConfig CR uses finalizer `ols.openshift.io/finalizer` (defined in `utils.OLSConfigFinalizer`). On deletion:
 1. Remove chat console UI (deactivate plugin, delete ConsolePlugin CR)
 2. Remove agentic console UI (deactivate plugin, delete ConsolePlugin CR)
+3. Remove alerts adapter operand resources (`alertsadapter.RemoveAlertsAdapter()`: deployment, namespaced RBAC, SA, NetworkPolicy, monitoring RoleBinding; proposals ClusterRole/ClusterRoleBinding when the platform permits delete)
 3. List all owned resources via owner references
 4. Explicitly delete owned resources
 5. Wait up to 3 minutes for deletion (poll every 5 seconds)

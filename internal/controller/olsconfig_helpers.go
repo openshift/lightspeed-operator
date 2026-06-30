@@ -53,6 +53,10 @@ func (r *OLSConfigReconciler) GetAgenticConsoleImage() string {
 	return r.Options.AgenticConsoleUIImage
 }
 
+func (r *OLSConfigReconciler) GetAlertsAdapterImage() string {
+	return r.Options.AlertsAdapterImage
+}
+
 func (r *OLSConfigReconciler) GetOpenShiftMajor() string {
 	return r.Options.OpenShiftMajor
 }
@@ -410,8 +414,14 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	}
 
 	// Annotate all external configmaps
-	// All external ConfigMaps use the default behavior (restart ACTIVE_BACKEND only)
 	err = utils.ForEachExternalConfigMap(cr, func(name string, source string) error {
+		// Alerts adapter runtime config restarts only the adapter deployment.
+		// annotateConfigMapIfNeeded no-ops when the CM is absent; the ConfigMap Create
+		// watcher handles annotation and restart on first creation.
+		if r.WatcherConfig != nil && source == "alerts-adapter" {
+			r.WatcherConfig.AnnotatedConfigMapMapping[name] = []string{utils.AlertsAdapterDeploymentName}
+		}
+
 		if err := r.annotateConfigMapIfNeeded(ctx, name, r.Options.Namespace); err != nil {
 			r.Logger.Error(err, "Failed to annotate configmap", "source", source, "configmap", name)
 			errs = append(errs, err)

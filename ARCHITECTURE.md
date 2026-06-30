@@ -4,7 +4,7 @@ This document describes the internal architecture of the OpenShift Lightspeed Op
 
 ## Overview
 
-The operator follows a modular, component-based architecture where each major component (application server, PostgreSQL, chat console plugin, agentic console plugin) is managed by its own dedicated package with independent reconciliation logic.
+The operator follows a modular, component-based architecture where each major component (application server, PostgreSQL, chat console plugin, agentic console plugin, alerts adapter) is managed by its own dedicated package with independent reconciliation logic.
 
 ## Key Design Decisions
 
@@ -58,7 +58,7 @@ The operator follows a modular, component-based architecture where each major co
 - Detect OpenShift version and select appropriate images
 - Start controller and handle graceful shutdown
 
-**Key Flags:** Image URLs (`--service-image`, `--console-image`, `--agentic-console-image`, etc.), `--namespace`, and related runtime options. See `cmd/main.go` for the complete list. `make run` sets `LOCAL_DEV_MODE=true` to skip operator metrics resources during local development.
+**Key Flags:** Image URLs (`--service-image`, `--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, etc.), `--namespace`, and related runtime options. See `cmd/main.go` for the complete list. `make run` sets `LOCAL_DEV_MODE=true` to skip operator metrics resources during local development.
 
 ### Reconciler Interface (`internal/controller/reconciler`)
 
@@ -96,7 +96,19 @@ Provides clean contract between main controller and component packages:
 
 **Notes:** No app-server proxy on the `ConsolePlugin` CR. Reuses `utils/console_plugin_reconciler.go`. Status condition: `AgenticConsolePluginReady`. CR tuning: `spec.ols.deployment.agenticConsole`.
 
-**Planned:** Alerts adapter operand (`AlertsAdapterReady`) is specified in `.ai/spec/` but not yet implemented in this operator.
+### Alerts Adapter Package (`internal/controller/alertsadapter`)
+
+**Purpose:** Manages the agentic alerts adapter that polls Alertmanager and creates `Proposal` CRs for firing alerts.
+
+**Opt-in:** Enabled only when `spec.ols.deployment.alertsAdapter.configMapRef` is set (non-empty name). When unset, Phase 1 calls `RemoveAlertsAdapter()` to tear down operand resources and Phase 2 sets `AlertsAdapterReady=True` with `Reason=NotConfigured`.
+
+**Entry Points:** `ReconcileAlertsAdapterResources()` (Phase 1), `ReconcileAlertsAdapterDeployment()` (Phase 2), `RemoveAlertsAdapter()` (operand teardown on disable and during finalization), `RestartAlertsAdapter()` (rolling restart on deployment spec or runtime ConfigMap changes).
+
+**Phase 1 resources (when enabled):** ServiceAccount, ClusterRole/ClusterRoleBinding for `agentic.openshift.io/proposals`, legacy config Role/RoleBinding cleanup (removed from reconcile; deleted if still present), RoleBinding in `openshift-monitoring` to `monitoring-alertmanager-view`, NetworkPolicy. The operator does not create, update, or validate user ConfigMap data.
+
+**Runtime config:** User creates the ConfigMap (see [adapter manifests](https://github.com/openshift/lightspeed-agentic-alerts-adapter/tree/main/manifests)). When the referenced ConfigMap exists, it is mounted read-only at `/etc/alerts-adapter`; when absent, no config volume is mounted. The adapter reads `config.yaml` from that path and uses built-in defaults when the file is missing or invalid. ConfigMap data changes trigger a deployment restart via the external ConfigMap watcher (`RestartAlertsAdapter`).
+
+**Phase 2 resources:** Deployment (`lightspeed-agentic-alerts-adapter`, 1 replica) with `ALERTMANAGER_URL` and `POD_NAMESPACE` env vars, and conditional ConfigMap volume mount as above. Image from `--alerts-adapter-image` / `GetAlertsAdapterImage()`.
 
 ### Utilities Package (`internal/controller/utils`)
 
@@ -140,11 +152,13 @@ High-level reconciliation sequence:
    - Agentic console UI (`agenticconsole/`)
    - PostgreSQL (`postgres/`)
    - Application server (`appserver/`)
+   - Alerts adapter (`alertsadapter/`, when `configMapRef` set; else `RemoveAlertsAdapter()`)
 7. Phase 2 — deployments and status (fail-fast on pod failures):
    - Chat console UI → ConsolePluginReady
    - Agentic console UI → AgenticConsolePluginReady
    - PostgreSQL → CacheReady
    - Application server → ApiReady
+   - Alerts adapter → AlertsAdapterReady (or `NotConfigured` when `configMapRef` unset)
 ```
 
 ### Finalizer Pattern
@@ -153,6 +167,7 @@ The operator uses a finalizer (`ols.openshift.io/finalizer`) to ensure proper cl
 
 **Why Needed:**
 - **Console plugin cleanup**: `ConsolePlugin` is cluster-scoped and not cascade-deleted by owner references; chat and agentic plugins must be deactivated in the Console CR
+- **Alerts adapter cleanup**: RoleBinding in `openshift-monitoring` is outside the operator namespace; `RemoveAlertsAdapter()` also deletes deployment, namespaced RBAC, SA, and NetworkPolicy when the operand is disabled or during finalization. Proposals ClusterRole/ClusterRoleBinding deletion may be blocked on managed OpenShift clusters (admission webhook); the operator logs and continues.
 - **PVC cleanup**: PersistentVolumeClaims can block deletion if not properly released
 - **Race condition prevention**: Ensures complete cleanup before CR can be recreated (important for tests and sequential deployments)
 
@@ -180,8 +195,9 @@ if !olsconfig.DeletionTimestamp.IsZero() {
 **Cleanup Sequence** (`finalizeOLSConfig`):
 1. **Remove chat console UI**: Deactivate plugin from Console CR, delete ConsolePlugin CR
 2. **Remove agentic console UI**: Deactivate plugin from Console CR, delete ConsolePlugin CR
-3. **Wait for owned resources**: Poll for up to 3 minutes until deployments, services, PVCs are deleted (cascade deletion)
-4. **Remove finalizer**: Allows Kubernetes to remove CR from etcd
+3. **Remove alerts adapter operand**: Delete deployment, namespaced RBAC, SA, NetworkPolicy, monitoring RoleBinding, and attempt proposals ClusterRoleBinding/ClusterRole deletion (`alertsadapter.RemoveAlertsAdapter()`). ClusterRoleBinding deletion may be blocked on managed OpenShift; remaining cluster RBAC is harmless when the operand is disabled.
+4. **Wait for owned resources**: Poll for up to 3 minutes until deployments, services, PVCs are deleted (cascade deletion)
+5. **Remove finalizer**: Allows Kubernetes to remove CR from etcd
 
 **Error Handling:**
 - Cleanup errors are logged but don't block finalizer removal

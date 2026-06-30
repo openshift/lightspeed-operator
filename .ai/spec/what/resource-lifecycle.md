@@ -18,7 +18,7 @@ The operator manages two categories of Kubernetes resources: owned resources (cr
 7. System secrets: the telemetry pull secret (`openshift-config/pull-secret`), console UI service cert (`lightspeed-console-plugin-cert`), PostgreSQL certs (`lightspeed-postgres-certs`).
 8. System configmaps: the OpenShift root CA (`kube-root-ca.crt`), the service CA bundle (`openshift-service-ca.crt`).
 9. User-provided secrets: LLM provider credential secrets (`spec.llm.providers[].credentialsSecretRef`), custom TLS secret (`spec.ols.tlsConfig.keyCertSecretRef`), MCP server header secrets (`spec.mcpServers[].headers[].valueFrom.secretRef`).
-10. User-provided configmaps: additional CA ConfigMap (`spec.ols.additionalCAConfigMapRef`), proxy CA ConfigMap (`spec.ols.proxyConfig.proxyCACertificate`).
+10. User-provided configmaps: additional CA ConfigMap (`spec.ols.additionalCAConfigMapRef`), proxy CA ConfigMap (`spec.ols.proxyConfig.proxyCACertificate`), alerts adapter runtime config (`spec.ols.deployment.alertsAdapter.configMapRef`, when set).
 
 ### Annotation-Based Watching
 
@@ -31,7 +31,7 @@ The operator manages two categories of Kubernetes resources: owned resources (cr
 14. When a watched secret's `.data` changes (compared via `apiequality.Semantic.DeepEqual`), the `SecretUpdateHandler` triggers restarts of affected deployments directly, without triggering a full reconciliation.
 15. When a watched configmap's `.data` or `.binaryData` changes, the `ConfigMapUpdateHandler` triggers restarts of affected deployments directly.
 16. Each external resource has a list of affected deployments configured in `WatcherConfig`. The special value `ACTIVE_BACKEND` resolves to the application server deployment name (`lightspeed-app-server`).
-17. Restarts are triggered by updating the `ols.openshift.io/force-reload` annotation on the deployment's pod template with the current timestamp (RFC3339Nano), causing a rolling update.
+17. Restarts are triggered by updating the `ols.openshift.io/force-reload` annotation on the deployment's pod template with the current timestamp (RFC3339Nano), causing a rolling update. Alerts adapter runtime ConfigMap changes restart `lightspeed-agentic-alerts-adapter` via `RestartAlertsAdapter()`.
 18. TLS secrets are mapped to affect both `lightspeed-console-plugin` and `ACTIVE_BACKEND` deployments. All other user-provided secrets default to `ACTIVE_BACKEND` only.
 
 ### Validation
@@ -49,6 +49,7 @@ Resource lifecycle behavior is not directly user-configurable. External resource
 | `spec.ols.tlsConfig.keyCertSecretRef` | Custom TLS secret |
 | `spec.ols.additionalCAConfigMapRef` | Additional CA ConfigMap |
 | `spec.ols.proxyConfig.proxyCACertificate` | Proxy CA ConfigMap |
+| `spec.ols.deployment.alertsAdapter.configMapRef` | Alerts adapter runtime ConfigMap (restarts `lightspeed-agentic-alerts-adapter` on data change) |
 | `spec.mcpServers[].headers[].valueFrom.secretRef` | MCP header secret |
 
 ## Constraints

@@ -177,8 +177,10 @@ rules:
   resources:
   - clusterrolebindings
   - clusterroles
+  - rolebindings
   verbs:
   - create
+  - delete
   - get
   - list
   - patch

@@ -96,6 +96,15 @@ var _ = Describe("Watchers", func() {
 			Expect(isConfigMapReferencedInCR(cr, "extra-ca")).To(BeTrue())
 			Expect(isConfigMapReferencedInCR(cr, "other")).To(BeFalse())
 		})
+
+		It("returns true when alerts adapter configMapRef is set", func() {
+			cr := utils.GetDefaultOLSConfigCR()
+			cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{
+				Name: utils.AlertsAdapterConfigMapName,
+			}
+			Expect(isConfigMapReferencedInCR(cr, utils.AlertsAdapterConfigMapName)).To(BeTrue())
+			Expect(isConfigMapReferencedInCR(cr, "other")).To(BeFalse())
+		})
 	})
 
 	Describe("SecretWatcherFilter", func() {
@@ -325,6 +334,31 @@ var _ = Describe("Watchers", func() {
 			Expect(r.Get(ctx, client.ObjectKeyFromObject(cm), got)).To(Succeed())
 			Expect(got.Annotations).To(HaveKey(utils.WatcherAnnotationKey))
 		})
+
+		It("annotates alerts adapter runtime config when configMapRef is set", func() {
+			cr := utils.GetDefaultOLSConfigCR()
+			cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{
+				Name: utils.AlertsAdapterConfigMapName,
+			}
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: utils.OLSNamespaceDefault,
+					Name:      utils.AlertsAdapterConfigMapName,
+				},
+				Data: map[string]string{
+					utils.AlertsAdapterConfigMapDataKey: "pollInterval: 30s\n",
+				},
+			}
+			r := createTestReconciler(cr, cm)
+			wc := r.GetWatcherConfig().(*utils.WatcherConfig)
+			wc.AnnotatedConfigMapMapping[utils.AlertsAdapterConfigMapName] = []string{utils.AlertsAdapterDeploymentName}
+			h := &ConfigMapUpdateHandler{Reconciler: r}
+			h.Create(ctx, event.CreateEvent{Object: cm}, nil)
+
+			got := &corev1.ConfigMap{}
+			Expect(r.Get(ctx, client.ObjectKeyFromObject(cm), got)).To(Succeed())
+			Expect(got.Annotations).To(HaveKey(utils.WatcherAnnotationKey))
+		})
 	})
 
 	Describe("restartDeployment with in-cluster restart", func() {
@@ -353,6 +387,50 @@ var _ = Describe("Watchers", func() {
 				Data: map[string][]byte{"k": []byte("v")},
 			}
 			SecretWatcherFilter(r, ctx, sec, true)
+
+			updated := &appsv1.Deployment{}
+			Expect(r.Get(ctx, client.ObjectKeyFromObject(dep), updated)).To(Succeed())
+			Expect(updated.Spec.Template.Annotations).To(HaveKey(utils.ForceReloadAnnotationKey))
+		})
+
+		It("restarts the alerts adapter deployment for mapped configmap change", func() {
+			cr := utils.GetDefaultOLSConfigCR()
+			cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{
+				Name: utils.AlertsAdapterConfigMapName,
+			}
+			dep := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.AlertsAdapterDeploymentName,
+					Namespace: utils.OLSNamespaceDefault,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: utils.GenerateAlertsAdapterSelectorLabels()},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{Labels: utils.GenerateAlertsAdapterSelectorLabels()},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Name:  utils.AlertsAdapterContainerName,
+								Image: "img",
+							}},
+						},
+					},
+				},
+			}
+			r := createTestReconciler(cr, dep)
+			wc := r.GetWatcherConfig().(*utils.WatcherConfig)
+			wc.AnnotatedConfigMapMapping[utils.AlertsAdapterConfigMapName] = []string{utils.AlertsAdapterDeploymentName}
+
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   utils.OLSNamespaceDefault,
+					Name:        utils.AlertsAdapterConfigMapName,
+					Annotations: map[string]string{utils.WatcherAnnotationKey: "1"},
+				},
+				Data: map[string]string{
+					utils.AlertsAdapterConfigMapDataKey: "pollInterval: 30s\n",
+				},
+			}
+			ConfigMapWatcherFilter(r, ctx, cm, true)
 
 			updated := &appsv1.Deployment{}
 			Expect(r.Get(ctx, client.ObjectKeyFromObject(dep), updated)).To(Succeed())

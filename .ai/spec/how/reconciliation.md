@@ -18,16 +18,20 @@ Reconcile(ctx, req)
   -> handleFinalizer()                      # Add/remove finalizer, run cleanup
   -> reconcileOperatorResources()           # ServiceMonitor, NetworkPolicy (operator-level)
   -> annotateExternalResources()            # Validate secrets, annotate for watching
-  -> reconcileIndependentResources()        # Phase 1: console, agentic console, postgres, backend resources
+  -> reconcileIndependentResources()        # Phase 1: console, agentic console, postgres, backend, alerts adapter resources
   |   |-- console.ReconcileConsoleUIResources()
   |   |-- agenticconsole.ReconcileAgenticConsoleUIResources()
   |   |-- postgres.ReconcilePostgresResources()
-  |   +-- appserver.ReconcileAppServerResources()
+  |   |-- appserver.ReconcileAppServerResources()
+  |   +-- alertsadapter.ReconcileAlertsAdapterResources()
+  |       (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
+  |        mount at /etc/alerts-adapter when CM exists)
   -> reconcileDeploymentsAndStatus()        # Phase 2: deployments + status update
       |-- console.ReconcileConsoleUIDeploymentAndPlugin()
       |-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin()
       |-- postgres.ReconcilePostgresDeployment()
       |-- appserver.ReconcileAppServerDeployment()
+      |-- alertsadapter.ReconcileAlertsAdapterDeployment()  # when configMapRef set
       |-- checkDeploymentStatus() for each  # Collect diagnostics
       +-- UpdateStatusCondition()           # Single status update
 ```
@@ -35,7 +39,7 @@ Reconcile(ctx, req)
 ## Key Abstractions
 
 ### Reconciler Interface
-The `reconciler.Reconciler` interface breaks the circular dependency between the main controller and component packages. Component packages (appserver, postgres, console, agenticconsole) receive this interface instead of importing the controller package directly. It embeds `client.Client` and adds getter methods for images, namespace, and OpenShift version.
+The `reconciler.Reconciler` interface breaks the circular dependency between the main controller and component packages. Component packages (appserver, postgres, console, agenticconsole, alertsadapter) receive this interface instead of importing the controller package directly. It embeds `client.Client` and adds getter methods for images, namespace, and OpenShift version.
 
 ### ReconcileSteps Pattern
 Both phases use a slice of `ReconcileSteps` structs, each containing a Name, reconcile function, and (for Phase 2) a ConditionType and Deployment name. Phase 1 iterates with continue-on-error; Phase 2 iterates but tracks all conditions and diagnostics.
@@ -46,7 +50,7 @@ Two ownership models:
 2. **External resources**: Watches() with custom predicates. Annotation-based filtering. Secret/ConfigMap handlers compare data and trigger deployment restarts.
 
 ### Finalizer Cleanup
-The `finalizeOLSConfig()` method uses `listOwnedResources()` which queries every resource type by owner reference UID (not labels). This is more reliable than label-based cleanup. The wait loop polls with a fixed interval and timeout, using `wait.PollUntilContextTimeout`.
+The `finalizeOLSConfig()` method removes Console UI, deletes alerts adapter operand resources via `alertsadapter.RemoveAlertsAdapter()` (deployment, namespaced RBAC, SA, NetworkPolicy, cross-namespace monitoring RoleBinding; proposals ClusterRole/ClusterRoleBinding when permitted—may remain on managed OpenShift if admission webhook blocks delete), then uses `listOwnedResources()` which queries every resource type by owner reference UID (not labels). This is more reliable than label-based cleanup. The wait loop polls with a fixed interval and timeout, using `wait.PollUntilContextTimeout`.
 
 ### Status Update Mechanics
 `UpdateStatusCondition()` uses `retry.RetryOnConflict` with `client.MergeFrom` patch. It preserves `LastTransitionTime` for conditions whose status hasn't changed. It re-fetches the CR before each update attempt to get the latest ResourceVersion.
