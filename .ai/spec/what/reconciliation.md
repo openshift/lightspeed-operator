@@ -17,17 +17,17 @@ The operator reconciles the OLSConfig CR into Kubernetes resources through a two
 8. Step 6 (Phase 2): Reconcile deployments and dependent resources -- Deployments, Services, TLS certificates, ServiceMonitors, PrometheusRules. After reconciliation, check deployment health and update CR status.
 
 ### Phase 1: Independent Resources
-9. Four component groups are reconciled in Phase 1: Console UI, PostgreSQL, the application server, and (when enabled) the agentic alerts adapter. The agentic console plugin is [PLANNED: OLS-3236].
+9. Five component groups are reconciled in Phase 1: chat Console UI, agentic console plugin, PostgreSQL, the application server, and (when enabled) the agentic alerts adapter.
 10. All Phase 1 resource groups are independent and can be reconciled in any order.
 11. If any Phase 1 resource fails, the operator continues reconciling the remaining resources, then reports all failures in the CR status with ResourceReconciliation conditions.
 11a. Alerts adapter (OLS-3348) is **opt-in** via `spec.ols.deployment.alertsAdapter.configMapRef`. When unset, `ReconcileAlertsAdapterResources()` calls `RemoveAlertsAdapter()` to delete operator-managed operand resources (deployment, SA, namespaced RBAC, NetworkPolicy, monitoring RoleBinding; proposals ClusterRole/ClusterRoleBinding when the platform allows delete) and Phase 2 is skipped with `AlertsAdapterReady=True`, `Reason=NotConfigured`.
 11b. When `configMapRef` is set, Phase 1 reconciles: ServiceAccount, ClusterRole (`agentic.openshift.io/proposals`: create, list, get), ClusterRoleBinding, legacy config Role/RoleBinding cleanup, RoleBinding in `openshift-monitoring` (binds SA to `monitoring-alertmanager-view`), NetworkPolicy. The operator does not create, update, or validate ConfigMap data. When the referenced ConfigMap exists, Phase 2 mounts it at `/etc/alerts-adapter`; when absent, no config volume is mounted. The adapter reads `config.yaml` and uses built-in defaults when the file is missing or invalid.
-11c. Agentic console Phase 1 resources [PLANNED: OLS-3236]: ServiceAccount, ConfigMap (nginx.conf), NetworkPolicy.
+11c. Agentic console Phase 1 resources: ServiceAccount, ConfigMap (nginx.conf), NetworkPolicy.
 
 ### Phase 2: Deployments and Status
-12. Deployments reconciled in Phase 2: Console UI (condition: `ConsolePluginReady`), PostgreSQL (condition: `CacheReady`), the active backend (condition: `ApiReady`), and (when `configMapRef` set) the agentic alerts adapter (condition: `AlertsAdapterReady`). The agentic console plugin (condition: `AgenticConsolePluginReady`) is [PLANNED: OLS-3236].
+12. Deployments reconciled in Phase 2: chat Console UI (condition: `ConsolePluginReady`), agentic console plugin (condition: `AgenticConsolePluginReady`), PostgreSQL (condition: `CacheReady`), the active backend (condition: `ApiReady`), and (when `configMapRef` set) the agentic alerts adapter (condition: `AlertsAdapterReady`).
 12a. Alerts adapter Phase 2 (OLS-3348): Deployment (1 replica, `ALERTMANAGER_URL` env hardcoded to `https://alertmanager-main.openshift-monitoring.svc:9094`, `POD_NAMESPACE` via downward API).
-12b. Agentic console Phase 2 [PLANNED: OLS-3236]: Deployment (1 replica, nginx with TLS via service-ca cert), Service (port 9443, serving-cert annotation), ConsolePlugin CR, Console CR activation.
+12b. Agentic console Phase 2: Deployment (1 replica, nginx with TLS via service-ca cert), Service (port 9443, serving-cert annotation), ConsolePlugin CR, Console CR activation.
 13. After each deployment reconciliation, the operator checks the deployment's health status.
 14. Deployment health has three states: Ready (Available condition true), Progressing (not yet available, no terminal failures), Failed (terminal pod failures detected).
 15. Terminal pod failures include: CrashLoopBackOff, ImagePullBackOff, ErrImagePull, OOMKilled, and containers terminated with non-zero exit codes after CrashLoopBackOff.
@@ -38,12 +38,12 @@ The operator reconciles the OLSConfig CR into Kubernetes resources through a two
 ### Finalizer Lifecycle
 19. On CR creation: add finalizer, return immediately (controller-runtime auto-requeues).
 20. On CR deletion: run finalizer cleanup before removing finalizer.
-21. Finalizer cleanup sequence: remove Console UI from Console CR, delete ConsolePlugin CR, remove agentic console plugin from Console CR [PLANNED: OLS-3236], delete agentic ConsolePlugin CR [PLANNED: OLS-3236], delete alerts adapter operand resources via `alertsadapter.RemoveAlertsAdapter()` (deployment, namespaced RBAC, SA, NetworkPolicy, monitoring RoleBinding; proposals ClusterRole/ClusterRoleBinding when permitted), list all owned resources by owner reference, explicitly delete them, wait for deletion (polling with timeout).
+21. Finalizer cleanup sequence: remove chat Console UI from Console CR, delete chat ConsolePlugin CR, remove agentic console plugin from Console CR, delete agentic ConsolePlugin CR (`agenticconsole.RemoveAgenticConsole()`), delete alerts adapter operand resources via `alertsadapter.RemoveAlertsAdapter()` (deployment, namespaced RBAC, SA, NetworkPolicy, monitoring RoleBinding; proposals ClusterRole/ClusterRoleBinding when permitted), list all owned resources by owner reference, explicitly delete them, wait for deletion (polling with timeout).
 22. If cleanup times out, the finalizer is removed anyway to prevent the CR from being stuck in Terminating state.
 23. Console UI and agentic component removal errors during finalization are logged but do not block finalization.
 
 ### Status Conditions
-24. The operator sets these condition types: `ApiReady`, `CacheReady`, `ConsolePluginReady`, `AlertsAdapterReady` (`NotConfigured` when `configMapRef` unset; does not block `OverallStatus=Ready`), `AgenticConsolePluginReady` [PLANNED: OLS-3236], `ResourceReconciliation`.
+24. The operator sets these condition types: `ApiReady`, `CacheReady`, `ConsolePluginReady`, `AgenticConsolePluginReady`, `AlertsAdapterReady` (`NotConfigured` when `configMapRef` unset; does not block `OverallStatus=Ready`), `ResourceReconciliation`.
 25. OverallStatus is Ready only when all deployment conditions are True.
 26. OverallStatus is NotReady if any condition is False.
 27. When deployments are not ready, diagnosticInfo is populated with per-pod failure details including container name, reason, message, exit code, and diagnostic type.
@@ -68,4 +68,4 @@ Reconciliation behavior is not directly user-configurable. It is driven by the O
 
 | Ticket | Summary |
 |---|---|
-| OLS-3236 | [PLANNED] Add agentic-console as a reconciled operand with Phase 1/2 steps, `AgenticConsolePluginReady` status condition, and finalizer cleanup for Console CR / ConsolePlugin CR |
+| OLS-3236 | Remove duplicate agentic console deployment from agentic-operator CSV; productize agentic operand images |
