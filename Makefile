@@ -131,7 +131,7 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: manifests generate fmt vet envtest test-crds ## Run local tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./internal/... -coverprofile cover.out -p 8 -timeout 10m
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./internal/... -coverprofile cover.out -p 6 -timeout 10m
 
 # Use 4.18 release branch for CRDs in unit tests
 OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/refs/heads/release-4.18/operator/v1/zz_generated.crd-manifests/0000_50_console_01_consoles.crd.yaml

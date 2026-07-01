@@ -194,10 +194,6 @@ const (
 	AgenticConsoleUINetworkPolicyName = "lightspeed-agentic-console-plugin"
 	// AgenticConsoleUIContainerName is the name of the agentic console UI container
 	AgenticConsoleUIContainerName = "console"
-	// AgenticConsoleUIImageDefault is the default image for the agentic console UI plugin.
-	// Konflux-built image until a productized openshift-lightspeed image is published.
-	AgenticConsoleUIImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main"
-
 	/*** watchers ***/
 	// Watcher Annotation key
 	WatcherAnnotationKey = "ols.openshift.io/watcher"
@@ -446,6 +442,19 @@ var (
 	OpenShiftMCPServerImageDefault = relatedimages.GetDefaultImage("openshift-mcp-server")
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
 	OcpRagImageDefault             = relatedimages.GetDefaultImage("lightspeed-ocp-rag")
-	// Konflux-built image until a productized openshift-lightspeed image is published in related_images.json.
-	AlertsAdapterImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
+	AgenticConsoleUIImageDefault   = imageDefaultOr("lightspeed-agentic-console-plugin", agenticConsoleUIImageFallback)
+	AlertsAdapterImageDefault      = imageDefaultOr("lightspeed-agentic-alerts-adapter", alertsAdapterImageFallback)
 )
+
+const (
+	// Fallbacks when related_images.json is unavailable (e.g. local run outside repo root).
+	agenticConsoleUIImageFallback = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main"
+	alertsAdapterImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
+)
+
+func imageDefaultOr(name, fallback string) string {
+	if img := relatedimages.GetDefaultImage(name); img != "" {
+		return img
+	}
+	return fallback
+}
