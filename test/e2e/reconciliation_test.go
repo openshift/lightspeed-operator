@@ -389,4 +389,59 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 
 	})
 
+	It("should skip app-server restart on LLM secret data rotation when credentialHotReload is enabled", func() {
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AppServerDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+
+		By("enable credentialHotReload on the CR")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			config := obj.(*olsv1alpha1.OLSConfig)
+			hotReload := true
+			config.Spec.OLSConfig.CredentialHotReload = &hotReload
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		// credentialHotReload only affects in-memory WatcherConfig, not the
+		// Deployment spec, so there is no Generation bump to wait for.
+		// Give the reconciler time to process the CR update.
+		time.Sleep(5 * time.Second)
+
+		err = client.Get(deployment)
+		Expect(err).NotTo(HaveOccurred())
+		generation := deployment.Generation
+
+		By("rotate the LLM secret data (using second secret — CR was switched to it by an earlier test)")
+		llmSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      LLMTokenSecondSecretName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.Update(llmSecret, func(obj ctrlclient.Object) error {
+			s := obj.(*corev1.Secret)
+			s.Data[LLMApiTokenFileName] = []byte("rotated-key-value")
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verify the deployment generation did NOT change (no restart)")
+		Consistently(func() int64 {
+			Expect(client.Get(deployment)).To(Succeed())
+			return deployment.Generation
+		}, 15*time.Second, 2*time.Second).Should(Equal(generation))
+
+		By("disable credentialHotReload to restore default behavior")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			config := obj.(*olsv1alpha1.OLSConfig)
+			config.Spec.OLSConfig.CredentialHotReload = nil
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 })
