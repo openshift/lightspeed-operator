@@ -347,6 +347,16 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tools Approval Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	ToolsApprovalConfig *ToolsApprovalConfig `json:"toolsApprovalConfig,omitempty"`
+	// Enable in-process credential hot-reload for LLM provider secrets.
+	// When true, the operator will not restart the app-server when LLM credential
+	// secret data is rotated — the service re-reads credentials from disk on each request.
+	// IMPORTANT: Requires lightspeed-service with get_credentials() hot-reload support
+	// (service PR #2955 / RFE-9380). If enabled with an older service image, rotated
+	// credentials (including revoked keys) will remain stale until the pod is manually restarted.
+	// +kubebuilder:default=false
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Credential Hot Reload",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	CredentialHotReload *bool `json:"credentialHotReload,omitempty"`
 }
 
 // Persistent Storage Configuration

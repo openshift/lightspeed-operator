@@ -581,6 +581,12 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, fmt.Errorf("failed to annotate external resources: %w", err)
 	}
 
+	if olsconfig.Spec.OLSConfig.CredentialHotReload != nil && *olsconfig.Spec.OLSConfig.CredentialHotReload {
+		r.Logger.Info("credentialHotReload is enabled — LLM credential secret rotations will not "+
+			"trigger app-server restarts. Requires lightspeed-service with get_credentials() "+
+			"hot-reload support (service PR #2955 / RFE-9380)")
+	}
+
 	// 5. Phase 1: Reconcile independent resources
 	if err := r.reconcileIndependentResources(ctx, olsconfig); err != nil {
 		return ctrl.Result{}, err

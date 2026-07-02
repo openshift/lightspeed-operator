@@ -63,12 +63,19 @@ type ConfigMapWatcherConfig struct {
 	SystemResources []SystemConfigMap
 }
 
-// WatcherConfig contains all watcher configuration
+// WatcherConfig contains all watcher configuration.
+// NOTE: This struct is written by the reconciler and read by watcher event handlers
+// (including predicate filters such as SecretWatcherFilter). This is safe because
+// controller-runtime serializes reconcile calls and predicate evaluations on the same
+// controller work queue. If MaxConcurrentReconciles is ever increased above 1,
+// a sync.RWMutex must be added here.
 type WatcherConfig struct {
 	Secrets                   SecretWatcherConfig
 	ConfigMaps                ConfigMapWatcherConfig
 	AnnotatedSecretMapping    map[string][]string
 	AnnotatedConfigMapMapping map[string][]string
+	CredentialHotReload       bool
+	LLMSecretNames            map[string]bool
 }
 
 /*** controller internal ***/

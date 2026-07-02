@@ -396,6 +396,16 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	if r.WatcherConfig != nil {
 		r.WatcherConfig.AnnotatedConfigMapMapping = make(map[string][]string)
 		r.WatcherConfig.AnnotatedSecretMapping = make(map[string][]string)
+		r.WatcherConfig.LLMSecretNames = make(map[string]bool)
+
+		r.WatcherConfig.CredentialHotReload = cr.Spec.OLSConfig.CredentialHotReload != nil &&
+			*cr.Spec.OLSConfig.CredentialHotReload
+
+		for _, provider := range cr.Spec.LLMConfig.Providers {
+			if provider.CredentialsSecretRef.Name != "" {
+				r.WatcherConfig.LLMSecretNames[provider.CredentialsSecretRef.Name] = true
+			}
+		}
 	}
 
 	var errs []error
