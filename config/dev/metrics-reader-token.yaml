@@ -1,0 +1,14 @@
+# Service account token for app ServiceMonitor Prometheus scraping (see appserver ServiceMonitor).
+# Applied by `make dev-setup` / `make run` so local operator reconciliation does not recreate it in a loop.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: metrics-reader-token
+  namespace: openshift-lightspeed
+  annotations:
+    kubernetes.io/service-account.name: lightspeed-operator-metrics-reader
+  labels:
+    app.kubernetes.io/name: service-account-token
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/part-of: lightspeed-operator
+type: kubernetes.io/service-account-token

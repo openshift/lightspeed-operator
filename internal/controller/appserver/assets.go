@@ -293,7 +293,8 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		}
 		referenceIndexes = append(referenceIndexes, referenceIndex)
 	}
-	// Add OCP documentation index unless BYOK-only mode is enabled
+	// Add OCP documentation (FAISS) index unless BYOK-only. Kept with Solr hybrid for readiness
+	// until FAISS is removed; solr_hybrid remains the primary docs path for queries.
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
 		ocpReferenceIndex := utils.ReferenceIndex{
 			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor(),
@@ -301,6 +302,11 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 			ProductDocsOrigin:    "Red Hat OpenShift " + r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor() + " documentation",
 		}
 		referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
+	}
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		for i := range referenceIndexes {
+			referenceIndexes[i].ByokIndex = true
+		}
 	}
 
 	// Assemble the main OLS configuration
@@ -364,7 +370,24 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		}
 	}
 
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		olsConfig.SolrHybrid = buildSolrHybridSettings()
+	}
+
 	return olsConfig, nil
+}
+
+// buildSolrHybridSettings maps operator defaults to the OLS config file (snake_case keys).
+// Solr URL and retrieval tuning target the RHOKP sidecar on localhost:RHOOKPHTTPPort.
+func buildSolrHybridSettings() *utils.SolrHybridSettings {
+	return &utils.SolrHybridSettings{
+		SolrHTTPBase:             fmt.Sprintf("http://localhost:%d", utils.RHOOKPHTTPPort),
+		MaxResults:               utils.SolrHybridMaxResultsDefault,
+		HybridVectorBoost:        utils.SolrHybridVectorBoostDefault,
+		HybridPoolDocs:           utils.SolrHybridPoolDocsDefault,
+		HybridScoreThreshold:     utils.SolrHybridScoreThresholdDefault,
+		HybridSolrTimeoutSeconds: utils.SolrHybridSolrTimeoutSecondsDefault,
+	}
 }
 
 // generateMCPServerConfigs builds MCP (Model Context Protocol) server configurations.

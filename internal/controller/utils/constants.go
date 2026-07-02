@@ -367,8 +367,40 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
 	// MCP server URL
 	OpenShiftMCPServerURL = "http://localhost:%d/mcp"
-	// MCP server port
+	// MCP server port.
 	OpenShiftMCPServerPort = 8080
+	// RHOOKPHTTPPort is the Solr HTTP proxy port for the RH OKP sidecar (remapped from image default 8080).
+	RHOOKPHTTPPort = 9080
+	// RHOOKPHTTPSPort is the RH OKP Apache HTTPS port (remapped from image default 8443; OLS uses 8443).
+	RHOOKPHTTPSPort = 9443
+	// OCPClusterVersionEnvVar is read by lightspeed-service to resolve Solr chunk_filter_query at startup.
+	OCPClusterVersionEnvVar = "OCP_CLUSTER_VERSION"
+	// RHOOKPSolrCollection is the Solr core served by RHOKP (matches lightspeed-service portal-rag client).
+	RHOOKPSolrCollection = "portal-rag"
+	// RHOOKPReadinessHTTPPath hits the portal-rag core admin ping (Apache / alone is not Solr-ready).
+	RHOOKPReadinessHTTPPath = "/solr/" + RHOOKPSolrCollection + "/admin/ping"
+	// RHOKP startup probe: Solr can take several minutes on cold start (portal-rag core load).
+	RHOOKPStartupProbeInitialDelaySeconds = 20
+	RHOOKPStartupProbePeriodSeconds       = 10
+	RHOOKPStartupProbeFailureThreshold    = 34 // 20s delay + 34*10s = 6 min before startup fails
+	RHOOKPProbePeriodSeconds              = 10
+	RHOOKPProbeTimeoutSeconds             = 5
+	RHOOKPProbeFailureThreshold           = 3
+	RHOOKPAccessKeySecretName             = "rhokp-access-key" // #nosec G101 -- user-created secret for RHOKP portal access
+	RHOOKPAccessKeySecretKey              = "ACCESS_KEY"
+	// RHOKP image Apache config paths (Listen directives remapped before mel start).
+	RHOOKPHTTPDConfPath       = "/etc/httpd/conf/httpd.conf"
+	RHOOKPHTTPDSSLConfPath    = "/etc/httpd/conf.d/ssl.conf"
+	RHOOKPImageHTTPPort       = 8080
+	RHOOKPImageHTTPSPort      = 8443
+	RHOOKPContainerEntrypoint = "/usr/bin/container-entrypoint"
+	RHOOKPMainCommand         = "/usr/local/bin/mel"
+	// Solr hybrid defaults written to the OLS config file (not exposed on OLSConfig CR).
+	SolrHybridMaxResultsDefault         = 5
+	SolrHybridVectorBoostDefault        = 8.0
+	SolrHybridPoolDocsDefault           = 100
+	SolrHybridScoreThresholdDefault     = 0.0
+	SolrHybridSolrTimeoutSecondsDefault = 60.0
 	// MCP server timeout, sec
 	OpenShiftMCPServerTimeout = 60
 	// MCP server SSE read timeout, sec
@@ -422,6 +454,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	PostgresContainerName = "lightspeed-postgres-server"
 	// OpenShiftMCPServerContainerName is the name of the OpenShift MCP server container
 	OpenShiftMCPServerContainerName = "openshift-mcp-server"
+	// RHOOKPContainerName is the RH Offline Knowledge Portal (Solr) sidecar container name.
+	RHOOKPContainerName = "rhokp"
 	// OLSConfigMapResourceVersionAnnotation is the annotation key for tracking OLS ConfigMap ResourceVersion
 	OLSConfigMapResourceVersionAnnotation = "ols.openshift.io/olsconfig-configmap-version"
 	// OpenShiftMCPServerConfigMapResourceVersionAnnotation is the annotation key for tracking MCP Server ConfigMap ResourceVersion
@@ -448,4 +482,6 @@ var (
 	OcpRagImageDefault             = relatedimages.GetDefaultImage("lightspeed-ocp-rag")
 	// Konflux-built image until a productized openshift-lightspeed image is published in related_images.json.
 	AlertsAdapterImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
+	// Not in related_images.json until the RHOKP image is productized in the bundle; override via --rhokp-image.
+	RHOOKPImageDefault = "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest"
 )

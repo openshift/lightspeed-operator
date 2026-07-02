@@ -18,6 +18,9 @@
 - op: add
   path: /spec/template/spec/containers/0/args/-
   value: --ocp-rag-image=__REPLACE_LIGHTSPEED_OCP_RAG__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --rhokp-image=__REPLACE_RHOKP__
 - op: replace
   path: /spec/template/spec/containers/0/image
   value: __REPLACE_LIGHTSPEED_OPERATOR__

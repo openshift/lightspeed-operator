@@ -32,6 +32,7 @@ GenerateOLSDeployment(r, cr)
   15. Assemble Deployment:
       - Container: "lightspeed-service-api", image: r.GetAppServerImage(), port: 8443
       - Env: OLS_CONFIG_FILE path + proxy vars (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
+      - Env: OCP_CLUSTER_VERSION (`<major>.<minor>`) when `!byokRAGOnly` (same cluster-version source as console UI)
       - Probes: HTTPS GET on /readiness, /liveness (initial: 30s, period: 30s, timeout: 30s, failure: 15)
       - Default resources: 500m CPU request, 1Gi memory request (no limits)
   16. Apply pod-level config (replicas, nodeSelector, tolerations)
@@ -39,7 +40,7 @@ GenerateOLSDeployment(r, cr)
   18. Set owner reference to OLSConfig CR
   19. Conditionally add data collector sidecar container ("lightspeed-to-dataverse-exporter")
   20. Conditionally add OpenShift MCP server sidecar container ("openshift-mcp-server")
-  21. Conditionally add RHOKP sidecar container ("rhokp") — always added unless byokRAGOnly is true.
+  21. Conditionally add RHOKP sidecar container ("rhokp") when `!byokRAGOnly`.
       Container: image from r.GetRHOKPImage(), port 8080, resources 2 CPU / 2 GiB RAM / 75 GiB ephemeral,
       startup script disables Apache Listen 0.0.0.0:8443 to avoid port conflict.
       Optional ACCESS_KEY env from rhokp-access-key secret.
@@ -106,7 +107,7 @@ Affinity and topology spread constraints are not exposed on `Config` (CRD size);
 | Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config |
 | Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY from cluster |
 | RAG images | CR `spec.ols.rag[].image` | Container images for init containers |
-| RHOKP image | `--rhokp-image` flag | Container image for RHOKP sidecar |
+| RHOKP image | `--rhokp-image` flag | RHOKP sidecar container image (default in code; not in `related_images.json` yet) |
 
 ## Agentic Controller Deployment (OLM-managed)
 
