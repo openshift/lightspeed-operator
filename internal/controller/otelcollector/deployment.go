@@ -27,10 +27,6 @@ func getOtelCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequir
 				corev1.ResourceCPU:    resource.MustParse("100m"),
 				corev1.ResourceMemory: resource.MustParse("128Mi"),
 			},
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("500m"),
-				corev1.ResourceMemory: resource.MustParse("512Mi"),
-			},
 		},
 	)
 }
