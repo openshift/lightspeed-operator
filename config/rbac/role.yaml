@@ -207,4 +207,8 @@ rules:
   - rolebindings
   - roles
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - update
