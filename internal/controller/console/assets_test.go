@@ -61,7 +61,6 @@ var _ = Describe("Console UI assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].Protocol).To(Equal(corev1.ProtocolTCP))
 			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("50Mi")},
-				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("100Mi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(ContainElement(corev1.EnvVar{

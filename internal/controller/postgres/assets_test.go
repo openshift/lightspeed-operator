@@ -46,9 +46,6 @@ var _ = Describe("App postgres server assets", func() {
 				corev1.ResourceCPU:    resource.MustParse("30m"),
 				corev1.ResourceMemory: resource.MustParse("300Mi"),
 			},
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
-			},
 		}))
 		expectedSecretRef := &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{

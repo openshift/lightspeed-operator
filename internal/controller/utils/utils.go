@@ -952,9 +952,6 @@ func DefaultConsolePluginResourceRequirements() *corev1.ResourceRequirements {
 			corev1.ResourceCPU:    resource.MustParse("10m"),
 			corev1.ResourceMemory: resource.MustParse("50Mi"),
 		},
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("100Mi"),
-		},
 		Claims: []corev1.ResourceClaim{},
 	}
 }
