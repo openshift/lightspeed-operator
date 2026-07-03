@@ -8,7 +8,7 @@ metadata:
     These 3 parameters are passed by Konflux: snapshot, release and releasePlan Update the catalog with the released bundle. 
     Other parameters are set by the release plan.
 spec:
-  serviceAccountName: release-bot
+  serviceAccountName: konflux-bot-0
   pipelineRef:
     params:
       - name: url
