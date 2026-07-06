@@ -209,6 +209,7 @@ These schemas are created by the bootstrap script.
 | TLS certs | Service-ca operator or user-provided secret | Path: `/etc/certs/lightspeed-tls/` |
 | BYOK RAG indexes | CR `spec.ols.rag[]` | File paths in config YAML (BYOK only) |
 | RHOKP image | `--rhokp-image` flag | Image for RHOKP sidecar container |
+| ROSA product | Console brand + Infrastructure topology | `OLS_ROSA_PRODUCT` env var on app-server (not in config YAML). [PLANNED: OLS-1894] |
 | MCP servers | CR `spec.mcpServers[]` + `spec.ols.introspectionEnabled` | Feature gated by `MCPServer` gate |
 | Tool filtering | CR `spec.ols.toolFilteringConfig` | Feature gated by `ToolFiltering` gate; requires MCP servers |
 | Proxy config | CR `spec.ols.proxyConfig` | Proxy URL + optional CA cert configmap |
