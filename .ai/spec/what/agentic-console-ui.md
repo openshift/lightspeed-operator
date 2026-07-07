@@ -61,6 +61,7 @@ Resource names match the prior `lightspeed-agentic-operator` deployment for upgr
 | `spec.ols.deployment.agenticConsole.tolerations` | Pod tolerations |
 | `spec.ols.deployment.agenticConsole.nodeSelector` | Node selector constraints |
 | `--agentic-console-image` (operator flag) | Container image override at operator startup |
+| `related_images.json` entry `lightspeed-agentic-console-plugin` | Default image for flag and CSV; optional `snapshot_component`, `konflux_prefix`, `stable_prefix` for `hack/snapshot_to_image_list.sh` |
 
 ## Constraints
 
@@ -74,4 +75,4 @@ Resource names match the prior `lightspeed-agentic-operator` deployment for upgr
 
 | Ticket | Summary |
 |---|---|
-| OLS-3236 | [PLANNED] OLM bundle/CSV: add `--agentic-console-image` to operator deployment and `related_images.json` entry |
+| OLS-3236 | Remove duplicate agentic console deployment from agentic-operator CSV; productize `lightspeed-agentic-console-plugin` image to SHA-pinned `registry.redhat.io` |

@@ -137,7 +137,7 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 `alertsAdapter` | `alertsAdapter` | `AlertsAdapterSpec` | Agentic alerts adapter deployment and user-managed runtime config reference. Replicas forced to 1
 
 `AlertsAdapterSpec` embeds `Config` (deployment scheduling/resources) and optional `configMapRef` (`LocalObjectReference`). Setting `configMapRef` **enables** the alerts adapter operand. The referenced ConfigMap name is `configMapRef.name` (commonly `alerts-adapter-config`; see [adapter manifests](https://github.com/openshift/lightspeed-agentic-alerts-adapter/tree/main/manifests)). The operator does not create or validate ConfigMap content. When the ConfigMap exists, it is mounted at `/etc/alerts-adapter`; when absent, no config volume is mounted. The adapter reads `config.yaml` from that path and uses built-in defaults when the file is missing or invalid.
-`agenticConsole` | `agenticConsole` | `Config` | [PLANNED: OLS-3236] Agentic console plugin container. Replicas forced to 1
+`agenticConsole` | `agenticConsole` | `Config` | Agentic console plugin container. Replicas forced to 1
 
 20. Replicas are only user-configurable for the API container (`spec.ols.deployment.api.replicas`). For console, database, alerts adapter, and agentic console, the operator always overrides replicas to 1 regardless of spec value.
 
@@ -307,7 +307,7 @@ Condition types used by the operator:
 - `CacheReady` -- PostgreSQL cache deployment health
 - `ConsolePluginReady` -- Console UI plugin deployment health
 - `AlertsAdapterReady` -- Agentic alerts adapter deployment health
-- `AgenticConsolePluginReady` -- [PLANNED: OLS-3236] Agentic console plugin deployment health
+- `AgenticConsolePluginReady` -- Agentic console plugin deployment health
 - `ResourceReconciliation` -- Overall resource reconciliation status (set directly, not deployment-based)
 
 #### Overall Status (status.overallStatus)
@@ -398,7 +398,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.deployment.alertsAdapter.resources` | `*ResourceRequirements` | -- | No | -- | Alerts adapter resources
 `spec.ols.deployment.alertsAdapter.tolerations` | `[]Toleration` | -- | No | -- | Alerts adapter tolerations
 `spec.ols.deployment.alertsAdapter.nodeSelector` | `map[string]string` | -- | No | -- | Alerts adapter node selector
-`spec.ols.deployment.agenticConsole` | `Config` | -- | No | -- | [PLANNED: OLS-3236] Agentic console deployment
+`spec.ols.deployment.agenticConsole` | `Config` | -- | No | -- | Agentic console deployment
 `spec.ols.deployment.agenticConsole.replicas` | `*int32` | `1` | No | Min=0 | Agentic console replicas (operator forces 1)
 `spec.ols.deployment.agenticConsole.resources` | `*ResourceRequirements` | -- | No | -- | Agentic console resources
 `spec.ols.deployment.agenticConsole.tolerations` | `[]Toleration` | -- | No | -- | Agentic console tolerations

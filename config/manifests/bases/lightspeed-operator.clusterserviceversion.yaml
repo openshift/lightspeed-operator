@@ -48,6 +48,12 @@ spec:
         displayName: Credential Secret
         path: llm.providers[0].credentialsSecretRef
       - description: |-
+          Audit logging and tracing configuration.
+          Logging and OTEL tracing are independent controls.
+          Default: logging enabled, no OTEL export when absent.
+        displayName: Audit Settings
+        path: audit
+      - description: |-
           Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
           possible values: MCPServer, ToolFiltering
         displayName: Feature Gates
@@ -191,12 +197,43 @@ spec:
         path: ols.defaultProvider
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Agentic console plugin container settings.
+        displayName: Agentic Console Deployment
+        path: ols.deployment.agenticConsole
+      - description: |-
+          Defines the number of desired OLS pods. Default: "1"
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
+          the number of replicas will always be set to 1.
+        displayName: Number of replicas
+        path: ols.deployment.agenticConsole.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: Alerts adapter deployment and runtime config reference.
+        displayName: Alerts Adapter
+        path: ols.deployment.alertsAdapter
+      - description: |-
+          ConfigMapRef enables the alerts adapter when set and references a user-managed ConfigMap
+          in the operator namespace. When unset, reconciliation is skipped and managed operand
+          resources are removed. The operator does not create or validate ConfigMap data. When the
+          referenced ConfigMap exists, it is mounted read-only at /etc/alerts-adapter; when absent,
+          no config volume is mounted. The adapter reads config.yaml from that path and uses
+          built-in defaults when the file is missing or invalid.
+        displayName: Alerts Adapter ConfigMap Reference
+        path: ols.deployment.alertsAdapter.configMapRef
+      - description: |-
+          Defines the number of desired OLS pods. Default: "1"
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
+          the number of replicas will always be set to 1.
+        displayName: Number of replicas
+        path: ols.deployment.alertsAdapter.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
       - description: API container settings.
         displayName: API Deployment
         path: ols.deployment.api
       - description: |-
           Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
           the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.api.replicas
@@ -207,7 +244,7 @@ spec:
         path: ols.deployment.console
       - description: |-
           Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
           the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.console.replicas
@@ -221,7 +258,7 @@ spec:
         path: ols.deployment.database
       - description: |-
           Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
           the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.database.replicas
