@@ -1,0 +1,208 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: bundle-update-integration-test
+spec:
+  description: |
+    Integration test pipeline that updates the bundle related images from a Konflux snapshot.
+    Parses the SNAPSHOT JSON to extract component images, updates related_images.json,
+    regenerates the bundle, and creates a pull request against the source repository.
+  params:
+    - name: SNAPSHOT
+      type: string
+      description: 'The JSON string representing the snapshot of the application under test.'
+      default: '{"components": [{"name":"test-app", "containerImage": "quay.io/example/repo:latest"}]}'
+    - name: forkGitUrl
+      type: string
+      description: The git repository URL where the updated code is committed to.
+      default: "https://github.com/raptorsun/lightspeed-operator.git"
+    - name: forkBranch
+      type: string
+      description: The branch of the git repository where the updated code is committed to.
+      default: "bundle-update"
+    - name: forkUser
+      type: string
+      description: The Github user of the fork git repository.
+      default: "raptorsun"
+    - name: sourceGitUrl
+      type: string
+      description: The source git repository URL to clone as starting point for the bundle update.
+      default: "https://github.com/openshift/lightspeed-operator.git"
+    - name: sourceBranch
+      type: string
+      description: The branch of the source git repository to clone as starting point for the bundle update.
+      default: "main"
+  tasks:
+    - name: update-related-images
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+        - name: forkGitUrl
+          value: $(params.forkGitUrl)
+        - name: forkBranch
+          value: $(params.forkBranch)
+        - name: forkUser
+          value: $(params.forkUser)
+        - name: sourceGitUrl
+          value: $(params.sourceGitUrl)
+        - name: sourceBranch
+          value: $(params.sourceBranch)
+      taskSpec:
+        params:
+          - name: SNAPSHOT
+            type: string
+          - name: forkGitUrl
+            type: string
+            default: "https://github.com/raptorsun/lightspeed-operator.git"
+          - name: forkBranch
+            type: string
+            default: "bundle-update"
+          - name: forkUser
+            type: string
+            default: "raptorsun"
+          - name: sourceGitUrl
+            type: string
+            default: "https://github.com/openshift/lightspeed-operator.git"
+          - name: sourceBranch
+            type: string
+            default: "main"
+        results:
+          - name: commit-id
+            description: The commit ID where bundle is updated
+          - name: pull-request-url
+            description: The URL of the created pull request
+        steps:
+          - name: git-clone
+            image: quay.io/openshift-lightspeed/release-automation:bundle-update-0.0.4
+            workingDir: /workspace
+            script: |
+              git clone --single-branch --branch $(params.sourceBranch) $(params.sourceGitUrl) repo
+              cd repo
+              git checkout -b $(params.forkBranch)
+          - name: update-file
+            image: quay.io/openshift-lightspeed/release-automation:bundle-update-0.0.4
+            workingDir: /workspace
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+              - name: HOME
+                value: /workspace
+              - name: GOTOOLCHAIN
+                value: auto
+            script: |
+              set -euo pipefail
+              cd repo
+
+              echo "Snapshot content:"
+              echo "${SNAPSHOT}" | jq .
+
+              # Update related_images.json from SNAPSHOT JSON.
+              # Preserve entries not present in the application snapshot (bundle, dataverse-exporter, postgresql).
+              # Map snapshot component names to related_images.json names:
+              #   lightspeed-service   -> lightspeed-service-api
+              #   lightspeed-console   -> lightspeed-console-plugin
+              #   lightspeed-operator  -> lightspeed-operator  (unchanged)
+              #   openshift-mcp-server -> openshift-mcp-server (unchanged)
+              #   lightspeed-ocp-rag   -> lightspeed-ocp-rag   (unchanged)
+              jq --argjson snapshot "${SNAPSHOT}" '
+                [.[] | select(
+                  .name == "lightspeed-operator-bundle" or
+                  .name == "lightspeed-to-dataverse-exporter" or
+                  .name == "lightspeed-postgresql"
+                )] +
+                [$snapshot.components[] | select(.name == "lightspeed-service") |
+                  {name: "lightspeed-service-api", image: .containerImage, revision: .source.git.revision}] +
+                [$snapshot.components[] | select(.name == "lightspeed-console") |
+                  {name: "lightspeed-console-plugin", image: .containerImage, revision: .source.git.revision}] +
+                [$snapshot.components[] | select(.name == "lightspeed-operator") |
+                  {name: "lightspeed-operator", image: .containerImage, revision: .source.git.revision}] +
+                [$snapshot.components[] | select(.name == "openshift-mcp-server") |
+                  {name: "openshift-mcp-server", image: .containerImage, revision: .source.git.revision}] +
+                [$snapshot.components[] | select(.name == "lightspeed-ocp-rag") |
+                  {name: "lightspeed-ocp-rag", image: .containerImage, revision: .source.git.revision}]
+              ' related_images.json > tmp.json && mv tmp.json related_images.json
+
+              echo "Updated related_images.json:"
+              cat related_images.json
+
+              # Extract the current bundle version from the CSV before make bundle overwrites it.
+              # The Makefile defaults BUNDLE_TAG to 1.1.1; we must pass the actual version.
+              BUNDLE_TAG=$(grep '^  version:' bundle/manifests/lightspeed-operator.clusterserviceversion.yaml | awk '{print $2}')
+              echo "Using BUNDLE_TAG=${BUNDLE_TAG}"
+
+              PATH=./bin:$PATH make bundle BUNDLE_TAG="${BUNDLE_TAG}"
+          - name: git-config
+            image: quay.io/openshift-lightspeed/release-automation:bundle-update-0.0.4
+            workingDir: /workspace
+            env:
+              - name: HOME
+                value: /workspace
+            script: |
+              set -euo pipefail
+              cd repo
+              git config user.email "hasun@redhat.com"
+              git config user.name "Haoyu Sun's Bot"
+              git remote add fork $(params.forkGitUrl)
+          - name: git-commit-push
+            image: quay.io/openshift-lightspeed/release-automation:bundle-update-0.0.4
+            workingDir: /workspace
+            env:
+              - name: GITHUB_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: release-bot-github-token
+                    key: github-token
+            script: |
+              set -euo pipefail
+              cd repo
+              git add related_images.json bundle
+
+              if git diff --cached --quiet; then
+                echo "No changes to commit - related_images and bundle are already up to date"
+                echo -n "no-change" | tee $(results.commit-id.path)
+                echo -n "no-pr-needed" | tee $(results.pull-request-url.path)
+                exit 0
+              fi
+
+              git commit -m "Update related_images and bundle from snapshot"
+              git rev-parse HEAD | tee $(results.commit-id.path)
+              git config credential.helper '!f() { sleep 1; echo "username=git"; echo "password=$GITHUB_TOKEN"; }; f'
+              git push --force fork $(params.forkBranch)
+              RESPONSE=$(curl -L \
+                -X POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                https://api.github.com/repos/openshift/lightspeed-operator/pulls \
+                -d '{"title":"Bundle Update from Integration Test Snapshot","body":"This PR updates the related_images and bundle based on the latest snapshot from Konflux integration test.","head":"$(params.forkUser):$(params.forkBranch)","base":"$(params.sourceBranch)"}')
+              echo "Github response:"
+              echo "$RESPONSE"
+              jq -r '.html_url' <<< "$RESPONSE" | tee $(results.pull-request-url.path)
+  results:
+    - name: commit-id
+      description: The commit ID where bundle is updated.
+      value: "$(tasks.update-related-images.results.commit-id)"
+    - name: pull-request-url
+      description: The URL of the created pull request.
+      value: "$(tasks.update-related-images.results.pull-request-url)"
+  finally:
+    - name: export-logs-for-retention
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/export-logs/0.1/export-logs-to-quay.yaml
+      params:
+        - name: pipeline-run-name
+          value: $(context.pipelineRun.name)
+        - name: namespace
+          value: $(context.pipelineRun.namespace)
+        - name: quay-repo
+          value: "quay.io/openshift-lightspeed/ols-operator-artifacts"
+        - name: artifact-credentials-secret
+          value: ols-konflux-artifacts-bot
