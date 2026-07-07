@@ -124,7 +124,12 @@ make test-e2e   # E2E tests (requires cluster)
 
 ## AI Assistant Skills
 
-Available skills for code review:
+Available skills:
+
+- **`/update-bundle dev`** - PR/CI: Konflux CI images (`-r ci`), regen bundle at current version
+- **`/update-bundle release X.Y.Z`** or **`/version-update X.Y.Z`** - Ship to `main`: see `version-update` skill for full release steps (stable images, version bump, bundle regen)
+
+Code review:
 
 - **`/go-code-review`** - Review Go code for error handling, concurrency, resource leaks, naming conventions
 - **`/go-testing-code-review`** - Review test code for table-driven tests, cleanup patterns, error messages
