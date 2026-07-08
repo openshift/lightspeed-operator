@@ -129,7 +129,7 @@ type OLSConfigReconciler struct {
 // Modify console CR to activate console plugin
 // +kubebuilder:rbac:groups=operator.openshift.io,resources=consoles,verbs=watch;list;get;update
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;rolebindings,verbs=get;list;create;update;patch;delete;watch
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=openshift-lightspeed,resources=roles;rolebindings,verbs=*
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=openshift-lightspeed,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // NonResourceURLs for Lightspeed access control and metrics
 // +kubebuilder:rbac:urls=/ls-access,verbs=get
 // +kubebuilder:rbac:urls=/ols-metrics-access,verbs=get
