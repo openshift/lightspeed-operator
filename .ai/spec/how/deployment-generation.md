@@ -32,6 +32,8 @@ GenerateOLSDeployment(r, cr)
   15. Assemble Deployment:
       - Container: "lightspeed-service-api", image: r.GetAppServerImage(), port: 8443
       - Env: OLS_CONFIG_FILE path + proxy vars (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
+      - Env: OCP_CLUSTER_VERSION (`<major>.<minor>`) when `!byokRAGOnly`
+      - Env: OLS_ROSA_PRODUCT (ROSA OKP product identifier) when `!byokRAGOnly` AND cluster brand is `ROSA`. Value: `red_hat_openshift_service_on_aws` (HCP) or `red_hat_openshift_service_on_aws_classic_architecture` (Classic), determined from Console brand + Infrastructure controlPlaneTopology. [PLANNED: OLS-1894]
       - Probes: HTTPS GET on /readiness, /liveness (initial: 30s, period: 30s, timeout: 30s, failure: 15)
       - Default resources: 500m CPU request, 1Gi memory request (no limits)
   16. Apply pod-level config (replicas, nodeSelector, tolerations)

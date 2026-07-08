@@ -21,6 +21,15 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 12. If `spec.ols.querySystemPrompt` is set, the custom prompt is written as a second key in the config ConfigMap and referenced by file path in the config.
 13. BYOK reference content indexes from `spec.ols.rag` are configured when present. OCP documentation is served by OKP via the RHOKP sidecar, not via FAISS indexes.
 14. The operator always generates a `solr_hybrid` config section in `olsconfig.yaml` pointing to `http://localhost:8080` with default hybrid retrieval tuning parameters, unless `byokRAGOnly` is true.
+15a. Unless `byokRAGOnly` is true, the app-server container receives `OCP_CLUSTER_VERSION` (`<major>.<minor>` from the operator's cluster-version lookup) for Solr `chunk_filter_query` resolution in lightspeed-service.
+
+### ROSA-Aware OKP Retrieval [PLANNED: OLS-1894]
+15b. Unless `byokRAGOnly` is true, the operator detects whether the cluster is ROSA and, if so, which variant (Classic vs HCP). Detection uses two standard OpenShift API resources, following the same pattern as OCP version detection — determined once and passed to the service as an environment variable:
+  - **ROSA detection:** Read `console.operator.openshift.io/v1` Console `cluster` resource, field `.spec.customization.brand`. Value `ROSA` indicates a ROSA cluster (reliable on OCP 4.16+).
+  - **Variant detection:** Read `infrastructure.config.openshift.io/v1` Infrastructure `cluster` resource, field `.status.controlPlaneTopology`. `External` = HCP, `HighlyAvailable` = Classic.
+  - When ROSA is detected, the operator sets `OLS_ROSA_PRODUCT` on the app-server container: `red_hat_openshift_service_on_aws` for HCP, `red_hat_openshift_service_on_aws_classic_architecture` for Classic.
+  - On non-ROSA clusters the env var is absent and the service uses OCP-only retrieval.
+  - RBAC: requires `get` on `consoles` in the `operator.openshift.io` API group (Infrastructure is already covered by existing cluster-version permissions).
 
 ### MCP Server Integration
 15. When `spec.ols.introspectionEnabled` is true, an "openshift" MCP server entry is added to the config pointing to localhost on the sidecar port.
