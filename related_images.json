@@ -29,8 +29,8 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:7578cfac264b96a251b5155f0596ef6fc753eba2473d6e5ceac55184dc3eeb11",
-    "revision": "800876fb2175cfefcc7577c1fa4425a47ed515aa"
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:4891c6e29c1567a90c3754256186d903c059644ac4212019e592d6d480efda63",
+    "revision": "b4f366cfcead7b8cfc306787cf9a2a9ef381791d"
   },
   {
     "name": "openshift-mcp-server",
