@@ -1,15 +1,15 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: release-bot
+  name: konflux-bot-0
   namespace: crt-nshift-lightspeed-tenant
 subjects:
 - kind: ServiceAccount
-  name: release-bot
+  name: konflux-bot-0
   apiGroup: ""
 roleRef:
   kind: Role
-  name: release-bot
+  name: konflux-bot-0
   apiGroup: rbac.authorization.k8s.io
 
 

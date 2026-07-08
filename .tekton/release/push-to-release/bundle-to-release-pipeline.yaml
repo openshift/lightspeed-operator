@@ -130,7 +130,7 @@ spec:
               - name: KONFLUX_TOKEN
                 valueFrom:
                   secretKeyRef:
-                    name: release-bot-konflux-token
+                    name: konflux-bot-0-konflux-token
                     key: konflux-token
             script: |
               set -e
