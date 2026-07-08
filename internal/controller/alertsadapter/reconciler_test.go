@@ -68,8 +68,10 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 	Context("ConfigMap without operator validation", func() {
 		It("reconciles Phase 1 when the referenced ConfigMap exists without config.yaml", func() {
 			enabledCR := cr.DeepCopy()
-			enabledCR.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{
-				Name: utils.AlertsAdapterConfigMapName,
+			enabledCR.Spec.OLSConfig.DeploymentConfig.AlertsAdapter = &olsv1alpha1.AlertsAdapterSpec{
+				ConfigMapRef: &corev1.LocalObjectReference{
+					Name: utils.AlertsAdapterConfigMapName,
+				},
 			}
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -89,8 +91,10 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 
 		It("reconciles Phase 2 deployment when the referenced ConfigMap has no config.yaml", func() {
 			enabledCR := cr.DeepCopy()
-			enabledCR.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{
-				Name: utils.AlertsAdapterConfigMapName,
+			enabledCR.Spec.OLSConfig.DeploymentConfig.AlertsAdapter = &olsv1alpha1.AlertsAdapterSpec{
+				ConfigMapRef: &corev1.LocalObjectReference{
+					Name: utils.AlertsAdapterConfigMapName,
+				},
 			}
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -122,8 +126,10 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 
 		BeforeAll(func() {
 			enabledCR = cr.DeepCopy()
-			enabledCR.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{
-				Name: utils.AlertsAdapterConfigMapName,
+			enabledCR.Spec.OLSConfig.DeploymentConfig.AlertsAdapter = &olsv1alpha1.AlertsAdapterSpec{
+				ConfigMapRef: &corev1.LocalObjectReference{
+					Name: utils.AlertsAdapterConfigMapName,
+				},
 			}
 
 			cm := &corev1.ConfigMap{

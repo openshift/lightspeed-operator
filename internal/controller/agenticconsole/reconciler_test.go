@@ -105,8 +105,10 @@ var _ = Describe("Agentic Console UI reconciler", Ordered, func() {
 	It("should apply agentic console deployment overrides from the CR", func() {
 		olsConfig := &olsv1alpha1.OLSConfig{}
 		Expect(k8sClient.Get(ctx, crNamespacedName, olsConfig)).To(Succeed())
-		olsConfig.Spec.OLSConfig.DeploymentConfig.AgenticConsoleContainer.NodeSelector = map[string]string{
-			"agentic": "node",
+		olsConfig.Spec.OLSConfig.DeploymentConfig.AgenticConsoleContainer = &olsv1alpha1.Config{
+			NodeSelector: map[string]string{
+				"agentic": "node",
+			},
 		}
 
 		Expect(ReconcileAgenticConsoleUIDeployment(testReconcilerInstance, ctx, olsConfig)).To(Succeed())

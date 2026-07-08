@@ -431,13 +431,13 @@ type DeploymentConfig struct {
 	ConsoleContainer Config `json:"console,omitempty"`
 	// Agentic console plugin container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Agentic Console Deployment"
-	AgenticConsoleContainer Config `json:"agenticConsole,omitempty"`
+	AgenticConsoleContainer *Config `json:"agenticConsole,omitempty"`
 	// Database container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Deployment"
 	DatabaseContainer Config `json:"database,omitempty"`
 	// Alerts adapter deployment and runtime config reference.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Alerts Adapter"
-	AlertsAdapter AlertsAdapterSpec `json:"alertsAdapter,omitempty"`
+	AlertsAdapter *AlertsAdapterSpec `json:"alertsAdapter,omitempty"`
 }
 
 // AlertsAdapterSpec defines deployment settings and a reference to user-managed adapter runtime config.

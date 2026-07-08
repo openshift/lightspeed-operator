@@ -775,6 +775,9 @@ func ForEachExternalSecret(cr *olsv1alpha1.OLSConfig, fn func(name string, sourc
 // AlertsAdapterConfigMapRef returns the referenced ConfigMap name when the alerts adapter
 // is enabled (configMapRef set with a non-empty name). The bool is false when disabled.
 func AlertsAdapterConfigMapRef(cr *olsv1alpha1.OLSConfig) (name string, ok bool) {
+	if cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter == nil {
+		return "", false
+	}
 	ref := cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef
 	if ref == nil || ref.Name == "" {
 		return "", false

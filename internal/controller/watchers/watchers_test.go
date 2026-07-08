@@ -99,8 +99,10 @@ var _ = Describe("Watchers", func() {
 
 		It("returns true when alerts adapter configMapRef is set", func() {
 			cr := utils.GetDefaultOLSConfigCR()
-			cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{
-				Name: utils.AlertsAdapterConfigMapName,
+			cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter = &olsv1alpha1.AlertsAdapterSpec{
+				ConfigMapRef: &corev1.LocalObjectReference{
+					Name: utils.AlertsAdapterConfigMapName,
+				},
 			}
 			Expect(isConfigMapReferencedInCR(cr, utils.AlertsAdapterConfigMapName)).To(BeTrue())
 			Expect(isConfigMapReferencedInCR(cr, "other")).To(BeFalse())
@@ -337,8 +339,10 @@ var _ = Describe("Watchers", func() {
 
 		It("annotates alerts adapter runtime config when configMapRef is set", func() {
 			cr := utils.GetDefaultOLSConfigCR()
-			cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{
-				Name: utils.AlertsAdapterConfigMapName,
+			cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter = &olsv1alpha1.AlertsAdapterSpec{
+				ConfigMapRef: &corev1.LocalObjectReference{
+					Name: utils.AlertsAdapterConfigMapName,
+				},
 			}
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -395,8 +399,10 @@ var _ = Describe("Watchers", func() {
 
 		It("restarts the alerts adapter deployment for mapped configmap change", func() {
 			cr := utils.GetDefaultOLSConfigCR()
-			cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{
-				Name: utils.AlertsAdapterConfigMapName,
+			cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter = &olsv1alpha1.AlertsAdapterSpec{
+				ConfigMapRef: &corev1.LocalObjectReference{
+					Name: utils.AlertsAdapterConfigMapName,
+				},
 			}
 			dep := &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{

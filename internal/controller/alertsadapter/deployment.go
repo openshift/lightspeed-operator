@@ -16,15 +16,16 @@ import (
 )
 
 func getAlertsAdapterResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+	var userResources *corev1.ResourceRequirements
+	if cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter != nil {
+		userResources = cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.Resources
+	}
 	return utils.GetResourcesOrDefault(
-		cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.Resources,
+		userResources,
 		&corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
 				corev1.ResourceMemory: resource.MustParse("50Mi"),
-			},
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("100Mi"),
 			},
 		},
 	)
@@ -127,7 +128,11 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 		},
 	}
 
-	utils.ApplyPodDeploymentConfig(deployment, cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.Config, false)
+	var config olsv1alpha1.Config
+	if cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter != nil {
+		config = cr.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.Config
+	}
+	utils.ApplyPodDeploymentConfig(deployment, config, false)
 
 	if err := controllerutil.SetControllerReference(cr, deployment, r.GetScheme()); err != nil {
 		return nil, fmt.Errorf("%s: %w", utils.ErrSetAlertsAdapterDeploymentOwnerReference, err)

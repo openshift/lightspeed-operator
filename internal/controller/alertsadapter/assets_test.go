@@ -13,8 +13,10 @@ import (
 
 func crWithAlertsAdapterConfigMapRef() *olsv1alpha1.OLSConfig {
 	crWithRef := cr.DeepCopy()
-	crWithRef.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{
-		Name: utils.AlertsAdapterConfigMapName,
+	crWithRef.Spec.OLSConfig.DeploymentConfig.AlertsAdapter = &olsv1alpha1.AlertsAdapterSpec{
+		ConfigMapRef: &corev1.LocalObjectReference{
+			Name: utils.AlertsAdapterConfigMapName,
+		},
 	}
 	return crWithRef
 }
@@ -88,8 +90,10 @@ var _ = Describe("Alerts adapter assets", func() {
 	It("should not mount a config volume when configMapRef is set but the ConfigMap is missing", func() {
 		const missingConfigName = "missing-alerts-adapter-config"
 		crWithRef := cr.DeepCopy()
-		crWithRef.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{
-			Name: missingConfigName,
+		crWithRef.Spec.OLSConfig.DeploymentConfig.AlertsAdapter = &olsv1alpha1.AlertsAdapterSpec{
+			ConfigMapRef: &corev1.LocalObjectReference{
+				Name: missingConfigName,
+			},
 		}
 
 		deployment, err := GenerateDeployment(testReconcilerInstance, ctx, crWithRef)
