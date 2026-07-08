@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-07-08T02:40:54Z"
+    createdAt: "2026-07-08T11:57:18Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
