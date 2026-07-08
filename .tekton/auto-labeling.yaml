@@ -75,6 +75,28 @@ spec:
                        -H "Accept: application/vnd.github.v3+json" \
                        "https://api.github.com/repos/$(params.repo_owner)/$(params.repo_name)/issues/$(params.pr_number)/comments" \
                        -d "$(printf '{"body":"%s"}' "$comment_body")"
+                elif echo "$(params.pr_title)" | grep -q -i -w "spec"; then
+                  echo "PR title contains 'spec'. Applying labels..."
+
+                  label_output=$(curl -s -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+                       -H "Accept: application/vnd.github.v3+json" \
+                       "https://api.github.com/repos/$(params.repo_owner)/$(params.repo_name)/issues/$(params.pr_number)/labels" \
+                       -d '{"labels":["lgtm", "approved", "spec"]}' 2>&1)
+                  label_exit=$?
+
+                  if [[ $label_exit -eq 0 ]]; then
+                    comment_body='label added: `lgtm`, `approved`, `spec`'
+                  else
+                    escaped=${label_output//\\/\\\\}
+                    escaped=${escaped//\"/\\\"}
+                    escaped=${escaped//$'\n'/\\n}
+                    comment_body="Label add failed: ${escaped}"
+                  fi
+
+                  curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+                       -H "Accept: application/vnd.github.v3+json" \
+                       "https://api.github.com/repos/$(params.repo_owner)/$(params.repo_name)/issues/$(params.pr_number)/comments" \
+                       -d "$(printf '{"body":"%s"}' "$comment_body")"
                 else
                   echo "PR title does not match. Skipping labels. $(params.pr_title)"
                 fi
