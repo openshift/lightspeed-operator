@@ -50,7 +50,7 @@ Two ownership models:
 2. **External resources**: Watches() with custom predicates. Annotation-based filtering. Secret/ConfigMap handlers compare data and trigger deployment restarts.
 
 ### Finalizer Cleanup
-The `finalizeOLSConfig()` method removes Console UI, deletes alerts adapter operand resources via `alertsadapter.RemoveAlertsAdapter()` (deployment, namespaced RBAC, SA, NetworkPolicy, cross-namespace monitoring RoleBinding; proposals ClusterRole/ClusterRoleBinding when permitted—may remain on managed OpenShift if admission webhook blocks delete), then uses `listOwnedResources()` which queries every resource type by owner reference UID (not labels). This is more reliable than label-based cleanup. The wait loop polls with a fixed interval and timeout, using `wait.PollUntilContextTimeout`.
+The `finalizeOLSConfig()` method removes Console UI, deletes alerts adapter operand resources via `alertsadapter.RemoveAlertsAdapter()` (deployment, namespaced RBAC, SA, NetworkPolicy, cross-namespace monitoring RoleBinding; AgenticRun ClusterRole/ClusterRoleBinding when permitted—may remain on managed OpenShift if admission webhook blocks delete), then uses `listOwnedResources()` which queries every resource type by owner reference UID (not labels). This is more reliable than label-based cleanup. The wait loop polls with a fixed interval and timeout, using `wait.PollUntilContextTimeout`.
 
 ### Status Update Mechanics
 `UpdateStatusCondition()` uses `retry.RetryOnConflict` with `client.MergeFrom` patch. It preserves `LastTransitionTime` for conditions whose status hasn't changed. It re-fetches the CR before each update attempt to get the latest ResourceVersion.

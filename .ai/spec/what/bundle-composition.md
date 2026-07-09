@@ -27,7 +27,7 @@ The lightspeed-operator OLM bundle installs both the lightspeed-operator control
 
 11. The two controllers share no runtime state. They reconcile different CRDs (`ols.openshift.io` vs `agentic.openshift.io`).
 12. Feature gates on `OLSConfig` (`MCPServer`, `ToolFiltering`) have no effect on the agentic controller.
-13. The agentic controller is effectively inert until its CRs are created — it watches for `AgenticOLSConfig`, `Proposal`, and related CRs, but takes no action without them.
+13. The agentic controller is effectively inert until its CRs are created — it watches for `AgenticOLSConfig`, `AgenticRun`, and related CRs, but takes no action without them.
 
 ### Console Plugins
 

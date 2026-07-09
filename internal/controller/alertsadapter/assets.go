@@ -22,17 +22,17 @@ func GenerateServiceAccount(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) 
 	return utils.GenerateServiceAccount(r, cr, utils.AlertsAdapterServiceAccountName)
 }
 
-// GenerateProposalsClusterRole generates the ClusterRole granting proposal create/list/get access.
-func GenerateProposalsClusterRole(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRole, error) {
+// GenerateAgenticRunsClusterRole generates the ClusterRole granting AgenticRun create/list/get access.
+func GenerateAgenticRunsClusterRole(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRole, error) {
 	role := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   utils.AlertsAdapterProposalsClusterRoleName,
+			Name:   utils.AlertsAdapterAgenticRunsClusterRoleName,
 			Labels: utils.GenerateAlertsAdapterSelectorLabels(),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{"agentic.openshift.io"},
-				Resources: []string{"proposals"},
+				Resources: []string{"agenticruns"},
 				Verbs:     []string{"create", "list", "get"},
 			},
 		},
@@ -45,11 +45,11 @@ func GenerateProposalsClusterRole(r reconciler.Reconciler, cr *olsv1alpha1.OLSCo
 	return &role, nil
 }
 
-// GenerateProposalsClusterRoleBinding binds the alerts adapter ServiceAccount to the proposals ClusterRole.
-func GenerateProposalsClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRoleBinding, error) {
+// GenerateAgenticRunsClusterRoleBinding binds the alerts adapter ServiceAccount to the AgenticRun ClusterRole.
+func GenerateAgenticRunsClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRoleBinding, error) {
 	rb := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   utils.AlertsAdapterProposalsClusterRoleBindingName,
+			Name:   utils.AlertsAdapterAgenticRunsClusterRoleBindingName,
 			Labels: utils.GenerateAlertsAdapterSelectorLabels(),
 		},
 		Subjects: []rbacv1.Subject{
@@ -62,7 +62,7 @@ func GenerateProposalsClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alpha
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     utils.AlertsAdapterProposalsClusterRoleName,
+			Name:     utils.AlertsAdapterAgenticRunsClusterRoleName,
 		},
 	}
 

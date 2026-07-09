@@ -41,8 +41,8 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 	It("detects OpenShift managed ClusterRoleBinding delete denial", func() {
 		webhookErr := apierrors.NewForbidden(
 			schema.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
-			"lightspeed-agentic-alerts-adapter-proposals",
-			fmt.Errorf(`admission webhook "clusterrolebindings-validation.managed.openshift.io" denied the request: Deleting ClusterRoleBinding lightspeed-agentic-alerts-adapter-proposals is not allowed`),
+			"lightspeed-agentic-alerts-adapter-agenticruns",
+			fmt.Errorf(`admission webhook "clusterrolebindings-validation.managed.openshift.io" denied the request: Deleting ClusterRoleBinding lightspeed-agentic-alerts-adapter-agenticruns is not allowed`),
 		)
 		Expect(isOpenShiftManagedCRBDeleteDenied(webhookErr)).To(BeTrue())
 		Expect(isOpenShiftManagedCRBDeleteDenied(fmt.Errorf("some other error"))).To(BeFalse())
@@ -165,14 +165,14 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 			expectOwnedByOLSConfig(sa)
 		})
 
-		It("should create the proposals ClusterRole and ClusterRoleBinding", func() {
+		It("should create the agenticruns ClusterRole and ClusterRoleBinding", func() {
 			role := &rbacv1.ClusterRole{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.AlertsAdapterProposalsClusterRoleName}, role)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.AlertsAdapterAgenticRunsClusterRoleName}, role)
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(role)
 
 			rb := &rbacv1.ClusterRoleBinding{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.AlertsAdapterProposalsClusterRoleBindingName}, rb)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.AlertsAdapterAgenticRunsClusterRoleBindingName}, rb)
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(rb)
 		})
@@ -277,7 +277,7 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 
 			role := &rbacv1.ClusterRole{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.AlertsAdapterProposalsClusterRoleName}, role)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.AlertsAdapterAgenticRunsClusterRoleName}, role)
 			Expect(err).To(HaveOccurred())
 		})
 	})
