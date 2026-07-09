@@ -389,6 +389,8 @@ func reconcileMCPService(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 			if err := r.Delete(ctx, foundService); err != nil {
 				return fmt.Errorf("%s: %w", utils.ErrDeleteMCPServerService, err)
 			}
+		} else if !errors.IsNotFound(getErr) {
+			return fmt.Errorf("%s: %w", utils.ErrGetMCPServerService, getErr)
 		}
 		return nil
 	}
@@ -413,7 +415,9 @@ func reconcileMCPService(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		return nil
 	}
 
-	if err := r.Update(ctx, service); err != nil {
+	foundService.Spec = service.Spec
+	foundService.Labels = service.Labels
+	if err := r.Update(ctx, foundService); err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateMCPServerService, err)
 	}
 	r.GetLogger().Info("MCP server service reconciled", "service", service.Name)

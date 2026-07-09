@@ -392,6 +392,56 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred(), "MCP server Service should be re-created when introspection is re-enabled")
 		})
 
+		It("should create MCP server Service when introspectionEnabled is nil (default true)", func() {
+			By("Set introspectionEnabled to nil")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err := k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = nil
+
+			By("Reconcile the app server")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify MCP server Service exists")
+			mcpSvc := &corev1.Service{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerServiceName, Namespace: utils.OLSNamespaceDefault}, mcpSvc)
+			Expect(err).NotTo(HaveOccurred(), "MCP server Service should exist when introspectionEnabled is nil (defaults to true)")
+			Expect(mcpSvc.Spec.Ports).To(HaveLen(1))
+			Expect(mcpSvc.Spec.Ports[0].Port).To(Equal(int32(utils.OpenShiftMCPServerServicePort)))
+		})
+
+		It("should update MCP server Service when spec drifts", func() {
+			By("Ensure introspection is enabled and service exists")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err := k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
+
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Mutate the service to simulate drift")
+			mcpSvc := &corev1.Service{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerServiceName, Namespace: utils.OLSNamespaceDefault}, mcpSvc)
+			Expect(err).NotTo(HaveOccurred())
+			mcpSvc.Spec.Ports[0].Port = 9999
+			err = k8sClient.Update(ctx, mcpSvc)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile again with introspection still enabled")
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify service was corrected")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerServiceName, Namespace: utils.OLSNamespaceDefault}, mcpSvc)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(mcpSvc.Spec.Ports[0].Port).To(Equal(int32(utils.OpenShiftMCPServerServicePort)), "Service port should be restored after drift")
+		})
+
 		It("should trigger rolling update of the deployment when updating the nodeselector ", func() {
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}

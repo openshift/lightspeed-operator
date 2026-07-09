@@ -975,7 +975,7 @@ var _ = Describe("App server assets", func() {
 			Expect(np.Name).To(Equal(utils.OLSAppServerNetworkPolicyName))
 			Expect(np.Namespace).To(Equal(utils.OLSNamespaceDefault))
 			Expect(np.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
-			Expect(np.Spec.Ingress).To(HaveLen(3))
+			Expect(np.Spec.Ingress).To(HaveLen(4))
 			// allow prometheus to scrape metrics
 			Expect(np.Spec.Ingress).To(ContainElement(networkingv1.NetworkPolicyIngressRule{
 				From: []networkingv1.NetworkPolicyPeer{
@@ -1047,6 +1047,28 @@ var _ = Describe("App server assets", func() {
 					{
 						Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
 						Port:     &[]intstr.IntOrString{intstr.FromInt(utils.OLSAppServerContainerPort)}[0],
+					},
+				},
+			}))
+			// allow agentic sandbox pods to access the MCP server sidecar
+			Expect(np.Spec.Ingress).To(ContainElement(networkingv1.NetworkPolicyIngressRule{
+				From: []networkingv1.NetworkPolicyPeer{
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "agentic.openshift.io/proposal",
+									Operator: metav1.LabelSelectorOpExists,
+								},
+							},
+						},
+						NamespaceSelector: &metav1.LabelSelector{},
+					},
+				},
+				Ports: []networkingv1.NetworkPolicyPort{
+					{
+						Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+						Port:     &[]intstr.IntOrString{intstr.FromInt(utils.OpenShiftMCPServerPort)}[0],
 					},
 				},
 			}))
