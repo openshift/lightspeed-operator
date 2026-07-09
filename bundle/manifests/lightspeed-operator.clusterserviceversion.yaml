@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-07-08T11:57:18Z"
+    createdAt: "2026-07-08T23:46:33Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -928,7 +928,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:4891c6e29c1567a90c3754256186d903c059644ac4212019e592d6d480efda63
+                    image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:bd5f9be83f5e0e67a9e2c630d0a94ae2099136d50332d3755896d9b4ac175738
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1011,7 +1011,13 @@ spec:
                 - rolebindings
                 - roles
               verbs:
-                - '*'
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
           serviceAccountName: lightspeed-operator-controller-manager
     strategy: deployment
   installModes:
@@ -1047,7 +1053,7 @@ spec:
     - name: lightspeed-console-plugin
       image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:f987b02ad62099c5aee760c038135f50c959249cb09154dd89a27e52df6f77c9
     - name: lightspeed-operator
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:4891c6e29c1567a90c3754256186d903c059644ac4212019e592d6d480efda63
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:bd5f9be83f5e0e67a9e2c630d0a94ae2099136d50332d3755896d9b4ac175738
     - name: openshift-mcp-server
       image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:ca69b8efcf97bf02bbcda126b7787dd658841ee00203a86ee22e3f36ff73c7ce
     - name: lightspeed-ocp-rag
