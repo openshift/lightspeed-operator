@@ -24,6 +24,9 @@ func TestOpenShiftMCPServerConfigTOML(t *testing.T) {
 		t.Error("TOML config should use denied_resources table array syntax")
 	}
 
+	if !strings.Contains(config, "read_only = false") {
+		t.Error("TOML config must set read_only = false to override openshift-mcp-server-rhel9 build defaults")
+	}
 	if !strings.Contains(config, `toolsets = ["core", "config", "helm", "metrics"]`) {
 		t.Error("TOML config should pin default toolsets explicitly")
 	}
