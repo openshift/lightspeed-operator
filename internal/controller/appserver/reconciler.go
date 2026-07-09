@@ -395,7 +395,7 @@ func reconcileMCPService(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 
 	service, err := GenerateMCPService(r, cr)
 	if err != nil {
-		return fmt.Errorf("failed to generate MCP server service: %w", err)
+		return fmt.Errorf("%s: %w", utils.ErrGenerateMCPServerService, err)
 	}
 
 	if getErr != nil && errors.IsNotFound(getErr) {

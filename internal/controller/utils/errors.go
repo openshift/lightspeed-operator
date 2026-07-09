@@ -148,8 +148,9 @@ const (
 	ErrUpdateMCPServerConfigMap = "failed to update MCP server config configmap"
 
 	// OpenShift MCP server service errors
-	ErrCreateMCPServerService = "failed to create MCP server service"
-	ErrDeleteMCPServerService = "failed to delete MCP server service"
-	ErrGetMCPServerService    = "failed to get MCP server service"
-	ErrUpdateMCPServerService = "failed to update MCP server service"
+	ErrCreateMCPServerService   = "failed to create MCP server service"
+	ErrDeleteMCPServerService   = "failed to delete MCP server service"
+	ErrGenerateMCPServerService = "failed to generate MCP server service"
+	ErrGetMCPServerService      = "failed to get MCP server service"
+	ErrUpdateMCPServerService   = "failed to update MCP server service"
 )

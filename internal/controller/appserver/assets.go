@@ -969,6 +969,28 @@ func GenerateAppServerNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 						},
 					},
 				},
+				{
+					// allow agentic sandbox pods to access the MCP server sidecar
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "agentic.openshift.io/proposal",
+										Operator: metav1.LabelSelectorOpExists,
+									},
+								},
+							},
+							NamespaceSelector: &metav1.LabelSelector{},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]intstr.IntOrString{intstr.FromInt(utils.OpenShiftMCPServerPort)}[0],
+						},
+					},
+				},
 			},
 			Egress: []networkingv1.NetworkPolicyEgressRule{},
 			PolicyTypes: []networkingv1.PolicyType{
