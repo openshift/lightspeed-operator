@@ -113,8 +113,12 @@ CONTROLLER_GEN_PATHS = paths=./api/... paths=./internal/... paths=./cmd/...
 # containers_image_openpgp avoids gpgme CGO so e2e builds on minimal images without gpgme-devel.
 E2E_GO_TAGS := exclude_graphdriver_btrfs,containers_image_openpgp
 
+.PHONY: generate-deployment-patch
+generate-deployment-patch: jq ## Generate config/default/deployment-patch.yaml from related_images.json.
+	./hack/generate_deployment_patch.sh
+
 .PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: generate-deployment-patch controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook $(CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
@@ -309,10 +313,6 @@ deploy: manifests kustomize jq ## Deploy controller to the K8s cluster specified
 		echo "error: related_images.json not found"; \
 		exit 1; \
 	fi; \
-	if [ ! -f "hack/image_placeholders.json" ]; then \
-		echo "error: hack/image_placeholders.json not found"; \
-		exit 1; \
-	fi; \
 	if [ ! -f "$(PATCH_FILE)" ]; then \
 		echo "error: $(PATCH_FILE) not found"; \
 		exit 1; \
@@ -324,17 +324,11 @@ deploy: manifests kustomize jq ## Deploy controller to the K8s cluster specified
 		echo "error: operator image not found in related_images.json; set IMG (e.g. make deploy IMG=myregistry/my-operator:mytag)"; \
 		exit 1; \
 	fi; \
-	sed -i "s|__REPLACE_LIGHTSPEED_OPERATOR__|$$OPERATOR_IMG|g" $(PATCH_FILE); \
-	sed -i "/path: \/spec\/template\/spec\/containers\/0\/image/{n;s|value: .*|value: $$OPERATOR_IMG|}" $(PATCH_FILE); \
-	$(JQ) -r '.[] | "\(.name)|\(.placeholder)"' hack/image_placeholders.json | while IFS='|' read -r name placeholder; do \
-		if [ "$$name" != "lightspeed-operator" ]; then \
-			img=$$($(JQ) -r --arg n "$$name" '.[] | select(.name==$$n) | .image' related_images.json); \
-			if [ -n "$$img" ] && [ "$$img" != "null" ]; then \
-				sed -i "s|$$placeholder|$$img|g" $(PATCH_FILE); \
-			fi; \
-		fi; \
-	done
+	# shellcheck source=hack/image_args_lib.sh \
+	. ./hack/image_args_lib.sh; \
+	image_args::substitute_deployment_patch "$(PATCH_FILE)" related_images.json "$$OPERATOR_IMG" "$(JQ)"
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+	@git checkout -- $(PATCH_FILE) 2>/dev/null || true
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.

@@ -37,7 +37,7 @@ The lightspeed-operator OLM bundle installs both the lightspeed-operator control
 ### Agentic Operand Deployment
 
 16. The lightspeed-operator reconciles the agentic console plugin as a fully managed operand: Phase 1/2 reconciliation, `AgenticConsolePluginReady` status condition, health monitoring, and finalizer cleanup via `RemoveAgenticConsole()`. The lightspeed-operator reconciles the agentic alerts adapter as a fully managed operand (OLS-3348, opt-in via `spec.ols.deployment.alertsAdapter.configMapRef`): Phase 1/2 reconciliation when enabled, `AlertsAdapterReady` status condition (`NotConfigured` when disabled), health monitoring, operand teardown on disable, ConfigMap watcher restarts, and finalizer cleanup via `RemoveAlertsAdapter()`.
-17. Agentic operand images default from `related_images.json` (via `GetDefaultImage` in `constants.go`) and are passed to the operator through CSV deployment args: `--agentic-console-image` (`lightspeed-agentic-console-plugin`) and `--alerts-adapter-image` (`lightspeed-agentic-alerts-adapter`). Images are substituted by `hack/update_bundle.sh` from `hack/image_placeholders.json` and `config/default/deployment-patch.yaml`. Until Konflux productizes both operands, images may use interim Konflux `:main` or other non-`registry.redhat.io` references.
+17. Operand images default from `related_images.json` (via `GetDefaultImage` in `constants.go`) and are passed to the operator through CSV deployment args defined by `operator_arg` on each `related_images.json` entry. `config/default/deployment-patch.yaml` is generated from that file (`make manifests`); `hack/update_bundle.sh` substitutes digests at bundle time.
 
 ## Configuration Surface
 

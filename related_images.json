@@ -2,11 +2,13 @@
   {
     "name": "lightspeed-to-dataverse-exporter",
     "image": "registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2",
-    "revision": ""
+    "revision": "",
+    "operator_arg": "dataverse-exporter-image"
   },
   {
     "name": "lightspeed-postgresql",
-    "image": "registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b"
+    "image": "registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b",
+    "operator_arg": "postgres-image"
   },
   {
     "name": "lightspeed-operator-bundle",
@@ -20,26 +22,46 @@
   {
     "name": "lightspeed-service-api",
     "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:fd5a69605caa32df02095d17ab75a2353e704562e9b521df8632a0ebc50d2a55",
-    "revision": "e2a260e8563b3d3ffc902b0223f882aa7cab4bbc"
+    "revision": "e2a260e8563b3d3ffc902b0223f882aa7cab4bbc",
+    "operator_arg": "service-image"
   },
   {
     "name": "lightspeed-console-plugin",
     "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:f987b02ad62099c5aee760c038135f50c959249cb09154dd89a27e52df6f77c9",
-    "revision": "6e2fdb76245e7f9d9db0ebd92f0df955926180c3"
+    "revision": "6e2fdb76245e7f9d9db0ebd92f0df955926180c3",
+    "operator_arg": "console-image"
   },
   {
     "name": "lightspeed-operator",
     "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:71a13f528f4af0ac81841a9b20e4c7391effd2541e354064c9fb6d94a4553513",
-    "revision": "7bc611cb27c41687f49d33c7614e652b1af7ff3e"
+    "revision": "7bc611cb27c41687f49d33c7614e652b1af7ff3e",
+    "operator_target": "image"
   },
   {
     "name": "openshift-mcp-server",
     "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:ca69b8efcf97bf02bbcda126b7787dd658841ee00203a86ee22e3f36ff73c7ce",
-    "revision": "28f017bae33375fe968fef6e035ec05f19b2fcc2"
+    "revision": "28f017bae33375fe968fef6e035ec05f19b2fcc2",
+    "operator_arg": "openshift-mcp-server-image"
   },
   {
     "name": "lightspeed-ocp-rag",
     "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag@sha256:7155419a17b950e48266e18da7328cc127d44a4923e76c66295b6079ea3f93d2",
-    "revision": "bd294b432c80a6386a90d075201a29253c2aecec"
+    "revision": "bd294b432c80a6386a90d075201a29253c2aecec",
+    "operator_arg": "ocp-rag-image"
+  },
+  {
+    "name": "lightspeed-agentic-console-plugin",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main",
+    "operator_arg": "agentic-console-image"
+  },
+  {
+    "name": "lightspeed-agentic-alerts-adapter",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main",
+    "operator_arg": "alerts-adapter-image"
+  },
+  {
+    "name": "rhokp",
+    "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest",
+    "operator_arg": "rhokp-image"
   }
 ]
