@@ -38,6 +38,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 
 ### Service and Networking
 18. The service exposes HTTPS on the configured port.
+18a. When `spec.ols.introspectionEnabled` is true, a cluster-internal Service named `openshift-mcp-server` is created targeting port 8080 on app server pods (the MCP sidecar). When introspection is disabled, the Service is deleted. The Service lifecycle follows the same reconciliation pattern as other operator-managed Services.
 19. The network policy allows ingress from: Prometheus (openshift-monitoring), OpenShift Console (openshift-console), and ingress controllers.
 20. Egress is unrestricted (empty egress rules).
 

@@ -345,6 +345,53 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(forceReloadValue).NotTo(BeEmpty(), "Pod template restart annotation should be set to trigger rolling update")
 		})
 
+		It("should create MCP server Service when introspection is enabled and delete when disabled", func() {
+			By("Enable introspection")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err := k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
+
+			By("Reconcile the app server")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify MCP server Service exists")
+			mcpSvc := &corev1.Service{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerServiceName, Namespace: utils.OLSNamespaceDefault}, mcpSvc)
+			Expect(err).NotTo(HaveOccurred(), "MCP server Service should exist when introspection is enabled")
+			Expect(mcpSvc.Spec.Ports).To(HaveLen(1))
+			Expect(mcpSvc.Spec.Ports[0].Port).To(Equal(int32(utils.OpenShiftMCPServerServicePort)))
+			Expect(mcpSvc.Spec.Ports[0].Name).To(Equal("mcp"))
+			Expect(mcpSvc.Spec.Selector).To(Equal(utils.GenerateAppServerSelectorLabels()))
+
+			By("Disable introspection")
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
+
+			By("Reconcile with introspection disabled")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify MCP server Service was deleted")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerServiceName, Namespace: utils.OLSNamespaceDefault}, mcpSvc)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "MCP server Service should be deleted when introspection is disabled")
+
+			By("Re-enable introspection")
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
+
+			By("Reconcile with introspection re-enabled")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify MCP server Service was re-created")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OpenShiftMCPServerServiceName, Namespace: utils.OLSNamespaceDefault}, mcpSvc)
+			Expect(err).NotTo(HaveOccurred(), "MCP server Service should be re-created when introspection is re-enabled")
+		})
+
 		It("should trigger rolling update of the deployment when updating the nodeselector ", func() {
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}

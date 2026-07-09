@@ -743,6 +743,34 @@ func GenerateService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev
 	return &service, nil
 }
 
+// GenerateMCPService generates a cluster-internal Service that exposes the ocp-mcp sidecar
+// so that agentic sandbox pods can reach it via in-cluster DNS.
+func GenerateMCPService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
+	service := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.OpenShiftMCPServerServiceName,
+			Namespace: r.GetNamespace(),
+			Labels:    utils.GenerateAppServerSelectorLabels(),
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "mcp",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       utils.OpenShiftMCPServerServicePort,
+					TargetPort: intstr.FromInt32(utils.OpenShiftMCPServerPort),
+				},
+			},
+			Selector: utils.GenerateAppServerSelectorLabels(),
+		},
+	}
+	if err := controllerutil.SetControllerReference(cr, &service, r.GetScheme()); err != nil {
+		return nil, err
+	}
+
+	return &service, nil
+}
+
 func GenerateServiceMonitor(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*monv1.ServiceMonitor, error) {
 	metaLabels := utils.GenerateAppServerSelectorLabels()
 	metaLabels["monitoring.openshift.io/collection-profile"] = "full"

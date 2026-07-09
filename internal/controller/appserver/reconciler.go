@@ -130,6 +130,10 @@ func ReconcileAppServerDeployment(r reconciler.Reconciler, ctx context.Context, 
 			Task: reconcileService,
 		},
 		{
+			Name: "reconcile MCP Server Service",
+			Task: reconcileMCPService,
+		},
+		{
 			Name: "reconcile App TLS Certs",
 			Task: ReconcileTLSSecret,
 		},
@@ -370,6 +374,49 @@ func reconcileService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alp
 	}
 
 	r.GetLogger().Info("OLS service reconciled", "service", service.Name)
+	return nil
+}
+
+// reconcileMCPService creates/updates the cluster-internal Service for the ocp-mcp sidecar
+// when introspection is enabled, and deletes it when introspection is disabled.
+func reconcileMCPService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	foundService := &corev1.Service{}
+	getErr := r.Get(ctx, client.ObjectKey{Name: utils.OpenShiftMCPServerServiceName, Namespace: r.GetNamespace()}, foundService)
+
+	if !utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
+		if getErr == nil {
+			r.GetLogger().Info("deleting MCP server service", "service", utils.OpenShiftMCPServerServiceName)
+			if err := r.Delete(ctx, foundService); err != nil {
+				return fmt.Errorf("%s: %w", utils.ErrDeleteMCPServerService, err)
+			}
+		}
+		return nil
+	}
+
+	service, err := GenerateMCPService(r, cr)
+	if err != nil {
+		return fmt.Errorf("failed to generate MCP server service: %w", err)
+	}
+
+	if getErr != nil && errors.IsNotFound(getErr) {
+		r.GetLogger().Info("creating MCP server service", "service", service.Name)
+		if err := r.Create(ctx, service); err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrCreateMCPServerService, err)
+		}
+		return nil
+	} else if getErr != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGetMCPServerService, getErr)
+	}
+
+	if utils.ServiceEqual(foundService, service) {
+		r.GetLogger().Info("MCP server service unchanged, reconciliation skipped", "service", service.Name)
+		return nil
+	}
+
+	if err := r.Update(ctx, service); err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrUpdateMCPServerService, err)
+	}
+	r.GetLogger().Info("MCP server service reconciled", "service", service.Name)
 	return nil
 }
 
