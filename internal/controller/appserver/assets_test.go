@@ -1341,8 +1341,6 @@ var _ = Describe("App server assets", func() {
 				"/openshift-mcp-server",
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
-				"--tls-cert-file", path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"),
-				"--tls-key-file", path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"),
 			}))
 			Expect(openshiftMCPServerContainer.SecurityContext).To(Equal(utils.RestrictedContainerSecurityContext()))
 			Expect(openshiftMCPServerContainer.Resources).To(Equal(corev1.ResourceRequirements{
@@ -1448,8 +1446,6 @@ var _ = Describe("App server assets", func() {
 				"/openshift-mcp-server",
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
-				"--tls-cert-file", path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"),
-				"--tls-key-file", path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"),
 			}))
 			Expect(mcpContainer.Resources).To(Equal(corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},

@@ -508,9 +508,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		configVolume, configMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
 
-		tlsCertFile := path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt")
-		tlsKeyFile := path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key")
-
 		tlsVolume := corev1.Volume{
 			Name: utils.OpenShiftMCPServerTLSVolumeName,
 			VolumeSource: corev1.VolumeSource{
@@ -536,8 +533,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 				"/openshift-mcp-server",
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
-				"--tls-cert-file", tlsCertFile,
-				"--tls-key-file", tlsKeyFile,
 			},
 			Resources: *mcp_server_resources,
 		}

@@ -27,6 +27,9 @@ const OpenShiftMCPServerConfigTOML = `# Denied resources prevent the MCP server 
 
 toolsets = ["core", "config", "helm", "metrics"]
 
+tls_cert = "/etc/certs/mcp-server-tls/tls.crt"
+tls_key = "/etc/certs/mcp-server-tls/tls.key"
+
 [[denied_resources]]
 group = ""
 version = "v1"

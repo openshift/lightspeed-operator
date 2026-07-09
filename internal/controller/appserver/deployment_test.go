@@ -150,8 +150,6 @@ var _ = Describe("App server deployment generation", func() {
 				"/openshift-mcp-server",
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
-				"--tls-cert-file", path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"),
-				"--tls-key-file", path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"),
 			}))
 
 			By("Disabling introspection")
@@ -227,8 +225,6 @@ var _ = Describe("App server deployment generation", func() {
 				"/openshift-mcp-server",
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
-				"--tls-cert-file", path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"),
-				"--tls-key-file", path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"),
 			}))
 		})
 	})

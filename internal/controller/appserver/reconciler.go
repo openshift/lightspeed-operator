@@ -410,13 +410,15 @@ func reconcileMCPService(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		return fmt.Errorf("%s: %w", utils.ErrGetMCPServerService, getErr)
 	}
 
-	if utils.ServiceEqual(foundService, service) {
+	if utils.ServiceEqual(foundService, service) &&
+		foundService.Annotations[utils.ServingCertSecretAnnotationKey] == service.Annotations[utils.ServingCertSecretAnnotationKey] {
 		r.GetLogger().Info("MCP server service unchanged, reconciliation skipped", "service", service.Name)
 		return nil
 	}
 
 	foundService.Spec = service.Spec
 	foundService.Labels = service.Labels
+	foundService.Annotations = service.Annotations
 	if err := r.Update(ctx, foundService); err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrUpdateMCPServerService, err)
 	}
