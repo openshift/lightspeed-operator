@@ -362,7 +362,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred(), "MCP server Service should exist when introspection is enabled")
 			Expect(mcpSvc.Spec.Ports).To(HaveLen(1))
 			Expect(mcpSvc.Spec.Ports[0].Port).To(Equal(int32(utils.OpenShiftMCPServerServicePort)))
-			Expect(mcpSvc.Spec.Ports[0].Name).To(Equal("mcp"))
+			Expect(mcpSvc.Spec.Ports[0].Name).To(Equal("https"))
 			Expect(mcpSvc.Spec.Selector).To(Equal(utils.GenerateAppServerSelectorLabels()))
 
 			By("Disable introspection")
