@@ -363,12 +363,19 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
 	// MCP server URL (localhost, used by the app server to reach the co-located sidecar)
 	OpenShiftMCPServerURL = "http://localhost:%d/mcp"
-	// MCP server port
-	OpenShiftMCPServerPort = 8080
+	// MCP server port (HTTPS via service-ca TLS)
+	OpenShiftMCPServerPort = 8443
 	// OpenShiftMCPServerServiceName is the cluster-internal Service exposing the ocp-mcp sidecar
 	OpenShiftMCPServerServiceName = "openshift-mcp-server"
 	// OpenShiftMCPServerServicePort is the Service port for the ocp-mcp sidecar
-	OpenShiftMCPServerServicePort = 8080
+	OpenShiftMCPServerServicePort = 8443
+	// OpenShiftMCPServerCertsSecretName is the TLS secret auto-provisioned by service-ca for the MCP sidecar
+	// #nosec G101
+	OpenShiftMCPServerCertsSecretName = "openshift-mcp-server-tls"
+	// OpenShiftMCPServerTLSMountPath is where the TLS cert/key are mounted in the MCP sidecar
+	OpenShiftMCPServerTLSMountPath = "/etc/certs/mcp-server-tls"
+	// OpenShiftMCPServerTLSVolumeName is the volume name for the MCP server TLS secret
+	OpenShiftMCPServerTLSVolumeName = "mcp-server-tls"
 	// MCP server timeout, sec
 	OpenShiftMCPServerTimeout = 60
 	// MCP server SSE read timeout, sec

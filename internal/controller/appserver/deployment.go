@@ -504,24 +504,44 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 
 	// Add OpenShift MCP server sidecar container if introspection is enabled.
 	// The sidecar is configured with a TOML config that denies access to Secret resources,
-	// preventing secret data from reaching the LLM.
+	// preventing secret data from reaching the LLM. TLS is provided by the service-ca operator.
 	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		configVolume, configMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
+
+		tlsCertFile := path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt")
+		tlsKeyFile := path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key")
+
+		tlsVolume := corev1.Volume{
+			Name: utils.OpenShiftMCPServerTLSVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  utils.OpenShiftMCPServerCertsSecretName,
+					DefaultMode: &volumeDefaultMode,
+				},
+			},
+		}
+		tlsMount := corev1.VolumeMount{
+			Name:      utils.OpenShiftMCPServerTLSVolumeName,
+			MountPath: utils.OpenShiftMCPServerTLSMountPath,
+			ReadOnly:  true,
+		}
 
 		openshiftMCPServerSidecarContainer := corev1.Container{
 			Name:            "openshift-mcp-server",
 			Image:           r.GetOpenShiftMCPServerImage(),
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			SecurityContext: utils.RestrictedContainerSecurityContext(),
-			VolumeMounts:    []corev1.VolumeMount{configMount},
+			VolumeMounts:    []corev1.VolumeMount{configMount, tlsMount},
 			Command: []string{
 				"/openshift-mcp-server",
 				"--config", utils.GetOpenShiftMCPServerConfigPath(),
 				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
+				"--tls-cert-file", tlsCertFile,
+				"--tls-key-file", tlsKeyFile,
 			},
 			Resources: *mcp_server_resources,
 		}
-		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, configVolume)
+		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, configVolume, tlsVolume)
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, openshiftMCPServerSidecarContainer)
 	}
 

@@ -2,28 +2,22 @@
 # make deploy and hack/update_bundle.sh substitute these from related_images.json (and IMG for operator).
 - op: add
   path: /spec/template/spec/containers/0/args/-
-  value: --service-image=__REPLACE_LIGHTSPEED_SERVICE_API__
+  value: --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:92e6c4726f2370ffb222246dd3ec188f15e4d1f99dafdf78a22332cf0bff6733
 - op: add
   path: /spec/template/spec/containers/0/args/-
-  value: --console-image=__REPLACE_LIGHTSPEED_CONSOLE_PLUGIN__
+  value: --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:020735d5c17b37c9bff8d586ad52c0057cbaef0d5b28a0a584b83d2dcab73f67
 - op: add
   path: /spec/template/spec/containers/0/args/-
-  value: --postgres-image=__REPLACE_LIGHTSPEED_POSTGRESQL__
+  value: --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
 - op: add
   path: /spec/template/spec/containers/0/args/-
-  value: --openshift-mcp-server-image=__REPLACE_OPENSHIFT_MCP_SERVER__
+  value: --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:41a659779aa434a0c1b3769f0d0a7ae034461de453aa19ed0e4e8134956b0e8e
 - op: add
   path: /spec/template/spec/containers/0/args/-
-  value: --dataverse-exporter-image=__REPLACE_LIGHTSPEED_TO_DATAVERSE_EXPORTER__
+  value: --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
 - op: add
   path: /spec/template/spec/containers/0/args/-
-  value: --ocp-rag-image=__REPLACE_LIGHTSPEED_OCP_RAG__
-- op: add
-  path: /spec/template/spec/containers/0/args/-
-  value: --agentic-console-image=__REPLACE_LIGHTSPEED_AGENTIC_CONSOLE_PLUGIN__
-- op: add
-  path: /spec/template/spec/containers/0/args/-
-  value: --alerts-adapter-image=__REPLACE_LIGHTSPEED_AGENTIC_ALERTS_ADAPTER__
+  value: --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:7155419a17b950e48266e18da7328cc127d44a4923e76c66295b6079ea3f93d2
 - op: replace
   path: /spec/template/spec/containers/0/image
-  value: __REPLACE_LIGHTSPEED_OPERATOR__
+  value: quay.io/ometelka/lightspeed-operator:ols-3443

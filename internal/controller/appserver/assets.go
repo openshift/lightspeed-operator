@@ -745,17 +745,21 @@ func GenerateService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev
 
 // GenerateMCPService generates a cluster-internal Service that exposes the ocp-mcp sidecar
 // so that agentic sandbox pods can reach it via in-cluster DNS.
+// The Service is annotated for the service-ca operator to provision a TLS certificate.
 func GenerateMCPService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OpenShiftMCPServerServiceName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GenerateAppServerSelectorLabels(),
+			Annotations: map[string]string{
+				utils.ServingCertSecretAnnotationKey: utils.OpenShiftMCPServerCertsSecretName,
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "mcp",
+					Name:       "https",
 					Protocol:   corev1.ProtocolTCP,
 					Port:       utils.OpenShiftMCPServerServicePort,
 					TargetPort: intstr.FromInt32(utils.OpenShiftMCPServerPort),
