@@ -193,6 +193,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
+var _ = BeforeEach(func() {
+	if tr, ok := testReconcilerInstance.(*utils.TestReconciler); ok {
+		tr.SetRosaOKPProductEnv(nil)
+	}
+})
+
 func deploymentContainerCount(base int) int {
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
 		return base + 1

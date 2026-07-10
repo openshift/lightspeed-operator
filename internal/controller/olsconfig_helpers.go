@@ -81,6 +81,10 @@ func (r *OLSConfigReconciler) GetRHOOKPImage() string {
 	return r.Options.RHOOKPImage
 }
 
+func (r *OLSConfigReconciler) GetRosaOKPProductEnv() *corev1.EnvVar {
+	return r.Options.RosaOKPProductEnv
+}
+
 func (r *OLSConfigReconciler) IsPrometheusAvailable() bool {
 	return r.Options.PrometheusAvailable
 }

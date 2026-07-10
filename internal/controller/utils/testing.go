@@ -2,6 +2,7 @@ package utils
 
 import (
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,6 +25,7 @@ type TestReconciler struct {
 	McpServerImage      string
 	DataverseExporter   string
 	RhokpImage          string
+	rosaOKPProductEnv   *corev1.EnvVar
 	openShiftMajor      string
 	openShiftMinor      string
 	PrometheusAvailable bool
@@ -82,6 +84,10 @@ func (r *TestReconciler) GetRHOOKPImage() string {
 	return r.RhokpImage
 }
 
+func (r *TestReconciler) GetRosaOKPProductEnv() *corev1.EnvVar {
+	return r.rosaOKPProductEnv
+}
+
 func (r *TestReconciler) IsPrometheusAvailable() bool {
 	return r.PrometheusAvailable
 }
@@ -92,6 +98,10 @@ func (r *TestReconciler) GetWatcherConfig() interface{} {
 
 func (r *TestReconciler) SetWatcherConfig(config interface{}) {
 	r.watcherConfig = config
+}
+
+func (r *TestReconciler) SetRosaOKPProductEnv(env *corev1.EnvVar) {
+	r.rosaOKPProductEnv = env
 }
 
 // NewTestReconciler creates a new TestReconciler instance with the provided parameters

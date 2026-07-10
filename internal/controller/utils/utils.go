@@ -27,8 +27,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	imagev1 "github.com/openshift/api/image/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -462,6 +464,38 @@ func GetOpenshiftVersion(k8sClient client.Client, ctx context.Context) (string, 
 		return "", "", fmt.Errorf("failed to parse cluster version: %s", clusterVersion.Status.Desired.Version)
 	}
 	return openshift_versions[0], openshift_versions[1], nil
+}
+
+const rosaClusterResourceName = "cluster"
+
+// RosaOKPProductEnv returns the OLS_ROSA_PRODUCT env var for ROSA clusters, or nil when
+// the cluster is not ROSA. On ROSA, External topology maps to HCP; all other topologies
+// map to Classic (OLS-1894).
+func RosaOKPProductEnv(k8sClient client.Client, ctx context.Context, log logr.Logger) (*corev1.EnvVar, error) {
+	console := &operatorv1.Console{}
+	if err := k8sClient.Get(ctx, client.ObjectKey{Name: rosaClusterResourceName}, console); err != nil {
+		return nil, fmt.Errorf("failed to get console cluster: %w", err)
+	}
+	if console.Spec.Customization.Brand != operatorv1.BrandROSA {
+		return nil, nil
+	}
+
+	infrastructure := &configv1.Infrastructure{}
+	if err := k8sClient.Get(ctx, client.ObjectKey{Name: rosaClusterResourceName}, infrastructure); err != nil {
+		return nil, fmt.Errorf("failed to get infrastructure cluster: %w", err)
+	}
+
+	topology := infrastructure.Status.ControlPlaneTopology
+	product := RosaOKPProductClassic
+	if topology == configv1.ExternalTopologyMode {
+		product = RosaOKPProductHCP
+	} else {
+		log.Info("ROSA detected, using Classic OKP product", "controlPlaneTopology", topology)
+	}
+	return &corev1.EnvVar{
+		Name:  OLSRosaProductEnvVar,
+		Value: product,
+	}, nil
 }
 
 // GeneratePostgresSelectorLabels returns selector labels for Postgres components

@@ -331,6 +331,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	rosaOKPProductEnv, err := utils.RosaOKPProductEnv(k8sClient, ctx, setupLog)
+	if err != nil {
+		setupLog.Error(err, "failed to detect ROSA OKP product; app-server will use OCP-only OKP retrieval")
+	} else if rosaOKPProductEnv != nil && rosaOKPProductEnv.Value == utils.RosaOKPProductHCP {
+		setupLog.Info("ROSA OKP product configured for app-server", "product", rosaOKPProductEnv.Value)
+	}
+
 	// Check if Prometheus Operator CRDs are available
 	prometheusAvailable := utils.IsPrometheusOperatorAvailable(ctx, k8sClient)
 	prometheusStatus := "NOT AVAILABLE"
@@ -429,6 +436,7 @@ func main() {
 			OpenShiftMCPServerImage:        imagesMap["openshift-mcp-server-image"],
 			DataverseExporterImage:         imagesMap["dataverse-exporter-image"],
 			RHOOKPImage:                    imagesMap["rhokp-image"],
+			RosaOKPProductEnv:              rosaOKPProductEnv,
 			Namespace:                      namespace,
 			PrometheusAvailable:            prometheusAvailable,
 		},

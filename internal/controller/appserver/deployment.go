@@ -66,6 +66,9 @@ func appServerEnv(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) []corev1.E
 			Name:  utils.OCPClusterVersionEnvVar,
 			Value: r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor(),
 		})
+		if rosaEnv := r.GetRosaOKPProductEnv(); rosaEnv != nil {
+			env = append(env, *rosaEnv)
+		}
 	}
 	return env
 }

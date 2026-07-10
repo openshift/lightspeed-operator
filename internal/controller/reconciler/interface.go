@@ -23,6 +23,7 @@ package reconciler
 
 import (
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -72,6 +73,9 @@ type Reconciler interface {
 
 	// GetRHOOKPImage returns the RH Offline Knowledge Portal (Solr) sidecar image
 	GetRHOOKPImage() string
+
+	// GetRosaOKPProductEnv returns the OLS_ROSA_PRODUCT env var on ROSA clusters, or nil.
+	GetRosaOKPProductEnv() *corev1.EnvVar
 
 	// IsPrometheusAvailable returns whether Prometheus Operator CRDs are available
 	IsPrometheusAvailable() bool
