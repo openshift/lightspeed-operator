@@ -27,13 +27,13 @@ var _ = Describe("Alerts adapter assets", func() {
 		Expect(sa.Namespace).To(Equal(utils.OLSNamespaceDefault))
 	})
 
-	It("should generate the proposals ClusterRole", func() {
-		role, err := GenerateProposalsClusterRole(testReconcilerInstance, cr)
+	It("should generate the agenticruns ClusterRole", func() {
+		role, err := GenerateAgenticRunsClusterRole(testReconcilerInstance, cr)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(role.Name).To(Equal(utils.AlertsAdapterProposalsClusterRoleName))
+		Expect(role.Name).To(Equal(utils.AlertsAdapterAgenticRunsClusterRoleName))
 		Expect(role.Rules).To(ContainElement(rbacv1.PolicyRule{
 			APIGroups: []string{"agentic.openshift.io"},
-			Resources: []string{"proposals"},
+			Resources: []string{"agenticruns"},
 			Verbs:     []string{"create", "list", "get"},
 		}))
 	})

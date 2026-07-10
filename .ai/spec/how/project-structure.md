@@ -146,7 +146,7 @@ Embeds `client.Client` and adds getter methods for:
 The OLSConfig CR uses finalizer `ols.openshift.io/finalizer` (defined in `utils.OLSConfigFinalizer`). On deletion:
 1. Remove chat console UI (deactivate plugin, delete ConsolePlugin CR)
 2. Remove agentic console UI (deactivate plugin, delete ConsolePlugin CR)
-3. Remove alerts adapter operand resources (`alertsadapter.RemoveAlertsAdapter()`: deployment, namespaced RBAC, SA, NetworkPolicy, monitoring RoleBinding; proposals ClusterRole/ClusterRoleBinding when the platform permits delete)
+3. Remove alerts adapter operand resources (`alertsadapter.RemoveAlertsAdapter()`: deployment, namespaced RBAC, SA, NetworkPolicy, monitoring RoleBinding; AgenticRun ClusterRole/ClusterRoleBinding when the platform permits delete)
 3. List all owned resources via owner references
 4. Explicitly delete owned resources
 5. Wait up to 3 minutes for deletion (poll every 5 seconds)

@@ -298,10 +298,12 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AlertsAdapterContainerName = "adapter"
 	// AlertsAdapterNetworkPolicyName is the name of the network policy for the alerts adapter
 	AlertsAdapterNetworkPolicyName = "lightspeed-agentic-alerts-adapter"
-	// AlertsAdapterProposalsClusterRoleName is the cluster role granting Proposal create/list/get
-	AlertsAdapterProposalsClusterRoleName = "lightspeed-agentic-alerts-adapter-proposals"
-	// AlertsAdapterProposalsClusterRoleBindingName binds the proposals ClusterRole to the alerts adapter SA
-	AlertsAdapterProposalsClusterRoleBindingName = "lightspeed-agentic-alerts-adapter-proposals"
+	// AlertsAdapterAgenticRunsClusterRoleName is the cluster role granting AgenticRun create/list/get
+	AlertsAdapterAgenticRunsClusterRoleName = "lightspeed-agentic-alerts-adapter-agenticruns"
+	// AlertsAdapterAgenticRunsClusterRoleBindingName binds the AgenticRun ClusterRole to the alerts adapter SA
+	AlertsAdapterAgenticRunsClusterRoleBindingName = "lightspeed-agentic-alerts-adapter-agenticruns"
+	// AlertsAdapterLegacyProposalsClusterRoleName is the pre-OLS-3475 ClusterRole name removed on reconcile
+	AlertsAdapterLegacyProposalsClusterRoleName = "lightspeed-agentic-alerts-adapter-proposals"
 	// AlertsAdapterAlertmanagerRoleBindingName is the RoleBinding in openshift-monitoring for Alertmanager read access
 	AlertsAdapterAlertmanagerRoleBindingName = "lightspeed-agentic-alerts-adapter-alertmanager"
 	// AlertsAdapterConfigMapName is the ConfigMap holding runtime adapter settings (poll interval, cooldown, tools)

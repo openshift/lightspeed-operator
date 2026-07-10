@@ -98,13 +98,13 @@ Provides clean contract between main controller and component packages:
 
 ### Alerts Adapter Package (`internal/controller/alertsadapter`)
 
-**Purpose:** Manages the agentic alerts adapter that polls Alertmanager and creates `Proposal` CRs for firing alerts.
+**Purpose:** Manages the agentic alerts adapter that polls Alertmanager and creates `AgenticRun` CRs for firing alerts.
 
 **Opt-in:** Enabled only when `spec.ols.deployment.alertsAdapter.configMapRef` is set (non-empty name). When unset, Phase 1 calls `RemoveAlertsAdapter()` to tear down operand resources and Phase 2 sets `AlertsAdapterReady=True` with `Reason=NotConfigured`.
 
 **Entry Points:** `ReconcileAlertsAdapterResources()` (Phase 1), `ReconcileAlertsAdapterDeployment()` (Phase 2), `RemoveAlertsAdapter()` (operand teardown on disable and during finalization), `RestartAlertsAdapter()` (rolling restart on deployment spec or runtime ConfigMap changes).
 
-**Phase 1 resources (when enabled):** ServiceAccount, ClusterRole/ClusterRoleBinding for `agentic.openshift.io/proposals`, legacy config Role/RoleBinding cleanup (removed from reconcile; deleted if still present), RoleBinding in `openshift-monitoring` to `monitoring-alertmanager-view`, NetworkPolicy. The operator does not create, update, or validate user ConfigMap data.
+**Phase 1 resources (when enabled):** ServiceAccount, ClusterRole/ClusterRoleBinding for `agentic.openshift.io/agenticruns`, legacy config Role/RoleBinding cleanup (removed from reconcile; deleted if still present), RoleBinding in `openshift-monitoring` to `monitoring-alertmanager-view`, NetworkPolicy. The operator does not create, update, or validate user ConfigMap data.
 
 **Runtime config:** User creates the ConfigMap (see [adapter manifests](https://github.com/openshift/lightspeed-agentic-alerts-adapter/tree/main/manifests)). When the referenced ConfigMap exists, it is mounted read-only at `/etc/alerts-adapter`; when absent, no config volume is mounted. The adapter reads `config.yaml` from that path and uses built-in defaults when the file is missing or invalid. ConfigMap data changes trigger a deployment restart via the external ConfigMap watcher (`RestartAlertsAdapter`).
 
@@ -167,7 +167,7 @@ The operator uses a finalizer (`ols.openshift.io/finalizer`) to ensure proper cl
 
 **Why Needed:**
 - **Console plugin cleanup**: `ConsolePlugin` is cluster-scoped and not cascade-deleted by owner references; chat and agentic plugins must be deactivated in the Console CR
-- **Alerts adapter cleanup**: RoleBinding in `openshift-monitoring` is outside the operator namespace; `RemoveAlertsAdapter()` also deletes deployment, namespaced RBAC, SA, and NetworkPolicy when the operand is disabled or during finalization. Proposals ClusterRole/ClusterRoleBinding deletion may be blocked on managed OpenShift clusters (admission webhook); the operator logs and continues.
+- **Alerts adapter cleanup**: RoleBinding in `openshift-monitoring` is outside the operator namespace; `RemoveAlertsAdapter()` also deletes deployment, namespaced RBAC, SA, and NetworkPolicy when the operand is disabled or during finalization. AgenticRun ClusterRole/ClusterRoleBinding deletion may be blocked on managed OpenShift clusters (admission webhook); the operator logs and continues.
 - **PVC cleanup**: PersistentVolumeClaims can block deletion if not properly released
 - **Race condition prevention**: Ensures complete cleanup before CR can be recreated (important for tests and sequential deployments)
 
@@ -195,7 +195,7 @@ if !olsconfig.DeletionTimestamp.IsZero() {
 **Cleanup Sequence** (`finalizeOLSConfig`):
 1. **Remove chat console UI**: Deactivate plugin from Console CR, delete ConsolePlugin CR
 2. **Remove agentic console UI**: Deactivate plugin from Console CR, delete ConsolePlugin CR
-3. **Remove alerts adapter operand**: Delete deployment, namespaced RBAC, SA, NetworkPolicy, monitoring RoleBinding, and attempt proposals ClusterRoleBinding/ClusterRole deletion (`alertsadapter.RemoveAlertsAdapter()`). ClusterRoleBinding deletion may be blocked on managed OpenShift; remaining cluster RBAC is harmless when the operand is disabled.
+3. **Remove alerts adapter operand**: Delete deployment, namespaced RBAC, SA, NetworkPolicy, monitoring RoleBinding, and attempt AgenticRun ClusterRoleBinding/ClusterRole deletion (`alertsadapter.RemoveAlertsAdapter()`). ClusterRoleBinding deletion may be blocked on managed OpenShift; remaining cluster RBAC is harmless when the operand is disabled.
 4. **Wait for owned resources**: Poll for up to 3 minutes until deployments, services, PVCs are deleted (cascade deletion)
 5. **Remove finalizer**: Allows Kubernetes to remove CR from etcd
 
