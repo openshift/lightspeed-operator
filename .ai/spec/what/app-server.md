@@ -36,6 +36,9 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 17. When the MCPServer feature gate is enabled, user-defined servers from `spec.mcpServers` are added to the config.
 18. MCP header values of type "secret" are mounted as files from the referenced secret. Types "kubernetes" and "client" use placeholder strings that the service resolves at runtime.
 
+### MCP Server Service
+18a. When `spec.ols.introspectionEnabled` is true, the operator MUST create a `Service` named `openshift-mcp-server` in the operator namespace that selects the app server pods and targets port 8080 (the MCP sidecar port). This Service exposes the ocp-mcp sidecar to other pods in the cluster (e.g., agentic sandbox pods). When `introspectionEnabled` is false, the Service MUST be deleted if it exists.
+
 ### Service and Networking
 19. The service exposes HTTPS on the configured port.
 20. The network policy allows ingress from: Prometheus (openshift-monitoring), OpenShift Console (openshift-console), and ingress controllers.
