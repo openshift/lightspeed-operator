@@ -67,8 +67,11 @@ type Reconciler interface {
 	// GetOpenShiftMCPServerImage returns the OpenShift MCP server image to use
 	GetOpenShiftMCPServerImage() string
 
-	// GetDataverseExporterImage returns the OpenShift MCP server image to use
+	// GetDataverseExporterImage returns the dataverse exporter image to use
 	GetDataverseExporterImage() string
+
+	// GetRHOOKPImage returns the RH Offline Knowledge Portal (Solr) sidecar image
+	GetRHOOKPImage() string
 
 	// IsPrometheusAvailable returns whether Prometheus Operator CRDs are available
 	IsPrometheusAvailable() bool

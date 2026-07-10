@@ -281,10 +281,8 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		}
 	}
 
-	// Build RAG (Retrieval-Augmented Generation) reference indexes
-	// OLS-1823: BYOK (Bring Your Own Knowledge) content is prioritized ahead of OCP docs
+	// Build BYOK reference indexes from spec.ols.rag. OCP product docs are served via solr_hybrid (OKP).
 	referenceIndexes := []utils.ReferenceIndex{}
-	// Add user-provided RAG indexes (BYOK)
 	for i, index := range cr.Spec.OLSConfig.RAG {
 		referenceIndex := utils.ReferenceIndex{
 			ProductDocsIndexPath: filepath.Join(utils.RAGVolumeMountPath, fmt.Sprintf("rag-%d", i)),
@@ -292,15 +290,6 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 			ProductDocsOrigin:    index.Image,
 		}
 		referenceIndexes = append(referenceIndexes, referenceIndex)
-	}
-	// Add OCP documentation index unless BYOK-only mode is enabled
-	if !cr.Spec.OLSConfig.ByokRAGOnly {
-		ocpReferenceIndex := utils.ReferenceIndex{
-			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor(),
-			ProductDocsIndexId:   "ocp-product-docs-" + r.GetOpenShiftMajor() + "_" + r.GetOpenshiftMinor(),
-			ProductDocsOrigin:    "Red Hat OpenShift " + r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor() + " documentation",
-		}
-		referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 	}
 
 	// Assemble the main OLS configuration
@@ -364,7 +353,24 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		}
 	}
 
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		olsConfig.SolrHybrid = buildSolrHybridSettings()
+	}
+
 	return olsConfig, nil
+}
+
+// buildSolrHybridSettings maps operator defaults to the OLS config file (snake_case keys).
+// Solr URL and retrieval tuning target the RHOKP sidecar on localhost:RHOOKPHTTPPort.
+func buildSolrHybridSettings() *utils.SolrHybridSettings {
+	return &utils.SolrHybridSettings{
+		SolrHTTPBase:             fmt.Sprintf("http://localhost:%d", utils.RHOOKPHTTPPort),
+		MaxResults:               utils.SolrHybridMaxResultsDefault,
+		HybridVectorBoost:        utils.SolrHybridVectorBoostDefault,
+		HybridPoolDocs:           utils.SolrHybridPoolDocsDefault,
+		HybridScoreThreshold:     utils.SolrHybridScoreThresholdDefault,
+		HybridSolrTimeoutSeconds: utils.SolrHybridSolrTimeoutSecondsDefault,
+	}
 }
 
 // generateMCPServerConfigs builds MCP (Model Context Protocol) server configurations.

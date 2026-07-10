@@ -9,7 +9,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 2. The primary container (lightspeed-service-api) runs the OLS service, listening on HTTPS.
 3. The data collector sidecar (lightspeed-to-dataverse-exporter) is added when data collection is enabled AND the telemetry pull secret exists in the openshift-config namespace with a cloud.openshift.com auth entry.
 4. The OpenShift MCP server sidecar is added when `spec.ols.introspectionEnabled` is true. It provides Kubernetes resource access via MCP protocol.
-5. The RHOKP sidecar is always added to the deployment. It serves OKP (Offline Knowledge Portal) content via Solr HTTP on localhost:8080, providing Red Hat product documentation for tool-based retrieval. It requires ~75 GiB ephemeral storage. The RHOKP sidecar is NOT deployed when `spec.ols.byokRAGOnly` is true.
+5. OKP (Offline Knowledge Portal) / Solr hybrid RAG is operator-managed (no CR toggle besides `byokRAGOnly`). When OKP is enabled, the RHOKP sidecar serves Solr HTTP on localhost:9080 for the `search_openshift_documentation` tool path. It requires ~75 GiB ephemeral storage. OKP is on by default; set `spec.ols.byokRAGOnly` to true to skip the RHOKP sidecar, `solr_hybrid` config, and OCP documentation retrieval via Solr.
 6. A PostgreSQL wait init container always runs before the main containers to ensure database readiness.
 7. When `spec.ols.rag` is configured, additional init containers copy BYOK RAG data from container images into a shared volume.
 
@@ -19,8 +19,8 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 10. The default credential key read from each provider's secret is "apitoken", overridable by `spec.llm.providers[].credentialKey`.
 11. PostgreSQL connection settings are hardcoded to point to the operator-managed PostgreSQL service within the same namespace.
 12. If `spec.ols.querySystemPrompt` is set, the custom prompt is written as a second key in the config ConfigMap and referenced by file path in the config.
-13. BYOK reference content indexes from `spec.ols.rag` are configured when present. OCP documentation is served by OKP via the RHOKP sidecar, not via FAISS indexes.
-14. The operator always generates a `solr_hybrid` config section in `olsconfig.yaml` pointing to `http://localhost:8080` with default hybrid retrieval tuning parameters, unless `byokRAGOnly` is true.
+13. BYOK reference content indexes from `spec.ols.rag` are written to `reference_content.indexes` when present. OCP product documentation is served exclusively via `solr_hybrid` (OKP); the operator does not emit a built-in OCP FAISS index.
+14. Unless `byokRAGOnly` is true, the operator generates a `solr_hybrid` config section in `olsconfig.yaml` pointing to `http://localhost:9080` with default hybrid retrieval tuning parameters.
 15a. Unless `byokRAGOnly` is true, the app-server container receives `OCP_CLUSTER_VERSION` (`<major>.<minor>` from the operator's cluster-version lookup) for Solr `chunk_filter_query` resolution in lightspeed-service.
 
 ### ROSA-Aware OKP Retrieval [PLANNED: OLS-1894]
@@ -32,30 +32,30 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
   - RBAC: requires `get` on `consoles` in the `operator.openshift.io` API group (Infrastructure is already covered by existing cluster-version permissions).
 
 ### MCP Server Integration
-15. When `spec.ols.introspectionEnabled` is true, an "openshift" MCP server entry is added to the config pointing to localhost on the sidecar port.
-16. When the MCPServer feature gate is enabled, user-defined servers from `spec.mcpServers` are added to the config.
-17. MCP header values of type "secret" are mounted as files from the referenced secret. Types "kubernetes" and "client" use placeholder strings that the service resolves at runtime.
+16. When `spec.ols.introspectionEnabled` is true, an "openshift" MCP server entry is added to the config pointing to localhost on the sidecar port.
+17. When the MCPServer feature gate is enabled, user-defined servers from `spec.mcpServers` are added to the config.
+18. MCP header values of type "secret" are mounted as files from the referenced secret. Types "kubernetes" and "client" use placeholder strings that the service resolves at runtime.
 
 ### Service and Networking
-18. The service exposes HTTPS on the configured port.
-19. The network policy allows ingress from: Prometheus (openshift-monitoring), OpenShift Console (openshift-console), and ingress controllers.
-20. Egress is unrestricted (empty egress rules).
+19. The service exposes HTTPS on the configured port.
+20. The network policy allows ingress from: Prometheus (openshift-monitoring), OpenShift Console (openshift-console), and ingress controllers.
+21. Egress is unrestricted (empty egress rules).
 
 ### RBAC
-21. The service account is granted SubjectAccessReview and TokenReview permissions for user authorization.
-22. The service account can read the cluster version and the telemetry pull secret.
+22. The service account is granted SubjectAccessReview and TokenReview permissions for user authorization.
+23. The service account can read the cluster version and the telemetry pull secret.
 
 ### Change Detection
-23. Deployment updates are triggered when: the deployment spec changes, the config ConfigMap resource version changes, the MCP config ConfigMap resource version changes, or the proxy CA certificate hash changes.
-24. When any of these change, the operator forces a rolling restart by updating a pod template annotation with the current timestamp.
+24. Deployment updates are triggered when: the deployment spec changes, the config ConfigMap resource version changes, the MCP config ConfigMap resource version changes, or the proxy CA certificate hash changes.
+25. When any of these change, the operator forces a rolling restart by updating a pod template annotation with the current timestamp.
 
 ### Health Probes [CHANGED: OLS-3221]
-24. The app server deployment's liveness probe must point to the `/liveness` endpoint with `failureThreshold: 3` and `periodSeconds: 30`, giving the pod 90 seconds to self-heal via the background health-check loop before Kubernetes restarts it. These values are not currently user-configurable.
-25. The app server deployment's readiness probe must point to the `/readiness` endpoint. The readiness probe checks RAG index, LLM reachability, and cache health status (read from the background health-check loop). No changes to existing readiness probe configuration.
+26. The app server deployment's liveness probe must point to the `/liveness` endpoint with `failureThreshold: 3` and `periodSeconds: 30`, giving the pod 90 seconds to self-heal via the background health-check loop before Kubernetes restarts it. These values are not currently user-configurable.
+27. The app server deployment's readiness probe must point to the `/readiness` endpoint. The readiness probe checks RAG index, LLM reachability, and cache health status (read from the background health-check loop). No changes to existing readiness probe configuration.
 
 ### Observability
-26. The operator creates a ServiceMonitor for Prometheus scraping of the /metrics endpoint.
-27. The operator creates a PrometheusRule with recording rules aggregating query call counts by status code class (2xx, 4xx, 5xx) and provider/model configuration.
+28. The operator creates a ServiceMonitor for Prometheus scraping of the /metrics endpoint.
+29. The operator creates a PrometheusRule with recording rules aggregating query call counts by status code class (2xx, 4xx, 5xx) and provider/model configuration.
 
 ## Configuration Surface
 
@@ -67,12 +67,13 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 | `spec.ols.deployment.api.nodeSelector` | Node selector constraints |
 | `spec.ols.deployment.dataCollector.resources` | Data collector container resources |
 | `spec.ols.deployment.mcpServer.resources` | MCP server container resources |
+| `spec.ols.deployment.rhokp.resources` | RHOKP sidecar container resources (CPU, memory, ephemeral storage) |
 | `spec.ols.defaultModel` | Default LLM model name |
 | `spec.ols.defaultProvider` | Default LLM provider name |
 | `spec.ols.logLevel` | Logging level for all service components |
 | `spec.ols.maxIterations` | Maximum agent execution iterations |
 | `spec.ols.querySystemPrompt` | Custom system prompt for LLM queries |
-| `spec.ols.byokRAGOnly` | Disable OKP (RHOKP sidecar not deployed, solr_hybrid config not generated). Only BYOK FAISS indexes are used. |
+| `spec.ols.byokRAGOnly` | Disable OKP: no RHOKP sidecar, no `solr_hybrid` section, no `OCP_CLUSTER_VERSION` env. Only BYOK FAISS indexes from `spec.ols.rag` are used. |
 | `spec.ols.introspectionEnabled` | Enable OpenShift MCP server sidecar |
 | `spec.ols.userDataCollection.feedbackDisabled` | Disable feedback collection |
 | `spec.ols.userDataCollection.transcriptsDisabled` | Disable transcript collection |
@@ -93,9 +94,12 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 5. The RHOKP sidecar requires approximately 75 GiB of ephemeral storage for Solr data. This must be documented in product infrastructure requirements.
 
 ### Resource Conventions [OLS-3397]
-28. All operator-managed container defaults follow the [OpenShift resource conventions](https://github.com/openshift/enhancements/blob/master/CONVENTIONS.md#resources-and-limits): defaults declare CPU and memory requests only, and do not set resource limits. This applies to the primary API container and all sidecars (data collector, MCP server, RHOKP).
-29. Users may still set limits via the CRD (`spec.ols.deployment.<component>.resources`) if their environment requires it. The CRD uses standard `corev1.ResourceRequirements` which accepts both requests and limits.
-30. The RHOKP sidecar's ~75 GiB ephemeral storage requirement is unchanged by this convention — it applies only to CPU and memory.
+30. All operator-managed container defaults follow the [OpenShift resource conventions](https://github.com/openshift/enhancements/blob/master/CONVENTIONS.md#resources-and-limits): defaults declare CPU and memory requests only, and do not set resource limits. This applies to the primary API container and all sidecars (data collector, MCP server, RHOKP).
+31. Users may still set limits via the CRD (`spec.ols.deployment.<component>.resources`, including `spec.ols.deployment.rhokp.resources`) if their environment requires it. The CRD uses standard `corev1.ResourceRequirements` which accepts both requests and limits.
+32. The RHOKP sidecar's ~75 GiB ephemeral storage requirement is unchanged by this convention — it applies only to CPU and memory.
+
+### RHOKP Image
+33. The RHOKP sidecar image is set via the operator `--rhokp-image` startup flag (default in `utils.RHOOKPImageDefault`). It is not listed in `related_images.json` until productized in the OLM bundle.
 
 ## Planned Changes
 

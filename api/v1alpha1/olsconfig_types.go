@@ -252,6 +252,15 @@ type LLMSpec struct {
 }
 
 // OLSSpec defines the desired state of OLS deployment.
+//
+// OKP (Offline Knowledge Portal) / Solr hybrid RAG is operator-managed, not configured on this CR:
+//   - Enabled by default. The operator deploys the RHOKP sidecar and writes ols_config.solr_hybrid
+//     into olsconfig.yaml (Solr URL, hybrid tuning, and related keys use operator defaults).
+//   - The app-server pod receives OCP_CLUSTER_VERSION for Solr chunk_filter_query resolution.
+//   - OCP documentation is retrieved via the search_openshift_documentation tool (Solr hybrid), not
+//     direct prompt RAG. BYOK content remains on spec.rag (FAISS indexes).
+//   - Set byokRAGOnly to disable OKP: no RHOKP sidecar, no solr_hybrid section, and no built-in
+//     OCP documentation retrieval—only BYOK FAISS indexes from spec.rag are used.
 type OLSSpec struct {
 	// Conversation cache settings
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2,displayName="Conversation Cache"
@@ -302,9 +311,9 @@ type OLSSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy Settings",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:validation:Optional
 	ProxyConfig *ProxyConfig `json:"proxyConfig,omitempty"`
-	// RAG databases
+	// BYOK RAG databases (bring-your-own container images with FAISS vector indexes).
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RAG Databases",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="BYOK RAG Databases",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	RAG []RAGSpec `json:"rag,omitempty"`
 	// LLM Token Quota Configuration
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="LLM Token Quota Configuration"
@@ -313,7 +322,7 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Persistent Storage Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	Storage *Storage `json:"storage,omitempty"`
-	// Only use BYOK RAG sources, ignore the OpenShift documentation RAG
+	// Only use BYOK RAG sources. Disables OKP (RHOKP sidecar, solr_hybrid config, and built-in OCP documentation retrieval).
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Only use BYOK RAG sources",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	ByokRAGOnly bool `json:"byokRAGOnly,omitempty"`
@@ -361,17 +370,17 @@ type MCPKubeServerConfiguration struct {
 	Timeout int `json:"timeout,omitempty"`
 }
 
-// RAGSpec defines how to retrieve RAG databases.
+// RAGSpec defines a BYOK RAG database (container image and index path).
 type RAGSpec struct {
-	// The path to the RAG database inside of the container image
+	// The path to the BYOK RAG database inside of the container image
 	// +kubebuilder:default="/rag/vector_db"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index Path in the Image"
 	IndexPath string `json:"indexPath,omitempty"`
-	// The Index ID of the RAG database. Only needed if there are multiple indices in the database.
+	// The Index ID of the BYOK RAG database. Only needed if there are multiple indices in the database.
 	// +kubebuilder:default=""
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index ID"
 	IndexID string `json:"indexID,omitempty"`
-	// The URL of the container image to use as a RAG source
+	// The URL of the container image to use as a BYOK RAG source
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image"
@@ -426,6 +435,9 @@ type DeploymentConfig struct {
 	// MCP server container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Container"
 	MCPServerContainer ContainerConfig `json:"mcpServer,omitempty"`
+	// RHOKP sidecar container settings (Solr / OKP).
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RHOKP Container"
+	RHOKPContainer ContainerConfig `json:"rhokp,omitempty"`
 	// Console container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Console Deployment"
 	ConsoleContainer Config `json:"console,omitempty"`

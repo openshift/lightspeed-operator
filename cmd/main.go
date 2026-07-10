@@ -103,6 +103,7 @@ var (
 		"openshift-mcp-server-image": utils.OpenShiftMCPServerImageDefault,
 		"dataverse-exporter-image":   utils.DataverseExporterImageDefault,
 		"ocp-rag-image":              utils.OcpRagImageDefault,
+		"rhokp-image":                utils.RHOOKPImageDefault,
 	}
 )
 
@@ -120,7 +121,7 @@ func init() {
 
 // overrideImages overrides the default images with the images provided by the user.
 // If an image is not provided, the default is used.
-func overrideImages(serviceImage string, consoleImage string, agenticConsoleImage string, alertsAdapterImage string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
+func overrideImages(serviceImage string, consoleImage string, agenticConsoleImage string, alertsAdapterImage string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, ocpRagImage string, rhokpImage string) map[string]string {
 	res := defaultImages
 	if serviceImage != "" {
 		res["lightspeed-service"] = serviceImage
@@ -145,6 +146,9 @@ func overrideImages(serviceImage string, consoleImage string, agenticConsoleImag
 	}
 	if ocpRagImage != "" {
 		res["ocp-rag-image"] = ocpRagImage
+	}
+	if rhokpImage != "" {
+		res["rhokp-image"] = rhokpImage
 	}
 	return res
 }
@@ -180,6 +184,7 @@ func main() {
 	var openshiftMCPServerImage string
 	var dataverseExporterImage string
 	var ocpRagImage string
+	var rhokpImage string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -199,6 +204,7 @@ func main() {
 	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", utils.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
 	flag.StringVar(&dataverseExporterImage, "dataverse-exporter-image", utils.DataverseExporterImageDefault, "The image of the dataverse exporter container.")
 	flag.StringVar(&ocpRagImage, "ocp-rag-image", utils.OcpRagImageDefault, "The image with the OCP RAG databases.")
+	flag.StringVar(&rhokpImage, "rhokp-image", utils.RHOOKPImageDefault, "The RH Offline Knowledge Portal (Solr) sidecar image for Solr hybrid RAG.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -211,7 +217,7 @@ func main() {
 		namespace = getWatchNamespace()
 	}
 
-	imagesMap := overrideImages(serviceImage, consoleImage, agenticConsoleImage, alertsAdapterImage, postgresImage, openshiftMCPServerImage, dataverseExporterImage, ocpRagImage)
+	imagesMap := overrideImages(serviceImage, consoleImage, agenticConsoleImage, alertsAdapterImage, postgresImage, openshiftMCPServerImage, dataverseExporterImage, ocpRagImage, rhokpImage)
 	setupLog.Info("Images setting loaded", "images", listImages())
 
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
@@ -422,6 +428,7 @@ func main() {
 			LightspeedServicePostgresImage: imagesMap["postgres-image"],
 			OpenShiftMCPServerImage:        imagesMap["openshift-mcp-server-image"],
 			DataverseExporterImage:         imagesMap["dataverse-exporter-image"],
+			RHOOKPImage:                    imagesMap["rhokp-image"],
 			Namespace:                      namespace,
 			PrometheusAvailable:            prometheusAvailable,
 		},
