@@ -304,10 +304,6 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		},
 		ConversationCache: conversationCache,
 		TLSConfig:         tlsConfig,
-		ReferenceContent: utils.ReferenceContent{
-			Indexes:             referenceIndexes,
-			EmbeddingsModelPath: "/app-root/embeddings_model",
-		},
 		UserDataCollection: utils.UserDataCollectionConfig{
 			FeedbackDisabled:    cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled || !dataCollectorEnabled,
 			FeedbackStorage:     "/app-root/ols-user-data/feedback",
@@ -315,6 +311,12 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 		},
 		ProxyConfig: proxyConfig,
+	}
+	if len(referenceIndexes) > 0 {
+		olsConfig.ReferenceContent = &utils.ReferenceContent{
+			Indexes:             referenceIndexes,
+			EmbeddingsModelPath: "/app-root/embeddings_model",
+		}
 	}
 
 	tlsProfile := cr.Spec.OLSConfig.TLSSecurityProfile

@@ -1,10 +1,9 @@
 ---
 name: version-update
 description: >-
-  Release workflow for main: refresh related_images.json with stable Konflux
-  images (-r stable), bump bundle/CSV version, regenerate and validate the
-  bundle. Equivalent to /update-bundle release X.Y.Z. For PR/CI at the current
-  version, use /update-bundle dev instead.
+  Release workflow for main: refresh related_images.json from Quay (-r stable
+  via hack/related_images_from_quay.sh), bump bundle/CSV version, regenerate
+  and validate. Equivalent to /update-bundle release X.Y.Z.
 disable-model-invocation: true
 ---
 
@@ -16,17 +15,19 @@ Not for PR/CI — use `/update-bundle dev`.
 
 ## Step 1: Refresh `related_images.json` (stable)
 
-Requires Konflux `oc login` in namespace `crt-nshift-lightspeed-tenant`. See `README.md` (Update Bundle from Snapshot).
+**Prerequisite:** `oras` and `jq`. Do **not** rely on `oc`.
 
 ```bash
-./hack/snapshot_to_image_list.sh -s <ols-snapshot> -b <ols-bundle-snapshot> -r stable -o related_images.json
+./hack/related_images_from_quay.sh -r stable -o related_images.json
 ```
 
-Use `-r preview` only for tech-preview paths (`registry.redhat.io/openshift-lightspeed-tech-preview/...`).
+Use `-r preview` for tech-preview paths (`registry.redhat.io/openshift-lightspeed-tech-preview/...`).
 
-Images must land on **`registry.redhat.io/openshift-lightspeed/...`** (not Konflux quay).
+Resolves `oras resolve <konflux_prefix>:<revision>`, then rewrites `konflux_prefix` → `stable_prefix` in the digest URL. External entries (no `konflux_prefix`) are unchanged.
 
-Preserve snapshot-less entries per `hack/snapshot_to_image_list.sh` (e.g. dataverse-exporter, interim operands not in Konflux). README documents backing up `lightspeed-operator-bundle` when only operand images change.
+Konflux-managed entries must keep `konflux_prefix` and `stable_prefix`. See `docs/olm-bundle-management.md`.
+
+Optional: `hack/snapshot_to_image_list.sh` only to **discover new `revision` values** from Konflux when `oc` is available; then run `related_images_from_quay.sh` again.
 
 If CRD/RBAC changed since last bundle, run `make manifests` before regenerating the bundle (Step 4).
 
@@ -118,7 +119,8 @@ git diff bundle.Dockerfile related_images.json bundle/
 ```
 
 Confirm:
-- [ ] `related_images.json` uses stable `registry.redhat.io` images
+- [ ] `related_images.json` uses stable `registry.redhat.io` images for Konflux-managed entries (via `konflux_prefix` → `stable_prefix` mapping)
+- [ ] External/manual entries (no `snapshot_component`) are pinned correctly and unchanged by prefix mapping
 - [ ] `bundle.Dockerfile` has `release=X.Y.Z` and `version=X.Y.Z`
 - [ ] CSV `name` field: `lightspeed-operator.vX.Y.Z` (with `v` prefix)
 - [ ] CSV `version` field: `X.Y.Z` (without prefix)
@@ -151,10 +153,12 @@ git commit -m "OLS-XXXX: Release vX.Y.Z"
 ❌ Not regenerating the bundle after changes
 ❌ Mismatched version numbers between files
 ❌ Bumping version without refreshing stable images (`-r stable`)
+❌ Konflux-managed entries missing `konflux_prefix` / `stable_prefix` (stable refresh cannot map to product registry)
 ❌ Merging dev quay images from `/update-bundle dev` to `main` without re-running this skill
 
 ## Related
 
-- `/update-bundle dev` — PR/CI bundle sync (Konflux `-r ci`, current version)
+- `/update-bundle dev` — PR/CI (`related_images_from_quay.sh -r ci`)
 - `docs/olm-bundle-management.md` — bundle structure
+- `hack/related_images_from_quay.sh` — Quay digest refresh
 - `hack/release_tools.md` — release tooling

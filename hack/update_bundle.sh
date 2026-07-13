@@ -143,9 +143,9 @@ while IFS='|' read -r name placeholder target _; do
   [ -z "${IMG}" ] || [ "${IMG}" = "null" ] && continue
   IMG_SAFE=$(printf '%s' "${IMG}" | sed 's/"/\\"/g')
   if [ "${target}" = "image" ]; then
-    ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].image |= sub(\"${PLACEHOLDER}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
+    ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].image |= sub(\"${placeholder}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
   else
-    ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"${PLACEHOLDER}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
+    ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"${placeholder}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
   fi
 done < <(image_args::list_patch_entries "${RELATED_IMAGES_FILENAME}" "${JQ}")
 

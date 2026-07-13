@@ -114,15 +114,48 @@ make bundle-push BUNDLE_IMG=quay.io/myorg/lightspeed-operator-bundle:v0.1.0
 
 **Purpose:** `related_images.json` is the **single source of truth** for operand images and operator deployment wiring. Each operand entry may include `operator_arg` (passed as `--<operator_arg>=<image>` to the operator) or `operator_target: image` for the operator container itself. `hack/generate_deployment_patch.sh` (via `make manifests`) generates `config/default/deployment-patch.yaml`; `hack/update_bundle.sh` and `make deploy` substitute image digests from the same file.
 
-**Format:**
+**Format:** Each entry has at least `name` and `image`. Optional fields depend on how the image is sourced (see **Entry types** below).
+
+**Entry types:**
+
+Entries fall into two categories. Do not add inline comments to `related_images.json` (JSON does not support them); use this section as the reference.
+
+| Type | When to use | Required fields | Optional Konflux fields |
+|------|-------------|-----------------|-------------------------|
+| **Konflux-managed** | Image built in the OLS Konflux tenant | `name`, `image`, `revision` | `snapshot_component`, `konflux_prefix`, `stable_prefix`; add `snapshot_source: "bundle"` only for `lightspeed-operator-bundle` |
+| **External / manual** | Third-party or Red Hat product images not in the OLS snapshot | `name`, `image`, `revision: ""` | None — pin `image` yourself; snapshot refresh leaves these unchanged |
+
+**Konflux-managed example** (refreshed by `hack/snapshot_to_image_list.sh`; metadata stripped from CSV by `hack/update_bundle.sh`):
+
 ```json
- {
+{
   "name": "lightspeed-service-api",
   "image": "quay.io/.../lightspeed-service@sha256:...",
   "revision": "e5e1454f3fa8b19293200868684abcaf18f38097",
-  "operator_arg": "service-image"
+  "operator_arg": "service-image",
+  "snapshot_component": "lightspeed-service",
+  "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service",
+  "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9"
 }
 ```
+
+**External / manual example** (e.g. PostgreSQL, dataverse exporter, RHOKP):
+
+```json
+{
+  "name": "rhokp",
+  "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest",
+  "revision": "",
+  "operator_arg": "rhokp-image"
+}
+```
+
+Field reference for Konflux-managed entries:
+
+- `snapshot_component` — component name in the Konflux snapshot (`spec.components[].name`)
+- `konflux_prefix` — Quay image prefix in CI/Konflux workloads
+- `stable_prefix` — product registry prefix when refreshing with `-r stable`
+- `snapshot_source` — omit (defaults to OLS snapshot); set to `"bundle"` only for `lightspeed-operator-bundle`
 
 **Workflow:**
 ```
@@ -169,8 +202,8 @@ git commit -m "chore: bump bundle version to v0.2.0"
 ### Update Operator Image
 
 ```bash
-# Get image references from Konflux snapshot
-./hack/snapshot_to_image_list.sh -s <snapshot-ref> -o related_images.json
+# Get image references from Konflux snapshot (pass -b for bundle snapshot when updating ols-bundle)
+./hack/snapshot_to_image_list.sh -s <ols-snapshot-ref> -b <ols-bundle-snapshot-ref> -o related_images.json
 
 # Update bundle (uses version from related_images.json or current CSV)
 make bundle

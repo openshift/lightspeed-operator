@@ -170,8 +170,8 @@ spec:
         path: ols.additionalCAConfigMapRef
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: Only use BYOK RAG sources, ignore the OpenShift documentation
-          RAG
+      - description: Only use BYOK RAG sources. Disables OKP (RHOKP sidecar, solr_hybrid
+          config, and built-in OCP documentation retrieval).
         displayName: Only use BYOK RAG sources
         path: ols.byokRAGOnly
         x-descriptors:
@@ -267,6 +267,9 @@ spec:
       - description: MCP server container settings.
         displayName: MCP Server Container
         path: ols.deployment.mcpServer
+      - description: RHOKP sidecar container settings (Solr / OKP).
+        displayName: RHOKP Container
+        path: ols.deployment.rhokp
       - description: Pull secrets for BYOK RAG images from image registries requiring
           authentication
         displayName: Image Pull Secrets
@@ -362,19 +365,20 @@ spec:
       - description: Type of the limiter
         displayName: 'Limiter Type. Accepted Values: cluster_limiter, user_limiter.'
         path: ols.quotaHandlersConfig.limitersConfig[0].type
-      - description: RAG databases
-        displayName: RAG Databases
+      - description: BYOK RAG databases (bring-your-own container images with FAISS
+          vector indexes).
+        displayName: BYOK RAG Databases
         path: ols.rag
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: The URL of the container image to use as a RAG source
+      - description: The URL of the container image to use as a BYOK RAG source
         displayName: Image
         path: ols.rag[0].image
-      - description: The Index ID of the RAG database. Only needed if there are multiple
-          indices in the database.
+      - description: The Index ID of the BYOK RAG database. Only needed if there are
+          multiple indices in the database.
         displayName: Index ID
         path: ols.rag[0].indexID
-      - description: The path to the RAG database inside of the container image
+      - description: The path to the BYOK RAG database inside of the container image
         displayName: Index Path in the Image
         path: ols.rag[0].indexPath
       - description: Persistent Storage Configuration
@@ -397,6 +401,7 @@ spec:
             - tls.crt: Server certificate (PEM format) - REQUIRED
             - tls.key: Private key (PEM format) - REQUIRED
             - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
+
 
           If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
         displayName: TLS Certificate Secret Reference

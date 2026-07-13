@@ -209,7 +209,7 @@ These schemas are created by the bootstrap script.
 | TLS certs | Service-ca operator or user-provided secret | Path: `/etc/certs/lightspeed-tls/` |
 | BYOK RAG indexes | CR `spec.ols.rag[]` | Local FAISS indexes only; empty list when no BYOK RAG configured |
 | `solr_hybrid` | Operator defaults + `!byokRAGOnly` | OCP product docs via OKP Solr at `http://localhost:9080` |
-| RHOKP image | `--rhokp-image` flag | Sidecar image; not in `related_images.json` until bundle productization |
+| RHOKP image | `--rhokp-image` flag | Sidecar image; default from `related_images.json` (`rhokp`); listed in bundle `relatedImages` |
 | ROSA product | Console brand + Infrastructure topology (detected at operator startup) | `OLS_ROSA_PRODUCT` env var on app-server when brand is `ROSA` (not in config YAML). `External` → HCP product; otherwise Classic. Omitted on detection failure or non-ROSA. |
 | MCP servers | CR `spec.mcpServers[]` + `spec.ols.introspectionEnabled` | Feature gated by `MCPServer` gate |
 | Tool filtering | CR `spec.ols.toolFilteringConfig` | Feature gated by `ToolFiltering` gate; requires MCP servers |

@@ -189,8 +189,8 @@ type OLSConfig struct {
 	TLSSecurityProfile *TLSSecurityProfileConfig `json:"tlsSecurityProfile,omitempty"`
 	// Query filters
 	QueryFilters []QueryFilters `json:"query_filters,omitempty"`
-	// Reference content for RAG
-	ReferenceContent ReferenceContent `json:"reference_content,omitempty"`
+	// Reference content for BYOK RAG vector indexes; omitted when spec.ols.rag is empty.
+	ReferenceContent *ReferenceContent `json:"reference_content,omitempty"`
 	// User data collection configuration
 	UserDataCollection UserDataCollectionConfig `json:"user_data_collection,omitempty"`
 	// List of Paths to files containing additional CA certificates in the app server container.
