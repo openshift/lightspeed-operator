@@ -486,14 +486,14 @@ var (
 	OcpRagImageDefault             = relatedimages.GetDefaultImage("lightspeed-ocp-rag")
 	AgenticConsoleUIImageDefault   = imageDefaultOr("lightspeed-agentic-console-plugin", agenticConsoleUIImageFallback)
 	AlertsAdapterImageDefault      = imageDefaultOr("lightspeed-agentic-alerts-adapter", alertsAdapterImageFallback)
-	// Not in related_images.json until the RHOKP image is productized in the bundle; override via --rhokp-image.
-	RHOOKPImageDefault = "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest"
+	RHOOKPImageDefault             = imageDefaultOr("rhokp", rhokpImageFallback)
 )
 
 const (
 	// Fallbacks when related_images.json is unavailable (e.g. local run outside repo root).
 	agenticConsoleUIImageFallback = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main"
 	alertsAdapterImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
+	rhokpImageFallback            = "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest"
 )
 
 func imageDefaultOr(name, fallback string) string {

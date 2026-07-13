@@ -112,20 +112,21 @@ make bundle-push BUNDLE_IMG=quay.io/myorg/lightspeed-operator-bundle:v0.1.0
 
 ## Related Images Management
 
-**Purpose:** `related_images.json` is the **single source of truth** for (component name, image) pairs. It drives CSV `spec.relatedImages` and deployment args/container image substitution. Placeholder strings used for substitution are defined in `hack/image_placeholders.json` (and must match `config/default/kustomization.yaml`).
+**Purpose:** `related_images.json` is the **single source of truth** for operand images and operator deployment wiring. Each operand entry may include `operator_arg` (passed as `--<operator_arg>=<image>` to the operator) or `operator_target: image` for the operator container itself. `hack/generate_deployment_patch.sh` (via `make manifests`) generates `config/default/deployment-patch.yaml`; `hack/update_bundle.sh` and `make deploy` substitute image digests from the same file.
 
 **Format:**
 ```json
  {
-  "name": "lightspeed-operator",
-  "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:65b288d147503bd66808eecf69deee8e71ec890752a70f83a9314061fe0d4420",
-  "revision": "e5e1454f3fa8b19293200868684abcaf18f38097"
+  "name": "lightspeed-service-api",
+  "image": "quay.io/.../lightspeed-service@sha256:...",
+  "revision": "e5e1454f3fa8b19293200868684abcaf18f38097",
+  "operator_arg": "service-image"
 }
 ```
 
 **Workflow:**
 ```
-related_images.json → hack/update_bundle.sh → CSV relatedImages → CSV deployment args → Controller → Operand deployments
+related_images.json → make manifests (deployment-patch.yaml) → hack/update_bundle.sh → CSV relatedImages + deployment args → Controller → Operand deployments
 ```
 
 **Best practice:**

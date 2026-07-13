@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Refresh related_images.json image/revision fields from Konflux snapshots.
-# Component wiring (snapshot name, Konflux quay prefix, product registry prefix) lives in
-# related_images.json optional fields; this script only loops those entries.
+# Component wiring (snapshot name, Konflux quay prefix, product registry prefix, operator_arg) lives in
+# related_images.json optional fields; this script only loops those entries and updates image/revision.
 set -euo pipefail
 
 usage() {
