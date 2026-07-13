@@ -373,6 +373,12 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	RHOOKPHTTPSPort = 9443
 	// OCPClusterVersionEnvVar is read by lightspeed-service to resolve Solr chunk_filter_query at startup.
 	OCPClusterVersionEnvVar = "OCP_CLUSTER_VERSION"
+	// OLSRosaProductEnvVar is read by lightspeed-service to scope OKP retrieval on ROSA clusters.
+	OLSRosaProductEnvVar = "OLS_ROSA_PRODUCT"
+	// RosaOKPProductHCP is the OKP product identifier for ROSA hosted control planes.
+	RosaOKPProductHCP = "red_hat_openshift_service_on_aws"
+	// RosaOKPProductClassic is the OKP product identifier for ROSA classic architecture.
+	RosaOKPProductClassic = "red_hat_openshift_service_on_aws_classic_architecture"
 	// RHOOKPSolrCollection is the Solr core served by RHOKP (matches lightspeed-service portal-rag client).
 	RHOOKPSolrCollection = "portal-rag"
 	// RHOOKPReadinessHTTPPath hits the portal-rag core admin ping (Apache / alone is not Solr-ready).

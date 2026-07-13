@@ -3,6 +3,8 @@ package utils
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 )
@@ -28,6 +30,7 @@ type OLSConfigReconcilerOptions struct {
 	DataverseExporterImage         string
 	OpenShiftMCPServerImage        string
 	RHOOKPImage                    string
+	RosaOKPProductEnv              *corev1.EnvVar
 	Namespace                      string
 	PrometheusAvailable            bool
 }

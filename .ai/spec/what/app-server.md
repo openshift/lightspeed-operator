@@ -23,13 +23,14 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 14. Unless `byokRAGOnly` is true, the operator generates a `solr_hybrid` config section in `olsconfig.yaml` pointing to `http://localhost:9080` with default hybrid retrieval tuning parameters.
 15a. Unless `byokRAGOnly` is true, the app-server container receives `OCP_CLUSTER_VERSION` (`<major>.<minor>` from the operator's cluster-version lookup) for Solr `chunk_filter_query` resolution in lightspeed-service.
 
-### ROSA-Aware OKP Retrieval [PLANNED: OLS-1894]
-15b. Unless `byokRAGOnly` is true, the operator detects whether the cluster is ROSA and, if so, which variant (Classic vs HCP). Detection uses two standard OpenShift API resources, following the same pattern as OCP version detection — determined once and passed to the service as an environment variable:
+### ROSA-Aware OKP Retrieval
+15b. Unless `byokRAGOnly` is true, the operator detects whether the cluster is ROSA and, if so, which OKP product to scope. Detection uses two standard OpenShift API resources — determined once at operator startup and passed to the app-server as an environment variable:
   - **ROSA detection:** Read `console.operator.openshift.io/v1` Console `cluster` resource, field `.spec.customization.brand`. Value `ROSA` indicates a ROSA cluster (reliable on OCP 4.16+).
-  - **Variant detection:** Read `infrastructure.config.openshift.io/v1` Infrastructure `cluster` resource, field `.status.controlPlaneTopology`. `External` = HCP, `HighlyAvailable` = Classic.
+  - **Variant detection:** Read `infrastructure.config.openshift.io/v1` Infrastructure `cluster` resource, field `.status.controlPlaneTopology`. `External` = HCP; any other topology on ROSA = Classic.
   - When ROSA is detected, the operator sets `OLS_ROSA_PRODUCT` on the app-server container: `red_hat_openshift_service_on_aws` for HCP, `red_hat_openshift_service_on_aws_classic_architecture` for Classic.
   - On non-ROSA clusters the env var is absent and the service uses OCP-only retrieval.
-  - RBAC: requires `get` on `consoles` in the `operator.openshift.io` API group (Infrastructure is already covered by existing cluster-version permissions).
+  - If detection fails at startup (API/RBAC error), the operator logs a warning and omits the env var; reconciliation continues.
+  - RBAC: operator requires `get` on `consoles` (`operator.openshift.io`) and `infrastructures` (`config.openshift.io`).
 
 ### MCP Server Integration
 16. When `spec.ols.introspectionEnabled` is true, an "openshift" MCP server entry is added to the config pointing to localhost on the sidecar port.

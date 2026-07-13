@@ -760,6 +760,12 @@ var _ = Describe("App server deployment generation", func() {
 				TranscriptsDisabled: true,
 			}
 			cr.Spec.OLSConfig.ByokRAGOnly = true
+			if tr, ok := testReconcilerInstance.(*utils.TestReconciler); ok {
+				tr.SetRosaOKPProductEnv(&corev1.EnvVar{
+					Name:  utils.OLSRosaProductEnvVar,
+					Value: utils.RosaOKPProductHCP,
+				})
+			}
 
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -778,6 +784,58 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(apiContainer).NotTo(BeNil())
 			for _, env := range apiContainer.Env {
 				Expect(env.Name).NotTo(Equal(utils.OCPClusterVersionEnvVar))
+				Expect(env.Name).NotTo(Equal(utils.OLSRosaProductEnvVar))
+			}
+		})
+
+		It("should add OLS_ROSA_PRODUCT when configured on the reconciler", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+			rosaEnv := &corev1.EnvVar{
+				Name:  utils.OLSRosaProductEnvVar,
+				Value: utils.RosaOKPProductClassic,
+			}
+			if tr, ok := testReconcilerInstance.(*utils.TestReconciler); ok {
+				tr.SetRosaOKPProductEnv(rosaEnv)
+			}
+
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var apiContainer *corev1.Container
+			for i := range dep.Spec.Template.Spec.Containers {
+				if dep.Spec.Template.Spec.Containers[i].Name == "lightspeed-service-api" {
+					apiContainer = &dep.Spec.Template.Spec.Containers[i]
+					break
+				}
+			}
+			Expect(apiContainer).NotTo(BeNil())
+			Expect(apiContainer.Env).To(ContainElement(*rosaEnv))
+		})
+
+		It("should not add OLS_ROSA_PRODUCT when reconciler has no ROSA env configured", func() {
+			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
+			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
+				FeedbackDisabled:    true,
+				TranscriptsDisabled: true,
+			}
+
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var apiContainer *corev1.Container
+			for i := range dep.Spec.Template.Spec.Containers {
+				if dep.Spec.Template.Spec.Containers[i].Name == "lightspeed-service-api" {
+					apiContainer = &dep.Spec.Template.Spec.Containers[i]
+					break
+				}
+			}
+			Expect(apiContainer).NotTo(BeNil())
+			for _, env := range apiContainer.Env {
+				Expect(env.Name).NotTo(Equal(utils.OLSRosaProductEnvVar))
 			}
 		})
 

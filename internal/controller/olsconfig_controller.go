@@ -146,8 +146,8 @@ type OLSConfigReconciler struct {
 // PrometheusRule for aggregating OLS metrics for telemetry
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
 
-// clusterversion for checking the openshift cluster version
-// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions;apiservers,verbs=get;list;watch
+// clusterversion for checking the openshift cluster version; infrastructure for ROSA OKP product detection (OLS-1894)
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions;apiservers;infrastructures,verbs=get;list;watch
 
 // NetworkPolicy for restricting access to OLS pods
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
