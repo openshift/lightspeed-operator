@@ -452,8 +452,7 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	}
 
 	if len(errs) > 0 {
-		r.Logger.Info("some external resource annotations failed, will retry on next reconciliation",
-			"failureCount", len(errs))
+		return fmt.Errorf("failed to annotate %d external resources", len(errs))
 	}
 	return nil
 }

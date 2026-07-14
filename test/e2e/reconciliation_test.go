@@ -412,6 +412,10 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			config := obj.(*olsv1alpha1.OLSConfig)
 			hotReload := true
 			config.Spec.OLSConfig.CredentialHotReload = &hotReload
+			// The previous CA-cert test deletes its ConfigMap via defer but
+			// leaves the dangling ref on the CR.  Clear it so
+			// GenerateOLSConfigMap won't fail with a NotFound error.
+			config.Spec.OLSConfig.AdditionalCAConfigMapRef = nil
 			return nil
 		})
 		Expect(err).NotTo(HaveOccurred())
