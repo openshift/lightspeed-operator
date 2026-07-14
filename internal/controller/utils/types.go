@@ -27,6 +27,7 @@ type OLSConfigReconcilerOptions struct {
 	ConsoleUIImage                 string
 	AgenticConsoleUIImage          string
 	AlertsAdapterImage             string
+	OtelCollectorImage             string
 	DataverseExporterImage         string
 	OpenShiftMCPServerImage        string
 	RHOOKPImage                    string

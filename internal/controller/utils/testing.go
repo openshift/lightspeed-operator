@@ -21,6 +21,7 @@ type TestReconciler struct {
 	ConsoleImage        string
 	AgenticConsoleImage string
 	AlertsAdapterImage  string
+	OtelCollectorImage  string
 	AppServerImage      string
 	McpServerImage      string
 	DataverseExporter   string
@@ -58,6 +59,10 @@ func (r *TestReconciler) GetAgenticConsoleImage() string {
 
 func (r *TestReconciler) GetAlertsAdapterImage() string {
 	return r.AlertsAdapterImage
+}
+
+func (r *TestReconciler) GetOtelCollectorImage() string {
+	return r.OtelCollectorImage
 }
 
 func (r *TestReconciler) GetOpenShiftMajor() string {
@@ -120,6 +125,7 @@ func NewTestReconciler(
 		ConsoleImage:        ConsoleUIImageDefault,
 		AgenticConsoleImage: AgenticConsoleUIImageDefault,
 		AlertsAdapterImage:  AlertsAdapterImageDefault,
+		OtelCollectorImage:  OtelCollectorImageDefault,
 		AppServerImage:      OLSAppServerImageDefault,
 		McpServerImage:      OpenShiftMCPServerImageDefault,
 		DataverseExporter:   DataverseExporterImageDefault,
