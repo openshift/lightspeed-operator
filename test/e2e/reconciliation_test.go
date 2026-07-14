@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -402,7 +403,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			if err := client.Get(llmSecret); err != nil {
 				return false
 			}
-			_, exists := llmSecret.Annotations["ols.openshift.io/watcher"]
+			_, exists := llmSecret.Annotations[utils.WatcherAnnotationKey]
 			return exists
 		}, 30*time.Second, 2*time.Second).Should(BeTrue())
 
@@ -420,7 +421,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			if err := client.Get(llmSecret); err != nil {
 				return false
 			}
-			_, exists := llmSecret.Annotations["ols.openshift.io/watcher"]
+			_, exists := llmSecret.Annotations[utils.WatcherAnnotationKey]
 			return !exists
 		}, 30*time.Second, 2*time.Second).Should(BeTrue())
 
@@ -447,7 +448,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			if err := client.Get(llmSecret); err != nil {
 				return false
 			}
-			_, exists := llmSecret.Annotations["ols.openshift.io/watcher"]
+			_, exists := llmSecret.Annotations[utils.WatcherAnnotationKey]
 			return exists
 		}, 30*time.Second, 2*time.Second).Should(BeTrue())
 	})

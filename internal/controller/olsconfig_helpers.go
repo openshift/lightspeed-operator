@@ -417,6 +417,7 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 		if credentialHotReload && strings.HasPrefix(source, "llm-provider-") {
 			if err := r.removeSecretAnnotationIfNeeded(ctx, name, r.Options.Namespace); err != nil {
 				r.Logger.Error(err, "Failed to remove annotation from secret", "secret", name)
+				errs = append(errs, err)
 			}
 			return nil
 		}
