@@ -100,7 +100,7 @@ spec:
               - name: version
                 value: "$(steps.pick-version.results.version)"
               - name: instanceType
-                value: "m5.large"
+                value: "m5.2xlarge"
     - name: ols-install
       description: Install operator (OLM bundle or direct); record SNAPSHOT containerImage and commit for downstream tasks.
       runAfter:

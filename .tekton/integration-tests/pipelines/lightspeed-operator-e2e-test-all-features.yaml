@@ -77,7 +77,7 @@ spec:
               - name: version
                 value: "$(steps.pick-version.results.version)"
               - name: instanceType
-                value: "m5.large"
+                value: "m5.2xlarge"
     - name: ols-install
       description: Task to install bundle onto ephemeral namespace
       runAfter:
