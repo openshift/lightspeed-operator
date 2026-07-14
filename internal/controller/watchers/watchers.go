@@ -269,16 +269,6 @@ func SecretWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj clien
 	if _, exist := annotations[utils.WatcherAnnotationKey]; exist {
 		secretName := obj.GetName()
 
-		// Skip restart for LLM credential secrets when hot-reload is enabled.
-		// The service re-reads credentials from disk on every request (RFE-9380).
-		if watcherConfig != nil && watcherConfig.CredentialHotReload {
-			if watcherConfig.LLMSecretNames[secretName] {
-				r.GetLogger().Info("Skipping restart for LLM credential secret (hot-reload enabled)",
-					"secret", secretName)
-				return
-			}
-		}
-
 		// For annotated secrets, determine affected deployments from mapping
 		var affectedDeployments []string
 		var found bool

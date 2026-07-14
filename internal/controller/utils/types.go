@@ -74,8 +74,6 @@ type WatcherConfig struct {
 	ConfigMaps                ConfigMapWatcherConfig
 	AnnotatedSecretMapping    map[string][]string
 	AnnotatedConfigMapMapping map[string][]string
-	CredentialHotReload       bool
-	LLMSecretNames            map[string]bool
 }
 
 /*** controller internal ***/
@@ -218,6 +216,8 @@ type OLSConfig struct {
 	Audit *AuditYAMLConfig `json:"audit,omitempty"`
 	// Solr hybrid RAG (portal-rag /hybrid-search); mirrors lightspeed-service solr_hybrid
 	SolrHybrid *SolrHybridSettings `json:"solr_hybrid,omitempty"`
+	// Enable in-process credential hot-reload for LLM provider secrets
+	CredentialHotReload bool `json:"credential_hot_reload,omitempty"`
 }
 
 type AuditYAMLConfig struct {
