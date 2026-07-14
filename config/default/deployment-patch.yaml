@@ -18,9 +18,6 @@
   value: --openshift-mcp-server-image=__REPLACE_OPENSHIFT_MCP_SERVER__
 - op: add
   path: /spec/template/spec/containers/0/args/-
-  value: --ocp-rag-image=__REPLACE_LIGHTSPEED_OCP_RAG__
-- op: add
-  path: /spec/template/spec/containers/0/args/-
   value: --agentic-console-image=__REPLACE_LIGHTSPEED_AGENTIC_CONSOLE_PLUGIN__
 - op: add
   path: /spec/template/spec/containers/0/args/-

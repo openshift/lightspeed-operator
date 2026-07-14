@@ -117,9 +117,6 @@ var _ = Describe("App server assets", func() {
 						MinTLSVersion: string(configv1.TLSProfiles[configv1.TLSProfileIntermediateType].MinTLSVersion),
 						Ciphers:       configv1.TLSProfiles[configv1.TLSProfileIntermediateType].Ciphers,
 					},
-					ReferenceContent: utils.ReferenceContent{
-						EmbeddingsModelPath: "/app-root/embeddings_model",
-					},
 					SolrHybrid: buildSolrHybridSettings(),
 					UserDataCollection: utils.UserDataCollectionConfig{
 						FeedbackDisabled:    false,
@@ -1256,7 +1253,8 @@ var _ = Describe("App server assets", func() {
 			olsconfigGenerated = utils.AppSrvConfigFile{}
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(BeEmpty())
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent).To(BeNil())
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("reference_content:"))
 
 		})
 
@@ -1285,7 +1283,7 @@ var _ = Describe("App server assets", func() {
 			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).NotTo(BeNil())
 		})
 
-		It("should have empty reference indexes and solr_hybrid when OKP is enabled with no BYOK RAG", func() {
+		It("should omit reference_content and include solr_hybrid when OKP is enabled with no BYOK RAG", func() {
 			cr.Spec.OLSConfig.RAG = nil
 
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
@@ -1294,7 +1292,7 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(BeEmpty())
+			Expect(olsconfigGenerated.OLSConfig.ReferenceContent).To(BeNil())
 			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).NotTo(BeNil())
 		})
 
@@ -1557,7 +1555,7 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.LLMProviders).To(BeEmpty())
 			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(Equal(buildSolrHybridSettings()))
-			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(BeEmpty())
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("reference_content:"))
 			Expect(olsconfigGenerated.OLSConfig.Audit).To(Equal(&utils.AuditYAMLConfig{Logging: "Enabled"}))
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeFalse())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeFalse())
@@ -1580,7 +1578,7 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(Equal(buildSolrHybridSettings()))
-			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(BeEmpty())
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("reference_content:"))
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeTrue())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeTrue())
 			Expect(olsconfigGenerated.UserDataCollectorConfig).To(Equal(utils.UserDataCollectorConfig{}))
@@ -2242,12 +2240,12 @@ var _ = Describe("Helper function unit tests", func() {
 			Expect(config.ReferenceContent.Indexes[0].ProductDocsIndexId).To(Equal("test-index"))
 		})
 
-		It("should include solr_hybrid with empty reference indexes when BYOK only mode is disabled", func() {
+		It("should include solr_hybrid and omit reference_content when BYOK only mode is disabled and no RAG is configured", func() {
 			cr.Spec.OLSConfig.ByokRAGOnly = false
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{}
 			config, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(config.ReferenceContent.Indexes).To(BeEmpty())
+			Expect(config.ReferenceContent).To(BeNil())
 			Expect(config.SolrHybrid).NotTo(BeNil())
 		})
 

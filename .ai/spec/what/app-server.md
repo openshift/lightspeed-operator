@@ -103,7 +103,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 32. The RHOKP sidecar's ~75 GiB ephemeral storage requirement is unchanged by this convention — it applies only to CPU and memory.
 
 ### RHOKP Image
-33. The RHOKP sidecar image is set via the operator `--rhokp-image` startup flag (default in `utils.RHOOKPImageDefault`). It is not listed in `related_images.json` until productized in the OLM bundle.
+33. The RHOKP sidecar image is set via the operator `--rhokp-image` startup flag. Default comes from `related_images.json` entry `rhokp` (`utils.RHOOKPImageDefault` / `imageDefaultOr`). The OLM bundle lists it in CSV `spec.relatedImages` and passes the image via `--rhokp-image` on the manager deployment.
 
 ## Planned Changes
 

@@ -62,7 +62,7 @@ The OpenShift Lightspeed Operator is a Kubernetes operator that manages the life
 | `--postgres-image` | string | built-in default | Override PostgreSQL image |
 | `--openshift-mcp-server-image` | string | built-in default | Override OpenShift MCP server image |
 | `--dataverse-exporter-image` | string | built-in default | Override dataverse exporter image |
-| `--ocp-rag-image` | string | built-in default | Override OCP RAG database image |
+| `--rhokp-image` | string | `related_images.json` (`rhokp`) | Override RHOKP (Solr / OKP) sidecar image |
 
 ### Environment Variables
 

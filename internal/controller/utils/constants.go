@@ -483,7 +483,6 @@ var (
 	PostgresServerImageDefault     = relatedimages.GetDefaultImage("lightspeed-postgresql")
 	OpenShiftMCPServerImageDefault = relatedimages.GetDefaultImage("openshift-mcp-server")
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
-	OcpRagImageDefault             = relatedimages.GetDefaultImage("lightspeed-ocp-rag")
 	AgenticConsoleUIImageDefault   = imageDefaultOr("lightspeed-agentic-console-plugin", agenticConsoleUIImageFallback)
 	AlertsAdapterImageDefault      = imageDefaultOr("lightspeed-agentic-alerts-adapter", alertsAdapterImageFallback)
 	RHOOKPImageDefault             = imageDefaultOr("rhokp", rhokpImageFallback)

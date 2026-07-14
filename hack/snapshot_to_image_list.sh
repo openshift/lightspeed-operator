@@ -172,7 +172,7 @@ while IFS= read -r entry; do
 
 	out_entry=$(${JQ} --arg image "${image}" --arg revision "${revision}" '
 		.image = $image
-		| if ($revision | length) > 0 then .revision = $revision else . end
+		| .revision = $revision
 	' <<<"${entry}")
 	RESULT=$(${JQ} --argjson e "${out_entry}" '. + [$e]' <<<"${RESULT}")
 done < <(${JQ} -c '.[]' "${INPUT_FILE}")

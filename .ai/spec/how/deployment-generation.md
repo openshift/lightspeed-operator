@@ -109,7 +109,7 @@ Affinity and topology spread constraints are not exposed on `Config` (CRD size);
 | Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config |
 | Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY from cluster |
 | RAG images | CR `spec.ols.rag[].image` | Container images for init containers |
-| RHOKP image | `--rhokp-image` flag | RHOKP sidecar container image (default in code; not in `related_images.json` yet) |
+| RHOKP image | `--rhokp-image` flag | RHOKP sidecar container image; default from `related_images.json` (`rhokp`) |
 
 ## Agentic Controller Deployment (OLM-managed)
 
