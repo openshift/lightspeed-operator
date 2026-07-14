@@ -404,17 +404,10 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	if r.WatcherConfig != nil {
 		r.WatcherConfig.AnnotatedConfigMapMapping = make(map[string][]string)
 		r.WatcherConfig.AnnotatedSecretMapping = make(map[string][]string)
-		r.WatcherConfig.LLMSecretNames = make(map[string]bool)
-
-		r.WatcherConfig.CredentialHotReload = cr.Spec.OLSConfig.CredentialHotReload != nil &&
-			*cr.Spec.OLSConfig.CredentialHotReload
-
-		for _, provider := range cr.Spec.LLMConfig.Providers {
-			if provider.CredentialsSecretRef.Name != "" {
-				r.WatcherConfig.LLMSecretNames[provider.CredentialsSecretRef.Name] = true
-			}
-		}
 	}
+
+	credentialHotReload := cr.Spec.OLSConfig.CredentialHotReload != nil &&
+		*cr.Spec.OLSConfig.CredentialHotReload
 
 	var errs []error
 
@@ -428,11 +421,20 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 			}
 		}
 
+		// When credentialHotReload is enabled, LLM secrets are not watched —
+		// the service re-reads credentials from disk (RFE-9380).
+		if credentialHotReload && strings.HasPrefix(source, "llm-provider-") {
+			if err := r.removeSecretAnnotationIfNeeded(ctx, name, r.Options.Namespace); err != nil {
+				r.Logger.Error(err, "Failed to remove annotation from secret", "secret", name)
+			}
+			return nil
+		}
+
 		if err := r.annotateSecretIfNeeded(ctx, name, r.Options.Namespace); err != nil {
 			r.Logger.Error(err, "Failed to annotate secret", "source", source, "secret", name)
 			errs = append(errs, err)
 		}
-		return nil // Continue iteration even on error
+		return nil
 	})
 	if err != nil {
 		errs = append(errs, err)
@@ -509,6 +511,28 @@ func (r *OLSConfigReconciler) annotateSecretIfNeeded(ctx context.Context, name, 
 	}
 
 	secret.Annotations[utils.WatcherAnnotationKey] = utils.OLSConfigName
+	return r.Update(ctx, secret)
+}
+
+// removeSecretAnnotationIfNeeded removes the watcher annotation from a secret if present.
+func (r *OLSConfigReconciler) removeSecretAnnotationIfNeeded(ctx context.Context, name, namespace string) error {
+	secret := &corev1.Secret{}
+	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, secret)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	if secret.Annotations == nil {
+		return nil
+	}
+	if _, exists := secret.Annotations[utils.WatcherAnnotationKey]; !exists {
+		return nil
+	}
+
+	delete(secret.Annotations, utils.WatcherAnnotationKey)
 	return r.Update(ctx, secret)
 }
 

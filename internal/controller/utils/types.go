@@ -87,8 +87,6 @@ type WatcherConfig struct {
 	// RHOKPTLSWatchEnabled gates informer handling of lightspeed-rhokp-tls.
 	// Same pattern: static entry, toggled from !byokRAGOnly.
 	RHOKPTLSWatchEnabled atomic.Bool
-	CredentialHotReload              bool
-	LLMSecretNames                   map[string]bool
 }
 
 // IsSystemSecretWatchEnabled reports whether a SystemResources entry should be active.
@@ -246,6 +244,8 @@ type OLSConfig struct {
 	Audit *AuditYAMLConfig `json:"audit,omitempty"`
 	// Solr hybrid RAG (portal-rag /hybrid-search); mirrors lightspeed-service solr_hybrid
 	SolrHybrid *SolrHybridSettings `json:"solr_hybrid,omitempty"`
+	// Enable in-process credential hot-reload for LLM provider secrets
+	CredentialHotReload bool `json:"credential_hot_reload,omitempty"`
 }
 
 type AuditYAMLConfig struct {
