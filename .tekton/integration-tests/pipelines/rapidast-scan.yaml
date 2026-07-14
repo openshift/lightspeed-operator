@@ -92,7 +92,7 @@ spec:
               - name: version
                 value: "$(steps.pick-version.results.version)"
               - name: instanceType
-                value: "m5.large"
+                value: "m5.2xlarge"
     - name: ols-install
       description: Install operator via OLM bundle (Rapidast); calls run-konflux-operator-install.sh bundle only.
       runAfter:
