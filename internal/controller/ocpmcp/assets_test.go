@@ -31,7 +31,8 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(cm.Labels).To(Equal(labels))
 
 		toml := cm.Data[utils.OpenShiftMCPServerConfigFilename]
-		Expect(toml).To(ContainSubstring(`toolsets = ["core", "config", "helm", "metrics"]`))
+		Expect(toml).To(ContainSubstring(`toolsets = ["core", "config", "helm", "metrics", "kubevirt"]`))
+		Expect(toml).To(ContainSubstring(`experimental_enable_target_compatibility_tool_filters = true`))
 		Expect(toml).To(ContainSubstring(`kind = "Secret"`))
 		Expect(toml).To(ContainSubstring(`group = ""`))
 		Expect(toml).To(ContainSubstring(`group = "rbac.authorization.k8s.io"`))
