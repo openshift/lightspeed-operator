@@ -81,8 +81,8 @@ When `spec.ols.introspectionEnabled` is true, the operator creates a standalone 
 21. Egress is unrestricted (empty egress rules).
 
 ### RBAC
-22. The service account is granted SubjectAccessReview and TokenReview permissions for user authorization.
-23. The service account can read the cluster version and the telemetry pull secret.
+22. The app-server service account (`lightspeed-app-server`) is granted SubjectAccessReview and TokenReview permissions for user authorization.
+23. The app-server service account can read the cluster version and the telemetry pull secret.
 
 ### Change Detection
 24. Deployment updates are triggered when: the deployment spec changes, the config ConfigMap resource version changes, the MCP config ConfigMap resource version changes, or the proxy CA certificate hash changes.
