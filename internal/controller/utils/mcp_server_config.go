@@ -23,9 +23,9 @@ import (
 const OpenShiftMCPServerConfigTOML = `# Denied resources prevent the MCP server from accessing these Kubernetes resource types.
 # This ensures secret data never reaches the LLM through the shipped MCP server.
 # User-brought MCP servers (spec.mcpServers) are the user's responsibility to secure.
-# Toolsets are pinned explicitly so upstream default changes do not affect OLS.
 
-toolsets = ["core", "config", "helm", "metrics"]
+toolsets = ["core", "config", "helm", "metrics", "kubevirt"]
+experimental_enable_target_compatibility_tool_filters = true
 
 [[denied_resources]]
 group = ""
