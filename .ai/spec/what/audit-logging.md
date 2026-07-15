@@ -53,10 +53,11 @@ spec:
 7. Trace export to the in-cluster collector is **always** configured (gRPC OTLP). External backends are reached via the collector (`spec.audit.tracingEndpoint`), not by setting a service endpoint on the CR.
 8. `spec.audit` MUST NOT affect generated `olsconfig.yaml` audit settings.
 9. Changes to `spec.ols.auditEventsEnabled` MUST trigger reconciliation that regenerates `olsconfig.yaml` and rolls the app-server deployment.
+10. The operator mounts the collector serving cert (`lightspeed-otel-collector-cert`) at `/etc/certs/otel-collector-ca/tls.crt` in the app-server and adds it to `extra_ca`. See `tls.md`.
 
 ### Reconciliation
 
-10. The operator does not emit its own audit events. Its responsibilities are CRD schema, `olsconfig.yaml` generation for stdout audit and in-cluster trace export, and (in later stories) collector operand reconciliation.
+11. The operator does not emit its own audit events. Its responsibilities are CRD schema, `olsconfig.yaml` generation for stdout audit and in-cluster trace export, and OTEL Collector operand reconciliation (`OtelCollectorReady`). See `reconciliation.md` and `templog.md`.
 
 ## Migration (breaking change)
 

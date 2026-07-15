@@ -420,6 +420,38 @@ var _ = Describe("App server deployment generation", func() {
 		})
 	})
 
+	Context("OTEL collector trust", func() {
+		BeforeEach(func() {
+			cr = utils.GetDefaultOLSConfigCR()
+		})
+
+		It("should mount only the collector public certificate from the serving secret", func() {
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(
+				corev1.Volume{
+					Name: utils.AppOtelCollectorCACertVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  utils.OtelCollectorCertsSecretName,
+							DefaultMode: &defaultVolumeMode,
+							Items: []corev1.KeyToPath{
+								{Key: utils.AppOtelCollectorCACertFile, Path: utils.AppOtelCollectorCACertFile},
+							},
+						},
+					},
+				},
+			))
+			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(
+				corev1.VolumeMount{
+					Name:      utils.AppOtelCollectorCACertVolumeName,
+					MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.AppOtelCollectorCACertDir),
+					ReadOnly:  true,
+				},
+			))
+		})
+	})
+
 	Context("Additional CA", func() {
 		const caConfigMapName = "test-ca-configmap"
 		const certFilename = "additional-ca.crt"
@@ -501,7 +533,7 @@ var _ = Describe("App server deployment generation", func() {
 
 			olsCm, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
+			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/otel-collector-ca/tls.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
 			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)

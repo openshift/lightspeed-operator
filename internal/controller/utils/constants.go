@@ -230,6 +230,60 @@ const (
 	OtelCollectorServiceName = "lightspeed-otel-collector"
 	// OtelCollectorGRPCPort is the OTLP gRPC port exposed by the OTEL Collector Service.
 	OtelCollectorGRPCPort = 4317
+	// OtelCollectorHTTPPort is the OTLP HTTP port exposed by the OTEL Collector.
+	OtelCollectorHTTPPort = 4318
+	// OtelCollectorHealthCheckPort is the health check extension port.
+	OtelCollectorHealthCheckPort = 13133
+	// OtelCollectorAdminPort is the postgres_admin HTTPS port.
+	OtelCollectorAdminPort = 8080
+	// OtelCollectorDeploymentName is the name of the OTEL Collector deployment.
+	OtelCollectorDeploymentName = "lightspeed-otel-collector"
+	// OtelCollectorConfigMapName is the ConfigMap holding collector runtime YAML.
+	OtelCollectorConfigMapName = "lightspeed-otel-collector-config"
+	// OtelCollectorConfigMapDataKey is the key within OtelCollectorConfigMapName for collector YAML.
+	OtelCollectorConfigMapDataKey = "config.yaml"
+	// OtelCollectorConfigMapResourceVersionAnnotation tracks collector ConfigMap changes for rollout.
+	OtelCollectorConfigMapResourceVersionAnnotation = "ols.openshift.io/otel-collector-configmap-version"
+	// OtelCollectorConfigVolumeName is the pod volume name for the mounted collector config.
+	OtelCollectorConfigVolumeName = "config"
+	// OtelCollectorConfigVolumeMountPath is where the collector reads config.yaml.
+	OtelCollectorConfigVolumeMountPath = "/etc/otelcol"
+	// OtelCollectorCertsSecretName is the service-ca TLS secret for OTLP and admin API.
+	OtelCollectorCertsSecretName = "lightspeed-otel-collector-cert" // #nosec G101
+	// OtelCollectorServingCertVolumeName is the pod volume name for the serving cert Secret.
+	OtelCollectorServingCertVolumeName = "serving-cert"
+	// OtelCollectorServingCertMountPath is where the collector expects service-ca TLS material.
+	OtelCollectorServingCertMountPath = "/var/run/secrets/serving-cert"
+	// OtelCollectorPostgresConnectionStringEnvVar is the env var for the collector Postgres DSN.
+	OtelCollectorPostgresConnectionStringEnvVar = "POSTGRES_CONNECTION_STRING"
+	// OtelCollectorPostgresDSNSecretName stores the collector Postgres DSN.
+	OtelCollectorPostgresDSNSecretName = "lightspeed-otel-collector-postgres" // #nosec G101
+	// OtelCollectorPostgresConnectionStringSecretKey is the key for the collector Postgres DSN.
+	OtelCollectorPostgresConnectionStringSecretKey = "connection-string"
+	// OtelCollectorTracesBackendEndpointEnvVar is the env var for external trace export.
+	OtelCollectorTracesBackendEndpointEnvVar = "TRACES_BACKEND_ENDPOINT"
+	// OtelCollectorNetworkPolicyName is the network policy for the OTEL Collector.
+	OtelCollectorNetworkPolicyName = "lightspeed-otel-collector"
+	// OtelCollectorServiceAccountName is the service account for the OTEL Collector pod.
+	OtelCollectorServiceAccountName = "lightspeed-otel-collector"
+	// OtelCollectorContainerName is the collector container name.
+	OtelCollectorContainerName = "collector"
+	// OtelCollectorComponentLabel is the app.kubernetes.io/component label value.
+	OtelCollectorComponentLabel = "otel-collector"
+	// OtelCollectorFileStorageMountPath is the file_storage extension directory.
+	OtelCollectorFileStorageMountPath = "/var/lib/otelcol/file_storage"
+	// OtelSandboxServiceName is the OTLP service.name for agentic sandbox audit logs routed to Postgres.
+	OtelSandboxServiceName = "lightspeed-agentic-sandbox"
+	// OtelCollectorServingCertTLSFile is the serving certificate path in collector YAML.
+	OtelCollectorServingCertTLSFile = "/var/run/secrets/serving-cert/tls.crt"
+	// OtelCollectorServingCertTLSKeyFile is the serving certificate key path in collector YAML.
+	OtelCollectorServingCertTLSKeyFile = "/var/run/secrets/serving-cert/tls.key"
+	// AppOtelCollectorCACertDir is the app-server mount directory for the collector serving cert.
+	AppOtelCollectorCACertDir = "otel-collector-ca"
+	// AppOtelCollectorCACertVolumeName is the app-server volume name for the collector TLS secret.
+	AppOtelCollectorCACertVolumeName = "otel-collector-cert"
+	// AppOtelCollectorCACertFile is the serving cert filename within AppOtelCollectorCACertDir.
+	AppOtelCollectorCACertFile = "tls.crt"
 	// PostgresSecretName is the name of OLS application Postgres secret
 	PostgresSecretName = "lightspeed-postgres-secret"
 	// PostgresCertsSecretName is the name of the Postgres certs secret

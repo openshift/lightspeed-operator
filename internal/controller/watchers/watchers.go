@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/alertsadapter"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
+	"github.com/openshift/lightspeed-operator/internal/controller/otelcollector"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
@@ -370,6 +371,7 @@ var restartFuncs = map[string]RestartFunc{
 	utils.ConsoleUIDeploymentName:        console.RestartConsoleUI,
 	utils.AgenticConsoleUIDeploymentName: agenticconsole.RestartAgenticConsoleUI,
 	utils.AlertsAdapterDeploymentName:    alertsadapter.RestartAlertsAdapter,
+	utils.OtelCollectorDeploymentName:    otelcollector.RestartOtelCollector,
 }
 
 // restart corresponding deployment

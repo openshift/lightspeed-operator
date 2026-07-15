@@ -323,9 +323,10 @@ Condition types used by the operator:
 - `ApiReady` -- API server deployment health
 - `CacheReady` -- PostgreSQL cache deployment health
 - `ConsolePluginReady` -- Console UI plugin deployment health
+- `AgenticConsolePluginReady` -- Agentic console plugin deployment health
+- `OtelCollectorReady` -- OTEL Collector deployment health
 - `MCPServerReady` -- Standalone MCP server deployment health (`NotConfigured` when `introspectionEnabled` is false)
 - `AlertsAdapterReady` -- Agentic alerts adapter deployment health
-- `AgenticConsolePluginReady` -- Agentic console plugin deployment health
 - `ResourceReconciliation` -- Overall resource reconciliation status (set directly, not deployment-based)
 
 #### Overall Status (status.overallStatus)

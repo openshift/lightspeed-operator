@@ -379,6 +379,22 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Postgres CA volume
 	volumes = append(volumes, utils.GetPostgresCAConfigVolume())
 
+	volumes = append(volumes, corev1.Volume{
+		Name: utils.AppOtelCollectorCACertVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName:  utils.OtelCollectorCertsSecretName,
+				DefaultMode: &volumeDefaultMode,
+				Items: []corev1.KeyToPath{
+					{
+						Key:  utils.AppOtelCollectorCACertFile,
+						Path: utils.AppOtelCollectorCACertFile,
+					},
+				},
+			},
+		},
+	})
+
 	volumes = append(volumes,
 		corev1.Volume{
 			Name: utils.TmpVolumeName,
@@ -395,6 +411,11 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 
 	volumeMounts = append(volumeMounts,
 		utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, "postgres-ca")),
+		corev1.VolumeMount{
+			Name:      utils.AppOtelCollectorCACertVolumeName,
+			MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.AppOtelCollectorCACertDir),
+			ReadOnly:  true,
+		},
 		corev1.VolumeMount{
 			Name:      utils.TmpVolumeName,
 			MountPath: utils.TmpVolumeMountPath,

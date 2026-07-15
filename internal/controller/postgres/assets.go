@@ -127,7 +127,16 @@ func GeneratePostgresNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSC
 					From: []networkingv1.NetworkPolicyPeer{
 						{
 							PodSelector: &metav1.LabelSelector{
-								MatchLabels: utils.GenerateAppServerSelectorLabels(),
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "app.kubernetes.io/name",
+										Operator: metav1.LabelSelectorOpIn,
+										Values: []string{
+											utils.OLSAppServerContainerName,
+											utils.OtelCollectorDeploymentName,
+										},
+									},
+								},
 							},
 						},
 					},

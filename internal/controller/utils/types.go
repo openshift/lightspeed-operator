@@ -16,6 +16,7 @@ const (
 	TypeConsolePluginReady        = "ConsolePluginReady"
 	TypeAgenticConsolePluginReady = "AgenticConsolePluginReady"
 	TypeAlertsAdapterReady        = "AlertsAdapterReady"
+	TypeOtelCollectorReady        = "OtelCollectorReady"
 	TypeCRReconciled              = "Reconciled"
 )
 
