@@ -1,5 +1,9 @@
 # OpenShift Lightspeed Operator - AI Assistant Guide
 
+## Specs
+
+All specifications live in `.ai/spec/`. Start with `.ai/spec/README.md` for project overview, reading order, and structure guide.
+
 ## Project Overview
 Kubernetes operator managing OpenShift Lightspeed (AI-powered Virtual Assistant). Go + controller-runtime/kubebuilder + Ginkgo v2/Gomega testing.
 
@@ -162,10 +166,6 @@ When finishing a development branch:
 2. Squash commits with the Jira-prefixed message
 3. Push to the contributor's fork remote (not `origin`)
 4. Create the PR against `origin/main` using `--head <user>:<branch>`
-
-## Risk Levels
-
-Risk levels are enforced via a PreToolUse hook before every Jira create/edit call. The rubric and classification examples live in [lightspeed-team-harness/hooks/risk-rubric.md](https://github.com/openshift/lightspeed-team-harness/blob/main/hooks/risk-rubric.md).
 
 ## Maintaining This Document
 
