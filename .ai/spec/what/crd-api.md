@@ -514,7 +514,7 @@ Path | Type | Default | Required | Validation | Description
 5. Period format for quota limiters must match the regex pattern in rule 38, enforcing human-readable duration strings with correct singular/plural agreement.
 6. `credentialKey` if set must contain at least one non-whitespace character.
 7. Tool filtering requires the `ToolFiltering` feature gate in `spec.featureGates`.
-8. MCP server functionality requires the `MCPServer` feature gate in `spec.featureGates`.
+8. User-defined MCP servers (`spec.mcpServers`) require the `MCPServer` feature gate in `spec.featureGates`. The built-in openshift MCP server is controlled exclusively by `spec.ols.introspectionEnabled` and does not require this gate.
 11. There is exactly one allowed CacheType value: `postgres`.
 12. `ToolFilteringConfig.alpha` and `ToolFilteringConfig.threshold` are validated via XValidation (not kubebuilder min/max) to enforce 0.0-1.0 range.
 13. Bedrock credentials: `credentialsSecretRef` must contain either `apitoken` (Bearer) or both `aws_access_key_id` and `aws_secret_access_key` (IAM). Optional `role_arn` is passed through to the service when present.
