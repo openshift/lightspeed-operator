@@ -5,10 +5,10 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 ## Behavioral Rules
 
 ### Deployment Composition
-1. The deployment contains a primary API container and up to three sidecar containers.
+1. The deployment contains a primary API container and up to two sidecar containers.
 2. The primary container (lightspeed-service-api) runs the OLS service, listening on HTTPS.
 3. The data collector sidecar (lightspeed-to-dataverse-exporter) is added when data collection is enabled AND the telemetry pull secret exists in the openshift-config namespace with a cloud.openshift.com auth entry.
-4. The OpenShift MCP server sidecar is added when `spec.ols.introspectionEnabled` is true. It provides Kubernetes resource access via MCP protocol.
+4. When `spec.ols.introspectionEnabled` is true, the operator deploys the OpenShift MCP server as a **standalone Deployment** (not a sidecar). See "MCP Server Standalone Deployment" section below.
 5. OKP (Offline Knowledge Portal) / Solr hybrid RAG is operator-managed (no CR toggle besides `byokRAGOnly`). When OKP is enabled, the RHOKP sidecar serves Solr HTTP on localhost:9080 for the `search_openshift_documentation` tool path. It requires ~75 GiB ephemeral storage. OKP is on by default; set `spec.ols.byokRAGOnly` to true to skip the RHOKP sidecar, `solr_hybrid` config, and OCP documentation retrieval via Solr.
 6. A PostgreSQL wait init container always runs before the main containers to ensure database readiness.
 7. When `spec.ols.rag` is configured, additional init containers copy BYOK RAG data from container images into a shared volume.
@@ -33,12 +33,46 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
   - RBAC: operator requires `get` on `consoles` (`operator.openshift.io`) and `infrastructures` (`config.openshift.io`).
 
 ### MCP Server Integration
-16. When `spec.ols.introspectionEnabled` is true, an "openshift" MCP server entry is added to the config pointing to localhost on the sidecar port.
+16. When `spec.ols.introspectionEnabled` is true, an "openshift" MCP server entry is added to the config pointing to the standalone MCP server Service URL: `https://openshift-mcp-server.<namespace>.svc:8443/mcp`.
 17. When the MCPServer feature gate is enabled, user-defined servers from `spec.mcpServers` are added to the config.
 18. MCP header values of type "secret" are mounted as files from the referenced secret. Types "kubernetes" and "client" use placeholder strings that the service resolves at runtime.
+18a. When `spec.ols.introspectionEnabled` is true, the app-server container MUST mount the `openshift-mcp-server` service-ca CA bundle (from the `openshift-mcp-server-ca` ConfigMap, key `service-ca.crt`) so lightspeed-service can verify the standalone MCP server's TLS certificate.
 
-### MCP Server Service
-18a. When `spec.ols.introspectionEnabled` is true, the operator MUST create a `Service` named `openshift-mcp-server` in the operator namespace that selects the app server pods and targets port 8080 (the MCP sidecar port). This Service exposes the ocp-mcp sidecar to other pods in the cluster (e.g., agentic sandbox pods). When `introspectionEnabled` is false, the Service MUST be deleted if it exists.
+### MCP Server Standalone Deployment [CHANGED: OLS-3526]
+
+When `spec.ols.introspectionEnabled` is true, the operator creates a standalone Deployment and supporting resources for the OpenShift MCP server. When `introspectionEnabled` is false, all MCP server resources MUST be deleted if they exist.
+
+#### Deployment
+34. The Deployment is named `openshift-mcp-server` in the operator namespace with replicas, tolerations, and nodeSelector from `spec.ols.deployment.mcpServer`.
+35. The container runs the `openshift-mcp-server` image (set via the operator `--mcp-server-image` startup flag, analogous to `--rhokp-image`).
+36. The container listens on port 8443 with TLS enabled via `--tls-cert` and `--tls-key` flags pointing to the service-ca-generated certificate files.
+37. The container mounts a TOML configuration file from a ConfigMap (`openshift-mcp-server-config`). The TOML includes TLS cert/key paths, denied-resources list, and enabled toolsets.
+38. Security context: `runAsNonRoot: true`, `allowPrivilegeEscalation: false`, `seccompProfile: RuntimeDefault`, `capabilities: drop: [ALL]`.
+39. Liveness probe: HTTP GET `/healthz` on port 8443 (scheme HTTPS), `periodSeconds: 30`, `failureThreshold: 3`.
+40. Readiness probe: HTTP GET `/healthz` on port 8443 (scheme HTTPS), `periodSeconds: 10`, `failureThreshold: 3`.
+
+#### Service
+41. A `Service` named `openshift-mcp-server` with annotation `service.beta.openshift.io/serving-cert-secret-name: openshift-mcp-server-tls` is created. This triggers the OpenShift service-ca operator to generate a TLS certificate Secret (`openshift-mcp-server-tls`) trusted by the cluster.
+42. The Service targets port 8443 on the MCP server pods.
+
+#### CA Bundle
+43. A `ConfigMap` named `openshift-mcp-server-ca` with annotation `service.beta.openshift.io/inject-cabundle: "true"` is created. The service-ca operator injects the CA certificate (key `service-ca.crt`) used to verify the MCP server's TLS certificate.
+
+#### ServiceAccount
+44. A dedicated `ServiceAccount` named `openshift-mcp-server` is created. It has no RBAC bindings — the MCP server uses caller token passthrough for all Kubernetes API and metrics calls.
+
+#### NetworkPolicy
+45. A `NetworkPolicy` for the MCP server allows ingress on port 8443 from: pods in the operator namespace (app-server, agentic sandbox).
+
+#### Configuration (TOML)
+46. The operator generates a TOML ConfigMap (`openshift-mcp-server-config`) with:
+  - `tls_cert` and `tls_key` pointing to the mounted service-ca Secret paths.
+  - `denied_resources` from the existing sidecar configuration.
+  - `toolsets` from the existing sidecar configuration.
+
+#### Change Detection
+47. The app-server deployment annotations MUST include the MCP server CA ConfigMap resource version so that changes to the CA trigger a rolling restart of the app-server.
+48. The MCP server deployment annotations MUST include the MCP config ConfigMap resource version and the TLS Secret resource version so that changes trigger a rolling restart.
 
 ### Service and Networking
 19. The service exposes HTTPS on the configured port.
@@ -70,7 +104,10 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 | `spec.ols.deployment.api.tolerations` | Pod tolerations |
 | `spec.ols.deployment.api.nodeSelector` | Node selector constraints |
 | `spec.ols.deployment.dataCollector.resources` | Data collector container resources |
+| `spec.ols.deployment.mcpServer.replicas` | MCP server deployment replicas |
 | `spec.ols.deployment.mcpServer.resources` | MCP server container resources |
+| `spec.ols.deployment.mcpServer.tolerations` | MCP server pod tolerations |
+| `spec.ols.deployment.mcpServer.nodeSelector` | MCP server node selector constraints |
 | `spec.ols.deployment.rhokp.resources` | RHOKP sidecar container resources (CPU, memory, ephemeral storage) |
 | `spec.ols.defaultModel` | Default LLM model name |
 | `spec.ols.defaultProvider` | Default LLM provider name |
@@ -78,7 +115,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 | `spec.ols.maxIterations` | Maximum agent execution iterations |
 | `spec.ols.querySystemPrompt` | Custom system prompt for LLM queries |
 | `spec.ols.byokRAGOnly` | Disable OKP: no RHOKP sidecar, no `solr_hybrid` section, no `OCP_CLUSTER_VERSION` env. Only BYOK FAISS indexes from `spec.ols.rag` are used. |
-| `spec.ols.introspectionEnabled` | Enable OpenShift MCP server sidecar |
+| `spec.ols.introspectionEnabled` | Enable standalone OpenShift MCP server deployment |
 | `spec.ols.userDataCollection.feedbackDisabled` | Disable feedback collection |
 | `spec.ols.userDataCollection.transcriptsDisabled` | Disable transcript collection |
 | `spec.ols.queryFilters` | Query text pattern replacements |
@@ -98,7 +135,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 5. The RHOKP sidecar requires approximately 75 GiB of ephemeral storage for Solr data. This must be documented in product infrastructure requirements.
 
 ### Resource Conventions [OLS-3397]
-30. All operator-managed container defaults follow the [OpenShift resource conventions](https://github.com/openshift/enhancements/blob/master/CONVENTIONS.md#resources-and-limits): defaults declare CPU and memory requests only, and do not set resource limits. This applies to the primary API container and all sidecars (data collector, MCP server, RHOKP).
+30. All operator-managed container defaults follow the [OpenShift resource conventions](https://github.com/openshift/enhancements/blob/master/CONVENTIONS.md#resources-and-limits): defaults declare CPU and memory requests only, and do not set resource limits. This applies to the primary API container, sidecars (data collector, RHOKP), and the standalone MCP server deployment.
 31. Users may still set limits via the CRD (`spec.ols.deployment.<component>.resources`, including `spec.ols.deployment.rhokp.resources`) if their environment requires it. The CRD uses standard `corev1.ResourceRequirements` which accepts both requests and limits.
 32. The RHOKP sidecar's ~75 GiB ephemeral storage requirement is unchanged by this convention — it applies only to CPU and memory.
 
@@ -108,3 +145,4 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 ## Planned Changes
 
 - [PLANNED: OLS-3221] Liveness probe now checks PostgreSQL health via the service's background health-check loop status. Probe configuration (failureThreshold, periodSeconds) added to deployment generation. See Rules 24–25.
+- [PLANNED: OLS-3526] MCP server moved from app-server sidecar to standalone Deployment with TLS via service-ca. CRD `MCPServerContainer` type changes from `ContainerConfig` to `Config` to support replicas, tolerations, and nodeSelector. See "MCP Server Standalone Deployment" section.
