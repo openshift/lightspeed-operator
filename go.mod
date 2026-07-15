@@ -1,6 +1,6 @@
 module github.com/openshift/lightspeed-operator
 
-go 1.25.10
+go 1.25.11
 
 require (
 	github.com/Jeffail/gabs/v2 v2.7.0
