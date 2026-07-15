@@ -47,12 +47,21 @@ spec:
       - description: The name of the secret object that stores API provider credentials
         displayName: Credential Secret
         path: llm.providers[0].credentialsSecretRef
-      - description: |-
-          Audit logging and tracing configuration.
-          Logging and OTEL tracing are independent controls.
-          Default: logging enabled, no OTEL export when absent.
+      - description: Audit log and trace export configuration for the OTEL Collector.
         displayName: Audit Settings
         path: audit
+      - description: |-
+          logging enables audit log storage in PostgreSQL via the Collector.
+          Default: true when absent.
+        displayName: Audit Logging
+        path: audit.logging
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: |-
+          tracingEndpoint is the trace export backend (e.g. "jaeger:4317").
+          The Collector forwards traces here when set. TLS is always used.
+        displayName: Tracing Endpoint
+        path: audit.tracingEndpoint
       - description: |-
           Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
           possible values: MCPServer, ToolFiltering
@@ -170,6 +179,13 @@ spec:
         path: ols.additionalCAConfigMapRef
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          auditEventsEnabled controls structured compliance audit JSON events on stdout.
+          Default: true when absent. Does not affect collector storage (see spec.audit).
+        displayName: Audit Events Enabled
+        path: ols.auditEventsEnabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Only use BYOK RAG sources. Disables OKP (RHOKP sidecar, solr_hybrid
           config, and built-in OCP documentation retrieval).
         displayName: Only use BYOK RAG sources
@@ -202,8 +218,8 @@ spec:
         path: ols.deployment.agenticConsole
       - description: |-
           Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-          the number of replicas will always be set to 1.
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.agenticConsole.replicas
         x-descriptors:
@@ -222,8 +238,8 @@ spec:
         path: ols.deployment.alertsAdapter.configMapRef
       - description: |-
           Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-          the number of replicas will always be set to 1.
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.alertsAdapter.replicas
         x-descriptors:
@@ -233,8 +249,8 @@ spec:
         path: ols.deployment.api
       - description: |-
           Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-          the number of replicas will always be set to 1.
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.api.replicas
         x-descriptors:
@@ -244,8 +260,8 @@ spec:
         path: ols.deployment.console
       - description: |-
           Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-          the number of replicas will always be set to 1.
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.console.replicas
         x-descriptors:
@@ -258,8 +274,8 @@ spec:
         path: ols.deployment.database
       - description: |-
           Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-          the number of replicas will always be set to 1.
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.database.replicas
         x-descriptors:
@@ -267,6 +283,17 @@ spec:
       - description: MCP server container settings.
         displayName: MCP Server Container
         path: ols.deployment.mcpServer
+      - description: OTEL Collector deployment settings.
+        displayName: OTEL Collector Deployment
+        path: ols.deployment.otelCollector
+      - description: |-
+          Defines the number of desired OLS pods. Default: "1"
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+        displayName: Number of replicas
+        path: ols.deployment.otelCollector.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
       - description: RHOKP sidecar container settings (Solr / OKP).
         displayName: RHOKP Container
         path: ols.deployment.rhokp

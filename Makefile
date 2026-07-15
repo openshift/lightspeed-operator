@@ -35,7 +35,7 @@ IMAGE_TAG_BASE ?= quay.io/openshift-lightspeed/lightspeed-operator
 
 # BUNDLE_TAG defines the version of the bundle.
 # You can use it as an arg. (E.g make bundle BUNDLE_TAG=0.0.1)
-BUNDLE_TAG ?= 1.1.1
+BUNDLE_TAG ?= 1.1.2
 
 # set the base image for docker files
 # You can use it as an arg.  (E.g make bundle BASE_IMG=registry.redhat.io/ubi9/ubi-minimal)
@@ -377,7 +377,6 @@ $(ENVTEST): $(LOCALBIN)
 OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
 operator-sdk: ## Download operator-sdk locally if necessary.
 ifeq (,$(wildcard $(OPERATOR_SDK)))
-ifeq (, $(shell which operator-sdk 2>/dev/null))
 	@{ \
 	set -e ;\
 	mkdir -p $(dir $(OPERATOR_SDK)) ;\
@@ -385,9 +384,6 @@ ifeq (, $(shell which operator-sdk 2>/dev/null))
 	curl -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk_$${OS}_$${ARCH} ;\
 	chmod +x $(OPERATOR_SDK) ;\
 	}
-else
-OPERATOR_SDK = $(shell which operator-sdk)
-endif
 endif
 
 
@@ -398,7 +394,7 @@ endif
 ## to use image digests instead of version tag, set the USE_IMAGE_DIGESTS variable to true
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
-	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i related_images.json
+	OPERATOR_SDK=$(OPERATOR_SDK) YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i related_images.json
 
 parking:
 	$(OPERATOR_SDK) generate kustomize manifests -q

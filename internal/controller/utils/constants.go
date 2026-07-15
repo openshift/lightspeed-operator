@@ -489,7 +489,7 @@ var (
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
 	AgenticConsoleUIImageDefault   = imageDefaultOr("lightspeed-agentic-console-plugin", agenticConsoleUIImageFallback)
 	AlertsAdapterImageDefault      = imageDefaultOr("lightspeed-agentic-alerts-adapter", alertsAdapterImageFallback)
-	OtelCollectorImageDefault      = imageDefaultOr("lightspeed-otel-postgres-collector", otelCollectorImageFallback)
+	OtelCollectorImageDefault      = imageDefaultOr("lightspeed-otel-collector", otelCollectorImageFallback)
 	RHOOKPImageDefault             = imageDefaultOr("rhokp", rhokpImageFallback)
 )
 
@@ -497,7 +497,7 @@ const (
 	// Fallbacks when related_images.json is unavailable (e.g. local run outside repo root).
 	agenticConsoleUIImageFallback = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main"
 	alertsAdapterImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
-	otelCollectorImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-postgres-collector:main"
+	otelCollectorImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector:main"
 	rhokpImageFallback            = "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest"
 )
 
