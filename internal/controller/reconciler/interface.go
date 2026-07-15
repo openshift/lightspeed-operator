@@ -56,6 +56,9 @@ type Reconciler interface {
 	// GetAlertsAdapterImage returns the alerts adapter image to use
 	GetAlertsAdapterImage() string
 
+	// GetOtelCollectorImage returns the OTEL Collector image to use
+	GetOtelCollectorImage() string
+
 	// GetOpenShiftMajor returns the OpenShift major version
 	GetOpenShiftMajor() string
 

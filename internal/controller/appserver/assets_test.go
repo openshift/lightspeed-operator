@@ -132,7 +132,7 @@ var _ = Describe("App server assets", func() {
 						ApprovalType:    "tool_annotations",
 						ApprovalTimeout: utils.ToolsApprovalDefaultTimeout,
 					},
-					Audit: &utils.AuditYAMLConfig{Logging: "Enabled"},
+					Audit: buildServiceAuditConfig(cr, utils.OLSNamespaceDefault),
 				},
 				LLMProviders: []utils.ProviderConfig{
 					{
@@ -347,74 +347,45 @@ var _ = Describe("App server assets", func() {
 			}))))
 		})
 
-		It("should generate configmap with audit config defaults when spec.audit is absent", func() {
-			cr.Spec.Audit = nil
+		It("should generate configmap with service audit defaults", func() {
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 			olsConfigMap := map[string]interface{}{}
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", MatchAllKeys(Keys{
-				"logging": Equal("Enabled"),
-			}))))
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", serviceAuditYAMLMatcher("Enabled"))))
 		})
 
-		It("should generate configmap with audit config when logging disabled", func() {
-			cr.Spec.Audit = &olsv1alpha1.AuditConfig{
-				Logging: olsv1alpha1.AuditLoggingDisabled,
-			}
+		It("should generate configmap with service audit disabled when auditEventsEnabled is false", func() {
+			disabled := false
+			cr.Spec.OLSConfig.AuditEventsEnabled = &disabled
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 			olsConfigMap := map[string]interface{}{}
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", MatchAllKeys(Keys{
-				"logging": Equal("Disabled"),
-			}))))
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", serviceAuditYAMLMatcher("Disabled"))))
 		})
 
-		It("should generate configmap with audit config including OTEL endpoint", func() {
-			cr.Spec.Audit = &olsv1alpha1.AuditConfig{
-				Logging: olsv1alpha1.AuditLoggingEnabled,
-				OTEL: &olsv1alpha1.AuditOTELConfig{
-					Endpoint: "jaeger:4317",
-					TLSMode:  olsv1alpha1.AuditOTELTLSInsecure,
-				},
-			}
+		It("should not use spec.audit for service olsconfig yaml", func() {
+			cr.Spec.Audit = olsv1alpha1.AuditConfig{TracingEndpoint: "jaeger:4317"}
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 			olsConfigMap := map[string]interface{}{}
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", MatchAllKeys(Keys{
-				"logging": Equal("Enabled"),
-				"otel": MatchAllKeys(Keys{
-					"endpoint": Equal("jaeger:4317"),
-					"tls_mode": Equal("Insecure"),
-				}),
-			}))))
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", serviceAuditYAMLMatcher("Enabled"))))
 		})
 
-		It("should generate configmap with audit OTEL endpoint and explicit Secure TLS mode", func() {
-			cr.Spec.Audit = &olsv1alpha1.AuditConfig{
-				Logging: olsv1alpha1.AuditLoggingEnabled,
-				OTEL: &olsv1alpha1.AuditOTELConfig{
-					Endpoint: "otel-collector:4317",
-					TLSMode:  olsv1alpha1.AuditOTELTLSSecure,
-				},
-			}
+		It("should not disable service stdout audit when spec.audit.logging is false", func() {
+			logging := false
+			cr.Spec.Audit = olsv1alpha1.AuditConfig{Logging: &logging}
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 			olsConfigMap := map[string]interface{}{}
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", MatchAllKeys(Keys{
-				"logging": Equal("Enabled"),
-				"otel": MatchAllKeys(Keys{
-					"endpoint": Equal("otel-collector:4317"),
-					"tls_mode": Equal("Secure"),
-				}),
-			}))))
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("audit", serviceAuditYAMLMatcher("Enabled"))))
 		})
 
 		It("should generate configmap with token quota limiters", func() {
@@ -1556,7 +1527,7 @@ var _ = Describe("App server assets", func() {
 			Expect(olsconfigGenerated.LLMProviders).To(BeEmpty())
 			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(Equal(buildSolrHybridSettings()))
 			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("reference_content:"))
-			Expect(olsconfigGenerated.OLSConfig.Audit).To(Equal(&utils.AuditYAMLConfig{Logging: "Enabled"}))
+			Expect(olsconfigGenerated.OLSConfig.Audit).To(Equal(buildServiceAuditConfig(cr, utils.OLSNamespaceDefault)))
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeFalse())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeFalse())
 			Expect(olsconfigGenerated.UserDataCollectorConfig.DataStorage).To(Equal("/app-root/ols-user-data"))
@@ -2478,6 +2449,18 @@ var _ = Describe("Helper function unit tests", func() {
 		})
 	})
 })
+
+func serviceAuditYAMLMatcher(logging string) OmegaMatcher {
+	endpoint := fmt.Sprintf("%s.%s.svc:%d",
+		utils.OtelCollectorServiceName, utils.OLSNamespaceDefault, utils.OtelCollectorGRPCPort)
+	return MatchAllKeys(Keys{
+		"logging": Equal(logging),
+		"otel": MatchAllKeys(Keys{
+			"endpoint": Equal(endpoint),
+			"tls_mode": Equal("Secure"),
+		}),
+	})
+}
 
 // setFirstLLMProviderNameAndType sets Providers[0] name and type; use utils.With* helpers for richer shapes.
 func setFirstLLMProviderNameAndType(cr *olsv1alpha1.OLSConfig, name, providerType string) {

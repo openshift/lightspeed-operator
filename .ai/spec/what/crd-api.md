@@ -22,32 +22,32 @@ Field path | JSON key | Go type | Required | Description
 `spec.olsDataCollector` | `olsDataCollector` | `OLSDataCollectorSpec` | No | Data collector settings (logLevel only)
 `spec.mcpServers` | `mcpServers` | `[]MCPServerConfig` | No | External MCP server configurations. MaxItems=20
 `spec.featureGates` | `featureGates` | `[]FeatureGate` | No | Feature gates. Enum values: `MCPServer`, `ToolFiltering`
-`spec.audit` | `audit` | `*AuditConfig` | No | Audit logging and OTEL tracing. Default: logging enabled, no OTEL export. MinProperties=1
+`spec.audit` | `audit` | `AuditConfig` | No | OTEL Collector audit log storage and trace forwarding. Does not configure lightspeed-service. Value type (not pointer).
 
 ### Audit Configuration (spec.audit)
 
-Structured JSON audit events and OpenTelemetry trace export. Logging and OTEL are independent controls.
+Collector-only settings for the in-cluster OTEL Collector ([OLS-3505](https://redhat.atlassian.net/browse/OLS-3505)). See `templog.md` for operand behavior. **Does not** propagate into `olsconfig.yaml`.
 
 #### AuditConfig Fields
 
 Field path (relative to `spec.audit`) | JSON key | Go type | Required | Default | Validation | Description
 ---|---|---|---|---|---|---
-`logging` | `logging` | `AuditLoggingMode` | No | `Enabled` | Enum: `Enabled`, `Disabled` | Enables structured JSON audit events to stdout
-`otel` | `otel` | `*AuditOTELConfig` | No | (nil) | MinProperties=1 | OpenTelemetry tracing export config
-
-#### AuditOTELConfig Fields
-
-Field path (relative to `otel`) | JSON key | Go type | Required | Default | Validation | Description
----|---|---|---|---|---|---
-`endpoint` | `endpoint` | `string` | No | (empty) | MinLength=1, MaxLength=253 | OTLP gRPC endpoint (e.g., `"jaeger-otlp-grpc.observability.svc:4317"`)
-`tlsMode` | `tlsMode` | `AuditOTELTLSMode` | No | `Secure` | Enum: `Secure`, `Insecure` | TLS behavior for the OTLP connection
+`logging` | `logging` | `*bool` | No | `true` when absent | Optional | Enable Collector logs → Postgres pipeline
+`tracingEndpoint` | `tracingEndpoint` | `string` | No | (empty) | MaxLength=253 | OTLP trace export backend (e.g. `"jaeger:4317"`). TLS always used by collector.
 
 #### Audit Behavioral Rules
 
-54. `spec.audit` is a pointer — nil when absent. When absent, the operator defaults `logging` to `Enabled` and uses no OTEL export.
-55. `spec.audit.logging` defaults to `Enabled` (both when field is empty and when the entire `spec.audit` block is absent).
-56. `spec.audit.otel` is a pointer — nil when absent. When present with a non-empty `endpoint`, the operator writes the OTEL config into `olsconfig.yaml` with `tls_mode` always set (defaulting to `Secure` if `tlsMode` is empty).
-57. `spec.audit.otel.tlsMode` defaults to `Secure`. `Insecure` disables TLS for the OTLP connection.
+54. `spec.audit` is a value type (`Audit AuditConfig`). Go's `encoding/json` always serializes it as at least `{}` when other spec fields are present; the tag has no `omitempty`. No helper methods on `AuditConfig`.
+55. `spec.audit.logging` defaults to **enabled** (`true`) when absent. When `false`, the collector omits the Postgres logs pipeline ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510)).
+56. `spec.audit.tracingEndpoint` is optional. When set, the collector forwards traces to that backend with TLS ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510)).
+57. Service stdout audit and in-cluster trace export are configured separately — see `spec.ols.auditEventsEnabled` and `audit-logging.md`.
+
+#### Removed (breaking change)
+
+- `AuditLoggingMode`, `AuditOTELConfig`, `AuditOTELTLSMode` types
+- `spec.audit.otel.endpoint`, `spec.audit.otel.tlsMode`
+- `AuditConfig.LoggingEnabled()`, `OTELEndpoint()`, `OTELInsecure()` helpers
+- Previous semantics: `spec.audit.logging` as `Enabled`/`Disabled` stdout enum — replaced by `spec.ols.auditEventsEnabled`
 
 ### LLM Provider Configuration (spec.llm)
 
@@ -140,8 +140,9 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 
 `AlertsAdapterSpec` embeds `Config` (deployment scheduling/resources) and optional `configMapRef` (`LocalObjectReference`). Setting `configMapRef` **enables** the alerts adapter operand. The referenced ConfigMap name is `configMapRef.name` (commonly `alerts-adapter-config`; see [adapter manifests](https://github.com/openshift/lightspeed-agentic-alerts-adapter/tree/main/manifests)). The operator does not create or validate ConfigMap content. When the ConfigMap exists, it is mounted at `/etc/alerts-adapter`; when absent, no config volume is mounted. The adapter reads `config.yaml` from that path and uses built-in defaults when the file is missing or invalid.
 `agenticConsole` | `agenticConsole` | `Config` | Agentic console plugin container. Replicas forced to 1
+`otelCollector` | `otelCollector` | `Config` | OTEL Collector container ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510)). Replicas forced to 1
 
-20. Replicas are only user-configurable for the API container (`spec.ols.deployment.api.replicas`). For console, database, alerts adapter, and agentic console, the operator always overrides replicas to 1 regardless of spec value.
+20. Replicas are only user-configurable for the API container (`spec.ols.deployment.api.replicas`). For console, database, alerts adapter, agentic console, and otel collector, the operator always overrides replicas to 1 regardless of spec value.
 
 ##### Config Fields
 
@@ -188,16 +189,21 @@ Field | JSON key | Go type | Required
 
 #### Introspection (spec.ols.introspectionEnabled)
 
-28. `spec.ols.introspectionEnabled` -- `bool`, optional. Enables introspection features.
+28. `spec.ols.introspectionEnabled` -- `*bool`, optional. Default: `true` when absent. Enables introspection features (built-in OpenShift MCP server).
+
+#### Service audit events (spec.ols.auditEventsEnabled)
+
+29. `spec.ols.auditEventsEnabled` -- `*bool`, optional. Default: **`true`** when absent. Controls structured compliance audit JSON on stdout by lightspeed-service.
+30. Maps to `audit.logging: Enabled|Disabled` in generated `olsconfig.yaml`. Independent of `spec.audit.logging` (collector Postgres pipeline).
 
 #### MCP Kubernetes Server (spec.ols.mcpKubeServerConfig)
 
-29. `spec.ols.mcpKubeServerConfig.timeout` -- `int`. Default: `60`. Minimum=5. Timeout in seconds for the built-in MCP Kubernetes server.
+31. `spec.ols.mcpKubeServerConfig.timeout` -- `int`. Default: `60`. Minimum=5. Timeout in seconds for the built-in MCP Kubernetes server.
 
 #### Proxy Configuration (spec.ols.proxyConfig)
 
-30. `spec.ols.proxyConfig.proxyURL` -- `string`, optional. Pattern: `^https?://.*$`. If unset, cluster-wide proxy is used via `https_proxy` env var.
-31. `spec.ols.proxyConfig.proxyCACertificate` -- `*ProxyCACertConfigMapRef`, optional. Struct type `atomic`.
+32. `spec.ols.proxyConfig.proxyURL` -- `string`, optional. Pattern: `^https?://.*$`. If unset, cluster-wide proxy is used via `https_proxy` env var.
+33. `spec.ols.proxyConfig.proxyCACertificate` -- `*ProxyCACertConfigMapRef`, optional. Struct type `atomic`.
 
 `ProxyCACertConfigMapRef` fields:
 - Inline `corev1.LocalObjectReference` (provides `name` field for the ConfigMap name)
@@ -205,7 +211,7 @@ Field | JSON key | Go type | Required
 
 #### RAG Configuration (spec.ols.rag)
 
-32. Type: `[]RAGSpec`, optional.
+34. Type: `[]RAGSpec`, optional.
 
 Field | JSON key | Go type | Required | Default
 ---|---|---|---|---
@@ -215,9 +221,9 @@ Field | JSON key | Go type | Required | Default
 
 #### Quota Handlers (spec.ols.quotaHandlersConfig)
 
-33. `spec.ols.quotaHandlersConfig` -- `*QuotaHandlersConfig`, optional.
-34. `spec.ols.quotaHandlersConfig.limitersConfig` -- `[]LimiterConfig`.
-35. `spec.ols.quotaHandlersConfig.enableTokenHistory` -- `bool`, optional.
+35. `spec.ols.quotaHandlersConfig` -- `*QuotaHandlersConfig`, optional.
+36. `spec.ols.quotaHandlersConfig.limitersConfig` -- `[]LimiterConfig`.
+37. `spec.ols.quotaHandlersConfig.enableTokenHistory` -- `bool`, optional.
 
 `LimiterConfig` fields:
 
@@ -229,16 +235,16 @@ Field | JSON key | Go type | Required | Validation
 `quotaIncrease` | `quotaIncrease` | `int` | Yes (by convention) | Minimum=0
 `period` | `period` | `string` | Yes (by convention) | Pattern: `^(1\s+(second\|minute\|hour\|day\|month\|year\|s\|min\|h\|d\|m\|y)\|([2-9][0-9]*\|[1-9][0-9]{2,})\s+(seconds\|minutes\|hours\|days\|months\|years\|s\|min\|h\|d\|m\|y))$`
 
-36. Period pattern explanation: quantity 1 requires singular unit name or abbreviation; quantities >= 2 require plural unit name or abbreviation. Abbreviations (`s`, `min`, `h`, `d`, `m`, `y`) are accepted with any quantity.
+38. Period pattern explanation: quantity 1 requires singular unit name or abbreviation; quantities >= 2 require plural unit name or abbreviation. Abbreviations (`s`, `min`, `h`, `d`, `m`, `y`) are accepted with any quantity.
 
 #### Storage (spec.ols.storage)
 
-37. `spec.ols.storage.size` -- `resource.Quantity`, optional. Size of the requested persistent volume.
-38. `spec.ols.storage.class` -- `string`, optional. Storage class name.
+39. `spec.ols.storage.size` -- `resource.Quantity`, optional. Size of the requested persistent volume.
+40. `spec.ols.storage.class` -- `string`, optional. Storage class name.
 
 #### Boolean/String Fields
 
-39. `spec.ols.byokRAGOnly` -- `bool`, optional. When true, only BYOK RAG sources are used: the operator does not deploy the RHOKP sidecar, does not write `solr_hybrid` into `olsconfig.yaml`, and does not set `OCP_CLUSTER_VERSION` on the app-server pod.
+41. `spec.ols.byokRAGOnly` -- `bool`, optional. When true, only BYOK RAG sources are used: the operator does not deploy the RHOKP sidecar, does not write `solr_hybrid` into `olsconfig.yaml`, and does not set `OCP_CLUSTER_VERSION` on the app-server pod.
 
 #### Operator-managed OKP (not on CR)
 
@@ -248,13 +254,13 @@ OKP / Solr hybrid RAG has no `spec.ols.solrHybrid` (or similar) field. It is ena
 - serves OCP product documentation via Solr hybrid only; `reference_content.indexes` lists BYOK FAISS indexes from `spec.ols.rag` only.
 
 RHOKP sidecar CPU, memory, and ephemeral storage are overridable via `spec.ols.deployment.rhokp.resources` (defaults: 2 CPU, 2 GiB memory, and 75 GiB ephemeral storage requests).
-40. `spec.ols.querySystemPrompt` -- `string`, optional. Custom system prompt for LLM queries. If unset, the default OpenShift Lightspeed prompt is used.
-41. `spec.ols.maxIterations` -- `int`. Default: `5`. Minimum=1. Maximum number of iterations for agent execution.
-42. `spec.ols.imagePullSecrets` -- `[]corev1.LocalObjectReference`, optional. Pull secrets for BYOK RAG images.
+42. `spec.ols.querySystemPrompt` -- `string`, optional. Custom system prompt for LLM queries. If unset, the default OpenShift Lightspeed prompt is used.
+43. `spec.ols.maxIterations` -- `int`. Default: `5`. Minimum=1. Maximum number of iterations for agent execution.
+44. `spec.ols.imagePullSecrets` -- `[]corev1.LocalObjectReference`, optional. Pull secrets for BYOK RAG images.
 
 #### Tool Filtering (spec.ols.toolFilteringConfig)
 
-43. `spec.ols.toolFilteringConfig` -- `*ToolFilteringConfig`, optional. Presence enables tool filtering; absence means all tools are used.
+45. `spec.ols.toolFilteringConfig` -- `*ToolFilteringConfig`, optional. Presence enables tool filtering; absence means all tools are used.
 
 Field | JSON key | Go type | Default | Validation
 ---|---|---|---|---
@@ -262,26 +268,26 @@ Field | JSON key | Go type | Default | Validation
 `topK` | `topK` | `int` | `10` | Minimum=1, Maximum=50. Number of tools to retrieve
 `threshold` | `threshold` | `float64` | `0.01` | XValidation: must be >= 0.0 and <= 1.0. Minimum similarity threshold
 
-44. Tool filtering requires the `ToolFiltering` feature gate to be enabled in `spec.featureGates`.
+46. Tool filtering requires the `ToolFiltering` feature gate to be enabled in `spec.featureGates`.
 
 #### Tools Approval (spec.ols.toolsApprovalConfig)
 
-45. `spec.ols.toolsApprovalConfig` -- `*ToolsApprovalConfig`, optional.
+47. `spec.ols.toolsApprovalConfig` -- `*ToolsApprovalConfig`, optional.
 
 Field | JSON key | Go type | Default | Validation
 ---|---|---|---|---
 `approvalType` | `approvalType` | `ApprovalType` | `tool_annotations` | Enum: `never`, `always`, `tool_annotations`
 `approvalTimeout` | `approvalTimeout` | `int` | `600` | Minimum=1. Timeout in seconds for user approval
 
-46. `never`: all tools execute without approval. `always`: all tool calls require approval. `tool_annotations`: approval decision is per-tool based on annotations.
+48. `never`: all tools execute without approval. `always`: all tool calls require approval. `tool_annotations`: approval decision is per-tool based on annotations.
 
 ### Data Collector Configuration (spec.olsDataCollector)
 
-47. `spec.olsDataCollector.logLevel` -- `LogLevel` enum. Default: `INFO`. Same enum as `spec.ols.logLevel`.
+49. `spec.olsDataCollector.logLevel` -- `LogLevel` enum. Default: `INFO`. Same enum as `spec.ols.logLevel`.
 
 ### MCP Server Configuration (spec.mcpServers)
 
-48. Array of `MCPServerConfig`. MaxItems=20.
+50. Array of `MCPServerConfig`. MaxItems=20.
 
 Field | JSON key | Go type | Required | Default | Validation
 ---|---|---|---|---|---
@@ -304,14 +310,14 @@ Field | JSON key | Go type | Required | Validation
 `type` | `type` | `MCPHeaderSourceType` | Yes | Enum: `secret`, `kubernetes`, `client`. Union discriminator
 `secretRef` | `secretRef` | `*corev1.LocalObjectReference` | Conditional | Required with non-empty `name` when `type == "secret"`. Must not be set when `type != "secret"`
 
-49. XValidation: when `type == "secret"`, `secretRef` must be present with a non-empty `name`.
-50. XValidation: when `type != "secret"` (i.e., `kubernetes` or `client`), `secretRef` must not be set.
+51. XValidation: when `type == "secret"`, `secretRef` must be present with a non-empty `name`.
+52. XValidation: when `type != "secret"` (i.e., `kubernetes` or `client`), `secretRef` must not be set.
 
 ### Status (status)
 
 #### Conditions (status.conditions)
 
-51. Type: `[]metav1.Condition`. Populated after first reconciliation.
+53. Type: `[]metav1.Condition`. Populated after first reconciliation.
 
 Condition types used by the operator:
 - `ApiReady` -- API server deployment health
@@ -323,11 +329,11 @@ Condition types used by the operator:
 
 #### Overall Status (status.overallStatus)
 
-52. `status.overallStatus` -- `OverallStatus` enum. Values: `Ready`, `NotReady`. Aggregation of all component conditions. `Ready` only when all components are healthy.
+54. `status.overallStatus` -- `OverallStatus` enum. Values: `Ready`, `NotReady`. Aggregation of all component conditions. `Ready` only when all components are healthy.
 
 #### Diagnostic Info (status.diagnosticInfo)
 
-53. Type: `[]PodDiagnostic`, optional. Auto-populated during deployment failures, cleared on recovery.
+55. Type: `[]PodDiagnostic`, optional. Auto-populated during deployment failures, cleared on recovery.
 
 `PodDiagnostic` fields:
 
@@ -417,6 +423,11 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.deployment.agenticConsole.resources` | `*ResourceRequirements` | -- | No | -- | Agentic console resources
 `spec.ols.deployment.agenticConsole.tolerations` | `[]Toleration` | -- | No | -- | Agentic console tolerations
 `spec.ols.deployment.agenticConsole.nodeSelector` | `map[string]string` | -- | No | -- | Agentic console node selector
+`spec.ols.deployment.otelCollector` | `Config` | -- | No | -- | OTEL Collector deployment ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510))
+`spec.ols.deployment.otelCollector.replicas` | `*int32` | `1` | No | Min=0 | Collector replicas (operator forces 1)
+`spec.ols.deployment.otelCollector.resources` | `*ResourceRequirements` | -- | No | -- | Collector resources
+`spec.ols.deployment.otelCollector.tolerations` | `[]Toleration` | -- | No | -- | Collector tolerations
+`spec.ols.deployment.otelCollector.nodeSelector` | `map[string]string` | -- | No | -- | Collector node selector
 `spec.ols.queryFilters` | `[]QueryFiltersSpec` | -- | No | -- | Query filters
 `spec.ols.queryFilters[].name` | `string` | -- | No | -- | Filter name
 `spec.ols.queryFilters[].pattern` | `string` | -- | No | -- | Regex pattern
@@ -428,7 +439,8 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.tlsConfig.keyCertSecretRef` | `LocalObjectReference` | -- | No | -- | Secret with tls.crt, tls.key, ca.crt
 `spec.ols.additionalCAConfigMapRef` | `*LocalObjectReference` | -- | No | -- | Extra CA certs for LLM TLS
 `spec.ols.tlsSecurityProfile` | `*TLSSecurityProfile` | -- | No | -- | API endpoint TLS profile
-`spec.ols.introspectionEnabled` | `bool` | -- | No | -- | Enable introspection
+`spec.ols.introspectionEnabled` | `*bool` | `true` | No | -- | Enable introspection
+`spec.ols.auditEventsEnabled` | `*bool` | `true` | No | -- | Stdout compliance audit JSON events
 `spec.ols.mcpKubeServerConfig` | `*MCPKubeServerConfiguration` | -- | No | -- | Built-in MCP kube server config
 `spec.ols.mcpKubeServerConfig.timeout` | `int` | `60` | No | Min=5 | Timeout (seconds)
 `spec.ols.proxyConfig` | `*ProxyConfig` | -- | No | -- | Proxy settings
@@ -446,7 +458,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.quotaHandlersConfig.limitersConfig[].type` | `string` | -- | Yes | Enum: cluster_limiter, user_limiter | Limiter type
 `spec.ols.quotaHandlersConfig.limitersConfig[].initialQuota` | `int` | -- | Yes | Min=0 | Initial token quota
 `spec.ols.quotaHandlersConfig.limitersConfig[].quotaIncrease` | `int` | -- | Yes | Min=0 | Quota increase step
-`spec.ols.quotaHandlersConfig.limitersConfig[].period` | `string` | -- | Yes | Pattern (rule 36) | Time period
+`spec.ols.quotaHandlersConfig.limitersConfig[].period` | `string` | -- | Yes | Pattern (rule 38) | Time period
 `spec.ols.quotaHandlersConfig.enableTokenHistory` | `bool` | -- | No | -- | Enable token history
 `spec.ols.storage` | `*Storage` | -- | No | -- | Persistent storage
 `spec.ols.storage.size` | `resource.Quantity` | -- | No | -- | Volume size
@@ -474,11 +486,9 @@ Path | Type | Default | Required | Validation | Description
 `spec.mcpServers[].headers[].valueFrom.type` | `MCPHeaderSourceType` | -- | Yes | Enum: secret/kubernetes/client | Source type
 `spec.mcpServers[].headers[].valueFrom.secretRef` | `*LocalObjectReference` | -- | Conditional | XValidation (rules 49-50) | Secret reference
 `spec.featureGates` | `[]FeatureGate` | -- | No | Enum per item: MCPServer/ToolFiltering | Feature gates
-`spec.audit` | `*AuditConfig` | -- | No | MinProperties=1 | Audit logging and tracing
-`spec.audit.logging` | `AuditLoggingMode` | `Enabled` | No | Enum: Enabled/Disabled | Structured JSON audit events to stdout
-`spec.audit.otel` | `*AuditOTELConfig` | -- | No | MinProperties=1 | OTEL tracing export config
-`spec.audit.otel.endpoint` | `string` | -- | No | MinLen=1, MaxLen=253 | OTLP gRPC endpoint
-`spec.audit.otel.tlsMode` | `AuditOTELTLSMode` | `Secure` | No | Enum: Secure/Insecure | OTLP connection TLS mode
+`spec.audit` | `AuditConfig` | -- | No | -- | Collector audit log storage and trace forwarding
+`spec.audit.logging` | `*bool` | `true` | No | Optional | Collector Postgres logs pipeline
+`spec.audit.tracingEndpoint` | `string` | -- | No | MaxLen=253 | Collector external OTLP trace export (TLS)
 `status.conditions` | `[]metav1.Condition` | -- | -- | -- | Component conditions
 `status.overallStatus` | `OverallStatus` | -- | -- | Enum: Ready/NotReady | Aggregate health
 `status.diagnosticInfo` | `[]PodDiagnostic` | -- | -- | -- | Pod failure diagnostics
@@ -496,8 +506,8 @@ Path | Type | Default | Required | Validation | Description
 1. `.metadata.name` must be `"cluster"` (XValidation on OLSConfig type).
 2. Only `azure_openai` provider type uses `deploymentName`; it is required for that type and forbidden (by convention) for others.
 3. Only `watsonx` provider type uses `projectID`; it is required for that type.
-4. Replicas are only user-configurable for the API container (`spec.ols.deployment.api`). Console, database, alerts adapter, and agentic console always run with 1 replica enforced by the operator.
-5. Period format for quota limiters must match the regex pattern in rule 36, enforcing human-readable duration strings with correct singular/plural agreement.
+4. Replicas are only user-configurable for the API container (`spec.ols.deployment.api`). Console, database, alerts adapter, agentic console, and otel collector always run with 1 replica enforced by the operator.
+5. Period format for quota limiters must match the regex pattern in rule 38, enforcing human-readable duration strings with correct singular/plural agreement.
 6. `credentialKey` if set must contain at least one non-whitespace character.
 7. Tool filtering requires the `ToolFiltering` feature gate in `spec.featureGates`.
 8. MCP server functionality requires the `MCPServer` feature gate in `spec.featureGates`.

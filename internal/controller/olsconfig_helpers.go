@@ -57,6 +57,10 @@ func (r *OLSConfigReconciler) GetAlertsAdapterImage() string {
 	return r.Options.AlertsAdapterImage
 }
 
+func (r *OLSConfigReconciler) GetOtelCollectorImage() string {
+	return r.Options.OtelCollectorImage
+}
+
 func (r *OLSConfigReconciler) GetOpenShiftMajor() string {
 	return r.Options.OpenShiftMajor
 }

@@ -226,6 +226,10 @@ const (
 	PostgresSecretResourceVersionAnnotation = "ols.openshift.io/postgres-secret-version"
 	// PostgresServiceName is the name of OLS application Postgres server service
 	PostgresServiceName = "lightspeed-postgres-server"
+	// OtelCollectorServiceName is the in-cluster OTEL Collector Service for OTLP from OLS.
+	OtelCollectorServiceName = "lightspeed-otel-collector"
+	// OtelCollectorGRPCPort is the OTLP gRPC port exposed by the OTEL Collector Service.
+	OtelCollectorGRPCPort = 4317
 	// PostgresSecretName is the name of OLS application Postgres secret
 	PostgresSecretName = "lightspeed-postgres-secret"
 	// PostgresCertsSecretName is the name of the Postgres certs secret
@@ -485,6 +489,7 @@ var (
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
 	AgenticConsoleUIImageDefault   = imageDefaultOr("lightspeed-agentic-console-plugin", agenticConsoleUIImageFallback)
 	AlertsAdapterImageDefault      = imageDefaultOr("lightspeed-agentic-alerts-adapter", alertsAdapterImageFallback)
+	OtelCollectorImageDefault      = imageDefaultOr("lightspeed-otel-postgres-collector", otelCollectorImageFallback)
 	RHOOKPImageDefault             = imageDefaultOr("rhokp", rhokpImageFallback)
 )
 
@@ -492,6 +497,7 @@ const (
 	// Fallbacks when related_images.json is unavailable (e.g. local run outside repo root).
 	agenticConsoleUIImageFallback = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main"
 	alertsAdapterImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
+	otelCollectorImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-postgres-collector:main"
 	rhokpImageFallback            = "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest"
 )
 

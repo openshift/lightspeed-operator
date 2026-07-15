@@ -339,21 +339,7 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		Ciphers:       utiltls.TLSCiphers(tlsProfileSpec),
 	}
 
-	auditLogging := string(olsv1alpha1.AuditLoggingEnabled)
-	if cr.Spec.Audit != nil && cr.Spec.Audit.Logging != "" {
-		auditLogging = string(cr.Spec.Audit.Logging)
-	}
-	olsConfig.Audit = &utils.AuditYAMLConfig{Logging: auditLogging}
-	if cr.Spec.Audit != nil && cr.Spec.Audit.OTELEndpoint() != "" {
-		tlsMode := string(olsv1alpha1.AuditOTELTLSSecure)
-		if cr.Spec.Audit.OTEL.TLSMode != "" {
-			tlsMode = string(cr.Spec.Audit.OTEL.TLSMode)
-		}
-		olsConfig.Audit.OTEL = &utils.OTELYAMLConfig{
-			Endpoint: cr.Spec.Audit.OTELEndpoint(),
-			TLSMode:  tlsMode,
-		}
-	}
+	olsConfig.Audit = buildServiceAuditConfig(cr, r.GetNamespace())
 
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
 		olsConfig.SolrHybrid = buildSolrHybridSettings()
@@ -362,8 +348,25 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 	return olsConfig, nil
 }
 
-// buildSolrHybridSettings maps operator defaults to the OLS config file (snake_case keys).
-// Solr URL and retrieval tuning target the RHOKP sidecar on localhost:RHOOKPHTTPPort.
+// buildServiceAuditConfig maps OLS service audit settings into olsconfig.yaml.
+// spec.audit on the CR is collector-only; stdout audit uses spec.ols.auditEventsEnabled.
+// Traces are always exported to the in-cluster OTEL Collector.
+func buildServiceAuditConfig(cr *olsv1alpha1.OLSConfig, namespace string) *utils.AuditYAMLConfig {
+	logging := "Enabled"
+	if !utils.BoolDeref(cr.Spec.OLSConfig.AuditEventsEnabled, true) {
+		logging = "Disabled"
+	}
+	endpoint := fmt.Sprintf("%s.%s.svc:%d",
+		utils.OtelCollectorServiceName, namespace, utils.OtelCollectorGRPCPort)
+	return &utils.AuditYAMLConfig{
+		Logging: logging,
+		OTEL: &utils.OTELYAMLConfig{
+			Endpoint: endpoint,
+			TLSMode:  "Secure",
+		},
+	}
+}
+
 func buildSolrHybridSettings() *utils.SolrHybridSettings {
 	return &utils.SolrHybridSettings{
 		SolrHTTPBase:             fmt.Sprintf("http://localhost:%d", utils.RHOOKPHTTPPort),
