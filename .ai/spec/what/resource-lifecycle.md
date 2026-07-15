@@ -16,7 +16,7 @@ The operator manages two categories of Kubernetes resources: owned resources (cr
 
 6. External resources fall into two categories: system resources (fixed, known at compile time) and user-provided resources (derived from the CR spec at runtime).
 7. System secrets: the telemetry pull secret (`openshift-config/pull-secret`), console UI service cert (`lightspeed-console-plugin-cert`), PostgreSQL certs (`lightspeed-postgres-certs`).
-8. System configmaps: the OpenShift root CA (`kube-root-ca.crt`), the service CA bundle (`openshift-service-ca.crt`).
+8. System configmaps: the OpenShift root CA (`kube-root-ca.crt`), the service CA bundle (`openshift-service-ca.crt`), the MCP server CA bundle (`openshift-mcp-server-ca`, when `introspectionEnabled`).
 9. User-provided secrets: LLM provider credential secrets (`spec.llm.providers[].credentialsSecretRef`), custom TLS secret (`spec.ols.tlsConfig.keyCertSecretRef`), MCP server header secrets (`spec.mcpServers[].headers[].valueFrom.secretRef`).
 10. User-provided configmaps: additional CA ConfigMap (`spec.ols.additionalCAConfigMapRef`), proxy CA ConfigMap (`spec.ols.proxyConfig.proxyCACertificate`), alerts adapter runtime config (`spec.ols.deployment.alertsAdapter.configMapRef`, when set).
 

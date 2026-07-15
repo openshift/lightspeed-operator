@@ -132,7 +132,7 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 ---|---|---|---
 `api` | `api` | `Config` | API container. Replicas configurable (default 1, min 0)
 `dataCollector` | `dataCollector` | `ContainerConfig` | Data collector container. Resources only
-`mcpServer` | `mcpServer` | `ContainerConfig` | MCP server container. Resources only
+`mcpServer` | `mcpServer` | `Config` | MCP server standalone deployment. Replicas configurable (default 1, min 0)
 `rhokp` | `rhokp` | `ContainerConfig` | RHOKP sidecar container (Solr / OKP). Resources only
 `console` | `console` | `Config` | Console container. Has replicas field but operator forces 1
 `database` | `database` | `Config` | Database container. Has replicas field but operator forces 1
@@ -142,7 +142,7 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 `agenticConsole` | `agenticConsole` | `Config` | Agentic console plugin container. Replicas forced to 1
 `otelCollector` | `otelCollector` | `Config` | OTEL Collector container ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510)). Replicas forced to 1
 
-20. Replicas are only user-configurable for the API container (`spec.ols.deployment.api.replicas`). For console, database, alerts adapter, agentic console, and otel collector, the operator always overrides replicas to 1 regardless of spec value.
+20. Replicas are user-configurable for the API container (`spec.ols.deployment.api.replicas`) and the MCP server (`spec.ols.deployment.mcpServer.replicas`). For console, database, alerts adapter, agentic console, and otel collector, the operator always overrides replicas to 1 regardless of spec value.
 
 ##### Config Fields
 
@@ -323,6 +323,7 @@ Condition types used by the operator:
 - `ApiReady` -- API server deployment health
 - `CacheReady` -- PostgreSQL cache deployment health
 - `ConsolePluginReady` -- Console UI plugin deployment health
+- `MCPServerReady` -- Standalone MCP server deployment health (`NotConfigured` when `introspectionEnabled` is false)
 - `AlertsAdapterReady` -- Agentic alerts adapter deployment health
 - `AgenticConsolePluginReady` -- Agentic console plugin deployment health
 - `ResourceReconciliation` -- Overall resource reconciliation status (set directly, not deployment-based)
@@ -398,8 +399,11 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.deployment.api.nodeSelector` | `map[string]string` | -- | No | -- | API node selector
 `spec.ols.deployment.dataCollector` | `ContainerConfig` | -- | No | -- | Data collector container
 `spec.ols.deployment.dataCollector.resources` | `*ResourceRequirements` | -- | No | -- | Data collector resources
-`spec.ols.deployment.mcpServer` | `ContainerConfig` | -- | No | -- | MCP server container
+`spec.ols.deployment.mcpServer` | `Config` | -- | No | -- | MCP server standalone deployment
+`spec.ols.deployment.mcpServer.replicas` | `*int32` | `1` | No | Min=0 | MCP server replicas (user-configurable)
 `spec.ols.deployment.mcpServer.resources` | `*ResourceRequirements` | -- | No | -- | MCP server resources
+`spec.ols.deployment.mcpServer.tolerations` | `[]Toleration` | -- | No | -- | MCP server tolerations
+`spec.ols.deployment.mcpServer.nodeSelector` | `map[string]string` | -- | No | -- | MCP server node selector
 `spec.ols.deployment.rhokp` | `ContainerConfig` | -- | No | -- | RHOKP sidecar container
 `spec.ols.deployment.rhokp.resources` | `*ResourceRequirements` | -- | No | -- | RHOKP sidecar resources (default requests: 2 CPU, 2 GiB memory, 75 GiB ephemeral storage)
 `spec.ols.deployment.console` | `Config` | -- | No | -- | Console container
@@ -506,11 +510,11 @@ Path | Type | Default | Required | Validation | Description
 1. `.metadata.name` must be `"cluster"` (XValidation on OLSConfig type).
 2. Only `azure_openai` provider type uses `deploymentName`; it is required for that type and forbidden (by convention) for others.
 3. Only `watsonx` provider type uses `projectID`; it is required for that type.
-4. Replicas are only user-configurable for the API container (`spec.ols.deployment.api`). Console, database, alerts adapter, agentic console, and otel collector always run with 1 replica enforced by the operator.
+4. Replicas are user-configurable for the API container (`spec.ols.deployment.api`) and MCP server (`spec.ols.deployment.mcpServer`). Console, database, alerts adapter, agentic console, and otel collector always run with 1 replica enforced by the operator.
 5. Period format for quota limiters must match the regex pattern in rule 38, enforcing human-readable duration strings with correct singular/plural agreement.
 6. `credentialKey` if set must contain at least one non-whitespace character.
 7. Tool filtering requires the `ToolFiltering` feature gate in `spec.featureGates`.
-8. MCP server functionality requires the `MCPServer` feature gate in `spec.featureGates`.
+8. User-defined MCP servers (`spec.mcpServers`) require the `MCPServer` feature gate in `spec.featureGates`. The built-in openshift MCP server is controlled exclusively by `spec.ols.introspectionEnabled` and does not require this gate.
 11. There is exactly one allowed CacheType value: `postgres`.
 12. `ToolFilteringConfig.alpha` and `ToolFilteringConfig.threshold` are validated via XValidation (not kubebuilder min/max) to enforce 0.0-1.0 range.
 13. Bedrock credentials: `credentialsSecretRef` must contain either `apitoken` (Bearer) or both `aws_access_key_id` and `aws_secret_access_key` (IAM). Optional `role_arn` is passed through to the service when present.
@@ -518,3 +522,4 @@ Path | Type | Default | Required | Validation | Description
 ## Planned Changes
 
 - [PLANNED: OLS-3442] Add `reasoningConfig` field (`map[string]interface{}`) to `ModelParametersSpec`. Freeform map passed through to the service as `reasoning_config` for provider-specific reasoning/thinking parameters. Includes release notes and user-facing documentation for valid keys per provider.
+- [PLANNED: OLS-3526] Change `MCPServerContainer` type from `ContainerConfig` to `Config` to support replicas, tolerations, and nodeSelector for the standalone MCP server deployment. Add `MCPServerReady` status condition.
