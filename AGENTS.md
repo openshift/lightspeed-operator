@@ -170,7 +170,3 @@ When finishing a development branch:
 ## Maintaining This Document
 
 Always suggest AGENTS.md edits when architectural, structural, or conventional changes are made to the codebase.
-
-## Maintaining This Document
-
-Always suggest AGENTS.md edits when architectural, structural, or conventional changes are made to the codebase.
