@@ -64,7 +64,7 @@ Service continues to use the existing gRPC OTLP trace exporter (`opentelemetry.e
 ## Operator image flag ([OLS-3509](https://redhat.atlassian.net/browse/OLS-3509))
 
 - CLI: `--otel-collector-image`
-- Default: `lightspeed-otel-postgres-collector` from `related_images.json` (Konflux fallback when absent)
+- Default: `lightspeed-otel-collector` from `related_images.json` (Konflux fallback when absent)
 - Reconciler: `GetOtelCollectorImage()` — consumed by collector operand ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510))
 - Bundle PR adds `related_images.json` entry with `operator_arg: otel-collector-image`
 

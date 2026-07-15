@@ -520,8 +520,8 @@ spec:
                             default: 1
                             description: |-
                               Defines the number of desired OLS pods. Default: "1"
-                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-                              the number of replicas will always be set to 1.
+                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+                              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
                             format: int32
                             minimum: 0
                             type: integer
@@ -663,8 +663,8 @@ spec:
                             default: 1
                             description: |-
                               Defines the number of desired OLS pods. Default: "1"
-                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-                              the number of replicas will always be set to 1.
+                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+                              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
                             format: int32
                             minimum: 0
                             type: integer
@@ -785,8 +785,8 @@ spec:
                             default: 1
                             description: |-
                               Defines the number of desired OLS pods. Default: "1"
-                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-                              the number of replicas will always be set to 1.
+                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+                              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
                             format: int32
                             minimum: 0
                             type: integer
@@ -907,8 +907,8 @@ spec:
                             default: 1
                             description: |-
                               Defines the number of desired OLS pods. Default: "1"
-                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-                              the number of replicas will always be set to 1.
+                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+                              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
                             format: int32
                             minimum: 0
                             type: integer
@@ -1095,8 +1095,8 @@ spec:
                             default: 1
                             description: |-
                               Defines the number of desired OLS pods. Default: "1"
-                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-                              the number of replicas will always be set to 1.
+                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+                              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
                             format: int32
                             minimum: 0
                             type: integer
@@ -1283,8 +1283,8 @@ spec:
                             default: 1
                             description: |-
                               Defines the number of desired OLS pods. Default: "1"
-                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-                              the number of replicas will always be set to 1.
+                              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+                              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
                             format: int32
                             minimum: 0
                             type: integer

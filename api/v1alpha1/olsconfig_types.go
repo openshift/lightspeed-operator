@@ -412,8 +412,8 @@ type AlertsAdapterSpec struct {
 // Config defines pod configuration using standard Kubernetes types
 type Config struct {
 	// Defines the number of desired OLS pods. Default: "1"
-	// Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-	// the number of replicas will always be set to 1.
+	// Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+	// Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}

@@ -24,6 +24,9 @@
   value: --alerts-adapter-image=__REPLACE_LIGHTSPEED_AGENTIC_ALERTS_ADAPTER__
 - op: add
   path: /spec/template/spec/containers/0/args/-
+  value: --otel-collector-image=__REPLACE_LIGHTSPEED_OTEL_COLLECTOR__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
   value: --rhokp-image=__REPLACE_RHOKP__
 - op: replace
   path: /spec/template/spec/containers/0/image
