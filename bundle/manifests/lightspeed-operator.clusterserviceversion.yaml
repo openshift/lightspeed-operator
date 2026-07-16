@@ -853,6 +853,15 @@ spec:
                 - update
                 - watch
             - apiGroups:
+                - monitoring.coreos.com
+              resourceNames:
+                - main
+              resources:
+                - alertmanagers/api
+              verbs:
+                - get
+                - list
+            - apiGroups:
                 - networking.k8s.io
               resources:
                 - networkpolicies

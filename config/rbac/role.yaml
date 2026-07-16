@@ -123,6 +123,15 @@ rules:
   - watch
 - apiGroups:
   - monitoring.coreos.com
+  resourceNames:
+  - main
+  resources:
+  - alertmanagers/api
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - monitoring.coreos.com
   resources:
   - prometheusrules
   - servicemonitors
