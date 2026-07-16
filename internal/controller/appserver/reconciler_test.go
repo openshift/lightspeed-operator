@@ -785,7 +785,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSConfigCmName, Namespace: utils.OLSNamespaceDefault}, cm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Data).To(HaveKey(utils.OLSConfigFilename))
-			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/ca-cert-1.crt"))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/otel-collector-ca/tls.crt\n  - /etc/certs/ols-user-ca/ca-cert-1.crt"))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
 
 			By("Get app deployment and check the volume mount")

@@ -18,10 +18,11 @@ Reconcile(ctx, req)
   -> handleFinalizer()                      # Add/remove finalizer, run cleanup
   -> reconcileOperatorResources()           # ServiceMonitor, NetworkPolicy (operator-level)
   -> annotateExternalResources()            # Validate secrets, annotate for watching
-  -> reconcileIndependentResources()        # Phase 1: console, agentic console, postgres, backend, alerts adapter resources
+  -> reconcileIndependentResources()        # Phase 1: console, agentic console, postgres, otel collector, appserver, alerts adapter resources
   |   |-- console.ReconcileConsoleUIResources()
   |   |-- agenticconsole.ReconcileAgenticConsoleUIResources()
   |   |-- postgres.ReconcilePostgresResources()
+  |   |-- otelcollector.ReconcileOtelCollectorResources()
   |   |-- appserver.ReconcileAppServerResources()
   |   +-- alertsadapter.ReconcileAlertsAdapterResources()
   |       (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
@@ -30,6 +31,7 @@ Reconcile(ctx, req)
       |-- console.ReconcileConsoleUIDeploymentAndPlugin()
       |-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin()
       |-- postgres.ReconcilePostgresDeployment()
+      |-- otelcollector.ReconcileOtelCollectorDeployment()  # OtelCollectorReady
       |-- appserver.ReconcileAppServerDeployment()
       |-- alertsadapter.ReconcileAlertsAdapterDeployment()  # when configMapRef set
       |-- checkDeploymentStatus() for each  # Collect diagnostics
@@ -39,7 +41,7 @@ Reconcile(ctx, req)
 ## Key Abstractions
 
 ### Reconciler Interface
-The `reconciler.Reconciler` interface breaks the circular dependency between the main controller and component packages. Component packages (appserver, postgres, console, agenticconsole, alertsadapter) receive this interface instead of importing the controller package directly. It embeds `client.Client` and adds getter methods for images, namespace, and OpenShift version.
+The `reconciler.Reconciler` interface breaks the circular dependency between the main controller and component packages. Component packages (appserver, postgres, otelcollector, console, agenticconsole, alertsadapter) receive this interface instead of importing the controller package directly. It embeds `client.Client` and adds getter methods for images, namespace, and OpenShift version.
 
 ### ReconcileSteps Pattern
 Both phases use a slice of `ReconcileSteps` structs, each containing a Name, reconcile function, and (for Phase 2) a ConditionType and Deployment name. Phase 1 iterates with continue-on-error; Phase 2 iterates but tracks all conditions and diagnostics.

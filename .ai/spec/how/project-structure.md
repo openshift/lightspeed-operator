@@ -18,6 +18,9 @@
 | `internal/controller/postgres/reconciler.go` | `ReconcilePostgresResources()`, `ReconcilePostgresDeployment()` | PostgreSQL Phase 1 + Phase 2 |
 | `internal/controller/postgres/deployment.go` | `GeneratePostgresDeployment()` | PostgreSQL deployment generation |
 | `internal/controller/postgres/assets.go` | `GeneratePostgresConfigMap()`, `GeneratePostgresBootstrapSecret()`, `GeneratePostgresSecret()` | PostgreSQL config, bootstrap script, credentials |
+| `internal/controller/otelcollector/reconciler.go` | `ReconcileOtelCollectorResources()`, `ReconcileOtelCollectorDeployment()`, `RestartOtelCollector()` | OTEL Collector Phase 1 + Phase 2 + rolling restart |
+| `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector deployment generation, update detection |
+| `internal/controller/otelcollector/assets.go` | ConfigMap, Service, NetworkPolicy, ServiceAccount generators | OTEL Collector resource generation, collector runtime YAML |
 | `internal/controller/console/reconciler.go` | `ReconcileConsoleUIResources()`, `ReconcileConsoleUIDeploymentAndPlugin()`, `RemoveConsoleUI()` | Chat console plugin Phase 1 + Phase 2 + cleanup |
 | `internal/controller/console/deployment.go` | `GenerateConsoleUIDeployment()` | Chat console plugin deployment generation |
 | `internal/controller/console/assets.go` | ConsolePlugin CR generator, nginx config, service, network policy | Chat console plugin resource generation |
@@ -76,6 +79,7 @@ OLSConfigReconciler.Reconcile()
      +-- console.ReconcileConsoleUIResources()
      +-- agenticconsole.ReconcileAgenticConsoleUIResources()
      +-- postgres.ReconcilePostgresResources()
+     +-- otelcollector.ReconcileOtelCollectorResources()
      +-- appserver.ReconcileAppServerResources()
      +-- alertsadapter.ReconcileAlertsAdapterResources()
         (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
@@ -84,6 +88,7 @@ OLSConfigReconciler.Reconcile()
      +-- console.ReconcileConsoleUIDeploymentAndPlugin()
      +-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin()
      +-- postgres.ReconcilePostgresDeployment()
+     +-- otelcollector.ReconcileOtelCollectorDeployment()  -> OtelCollectorReady
      +-- appserver.ReconcileAppServerDeployment()
      +-- alertsadapter.ReconcileAlertsAdapterDeployment()  # when configMapRef set
      +-- checkDeploymentStatus() per deployment -> build newStatus
@@ -110,7 +115,7 @@ External secret/configmap changes
 ## Key Abstractions
 
 ### Image Management
-Default images are stored in a `defaultImages` map in `cmd/main.go` keyed by logical name (e.g., `"lightspeed-service"`, `"postgres-image"`, `"console-plugin"`, `"agentic-console-plugin"`, `"alerts-adapter"`). Default values come from `internal/relatedimages/` which reads `related_images.json` at build time. Command-line flags override individual images (`--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, etc.). The map is passed to the reconciler via `OLSConfigReconcilerOptions` as individual named fields (e.g., `LightspeedServiceImage`, `ConsoleUIImage`, `AgenticConsoleUIImage`, `AlertsAdapterImage`).
+Default images are stored in a `defaultImages` map in `cmd/main.go` keyed by logical name (e.g., `"lightspeed-service"`, `"postgres-image"`, `"console-plugin"`, `"agentic-console-plugin"`, `"alerts-adapter"`, `"otel-collector"`). Default values come from `internal/relatedimages/` which reads `related_images.json` at build time. Command-line flags override individual images (`--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, `--otel-collector-image`, etc.). The map is passed to the reconciler via `OLSConfigReconcilerOptions` as individual named fields (e.g., `LightspeedServiceImage`, `ConsoleUIImage`, `AgenticConsoleUIImage`, `AlertsAdapterImage`, `OtelCollectorImage`).
 
 ### WatcherConfig
 Declarative configuration for external resource watching. Built in `cmd/main.go` and passed via `OLSConfigReconcilerOptions.WatcherConfig`. Contains:
@@ -119,6 +124,7 @@ Declarative configuration for external resource watching. Built in `cmd/main.go`
   - `lightspeed-console-plugin-cert` → chat console deployment
   - `lightspeed-agentic-console-plugin-cert` → agentic console deployment (`AgenticConsoleUIDeploymentName`)
   - Postgres TLS cert → postgres + app server
+  - `lightspeed-otel-collector-cert` → OTEL Collector + app server (`ACTIVE_BACKEND`)
 - `ConfigMaps.SystemResources`: Fixed list of system configmaps (kube-root-ca.crt, service-ca bundle)
 - `AnnotatedSecretMapping`: Dynamic map populated from CR spec at runtime (maps secret name to deployment names)
 - `AnnotatedConfigMapMapping`: Dynamic map populated from CR spec at runtime (maps configmap name to deployment names)
@@ -127,7 +133,7 @@ The special deployment name `"ACTIVE_BACKEND"` resolves to the AppServer deploym
 When the service-ca operator rotates or populates a watched TLS secret, `SecretUpdateHandler` restarts the mapped deployment via `RestartConsoleUI()` or `RestartAgenticConsoleUI()` (registered in `watchers/watchers.go`).
 
 ### Component Package Pattern
-Each component (appserver, postgres, console, agenticconsole, alertsadapter) follows the same package structure:
+Each component (appserver, postgres, otelcollector, console, agenticconsole, alertsadapter) follows the same package structure:
 - `reconciler.go`: Phase 1 (resources) and Phase 2 (deployment) entry points
 - `deployment.go`: Deployment spec generation and update detection
 - `assets.go` and/or `config.go`: Resource and config generation

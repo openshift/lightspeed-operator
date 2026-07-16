@@ -519,6 +519,17 @@ func GenerateAlertsAdapterSelectorLabels() map[string]string {
 	}
 }
 
+// GenerateOtelCollectorSelectorLabels returns selector labels for the OTEL Collector.
+func GenerateOtelCollectorSelectorLabels() map[string]string {
+	return map[string]string{
+		"app":                          OtelCollectorDeploymentName,
+		"app.kubernetes.io/component":  OtelCollectorComponentLabel,
+		"app.kubernetes.io/managed-by": "lightspeed-operator",
+		"app.kubernetes.io/name":       OtelCollectorDeploymentName,
+		"app.kubernetes.io/part-of":    "openshift-lightspeed",
+	}
+}
+
 // GetPostgresCAConfigVolume returns the CA certificate volume for postgres TLS verification.
 func GetPostgresCAConfigVolume() corev1.Volume {
 	volumeDefaultMode := VolumeDefaultMode

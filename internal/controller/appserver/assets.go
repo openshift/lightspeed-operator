@@ -527,7 +527,11 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate additional certs from kube-root-ca.crt, additional CA error: %w", err)
 	}
-	olsConfig.ExtraCAs = extraCAs
+	olsConfig.ExtraCAs = append(extraCAs, path.Join(
+		utils.OLSAppCertsMountRoot,
+		utils.AppOtelCollectorCACertDir,
+		utils.AppOtelCollectorCACertFile,
+	))
 
 	// Append user-provided additional CA certificates if configured
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {

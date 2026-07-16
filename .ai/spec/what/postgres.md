@@ -12,27 +12,28 @@ The operator deploys a single-replica PostgreSQL server that provides persistent
 
 ### Database Initialization
 5. The bootstrap script creates the pg_trgm extension in the default database.
-6. The bootstrap script creates schemas in the default database for component isolation: `quota`, `conversation_cache`, and `templogs` (when `AgenticOLSConfig.spec.templog` is `true` or absent). See `templog.md` for the `templogs` schema DDL.
+6. The bootstrap script creates schemas in the default database for component isolation: `quota` and `conversation_cache` only.
+7. The `templogs` schema and `logs` table are **not** created by Postgres bootstrap. When audit log storage is enabled (`spec.audit.logging`, default true), the OTEL Collector creates and manages `templogs` schema, tables, and indexes via its `postgres_admin` extension. See `templog.md`.
 
 ### Credential Management
-7. The operator generates a random password for PostgreSQL on first creation.
-8. Once created, the password secret is never updated to protect database integrity.
-9. Old postgres secrets with different naming conventions are cleaned up during reconciliation.
+8. The operator generates a random password for PostgreSQL on first creation.
+9. Once created, the password secret is never updated to protect database integrity.
+10. Old postgres secrets with different naming conventions are cleaned up during reconciliation.
 
 ### Storage
-10. If `spec.ols.storage` is configured, a PersistentVolumeClaim is created for the data directory.
-11. If `spec.ols.storage` is not configured, an EmptyDir volume is used (data does not survive pod restarts).
-12. The default PVC size is applied if `spec.ols.storage.size` is not specified.
-13. The PVC uses ReadWriteOnce access mode.
-14. If `spec.ols.storage.class` is specified, it sets the PVC storage class. Otherwise, the cluster default storage class is used.
+11. If `spec.ols.storage` is configured, a PersistentVolumeClaim is created for the data directory.
+12. If `spec.ols.storage` is not configured, an EmptyDir volume is used (data does not survive pod restarts).
+13. The default PVC size is applied if `spec.ols.storage.size` is not specified.
+14. The PVC uses ReadWriteOnce access mode.
+15. If `spec.ols.storage.class` is specified, it sets the PVC storage class. Otherwise, the cluster default storage class is used.
 
 ### Configuration
-15. PostgreSQL configuration (shared_buffers, max_connections) is written to a ConfigMap and mounted as the config file.
-16. Changes to the PostgreSQL ConfigMap trigger a deployment restart via resource version annotation tracking.
+16. PostgreSQL configuration (shared_buffers, max_connections) is written to a ConfigMap and mounted as the config file.
+17. Changes to the PostgreSQL ConfigMap trigger a deployment restart via resource version annotation tracking.
 
 ### Networking
-17. The PostgreSQL service exposes the standard PostgreSQL port.
-18. The network policy allows ingress only from pods matching the application server labels and the OTel Collector labels on the PostgreSQL port.
+18. The PostgreSQL service exposes the standard PostgreSQL port.
+19. The network policy allows ingress only from pods matching the application server labels and the OTel Collector labels on the PostgreSQL port.
 
 ## Configuration Surface
 
@@ -56,10 +57,4 @@ The operator deploys a single-replica PostgreSQL server that provides persistent
 
 ## Cross-References
 
-- `templog.md` — Temporary audit log storage using the `templogs` schema
-
-## Planned Changes
-
-| Ticket | Summary |
-|---|---|
-| OLS-3328 | Add `templogs` schema for temporary audit log storage |
+- `templog.md` — OTEL Collector, `templogs` schema (created by collector, not bootstrap)

@@ -126,6 +126,7 @@ var _ = Describe("App server assets", func() {
 					},
 					ExtraCAs: []string{
 						"/etc/certs/ols-additional-ca/service-ca.crt",
+						"/etc/certs/otel-collector-ca/tls.crt",
 					},
 					CertificateDirectory: "/etc/certs/cert-bundle",
 					ToolsApproval: &utils.ToolsApprovalConfig{
@@ -811,7 +812,7 @@ var _ = Describe("App server assets", func() {
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
-			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(10))
+			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(11))
 			Expect(dep.Spec.Selector.MatchLabels).To(Equal(utils.GenerateAppServerSelectorLabels()))
 
 			By("generate deployment without data collector when telemetry pull secret does not exist")
@@ -834,7 +835,7 @@ var _ = Describe("App server assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal(expectedAppServerEnv()))
 			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get8RequiredVolumeMounts()))
-			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(8))
+			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(9))
 
 			By("generate deployment without data collector when telemetry pull secret does not contain telemetry token")
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, false)
@@ -857,7 +858,7 @@ var _ = Describe("App server assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal(expectedAppServerEnv()))
 			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get8RequiredVolumeMounts()))
-			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(8))
+			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(9))
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
 
@@ -1806,7 +1807,7 @@ var _ = Describe("App server assets", func() {
 
 			olsCm, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
+			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/otel-collector-ca/tls.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
 			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
@@ -2064,6 +2065,11 @@ func get7RequiredVolumeMounts() []corev1.VolumeMount {
 			MountPath: "/etc/certs/postgres-ca",
 		},
 		{
+			Name:      utils.AppOtelCollectorCACertVolumeName,
+			ReadOnly:  true,
+			MountPath: "/etc/certs/otel-collector-ca",
+		},
+		{
 			Name:      utils.TmpVolumeName,
 			MountPath: utils.TmpVolumeMountPath,
 		},
@@ -2143,6 +2149,21 @@ func get7RequiredVolumes() []corev1.Volume {
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{Name: utils.OLSCAConfigMap},
 					DefaultMode:          &defaultVolumeMode,
+				},
+			},
+		},
+		{
+			Name: utils.AppOtelCollectorCACertVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  utils.OtelCollectorCertsSecretName,
+					DefaultMode: &defaultVolumeMode,
+					Items: []corev1.KeyToPath{
+						{
+							Key:  utils.AppOtelCollectorCACertFile,
+							Path: utils.AppOtelCollectorCACertFile,
+						},
+					},
 				},
 			},
 		},

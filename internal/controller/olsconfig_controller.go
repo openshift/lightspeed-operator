@@ -81,6 +81,7 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/alertsadapter"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
+	"github.com/openshift/lightspeed-operator/internal/controller/otelcollector"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	"github.com/openshift/lightspeed-operator/internal/controller/watchers"
@@ -306,6 +307,9 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		{Name: "postgres resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return postgres.ReconcilePostgresResources(r, ctx, cr)
 		}},
+		{Name: "OTEL Collector resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return otelcollector.ReconcileOtelCollectorResources(r, ctx, cr)
+		}},
 	}
 
 	resourceSteps = append(resourceSteps, utils.ReconcileSteps{
@@ -387,6 +391,9 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		{Name: "postgres deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return postgres.ReconcilePostgresDeployment(r, ctx, cr)
 		}, ConditionType: utils.TypeCacheReady, Deployment: utils.PostgresDeploymentName},
+		{Name: "OTEL Collector deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return otelcollector.ReconcileOtelCollectorDeployment(r, ctx, cr)
+		}, ConditionType: utils.TypeOtelCollectorReady, Deployment: utils.OtelCollectorDeploymentName},
 	}
 
 	deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{

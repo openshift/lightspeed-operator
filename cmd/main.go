@@ -389,6 +389,12 @@ func main() {
 					Description:         "PostgreSQL TLS certificate (created by Service CA Operator)",
 					AffectedDeployments: []string{utils.PostgresDeploymentName, "ACTIVE_BACKEND"},
 				},
+				{
+					Name:                utils.OtelCollectorCertsSecretName,
+					Namespace:           namespace,
+					Description:         "OTEL Collector TLS certificate (created by Service CA Operator)",
+					AffectedDeployments: []string{utils.OtelCollectorDeploymentName, "ACTIVE_BACKEND"},
+				},
 			},
 		},
 		// list here "special" external config maps that we need to watch in addition to
