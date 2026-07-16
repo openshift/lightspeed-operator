@@ -66,14 +66,15 @@ Default mode dispatching: when the first positional argument does not match a re
 
 - **`k8s.io/client-go/tools/clientcmd`**: Read kubeconfig, extract bearer token, extract TLS configuration (CA bundle, skip-verify). No `controller-runtime`, no CRD types, no API server calls.
 - **`net/http`**: Build HTTP client with TLS config from kubeconfig. POST to lightspeed-service `/v1/streaming_query`.
-- **SSE streaming**: Read `text/event-stream` response via buffered reader. Parse SSE event frames (`event:`, `data:` lines) into typed events.
+- **SSE streaming**: Read `text/event-stream` response via buffered reader. Parse SSE event frames (`event:`, `data:` lines) into typed events. `StreamQuery` uses the cobra command context for request cancellation (`req.WithContext(ctx)`).
+- **Timeouts**: Configure explicit connect, TLS handshake, and response-header timeouts on `http.Transport`. Add an SSE idle timeout — if no event frame arrives within the idle window (e.g., 120s), cancel the request and report a stream interruption error.
 
 ---
 
 ## Kubeconfig integration
 
 - `clientcmd.NewNonInteractiveDeferredLoadingClientConfig` for kubeconfig loading.
-- Bearer token extracted from the resolved kubeconfig context (equivalent to `oc whoami -t`).
+- Bearer token extracted from the resolved kubeconfig context (equivalent to `oc whoami -t`). The resolved `rest.Config` may provide a token via static token, token file, exec plugin, or auth provider — all are accepted as long as `BearerToken` or `BearerTokenFile` is populated after resolution. Client-certificate-only contexts (no bearer token available) fail during `Complete()` with: `Error: kubeconfig context "<name>" does not provide a bearer token. oc-ols requires token-based authentication.`
 - TLS settings inherited from kubeconfig context: CA certificate, insecure-skip-tls-verify.
 - Override flags: `--insecure-skip-tls-verify` and `--ca-cert <path>` take precedence over kubeconfig values.
 - `--kubeconfig` flag for non-default kubeconfig file path.
@@ -111,15 +112,16 @@ The CLI does not attempt to guess or discover the endpoint.
 
 - **`ask` / default mode:** Builds `LLMRequest` with `mode: "ask"`, `query`, optional `conversation_id` (persisted), optional `attachments`. POST to `/v1/streaming_query` with `media_type: "application/json"`. Streams tokens to stdout via markdown renderer. On `end` event: display referenced documents. Persist returned `conversation_id`.
 - **`troubleshoot`:** Same as `ask` but with `mode: "troubleshooting"`.
-- **`config set-endpoint`:** Validates URL format. Writes to local storage keyed by current kubeconfig context name. Prints confirmation.
+- **`config set-endpoint`:** Validates URL format — **HTTPS is required by default** since the bearer token is sent in the Authorization header. `http://` URLs are rejected with: `Error: cleartext HTTP endpoints are not allowed (bearer token would be sent unencrypted). Use https:// or pass --insecure-allow-http for development.` An `--insecure-allow-http` flag on `config set-endpoint` explicitly opts in to cleartext for local development. Writes to local storage keyed by current kubeconfig context. Prints confirmation.
 - **`version`:** Prints `Version` package variable (injected via ldflags at build time).
 
 ---
 
 ## Output formatting
 
-- **Default (streaming text):** Tokens streamed to stdout through a terminal markdown renderer (see below). After the answer completes, referenced documents (`doc_url`, `doc_title`) displayed below the response.
-- **`--output json`:** Full structured `LLMResponse` printed as indented JSON: `conversation_id`, `response`, `referenced_documents`, `truncated`, `input_tokens`, `output_tokens`, `available_quotas`. Bypasses markdown rendering.
+- **Default (TTY):** Tokens are buffered internally. After the SSE stream completes, the full response is rendered once through glamour and printed to stdout, followed by referenced documents (`doc_url`, `doc_title`). No raw token streaming in TTY mode — the user sees a single rendered output.
+- **Default (non-TTY / piped):** Tokens are streamed to stdout as raw text as they arrive (no glamour rendering, no ANSI codes). Referenced documents printed after the stream completes.
+- **`--output json`:** All SSE events are buffered silently — no token output to stdout during streaming. After the stream completes, one valid indented JSON document is emitted: `conversation_id`, `response`, `referenced_documents`, `truncated`, `input_tokens`, `output_tokens`, `available_quotas`, `reasoning_tokens` (from `reasoning` events), `tool_calls` (from `tool_call` events). Bypasses markdown rendering.
 
 ---
 
@@ -128,16 +130,15 @@ The CLI does not attempt to guess or discover the endpoint.
 LLM responses contain markdown formatting (headings, code blocks, lists, bold/italic). The CLI renders this for terminal readability.
 
 - **Library:** [glamour](https://github.com/charmbracelet/glamour) (charmbracelet) — recommended. Auto-detects terminal width and color support.
-- **Default behavior:** Rendered markdown output with ANSI styling (headings, code highlighting, list formatting).
-- **`--output json`:** Bypasses rendering entirely — returns raw structured response.
-- **Non-TTY detection:** When stdout is piped to a file or another process (not a terminal), glamour auto-falls back to plain text without ANSI codes.
-- **Streaming consideration:** Tokens arrive incrementally via SSE. Buffer the full response text before rendering, or use glamour's word-wrap on the final output. Individual token streaming to stdout uses raw text; the rendered version is applied to the complete response.
+- **TTY mode:** Tokens are buffered during the SSE stream. After the stream completes, the full response is rendered once through glamour and printed to stdout. The user sees a single rendered output — no raw-then-rendered duplication.
+- **Non-TTY mode:** When stdout is piped to a file or another process, tokens are streamed as raw text (no buffering, no glamour, no ANSI codes). This preserves streaming behavior for piped consumers.
+- **`--output json`:** Bypasses rendering entirely — all events buffered silently, one valid JSON document emitted after stream completes.
 
 ---
 
 ## Conversation persistence
 
-- **Storage location:** `~/.config/oc-ols/contexts/<context-name>/` directory.
+- **Storage location:** `~/.config/oc-ols/contexts/<storage-key>/` directory, where `<storage-key>` is derived from a SHA-256 hash of the canonical kubeconfig path + context name (e.g., `sha256(abs_kubeconfig_path + ":" + context_name)[:16]`). This ensures context names from different `--kubeconfig` files do not collide, and prevents path traversal from malicious context names. A `manifest.json` at `~/.config/oc-ols/contexts/` maps storage keys back to human-readable `{kubeconfig, context}` pairs for debugging.
   - `conversation.json` stores `{"conversation_id": "<uuid>", "updated_at": "<timestamp>"}`.
   - `endpoint` file stores the configured URL as plain text.
 - **Behavior:** After each successful query, the returned `conversation_id` is persisted for the current kubeconfig context. On subsequent queries, the persisted `conversation_id` is included in the request automatically.
@@ -161,15 +162,13 @@ LLM responses contain markdown formatting (headings, code blocks, lists, bold/it
 
 The lightspeed-service `/v1/streaming_query` endpoint returns Server-Sent Events. The CLI maps each event type to output behavior:
 
-| SSE Event | CLI Output Behavior |
-|-----------|-------------------|
-| `start` | No visible output. Internal: note stream has begun, capture `conversation_id`. |
-| `token` | Print `data` field content to stdout immediately (raw streaming). |
-| `reasoning` | No visible output in default mode. Captured for `--output json`. |
-| `tool_call` | No visible output in default mode. Captured for `--output json`. |
-| `end` | Stop streaming. Parse `data` for `conversation_id` (persist), `referenced_documents` (display), and full response metadata (available via `--output json`). |
-
-In default text mode, the user sees only the streamed tokens followed by referenced documents. The `reasoning` and `tool_call` events are implementation details of the service's internal processing. Full event data is available via `--output json`.
+| SSE Event | TTY Mode | Non-TTY (piped) Mode | `--output json` Mode |
+|-----------|----------|---------------------|---------------------|
+| `start` | Buffer internally | No output | Buffer internally |
+| `token` | Buffer `data` content | Stream `data` to stdout immediately | Buffer `data` content |
+| `reasoning` | Buffer internally | No output | Capture for JSON output |
+| `tool_call` | Buffer internally | No output | Capture for JSON output |
+| `end` | Render buffered response via glamour, display referenced docs, persist `conversation_id` | Display referenced docs, persist `conversation_id` | Emit single JSON document with all fields |
 
 ---
 
@@ -195,10 +194,12 @@ User invokes: oc ols "why is my pod crashing" --file pod.yaml
   │         │    media_type: "application/json"
   │         ├─ POST /v1/streaming_query with Authorization: Bearer <token>
   │         ├─ Read SSE stream:
-  │         │    token events → print to stdout (raw text)
+  │         │    TTY: buffer all token events
+  │         │    Non-TTY: stream token events to stdout as raw text
+  │         │    JSON: buffer all events silently
   │         │    end event → extract conversation_id, referenced_documents
-  │         ├─ Render complete response through glamour (if TTY)
-  │         ├─ Display referenced documents
+  │         ├─ TTY: render buffered response through glamour, print to stdout
+  │         ├─ Display referenced documents (TTY and non-TTY; omitted in JSON)
   │         └─ Persist new conversation_id for context
   │
   └─ Output: rendered markdown + references (default) or full LLMResponse (--output json)
@@ -245,7 +246,7 @@ User invokes: oc ols "why is my pod crashing" --file pod.yaml
 
 ## Cross-references
 
-- CLI binary distribution: **how/cli-distribution.md**
+- CLI binary distribution: **cli-distribution.md**
 - Lightspeed service REST API (cross-repo): **lightspeed-service** `what/api.md` — request schema, SSE event types, response fields
 - Lightspeed service auth (cross-repo): **lightspeed-service** `what/auth.md` — TokenReview + SubjectAccessReview against `/ols-access`
 

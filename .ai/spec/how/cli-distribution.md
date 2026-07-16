@@ -27,6 +27,8 @@ Pre-built `oc-ols` binaries are published to a rolling `latest` GitHub Release v
 
 - **Trigger:** push to `main`, path-filtered (see below).
 - **Versioning:** no semver tags. Version derived from `git describe --tags --always` (e.g. `v0.0.0-12-gabc1234`), injected via ldflags into `cli.Version`.
+- **Build step:** GoReleaser runs in `--snapshot` mode to cross-compile binaries and produce archives. Snapshot mode does not publish to GitHub Releases.
+- **Upload step:** A separate GitHub Actions step creates or updates a rolling `latest` GitHub Release and uploads the snapshot artifacts. This is the same two-step pattern used by the `oc-agentic` CLI in `lightspeed-agentic-operator`.
 - **GitHub Release:** single release named `latest`, overwritten on each build. Stable download URLs.
 - **Artifacts:** 4 tarballs (`oc-ols_{os}_{arch}.tar.gz`) + `checksums.txt` (SHA256).
 
