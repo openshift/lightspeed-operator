@@ -13,7 +13,7 @@ The operator deploys a single-replica PostgreSQL server that provides persistent
 ### Database Initialization
 5. The bootstrap script creates the pg_trgm extension in the default database.
 6. The bootstrap script creates schemas in the default database for component isolation: `quota` and `conversation_cache` only.
-7. The `templogs` schema and `logs` table are **not** created by Postgres bootstrap. When audit log storage is enabled (`spec.audit.logging`, default true), the OTEL Collector creates and manages `templogs` schema, tables, and indexes via its `postgres_admin` extension. See `templog.md`.
+7. The `templogs` schema and `logs` table are **not** created by Postgres bootstrap. The OTEL Collector always creates and manages them via its `postgres_admin` extension at startup. `spec.audit.logging` only toggles the Collector logs export pipeline into that schema. See `templog.md`.
 
 ### Credential Management
 8. The operator generates a random password for PostgreSQL on first creation.

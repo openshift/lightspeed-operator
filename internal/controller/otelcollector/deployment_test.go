@@ -17,7 +17,7 @@ var _ = Describe("OTEL Collector deployment", func() {
 		ensureCollectorConfigMap(testCR)
 	})
 
-	It("should generate the collector deployment with postgres env and init container when logging is enabled", func() {
+	It("should generate the collector deployment with postgres env, admin port, and init container", func() {
 		dep, err := GenerateOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(dep.Name).To(Equal(utils.OtelCollectorDeploymentName))
@@ -53,7 +53,7 @@ var _ = Describe("OTEL Collector deployment", func() {
 		Expect(container.ReadinessProbe.HTTPGet.Port.IntValue()).To(Equal(int(utils.OtelCollectorHealthCheckPort)))
 	})
 
-	It("should omit postgres wiring when audit logging is disabled", func() {
+	It("should keep postgres wiring when audit logging is disabled", func() {
 		testCR.Spec.Audit.Logging = boolPtr(false)
 		ensureCollectorConfigMap(testCR)
 
@@ -61,18 +61,18 @@ var _ = Describe("OTEL Collector deployment", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		spec := dep.Spec.Template.Spec
-		Expect(spec.InitContainers).To(BeEmpty())
+		Expect(spec.InitContainers).To(HaveLen(1))
+		Expect(spec.InitContainers[0].Name).To(Equal(utils.PostgresWaitInitContainerName))
 
 		container := spec.Containers[0]
 		_, ok := containerEnvNamed(container, utils.OtelCollectorPostgresConnectionStringEnvVar)
-		Expect(ok).To(BeFalse())
+		Expect(ok).To(BeTrue())
 
 		portNames := make([]string, 0, len(container.Ports))
 		for _, p := range container.Ports {
 			portNames = append(portNames, p.Name)
 		}
-		Expect(portNames).To(ConsistOf("otlp-grpc", "otlp-http"))
-		Expect(portNames).NotTo(ContainElement("admin"))
+		Expect(portNames).To(ConsistOf("otlp-grpc", "otlp-http", "admin"))
 	})
 
 	It("should set TRACES_BACKEND_ENDPOINT when tracingEndpoint is configured", func() {

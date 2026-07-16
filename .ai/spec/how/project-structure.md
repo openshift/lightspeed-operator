@@ -20,7 +20,7 @@
 | `internal/controller/postgres/assets.go` | `GeneratePostgresConfigMap()`, `GeneratePostgresBootstrapSecret()`, `GeneratePostgresSecret()` | PostgreSQL config, bootstrap script, credentials |
 | `internal/controller/otelcollector/reconciler.go` | `ReconcileOtelCollectorResources()`, `ReconcileOtelCollectorDeployment()`, `RestartOtelCollector()` | OTEL Collector Phase 1 + Phase 2 + rolling restart |
 | `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector deployment generation, update detection |
-| `internal/controller/otelcollector/assets.go` | ConfigMap, Service, NetworkPolicy, ServiceAccount generators | OTEL Collector resource generation, collector runtime YAML |
+| `internal/controller/otelcollector/assets.go` | ConfigMap (runtime + client), Service, NetworkPolicy, ServiceAccount, Postgres DSN Secret generators | OTEL Collector resource generation, collector runtime YAML, client connectivity ConfigMap |
 | `internal/controller/console/reconciler.go` | `ReconcileConsoleUIResources()`, `ReconcileConsoleUIDeploymentAndPlugin()`, `RemoveConsoleUI()` | Chat console plugin Phase 1 + Phase 2 + cleanup |
 | `internal/controller/console/deployment.go` | `GenerateConsoleUIDeployment()` | Chat console plugin deployment generation |
 | `internal/controller/console/assets.go` | ConsolePlugin CR generator, nginx config, service, network policy | Chat console plugin resource generation |
@@ -124,7 +124,7 @@ Declarative configuration for external resource watching. Built in `cmd/main.go`
   - `lightspeed-console-plugin-cert` → chat console deployment
   - `lightspeed-agentic-console-plugin-cert` → agentic console deployment (`AgenticConsoleUIDeploymentName`)
   - Postgres TLS cert → postgres + app server
-  - `lightspeed-otel-collector-cert` → OTEL Collector + app server (`ACTIVE_BACKEND`)
+  - `lightspeed-otel-collector-cert` → OTEL Collector + app server (`ACTIVE_BACKEND`); `RestartOtelCollector` also refreshes client ConfigMap `lightspeed-otel-collector-client`
 - `ConfigMaps.SystemResources`: Fixed list of system configmaps (kube-root-ca.crt, service-ca bundle)
 - `AnnotatedSecretMapping`: Dynamic map populated from CR spec at runtime (maps secret name to deployment names)
 - `AnnotatedConfigMapMapping`: Dynamic map populated from CR spec at runtime (maps configmap name to deployment names)

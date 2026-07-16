@@ -144,7 +144,7 @@ echo "CREATE SCHEMA IF NOT EXISTS quota;" | _psql -d $POSTGRESQL_DATABASE
 echo "CREATE SCHEMA IF NOT EXISTS conversation_cache;" | _psql -d $POSTGRESQL_DATABASE
 ```
 
-The `templogs` schema is not created here; the OTEL Collector creates it via `postgres_admin` when `spec.audit.logging` is enabled. See `what/templog.md`.
+The `templogs` schema is not created here; the OTEL Collector always creates it via `postgres_admin` at collector startup. See `what/templog.md`.
 
 ### PostgreSQL Config (postgresql.conf.sample)
 Content is in `utils.PostgresConfigMapContent` constant. Deployed as ConfigMap.
@@ -198,7 +198,7 @@ Config is built programmatically using typed Go structs from the `utils/` packag
 PostgreSQL schemas isolate data from different components within the same database:
 - `conversation_cache` schema: conversation history (created by Postgres bootstrap)
 - `quota` schema: token quota tracking (created by Postgres bootstrap)
-- `templogs` schema: temporary audit log storage (created by OTEL Collector `postgres_admin` when `spec.audit.logging` is enabled; not part of Postgres bootstrap). See `templog.md`.
+- `templogs` schema: temporary audit log storage (always created by OTEL Collector `postgres_admin` at startup; not part of Postgres bootstrap). `spec.audit.logging` only toggles the logs export pipeline. See `templog.md`.
 
 ## Integration Points
 
