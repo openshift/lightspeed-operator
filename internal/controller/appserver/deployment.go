@@ -527,7 +527,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 								InitialDelaySeconds: 30,
 								PeriodSeconds:       30,
 								TimeoutSeconds:      30,
-								FailureThreshold:    15,
+								FailureThreshold:    3,
 							},
 						},
 					},
