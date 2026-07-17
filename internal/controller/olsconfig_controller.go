@@ -132,6 +132,8 @@ type OLSConfigReconciler struct {
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;rolebindings,verbs=get;list;create;update;patch;delete;watch
 // AgenticRun API for alerts adapter ClusterRole (operator must hold permissions it grants to operands)
 // +kubebuilder:rbac:groups=agentic.openshift.io,resources=agenticruns,verbs=get;list;create
+// Alertmanager API for alerts adapter RoleBinding to monitoring-alertmanager-view (operator must hold permissions it grants)
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=alertmanagers/api,resourceNames=main,verbs=get;list
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=openshift-lightspeed,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // NonResourceURLs for Lightspeed access control and metrics
 // +kubebuilder:rbac:urls=/ls-access,verbs=get
