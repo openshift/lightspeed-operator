@@ -36,8 +36,10 @@ func getOtelCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequir
 }
 
 // GenerateOtelCollectorDeployment generates the OTEL Collector Deployment.
+// Postgres DSN, admin port, and Postgres wait init are always present: clients call
+// postgres_admin regardless of spec.audit.logging. Only the runtime ConfigMap pipelines
+// change with logging.
 func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
-	loggingEnabled := utils.BoolDeref(cr.Spec.Audit.Logging, true)
 	revisionHistoryLimit := int32(1)
 	runAsNonRoot := true
 
@@ -105,27 +107,23 @@ func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Contex
 			ContainerPort: utils.OtelCollectorHTTPPort,
 			Protocol:      corev1.ProtocolTCP,
 		},
-	}
-	if loggingEnabled {
-		ports = append(ports, corev1.ContainerPort{
+		{
 			Name:          "admin",
 			ContainerPort: utils.OtelCollectorAdminPort,
 			Protocol:      corev1.ProtocolTCP,
-		})
+		},
 	}
 
 	envVars := append([]corev1.EnvVar{}, utils.GetProxyEnvVars()...)
-	if loggingEnabled {
-		envVars = append(envVars, corev1.EnvVar{
-			Name: utils.OtelCollectorPostgresConnectionStringEnvVar,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: utils.OtelCollectorPostgresDSNSecretName},
-					Key:                  utils.OtelCollectorPostgresConnectionStringSecretKey,
-				},
+	envVars = append(envVars, corev1.EnvVar{
+		Name: utils.OtelCollectorPostgresConnectionStringEnvVar,
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: utils.OtelCollectorPostgresDSNSecretName},
+				Key:                  utils.OtelCollectorPostgresConnectionStringSecretKey,
 			},
-		})
-	}
+		},
+	})
 	if cr.Spec.Audit.TracingEndpoint != "" {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  utils.OtelCollectorTracesBackendEndpointEnvVar,
@@ -133,9 +131,8 @@ func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Contex
 		})
 	}
 
-	initContainers := []corev1.Container{}
-	if loggingEnabled {
-		initContainers = append(initContainers, utils.GeneratePostgresWaitInitContainer(r.GetPostgresImage()))
+	initContainers := []corev1.Container{
+		utils.GeneratePostgresWaitInitContainer(r.GetPostgresImage()),
 	}
 
 	healthCheckPort := intstr.FromInt32(utils.OtelCollectorHealthCheckPort)

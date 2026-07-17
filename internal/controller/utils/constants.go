@@ -242,6 +242,17 @@ const (
 	OtelCollectorConfigMapName = "lightspeed-otel-collector-config"
 	// OtelCollectorConfigMapDataKey is the key within OtelCollectorConfigMapName for collector YAML.
 	OtelCollectorConfigMapDataKey = "config.yaml"
+	// OtelCollectorClientConfigMapName is the ConfigMap publishing Collector connectivity for clients
+	// (agentic-operator OTLP export and admin API). Distinct from the collector runtime ConfigMap.
+	OtelCollectorClientConfigMapName = "lightspeed-otel-collector-client"
+	// OtelCollectorClientCollectorEndpointKey is the OTLP gRPC endpoint (host:port).
+	OtelCollectorClientCollectorEndpointKey = "collector-endpoint"
+	// OtelCollectorClientAdminEndpointKey is the HTTPS admin API base URL.
+	OtelCollectorClientAdminEndpointKey = "admin-endpoint"
+	// OtelCollectorClientCACertKey is the PEM CA used to verify Collector TLS.
+	OtelCollectorClientCACertKey = "ca.crt"
+	// OtelCollectorClientCredentialsSecretKey is an optional Secret name for mTLS client credentials.
+	OtelCollectorClientCredentialsSecretKey = "credentials-secret"
 	// OtelCollectorConfigMapResourceVersionAnnotation tracks collector ConfigMap changes for rollout.
 	OtelCollectorConfigMapResourceVersionAnnotation = "ols.openshift.io/otel-collector-configmap-version"
 	// OtelCollectorConfigVolumeName is the pod volume name for the mounted collector config.

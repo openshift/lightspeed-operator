@@ -45,6 +45,37 @@ func GenerateOtelCollectorConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 	return &configMap, nil
 }
 
+// GenerateOtelCollectorClientConfigMap generates the client connectivity ConfigMap
+// consumed by agentic-operator (OTLP endpoint, admin API URL, and CA).
+// CA PEM is read from the collector serving-cert Secret (tls.crt).
+func GenerateOtelCollectorClientConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+	foundSecret := &corev1.Secret{}
+	content, err := utils.GetSecretContent(r, ctx, utils.OtelCollectorCertsSecretName, r.GetNamespace(), []string{"tls.crt"}, foundSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	ns := r.GetNamespace()
+	host := fmt.Sprintf("%s.%s.svc", utils.OtelCollectorServiceName, ns)
+
+	configMap := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.OtelCollectorClientConfigMapName,
+			Namespace: ns,
+			Labels:    utils.GenerateOtelCollectorSelectorLabels(),
+		},
+		Data: map[string]string{
+			utils.OtelCollectorClientCollectorEndpointKey: fmt.Sprintf("%s:%d", host, utils.OtelCollectorGRPCPort),
+			utils.OtelCollectorClientAdminEndpointKey:     fmt.Sprintf("https://%s:%d", host, utils.OtelCollectorAdminPort),
+			utils.OtelCollectorClientCACertKey:            content["tls.crt"],
+		},
+	}
+	if err := controllerutil.SetControllerReference(cr, &configMap, r.GetScheme()); err != nil {
+		return nil, fmt.Errorf("%s: %w", utils.ErrSetOtelCollectorClientConfigMapOwnerReference, err)
+	}
+	return &configMap, nil
+}
+
 // GenerateOtelCollectorService generates the collector Service with a service-ca serving cert.
 func GenerateOtelCollectorService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
 	service := corev1.Service{
@@ -71,6 +102,12 @@ func GenerateOtelCollectorService(r reconciler.Reconciler, cr *olsv1alpha1.OLSCo
 					Port:       utils.OtelCollectorHTTPPort,
 					Protocol:   corev1.ProtocolTCP,
 					TargetPort: intstr.FromString("otlp-http"),
+				},
+				{
+					Name:       "admin",
+					Port:       utils.OtelCollectorAdminPort,
+					Protocol:   corev1.ProtocolTCP,
+					TargetPort: intstr.FromString("admin"),
 				},
 			},
 		},
@@ -123,10 +160,11 @@ func GenerateOtelCollectorPostgresSecret(r reconciler.Reconciler, ctx context.Co
 }
 
 // GenerateOtelCollectorNetworkPolicy restricts collector ingress to pods in the operator
-// namespace (OLS app-server, agentic-operator, sandbox pods, etc.) on OTLP gRPC.
+// namespace (OLS app-server, agentic-operator, sandbox pods, etc.) on OTLP gRPC and admin HTTPS.
 func GenerateOtelCollectorNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
 	tcp := corev1.ProtocolTCP
-	port := intstr.FromInt32(utils.OtelCollectorGRPCPort)
+	grpcPort := intstr.FromInt32(utils.OtelCollectorGRPCPort)
+	adminPort := intstr.FromInt32(utils.OtelCollectorAdminPort)
 	np := networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OtelCollectorNetworkPolicyName,
@@ -148,7 +186,11 @@ func GenerateOtelCollectorNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1
 					Ports: []networkingv1.NetworkPolicyPort{
 						{
 							Protocol: &tcp,
-							Port:     &port,
+							Port:     &grpcPort,
+						},
+						{
+							Protocol: &tcp,
+							Port:     &adminPort,
 						},
 					},
 				},
@@ -206,7 +248,7 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 				"send_batch_size": 100,
 			},
 		},
-		"extensions": collectorExtensions(loggingEnabled),
+		"extensions": collectorExtensions(),
 	}
 
 	exporters := map[string]interface{}{}
@@ -264,7 +306,7 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 	}
 
 	config["service"] = map[string]interface{}{
-		"extensions": collectorServiceExtensions(loggingEnabled),
+		"extensions": collectorServiceExtensions(),
 		"pipelines":  pipelines,
 		"telemetry": map[string]interface{}{
 			"logs": map[string]interface{}{
@@ -303,8 +345,8 @@ func postgresExporterConfig() map[string]interface{} {
 	}
 }
 
-func collectorExtensions(loggingEnabled bool) map[string]interface{} {
-	extensions := map[string]interface{}{
+func collectorExtensions() map[string]interface{} {
+	return map[string]interface{}{
 		"health_check": map[string]interface{}{
 			"endpoint": fmt.Sprintf("0.0.0.0:%d", utils.OtelCollectorHealthCheckPort),
 		},
@@ -316,24 +358,17 @@ func collectorExtensions(loggingEnabled bool) map[string]interface{} {
 				"directory": utils.OtelCollectorFileStorageMountPath + "/compaction",
 			},
 		},
-	}
-	if loggingEnabled {
-		extensions["postgres_admin"] = map[string]interface{}{
+		"postgres_admin": map[string]interface{}{
 			"endpoint":          fmt.Sprintf("0.0.0.0:%d", utils.OtelCollectorAdminPort),
 			"connection_string": postgresConnectionStringRef,
 			"schema":            "templogs",
 			"logs_table":        "logs",
 			"tls_cert_file":     utils.OtelCollectorServingCertTLSFile,
 			"tls_key_file":      utils.OtelCollectorServingCertTLSKeyFile,
-		}
+		},
 	}
-	return extensions
 }
 
-func collectorServiceExtensions(loggingEnabled bool) []interface{} {
-	extensions := []interface{}{"health_check", "file_storage"}
-	if loggingEnabled {
-		extensions = append(extensions, "postgres_admin")
-	}
-	return extensions
+func collectorServiceExtensions() []interface{} {
+	return []interface{}{"health_check", "file_storage", "postgres_admin"}
 }

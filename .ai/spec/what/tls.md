@@ -17,7 +17,7 @@ The operator manages TLS certificates for all inter-component communication and 
 8. The TLS secret must contain at minimum `tls.key` and `tls.crt` keys. For service-ca secrets, the operator relies on the secret being created asynchronously by the service-ca operator.
 9. PostgreSQL CA certificates are mounted from the `openshift-service-ca.crt` ConfigMap into the backend container at `/etc/certs/postgres-ca/` for verifying PostgreSQL connections. The SSL mode is fixed to `require`.
 10. The OpenShift root CA (`kube-root-ca.crt`) is always mounted at `/etc/certs/ols-additional-ca/` in the backend container.
-11. The OTEL Collector serving cert is mounted in the app-server at `/etc/certs/otel-collector-ca/tls.crt` and added to `extra_ca` in `olsconfig.yaml` so lightspeed-service can verify TLS to the in-cluster collector.
+11. The OTEL Collector serving cert is mounted in the app-server at `/etc/certs/otel-collector-ca/tls.crt` and added to `extra_ca` in `olsconfig.yaml` so lightspeed-service can verify TLS to the in-cluster collector. The same PEM is published to ConfigMap `lightspeed-otel-collector-client` key `ca.crt` for agentic-operator (OTLP + admin HTTPS), created in Phase 2 after the serving Secret exists.
 
 ### Additional CA Certificates
 12. If `spec.ols.additionalCAConfigMapRef` is set, the operator mounts the referenced ConfigMap in the backend container at `/etc/certs/ols-user-ca/` and each certificate file path is added to the `extra_ca` list in the OLS config.
@@ -32,7 +32,7 @@ The operator manages TLS certificates for all inter-component communication and 
 ### Certificate Rotation
 18. Service-ca certificates are automatically rotated by the service-ca operator. The operator's watchers detect the Secret data change and trigger a deployment rolling restart via the `ols.openshift.io/force-reload` pod template annotation.
 19. Custom certificate rotation requires the user to update the referenced Secret. The operator detects the data change via the watcher and triggers a rolling restart using the same annotation mechanism.
-20. When `lightspeed-otel-collector-cert` rotates, the watcher restarts both the OTEL Collector deployment and the app-server (`ACTIVE_BACKEND`).
+20. When `lightspeed-otel-collector-cert` rotates, the watcher restarts both the OTEL Collector deployment and the app-server (`ACTIVE_BACKEND`). `RestartOtelCollector` also refreshes `lightspeed-otel-collector-client` `ca.crt` before rolling the collector.
 
 ## Configuration Surface
 
