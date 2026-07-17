@@ -1136,9 +1136,9 @@ var _ = Describe("App server assets", func() {
 		It("should generate RAG volume and initContainers", func() {
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
-					IndexPath: "/rag/vector_db/ocp_product_docs/4.19",
-					IndexID:   "ocp-product-docs-4_19",
-					Image:     "rag-ocp-product-docs:4.19",
+					IndexPath: "/rag/vector_db/internal_runbooks/1.0",
+					IndexID:   "internal-runbooks-1_0",
+					Image:     "rag-internal-runbooks:1.0",
 				},
 				{
 					IndexPath: "/rag/vector_db/ansible_docs/2.18",
@@ -1160,8 +1160,8 @@ var _ = Describe("App server assets", func() {
 				utils.GeneratePostgresWaitInitContainer(testReconcilerInstance.GetPostgresImage()),
 				corev1.Container{
 					Name:    "rag-0",
-					Image:   "rag-ocp-product-docs:4.19",
-					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-0 && cp -a /rag/vector_db/ocp_product_docs/4.19/. %s/rag-0", utils.RAGVolumeMountPath, utils.RAGVolumeMountPath)},
+					Image:   "rag-internal-runbooks:1.0",
+					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-0 && cp -a /rag/vector_db/internal_runbooks/1.0/. %s/rag-0", utils.RAGVolumeMountPath, utils.RAGVolumeMountPath)},
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      utils.RAGVolumeName,
@@ -1189,9 +1189,9 @@ var _ = Describe("App server assets", func() {
 			By("additional RAG indexes are added")
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
-					IndexPath: "/rag/vector_db/ocp_product_docs/4.19",
-					IndexID:   "ocp-product-docs-4_19",
-					Image:     "rag-ocp-product-docs:4.19",
+					IndexPath: "/rag/vector_db/internal_runbooks/1.0",
+					IndexID:   "internal-runbooks-1_0",
+					Image:     "rag-internal-runbooks:1.0",
 				},
 				{
 					IndexPath: "/rag/vector_db/ansible_docs/2.18",
@@ -1207,9 +1207,9 @@ var _ = Describe("App server assets", func() {
 
 			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]utils.ReferenceIndex{
 				{
-					ProductDocsIndexId:   "ocp-product-docs-4_19",
+					ProductDocsIndexId:   "internal-runbooks-1_0",
 					ProductDocsIndexPath: utils.RAGVolumeMountPath + "/rag-0",
-					ProductDocsOrigin:    "rag-ocp-product-docs:4.19",
+					ProductDocsOrigin:    "rag-internal-runbooks:1.0",
 				},
 				{
 					ProductDocsIndexId:   "ansible-docs-2_18",
