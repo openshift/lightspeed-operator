@@ -1,6 +1,6 @@
 module github.com/openshift/lightspeed-operator
 
-go 1.25.11
+go 1.26.0
 
 require (
 	github.com/Jeffail/gabs/v2 v2.7.0
@@ -80,7 +80,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/proglottis/gpgme v0.1.6 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.11.0 // indirect
-	github.com/sigstore/fulcio v1.8.7 // indirect
+	github.com/sigstore/fulcio v1.8.8 // indirect
 	github.com/sigstore/protobuf-specs v0.5.1 // indirect
 	github.com/sigstore/sigstore v1.10.8 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
@@ -153,7 +153,7 @@ require (
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.48.0 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/apiextensions-apiserver v0.35.4 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
