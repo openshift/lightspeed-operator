@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-07-15T08:36:56Z"
+    createdAt: "2026-07-20T21:19:08Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -841,6 +841,15 @@ spec:
                 - watch
             - apiGroups:
                 - monitoring.coreos.com
+              resourceNames:
+                - main
+              resources:
+                - alertmanagers/api
+              verbs:
+                - get
+                - list
+            - apiGroups:
+                - monitoring.coreos.com
               resources:
                 - prometheusrules
                 - servicemonitors
@@ -852,15 +861,6 @@ spec:
                 - patch
                 - update
                 - watch
-            - apiGroups:
-                - monitoring.coreos.com
-              resourceNames:
-                - main
-              resources:
-                - alertmanagers/api
-              verbs:
-                - get
-                - list
             - apiGroups:
                 - networking.k8s.io
               resources:
@@ -963,11 +963,11 @@ spec:
                       - --cert-dir=/etc/tls/private
                       - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --service-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:f2eed588a48a808f4f4a30319a34d7fcbc30a7383c14e103c0664ea759cc8b75
-                      - --console-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:9eb2fa1be5845a1c8361f36fc1a84c3c25ea9b903c616cd0841ab00f50814e2c
-                      - --openshift-mcp-server-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:ca69b8efcf97bf02bbcda126b7787dd658841ee00203a86ee22e3f36ff73c7ce
-                      - --agentic-console-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:5e516e9525d38691a2b712a278cb3dd09840bea6aa39543c11a41b80f763cb4d
-                      - --alerts-adapter-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter@sha256:9d4c8c8e91440ce625c5c936594a9b1048fa7841890906facba6c398da925369
+                      - --service-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:2cda2f011996b457462ac3da3b00b37d854bc8bd48c60a8879a386a3e54b9b79
+                      - --console-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:91b7c5316e44e414f0256c276cf975ce5525f0a1ca7c1683730c66f271632f5e
+                      - --openshift-mcp-server-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:5b8e3b6a9d46e4825f731819274efbc88dc63f1dc47e8eefe9339bf90da4c02d
+                      - --agentic-console-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:a7900060ec7928f03559bd2300bc1642ae0a57b10e30ce9f9804e8102a84b7f7
+                      - --alerts-adapter-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter@sha256:9049b11048de0717523b27e0c23ae283245df34b5dfb2d24571148e730cca4e2
                       - --otel-collector-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector@sha256:85e8f70fea5c9005088767f787e39c65ebabac2295f38b3cd846157ef9dcebea
                       - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest
                     command:
@@ -977,7 +977,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:1645c690a39887f85512db58bc4ea422faaf100884948da36090ae0100a83748
+                    image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:0f4eac671fafd4f27d683e150b6d767c701484c129f983c0d68fd1fb5ce790b1
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1098,17 +1098,17 @@ spec:
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     - name: lightspeed-service-api
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:f2eed588a48a808f4f4a30319a34d7fcbc30a7383c14e103c0664ea759cc8b75
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:2cda2f011996b457462ac3da3b00b37d854bc8bd48c60a8879a386a3e54b9b79
     - name: lightspeed-console-plugin
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:9eb2fa1be5845a1c8361f36fc1a84c3c25ea9b903c616cd0841ab00f50814e2c
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:91b7c5316e44e414f0256c276cf975ce5525f0a1ca7c1683730c66f271632f5e
     - name: lightspeed-operator
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:1645c690a39887f85512db58bc4ea422faaf100884948da36090ae0100a83748
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:0f4eac671fafd4f27d683e150b6d767c701484c129f983c0d68fd1fb5ce790b1
     - name: openshift-mcp-server
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:ca69b8efcf97bf02bbcda126b7787dd658841ee00203a86ee22e3f36ff73c7ce
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:5b8e3b6a9d46e4825f731819274efbc88dc63f1dc47e8eefe9339bf90da4c02d
     - name: lightspeed-agentic-console-plugin
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:5e516e9525d38691a2b712a278cb3dd09840bea6aa39543c11a41b80f763cb4d
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:a7900060ec7928f03559bd2300bc1642ae0a57b10e30ce9f9804e8102a84b7f7
     - name: lightspeed-agentic-alerts-adapter
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter@sha256:9d4c8c8e91440ce625c5c936594a9b1048fa7841890906facba6c398da925369
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter@sha256:9049b11048de0717523b27e0c23ae283245df34b5dfb2d24571148e730cca4e2
     - name: lightspeed-otel-collector
       image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector@sha256:85e8f70fea5c9005088767f787e39c65ebabac2295f38b3cd846157ef9dcebea
     - name: rhokp
