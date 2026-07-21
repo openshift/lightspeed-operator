@@ -102,7 +102,20 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 ### RHOKP Image
 33. The RHOKP sidecar image is set via the operator `--rhokp-image` startup flag. Default comes from `related_images.json` entry `rhokp` (`utils.RHOOKPImageDefault` / `imageDefaultOr`). The OLM bundle lists it in CSV `spec.relatedImages` and passes the image via `--rhokp-image` on the manager deployment.
 
+### Agentic Sandbox Configuration Handoff [PLANNED: OLS-3572]
+
+34. The operator creates and maintains a `lightspeed-sandbox-config` ConfigMap in the operator namespace, providing the agentic operator with a ready-to-use base pod spec for sandbox pods. The ConfigMap contains:
+  - `sandbox-pod-spec`: JSON-serialized `corev1.PodSpec` with the sandbox container image (from `--agentic-sandbox-image` flag / related-images), OTEL endpoint env var (when templog collector is deployed), MCP CA cert volumes + volume mounts (when ocp-mcp is deployed as standalone HTTPS service), and resource defaults. CA certificates are mounted directly in the PodSpec — no separate CA bundle key.
+  - `sandbox-mode`: `bare-pod` or `sandbox-claim` from `OLSConfig.spec.agenticOLS.sandboxMode`.
+  - `mcp-endpoint`: MCP server endpoint URL (when ocp-mcp is deployed as standalone HTTPS service).
+  - `otel-endpoint`: OTEL collector gRPC endpoint (when templog collector is deployed).
+
+35. The ConfigMap is always created during reconciliation. Keys are absent when the corresponding feature is not enabled. The `sandbox-pod-spec` key is always present.
+
+36. The ConfigMap is reconciled whenever relevant config changes: sandbox image, cert rotation, OTEL collector deployment, MCP server deployment, or `spec.agenticOLS` field changes.
+
 ## Planned Changes
 
 - [PLANNED: OLS-3221] Liveness probe now checks PostgreSQL health via the service's background health-check loop status. Probe configuration (failureThreshold, periodSeconds) added to deployment generation. See Rules 24–25.
 - [PLANNED: OLS-3526] Move OpenShift MCP from app-server sidecar to a standalone HTTPS cluster service (service-ca TLS). Full behavioral rules land with implementation. Still in refinement — not near-term. Agentic/sandbox reuse also depends on inter-operator config handoff ([OLS-3572](https://redhat.atlassian.net/browse/OLS-3572)); optional agentic auto-injection is separately deferred ([OLS-3594](https://redhat.atlassian.net/browse/OLS-3594)).
+- [PLANNED: OLS-3572] Agentic sandbox configuration handoff — classic operator builds base PodSpec and writes `lightspeed-sandbox-config` ConfigMap for the agentic operator. See Rules 34–36.
