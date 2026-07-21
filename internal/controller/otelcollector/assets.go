@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -109,6 +110,12 @@ func GenerateOtelCollectorService(r reconciler.Reconciler, cr *olsv1alpha1.OLSCo
 					Protocol:   corev1.ProtocolTCP,
 					TargetPort: intstr.FromString("admin"),
 				},
+				{
+					Name:       "metrics",
+					Port:       utils.OtelCollectorMetricsPort,
+					Protocol:   corev1.ProtocolTCP,
+					TargetPort: intstr.FromString("metrics"),
+				},
 			},
 		},
 	}
@@ -159,12 +166,14 @@ func GenerateOtelCollectorPostgresSecret(r reconciler.Reconciler, ctx context.Co
 	return secret, nil
 }
 
-// GenerateOtelCollectorNetworkPolicy restricts collector ingress to pods in the operator
-// namespace (OLS app-server, agentic-operator, sandbox pods, etc.) on OTLP gRPC and admin HTTPS.
+// GenerateOtelCollectorNetworkPolicy restricts collector ingress to:
+//   - pods in the operator namespace on OTLP gRPC and admin HTTPS
+//   - Prometheus in openshift-monitoring on HTTPS metrics :8888
 func GenerateOtelCollectorNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
 	tcp := corev1.ProtocolTCP
 	grpcPort := intstr.FromInt32(utils.OtelCollectorGRPCPort)
 	adminPort := intstr.FromInt32(utils.OtelCollectorAdminPort)
+	metricsPort := intstr.FromInt32(utils.OtelCollectorMetricsPort)
 	np := networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OtelCollectorNetworkPolicyName,
@@ -194,6 +203,38 @@ func GenerateOtelCollectorNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1
 						},
 					},
 				},
+				{
+					// Allow cluster Prometheus to scrape HTTPS metrics.
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "app.kubernetes.io/name",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{"prometheus"},
+									},
+									{
+										Key:      "prometheus",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{"k8s"},
+									},
+								},
+							},
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": utils.ClientCACmNamespace,
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: &tcp,
+							Port:     &metricsPort,
+						},
+					},
+				},
 			},
 			PolicyTypes: []networkingv1.PolicyType{
 				networkingv1.PolicyTypeIngress,
@@ -204,6 +245,59 @@ func GenerateOtelCollectorNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1
 		return nil, fmt.Errorf("%s: %w", utils.ErrSetOtelCollectorNetworkPolicyOwnerReference, err)
 	}
 	return &np, nil
+}
+
+// GenerateOtelCollectorServiceMonitor generates a ServiceMonitor for HTTPS scraping of
+// collector metrics on :8888. Server TLS only (service-ca); no client mTLS or Bearer.
+func GenerateOtelCollectorServiceMonitor(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*monv1.ServiceMonitor, error) {
+	metaLabels := utils.GenerateOtelCollectorSelectorLabels()
+	metaLabels["monitoring.openshift.io/collection-profile"] = "full"
+	metaLabels["app.kubernetes.io/component"] = "metrics"
+	metaLabels["openshift.io/user-monitoring"] = "false"
+
+	valFalse := false
+	serverName := strings.Join([]string{utils.OtelCollectorServiceName, r.GetNamespace(), "svc"}, ".")
+	var schemeHTTPS monv1.Scheme = "https"
+
+	serviceMonitor := monv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.OtelCollectorServiceMonitorName,
+			Namespace: r.GetNamespace(),
+			Labels:    metaLabels,
+		},
+		Spec: monv1.ServiceMonitorSpec{
+			Endpoints: []monv1.Endpoint{
+				{
+					Port:     "metrics",
+					Path:     utils.OtelCollectorMetricsPath,
+					Interval: "30s",
+					Scheme:   &schemeHTTPS,
+					HTTPConfigWithProxyAndTLSFiles: monv1.HTTPConfigWithProxyAndTLSFiles{
+						HTTPConfigWithTLSFiles: monv1.HTTPConfigWithTLSFiles{
+							TLSConfig: &monv1.TLSConfig{
+								TLSFilesConfig: monv1.TLSFilesConfig{
+									CAFile: "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
+								},
+								SafeTLSConfig: monv1.SafeTLSConfig{
+									InsecureSkipVerify: &valFalse,
+									ServerName:         &serverName,
+								},
+							},
+						},
+					},
+				},
+			},
+			JobLabel: "app.kubernetes.io/name",
+			Selector: metav1.LabelSelector{
+				MatchLabels: utils.GenerateOtelCollectorSelectorLabels(),
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &serviceMonitor, r.GetScheme()); err != nil {
+		return nil, fmt.Errorf("%s: %w", utils.ErrSetOtelCollectorServiceMonitorOwnerReference, err)
+	}
+	return &serviceMonitor, nil
 }
 
 // GenerateOtelCollectorServiceAccount generates the collector ServiceAccount.
@@ -312,6 +406,22 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 			"logs": map[string]interface{}{
 				"level": "info",
 			},
+			"metrics": map[string]interface{}{
+				"readers": []interface{}{
+					map[string]interface{}{
+						"pull": map[string]interface{}{
+							"exporter": map[string]interface{}{
+								"prometheus": map[string]interface{}{
+									"host":                "127.0.0.1",
+									"port":                utils.OtelCollectorMetricsInternalPort,
+									"without_type_suffix": true,
+									"without_units":       true,
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -366,9 +476,15 @@ func collectorExtensions() map[string]interface{} {
 			"tls_cert_file":     utils.OtelCollectorServingCertTLSFile,
 			"tls_key_file":      utils.OtelCollectorServingCertTLSKeyFile,
 		},
+		utils.OtelCollectorHTTPSMetricsExtension: map[string]interface{}{
+			"endpoint":      fmt.Sprintf("0.0.0.0:%d", utils.OtelCollectorMetricsPort),
+			"upstream":      utils.OtelCollectorMetricsUpstreamURL,
+			"tls_cert_file": utils.OtelCollectorServingCertTLSFile,
+			"tls_key_file":  utils.OtelCollectorServingCertTLSKeyFile,
+		},
 	}
 }
 
 func collectorServiceExtensions() []interface{} {
-	return []interface{}{"health_check", "file_storage", "postgres_admin"}
+	return []interface{}{"health_check", "file_storage", "postgres_admin", utils.OtelCollectorHTTPSMetricsExtension}
 }

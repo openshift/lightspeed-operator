@@ -28,13 +28,14 @@ func ReconcileOtelCollectorResources(r reconciler.Reconciler, ctx context.Contex
 }
 
 // ReconcileOtelCollectorDeployment reconciles the OTEL Collector Service, TLS material,
-// client connectivity ConfigMap, and Deployment (Phase 2).
+// client connectivity ConfigMap, Deployment, and ServiceMonitor (Phase 2).
 func ReconcileOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
 	return utils.RunReconcileTasks(r, ctx, olsconfig, "reconcileOtelCollectorDeployment", []utils.ReconcileTask{
 		{Name: "reconcile OTEL Collector Service", Task: reconcileOtelCollectorService},
 		{Name: "reconcile OTEL Collector TLS Certs", Task: reconcileOtelCollectorTLSSecret},
 		{Name: "reconcile OTEL Collector client ConfigMap", Task: reconcileOtelCollectorClientConfigMap},
 		{Name: "reconcile OTEL Collector Deployment", Task: reconcileOtelCollectorDeployment},
+		{Name: "reconcile OTEL Collector ServiceMonitor", Task: reconcileOtelCollectorServiceMonitor},
 	}, false)
 }
 
@@ -228,6 +229,14 @@ func reconcileOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Conte
 
 	r.GetLogger().Info("OTEL Collector deployment reconciled", "deployment", desiredDeployment.Name)
 	return nil
+}
+
+func reconcileOtelCollectorServiceMonitor(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	sm, err := GenerateOtelCollectorServiceMonitor(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGenerateOtelCollectorServiceMonitor, err)
+	}
+	return utils.ReconcileServiceMonitor(r, ctx, sm)
 }
 
 // RestartOtelCollector refreshes the client connectivity ConfigMap (CA from the

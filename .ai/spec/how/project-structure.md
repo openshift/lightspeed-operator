@@ -20,7 +20,7 @@
 | `internal/controller/postgres/assets.go` | `GeneratePostgresConfigMap()`, `GeneratePostgresBootstrapSecret()`, `GeneratePostgresSecret()` | PostgreSQL config, bootstrap script, credentials |
 | `internal/controller/otelcollector/reconciler.go` | `ReconcileOtelCollectorResources()`, `ReconcileOtelCollectorDeployment()`, `RestartOtelCollector()` | OTEL Collector Phase 1 + Phase 2 + rolling restart |
 | `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector deployment generation, update detection |
-| `internal/controller/otelcollector/assets.go` | ConfigMap (runtime + client), Service, NetworkPolicy, ServiceAccount, Postgres DSN Secret generators | OTEL Collector resource generation, collector runtime YAML, client connectivity ConfigMap |
+| `internal/controller/otelcollector/assets.go` | ConfigMap (runtime + client), Service, NetworkPolicy, ServiceMonitor, ServiceAccount, Postgres DSN Secret generators | OTEL Collector resource generation, collector runtime YAML, client connectivity ConfigMap, HTTPS metrics |
 | `internal/controller/console/reconciler.go` | `ReconcileConsoleUIResources()`, `ReconcileConsoleUIDeploymentAndPlugin()`, `RemoveConsoleUI()` | Chat console plugin Phase 1 + Phase 2 + cleanup |
 | `internal/controller/console/deployment.go` | `GenerateConsoleUIDeployment()` | Chat console plugin deployment generation |
 | `internal/controller/console/assets.go` | ConsolePlugin CR generator, nginx config, service, network policy | Chat console plugin resource generation |
@@ -28,6 +28,7 @@
 | `internal/controller/agenticconsole/deployment.go` | `GenerateAgenticConsoleUIDeployment()` | Agentic console plugin deployment generation |
 | `internal/controller/agenticconsole/assets.go` | ConsolePlugin CR generator, nginx config, service, network policy | Agentic console plugin resource generation |
 | `internal/controller/utils/console_plugin_reconciler.go` | Shared ConsolePlugin reconcile helpers | Used by `console/` and `agenticconsole/` |
+| `internal/controller/utils/service_monitor_reconciler.go` | `ReconcileServiceMonitor()` | Shared ServiceMonitor create/update (appserver + otelcollector) |
 | `internal/controller/alertsadapter/reconciler.go` | `ReconcileAlertsAdapterResources()`, `ReconcileAlertsAdapterDeployment()`, `RemoveAlertsAdapter()`, `RestartAlertsAdapter()` | Alerts adapter Phase 1 + Phase 2 + operand teardown (disable/finalizer) + rolling restart |
 | `internal/controller/alertsadapter/deployment.go` | `GenerateDeployment()` | Alerts adapter deployment generation |
 | `internal/controller/alertsadapter/assets.go` | SA, ClusterRole, ClusterRoleBinding, monitoring RoleBinding, NetworkPolicy generators | Alerts adapter resource generation |

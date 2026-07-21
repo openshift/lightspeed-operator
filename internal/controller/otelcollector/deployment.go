@@ -112,6 +112,11 @@ func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Contex
 			ContainerPort: utils.OtelCollectorAdminPort,
 			Protocol:      corev1.ProtocolTCP,
 		},
+		{
+			Name:          "metrics",
+			ContainerPort: utils.OtelCollectorMetricsPort,
+			Protocol:      corev1.ProtocolTCP,
+		},
 	}
 
 	envVars := append([]corev1.EnvVar{}, utils.GetProxyEnvVars()...)

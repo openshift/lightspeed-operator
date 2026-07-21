@@ -236,6 +236,21 @@ const (
 	OtelCollectorHealthCheckPort = 13133
 	// OtelCollectorAdminPort is the postgres_admin HTTPS port.
 	OtelCollectorAdminPort = 8080
+	// OtelCollectorMetricsPort is the cluster-facing HTTPS Prometheus metrics port
+	// (https_metrics extension; OLS-3656).
+	OtelCollectorMetricsPort = 8888
+	// OtelCollectorMetricsInternalPort is the localhost-only HTTP Prometheus pull port
+	// used as upstream by the https_metrics extension.
+	OtelCollectorMetricsInternalPort = 18888
+	// OtelCollectorMetricsPath is the Prometheus metrics scrape path.
+	OtelCollectorMetricsPath = "/metrics"
+	// OtelCollectorMetricsUpstreamURL is the https_metrics extension upstream
+	// (stock telemetry pull on localhost).
+	OtelCollectorMetricsUpstreamURL = "http://127.0.0.1:18888/metrics"
+	// OtelCollectorHTTPSMetricsExtension is the collector extension type name for HTTPS metrics.
+	OtelCollectorHTTPSMetricsExtension = "https_metrics"
+	// OtelCollectorServiceMonitorName is the ServiceMonitor for collector metrics scraping.
+	OtelCollectorServiceMonitorName = "lightspeed-otel-collector-monitor"
 	// OtelCollectorDeploymentName is the name of the OTEL Collector deployment.
 	OtelCollectorDeploymentName = "lightspeed-otel-collector"
 	// OtelCollectorConfigMapName is the ConfigMap holding collector runtime YAML.
@@ -259,7 +274,7 @@ const (
 	OtelCollectorConfigVolumeName = "config"
 	// OtelCollectorConfigVolumeMountPath is where the collector reads config.yaml.
 	OtelCollectorConfigVolumeMountPath = "/etc/otelcol"
-	// OtelCollectorCertsSecretName is the service-ca TLS secret for OTLP and admin API.
+	// OtelCollectorCertsSecretName is the service-ca TLS secret for OTLP, admin API, and metrics.
 	OtelCollectorCertsSecretName = "lightspeed-otel-collector-cert" // #nosec G101
 	// OtelCollectorServingCertVolumeName is the pod volume name for the serving cert Secret.
 	OtelCollectorServingCertVolumeName = "serving-cert"

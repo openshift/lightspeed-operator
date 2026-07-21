@@ -16,7 +16,7 @@ The operator enforces security boundaries through RBAC, network policies, pod se
    - Backend/AppServer (`lightspeed-app-server`): allows Prometheus from `openshift-monitoring`, OpenShift Console pods from `openshift-console`, and ingress controllers (namespaces with `network.openshift.io/policy-group: ingress`), all on port 8443.
    - PostgreSQL (`lightspeed-postgres-server`): allows only backend pods (matched by `app.kubernetes.io/name: lightspeed-service-api` label).
    - Console UI (`lightspeed-console-plugin`): allows only OpenShift Console pods from `openshift-console` namespace.
-   - OTEL Collector (`lightspeed-otel-collector`): allows all pods in the operator namespace (empty `PodSelector`) on OTLP gRPC `:4317` and `postgres_admin` HTTPS `:8080`.
+   - OTEL Collector (`lightspeed-otel-collector`): allows all pods in the operator namespace (empty `PodSelector`) on OTLP gRPC `:4317` and `postgres_admin` HTTPS `:8080`; allows Prometheus from `openshift-monitoring` on HTTPS metrics `:8888` only.
 6. Network policies use combined pod label selectors and namespace selectors for source filtering.
 7. Egress is unrestricted for all components. PolicyTypes includes only `Ingress`; egress rules are empty (`[]`), meaning no egress restrictions.
 

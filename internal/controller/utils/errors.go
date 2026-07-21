@@ -128,12 +128,14 @@ const (
 	ErrGenerateOtelCollectorServiceAccount                = "failed to generate OTEL Collector service account"
 	ErrGenerateOtelCollectorPostgresSecret                = "failed to generate OTEL Collector Postgres secret" // #nosec G101
 	ErrGenerateOtelCollectorDeployment                    = "failed to generate OTEL Collector deployment"
+	ErrGenerateOtelCollectorServiceMonitor                = "failed to generate OTEL Collector ServiceMonitor"
 	ErrSetOtelCollectorConfigMapOwnerReference            = "failed to set OTEL Collector configmap owner reference"
 	ErrSetOtelCollectorClientConfigMapOwnerReference      = "failed to set OTEL Collector client configmap owner reference"
 	ErrSetOtelCollectorServiceOwnerReference              = "failed to set OTEL Collector service owner reference"
 	ErrSetOtelCollectorNetworkPolicyOwnerReference        = "failed to set OTEL Collector network policy owner reference"
 	ErrSetOtelCollectorPostgresSecretOwnerReference       = "failed to set OTEL Collector Postgres secret owner reference" // #nosec G101
 	ErrSetOtelCollectorDeploymentOwnerReference           = "failed to set OTEL Collector deployment owner reference"
+	ErrSetOtelCollectorServiceMonitorOwnerReference       = "failed to set OTEL Collector ServiceMonitor owner reference"
 	ErrCreateOtelCollectorConfigMap                       = "failed to create OTEL Collector configmap"
 	ErrGetOtelCollectorConfigMap                          = "failed to get OTEL Collector configmap"
 	ErrUpdateOtelCollectorConfigMap                       = "failed to update OTEL Collector configmap"
