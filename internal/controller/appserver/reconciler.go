@@ -72,6 +72,10 @@ func ReconcileAppServerResources(r reconciler.Reconciler, ctx context.Context, o
 			Task: reconcileMetricsReaderSecret,
 		},
 		{
+			Name: "reconcile Metrics Reader ClusterRoleBinding",
+			Task: reconcileMetricsReaderClusterRoleBinding,
+		},
+		{
 			Name: "reconcile App NetworkPolicy",
 			Task: reconcileAppServerNetworkPolicy,
 		},
@@ -410,6 +414,61 @@ func reconcileMetricsReaderSecret(r reconciler.Reconciler, ctx context.Context, 
 		}
 	}
 	r.GetLogger().Info("OLS metrics reader secret reconciled", "secret", secret.Name)
+	return nil
+}
+
+func reconcileMetricsReaderClusterRoleBinding(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	if os.Getenv("LOCAL_DEV_MODE") == "true" {
+		r.GetLogger().Info("Skipping metrics reader ClusterRoleBinding reconciliation in LOCAL_DEV_MODE")
+		return nil
+	}
+
+	desired, err := generateMetricsReaderClusterRoleBinding(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGenerateMetricsReaderCRB, err)
+	}
+
+	found := &rbacv1.ClusterRoleBinding{}
+	err = r.Get(ctx, client.ObjectKey{Name: desired.Name}, found)
+	if err != nil && errors.IsNotFound(err) {
+		r.GetLogger().Info("creating metrics reader ClusterRoleBinding", "ClusterRoleBinding", desired.Name)
+		err = r.Create(ctx, desired)
+		if err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrCreateMetricsReaderCRB, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGetMetricsReaderCRB, err)
+	}
+
+	needsUpdate := false
+	subjectFound := false
+	for i, subject := range found.Subjects {
+		if subject.Name == utils.MetricsReaderServiceAccountName {
+			subjectFound = true
+			if subject.Namespace != r.GetNamespace() {
+				found.Subjects[i].Namespace = r.GetNamespace()
+				needsUpdate = true
+			}
+		}
+	}
+
+	if !subjectFound {
+		found.Subjects = desired.Subjects
+		needsUpdate = true
+	}
+
+	if needsUpdate {
+		r.GetLogger().Info("updating metrics reader ClusterRoleBinding subject namespace",
+			"ClusterRoleBinding", found.Name, "namespace", r.GetNamespace())
+		err = r.Update(ctx, found)
+		if err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrUpdateMetricsReaderCRB, err)
+		}
+	} else {
+		r.GetLogger().Info("metrics reader ClusterRoleBinding reconciled", "ClusterRoleBinding", found.Name)
+	}
+
 	return nil
 }
 
