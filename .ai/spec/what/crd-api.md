@@ -520,3 +520,4 @@ Path | Type | Default | Required | Validation | Description
 
 - [PLANNED: OLS-3442] Add `reasoningConfig` field (`map[string]interface{}`) to `ModelParametersSpec`. Freeform map passed through to the service as `reasoning_config` for provider-specific reasoning/thinking parameters. Includes release notes and user-facing documentation for valid keys per provider.
 - [PLANNED: OLS-3526] Standalone HTTPS ocp-mcp cluster service may replace the sidecar; CRD/`MCPServerReady` details land with implementation. Still in refinement — see `app-server.md` Planned Changes.
+- [PLANNED: OLS-3572] Add `spec.agenticOLS` section with `sandboxMode` field (`bare-pod` default, `sandbox-claim`). The classic operator builds a base `corev1.PodSpec` for sandbox pods and writes it to the `lightspeed-sandbox-config` ConfigMap for the agentic operator. See design spec `docs/superpowers/specs/2026-07-21-inter-operator-handoff.md`.
