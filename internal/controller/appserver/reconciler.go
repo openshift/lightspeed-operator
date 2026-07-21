@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
@@ -442,18 +443,7 @@ func reconcileMetricsReaderClusterRoleBinding(r reconciler.Reconciler, ctx conte
 	}
 
 	needsUpdate := false
-	subjectFound := false
-	for i, subject := range found.Subjects {
-		if subject.Name == utils.MetricsReaderServiceAccountName {
-			subjectFound = true
-			if subject.Namespace != r.GetNamespace() {
-				found.Subjects[i].Namespace = r.GetNamespace()
-				needsUpdate = true
-			}
-		}
-	}
-
-	if !subjectFound {
+	if !reflect.DeepEqual(found.Subjects, desired.Subjects) {
 		found.Subjects = desired.Subjects
 		needsUpdate = true
 	}
