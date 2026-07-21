@@ -4,13 +4,13 @@ lockfileVendor: redhat
 arches:
 - arch: aarch64
   packages:
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/g/glib2-devel-2.68.4-19.el9_8.1.aarch64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/g/glib2-devel-2.68.4-19.el9_8.2.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
-    size: 569674
-    checksum: sha256:e44d75efed1f61c005311e9eb862ea415f9e65e37942ced2dcdecc6e47268b7c
+    size: 569669
+    checksum: sha256:c8dfa05b3e06ffbe1253e0894e8199244045fa0649f5a8eccf0e97431f53ab30
     name: glib2-devel
-    evr: 2.68.4-19.el9_8.1
-    sourcerpm: glib2-2.68.4-19.el9_8.1.src.rpm
+    evr: 2.68.4-19.el9_8.2
+    sourcerpm: glib2-2.68.4-19.el9_8.2.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/l/libblkid-devel-2.37.4-25.el9.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
     size: 21639
@@ -144,6 +144,13 @@ arches:
     name: expat
     evr: 2.5.0-6.el9_8.1
     sourcerpm: expat-2.5.0-6.el9_8.1.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/g/glib2-2.68.4-19.el9_8.2.aarch64.rpm
+    repoid: ubi-9-for-aarch64-baseos-rpms
+    size: 2743273
+    checksum: sha256:e9234884b3e34e962cbe191ebd12db290e5d6d50328733d36eb2f48fde3dc4bd
+    name: glib2
+    evr: 2.68.4-19.el9_8.2
+    sourcerpm: glib2-2.68.4-19.el9_8.2.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/j/jq-1.6-19.el9_8.2.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
     size: 191195
@@ -225,13 +232,13 @@ arches:
   module_metadata: []
 - arch: x86_64
   packages:
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/g/glib2-devel-2.68.4-19.el9_8.1.x86_64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/g/glib2-devel-2.68.4-19.el9_8.2.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
-    size: 570365
-    checksum: sha256:9b2b804161856d938f0b1ed6753c36d43e5a7786d74356964c22affb0d54ae2c
+    size: 570499
+    checksum: sha256:1df5d114b97361cb65eaee75516c68fa8692281b7a34caec1da12219aaae9a1e
     name: glib2-devel
-    evr: 2.68.4-19.el9_8.1
-    sourcerpm: glib2-2.68.4-19.el9_8.1.src.rpm
+    evr: 2.68.4-19.el9_8.2
+    sourcerpm: glib2-2.68.4-19.el9_8.2.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/l/libblkid-devel-2.37.4-25.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
     size: 21668
@@ -372,6 +379,13 @@ arches:
     name: expat
     evr: 2.5.0-6.el9_8.1
     sourcerpm: expat-2.5.0-6.el9_8.1.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/g/glib2-2.68.4-19.el9_8.2.x86_64.rpm
+    repoid: ubi-9-for-x86_64-baseos-rpms
+    size: 2774716
+    checksum: sha256:76e98d78411436867d135586f409655e0adf9711820860b2d1c809b9e20ae678
+    name: glib2
+    evr: 2.68.4-19.el9_8.2
+    sourcerpm: glib2-2.68.4-19.el9_8.2.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/j/jq-1.6-19.el9_8.2.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
     size: 197453
