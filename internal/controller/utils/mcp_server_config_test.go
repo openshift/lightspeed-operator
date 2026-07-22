@@ -24,8 +24,11 @@ func TestOpenShiftMCPServerConfigTOML(t *testing.T) {
 		t.Error("TOML config should use denied_resources table array syntax")
 	}
 
-	if !strings.Contains(config, `toolsets = ["core", "config", "helm", "metrics"]`) {
-		t.Error("TOML config should pin default toolsets explicitly")
+	if !strings.Contains(config, `toolsets = ["core", "config", "helm", "metrics", "kubevirt"]`) {
+		t.Error("TOML config should pin toolsets explicitly")
+	}
+	if !strings.Contains(config, `experimental_enable_target_compatibility_tool_filters = true`) {
+		t.Error("TOML config should enable target compatibility tool filters so kubevirt tools are hidden when CNV is not installed")
 	}
 	if !strings.Contains(config, "[toolset_configs.metrics]") {
 		t.Error("TOML config should define metrics toolset config (toolset_configs key matches toolset name)")
