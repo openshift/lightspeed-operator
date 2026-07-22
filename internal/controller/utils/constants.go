@@ -300,6 +300,8 @@ const (
 	OtelCollectorFileStorageMountPath = "/var/lib/otelcol/file_storage"
 	// OtelSandboxServiceName is the OTLP service.name for agentic sandbox audit logs routed to Postgres.
 	OtelSandboxServiceName = "lightspeed-agentic-sandbox"
+	// OtelAppServerServiceName is the OTLP service.name for lightspeed-service traces.
+	OtelAppServerServiceName = "lightspeed-service"
 	// OtelCollectorServingCertTLSFile is the serving certificate path in collector YAML.
 	OtelCollectorServingCertTLSFile = "/var/run/secrets/serving-cert/tls.crt"
 	// OtelCollectorServingCertTLSKeyFile is the serving certificate key path in collector YAML.

@@ -379,7 +379,13 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 			},
 		}
 		connectors["routing/traces"] = map[string]interface{}{
-			"default_pipelines": []interface{}{"traces/lightspeed"},
+			"default_pipelines": []interface{}{},
+			"table": []interface{}{
+				map[string]interface{}{
+					"condition": fmt.Sprintf(`resource.attributes["service.name"] == %q`, utils.OtelAppServerServiceName),
+					"pipelines": []interface{}{"traces/lightspeed"},
+				},
+			},
 		}
 		pipelines["traces"] = map[string]interface{}{
 			"receivers":  []interface{}{"otlp"},

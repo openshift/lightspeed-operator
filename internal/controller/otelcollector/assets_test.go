@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/yaml"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
@@ -95,6 +96,13 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(configYAML).To(ContainSubstring("otlp/tracing"))
 		Expect(configYAML).To(ContainSubstring("${env:TRACES_BACKEND_ENDPOINT}"))
 		Expect(configYAML).To(ContainSubstring("traces/lightspeed"))
+
+		var config map[string]interface{}
+		Expect(yaml.Unmarshal([]byte(configYAML), &config)).To(Succeed())
+		connectors := config["connectors"].(map[string]interface{})
+		routingTraces := connectors["routing/traces"].(map[string]interface{})
+		table := routingTraces["table"].([]interface{})
+		Expect(table).NotTo(BeEmpty(), "routing/traces table must have at least one entry")
 	})
 
 	It("should generate the collector Service with serving-cert annotation", func() {
