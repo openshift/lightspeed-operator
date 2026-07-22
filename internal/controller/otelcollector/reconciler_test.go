@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -86,6 +87,7 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			}, np)
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(np)
+			Expect(np.Spec.Ingress).To(HaveLen(2))
 		})
 
 		It("should skip ConfigMap update when data is unchanged", func() {
@@ -125,6 +127,22 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(svc)
 			Expect(svc.Annotations[utils.ServingCertSecretAnnotationKey]).To(Equal(utils.OtelCollectorCertsSecretName))
+			Expect(svc.Spec.Ports).To(HaveLen(4))
+			Expect(svc.Spec.Ports[3].Name).To(Equal("metrics"))
+			Expect(svc.Spec.Ports[3].Port).To(Equal(int32(utils.OtelCollectorMetricsPort)))
+		})
+
+		It("should create the collector ServiceMonitor", func() {
+			sm := &monv1.ServiceMonitor{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelCollectorServiceMonitorName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, sm)
+			Expect(err).NotTo(HaveOccurred())
+			expectOwnedByOLSConfig(sm)
+			Expect(sm.Spec.Endpoints).To(HaveLen(1))
+			Expect(sm.Spec.Endpoints[0].Port).To(Equal("metrics"))
+			Expect(string(*sm.Spec.Endpoints[0].Scheme)).To(Equal("https"))
 		})
 
 		It("should create the client connectivity ConfigMap with CA from the serving cert", func() {

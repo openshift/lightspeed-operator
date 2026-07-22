@@ -92,7 +92,7 @@ make test-e2e   # E2E tests (requires cluster)
 - `internal/controller/olsconfig_controller.go` - Main reconciler with finalizer logic
 - `internal/controller/appserver/` - App server
 - `internal/controller/postgres/` - PostgreSQL
-- `internal/controller/otelcollector/` - OTEL Collector (always deployed; Postgres audit log storage, optional trace forwarding)
+- `internal/controller/otelcollector/` - OTEL Collector (always deployed; Postgres audit log storage, optional trace forwarding, HTTPS metrics `:8888` + ServiceMonitor)
 - `internal/controller/console/` - Chat console plugin (Lightspeed assistant UI)
 - `internal/controller/agenticconsole/` - Agentic console plugin (AI Hub / proposals UI)
 - `internal/controller/alertsadapter/` - Agentic alerts adapter (opt-in via `configMapRef`; mounts user CM at `/etc/alerts-adapter` when present; adapter validates config)

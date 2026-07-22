@@ -15,6 +15,7 @@ OTEL Collector (always deployed)
   ├─ logs pipeline → Postgres     ← spec.audit.logging (*bool, default true)
   │     (only service.name=lightspeed-agentic-sandbox)
   ├─ postgres_admin HTTPS :8080   ← always (templog cleanup / GET for agentic-operator)
+  ├─ HTTPS metrics :8888          ← always (https_metrics; Prometheus scrape)
   └─ traces pipeline → backend    ← spec.audit.tracingEndpoint (optional)
 
 Client ConfigMap `lightspeed-otel-collector-client` (Phase 2, after serving cert exists)
@@ -83,18 +84,19 @@ The OTEL Collector always creates and manages the `templogs` schema, `logs` tabl
 
 See `postgres.md` for Postgres bootstrap scope and `templog.md` (lightspeed-service repo) for table DDL semantics.
 
-## Collector Operand ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510), [OLS-3513](https://redhat.atlassian.net/browse/OLS-3513))
+## Collector Operand ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510), [OLS-3513](https://redhat.atlassian.net/browse/OLS-3513), [OLS-3656](https://redhat.atlassian.net/browse/OLS-3656))
 
-1. **Always** deploy a single-replica Collector Deployment. Service exposes OTLP gRPC `:4317`, OTLP HTTP `:4318`, and `postgres_admin` HTTPS `:8080`. Health check listens on `:13133` (pod-local; not on the Service).
+1. **Always** deploy a single-replica Collector Deployment. Service exposes OTLP gRPC `:4317`, OTLP HTTP `:4318`, `postgres_admin` HTTPS `:8080`, and HTTPS Prometheus metrics `:8888`. Health check listens on `:13133` (pod-local; not on the Service).
 2. Image from `GetOtelCollectorImage()`; pod scheduling from `spec.ols.deployment.otelCollector`.
 3. ConfigMap pipelines driven by `spec.audit`:
    - `logging` true/absent → logs pipeline with `routing/logs` connector and `postgresexporter`; only OTLP logs where `service.name == "lightspeed-agentic-sandbox"` are stored in Postgres
    - `logging` false → no Postgres export pipeline; `postgres_admin` extension remains enabled (agentic templog cleanup)
    - `tracingEndpoint` set → traces pipeline to backend (TLS); when unset, traces are received on `:4317` but not exported
 4. Postgres DSN uses operator-managed Postgres credentials (`sslmode=require`, service-ca TLS), always injected into the Deployment (DSN Secret env, admin container port, Postgres wait init) because `postgres_admin` is always enabled for clients. `spec.audit.logging` only toggles the logs export pipeline in the runtime ConfigMap.
-5. NetworkPolicy: ingress from all pods in the operator namespace (empty `PodSelector`) on `:4317` **and** `:8080`.
-6. Serving cert via service-ca (`lightspeed-otel-collector-cert`); cert rotation restarts collector and app-server deployments and refreshes the client ConfigMap CA.
-7. Phase 1: runtime ConfigMap (`lightspeed-otel-collector-config` / `config.yaml`), ServiceAccount, Postgres DSN Secret, NetworkPolicy. Phase 2: Service, TLS secret wait, **client ConfigMap** (`lightspeed-otel-collector-client`), Deployment. Status condition: `OtelCollectorReady`.
+5. NetworkPolicy: (a) ingress from all pods in the operator namespace (empty `PodSelector`) on `:4317` **and** `:8080`; (b) ingress from Prometheus pods in `openshift-monitoring` on HTTPS metrics `:8888` only.
+6. Serving cert via service-ca (`lightspeed-otel-collector-cert`); used for OTLP, `postgres_admin`, and `https_metrics`. Cert rotation restarts collector and app-server deployments and refreshes the client ConfigMap CA.
+7. Phase 1: runtime ConfigMap (`lightspeed-otel-collector-config` / `config.yaml`), ServiceAccount, Postgres DSN Secret, NetworkPolicy. Phase 2: Service, TLS secret wait, **client ConfigMap** (`lightspeed-otel-collector-client`), Deployment, ServiceMonitor (`lightspeed-otel-collector-monitor`, when Prometheus Operator CRDs are available). Status condition: `OtelCollectorReady`.
+8. [OLS-3656] Runtime ConfigMap always enables collector internal metrics: stock Prometheus pull on `127.0.0.1:18888` (not cluster-reachable) and the `https_metrics` extension reverse-proxying that endpoint on `0.0.0.0:8888` with the serving cert. Cluster Prometheus scrapes HTTPS `:8888` `/metrics` via ServiceMonitor (server TLS verify with service-ca; no client mTLS or Bearer).
 
 ### Client connectivity ConfigMap (`lightspeed-otel-collector-client`)
 

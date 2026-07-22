@@ -49,7 +49,7 @@ var _ = Describe("OTEL Collector deployment", func() {
 		for _, p := range container.Ports {
 			portNames = append(portNames, p.Name)
 		}
-		Expect(portNames).To(ConsistOf("otlp-grpc", "otlp-http", "admin"))
+		Expect(portNames).To(ConsistOf("otlp-grpc", "otlp-http", "admin", "metrics"))
 		Expect(container.ReadinessProbe.HTTPGet.Port.IntValue()).To(Equal(int(utils.OtelCollectorHealthCheckPort)))
 	})
 
@@ -72,7 +72,7 @@ var _ = Describe("OTEL Collector deployment", func() {
 		for _, p := range container.Ports {
 			portNames = append(portNames, p.Name)
 		}
-		Expect(portNames).To(ConsistOf("otlp-grpc", "otlp-http", "admin"))
+		Expect(portNames).To(ConsistOf("otlp-grpc", "otlp-http", "admin", "metrics"))
 	})
 
 	It("should set TRACES_BACKEND_ENDPOINT when tracingEndpoint is configured", func() {
