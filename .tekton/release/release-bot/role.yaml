@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: release-bot
+  name: konflux-bot-0
   namespace: crt-nshift-lightspeed-tenant
 rules:
   - apiGroups:

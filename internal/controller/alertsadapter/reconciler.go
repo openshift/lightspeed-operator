@@ -1,5 +1,5 @@
 // Package alertsadapter reconciles the agentic alerts adapter operand that polls
-// Alertmanager and creates Proposal CRs for firing alerts.
+// Alertmanager and creates AgenticRun CRs for firing alerts.
 package alertsadapter
 
 import (
@@ -33,8 +33,9 @@ func ReconcileAlertsAdapterResources(r reconciler.Reconciler, ctx context.Contex
 
 	tasks := []utils.ReconcileTask{
 		{Name: "reconcile alerts adapter ServiceAccount", Task: reconcileServiceAccount},
-		{Name: "reconcile alerts adapter proposals ClusterRole", Task: reconcileProposalsClusterRole},
-		{Name: "reconcile alerts adapter proposals ClusterRoleBinding", Task: reconcileProposalsClusterRoleBinding},
+		{Name: "reconcile alerts adapter agenticruns ClusterRole", Task: reconcileAgenticRunsClusterRole},
+		{Name: "reconcile alerts adapter agenticruns ClusterRoleBinding", Task: reconcileAgenticRunsClusterRoleBinding},
+		{Name: "remove legacy alerts adapter proposals cluster RBAC", Task: removeLegacyProposalsClusterRBAC},
 		{Name: "remove legacy alerts adapter config RoleBinding", Task: removeLegacyConfigRoleBinding},
 		{Name: "remove legacy alerts adapter config Role", Task: removeLegacyConfigRole},
 		{Name: "reconcile alerts adapter Alertmanager RoleBinding", Task: reconcileAlertmanagerRoleBinding},
@@ -84,7 +85,7 @@ func RemoveAlertsAdapter(r reconciler.Reconciler, ctx context.Context) error {
 		{Name: "delete alerts adapter config Role", Task: deleteConfigRole},
 		{Name: "delete alerts adapter service account", Task: deleteServiceAccount},
 		{Name: "delete alerts adapter Alertmanager RoleBinding", Task: deleteAlertmanagerRoleBinding},
-		{Name: "delete alerts adapter proposals cluster RBAC", Task: deleteProposalsClusterRBAC},
+		{Name: "delete alerts adapter agenticruns cluster RBAC", Task: deleteAgenticRunsClusterRBAC},
 	}
 
 	var errs []error
@@ -124,47 +125,47 @@ func reconcileServiceAccount(r reconciler.Reconciler, ctx context.Context, cr *o
 	return nil
 }
 
-func reconcileProposalsClusterRole(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	role, err := GenerateProposalsClusterRole(r, cr)
+func reconcileAgenticRunsClusterRole(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	role, err := GenerateAgenticRunsClusterRole(r, cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateAlertsAdapterProposalsClusterRole, err)
+		return fmt.Errorf("%s: %w", utils.ErrGenerateAlertsAdapterAgenticRunsClusterRole, err)
 	}
 
 	foundRole := &rbacv1.ClusterRole{}
 	err = r.Get(ctx, client.ObjectKey{Name: role.Name}, foundRole)
 	if err != nil && apierrors.IsNotFound(err) {
-		r.GetLogger().Info("creating alerts adapter proposals cluster role", "ClusterRole", role.Name)
+		r.GetLogger().Info("creating alerts adapter agenticruns cluster role", "ClusterRole", role.Name)
 		if err := r.Create(ctx, role); err != nil {
-			return fmt.Errorf("%s: %w", utils.ErrCreateAlertsAdapterProposalsClusterRole, err)
+			return fmt.Errorf("%s: %w", utils.ErrCreateAlertsAdapterAgenticRunsClusterRole, err)
 		}
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterProposalsClusterRole, err)
+		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterAgenticRunsClusterRole, err)
 	}
 
-	r.GetLogger().Info("alerts adapter proposals cluster role reconciled", "ClusterRole", role.Name)
+	r.GetLogger().Info("alerts adapter agenticruns cluster role reconciled", "ClusterRole", role.Name)
 	return nil
 }
 
-func reconcileProposalsClusterRoleBinding(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	rb, err := GenerateProposalsClusterRoleBinding(r, cr)
+func reconcileAgenticRunsClusterRoleBinding(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	rb, err := GenerateAgenticRunsClusterRoleBinding(r, cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateAlertsAdapterProposalsClusterRoleBinding, err)
+		return fmt.Errorf("%s: %w", utils.ErrGenerateAlertsAdapterAgenticRunsClusterRoleBinding, err)
 	}
 
 	foundRB := &rbacv1.ClusterRoleBinding{}
 	err = r.Get(ctx, client.ObjectKey{Name: rb.Name}, foundRB)
 	if err != nil && apierrors.IsNotFound(err) {
-		r.GetLogger().Info("creating alerts adapter proposals cluster role binding", "ClusterRoleBinding", rb.Name)
+		r.GetLogger().Info("creating alerts adapter agenticruns cluster role binding", "ClusterRoleBinding", rb.Name)
 		if err := r.Create(ctx, rb); err != nil {
-			return fmt.Errorf("%s: %w", utils.ErrCreateAlertsAdapterProposalsClusterRoleBinding, err)
+			return fmt.Errorf("%s: %w", utils.ErrCreateAlertsAdapterAgenticRunsClusterRoleBinding, err)
 		}
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterProposalsClusterRoleBinding, err)
+		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterAgenticRunsClusterRoleBinding, err)
 	}
 
-	r.GetLogger().Info("alerts adapter proposals cluster role binding reconciled", "ClusterRoleBinding", rb.Name)
+	r.GetLogger().Info("alerts adapter agenticruns cluster role binding reconciled", "ClusterRoleBinding", rb.Name)
 	return nil
 }
 
@@ -411,54 +412,86 @@ func isOpenShiftManagedCRBDeleteDenied(err error) bool {
 		(strings.Contains(msg, "Deleting ClusterRoleBinding") && strings.Contains(msg, "is not allowed"))
 }
 
-func deleteProposalsClusterRBAC(r reconciler.Reconciler, ctx context.Context) error {
+func deleteAgenticRunsClusterRBAC(r reconciler.Reconciler, ctx context.Context) error {
 	rb := &rbacv1.ClusterRoleBinding{}
-	err := r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterProposalsClusterRoleBindingName}, rb)
+	err := r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterAgenticRunsClusterRoleBindingName}, rb)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			r.GetLogger().Info("alerts adapter proposals ClusterRoleBinding not found, skip deletion")
-			return deleteProposalsClusterRole(r, ctx)
+			r.GetLogger().Info("alerts adapter agenticruns ClusterRoleBinding not found, skip deletion")
+			return deleteAgenticRunsClusterRole(r, ctx)
 		}
-		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterProposalsClusterRoleBinding, err)
+		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterAgenticRunsClusterRoleBinding, err)
 	}
 
 	if err := r.Delete(ctx, rb); err != nil {
 		if apierrors.IsNotFound(err) {
-			return deleteProposalsClusterRole(r, ctx)
+			return deleteAgenticRunsClusterRole(r, ctx)
 		}
 		if isOpenShiftManagedCRBDeleteDenied(err) {
 			r.GetLogger().Info(
-				"alerts adapter proposals ClusterRoleBinding deletion blocked by OpenShift; deleting ClusterRole to remove effective permissions",
+				"alerts adapter agenticruns ClusterRoleBinding deletion blocked by OpenShift; deleting ClusterRole to remove effective permissions",
 				"ClusterRoleBinding", rb.Name,
 			)
-			return deleteProposalsClusterRole(r, ctx)
+			return deleteAgenticRunsClusterRole(r, ctx)
 		}
-		return fmt.Errorf("failed to delete alerts adapter proposals ClusterRoleBinding: %w", err)
+		return fmt.Errorf("failed to delete alerts adapter agenticruns ClusterRoleBinding: %w", err)
 	}
 
-	r.GetLogger().Info("alerts adapter proposals ClusterRoleBinding deleted")
-	return deleteProposalsClusterRole(r, ctx)
+	r.GetLogger().Info("alerts adapter agenticruns ClusterRoleBinding deleted")
+	return deleteAgenticRunsClusterRole(r, ctx)
 }
 
-func deleteProposalsClusterRole(r reconciler.Reconciler, ctx context.Context) error {
+func deleteAgenticRunsClusterRole(r reconciler.Reconciler, ctx context.Context) error {
 	role := &rbacv1.ClusterRole{}
-	err := r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterProposalsClusterRoleName}, role)
+	err := r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterAgenticRunsClusterRoleName}, role)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			r.GetLogger().Info("alerts adapter proposals ClusterRole not found, skip deletion")
+			r.GetLogger().Info("alerts adapter agenticruns ClusterRole not found, skip deletion")
 			return nil
 		}
-		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterProposalsClusterRole, err)
+		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterAgenticRunsClusterRole, err)
 	}
 
 	if err := r.Delete(ctx, role); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		return fmt.Errorf("failed to delete alerts adapter proposals ClusterRole: %w", err)
+		return fmt.Errorf("failed to delete alerts adapter agenticruns ClusterRole: %w", err)
 	}
 
-	r.GetLogger().Info("alerts adapter proposals ClusterRole deleted")
+	r.GetLogger().Info("alerts adapter agenticruns ClusterRole deleted")
+	return nil
+}
+
+// removeLegacyProposalsClusterRBAC deletes pre-OLS-3475 ClusterRole/Binding names after Proposal→AgenticRun rename.
+func removeLegacyProposalsClusterRBAC(r reconciler.Reconciler, ctx context.Context, _ *olsv1alpha1.OLSConfig) error {
+	rb := &rbacv1.ClusterRoleBinding{}
+	err := r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterLegacyProposalsClusterRoleName}, rb)
+	if err == nil {
+		delErr := r.Delete(ctx, rb)
+		if delErr != nil && !apierrors.IsNotFound(delErr) && !isOpenShiftManagedCRBDeleteDenied(delErr) {
+			return fmt.Errorf("failed to delete legacy alerts adapter proposals ClusterRoleBinding: %w", delErr)
+		}
+		if delErr == nil {
+			r.GetLogger().Info("deleted legacy alerts adapter proposals ClusterRoleBinding", "ClusterRoleBinding", rb.Name)
+		}
+	} else if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to get legacy alerts adapter proposals ClusterRoleBinding: %w", err)
+	}
+
+	role := &rbacv1.ClusterRole{}
+	err = r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterLegacyProposalsClusterRoleName}, role)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get legacy alerts adapter proposals ClusterRole: %w", err)
+	}
+
+	if delErr := r.Delete(ctx, role); delErr != nil && !apierrors.IsNotFound(delErr) {
+		return fmt.Errorf("failed to delete legacy alerts adapter proposals ClusterRole: %w", delErr)
+	}
+	r.GetLogger().Info("deleted legacy alerts adapter proposals ClusterRole", "ClusterRole", role.Name)
 	return nil
 }
 

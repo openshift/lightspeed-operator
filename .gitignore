@@ -8,7 +8,11 @@
 *.so
 *.dylib
 bin/
-.idea/"
+.idea/
+
+# Local scan / experiment artifacts
+leaktk-scan-*.log
+
 main
 
 # Test binary, built with `go test -c`

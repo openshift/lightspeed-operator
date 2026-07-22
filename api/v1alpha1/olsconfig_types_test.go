@@ -17,88 +17,75 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
 	"testing"
 )
 
-func TestAuditConfig_LoggingEnabled_DefaultTrue(t *testing.T) {
-	var config *AuditConfig
-	if !config.LoggingEnabled() {
-		t.Error("Expected LoggingEnabled to default to true when config is nil")
+func TestAuditConfig_JSONRoundTrip(t *testing.T) {
+	in := AuditConfig{
+		Logging:         boolPtr(false),
+		TracingEndpoint: "jaeger:4317",
+	}
+	data, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var out AuditConfig
+	if err := json.Unmarshal(data, &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if out.TracingEndpoint != in.TracingEndpoint {
+		t.Errorf("TracingEndpoint: got %q, want %q", out.TracingEndpoint, in.TracingEndpoint)
+	}
+	if out.Logging == nil || *out.Logging != false {
+		t.Errorf("Logging: got %v, want false", out.Logging)
 	}
 }
 
-func TestAuditConfig_LoggingEnabled_EmptyField(t *testing.T) {
-	config := &AuditConfig{}
-	if !config.LoggingEnabled() {
-		t.Error("Expected LoggingEnabled to return true when Logging field is empty")
+func TestOLSConfigSpec_ZeroAudit_EmptyObject(t *testing.T) {
+	spec := OLSConfigSpec{
+		LLMConfig: LLMSpec{Providers: []ProviderSpec{{Name: "openai", Type: "openai"}}},
+		OLSConfig: OLSSpec{DefaultModel: "gpt-4", DefaultProvider: "openai"},
+	}
+	data, err := json.Marshal(spec)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal raw: %v", err)
+	}
+	audit, ok := raw["audit"]
+	if !ok {
+		t.Fatal("expected audit key in JSON")
+	}
+	if string(audit) != "{}" {
+		t.Errorf("expected empty audit object {}, got %s", audit)
 	}
 }
 
-func TestAuditConfig_LoggingEnabled_ExplicitEnabled(t *testing.T) {
-	config := &AuditConfig{Logging: AuditLoggingEnabled}
-	if !config.LoggingEnabled() {
-		t.Error("Expected LoggingEnabled to return true when Logging=Enabled")
+func TestOLSSpec_AuditEventsEnabled_JSONRoundTrip(t *testing.T) {
+	in := OLSSpec{
+		DefaultModel:       "gpt-4",
+		DefaultProvider:    "openai",
+		AuditEventsEnabled: boolPtr(true),
+	}
+	data, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if string(data) == "" {
+		t.Fatal("expected non-empty JSON")
+	}
+	var out OLSSpec
+	if err := json.Unmarshal(data, &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if out.AuditEventsEnabled == nil || !*out.AuditEventsEnabled {
+		t.Errorf("AuditEventsEnabled: got %v, want true", out.AuditEventsEnabled)
 	}
 }
 
-func TestAuditConfig_LoggingEnabled_ExplicitDisabled(t *testing.T) {
-	config := &AuditConfig{Logging: AuditLoggingDisabled}
-	if config.LoggingEnabled() {
-		t.Error("Expected LoggingEnabled to return false when Logging=Disabled")
-	}
-}
-
-func TestAuditConfig_OTELEndpoint_EmptyWhenZero(t *testing.T) {
-	config := &AuditConfig{}
-	if endpoint := config.OTELEndpoint(); endpoint != "" {
-		t.Errorf("Expected empty endpoint, got %s", endpoint)
-	}
-}
-
-func TestAuditConfig_OTELEndpoint_NilConfig(t *testing.T) {
-	var config *AuditConfig
-	if endpoint := config.OTELEndpoint(); endpoint != "" {
-		t.Errorf("Expected empty endpoint for nil config, got %s", endpoint)
-	}
-}
-
-func TestAuditConfig_OTELEndpoint_ReturnsValue(t *testing.T) {
-	config := &AuditConfig{
-		OTEL: &AuditOTELConfig{Endpoint: "jaeger:4317"},
-	}
-	if endpoint := config.OTELEndpoint(); endpoint != "jaeger:4317" {
-		t.Errorf("Expected 'jaeger:4317', got %s", endpoint)
-	}
-}
-
-func TestAuditConfig_OTELInsecure_DefaultFalse(t *testing.T) {
-	config := &AuditConfig{}
-	if config.OTELInsecure() {
-		t.Error("Expected OTELInsecure to return false when OTEL is zero")
-	}
-}
-
-func TestAuditConfig_OTELInsecure_NilConfig(t *testing.T) {
-	var config *AuditConfig
-	if config.OTELInsecure() {
-		t.Error("Expected OTELInsecure to return false for nil config")
-	}
-}
-
-func TestAuditConfig_OTELInsecure_ReturnsValue(t *testing.T) {
-	config := &AuditConfig{
-		OTEL: &AuditOTELConfig{Endpoint: "jaeger:4317", TLSMode: AuditOTELTLSInsecure},
-	}
-	if !config.OTELInsecure() {
-		t.Error("Expected OTELInsecure to return true")
-	}
-}
-
-func TestAuditConfig_OTELInsecure_SecureMode(t *testing.T) {
-	config := &AuditConfig{
-		OTEL: &AuditOTELConfig{Endpoint: "jaeger:4317", TLSMode: AuditOTELTLSSecure},
-	}
-	if config.OTELInsecure() {
-		t.Error("Expected OTELInsecure to return false for Secure mode")
-	}
+func boolPtr(v bool) *bool {
+	return &v
 }

@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-06-23T16:53:41Z"
+    createdAt: "2026-07-20T21:19:08Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -81,6 +81,21 @@ spec:
           - description: The name of the secret object that stores API provider credentials
             displayName: Credential Secret
             path: llm.providers[0].credentialsSecretRef
+          - description: Audit log and trace export configuration for the OTEL Collector.
+            displayName: Audit Settings
+            path: audit
+          - description: |-
+              logging enables audit log storage in PostgreSQL via the Collector.
+              Default: true when absent.
+            displayName: Audit Logging
+            path: audit.logging
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: |-
+              tracingEndpoint is the trace export backend (e.g. "jaeger:4317").
+              The Collector forwards traces here when set. TLS is always used.
+            displayName: Tracing Endpoint
+            path: audit.tracingEndpoint
           - description: |-
               Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
               possible values: MCPServer, ToolFiltering
@@ -195,7 +210,14 @@ spec:
             path: ols.additionalCAConfigMapRef
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
-          - description: Only use BYOK RAG sources, ignore the OpenShift documentation RAG
+          - description: |-
+              auditEventsEnabled controls structured compliance audit JSON events on stdout.
+              Default: true when absent. Does not affect collector storage (see spec.audit).
+            displayName: Audit Events Enabled
+            path: ols.auditEventsEnabled
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Only use BYOK RAG sources. Disables OKP (RHOKP sidecar, solr_hybrid config, and built-in OCP documentation retrieval).
             displayName: Only use BYOK RAG sources
             path: ols.byokRAGOnly
             x-descriptors:
@@ -221,13 +243,44 @@ spec:
             path: ols.defaultProvider
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:text
+          - description: Agentic console plugin container settings.
+            displayName: Agentic Console Deployment
+            path: ols.deployment.agenticConsole
+          - description: |-
+              Defines the number of desired OLS pods. Default: "1"
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+            displayName: Number of replicas
+            path: ols.deployment.agenticConsole.replicas
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:podCount
+          - description: Alerts adapter deployment and runtime config reference.
+            displayName: Alerts Adapter
+            path: ols.deployment.alertsAdapter
+          - description: |-
+              ConfigMapRef enables the alerts adapter when set and references a user-managed ConfigMap
+              in the operator namespace. When unset, reconciliation is skipped and managed operand
+              resources are removed. The operator does not create or validate ConfigMap data. When the
+              referenced ConfigMap exists, it is mounted read-only at /etc/alerts-adapter; when absent,
+              no config volume is mounted. The adapter reads config.yaml from that path and uses
+              built-in defaults when the file is missing or invalid.
+            displayName: Alerts Adapter ConfigMap Reference
+            path: ols.deployment.alertsAdapter.configMapRef
+          - description: |-
+              Defines the number of desired OLS pods. Default: "1"
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+            displayName: Number of replicas
+            path: ols.deployment.alertsAdapter.replicas
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:podCount
           - description: API container settings.
             displayName: API Deployment
             path: ols.deployment.api
           - description: |-
               Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
-              the number of replicas will always be set to 1.
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
             displayName: Number of replicas
             path: ols.deployment.api.replicas
             x-descriptors:
@@ -237,8 +290,8 @@ spec:
             path: ols.deployment.console
           - description: |-
               Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
-              the number of replicas will always be set to 1.
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
             displayName: Number of replicas
             path: ols.deployment.console.replicas
             x-descriptors:
@@ -251,8 +304,8 @@ spec:
             path: ols.deployment.database
           - description: |-
               Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
-              the number of replicas will always be set to 1.
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
             displayName: Number of replicas
             path: ols.deployment.database.replicas
             x-descriptors:
@@ -260,6 +313,20 @@ spec:
           - description: MCP server container settings.
             displayName: MCP Server Container
             path: ols.deployment.mcpServer
+          - description: OTEL Collector deployment settings.
+            displayName: OTEL Collector Deployment
+            path: ols.deployment.otelCollector
+          - description: |-
+              Defines the number of desired OLS pods. Default: "1"
+              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+            displayName: Number of replicas
+            path: ols.deployment.otelCollector.replicas
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:podCount
+          - description: RHOKP sidecar container settings (Solr / OKP).
+            displayName: RHOKP Container
+            path: ols.deployment.rhokp
           - description: Pull secrets for BYOK RAG images from image registries requiring authentication
             displayName: Image Pull Secrets
             path: ols.imagePullSecrets
@@ -351,18 +418,18 @@ spec:
           - description: Type of the limiter
             displayName: 'Limiter Type. Accepted Values: cluster_limiter, user_limiter.'
             path: ols.quotaHandlersConfig.limitersConfig[0].type
-          - description: RAG databases
-            displayName: RAG Databases
+          - description: BYOK RAG databases (bring-your-own container images with FAISS vector indexes).
+            displayName: BYOK RAG Databases
             path: ols.rag
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
-          - description: The URL of the container image to use as a RAG source
+          - description: The URL of the container image to use as a BYOK RAG source
             displayName: Image
             path: ols.rag[0].image
-          - description: The Index ID of the RAG database. Only needed if there are multiple indices in the database.
+          - description: The Index ID of the BYOK RAG database. Only needed if there are multiple indices in the database.
             displayName: Index ID
             path: ols.rag[0].indexID
-          - description: The path to the RAG database inside of the container image
+          - description: The path to the BYOK RAG database inside of the container image
             displayName: Index Path in the Image
             path: ols.rag[0].indexPath
           - description: Persistent Storage Configuration
@@ -707,6 +774,14 @@ spec:
                 - list
                 - watch
             - apiGroups:
+                - agentic.openshift.io
+              resources:
+                - agenticruns
+              verbs:
+                - create
+                - get
+                - list
+            - apiGroups:
                 - apps
               resources:
                 - deployments
@@ -735,6 +810,7 @@ spec:
               resources:
                 - apiservers
                 - clusterversions
+                - infrastructures
               verbs:
                 - get
                 - list
@@ -763,6 +839,15 @@ spec:
                 - patch
                 - update
                 - watch
+            - apiGroups:
+                - monitoring.coreos.com
+              resourceNames:
+                - main
+              resources:
+                - alertmanagers/api
+              verbs:
+                - get
+                - list
             - apiGroups:
                 - monitoring.coreos.com
               resources:
@@ -828,8 +913,10 @@ spec:
               resources:
                 - clusterrolebindings
                 - clusterroles
+                - rolebindings
               verbs:
                 - create
+                - delete
                 - get
                 - list
                 - patch
@@ -874,12 +961,15 @@ spec:
                       - --metrics-bind-address=:8443
                       - --secure-metrics-server
                       - --cert-dir=/etc/tls/private
-                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:92e6c4726f2370ffb222246dd3ec188f15e4d1f99dafdf78a22332cf0bff6733
-                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:020735d5c17b37c9bff8d586ad52c0057cbaef0d5b28a0a584b83d2dcab73f67
-                      - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:41a659779aa434a0c1b3769f0d0a7ae034461de453aa19ed0e4e8134956b0e8e
                       - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
-                      - --ocp-rag-image=registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:7155419a17b950e48266e18da7328cc127d44a4923e76c66295b6079ea3f93d2
+                      - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
+                      - --service-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:2cda2f011996b457462ac3da3b00b37d854bc8bd48c60a8879a386a3e54b9b79
+                      - --console-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:91b7c5316e44e414f0256c276cf975ce5525f0a1ca7c1683730c66f271632f5e
+                      - --openshift-mcp-server-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:5b8e3b6a9d46e4825f731819274efbc88dc63f1dc47e8eefe9339bf90da4c02d
+                      - --agentic-console-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:a7900060ec7928f03559bd2300bc1642ae0a57b10e30ce9f9804e8102a84b7f7
+                      - --alerts-adapter-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter@sha256:9049b11048de0717523b27e0c23ae283245df34b5dfb2d24571148e730cca4e2
+                      - --otel-collector-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector@sha256:85e8f70fea5c9005088767f787e39c65ebabac2295f38b3cd846157ef9dcebea
+                      - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest
                     command:
                       - /manager
                     env:
@@ -887,7 +977,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:67ae3dff60d08b088544567b402f45695703abf2f2eea68be3f51c7586901b05
+                    image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:0f4eac671fafd4f27d683e150b6d767c701484c129f983c0d68fd1fb5ce790b1
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -970,7 +1060,13 @@ spec:
                 - rolebindings
                 - roles
               verbs:
-                - '*'
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
           serviceAccountName: lightspeed-operator-controller-manager
     strategy: deployment
   installModes:
@@ -997,17 +1093,23 @@ spec:
     url: https://github.com/openshift/lightspeed-service
   version: 1.1.2
   relatedImages:
-    - name: lightspeed-service-api
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:92e6c4726f2370ffb222246dd3ec188f15e4d1f99dafdf78a22332cf0bff6733
-    - name: lightspeed-console-plugin
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:020735d5c17b37c9bff8d586ad52c0057cbaef0d5b28a0a584b83d2dcab73f67
-    - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:67ae3dff60d08b088544567b402f45695703abf2f2eea68be3f51c7586901b05
-    - name: openshift-mcp-server
-      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:41a659779aa434a0c1b3769f0d0a7ae034461de453aa19ed0e4e8134956b0e8e
     - name: lightspeed-to-dataverse-exporter
       image: registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
-    - name: lightspeed-ocp-rag
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9@sha256:7155419a17b950e48266e18da7328cc127d44a4923e76c66295b6079ea3f93d2
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
+    - name: lightspeed-service-api
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:2cda2f011996b457462ac3da3b00b37d854bc8bd48c60a8879a386a3e54b9b79
+    - name: lightspeed-console-plugin
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:91b7c5316e44e414f0256c276cf975ce5525f0a1ca7c1683730c66f271632f5e
+    - name: lightspeed-operator
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:0f4eac671fafd4f27d683e150b6d767c701484c129f983c0d68fd1fb5ce790b1
+    - name: openshift-mcp-server
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:5b8e3b6a9d46e4825f731819274efbc88dc63f1dc47e8eefe9339bf90da4c02d
+    - name: lightspeed-agentic-console-plugin
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:a7900060ec7928f03559bd2300bc1642ae0a57b10e30ce9f9804e8102a84b7f7
+    - name: lightspeed-agentic-alerts-adapter
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter@sha256:9049b11048de0717523b27e0c23ae283245df34b5dfb2d24571148e730cca4e2
+    - name: lightspeed-otel-collector
+      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector@sha256:85e8f70fea5c9005088767f787e39c65ebabac2295f38b3cd846157ef9dcebea
+    - name: rhokp
+      image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest

@@ -44,7 +44,7 @@ The OpenShift Lightspeed Operator is a Kubernetes operator that manages the life
 ### Integration Points
 
 22. The operator deploys a single console plugin image configured via `--console-image`. After detecting the OpenShift cluster version (major.minor), it sets `OCP_VERSION` on the console plugin container so the console image entrypoint can select the correct UI library at runtime. The operator no longer chooses among multiple console images by OCP minor version; version detection is still used for this env var and for other component configuration.
-23. The operator detects Prometheus Operator availability and conditionally creates ServiceMonitor and PrometheusRule resources.
+23. The operator detects Prometheus Operator availability and conditionally creates ServiceMonitor and PrometheusRule resources (operator, app-server, and OTEL Collector monitors).
 24. The operator uses the OpenShift service-ca operator for automatic TLS certificate generation (unless custom certificates are provided).
 25. The operator watches the telemetry pull secret in openshift-config namespace to determine whether data collection is enabled.
 
@@ -62,7 +62,7 @@ The OpenShift Lightspeed Operator is a Kubernetes operator that manages the life
 | `--postgres-image` | string | built-in default | Override PostgreSQL image |
 | `--openshift-mcp-server-image` | string | built-in default | Override OpenShift MCP server image |
 | `--dataverse-exporter-image` | string | built-in default | Override dataverse exporter image |
-| `--ocp-rag-image` | string | built-in default | Override OCP RAG database image |
+| `--rhokp-image` | string | `related_images.json` (`rhokp`) | Override RHOKP (Solr / OKP) sidecar image |
 
 ### Environment Variables
 

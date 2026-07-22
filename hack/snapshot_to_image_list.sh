@@ -1,253 +1,184 @@
 #!/usr/bin/env bash
+# Refresh related_images.json image/revision fields from Konflux snapshots.
+# Component wiring (snapshot name, Konflux quay prefix, product registry prefix, operator_arg) lives in
+# related_images.json optional fields; this script only loops those entries and updates image/revision.
+set -euo pipefail
 
 usage() {
-	echo "Usage: $0 -s <snapshot-ref> -b <bundle-snapshot-ref> -o <output-file> -p"
-	echo "  -s snapshot-ref: required, the snapshot's references, example: ols-cq8sl"
-	echo "  -b bundle-snapshot-ref: optional, the ols-bundle snapshot's references, example: ols-bundle-wf8st"
-	echo "  -o output-file: optional, the catalog index file to update, default is empty (output to stdout)"
-	echo "  -r: optional, use which registry: stable, preview, ci"
-	echo "  -h: Show this help message"
-	echo "Example: $0 -s ols-cq8sl -b ols-bundle-wf8st -o related_images.json"
+	echo "Usage: $0 -s <snapshot-ref> [-b <bundle-snapshot-ref>] [-o <output-file>] [-r stable|preview|ci]"
+	echo "Example: $0 -s ols-cq8sl -b ols-bundle-wf8st -o related_images.json -r stable"
 }
 
-if [ $# == 0 ]; then
-	usage
-	exit 1
-fi
-
+KONFLUX_NAMESPACE="crt-nshift-lightspeed-tenant"
 SNAPSHOT_REF=""
+BUNDLE_SNAPSHOT_REF=""
 OUTPUT_FILE=""
 USE_REGISTRY="ci"
-KONFLUX_NAMESPACE="crt-nshift-lightspeed-tenant"
 
 while getopts ":s:b:o:r:h" argname; do
 	case "$argname" in
-	"s")
-		SNAPSHOT_REF=${OPTARG}
-		;;
-	"b")
-		BUNDLE_SNAPSHOT_REF=${OPTARG}
-		;;
-	"o")
-		OUTPUT_FILE=${OPTARG}
-		;;
-	"r")
+	s) SNAPSHOT_REF=${OPTARG} ;;
+	b) BUNDLE_SNAPSHOT_REF=${OPTARG} ;;
+	o) OUTPUT_FILE=${OPTARG} ;;
+	r)
 		USE_REGISTRY=${OPTARG}
 		if [[ "${USE_REGISTRY}" != "stable" && "${USE_REGISTRY}" != "preview" && "${USE_REGISTRY}" != "ci" ]]; then
-			echo "Invalid registry option: ${USE_REGISTRY}. Use 'stable', 'preview', or 'ci'."
+			echo "Invalid registry option: ${USE_REGISTRY}. Use 'stable', 'preview', or 'ci'." >&2
 			usage
 			exit 1
 		fi
 		;;
-	"h")
+	h)
 		usage
 		exit 0
 		;;
-	"?")
-		echo "Unknown option $OPTARG"
-		usage
-		exit 1
-		;;
 	*)
-		echo "Unknown error while processing options"
+		echo "Unknown option ${OPTARG:-}" >&2
+		usage
 		exit 1
 		;;
 	esac
 done
 
 if [ -z "${SNAPSHOT_REF}" ]; then
-	echo "snapshot-ref is required"
+	echo "snapshot-ref is required" >&2
 	usage
 	exit 1
 fi
 
-if [ -z "${BUNDLE_SNAPSHOT_REF}" ]; then
-	echo "bundle-snapshot-ref is not specified, will not update bundle image"
-fi
-
-: ${JQ:=$(command -v jq)}
-# check if jq exists
+: "${JQ:=$(command -v jq)}"
 if [ -z "${JQ}" ]; then
-	echo "jq is required"
+	echo "jq is required" >&2
 	exit 1
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_INPUT="${SCRIPT_DIR}/../related_images.json"
+if [ -n "${OUTPUT_FILE}" ] && [ -f "${OUTPUT_FILE}" ]; then
+	INPUT_FILE="${OUTPUT_FILE}"
+elif [ -f "${DEFAULT_INPUT}" ]; then
+	INPUT_FILE="${DEFAULT_INPUT}"
+else
+	echo "related images file not found: set -o to an existing file or add ${DEFAULT_INPUT}" >&2
+	exit 1
+fi
 
-# temporary file for snapshot info from Konflux
-TMP_SNAPSHOT_JSON=$(mktemp)
-TMP_BUNDLE_SNAPSHOT_JSON=$(mktemp)
-
+TMP_OLS_SNAPSHOT=$(mktemp)
+TMP_BUNDLE_SNAPSHOT=$(mktemp)
 cleanup() {
-	# remove temporary snapshot file
-	if [ -n "${TMP_SNAPSHOT_JSON}" ]; then
-		rm -f "${TMP_SNAPSHOT_JSON}"
-	fi
-	if [ -n "${TMP_BUNDLE_SNAPSHOT_JSON}" ]; then
-		rm -f "${TMP_BUNDLE_SNAPSHOT_JSON}"
-	fi
+	rm -f "${TMP_OLS_SNAPSHOT}" "${TMP_BUNDLE_SNAPSHOT}"
 }
-
 trap cleanup EXIT
 
-# cache the snapshot from Konflux
-oc get -n ${KONFLUX_NAMESPACE} snapshot ${SNAPSHOT_REF} -o json >"${TMP_SNAPSHOT_JSON}"
-
-if [ $? -ne 0 ]; then
-	echo "Failed to get snapshot ${SNAPSHOT_REF}"
-	echo "Please make sure the snapshot exists and the snapshot name is correct"
-	echo "Need to login Konflux through oc login, proxy command to be found here: https://registration-service-toolchain-host-operator.apps.stone-prd-host1.wdlc.p1.openshiftapps.com/"
+if ! oc get -n "${KONFLUX_NAMESPACE}" snapshot "${SNAPSHOT_REF}" -o json >"${TMP_OLS_SNAPSHOT}"; then
+	echo "Failed to get snapshot ${SNAPSHOT_REF}" >&2
+	echo "Login to Konflux via oc first." >&2
 	exit 1
 fi
 
 if [ -n "${BUNDLE_SNAPSHOT_REF}" ]; then
-	oc get -n ${KONFLUX_NAMESPACE} snapshot ${BUNDLE_SNAPSHOT_REF} -o json >"${TMP_BUNDLE_SNAPSHOT_JSON}"
-	if [ $? -ne 0 ]; then
-		echo "Failed to get snapshot ${BUNDLE_SNAPSHOT_REF}"
-		echo "Please make sure the bundle snapshot exists and the snapshot name is correct"
+	if ! oc get -n "${KONFLUX_NAMESPACE}" snapshot "${BUNDLE_SNAPSHOT_REF}" -o json >"${TMP_BUNDLE_SNAPSHOT}"; then
+		echo "Failed to get bundle snapshot ${BUNDLE_SNAPSHOT_REF}" >&2
 		exit 1
 	fi
+else
+	echo "bundle-snapshot-ref is not specified, bundle image entries are preserved"
+	: >"${TMP_BUNDLE_SNAPSHOT}"
 fi
 
-cp ${TMP_SNAPSHOT_JSON} snapshot.json
-cp ${TMP_BUNDLE_SNAPSHOT_JSON} bundle_snapshot.json
+map_registry_prefix() {
+	local image="$1"
+	local konflux_prefix="$2"
+	local stable_prefix="$3"
+	local target_prefix="${stable_prefix}"
 
-if [ -n "${BUNDLE_SNAPSHOT_REF}" ]; then
-	BUNDLE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .containerImage' "${TMP_BUNDLE_SNAPSHOT_JSON}")
-	BUNDLE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .source.git.revision' "${TMP_BUNDLE_SNAPSHOT_JSON}")
-fi
-OPERATOR_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-operator") | .containerImage' "${TMP_SNAPSHOT_JSON}")
-OPERATOR_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-operator") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
-CONSOLE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-console") | .containerImage' "${TMP_SNAPSHOT_JSON}")
-CONSOLE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-console") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
-SERVICE_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service") | .containerImage' "${TMP_SNAPSHOT_JSON}")
-SERVICE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-service") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
-OPENSHIFT_MCP_SERVER_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="openshift-mcp-server") | .containerImage' "${TMP_SNAPSHOT_JSON}")
-OPENSHIFT_MCP_SERVER_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="openshift-mcp-server") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
-OCP_RAG_IMAGE=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-ocp-rag") | .containerImage' "${TMP_SNAPSHOT_JSON}")
-OCP_RAG_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="lightspeed-ocp-rag") | .source.git.revision' "${TMP_SNAPSHOT_JSON}")
-if [ "${USE_REGISTRY}" = "preview" ]; then
-	OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-rhel9-operator"
-	CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-console-plugin-rhel9"
-	SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-service-api-rhel9"
-	OPENSHIFT_MCP_SERVER_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/openshift-mcp-server-rhel9"
-	OCP_RAG_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-ocp-rag-rhel9"
-
-	OPERATOR_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator|'"${OPERATOR_IMAGE_BASE}"'|g' <<<${OPERATOR_IMAGE})
-	CONSOLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console|'"${CONSOLE_IMAGE_BASE}"'|g' <<<${CONSOLE_IMAGE})
-	SERVICE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service|'"${SERVICE_IMAGE_BASE}"'|g' <<<${SERVICE_IMAGE})
-	OPENSHIFT_MCP_SERVER_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server|'"${OPENSHIFT_MCP_SERVER_IMAGE_BASE}"'|g' <<<${OPENSHIFT_MCP_SERVER_IMAGE})
-	OCP_RAG_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag|'"${OCP_RAG_IMAGE_BASE}"'|g' <<<${OCP_RAG_IMAGE})
-	POSTGRES_IMAGE=$(sed "s|quay\.io.*/lightspeed-postgresql|registry.redhat.io/rhel9/postgresql-16|g" <<<"${POSTGRES_IMAGE}")
-
-	if [ -n "${BUNDLE_SNAPSHOT_REF}" ]; then
-		BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed-tech-preview/lightspeed-operator-bundle"
-		BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle|'"${BUNDLE_IMAGE_BASE}"'|g' <<<${BUNDLE_IMAGE})
+	if [ "${USE_REGISTRY}" = "preview" ]; then
+		target_prefix="${stable_prefix/openshift-lightspeed\//openshift-lightspeed-tech-preview/}"
 	fi
-fi
-
-if [ "${USE_REGISTRY}" = "stable" ]; then
-	OPERATOR_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator"
-	CONSOLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9"
-	SERVICE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9"
-	CONSOLE_IMAGE_BASE_PF5="registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9"
-	CONSOLE_IMAGE_BASE_419="registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-419-rhel9"
-	OPENSHIFT_MCP_SERVER_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9"
-	OCP_RAG_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-ocp-rag-rhel9"
-
-	OPERATOR_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator|'"${OPERATOR_IMAGE_BASE}"'|g' <<<${OPERATOR_IMAGE})
-	CONSOLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console|'"${CONSOLE_IMAGE_BASE}"'|g' <<<${CONSOLE_IMAGE})
-	SERVICE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service|'"${SERVICE_IMAGE_BASE}"'|g' <<<${SERVICE_IMAGE})
-	CONSOLE_IMAGE_PF5=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-pf5|'"${CONSOLE_IMAGE_BASE_PF5}"'|g' <<<${CONSOLE_IMAGE_PF5})
-	CONSOLE_IMAGE_419=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-console-4-19|'"${CONSOLE_IMAGE_BASE_419}"'|g' <<<${CONSOLE_IMAGE_419})
-	OPENSHIFT_MCP_SERVER_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server|'"${OPENSHIFT_MCP_SERVER_IMAGE_BASE}"'|g' <<<${OPENSHIFT_MCP_SERVER_IMAGE})
-	OCP_RAG_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-ocp-rag|'"${OCP_RAG_IMAGE_BASE}"'|g' <<<${OCP_RAG_IMAGE})
-	POSTGRES_IMAGE=$(sed "s|quay\.io.*/lightspeed-postgresql|registry.redhat.io/rhel9/postgresql-16|g" <<<"${POSTGRES_IMAGE}")
-
-	if [ -n "${BUNDLE_SNAPSHOT_REF}" ]; then
-		BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle"
-		BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle|'"${BUNDLE_IMAGE_BASE}"'|g' <<<${BUNDLE_IMAGE})
+	if [ "${USE_REGISTRY}" = "stable" ] || [ "${USE_REGISTRY}" = "preview" ]; then
+		if [ -n "${konflux_prefix}" ] && [ "${konflux_prefix}" != "null" ] && [ -n "${target_prefix}" ] && [ "${target_prefix}" != "null" ]; then
+			sed "s|${konflux_prefix}|${target_prefix}|g" <<<"${image}"
+			return
+		fi
 	fi
-fi
+	printf '%s' "${image}"
+}
 
-if [ -z "${POSTGRES_IMAGE}" ] || [ "${POSTGRES_IMAGE}" == "null" ]; then
-	if [ -f "${OUTPUT_FILE}" ]; then
-		POSTGRES_IMAGE=$(jq -r '.[] | select(.name == "lightspeed-postgresql") | .image' "${OUTPUT_FILE}")
+snapshot_component_image() {
+	local snapshot_file="$1"
+	local component="$2"
+	${JQ} -r --arg c "${component}" '
+		.spec.components[] | select(.name == $c) | .containerImage // empty
+	' "${snapshot_file}"
+}
+
+snapshot_component_revision() {
+	local snapshot_file="$1"
+	local component="$2"
+	${JQ} -r --arg c "${component}" '
+		.spec.components[] | select(.name == $c) | .source.git.revision // empty
+	' "${snapshot_file}"
+}
+
+postgres_default_image() {
+	grep -o 'PostgresServerImageDefault = "registry[^"]*"' "${SCRIPT_DIR}/../internal/controller/utils/constants.go" \
+		| sed 's/PostgresServerImageDefault = "\(.*\)"/\1/'
+}
+
+RESULT='[]'
+while IFS= read -r entry; do
+	name=$(${JQ} -r '.name' <<<"${entry}")
+	image=$(${JQ} -r '.image // empty' <<<"${entry}")
+	revision=$(${JQ} -r '.revision // empty' <<<"${entry}")
+	component=$(${JQ} -r '.snapshot_component // empty' <<<"${entry}")
+	source=$(${JQ} -r '.snapshot_source // "ols"' <<<"${entry}")
+	konflux_prefix=$(${JQ} -r '.konflux_prefix // empty' <<<"${entry}")
+	stable_prefix=$(${JQ} -r '.stable_prefix // empty' <<<"${entry}")
+
+	if [ -n "${component}" ] && [ "${component}" != "null" ]; then
+		snapshot_file="${TMP_OLS_SNAPSHOT}"
+		if [ "${source}" = "bundle" ]; then
+			if [ -z "${BUNDLE_SNAPSHOT_REF}" ]; then
+				component=""
+			else
+				snapshot_file="${TMP_BUNDLE_SNAPSHOT}"
+			fi
+		fi
+		if [ -n "${component}" ]; then
+			snapshot_image=$(snapshot_component_image "${snapshot_file}" "${component}")
+			snapshot_revision=$(snapshot_component_revision "${snapshot_file}" "${component}")
+			if [ -n "${snapshot_image}" ] && [ "${snapshot_image}" != "null" ]; then
+				image="${snapshot_image}"
+				if [ -n "${snapshot_revision}" ] && [ "${snapshot_revision}" != "null" ]; then
+					revision="${snapshot_revision}"
+				fi
+			fi
+		fi
 	fi
-fi
 
-if [ -z "${POSTGRES_IMAGE}" ] || [ "${POSTGRES_IMAGE}" == "null" ]; then
-	DEFAULT_POSTGRES_IMAGE=$(grep -o 'PostgresServerImageDefault = "registry[^"]*"' "${SCRIPT_DIR}/../internal/controller/utils/constants.go" | sed 's/PostgresServerImageDefault = "\(.*\)"/\1/')
-	POSTGRES_IMAGE="${DEFAULT_POSTGRES_IMAGE}"
-fi
-
-# lightspeed-to-dataverse-exporter does not comes from OLS snapshot.
-# Preserve versions from the existing related images file.
-DATAVERSE_EXPORTER_IMAGE=""
-if [ -n "${OUTPUT_FILE}" ] && [ -f "${OUTPUT_FILE}" ]; then
-	DATAVERSE_EXPORTER_IMAGE=$(${JQ} -r '.[] | select(.name == "lightspeed-to-dataverse-exporter") | .image' "${OUTPUT_FILE}")
-fi
-if [ -z "${DATAVERSE_EXPORTER_IMAGE}" ] || [ "${DATAVERSE_EXPORTER_IMAGE}" == "null" ]; then
-	DEFAULT_RELATED_IMAGES="${SCRIPT_DIR}/../related_images.json"
-	if [ -f "${DEFAULT_RELATED_IMAGES}" ]; then
-		DATAVERSE_EXPORTER_IMAGE=$(${JQ} -r '.[] | select(.name == "lightspeed-to-dataverse-exporter") | .image' "${DEFAULT_RELATED_IMAGES}")
+	if [ "${name}" = "lightspeed-postgresql" ]; then
+		if [ -z "${image}" ] || [ "${image}" = "null" ]; then
+			image=$(postgres_default_image)
+		fi
+		image=$(sed 's|quay\.io.*/lightspeed-postgresql|registry.redhat.io/rhel9/postgresql-16|g' <<<"${image}")
 	fi
-fi
-if [ -z "${DATAVERSE_EXPORTER_IMAGE}" ] || [ "${DATAVERSE_EXPORTER_IMAGE}" == "null" ]; then
-	echo "lightspeed-to-dataverse-exporter image not found: use -o with an existing related_images.json, or ensure ${SCRIPT_DIR}/../related_images.json lists it." >&2
-	exit 1
-fi
 
-RELATED_IMAGES=$(
-	cat <<-EOF
-		[
-		  {
-		    "name": "lightspeed-service-api",
-		    "image": "${SERVICE_IMAGE}",
-		    "revision": "${SERVICE_REVISION}"
-		  },
-		  {
-		    "name": "lightspeed-console-plugin",
-		    "image": "${CONSOLE_IMAGE}",
-		    "revision": "${CONSOLE_REVISION}"
-		  },
-		  {
-		    "name": "lightspeed-operator",
-		    "image": "${OPERATOR_IMAGE}",
-		    "revision": "${OPERATOR_REVISION}"
-		  },
-		  {
-		    "name": "openshift-mcp-server",
-		    "image": "${OPENSHIFT_MCP_SERVER_IMAGE}",
-		    "revision": "${OPENSHIFT_MCP_SERVER_REVISION}"
-		  },
-		  {
-		    "name": "lightspeed-to-dataverse-exporter",
-		    "image": "${DATAVERSE_EXPORTER_IMAGE}",
-		    "revision": "${DATAVERSE_EXPORTER_REVISION}"
-		  },
-		  {
-		    "name": "lightspeed-ocp-rag",
-		    "image": "${OCP_RAG_IMAGE}",
-		    "revision": "${OCP_RAG_REVISION}"
-		  },
-		  {
-		    "name": "lightspeed-postgresql",
-		    "image": "${POSTGRES_IMAGE}"
-		  }
-		]
-	EOF
-)
+	image=$(map_registry_prefix "${image}" "${konflux_prefix}" "${stable_prefix}")
 
-if [ -n "${BUNDLE_IMAGE}" ]; then
-	RELATED_IMAGES=$(echo "${RELATED_IMAGES}" | ${JQ} \
-		--arg img "${BUNDLE_IMAGE}" \
-		--arg rev "${BUNDLE_REVISION}" \
-		'. += [{"name":"lightspeed-operator-bundle","image":$img,"revision":$rev}]')
-fi
+	if [ -z "${image}" ] || [ "${image}" = "null" ]; then
+		echo "${name} image not found: ensure ${INPUT_FILE} lists a fallback image or snapshot_component metadata." >&2
+		exit 1
+	fi
+
+	out_entry=$(${JQ} --arg image "${image}" --arg revision "${revision}" '
+		.image = $image
+		| .revision = $revision
+	' <<<"${entry}")
+	RESULT=$(${JQ} --argjson e "${out_entry}" '. + [$e]' <<<"${RESULT}")
+done < <(${JQ} -c '.[]' "${INPUT_FILE}")
 
 if [ -n "${OUTPUT_FILE}" ]; then
-	${JQ} <<<$RELATED_IMAGES >${OUTPUT_FILE}
+	${JQ} <<<"${RESULT}" >"${OUTPUT_FILE}"
 else
-	${JQ} <<<$RELATED_IMAGES
+	${JQ} <<<"${RESULT}"
 fi

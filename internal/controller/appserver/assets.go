@@ -281,10 +281,8 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		}
 	}
 
-	// Build RAG (Retrieval-Augmented Generation) reference indexes
-	// OLS-1823: BYOK (Bring Your Own Knowledge) content is prioritized ahead of OCP docs
+	// Build BYOK reference indexes from spec.ols.rag. OCP product docs are served via solr_hybrid (OKP).
 	referenceIndexes := []utils.ReferenceIndex{}
-	// Add user-provided RAG indexes (BYOK)
 	for i, index := range cr.Spec.OLSConfig.RAG {
 		referenceIndex := utils.ReferenceIndex{
 			ProductDocsIndexPath: filepath.Join(utils.RAGVolumeMountPath, fmt.Sprintf("rag-%d", i)),
@@ -292,15 +290,6 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 			ProductDocsOrigin:    index.Image,
 		}
 		referenceIndexes = append(referenceIndexes, referenceIndex)
-	}
-	// Add OCP documentation index unless BYOK-only mode is enabled
-	if !cr.Spec.OLSConfig.ByokRAGOnly {
-		ocpReferenceIndex := utils.ReferenceIndex{
-			ProductDocsIndexPath: "/app-root/vector_db/ocp_product_docs/" + r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor(),
-			ProductDocsIndexId:   "ocp-product-docs-" + r.GetOpenShiftMajor() + "_" + r.GetOpenshiftMinor(),
-			ProductDocsOrigin:    "Red Hat OpenShift " + r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor() + " documentation",
-		}
-		referenceIndexes = append(referenceIndexes, ocpReferenceIndex)
 	}
 
 	// Assemble the main OLS configuration
@@ -315,10 +304,6 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		},
 		ConversationCache: conversationCache,
 		TLSConfig:         tlsConfig,
-		ReferenceContent: utils.ReferenceContent{
-			Indexes:             referenceIndexes,
-			EmbeddingsModelPath: "/app-root/embeddings_model",
-		},
 		UserDataCollection: utils.UserDataCollectionConfig{
 			FeedbackDisabled:    cr.Spec.OLSConfig.UserDataCollection.FeedbackDisabled || !dataCollectorEnabled,
 			FeedbackStorage:     "/app-root/ols-user-data/feedback",
@@ -326,6 +311,12 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 			TranscriptsStorage:  "/app-root/ols-user-data/transcripts",
 		},
 		ProxyConfig: proxyConfig,
+	}
+	if len(referenceIndexes) > 0 {
+		olsConfig.ReferenceContent = &utils.ReferenceContent{
+			Indexes:             referenceIndexes,
+			EmbeddingsModelPath: "/app-root/embeddings_model",
+		}
 	}
 
 	tlsProfile := cr.Spec.OLSConfig.TLSSecurityProfile
@@ -348,23 +339,43 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		Ciphers:       utiltls.TLSCiphers(tlsProfileSpec),
 	}
 
-	auditLogging := string(olsv1alpha1.AuditLoggingEnabled)
-	if cr.Spec.Audit != nil && cr.Spec.Audit.Logging != "" {
-		auditLogging = string(cr.Spec.Audit.Logging)
-	}
-	olsConfig.Audit = &utils.AuditYAMLConfig{Logging: auditLogging}
-	if cr.Spec.Audit != nil && cr.Spec.Audit.OTELEndpoint() != "" {
-		tlsMode := string(olsv1alpha1.AuditOTELTLSSecure)
-		if cr.Spec.Audit.OTEL.TLSMode != "" {
-			tlsMode = string(cr.Spec.Audit.OTEL.TLSMode)
-		}
-		olsConfig.Audit.OTEL = &utils.OTELYAMLConfig{
-			Endpoint: cr.Spec.Audit.OTELEndpoint(),
-			TLSMode:  tlsMode,
-		}
+	olsConfig.Audit = buildServiceAuditConfig(cr, r.GetNamespace())
+
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		olsConfig.SolrHybrid = buildSolrHybridSettings()
 	}
 
 	return olsConfig, nil
+}
+
+// buildServiceAuditConfig maps OLS service audit settings into olsconfig.yaml.
+// spec.audit on the CR is collector-only; stdout audit uses spec.ols.auditEventsEnabled.
+// Traces are always exported to the in-cluster OTEL Collector.
+func buildServiceAuditConfig(cr *olsv1alpha1.OLSConfig, namespace string) *utils.AuditYAMLConfig {
+	logging := "Enabled"
+	if !utils.BoolDeref(cr.Spec.OLSConfig.AuditEventsEnabled, true) {
+		logging = "Disabled"
+	}
+	endpoint := fmt.Sprintf("%s.%s.svc:%d",
+		utils.OtelCollectorServiceName, namespace, utils.OtelCollectorGRPCPort)
+	return &utils.AuditYAMLConfig{
+		Logging: logging,
+		OTEL: &utils.OTELYAMLConfig{
+			Endpoint: endpoint,
+			TLSMode:  "Secure",
+		},
+	}
+}
+
+func buildSolrHybridSettings() *utils.SolrHybridSettings {
+	return &utils.SolrHybridSettings{
+		SolrHTTPBase:             fmt.Sprintf("http://localhost:%d", utils.RHOOKPHTTPPort),
+		MaxResults:               utils.SolrHybridMaxResultsDefault,
+		HybridVectorBoost:        utils.SolrHybridVectorBoostDefault,
+		HybridPoolDocs:           utils.SolrHybridPoolDocsDefault,
+		HybridScoreThreshold:     utils.SolrHybridScoreThresholdDefault,
+		HybridSolrTimeoutSeconds: utils.SolrHybridSolrTimeoutSecondsDefault,
+	}
 }
 
 // generateMCPServerConfigs builds MCP (Model Context Protocol) server configurations.
@@ -516,7 +527,11 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate additional certs from kube-root-ca.crt, additional CA error: %w", err)
 	}
-	olsConfig.ExtraCAs = extraCAs
+	olsConfig.ExtraCAs = append(extraCAs, path.Join(
+		utils.OLSAppCertsMountRoot,
+		utils.AppOtelCollectorCACertDir,
+		utils.AppOtelCollectorCACertFile,
+	))
 
 	// Append user-provided additional CA certificates if configured
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {

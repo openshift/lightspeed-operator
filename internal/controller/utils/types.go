@@ -3,6 +3,8 @@ package utils
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 )
@@ -14,6 +16,7 @@ const (
 	TypeConsolePluginReady        = "ConsolePluginReady"
 	TypeAgenticConsolePluginReady = "AgenticConsolePluginReady"
 	TypeAlertsAdapterReady        = "AlertsAdapterReady"
+	TypeOtelCollectorReady        = "OtelCollectorReady"
 	TypeCRReconciled              = "Reconciled"
 )
 
@@ -25,8 +28,11 @@ type OLSConfigReconcilerOptions struct {
 	ConsoleUIImage                 string
 	AgenticConsoleUIImage          string
 	AlertsAdapterImage             string
+	OtelCollectorImage             string
 	DataverseExporterImage         string
 	OpenShiftMCPServerImage        string
+	RHOOKPImage                    string
+	RosaOKPProductEnv              *corev1.EnvVar
 	Namespace                      string
 	PrometheusAvailable            bool
 }
@@ -185,8 +191,8 @@ type OLSConfig struct {
 	TLSSecurityProfile *TLSSecurityProfileConfig `json:"tlsSecurityProfile,omitempty"`
 	// Query filters
 	QueryFilters []QueryFilters `json:"query_filters,omitempty"`
-	// Reference content for RAG
-	ReferenceContent ReferenceContent `json:"reference_content,omitempty"`
+	// Reference content for BYOK RAG vector indexes; omitted when spec.ols.rag is empty.
+	ReferenceContent *ReferenceContent `json:"reference_content,omitempty"`
 	// User data collection configuration
 	UserDataCollection UserDataCollectionConfig `json:"user_data_collection,omitempty"`
 	// List of Paths to files containing additional CA certificates in the app server container.
@@ -205,6 +211,8 @@ type OLSConfig struct {
 	ToolsApproval *ToolsApprovalConfig `json:"tools_approval,omitempty"`
 	// Audit logging and tracing configuration
 	Audit *AuditYAMLConfig `json:"audit,omitempty"`
+	// Solr hybrid RAG (portal-rag /hybrid-search); mirrors lightspeed-service solr_hybrid
+	SolrHybrid *SolrHybridSettings `json:"solr_hybrid,omitempty"`
 }
 
 type AuditYAMLConfig struct {
@@ -215,6 +223,17 @@ type AuditYAMLConfig struct {
 type OTELYAMLConfig struct {
 	Endpoint string `json:"endpoint,omitempty"`
 	TLSMode  string `json:"tls_mode,omitempty"`
+}
+
+// SolrHybridSettings configures Solr hybrid RAG retrieval for the OLS application config file.
+type SolrHybridSettings struct {
+	SolrHTTPBase             string  `json:"solr_http_base,omitempty"`
+	MaxResults               int     `json:"max_results,omitempty"`
+	ChunkFilterQuery         string  `json:"chunk_filter_query,omitempty"`
+	HybridVectorBoost        float64 `json:"hybrid_vector_boost,omitempty"`
+	HybridPoolDocs           int     `json:"hybrid_pool_docs,omitempty"`
+	HybridScoreThreshold     float64 `json:"hybrid_score_threshold,omitempty"`
+	HybridSolrTimeoutSeconds float64 `json:"hybrid_solr_timeout_s,omitempty"`
 }
 
 type TLSSecurityProfileConfig struct {

@@ -56,6 +56,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - agentic.openshift.io
+  resources:
+  - agenticruns
+  verbs:
+  - create
+  - get
+  - list
+- apiGroups:
   - apps
   resources:
   - deployments
@@ -84,6 +92,7 @@ rules:
   resources:
   - apiservers
   - clusterversions
+  - infrastructures
   verbs:
   - get
   - list
@@ -112,6 +121,15 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resourceNames:
+  - main
+  resources:
+  - alertmanagers/api
+  verbs:
+  - get
+  - list
 - apiGroups:
   - monitoring.coreos.com
   resources:
@@ -207,4 +225,10 @@ rules:
   - rolebindings
   - roles
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

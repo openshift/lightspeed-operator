@@ -30,6 +30,7 @@ llm_providers:
         parameters:
           max_tokens_for_response: <model.Parameters.MaxTokensForResponse>
           tool_budget_ratio: <default 0.25 if zero>
+          reasoning_config: <model.Parameters.ReasoningConfig>  # [PLANNED: OLS-3442] omitted when nil
     # Azure-specific:
     azure_openai_config:
       url: <provider.URL>
@@ -68,16 +69,15 @@ ols_config:
   tls_config:
     tls_certificate_path: /etc/certs/lightspeed-tls/tls.crt
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
-  reference_content:                          # only when spec.ols.rag is configured (BYOK)
-    indexes:
-      - path: /app-root/rag/rag-0            # one per spec.ols.rag entry
+  reference_content:
+    indexes:                                  # one per spec.ols.rag entry; empty when no BYOK RAG
+      - path: /app-root/rag/rag-0
         index_id: <rag.IndexID>
         origin: <rag.Image>
     embeddings_model_path: /app-root/embeddings_model
-  # OCP docs FAISS index entry removed — OCP docs are served by OKP via the RHOKP sidecar.
 
-  solr_hybrid:                                # always present unless byokRAGOnly
-    solr_http_base: "http://localhost:8080"
+  solr_hybrid:                                # unless byokRAGOnly
+    solr_http_base: "http://localhost:9080"
     max_results: 10
     hybrid_vector_boost: 8.0
     hybrid_pool_docs: 100
@@ -144,6 +144,8 @@ echo "CREATE SCHEMA IF NOT EXISTS quota;" | _psql -d $POSTGRESQL_DATABASE
 echo "CREATE SCHEMA IF NOT EXISTS conversation_cache;" | _psql -d $POSTGRESQL_DATABASE
 ```
 
+The `templogs` schema is not created here; the OTEL Collector always creates it via `postgres_admin` at collector startup. See `what/templog.md`.
+
 ### PostgreSQL Config (postgresql.conf.sample)
 Content is in `utils.PostgresConfigMapContent` constant. Deployed as ConfigMap.
 ```
@@ -194,9 +196,9 @@ Config is built programmatically using typed Go structs from the `utils/` packag
 
 ### PostgreSQL Schema Isolation
 PostgreSQL schemas isolate data from different components within the same database:
-- `conversation_cache` schema: conversation history
-- `quota` schema: token quota tracking
-These schemas are created by the bootstrap script.
+- `conversation_cache` schema: conversation history (created by Postgres bootstrap)
+- `quota` schema: token quota tracking (created by Postgres bootstrap)
+- `templogs` schema: temporary audit log storage (always created by OTEL Collector `postgres_admin` at startup; not part of Postgres bootstrap). `spec.audit.logging` only toggles the logs export pipeline. See `templog.md`.
 
 ## Integration Points
 
@@ -207,8 +209,10 @@ These schemas are created by the bootstrap script.
 | Log level | CR `spec.ols.logLevel` | Enum: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default: INFO |
 | PostgreSQL connection | `utils/constants.go` | Host built from service name + namespace + ".svc" |
 | TLS certs | Service-ca operator or user-provided secret | Path: `/etc/certs/lightspeed-tls/` |
-| BYOK RAG indexes | CR `spec.ols.rag[]` | File paths in config YAML (BYOK only) |
-| RHOKP image | `--rhokp-image` flag | Image for RHOKP sidecar container |
+| BYOK RAG indexes | CR `spec.ols.rag[]` | Local FAISS indexes only; empty list when no BYOK RAG configured |
+| `solr_hybrid` | Operator defaults + `!byokRAGOnly` | OCP product docs via OKP Solr at `http://localhost:9080` |
+| RHOKP image | `--rhokp-image` flag | Sidecar image; default from `related_images.json` (`rhokp`); listed in bundle `relatedImages` |
+| ROSA product | Console brand + Infrastructure topology (detected at operator startup) | `OLS_ROSA_PRODUCT` env var on app-server when brand is `ROSA` (not in config YAML). `External` → HCP product; otherwise Classic. Omitted on detection failure or non-ROSA. |
 | MCP servers | CR `spec.mcpServers[]` + `spec.ols.introspectionEnabled` | Feature gated by `MCPServer` gate |
 | Tool filtering | CR `spec.ols.toolFilteringConfig` | Feature gated by `ToolFiltering` gate; requires MCP servers |
 | Proxy config | CR `spec.ols.proxyConfig` | Proxy URL + optional CA cert configmap |

@@ -1,5 +1,9 @@
 # OpenShift Lightspeed Operator - AI Assistant Guide
 
+## Specs
+
+All specifications live in `.ai/spec/`. Start with `.ai/spec/README.md` for project overview, reading order, and structure guide.
+
 ## Project Overview
 Kubernetes operator managing OpenShift Lightspeed (AI-powered Virtual Assistant). Go + controller-runtime/kubebuilder + Ginkgo v2/Gomega testing.
 
@@ -45,6 +49,7 @@ OLSConfigReconciler.Reconcile() →
 │   ├── console.ReconcileConsoleUIResources()
 │   ├── agenticconsole.ReconcileAgenticConsoleUIResources()
 │   ├── postgres.ReconcilePostgresResources()
+│   ├── otelcollector.ReconcileOtelCollectorResources()
 │   ├── appserver.ReconcileAppServerResources()
 │   └── alertsadapter.ReconcileAlertsAdapterResources()
 │       (opt-in via configMapRef; RemoveAlertsAdapter() when unset; no ConfigMap validation—
@@ -53,6 +58,7 @@ OLSConfigReconciler.Reconcile() →
     ├── console.ReconcileConsoleUIDeploymentAndPlugin()  → ConsolePluginReady
     ├── agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin() → AgenticConsolePluginReady
     ├── postgres.ReconcilePostgresDeployment()           → CacheReady
+    ├── otelcollector.ReconcileOtelCollectorDeployment() → OtelCollectorReady
     ├── appserver.ReconcileAppServerDeployment()         → ApiReady
     └── alertsadapter.ReconcileAlertsAdapterDeployment() → AlertsAdapterReady
         (only when configMapRef set; else AlertsAdapterReady=True, Reason=NotConfigured)
@@ -86,6 +92,7 @@ make test-e2e   # E2E tests (requires cluster)
 - `internal/controller/olsconfig_controller.go` - Main reconciler with finalizer logic
 - `internal/controller/appserver/` - App server
 - `internal/controller/postgres/` - PostgreSQL
+- `internal/controller/otelcollector/` - OTEL Collector (always deployed; Postgres audit log storage, optional trace forwarding, HTTPS metrics `:8888` + ServiceMonitor)
 - `internal/controller/console/` - Chat console plugin (Lightspeed assistant UI)
 - `internal/controller/agenticconsole/` - Agentic console plugin (AI Hub / proposals UI)
 - `internal/controller/alertsadapter/` - Agentic alerts adapter (opt-in via `configMapRef`; mounts user CM at `/etc/alerts-adapter` when present; adapter validates config)
@@ -124,7 +131,12 @@ make test-e2e   # E2E tests (requires cluster)
 
 ## AI Assistant Skills
 
-Available skills for code review:
+Available skills:
+
+- **`/update-bundle dev`** - PR/CI: Konflux CI images (`-r ci`), regen bundle at current version
+- **`/update-bundle release X.Y.Z`** or **`/version-update X.Y.Z`** - Ship to `main`: see `version-update` skill for full release steps (stable images, version bump, bundle regen)
+
+Code review:
 
 - **`/go-code-review`** - Review Go code for error handling, concurrency, resource leaks, naming conventions
 - **`/go-testing-code-review`** - Review test code for table-driven tests, cleanup patterns, error messages
@@ -157,10 +169,6 @@ When finishing a development branch:
 2. Squash commits with the Jira-prefixed message
 3. Push to the contributor's fork remote (not `origin`)
 4. Create the PR against `origin/main` using `--head <user>:<branch>`
-
-## Risk Levels
-
-Risk levels are enforced via a PreToolUse hook before every Jira create/edit call. The rubric and classification examples live in [lightspeed-team-harness/hooks/risk-rubric.md](https://github.com/openshift/lightspeed-team-harness/blob/main/hooks/risk-rubric.md).
 
 ## Maintaining This Document
 

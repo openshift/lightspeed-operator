@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM registry.redhat.io/ubi9/go-toolset:9.8-1782852234 AS builder
+FROM registry.redhat.io/ubi9/go-toolset:9.8-1783442369 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -31,7 +31,7 @@ RUN CGO_ENABLED=1 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -tags
 RUN go build -o check-isa-level ./cmd/check-isa-level && ./check-isa-level ./manager
 
 
-FROM registry.redhat.io/ubi9/ubi-minimal:9.8-1782366411
+FROM registry.redhat.io/ubi9/ubi-minimal:9.8-1782797275
 
 WORKDIR /
 COPY --from=builder /workspace/manager .

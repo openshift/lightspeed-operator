@@ -152,6 +152,7 @@ var _ = BeforeSuite(func() {
 		tr.AppServerImage = utils.OLSAppServerImageDefault
 		tr.DataverseExporter = utils.DataverseExporterImageDefault
 		tr.McpServerImage = utils.OpenShiftMCPServerImageDefault
+		tr.RhokpImage = utils.RHOOKPImageDefault
 		tr.PrometheusAvailable = true
 	}
 
@@ -191,6 +192,35 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Create(ctx, kubeRootCA)
 	Expect(err).NotTo(HaveOccurred())
 })
+
+var _ = BeforeEach(func() {
+	if tr, ok := testReconcilerInstance.(*utils.TestReconciler); ok {
+		tr.SetRosaOKPProductEnv(nil)
+	}
+})
+
+func deploymentContainerCount(base int) int {
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		return base + 1
+	}
+	return base
+}
+
+func expectedAppServerEnv() []corev1.EnvVar {
+	env := []corev1.EnvVar{
+		{
+			Name:  "OLS_CONFIG_FILE",
+			Value: filepath.Join(utils.OLSConfigMountRoot, utils.OLSConfigFilename),
+		},
+	}
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		env = append(env, corev1.EnvVar{
+			Name:  utils.OCPClusterVersionEnvVar,
+			Value: testReconcilerInstance.GetOpenShiftMajor() + "." + testReconcilerInstance.GetOpenshiftMinor(),
+		})
+	}
+	return env
+}
 
 var _ = AfterSuite(func() {
 	By("Delete the namespace openshift-lightspeed")

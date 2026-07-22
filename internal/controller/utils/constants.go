@@ -194,10 +194,6 @@ const (
 	AgenticConsoleUINetworkPolicyName = "lightspeed-agentic-console-plugin"
 	// AgenticConsoleUIContainerName is the name of the agentic console UI container
 	AgenticConsoleUIContainerName = "console"
-	// AgenticConsoleUIImageDefault is the default image for the agentic console UI plugin.
-	// Konflux-built image until a productized openshift-lightspeed image is published.
-	AgenticConsoleUIImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main"
-
 	/*** watchers ***/
 	// Watcher Annotation key
 	WatcherAnnotationKey = "ols.openshift.io/watcher"
@@ -230,6 +226,90 @@ const (
 	PostgresSecretResourceVersionAnnotation = "ols.openshift.io/postgres-secret-version"
 	// PostgresServiceName is the name of OLS application Postgres server service
 	PostgresServiceName = "lightspeed-postgres-server"
+	// OtelCollectorServiceName is the in-cluster OTEL Collector Service for OTLP from OLS.
+	OtelCollectorServiceName = "lightspeed-otel-collector"
+	// OtelCollectorGRPCPort is the OTLP gRPC port exposed by the OTEL Collector Service.
+	OtelCollectorGRPCPort = 4317
+	// OtelCollectorHTTPPort is the OTLP HTTP port exposed by the OTEL Collector.
+	OtelCollectorHTTPPort = 4318
+	// OtelCollectorHealthCheckPort is the health check extension port.
+	OtelCollectorHealthCheckPort = 13133
+	// OtelCollectorAdminPort is the postgres_admin HTTPS port.
+	OtelCollectorAdminPort = 8080
+	// OtelCollectorMetricsPort is the cluster-facing HTTPS Prometheus metrics port
+	// (https_metrics extension; OLS-3656).
+	OtelCollectorMetricsPort = 8888
+	// OtelCollectorMetricsInternalPort is the localhost-only HTTP Prometheus pull port
+	// used as upstream by the https_metrics extension.
+	OtelCollectorMetricsInternalPort = 18888
+	// OtelCollectorMetricsPath is the Prometheus metrics scrape path.
+	OtelCollectorMetricsPath = "/metrics"
+	// OtelCollectorMetricsUpstreamURL is the https_metrics extension upstream
+	// (stock telemetry pull on localhost).
+	OtelCollectorMetricsUpstreamURL = "http://127.0.0.1:18888/metrics"
+	// OtelCollectorHTTPSMetricsExtension is the collector extension type name for HTTPS metrics.
+	OtelCollectorHTTPSMetricsExtension = "https_metrics"
+	// OtelCollectorServiceMonitorName is the ServiceMonitor for collector metrics scraping.
+	OtelCollectorServiceMonitorName = "lightspeed-otel-collector-monitor"
+	// OtelCollectorDeploymentName is the name of the OTEL Collector deployment.
+	OtelCollectorDeploymentName = "lightspeed-otel-collector"
+	// OtelCollectorConfigMapName is the ConfigMap holding collector runtime YAML.
+	OtelCollectorConfigMapName = "lightspeed-otel-collector-config"
+	// OtelCollectorConfigMapDataKey is the key within OtelCollectorConfigMapName for collector YAML.
+	OtelCollectorConfigMapDataKey = "config.yaml"
+	// OtelCollectorClientConfigMapName is the ConfigMap publishing Collector connectivity for clients
+	// (agentic-operator OTLP export and admin API). Distinct from the collector runtime ConfigMap.
+	OtelCollectorClientConfigMapName = "lightspeed-otel-collector-client"
+	// OtelCollectorClientCollectorEndpointKey is the OTLP gRPC endpoint (host:port).
+	OtelCollectorClientCollectorEndpointKey = "collector-endpoint"
+	// OtelCollectorClientAdminEndpointKey is the HTTPS admin API base URL.
+	OtelCollectorClientAdminEndpointKey = "admin-endpoint"
+	// OtelCollectorClientCACertKey is the PEM CA used to verify Collector TLS.
+	OtelCollectorClientCACertKey = "ca.crt"
+	// OtelCollectorClientCredentialsSecretKey is an optional Secret name for mTLS client credentials.
+	OtelCollectorClientCredentialsSecretKey = "credentials-secret"
+	// OtelCollectorConfigMapResourceVersionAnnotation tracks collector ConfigMap changes for rollout.
+	OtelCollectorConfigMapResourceVersionAnnotation = "ols.openshift.io/otel-collector-configmap-version"
+	// OtelCollectorConfigVolumeName is the pod volume name for the mounted collector config.
+	OtelCollectorConfigVolumeName = "config"
+	// OtelCollectorConfigVolumeMountPath is where the collector reads config.yaml.
+	OtelCollectorConfigVolumeMountPath = "/etc/otelcol"
+	// OtelCollectorCertsSecretName is the service-ca TLS secret for OTLP, admin API, and metrics.
+	OtelCollectorCertsSecretName = "lightspeed-otel-collector-cert" // #nosec G101
+	// OtelCollectorServingCertVolumeName is the pod volume name for the serving cert Secret.
+	OtelCollectorServingCertVolumeName = "serving-cert"
+	// OtelCollectorServingCertMountPath is where the collector expects service-ca TLS material.
+	OtelCollectorServingCertMountPath = "/var/run/secrets/serving-cert"
+	// OtelCollectorPostgresConnectionStringEnvVar is the env var for the collector Postgres DSN.
+	OtelCollectorPostgresConnectionStringEnvVar = "POSTGRES_CONNECTION_STRING"
+	// OtelCollectorPostgresDSNSecretName stores the collector Postgres DSN.
+	OtelCollectorPostgresDSNSecretName = "lightspeed-otel-collector-postgres" // #nosec G101
+	// OtelCollectorPostgresConnectionStringSecretKey is the key for the collector Postgres DSN.
+	OtelCollectorPostgresConnectionStringSecretKey = "connection-string"
+	// OtelCollectorTracesBackendEndpointEnvVar is the env var for external trace export.
+	OtelCollectorTracesBackendEndpointEnvVar = "TRACES_BACKEND_ENDPOINT"
+	// OtelCollectorNetworkPolicyName is the network policy for the OTEL Collector.
+	OtelCollectorNetworkPolicyName = "lightspeed-otel-collector"
+	// OtelCollectorServiceAccountName is the service account for the OTEL Collector pod.
+	OtelCollectorServiceAccountName = "lightspeed-otel-collector"
+	// OtelCollectorContainerName is the collector container name.
+	OtelCollectorContainerName = "collector"
+	// OtelCollectorComponentLabel is the app.kubernetes.io/component label value.
+	OtelCollectorComponentLabel = "otel-collector"
+	// OtelCollectorFileStorageMountPath is the file_storage extension directory.
+	OtelCollectorFileStorageMountPath = "/var/lib/otelcol/file_storage"
+	// OtelSandboxServiceName is the OTLP service.name for agentic sandbox audit logs routed to Postgres.
+	OtelSandboxServiceName = "lightspeed-agentic-sandbox"
+	// OtelCollectorServingCertTLSFile is the serving certificate path in collector YAML.
+	OtelCollectorServingCertTLSFile = "/var/run/secrets/serving-cert/tls.crt"
+	// OtelCollectorServingCertTLSKeyFile is the serving certificate key path in collector YAML.
+	OtelCollectorServingCertTLSKeyFile = "/var/run/secrets/serving-cert/tls.key"
+	// AppOtelCollectorCACertDir is the app-server mount directory for the collector serving cert.
+	AppOtelCollectorCACertDir = "otel-collector-ca"
+	// AppOtelCollectorCACertVolumeName is the app-server volume name for the collector TLS secret.
+	AppOtelCollectorCACertVolumeName = "otel-collector-cert"
+	// AppOtelCollectorCACertFile is the serving cert filename within AppOtelCollectorCACertDir.
+	AppOtelCollectorCACertFile = "tls.crt"
 	// PostgresSecretName is the name of OLS application Postgres secret
 	PostgresSecretName = "lightspeed-postgres-secret"
 	// PostgresCertsSecretName is the name of the Postgres certs secret
@@ -302,10 +382,12 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AlertsAdapterContainerName = "adapter"
 	// AlertsAdapterNetworkPolicyName is the name of the network policy for the alerts adapter
 	AlertsAdapterNetworkPolicyName = "lightspeed-agentic-alerts-adapter"
-	// AlertsAdapterProposalsClusterRoleName is the cluster role granting Proposal create/list/get
-	AlertsAdapterProposalsClusterRoleName = "lightspeed-agentic-alerts-adapter-proposals"
-	// AlertsAdapterProposalsClusterRoleBindingName binds the proposals ClusterRole to the alerts adapter SA
-	AlertsAdapterProposalsClusterRoleBindingName = "lightspeed-agentic-alerts-adapter-proposals"
+	// AlertsAdapterAgenticRunsClusterRoleName is the cluster role granting AgenticRun create/list/get
+	AlertsAdapterAgenticRunsClusterRoleName = "lightspeed-agentic-alerts-adapter-agenticruns"
+	// AlertsAdapterAgenticRunsClusterRoleBindingName binds the AgenticRun ClusterRole to the alerts adapter SA
+	AlertsAdapterAgenticRunsClusterRoleBindingName = "lightspeed-agentic-alerts-adapter-agenticruns"
+	// AlertsAdapterLegacyProposalsClusterRoleName is the pre-OLS-3475 ClusterRole name removed on reconcile
+	AlertsAdapterLegacyProposalsClusterRoleName = "lightspeed-agentic-alerts-adapter-proposals"
 	// AlertsAdapterAlertmanagerRoleBindingName is the RoleBinding in openshift-monitoring for Alertmanager read access
 	AlertsAdapterAlertmanagerRoleBindingName = "lightspeed-agentic-alerts-adapter-alertmanager"
 	// AlertsAdapterConfigMapName is the ConfigMap holding runtime adapter settings (poll interval, cooldown, tools)
@@ -367,8 +449,46 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
 	// MCP server URL
 	OpenShiftMCPServerURL = "http://localhost:%d/mcp"
-	// MCP server port
+	// MCP server port.
 	OpenShiftMCPServerPort = 8080
+	// RHOOKPHTTPPort is the Solr HTTP proxy port for the RH OKP sidecar (remapped from image default 8080).
+	RHOOKPHTTPPort = 9080
+	// RHOOKPHTTPSPort is the RH OKP Apache HTTPS port (remapped from image default 8443; OLS uses 8443).
+	RHOOKPHTTPSPort = 9443
+	// OCPClusterVersionEnvVar is read by lightspeed-service to resolve Solr chunk_filter_query at startup.
+	OCPClusterVersionEnvVar = "OCP_CLUSTER_VERSION"
+	// OLSRosaProductEnvVar is read by lightspeed-service to scope OKP retrieval on ROSA clusters.
+	OLSRosaProductEnvVar = "OLS_ROSA_PRODUCT"
+	// RosaOKPProductHCP is the OKP product identifier for ROSA hosted control planes.
+	RosaOKPProductHCP = "red_hat_openshift_service_on_aws"
+	// RosaOKPProductClassic is the OKP product identifier for ROSA classic architecture.
+	RosaOKPProductClassic = "red_hat_openshift_service_on_aws_classic_architecture"
+	// RHOOKPSolrCollection is the Solr core served by RHOKP (matches lightspeed-service portal-rag client).
+	RHOOKPSolrCollection = "portal-rag"
+	// RHOOKPReadinessHTTPPath hits the portal-rag core admin ping (Apache / alone is not Solr-ready).
+	RHOOKPReadinessHTTPPath = "/solr/" + RHOOKPSolrCollection + "/admin/ping"
+	// RHOKP startup probe: Solr can take several minutes on cold start (portal-rag core load).
+	RHOOKPStartupProbeInitialDelaySeconds = 20
+	RHOOKPStartupProbePeriodSeconds       = 10
+	RHOOKPStartupProbeFailureThreshold    = 34 // 20s delay + 34*10s = 6 min before startup fails
+	RHOOKPProbePeriodSeconds              = 10
+	RHOOKPProbeTimeoutSeconds             = 5
+	RHOOKPProbeFailureThreshold           = 3
+	RHOOKPAccessKeySecretName             = "rhokp-access-key" // #nosec G101 -- user-created secret for RHOKP portal access
+	RHOOKPAccessKeySecretKey              = "ACCESS_KEY"
+	// RHOKP image Apache config paths (Listen directives remapped before mel start).
+	RHOOKPHTTPDConfPath       = "/etc/httpd/conf/httpd.conf"
+	RHOOKPHTTPDSSLConfPath    = "/etc/httpd/conf.d/ssl.conf"
+	RHOOKPImageHTTPPort       = 8080
+	RHOOKPImageHTTPSPort      = 8443
+	RHOOKPContainerEntrypoint = "/usr/bin/container-entrypoint"
+	RHOOKPMainCommand         = "/usr/local/bin/mel"
+	// Solr hybrid defaults written to the OLS config file (not exposed on OLSConfig CR).
+	SolrHybridMaxResultsDefault         = 5
+	SolrHybridVectorBoostDefault        = 8.0
+	SolrHybridPoolDocsDefault           = 100
+	SolrHybridScoreThresholdDefault     = 0.0
+	SolrHybridSolrTimeoutSecondsDefault = 60.0
 	// MCP server timeout, sec
 	OpenShiftMCPServerTimeout = 60
 	// MCP server SSE read timeout, sec
@@ -422,6 +542,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	PostgresContainerName = "lightspeed-postgres-server"
 	// OpenShiftMCPServerContainerName is the name of the OpenShift MCP server container
 	OpenShiftMCPServerContainerName = "openshift-mcp-server"
+	// RHOOKPContainerName is the RH Offline Knowledge Portal (Solr) sidecar container name.
+	RHOOKPContainerName = "rhokp"
 	// OLSConfigMapResourceVersionAnnotation is the annotation key for tracking OLS ConfigMap ResourceVersion
 	OLSConfigMapResourceVersionAnnotation = "ols.openshift.io/olsconfig-configmap-version"
 	// OpenShiftMCPServerConfigMapResourceVersionAnnotation is the annotation key for tracking MCP Server ConfigMap ResourceVersion
@@ -445,7 +567,23 @@ var (
 	PostgresServerImageDefault     = relatedimages.GetDefaultImage("lightspeed-postgresql")
 	OpenShiftMCPServerImageDefault = relatedimages.GetDefaultImage("openshift-mcp-server")
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
-	OcpRagImageDefault             = relatedimages.GetDefaultImage("lightspeed-ocp-rag")
-	// Konflux-built image until a productized openshift-lightspeed image is published in related_images.json.
-	AlertsAdapterImageDefault = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
+	AgenticConsoleUIImageDefault   = imageDefaultOr("lightspeed-agentic-console-plugin", agenticConsoleUIImageFallback)
+	AlertsAdapterImageDefault      = imageDefaultOr("lightspeed-agentic-alerts-adapter", alertsAdapterImageFallback)
+	OtelCollectorImageDefault      = imageDefaultOr("lightspeed-otel-collector", otelCollectorImageFallback)
+	RHOOKPImageDefault             = imageDefaultOr("rhokp", rhokpImageFallback)
 )
+
+const (
+	// Fallbacks when related_images.json is unavailable (e.g. local run outside repo root).
+	agenticConsoleUIImageFallback = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main"
+	alertsAdapterImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
+	otelCollectorImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector:main"
+	rhokpImageFallback            = "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest"
+)
+
+func imageDefaultOr(name, fallback string) string {
+	if img := relatedimages.GetDefaultImage(name); img != "" {
+		return img
+	}
+	return fallback
+}

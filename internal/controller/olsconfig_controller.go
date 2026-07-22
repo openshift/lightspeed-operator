@@ -81,6 +81,7 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/alertsadapter"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
+	"github.com/openshift/lightspeed-operator/internal/controller/otelcollector"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	"github.com/openshift/lightspeed-operator/internal/controller/watchers"
@@ -129,7 +130,11 @@ type OLSConfigReconciler struct {
 // Modify console CR to activate console plugin
 // +kubebuilder:rbac:groups=operator.openshift.io,resources=consoles,verbs=watch;list;get;update
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;rolebindings,verbs=get;list;create;update;patch;delete;watch
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=openshift-lightspeed,resources=roles;rolebindings,verbs=*
+// AgenticRun API for alerts adapter ClusterRole (operator must hold permissions it grants to operands)
+// +kubebuilder:rbac:groups=agentic.openshift.io,resources=agenticruns,verbs=get;list;create
+// Alertmanager API for alerts adapter RoleBinding to monitoring-alertmanager-view (operator must hold permissions it grants)
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=alertmanagers/api,resourceNames=main,verbs=get;list
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=openshift-lightspeed,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // NonResourceURLs for Lightspeed access control and metrics
 // +kubebuilder:rbac:urls=/ls-access,verbs=get
 // +kubebuilder:rbac:urls=/ols-metrics-access,verbs=get
@@ -144,8 +149,8 @@ type OLSConfigReconciler struct {
 // PrometheusRule for aggregating OLS metrics for telemetry
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
 
-// clusterversion for checking the openshift cluster version
-// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions;apiservers,verbs=get;list;watch
+// clusterversion for checking the openshift cluster version; infrastructure for ROSA OKP product detection (OLS-1894)
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions;apiservers;infrastructures,verbs=get;list;watch
 
 // NetworkPolicy for restricting access to OLS pods
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
@@ -304,6 +309,9 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		{Name: "postgres resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return postgres.ReconcilePostgresResources(r, ctx, cr)
 		}},
+		{Name: "OTEL Collector resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return otelcollector.ReconcileOtelCollectorResources(r, ctx, cr)
+		}},
 	}
 
 	resourceSteps = append(resourceSteps, utils.ReconcileSteps{
@@ -385,6 +393,9 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		{Name: "postgres deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return postgres.ReconcilePostgresDeployment(r, ctx, cr)
 		}, ConditionType: utils.TypeCacheReady, Deployment: utils.PostgresDeploymentName},
+		{Name: "OTEL Collector deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return otelcollector.ReconcileOtelCollectorDeployment(r, ctx, cr)
+		}, ConditionType: utils.TypeOtelCollectorReady, Deployment: utils.OtelCollectorDeploymentName},
 	}
 
 	deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
@@ -581,6 +592,14 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// 5. Phase 1: Reconcile independent resources
 	if err := r.reconcileIndependentResources(ctx, olsconfig); err != nil {
+		if isRESTMappingError(err) {
+			// After CRD installation, the API server's discovery cache may not yet
+			// contain the OLSConfig kind. Returning a nil error with RequeueAfter
+			// resets the rate limiter's failure counter (Forget), preventing rapid
+			// self-triggered retries from poisoning the backoff to 1000s.
+			r.Logger.Info("API server discovery cache has not yet registered the OLSConfig CRD, retrying", "requeueAfter", "5s")
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
 		return ctrl.Result{}, err
 	}
 

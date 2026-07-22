@@ -32,6 +32,8 @@ GenerateOLSDeployment(r, cr)
   15. Assemble Deployment:
       - Container: "lightspeed-service-api", image: r.GetAppServerImage(), port: 8443
       - Env: OLS_CONFIG_FILE path + proxy vars (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
+      - Env: OCP_CLUSTER_VERSION (`<major>.<minor>`) when `!byokRAGOnly` (same cluster-version source as console UI)
+      - Env: OLS_ROSA_PRODUCT when `!byokRAGOnly` and startup detection finds ROSA brand. `External` topology → `red_hat_openshift_service_on_aws` (HCP); any other topology on ROSA → `red_hat_openshift_service_on_aws_classic_architecture` (Classic). Omitted on non-ROSA or detection failure.
       - Probes: HTTPS GET on /readiness, /liveness (initial: 30s, period: 30s, timeout: 30s, failure: 15)
       - Default resources: 500m CPU request, 1Gi memory request (no limits)
   16. Apply pod-level config (replicas, nodeSelector, tolerations)
@@ -39,10 +41,10 @@ GenerateOLSDeployment(r, cr)
   18. Set owner reference to OLSConfig CR
   19. Conditionally add data collector sidecar container ("lightspeed-to-dataverse-exporter")
   20. Conditionally add OpenShift MCP server sidecar container ("openshift-mcp-server")
-  21. Conditionally add RHOKP sidecar container ("rhokp") — always added unless byokRAGOnly is true.
-      Container: image from r.GetRHOKPImage(), port 8080, resources 2 CPU / 2 GiB RAM / 75 GiB ephemeral,
-      startup script disables Apache Listen 0.0.0.0:8443 to avoid port conflict.
-      Optional ACCESS_KEY env from rhokp-access-key secret.
+  21. Conditionally add RHOKP sidecar container ("rhokp") when `!byokRAGOnly`.
+      Container: image from r.GetRHOOKPImage(), Solr HTTP on port 9080 (remapped from image default 8080),
+      resources from `spec.ols.deployment.rhokp.resources` or defaults (2 CPU / 2 GiB memory / 75 GiB ephemeral requests; CPU and memory requests only per OLS-3397),
+      startup script remaps Apache Listen directives before `mel` start.
       Writable root filesystem (Solr data).
 ```
 
@@ -63,12 +65,12 @@ All deployments use the same pattern in their update functions:
 Each component defines default CPU/memory requests in local `get*Resources()` functions. Per [OpenShift conventions](https://github.com/openshift/enhancements/blob/master/CONVENTIONS.md#resources-and-limits), operator defaults set requests only and do not set limits. User-provided values from the CR override defaults via `utils.GetResourcesOrDefault()` which returns user values if non-nil, otherwise defaults. Users may still set limits via the CRD if needed for their environment.
 
 Default resources by container:
-| Container | CPU Request | Memory Request |
-|---|---|---|
-| AppServer `lightspeed-service-api` | 500m | 1Gi |
-| Data collector | 50m | 64Mi |
-| MCP server | 50m | 64Mi |
-| RHOKP `rhokp` | 2000m | 2Gi |
+| Container | CPU Request | Memory Request | Ephemeral Storage Request |
+|---|---|---|---|
+| AppServer `lightspeed-service-api` | 500m | 1Gi | — |
+| Data collector | 50m | 64Mi | — |
+| MCP server | 50m | 64Mi | — |
+| RHOKP `rhokp` | 2000m | 2Gi | 75Gi |
 
 ### Volume/Mount Construction
 Volumes and mounts are built as slices and conditionally appended using inline append patterns.
@@ -101,12 +103,13 @@ Affinity and topology spread constraints are not exposed on `Config` (CRD size);
 |---|---|---|
 | Deployment spec | `utils/constants.go` | Resource names, ports, mount paths |
 | Container resources | CR `spec.ols.deployment.api.resources` | User-overridable CPU/memory |
+| RHOKP resources | CR `spec.ols.deployment.rhokp.resources` | User-overridable CPU/memory/ephemeral storage |
 | Pod scheduling | CR `spec.ols.deployment.api` | Tolerations, nodeSelector |
 | Volume secrets | Kubernetes Secrets | LLM credentials, TLS certs, PostgreSQL password, MCP header values |
 | Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config |
 | Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY from cluster |
 | RAG images | CR `spec.ols.rag[].image` | Container images for init containers |
-| RHOKP image | `--rhokp-image` flag | Container image for RHOKP sidecar |
+| RHOKP image | `--rhokp-image` flag | RHOKP sidecar container image; default from `related_images.json` (`rhokp`) |
 
 ## Agentic Controller Deployment (OLM-managed)
 

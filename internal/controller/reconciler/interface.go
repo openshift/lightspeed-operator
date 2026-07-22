@@ -23,6 +23,7 @@ package reconciler
 
 import (
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -55,6 +56,9 @@ type Reconciler interface {
 	// GetAlertsAdapterImage returns the alerts adapter image to use
 	GetAlertsAdapterImage() string
 
+	// GetOtelCollectorImage returns the OTEL Collector image to use
+	GetOtelCollectorImage() string
+
 	// GetOpenShiftMajor returns the OpenShift major version
 	GetOpenShiftMajor() string
 
@@ -67,8 +71,14 @@ type Reconciler interface {
 	// GetOpenShiftMCPServerImage returns the OpenShift MCP server image to use
 	GetOpenShiftMCPServerImage() string
 
-	// GetDataverseExporterImage returns the OpenShift MCP server image to use
+	// GetDataverseExporterImage returns the dataverse exporter image to use
 	GetDataverseExporterImage() string
+
+	// GetRHOOKPImage returns the RH Offline Knowledge Portal (Solr) sidecar image
+	GetRHOOKPImage() string
+
+	// GetRosaOKPProductEnv returns the OLS_ROSA_PRODUCT env var on ROSA clusters, or nil.
+	GetRosaOKPProductEnv() *corev1.EnvVar
 
 	// IsPrometheusAvailable returns whether Prometheus Operator CRDs are available
 	IsPrometheusAvailable() bool

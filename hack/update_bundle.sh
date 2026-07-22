@@ -123,10 +123,11 @@ if [ -z "${RELATED_IMAGES}" ] || [ "${RELATED_IMAGES}" = "null" ]; then
   exit 1
 fi
 
-# For CSV deployment substitution we use hack/image_placeholders.json (placeholders must match config/default/kustomization.yaml).
 OPERATOR_IMAGE=$(${JQ} -r '.[] | select(.name == "lightspeed-operator") | .image' <<<"${RELATED_IMAGES}")
 echo "Updating bundle artifacts for image ${OPERATOR_IMAGE:-<from related_images>}"
 rm -rf ./bundle
+
+RELATED_IMAGES_FILE="${RELATED_IMAGES_FILENAME}" ./hack/generate_deployment_patch.sh
 
 ${OPERATOR_SDK} generate kustomize manifests -q
 ${KUSTOMIZE} build config/manifests | ${OPERATOR_SDK} generate bundle ${BUNDLE_GEN_FLAGS}
@@ -134,31 +135,23 @@ ${KUSTOMIZE} build config/manifests | ${OPERATOR_SDK} generate bundle ${BUNDLE_G
 cp ./hack/${BUNDLE_DOCKERFILE} .
 ${OPERATOR_SDK} bundle validate ./bundle
 
-# Substitute deployment args and container image from related_images.json using placeholder map.
-PLACEHOLDERS_FILE="${SCRIPT_DIR}/image_placeholders.json"
-if [ ! -f "${PLACEHOLDERS_FILE}" ]; then
-  echo "error: ${PLACEHOLDERS_FILE} not found"
-  exit 1
-fi
-PLACEHOLDERS=$(${JQ} '.' "${PLACEHOLDERS_FILE}")
-${JQ} -c '.[]' <<<"${PLACEHOLDERS}" | while IFS= read -r entry; do
-  NAME=$(${JQ} -r '.name' <<<"${entry}")
-  PLACEHOLDER=$(${JQ} -r '.placeholder' <<<"${entry}")
-  TARGET=$(${JQ} -r '.target' <<<"${entry}")
-  IMG=$(${JQ} -r --arg n "${NAME}" '.[] | select(.name==$n) | .image' <<<"${RELATED_IMAGES}")
+# Substitute deployment args and container image from related_images.json (operator_arg / operator_target).
+# shellcheck source=image_args_lib.sh
+source "${SCRIPT_DIR}/image_args_lib.sh"
+while IFS='|' read -r name placeholder target _; do
+  IMG=$(${JQ} -r --arg n "${name}" '.[] | select(.name==$n) | .image' <<<"${RELATED_IMAGES}")
   [ -z "${IMG}" ] || [ "${IMG}" = "null" ] && continue
-  # Escape double quotes for use inside yq double-quoted string
   IMG_SAFE=$(printf '%s' "${IMG}" | sed 's/"/\\"/g')
-  if [ "${TARGET}" = "image" ]; then
-    ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].image |= sub(\"${PLACEHOLDER}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
+  if [ "${target}" = "image" ]; then
+    ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].image |= sub(\"${placeholder}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
   else
-    ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"${PLACEHOLDER}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
+    ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"${placeholder}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
   fi
-done
+done < <(image_args::list_patch_entries "${RELATED_IMAGES_FILENAME}" "${JQ}")
 
-# Set spec.relatedImages from related_images.json (strip revision for CSV if present).
+# Set spec.relatedImages from related_images.json (strip revision and snapshot metadata for OLM CSV).
 # The bundle image is only referenced in catalog files, not in the CSV.
-RELATED_IMAGES_CSV=$(${JQ} 'map(del(.revision)) | map(select(.name != "lightspeed-operator-bundle"))' <<<"${RELATED_IMAGES}")
+RELATED_IMAGES_CSV=$(${JQ} 'map(del(.revision, .snapshot_component, .snapshot_source, .konflux_prefix, .stable_prefix, .operator_arg, .operator_target)) | map(select(.name != "lightspeed-operator-bundle"))' <<<"${RELATED_IMAGES}")
 # set related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES_CSV}" ${CSV_FILE}
 # add compatibility labels to the annotations file

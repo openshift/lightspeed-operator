@@ -47,6 +47,21 @@ spec:
       - description: The name of the secret object that stores API provider credentials
         displayName: Credential Secret
         path: llm.providers[0].credentialsSecretRef
+      - description: Audit log and trace export configuration for the OTEL Collector.
+        displayName: Audit Settings
+        path: audit
+      - description: |-
+          logging enables audit log storage in PostgreSQL via the Collector.
+          Default: true when absent.
+        displayName: Audit Logging
+        path: audit.logging
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: |-
+          tracingEndpoint is the trace export backend (e.g. "jaeger:4317").
+          The Collector forwards traces here when set. TLS is always used.
+        displayName: Tracing Endpoint
+        path: audit.tracingEndpoint
       - description: |-
           Feature Gates holds list of features to be enabled explicitly, otherwise they are disabled by default.
           possible values: MCPServer, ToolFiltering
@@ -164,8 +179,15 @@ spec:
         path: ols.additionalCAConfigMapRef
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: Only use BYOK RAG sources, ignore the OpenShift documentation
-          RAG
+      - description: |-
+          auditEventsEnabled controls structured compliance audit JSON events on stdout.
+          Default: true when absent. Does not affect collector storage (see spec.audit).
+        displayName: Audit Events Enabled
+        path: ols.auditEventsEnabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Only use BYOK RAG sources. Disables OKP (RHOKP sidecar, solr_hybrid
+          config, and built-in OCP documentation retrieval).
         displayName: Only use BYOK RAG sources
         path: ols.byokRAGOnly
         x-descriptors:
@@ -191,13 +213,44 @@ spec:
         path: ols.defaultProvider
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Agentic console plugin container settings.
+        displayName: Agentic Console Deployment
+        path: ols.deployment.agenticConsole
+      - description: |-
+          Defines the number of desired OLS pods. Default: "1"
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+        displayName: Number of replicas
+        path: ols.deployment.agenticConsole.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: Alerts adapter deployment and runtime config reference.
+        displayName: Alerts Adapter
+        path: ols.deployment.alertsAdapter
+      - description: |-
+          ConfigMapRef enables the alerts adapter when set and references a user-managed ConfigMap
+          in the operator namespace. When unset, reconciliation is skipped and managed operand
+          resources are removed. The operator does not create or validate ConfigMap data. When the
+          referenced ConfigMap exists, it is mounted read-only at /etc/alerts-adapter; when absent,
+          no config volume is mounted. The adapter reads config.yaml from that path and uses
+          built-in defaults when the file is missing or invalid.
+        displayName: Alerts Adapter ConfigMap Reference
+        path: ols.deployment.alertsAdapter.configMapRef
+      - description: |-
+          Defines the number of desired OLS pods. Default: "1"
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+        displayName: Number of replicas
+        path: ols.deployment.alertsAdapter.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
       - description: API container settings.
         displayName: API Deployment
         path: ols.deployment.api
       - description: |-
           Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
-          the number of replicas will always be set to 1.
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.api.replicas
         x-descriptors:
@@ -207,8 +260,8 @@ spec:
         path: ols.deployment.console
       - description: |-
           Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
-          the number of replicas will always be set to 1.
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.console.replicas
         x-descriptors:
@@ -221,8 +274,8 @@ spec:
         path: ols.deployment.database
       - description: |-
           Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL and Console containers,
-          the number of replicas will always be set to 1.
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
         displayName: Number of replicas
         path: ols.deployment.database.replicas
         x-descriptors:
@@ -230,6 +283,20 @@ spec:
       - description: MCP server container settings.
         displayName: MCP Server Container
         path: ols.deployment.mcpServer
+      - description: OTEL Collector deployment settings.
+        displayName: OTEL Collector Deployment
+        path: ols.deployment.otelCollector
+      - description: |-
+          Defines the number of desired OLS pods. Default: "1"
+          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+        displayName: Number of replicas
+        path: ols.deployment.otelCollector.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: RHOKP sidecar container settings (Solr / OKP).
+        displayName: RHOKP Container
+        path: ols.deployment.rhokp
       - description: Pull secrets for BYOK RAG images from image registries requiring
           authentication
         displayName: Image Pull Secrets
@@ -325,19 +392,20 @@ spec:
       - description: Type of the limiter
         displayName: 'Limiter Type. Accepted Values: cluster_limiter, user_limiter.'
         path: ols.quotaHandlersConfig.limitersConfig[0].type
-      - description: RAG databases
-        displayName: RAG Databases
+      - description: BYOK RAG databases (bring-your-own container images with FAISS
+          vector indexes).
+        displayName: BYOK RAG Databases
         path: ols.rag
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: The URL of the container image to use as a RAG source
+      - description: The URL of the container image to use as a BYOK RAG source
         displayName: Image
         path: ols.rag[0].image
-      - description: The Index ID of the RAG database. Only needed if there are multiple
-          indices in the database.
+      - description: The Index ID of the BYOK RAG database. Only needed if there are
+          multiple indices in the database.
         displayName: Index ID
         path: ols.rag[0].indexID
-      - description: The path to the RAG database inside of the container image
+      - description: The path to the BYOK RAG database inside of the container image
         displayName: Index Path in the Image
         path: ols.rag[0].indexPath
       - description: Persistent Storage Configuration
@@ -360,6 +428,7 @@ spec:
             - tls.crt: Server certificate (PEM format) - REQUIRED
             - tls.key: Private key (PEM format) - REQUIRED
             - ca.crt: CA certificate for console proxy trust (PEM format) - OPTIONAL
+
 
           If ca.crt is not provided, the OpenShift Console proxy will use the default system trust store.
         displayName: TLS Certificate Secret Reference

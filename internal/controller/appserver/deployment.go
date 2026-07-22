@@ -53,6 +53,76 @@ func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequire
 	)
 }
 
+func appServerEnv(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) []corev1.EnvVar {
+	env := append(utils.GetProxyEnvVars(), corev1.EnvVar{
+		Name:  "OLS_CONFIG_FILE",
+		Value: path.Join(utils.OLSConfigMountRoot, utils.OLSConfigFilename),
+	})
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		env = append(env, corev1.EnvVar{
+			Name:  utils.OCPClusterVersionEnvVar,
+			Value: r.GetOpenShiftMajor() + "." + r.GetOpenshiftMinor(),
+		})
+		if rosaEnv := r.GetRosaOKPProductEnv(); rosaEnv != nil {
+			env = append(env, *rosaEnv)
+		}
+	}
+	return env
+}
+
+func rhokpHTTPProbeHandler() corev1.ProbeHandler {
+	return corev1.ProbeHandler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Path:   utils.RHOOKPReadinessHTTPPath,
+			Port:   intstr.FromInt32(utils.RHOOKPHTTPPort),
+			Scheme: corev1.URISchemeHTTP,
+		},
+	}
+}
+
+func rhokpProbeBase() corev1.Probe {
+	return corev1.Probe{
+		ProbeHandler:     rhokpHTTPProbeHandler(),
+		PeriodSeconds:    utils.RHOOKPProbePeriodSeconds,
+		TimeoutSeconds:   utils.RHOOKPProbeTimeoutSeconds,
+		SuccessThreshold: 1,
+	}
+}
+
+func rhokpStartupProbe() *corev1.Probe {
+	probe := rhokpProbeBase()
+	probe.InitialDelaySeconds = utils.RHOOKPStartupProbeInitialDelaySeconds
+	probe.FailureThreshold = utils.RHOOKPStartupProbeFailureThreshold
+	probe.PeriodSeconds = utils.RHOOKPStartupProbePeriodSeconds
+	return &probe
+}
+
+func rhokpReadinessProbe() *corev1.Probe {
+	probe := rhokpProbeBase()
+	probe.FailureThreshold = utils.RHOOKPProbeFailureThreshold
+	return &probe
+}
+
+func rhokpLivenessProbe() *corev1.Probe {
+	return rhokpReadinessProbe()
+}
+
+func getRHOOKPResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+	// RHOKP recommended sizing: 2 CPU, 2 GiB memory, 75 GiB ephemeral (product docs).
+	// Defaults follow OpenShift conventions: requests only for CPU/memory (OLS-3397).
+	return utils.GetResourcesOrDefault(
+		cr.Spec.OLSConfig.DeploymentConfig.RHOKPContainer.Resources,
+		&corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:              resource.MustParse("2"),
+				corev1.ResourceMemory:           resource.MustParse("2Gi"),
+				corev1.ResourceEphemeralStorage: resource.MustParse("75Gi"),
+			},
+			Claims: []corev1.ResourceClaim{},
+		},
+	)
+}
+
 func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	ctx := context.Background()
 	const OLSConfigVolumeName = "cm-olsconfig"
@@ -306,6 +376,22 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Postgres CA volume
 	volumes = append(volumes, utils.GetPostgresCAConfigVolume())
 
+	volumes = append(volumes, corev1.Volume{
+		Name: utils.AppOtelCollectorCACertVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName:  utils.OtelCollectorCertsSecretName,
+				DefaultMode: &volumeDefaultMode,
+				Items: []corev1.KeyToPath{
+					{
+						Key:  utils.AppOtelCollectorCACertFile,
+						Path: utils.AppOtelCollectorCACertFile,
+					},
+				},
+			},
+		},
+	})
+
 	volumes = append(volumes,
 		corev1.Volume{
 			Name: utils.TmpVolumeName,
@@ -322,6 +408,11 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 
 	volumeMounts = append(volumeMounts,
 		utils.GetPostgresCAVolumeMount(path.Join(utils.OLSAppCertsMountRoot, "postgres-ca")),
+		corev1.VolumeMount{
+			Name:      utils.AppOtelCollectorCACertVolumeName,
+			MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.AppOtelCollectorCACertDir),
+			ReadOnly:  true,
+		},
 		corev1.VolumeMount{
 			Name:      utils.TmpVolumeName,
 			MountPath: utils.TmpVolumeMountPath,
@@ -360,6 +451,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	ols_server_resources := getOLSServerResources(cr)
 	data_collector_resources := getOLSDataCollectorResources(cr)
 	mcp_server_resources := getOLSMCPServerResources(cr)
+	rhokp_resources := getRHOOKPResources(cr)
 
 	// Get ResourceVersions for tracking - these resources should already exist
 	// If they don't exist (NotFound), we'll get empty strings which is fine for initial creation
@@ -406,11 +498,8 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 							Ports:           ports,
 							SecurityContext: utils.RestrictedContainerSecurityContext(),
 							VolumeMounts:    volumeMounts,
-							Env: append(utils.GetProxyEnvVars(), corev1.EnvVar{
-								Name:  "OLS_CONFIG_FILE",
-								Value: path.Join(utils.OLSConfigMountRoot, utils.OLSConfigFilename),
-							}),
-							Resources: *ols_server_resources,
+							Env:             appServerEnv(r, cr),
+							Resources:       *ols_server_resources,
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -435,7 +524,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 								InitialDelaySeconds: 30,
 								PeriodSeconds:       30,
 								TimeoutSeconds:      30,
-								FailureThreshold:    15,
+								FailureThreshold:    3,
 							},
 						},
 					},
@@ -469,6 +558,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// Add additional containers in a consistent order:
 	// 1. Data collector container (if enabled)
 	// 2. MCP server container (if enabled)
+	// 3. RHOKP Solr sidecar (if Solr hybrid RAG is configured)
 
 	if dataCollectorEnabled {
 		// Add data exporter container
@@ -504,9 +594,8 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	// preventing secret data from reaching the LLM.
 	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		configVolume, configMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
-
 		openshiftMCPServerSidecarContainer := corev1.Container{
-			Name:            "openshift-mcp-server",
+			Name:            utils.OpenShiftMCPServerContainerName,
 			Image:           r.GetOpenShiftMCPServerImage(),
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			SecurityContext: utils.RestrictedContainerSecurityContext(),
@@ -520,6 +609,31 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		}
 		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, configVolume)
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, openshiftMCPServerSidecarContainer)
+	}
+
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		rhokpSidecarContainer := corev1.Container{
+			Name:            utils.RHOOKPContainerName,
+			Image:           r.GetRHOOKPImage(),
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Command:         rhokpContainerCommand(),
+			Args:            rhokpContainerArgs(),
+			SecurityContext: utils.RHOOKPContainerSecurityContext(),
+			Env:             generateRHOOKPEnv(),
+			Ports: []corev1.ContainerPort{
+				{
+					ContainerPort: utils.RHOOKPHTTPPort,
+					Name:          "solr-http",
+					Protocol:      corev1.ProtocolTCP,
+				},
+			},
+			// portal-rag admin ping; startupProbe tolerates Solr cold start before readiness/liveness run.
+			StartupProbe:   rhokpStartupProbe(),
+			ReadinessProbe: rhokpReadinessProbe(),
+			LivenessProbe:  rhokpLivenessProbe(),
+			Resources:      *rhokp_resources,
+		}
+		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, rhokpSidecarContainer)
 	}
 
 	return &deployment, nil

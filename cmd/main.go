@@ -36,6 +36,7 @@ limitations under the License.
 //   - console-image: Override default console plugin image
 //   - agentic-console-image: Override default agentic console plugin image
 //   - alerts-adapter-image: Override default agentic alerts adapter image
+//   - otel-collector-image: Override default OTEL Collector image
 //   - postgres-image: Override default PostgreSQL image
 //   - openshift-mcp-server-image: Override default MCP server image
 //   - namespace: Operator namespace (defaults to WATCH_NAMESPACE env var or "openshift-lightspeed")
@@ -100,9 +101,10 @@ var (
 		"console-plugin":             utils.ConsoleUIImageDefault,
 		"agentic-console-plugin":     utils.AgenticConsoleUIImageDefault,
 		"alerts-adapter":             utils.AlertsAdapterImageDefault,
+		"otel-collector":             utils.OtelCollectorImageDefault,
 		"openshift-mcp-server-image": utils.OpenShiftMCPServerImageDefault,
 		"dataverse-exporter-image":   utils.DataverseExporterImageDefault,
-		"ocp-rag-image":              utils.OcpRagImageDefault,
+		"rhokp-image":                utils.RHOOKPImageDefault,
 	}
 )
 
@@ -120,7 +122,7 @@ func init() {
 
 // overrideImages overrides the default images with the images provided by the user.
 // If an image is not provided, the default is used.
-func overrideImages(serviceImage string, consoleImage string, agenticConsoleImage string, alertsAdapterImage string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, ocpRagImage string) map[string]string {
+func overrideImages(serviceImage string, consoleImage string, agenticConsoleImage string, alertsAdapterImage string, otelCollectorImage string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, rhokpImage string) map[string]string {
 	res := defaultImages
 	if serviceImage != "" {
 		res["lightspeed-service"] = serviceImage
@@ -134,6 +136,9 @@ func overrideImages(serviceImage string, consoleImage string, agenticConsoleImag
 	if alertsAdapterImage != "" {
 		res["alerts-adapter"] = alertsAdapterImage
 	}
+	if otelCollectorImage != "" {
+		res["otel-collector"] = otelCollectorImage
+	}
 	if postgresImage != "" {
 		res["postgres-image"] = postgresImage
 	}
@@ -143,8 +148,8 @@ func overrideImages(serviceImage string, consoleImage string, agenticConsoleImag
 	if dataverseExporterImage != "" {
 		res["dataverse-exporter-image"] = dataverseExporterImage
 	}
-	if ocpRagImage != "" {
-		res["ocp-rag-image"] = ocpRagImage
+	if rhokpImage != "" {
+		res["rhokp-image"] = rhokpImage
 	}
 	return res
 }
@@ -175,11 +180,12 @@ func main() {
 	var consoleImage string
 	var agenticConsoleImage string
 	var alertsAdapterImage string
+	var otelCollectorImage string
 	var namespace string
 	var postgresImage string
 	var openshiftMCPServerImage string
 	var dataverseExporterImage string
-	var ocpRagImage string
+	var rhokpImage string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -194,11 +200,12 @@ func main() {
 	flag.StringVar(&consoleImage, "console-image", utils.ConsoleUIImageDefault, "The image of the console-plugin container.")
 	flag.StringVar(&agenticConsoleImage, "agentic-console-image", utils.AgenticConsoleUIImageDefault, "The image of the agentic console-plugin container.")
 	flag.StringVar(&alertsAdapterImage, "alerts-adapter-image", utils.AlertsAdapterImageDefault, "The image of the agentic alerts adapter container.")
+	flag.StringVar(&otelCollectorImage, "otel-collector-image", utils.OtelCollectorImageDefault, "The image of the OTEL Collector container.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
 	flag.StringVar(&postgresImage, "postgres-image", utils.PostgresServerImageDefault, "The image of the PostgreSQL server.")
 	flag.StringVar(&openshiftMCPServerImage, "openshift-mcp-server-image", utils.OpenShiftMCPServerImageDefault, "The image of the OpenShift MCP server container.")
 	flag.StringVar(&dataverseExporterImage, "dataverse-exporter-image", utils.DataverseExporterImageDefault, "The image of the dataverse exporter container.")
-	flag.StringVar(&ocpRagImage, "ocp-rag-image", utils.OcpRagImageDefault, "The image with the OCP RAG databases.")
+	flag.StringVar(&rhokpImage, "rhokp-image", utils.RHOOKPImageDefault, "The RH Offline Knowledge Portal (Solr) sidecar image for Solr hybrid RAG.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -211,7 +218,7 @@ func main() {
 		namespace = getWatchNamespace()
 	}
 
-	imagesMap := overrideImages(serviceImage, consoleImage, agenticConsoleImage, alertsAdapterImage, postgresImage, openshiftMCPServerImage, dataverseExporterImage, ocpRagImage)
+	imagesMap := overrideImages(serviceImage, consoleImage, agenticConsoleImage, alertsAdapterImage, otelCollectorImage, postgresImage, openshiftMCPServerImage, dataverseExporterImage, rhokpImage)
 	setupLog.Info("Images setting loaded", "images", listImages())
 
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
@@ -325,6 +332,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	rosaOKPProductEnv, err := utils.RosaOKPProductEnv(k8sClient, ctx, setupLog)
+	if err != nil {
+		setupLog.Error(err, "failed to detect ROSA OKP product; app-server will use OCP-only OKP retrieval")
+	} else if rosaOKPProductEnv != nil && rosaOKPProductEnv.Value == utils.RosaOKPProductHCP {
+		setupLog.Info("ROSA OKP product configured for app-server", "product", rosaOKPProductEnv.Value)
+	}
+
 	// Check if Prometheus Operator CRDs are available
 	prometheusAvailable := utils.IsPrometheusOperatorAvailable(ctx, k8sClient)
 	prometheusStatus := "NOT AVAILABLE"
@@ -375,6 +389,12 @@ func main() {
 					Description:         "PostgreSQL TLS certificate (created by Service CA Operator)",
 					AffectedDeployments: []string{utils.PostgresDeploymentName, "ACTIVE_BACKEND"},
 				},
+				{
+					Name:                utils.OtelCollectorCertsSecretName,
+					Namespace:           namespace,
+					Description:         "OTEL Collector TLS certificate (created by Service CA Operator)",
+					AffectedDeployments: []string{utils.OtelCollectorDeploymentName, "ACTIVE_BACKEND"},
+				},
 			},
 		},
 		// list here "special" external config maps that we need to watch in addition to
@@ -418,10 +438,13 @@ func main() {
 			ConsoleUIImage:                 imagesMap["console-plugin"],
 			AgenticConsoleUIImage:          imagesMap["agentic-console-plugin"],
 			AlertsAdapterImage:             imagesMap["alerts-adapter"],
+			OtelCollectorImage:             imagesMap["otel-collector"],
 			LightspeedServiceImage:         imagesMap["lightspeed-service"],
 			LightspeedServicePostgresImage: imagesMap["postgres-image"],
 			OpenShiftMCPServerImage:        imagesMap["openshift-mcp-server-image"],
 			DataverseExporterImage:         imagesMap["dataverse-exporter-image"],
+			RHOOKPImage:                    imagesMap["rhokp-image"],
+			RosaOKPProductEnv:              rosaOKPProductEnv,
 			Namespace:                      namespace,
 			PrometheusAvailable:            prometheusAvailable,
 		},

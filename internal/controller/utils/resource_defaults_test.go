@@ -44,6 +44,14 @@ var _ = Describe("Resource defaults and test reconciler", func() {
 		Expect(sc.Capabilities.Drop).To(ConsistOf(corev1.Capability("ALL")))
 	})
 
+	It("RHOOKPContainerSecurityContext allows a writable root filesystem", func() {
+		sc := RHOOKPContainerSecurityContext()
+		Expect(sc).NotTo(BeNil())
+		Expect(*sc.ReadOnlyRootFilesystem).To(BeFalse())
+		Expect(*sc.RunAsNonRoot).To(BeTrue())
+		Expect(*sc.AllowPrivilegeEscalation).To(BeFalse())
+	})
+
 	It("TestReconciler getters and watcher config reflect NewTestReconciler defaults", func() {
 		sch := runtime.NewScheme()
 		utilruntime.Must(corev1.AddToScheme(sch))
@@ -58,11 +66,13 @@ var _ = Describe("Resource defaults and test reconciler", func() {
 		Expect(r.GetConsoleUIImage()).To(Equal(ConsoleUIImageDefault))
 		Expect(r.GetAgenticConsoleImage()).To(Equal(AgenticConsoleUIImageDefault))
 		Expect(r.GetAlertsAdapterImage()).To(Equal(AlertsAdapterImageDefault))
+		Expect(r.GetOtelCollectorImage()).To(Equal(OtelCollectorImageDefault))
 		Expect(r.GetOpenShiftMajor()).To(Equal("123"))
 		Expect(r.GetOpenshiftMinor()).To(Equal("456"))
 		Expect(r.GetAppServerImage()).To(Equal(OLSAppServerImageDefault))
-		Expect(r.GetOpenShiftMCPServerImage()).To(Equal(OLSAppServerImageDefault))
+		Expect(r.GetOpenShiftMCPServerImage()).To(Equal(OpenShiftMCPServerImageDefault))
 		Expect(r.GetDataverseExporterImage()).To(Equal(DataverseExporterImageDefault))
+		Expect(r.GetRHOOKPImage()).To(Equal(RHOOKPImageDefault))
 		Expect(r.IsPrometheusAvailable()).To(BeTrue())
 		Expect(r.GetWatcherConfig()).To(BeNil())
 

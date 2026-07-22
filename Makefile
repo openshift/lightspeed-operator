@@ -35,7 +35,7 @@ IMAGE_TAG_BASE ?= quay.io/openshift-lightspeed/lightspeed-operator
 
 # BUNDLE_TAG defines the version of the bundle.
 # You can use it as an arg. (E.g make bundle BUNDLE_TAG=0.0.1)
-BUNDLE_TAG ?= 1.1.1
+BUNDLE_TAG ?= 1.1.2
 
 # set the base image for docker files
 # You can use it as an arg.  (E.g make bundle BASE_IMG=registry.redhat.io/ubi9/ubi-minimal)
@@ -113,8 +113,12 @@ CONTROLLER_GEN_PATHS = paths=./api/... paths=./internal/... paths=./cmd/...
 # containers_image_openpgp avoids gpgme CGO so e2e builds on minimal images without gpgme-devel.
 E2E_GO_TAGS := exclude_graphdriver_btrfs,containers_image_openpgp
 
+.PHONY: generate-deployment-patch
+generate-deployment-patch: jq ## Generate config/default/deployment-patch.yaml from related_images.json.
+	./hack/generate_deployment_patch.sh
+
 .PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: generate-deployment-patch controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook $(CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
@@ -131,7 +135,7 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: manifests generate fmt vet envtest test-crds ## Run local tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./internal/... -coverprofile cover.out -p 8 -timeout 10m
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./internal/... -coverprofile cover.out -p 6 -timeout 10m
 
 # Use 4.18 release branch for CRDs in unit tests
 OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/refs/heads/release-4.18/operator/v1/zz_generated.crd-manifests/0000_50_console_01_consoles.crd.yaml
@@ -235,7 +239,8 @@ build: manifests generate fmt vet ## Build manager binary.
 dev-setup: manifests kustomize install ## Setup RBAC and resources for local development (idempotent, safe to run multiple times)
 	@echo "📦 Setting up local development environment..."
 	@$(KUBECTL) create namespace openshift-lightspeed --dry-run=client -o yaml | $(KUBECTL) apply -f - 2>/dev/null || true
-	@$(KUBECTL) apply -f bundle/manifests/lightspeed-operator-metrics-reader_v1_serviceaccount.yaml 2>/dev/null || true
+	@$(KUBECTL) apply -n openshift-lightspeed -f bundle/manifests/lightspeed-operator-metrics-reader_v1_serviceaccount.yaml 2>/dev/null || true
+	@$(KUBECTL) apply -n openshift-lightspeed -f config/dev/metrics-reader-token.yaml 2>/dev/null || true
 	@$(KUBECTL) apply -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrole.yaml 2>/dev/null || true
 	@$(KUBECTL) apply -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml 2>/dev/null || true
 	@$(KUBECTL) apply -k config/user-access/ 2>/dev/null || true
@@ -246,7 +251,8 @@ dev-teardown: uninstall ## Teardown local development environment (removes RBAC,
 	@echo "🧹 Cleaning up local development environment..."
 	@$(KUBECTL) delete -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml --ignore-not-found=true 2>/dev/null || true
 	@$(KUBECTL) delete -f bundle/manifests/lightspeed-operator-ols-metrics-reader_rbac.authorization.k8s.io_v1_clusterrole.yaml --ignore-not-found=true 2>/dev/null || true
-	@$(KUBECTL) delete -f bundle/manifests/lightspeed-operator-metrics-reader_v1_serviceaccount.yaml --ignore-not-found=true 2>/dev/null || true
+	@$(KUBECTL) delete -n openshift-lightspeed -f config/dev/metrics-reader-token.yaml --ignore-not-found=true 2>/dev/null || true
+	@$(KUBECTL) delete -n openshift-lightspeed -f bundle/manifests/lightspeed-operator-metrics-reader_v1_serviceaccount.yaml --ignore-not-found=true 2>/dev/null || true
 	@$(KUBECTL) delete -k config/user-access/ --ignore-not-found=true 2>/dev/null || true
 	@$(KUBECTL) delete namespace openshift-lightspeed --ignore-not-found=true 2>/dev/null || true
 	@echo "✅ Development environment cleaned up."
@@ -307,10 +313,6 @@ deploy: manifests kustomize jq ## Deploy controller to the K8s cluster specified
 		echo "error: related_images.json not found"; \
 		exit 1; \
 	fi; \
-	if [ ! -f "hack/image_placeholders.json" ]; then \
-		echo "error: hack/image_placeholders.json not found"; \
-		exit 1; \
-	fi; \
 	if [ ! -f "$(PATCH_FILE)" ]; then \
 		echo "error: $(PATCH_FILE) not found"; \
 		exit 1; \
@@ -322,17 +324,11 @@ deploy: manifests kustomize jq ## Deploy controller to the K8s cluster specified
 		echo "error: operator image not found in related_images.json; set IMG (e.g. make deploy IMG=myregistry/my-operator:mytag)"; \
 		exit 1; \
 	fi; \
-	sed -i "s|__REPLACE_LIGHTSPEED_OPERATOR__|$$OPERATOR_IMG|g" $(PATCH_FILE); \
-	sed -i "/path: \/spec\/template\/spec\/containers\/0\/image/{n;s|value: .*|value: $$OPERATOR_IMG|}" $(PATCH_FILE); \
-	$(JQ) -r '.[] | "\(.name)|\(.placeholder)"' hack/image_placeholders.json | while IFS='|' read -r name placeholder; do \
-		if [ "$$name" != "lightspeed-operator" ]; then \
-			img=$$($(JQ) -r --arg n "$$name" '.[] | select(.name==$$n) | .image' related_images.json); \
-			if [ -n "$$img" ] && [ "$$img" != "null" ]; then \
-				sed -i "s|$$placeholder|$$img|g" $(PATCH_FILE); \
-			fi; \
-		fi; \
-	done
+	# shellcheck source=hack/image_args_lib.sh \
+	. ./hack/image_args_lib.sh; \
+	image_args::substitute_deployment_patch "$(PATCH_FILE)" related_images.json "$$OPERATOR_IMG" "$(JQ)"
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+	@git checkout -- $(PATCH_FILE) 2>/dev/null || true
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
@@ -381,7 +377,6 @@ $(ENVTEST): $(LOCALBIN)
 OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
 operator-sdk: ## Download operator-sdk locally if necessary.
 ifeq (,$(wildcard $(OPERATOR_SDK)))
-ifeq (, $(shell which operator-sdk 2>/dev/null))
 	@{ \
 	set -e ;\
 	mkdir -p $(dir $(OPERATOR_SDK)) ;\
@@ -389,9 +384,6 @@ ifeq (, $(shell which operator-sdk 2>/dev/null))
 	curl -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk_$${OS}_$${ARCH} ;\
 	chmod +x $(OPERATOR_SDK) ;\
 	}
-else
-OPERATOR_SDK = $(shell which operator-sdk)
-endif
 endif
 
 
@@ -402,7 +394,7 @@ endif
 ## to use image digests instead of version tag, set the USE_IMAGE_DIGESTS variable to true
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
-	YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i related_images.json
+	OPERATOR_SDK=$(OPERATOR_SDK) YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i related_images.json
 
 parking:
 	$(OPERATOR_SDK) generate kustomize manifests -q

@@ -23,82 +23,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// AuditOTELTLSMode defines TLS behavior for the OTLP exporter.
-// +kubebuilder:validation:Enum=Secure;Insecure
-type AuditOTELTLSMode string
+// AuditConfig configures audit log and trace export via the OTEL Collector.
+type AuditConfig struct {
+	// logging enables audit log storage in PostgreSQL via the Collector.
+	// Default: true when absent.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Audit Logging",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	Logging *bool `json:"logging,omitempty"`
 
-const (
-	AuditOTELTLSSecure   AuditOTELTLSMode = "Secure"
-	AuditOTELTLSInsecure AuditOTELTLSMode = "Insecure"
-)
-
-// AuditLoggingMode defines whether structured audit logging is enabled.
-// +kubebuilder:validation:Enum=Enabled;Disabled
-type AuditLoggingMode string
-
-const (
-	AuditLoggingEnabled  AuditLoggingMode = "Enabled"
-	AuditLoggingDisabled AuditLoggingMode = "Disabled"
-)
-
-// AuditOTELConfig configures OpenTelemetry tracing export.
-//
-// +kubebuilder:validation:MinProperties=1
-type AuditOTELConfig struct {
-	// endpoint is the OTLP gRPC endpoint (e.g., "jaeger-otlp-grpc.observability.svc:4317").
-	// When empty, no OTEL traces are exported (no-op tracer used).
-	// +kubebuilder:validation:MinLength=1
+	// tracingEndpoint is the trace export backend (e.g. "jaeger:4317").
+	// The Collector forwards traces here when set. TLS is always used.
 	// +kubebuilder:validation:MaxLength=253
 	// +optional
-	Endpoint string `json:"endpoint,omitempty"`
-
-	// tlsMode controls TLS for the OTLP connection.
-	// "Secure" (default) requires TLS; "Insecure" disables TLS.
-	// +default="Secure"
-	// +optional
-	TLSMode AuditOTELTLSMode `json:"tlsMode,omitempty"`
-}
-
-// AuditConfig configures compliance audit logging and tracing.
-// Logging and OTEL tracing are independent controls.
-//
-// +kubebuilder:validation:MinProperties=1
-type AuditConfig struct {
-	// logging enables structured JSON audit events to stdout.
-	// Default: Enabled (when field is empty or config CR absent).
-	// +default="Enabled"
-	// +optional
-	Logging AuditLoggingMode `json:"logging,omitempty"`
-
-	// otel configures OpenTelemetry tracing export.
-	// When nil or endpoint empty, uses no-op tracer (no export).
-	// +optional
-	OTEL *AuditOTELConfig `json:"otel,omitempty"`
-}
-
-// LoggingEnabled returns true when audit logging should be enabled.
-// Defaults to true when config is nil or Logging field is empty.
-func (c *AuditConfig) LoggingEnabled() bool {
-	if c == nil || c.Logging == "" {
-		return true
-	}
-	return c.Logging == AuditLoggingEnabled
-}
-
-// OTELEndpoint returns the OTLP endpoint or empty string if not configured.
-func (c *AuditConfig) OTELEndpoint() string {
-	if c == nil || c.OTEL == nil {
-		return ""
-	}
-	return c.OTEL.Endpoint
-}
-
-// OTELInsecure returns whether to use insecure (no TLS) connections.
-func (c *AuditConfig) OTELInsecure() bool {
-	if c == nil || c.OTEL == nil {
-		return false
-	}
-	return c.OTEL.TLSMode == AuditOTELTLSInsecure
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tracing Endpoint"
+	TracingEndpoint string `json:"tracingEndpoint,omitempty"`
 }
 
 // OLSConfigSpec defines the desired state of OLSConfig
@@ -122,12 +60,10 @@ type OLSConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Feature Gates"
 	FeatureGates []FeatureGate `json:"featureGates,omitempty"`
-	// Audit logging and tracing configuration.
-	// Logging and OTEL tracing are independent controls.
-	// Default: logging enabled, no OTEL export when absent.
+	// Audit log and trace export configuration for the OTEL Collector.
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Audit Settings"
-	Audit *AuditConfig `json:"audit,omitempty"`
+	Audit AuditConfig `json:"audit"`
 }
 
 // +kubebuilder:validation:Enum=MCPServer;ToolFiltering
@@ -252,6 +188,15 @@ type LLMSpec struct {
 }
 
 // OLSSpec defines the desired state of OLS deployment.
+//
+// OKP (Offline Knowledge Portal) / Solr hybrid RAG is operator-managed, not configured on this CR:
+//   - Enabled by default. The operator deploys the RHOKP sidecar and writes ols_config.solr_hybrid
+//     into olsconfig.yaml (Solr URL, hybrid tuning, and related keys use operator defaults).
+//   - The app-server pod receives OCP_CLUSTER_VERSION for Solr chunk_filter_query resolution.
+//   - OCP documentation is retrieved via the search_openshift_documentation tool (Solr hybrid), not
+//     direct prompt RAG. BYOK content remains on spec.rag (FAISS indexes).
+//   - Set byokRAGOnly to disable OKP: no RHOKP sidecar, no solr_hybrid section, and no built-in
+//     OCP documentation retrieval—only BYOK FAISS indexes from spec.rag are used.
 type OLSSpec struct {
 	// Conversation cache settings
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2,displayName="Conversation Cache"
@@ -294,6 +239,11 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Introspection Enabled",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	IntrospectionEnabled *bool `json:"introspectionEnabled,omitempty"`
+	// auditEventsEnabled controls structured compliance audit JSON events on stdout.
+	// Default: true when absent. Does not affect collector storage (see spec.audit).
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Audit Events Enabled",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	AuditEventsEnabled *bool `json:"auditEventsEnabled,omitempty"`
 	// MCP Kubernetes server configuration
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Kube Server Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:validation:Optional
@@ -302,9 +252,9 @@ type OLSSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Proxy Settings",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:validation:Optional
 	ProxyConfig *ProxyConfig `json:"proxyConfig,omitempty"`
-	// RAG databases
+	// BYOK RAG databases (bring-your-own container images with FAISS vector indexes).
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RAG Databases",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="BYOK RAG Databases",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	RAG []RAGSpec `json:"rag,omitempty"`
 	// LLM Token Quota Configuration
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="LLM Token Quota Configuration"
@@ -313,7 +263,7 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Persistent Storage Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	Storage *Storage `json:"storage,omitempty"`
-	// Only use BYOK RAG sources, ignore the OpenShift documentation RAG
+	// Only use BYOK RAG sources. Disables OKP (RHOKP sidecar, solr_hybrid config, and built-in OCP documentation retrieval).
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Only use BYOK RAG sources",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	ByokRAGOnly bool `json:"byokRAGOnly,omitempty"`
@@ -361,17 +311,17 @@ type MCPKubeServerConfiguration struct {
 	Timeout int `json:"timeout,omitempty"`
 }
 
-// RAGSpec defines how to retrieve RAG databases.
+// RAGSpec defines a BYOK RAG database (container image and index path).
 type RAGSpec struct {
-	// The path to the RAG database inside of the container image
+	// The path to the BYOK RAG database inside of the container image
 	// +kubebuilder:default="/rag/vector_db"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index Path in the Image"
 	IndexPath string `json:"indexPath,omitempty"`
-	// The Index ID of the RAG database. Only needed if there are multiple indices in the database.
+	// The Index ID of the BYOK RAG database. Only needed if there are multiple indices in the database.
 	// +kubebuilder:default=""
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Index ID"
 	IndexID string `json:"indexID,omitempty"`
-	// The URL of the container image to use as a RAG source
+	// The URL of the container image to use as a BYOK RAG source
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image"
@@ -426,6 +376,9 @@ type DeploymentConfig struct {
 	// MCP server container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Container"
 	MCPServerContainer ContainerConfig `json:"mcpServer,omitempty"`
+	// RHOKP sidecar container settings (Solr / OKP).
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RHOKP Container"
+	RHOKPContainer ContainerConfig `json:"rhokp,omitempty"`
 	// Console container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Console Deployment"
 	ConsoleContainer Config `json:"console,omitempty"`
@@ -438,6 +391,9 @@ type DeploymentConfig struct {
 	// Alerts adapter deployment and runtime config reference.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Alerts Adapter"
 	AlertsAdapter AlertsAdapterSpec `json:"alertsAdapter,omitempty"`
+	// OTEL Collector deployment settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="OTEL Collector Deployment"
+	OtelCollector Config `json:"otelCollector,omitempty"`
 }
 
 // AlertsAdapterSpec defines deployment settings and a reference to user-managed adapter runtime config.
@@ -456,8 +412,8 @@ type AlertsAdapterSpec struct {
 // Config defines pod configuration using standard Kubernetes types
 type Config struct {
 	// Defines the number of desired OLS pods. Default: "1"
-	// Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console, and Alerts Adapter containers,
-	// the number of replicas will always be set to 1.
+	// Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
+	// Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}

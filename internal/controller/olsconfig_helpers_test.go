@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -320,6 +321,28 @@ var _ = Describe("Watcher Predicates", func() {
 			result := reconciler.shouldWatchConfigMap(cm)
 			Expect(result).To(BeTrue())
 		})
+	})
+})
+
+var _ = Describe("isRESTMappingError", func() {
+	It("should return true for RESTMapping errors from API server", func() {
+		err := fmt.Errorf("configmaps \"lightspeed-console-plugin\" is forbidden: cannot set blockOwnerDeletion in this case because cannot find RESTMapping for APIVersion ols.openshift.io/v1alpha1 Kind OLSConfig")
+		Expect(isRESTMappingError(err)).To(BeTrue())
+	})
+
+	It("should return true when wrapped in reconciliation error", func() {
+		inner := fmt.Errorf("cannot find RESTMapping for APIVersion ols.openshift.io/v1alpha1 Kind OLSConfig")
+		err := fmt.Errorf("failed to reconcile resources: %w", inner)
+		Expect(isRESTMappingError(err)).To(BeTrue())
+	})
+
+	It("should return false for unrelated errors", func() {
+		err := fmt.Errorf("connection refused")
+		Expect(isRESTMappingError(err)).To(BeFalse())
+	})
+
+	It("should return false for nil error", func() {
+		Expect(isRESTMappingError(nil)).To(BeFalse())
 	})
 })
 

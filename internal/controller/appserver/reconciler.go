@@ -414,39 +414,11 @@ func reconcileMetricsReaderSecret(r reconciler.Reconciler, ctx context.Context, 
 }
 
 func reconcileServiceMonitor(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	if !r.IsPrometheusAvailable() {
-		r.GetLogger().Info("Prometheus Operator not available, skipping app server ServiceMonitor reconciliation")
-		return nil
-	}
-
 	sm, err := GenerateServiceMonitor(r, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateServiceMonitor, err)
 	}
-
-	foundSm := &monv1.ServiceMonitor{}
-	err = r.Get(ctx, client.ObjectKey{Name: utils.AppServerServiceMonitorName, Namespace: r.GetNamespace()}, foundSm)
-	if err != nil && errors.IsNotFound(err) {
-		r.GetLogger().Info("creating a new service monitor", "serviceMonitor", sm.Name)
-		err = r.Create(ctx, sm)
-		if err != nil {
-			return fmt.Errorf("%s: %w", utils.ErrCreateServiceMonitor, err)
-		}
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetServiceMonitor, err)
-	}
-	if utils.ServiceMonitorEqual(foundSm, sm) {
-		r.GetLogger().Info("OLS service monitor unchanged, reconciliation skipped", "serviceMonitor", sm.Name)
-		return nil
-	}
-	foundSm.Spec = sm.Spec
-	err = r.Update(ctx, foundSm)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdateServiceMonitor, err)
-	}
-	r.GetLogger().Info("OLS service monitor reconciled", "serviceMonitor", sm.Name)
-	return nil
+	return utils.ReconcileServiceMonitor(r, ctx, sm)
 }
 
 func reconcilePrometheusRule(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {

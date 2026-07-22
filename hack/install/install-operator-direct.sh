@@ -63,10 +63,6 @@ direct_deploy_skip_idms() {
 		echo "error: related_images.json not found" >&2
 		exit 1
 	}
-	[[ -f "${REPO_ROOT}/hack/image_placeholders.json" ]] || {
-		echo "error: hack/image_placeholders.json not found" >&2
-		exit 1
-	}
 	[[ -f "${REPO_ROOT}/config/default/deployment-patch.yaml" ]] || {
 		echo "error: ${REPO_ROOT}/config/default/deployment-patch.yaml not found" >&2
 		exit 1
@@ -93,16 +89,9 @@ direct_deploy_skip_idms() {
 		cp -a "${REPO_ROOT}/config/." "${tmpcfg}/cfg/"
 		patch_file="${tmpcfg}/cfg/default/deployment-patch.yaml"
 
-		sed -i "s|__REPLACE_LIGHTSPEED_OPERATOR__|${operator_img}|g" "$patch_file"
-		sed -i "/path: \/spec\/template\/spec\/containers\/0\/image/{n;s|value: .*|value: ${operator_img}|}" "$patch_file"
-		while IFS='|' read -r name placeholder; do
-			if [[ "$name" != "lightspeed-operator" ]]; then
-				img=$("${jqbin}" -r --arg n "$name" '.[] | select(.name==$n) | .image' "${REPO_ROOT}/related_images.json")
-				if [[ -n "$img" && "$img" != "null" ]]; then
-					sed -i "s|${placeholder}|${img}|g" "$patch_file"
-				fi
-			fi
-		done < <("${jqbin}" -r '.[] | "\(.name)|\(.placeholder)"' "${REPO_ROOT}/hack/image_placeholders.json")
+		# shellcheck source=../image_args_lib.sh
+		source "${REPO_ROOT}/hack/image_args_lib.sh"
+		image_args::substitute_deployment_patch "${patch_file}" "${REPO_ROOT}/related_images.json" "${operator_img}" "${jqbin}"
 
 		cd "${tmpcfg}/cfg/default"
 		"${kustomize}" build . | "${yq_cmd}" ea 'select(.kind != "ImageDigestMirrorSet")' - | "${kubectlbin}" apply -f -
