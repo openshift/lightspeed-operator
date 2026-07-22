@@ -592,6 +592,14 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// 5. Phase 1: Reconcile independent resources
 	if err := r.reconcileIndependentResources(ctx, olsconfig); err != nil {
+		if isRESTMappingError(err) {
+			// After CRD installation, the API server's discovery cache may not yet
+			// contain the OLSConfig kind. Returning a nil error with RequeueAfter
+			// resets the rate limiter's failure counter (Forget), preventing rapid
+			// self-triggered retries from poisoning the backoff to 1000s.
+			r.Logger.Info("API server discovery cache has not yet registered the OLSConfig CRD, retrying", "requeueAfter", "5s")
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
 		return ctrl.Result{}, err
 	}
 
