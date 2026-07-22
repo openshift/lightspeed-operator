@@ -80,7 +80,7 @@ Service continues to use the existing gRPC OTLP trace exporter (`opentelemetry.e
 
 The Postgres bootstrap script creates only `quota` and `conversation_cache` schemas. It does **not** create the `templogs` schema or tables.
 
-The OTEL Collector always creates and manages the `templogs` schema, `logs` table, and indexes via the `postgres_admin` extension at collector startup (`postgres_admin` is always enabled for clients). `spec.audit.logging` only controls whether new OTLP logs are exported into that schema. The operator never drops this schema.
+The OTEL Collector always creates and manages the `templogs` schema, `logs` table, and indexes via the `postgres_admin` extension at collector startup (`postgres_admin` is always enabled for clients). `spec.audit.logging` only controls whether new OTLP logs are exported into that schema. The operator never drops this schema. The `logs` table uses `agentic_run_id` (AgenticRun UID, normalized to 32-char hex) and `phase` (audit phase name) as the primary query dimensions, with a composite index on `(agentic_run_id, phase)`.
 
 See `postgres.md` for Postgres bootstrap scope and `templog.md` (lightspeed-service repo) for table DDL semantics.
 
