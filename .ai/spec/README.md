@@ -36,6 +36,10 @@ AI agents (Claude). Content is optimized for precision and machine consumption o
 | Understand the CRD | `what/crd-api.md` |
 | Navigate the codebase | `how/project-structure.md` |
 | Understand console plugins | `what/console-ui.md` (chat), `what/agentic-console-ui.md` (agentic) |
+| Understand app server deployment | `what/app-server.md` |
+| Understand PostgreSQL deployment | `what/postgres.md` |
+| Understand temporary audit log storage | `what/templog.md` |
+| Understand audit logging | `what/audit-logging.md` |
 | Understand TLS configuration | `what/tls.md` |
 | Understand security constraints | `what/security.md` |
 | Debug external resource watching | `what/resource-lifecycle.md` + `how/reconciliation.md` |
