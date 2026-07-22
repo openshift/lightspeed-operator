@@ -555,3 +555,13 @@ func (r *OLSConfigReconciler) shouldWatchConfigMap(obj client.Object) bool {
 
 	return false
 }
+
+// isRESTMappingError returns true when the error is caused by the API server's
+// discovery cache not yet containing the OLSConfig CRD. After CRD installation,
+// the API server rejects owner references with blockOwnerDeletion because it
+// cannot resolve the owner's GVK. This is transient — the cache refreshes
+// within seconds — but rapid reconciliation failures during the window can
+// poison the workqueue rate limiter (base 5ms, 45 failures → capped at 1000s).
+func isRESTMappingError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "cannot find RESTMapping")
+}
