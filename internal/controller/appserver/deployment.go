@@ -45,21 +45,18 @@ func getOLSDataCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceReq
 	)
 }
 
-func getOLSMCPServerResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
-	return utils.GetResourcesOrDefault(
-		cr.Spec.OLSConfig.DeploymentConfig.MCPServerContainer.Resources,
-		&corev1.ResourceRequirements{
-			Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
-			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
-			Claims:   []corev1.ResourceClaim{},
-		},
-	)
-}
-
 func appServerEnv(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) []corev1.EnvVar {
 	env := append(utils.GetProxyEnvVars(), corev1.EnvVar{
 		Name:  "OLS_CONFIG_FILE",
 		Value: path.Join(utils.OLSConfigMountRoot, utils.OLSConfigFilename),
+	}, corev1.EnvVar{
+		// OTLP/gRPC uses its own trust store; extra_ca (certifi) is not consulted.
+		Name: utils.OTELExporterOTLPCertificateEnvVar,
+		Value: path.Join(
+			utils.OLSAppCertsMountRoot,
+			utils.AppOtelCollectorCACertDir,
+			utils.AppOtelCollectorCACertFile,
+		),
 	})
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
 		env = append(env, corev1.EnvVar{
@@ -382,9 +379,9 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	volumes = append(volumes, corev1.Volume{
 		Name: utils.AppOtelCollectorCACertVolumeName,
 		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName:  utils.OtelCollectorCertsSecretName,
-				DefaultMode: &volumeDefaultMode,
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: utils.OLSCAConfigMap},
+				DefaultMode:          &volumeDefaultMode,
 				Items: []corev1.KeyToPath{
 					{
 						Key:  utils.AppOtelCollectorCACertFile,
@@ -394,6 +391,21 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			},
 		},
 	})
+
+	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
+		volumes = append(volumes, corev1.Volume{
+			Name: utils.AppOpenShiftMCPServerCACertVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: utils.OpenShiftMCPServerCAConfigMapName,
+					},
+					DefaultMode: &volumeDefaultMode,
+					Optional:    utils.BoolPtr(true),
+				},
+			},
+		})
+	}
 
 	volumes = append(volumes,
 		corev1.Volume{
@@ -416,11 +428,18 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.AppOtelCollectorCACertDir),
 			ReadOnly:  true,
 		},
-		corev1.VolumeMount{
-			Name:      utils.TmpVolumeName,
-			MountPath: utils.TmpVolumeMountPath,
-		},
 	)
+	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      utils.AppOpenShiftMCPServerCACertVolumeName,
+			MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.AppOpenShiftMCPServerCACertDir),
+			ReadOnly:  true,
+		})
+	}
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      utils.TmpVolumeName,
+		MountPath: utils.TmpVolumeMountPath,
+	})
 
 	// mount the volumes and add Volume mounts for the MCP server headers
 	// Note: Callback never returns an error, using ForEach for convenient iteration
@@ -453,7 +472,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 
 	ols_server_resources := getOLSServerResources(cr)
 	data_collector_resources := getOLSDataCollectorResources(cr)
-	mcp_server_resources := getOLSMCPServerResources(cr)
 	rhokp_resources := getRHOOKPResources(cr)
 
 	// Get ResourceVersions for tracking - these resources should already exist
@@ -464,25 +482,29 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		return nil, fmt.Errorf("failed to get ConfigMap resource version: %w", err)
 	}
 
-	mcpConfigMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OpenShiftMCPServerConfigCmName)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, fmt.Errorf("failed to get MCP Server ConfigMap resource version: %w", err)
-	}
 	proxyCACMResourceVersion, err := utils.GetProxyCACertHash(r, ctx, cr)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get Proxy CA certificate hash: %w", err)
 	}
 
+	annotations := map[string]string{
+		utils.OLSConfigMapResourceVersionAnnotation: configMapResourceVersion,
+		utils.ProxyCACertHashAnnotation:             proxyCACMResourceVersion,
+	}
+	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
+		mcpCAHash, err := utils.GetOpenShiftMCPServerCACertHash(r, ctx, cr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get OpenShift MCP server CA certificate hash: %w", err)
+		}
+		annotations[utils.OpenShiftMCPServerCACertHashAnnotation] = mcpCAHash
+	}
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.OLSAppServerDeploymentName,
-			Namespace: r.GetNamespace(),
-			Labels:    utils.GenerateAppServerSelectorLabels(),
-			Annotations: map[string]string{
-				utils.OLSConfigMapResourceVersionAnnotation:                configMapResourceVersion,
-				utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation: mcpConfigMapResourceVersion,
-				utils.ProxyCACertHashAnnotation:                            proxyCACMResourceVersion,
-			},
+			Name:        utils.OLSAppServerDeploymentName,
+			Namespace:   r.GetNamespace(),
+			Labels:      utils.GenerateAppServerSelectorLabels(),
+			Annotations: annotations,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -560,8 +582,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 
 	// Add additional containers in a consistent order:
 	// 1. Data collector container (if enabled)
-	// 2. MCP server container (if enabled)
-	// 3. RHOKP Solr sidecar (if Solr hybrid RAG is configured)
+	// 2. RHOKP Solr sidecar (if Solr hybrid RAG is configured)
 
 	if dataCollectorEnabled {
 		// Add data exporter container
@@ -590,28 +611,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Resources: *data_collector_resources,
 		}
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, exporterContainer)
-	}
-
-	// Add OpenShift MCP server sidecar container if introspection is enabled.
-	// The sidecar is configured with a TOML config that denies access to Secret resources,
-	// preventing secret data from reaching the LLM.
-	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
-		configVolume, configMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
-		openshiftMCPServerSidecarContainer := corev1.Container{
-			Name:            utils.OpenShiftMCPServerContainerName,
-			Image:           r.GetOpenShiftMCPServerImage(),
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			SecurityContext: utils.RestrictedContainerSecurityContext(),
-			VolumeMounts:    []corev1.VolumeMount{configMount},
-			Command: []string{
-				"/openshift-mcp-server",
-				"--config", utils.GetOpenShiftMCPServerConfigPath(),
-				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
-			},
-			Resources: *mcp_server_resources,
-		}
-		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, configVolume)
-		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, openshiftMCPServerSidecarContainer)
 	}
 
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
@@ -660,20 +659,7 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		}
 	}
 
-	// Step 3: Check if MCP Server ConfigMap ResourceVersion has changed
-	currentMCPConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OpenShiftMCPServerConfigCmName)
-	if err != nil && !apierrors.IsNotFound(err) {
-		r.GetLogger().Info("failed to get MCP Server ConfigMap ResourceVersion", "error", err)
-		changed = true
-	} else {
-		storedMCPConfigMapVersion := existingDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
-		if storedMCPConfigMapVersion != currentMCPConfigMapVersion {
-			r.GetLogger().Info("MCP Server ConfigMap changed, updating deployment")
-			changed = true
-		}
-	}
-
-	// Step 4: Check if Proxy CA certificate content has changed
+	// Step 3: Check if Proxy CA certificate content has changed
 	currentProxyCACMHash, err := utils.GetProxyCACertHash(r, ctx, cr)
 	if err != nil && !apierrors.IsNotFound(err) {
 		r.GetLogger().Info("failed to get Proxy CA certificate hash", "error", err)
@@ -684,6 +670,21 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 			r.GetLogger().Info("Proxy CA certificate content changed, updating deployment")
 			changed = true
 		}
+	}
+
+	// Step 4: Check OpenShift MCP CA hash when introspection is enabled
+	var currentMCPCAHash string
+	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
+		currentMCPCAHash, err = utils.GetOpenShiftMCPServerCACertHash(r, ctx, cr)
+		if err != nil {
+			return fmt.Errorf("failed to get OpenShift MCP server CA certificate hash: %w", err)
+		}
+		if existingDeployment.Annotations[utils.OpenShiftMCPServerCACertHashAnnotation] != currentMCPCAHash {
+			r.GetLogger().Info("OpenShift MCP server CA certificate content changed, updating deployment")
+			changed = true
+		}
+	} else if _, exists := existingDeployment.Annotations[utils.OpenShiftMCPServerCACertHashAnnotation]; exists {
+		changed = true
 	}
 
 	// If nothing changed, skip update
@@ -700,8 +701,12 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	}
 
 	existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
-	existingDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.ProxyCACertHashAnnotation] = currentProxyCACMHash
+	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
+		existingDeployment.Annotations[utils.OpenShiftMCPServerCACertHashAnnotation] = currentMCPCAHash
+	} else {
+		delete(existingDeployment.Annotations, utils.OpenShiftMCPServerCACertHashAnnotation)
+	}
 
 	r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
 

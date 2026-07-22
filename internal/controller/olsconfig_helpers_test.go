@@ -37,6 +37,14 @@ var _ = Describe("Watcher Predicates", func() {
 								utils.ConsoleUIDeploymentName,
 							},
 						},
+						{
+							Name:      utils.OpenShiftMCPServerCertsSecretName,
+							Namespace: utils.OLSNamespaceDefault,
+							AffectedDeployments: []string{
+								utils.OpenShiftMCPServerDeploymentName,
+								"ACTIVE_BACKEND",
+							},
+						},
 					},
 				},
 				ConfigMaps: utils.ConfigMapWatcherConfig{
@@ -563,6 +571,21 @@ var _ = Describe("Helper Functions", func() {
 		)
 
 		BeforeEach(func() {
+			reconciler.WatcherConfig = &utils.WatcherConfig{
+				Secrets: utils.SecretWatcherConfig{
+					SystemResources: []utils.SystemSecret{
+						{
+							Name:      utils.OpenShiftMCPServerCertsSecretName,
+							Namespace: testNamespace,
+							AffectedDeployments: []string{
+								utils.OpenShiftMCPServerDeploymentName,
+								"ACTIVE_BACKEND",
+							},
+						},
+					},
+				},
+			}
+
 			// Create test secrets and configmaps
 			llmSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -770,6 +793,42 @@ var _ = Describe("Helper Functions", func() {
 
 			// The "kubernetes" token should not have caused any lookup or annotation
 			// No assertion needed - just verifying no error occurred
+		})
+
+		It("should enable openshift-mcp-server-tls watcher when introspection is enabled", func() {
+			Expect(reconciler.annotateExternalResources(ctx, testCR)).To(Succeed())
+			Expect(reconciler.WatcherConfig.OpenShiftMCPServerTLSWatchEnabled.Load()).To(BeTrue())
+			Expect(reconciler.shouldWatchSecret(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.OpenShiftMCPServerCertsSecretName,
+					Namespace: testNamespace,
+				},
+			})).To(BeTrue())
+		})
+
+		It("should disable openshift-mcp-server-tls watcher when introspection is disabled", func() {
+			Expect(reconciler.annotateExternalResources(ctx, testCR)).To(Succeed())
+			Expect(reconciler.WatcherConfig.OpenShiftMCPServerTLSWatchEnabled.Load()).To(BeTrue())
+
+			testCR.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
+			Expect(reconciler.annotateExternalResources(ctx, testCR)).To(Succeed())
+
+			Expect(reconciler.WatcherConfig.OpenShiftMCPServerTLSWatchEnabled.Load()).To(BeFalse())
+			Expect(reconciler.shouldWatchSecret(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.OpenShiftMCPServerCertsSecretName,
+					Namespace: testNamespace,
+				},
+			})).To(BeFalse())
+			// Entry remains in SystemResources; gating is via the atomic flag only.
+			var found bool
+			for _, secret := range reconciler.WatcherConfig.Secrets.SystemResources {
+				if secret.Name == utils.OpenShiftMCPServerCertsSecretName {
+					found = true
+					break
+				}
+			}
+			Expect(found).To(BeTrue())
 		})
 	})
 })

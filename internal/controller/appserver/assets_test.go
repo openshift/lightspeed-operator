@@ -126,7 +126,7 @@ var _ = Describe("App server assets", func() {
 					},
 					ExtraCAs: []string{
 						"/etc/certs/ols-additional-ca/service-ca.crt",
-						"/etc/certs/otel-collector-ca/tls.crt",
+						"/etc/certs/otel-collector-ca/service-ca.crt",
 					},
 					CertificateDirectory: "/etc/certs/cert-bundle",
 					ToolsApproval: &utils.ToolsApprovalConfig{
@@ -566,12 +566,13 @@ var _ = Describe("App server assets", func() {
 			Expect(appSrvConfigFile.MCPServers).NotTo(BeEmpty())
 			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Name":    Equal("openshift"),
-				"URL":     Equal(fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort)),
+				"URL":     Equal(utils.OpenShiftMCPServerServiceURL(utils.OLSNamespaceDefault)),
 				"Timeout": Equal(utils.OpenShiftMCPServerTimeout),
 				"Headers": Equal(map[string]string{
 					utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
 				}),
 			})))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("/etc/certs/openshift-mcp-server-ca/service-ca.crt"))
 		})
 
 		It("should generate configmap with solr_hybrid defaults when OKP is enabled", func() {
@@ -733,7 +734,7 @@ var _ = Describe("App server assets", func() {
 
 			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Name":    Equal("openshift"),
-				"URL":     Equal(fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort)),
+				"URL":     Equal(utils.OpenShiftMCPServerServiceURL(utils.OLSNamespaceDefault)),
 				"Timeout": Equal(utils.OpenShiftMCPServerTimeout),
 			})))
 
@@ -1323,9 +1324,10 @@ var _ = Describe("App server assets", func() {
 			}))
 		})
 
-		It("should generate deployment with MCP server sidecar when introspectionEnabled is true", func() {
+		It("should mount openshift-mcp-server CA when introspectionEnabled is true", func() {
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
 			defer utils.DeleteTelemetryPullSecret(ctx, k8sClient)
+			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
 
 			By("Enabling introspection")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
@@ -1335,48 +1337,25 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Name).To(Equal(utils.OLSAppServerDeploymentName))
 			Expect(dep.Namespace).To(Equal(utils.OLSNamespaceDefault))
 
-			// Should have 3 containers: main app, telemetry, and MCP server
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(3)))
-
-			// Verify OpenShift MCP server container (should be the third container)
-			openshiftMCPServerContainer := dep.Spec.Template.Spec.Containers[2]
-			Expect(openshiftMCPServerContainer.Name).To(Equal(utils.OpenShiftMCPServerContainerName))
-			Expect(openshiftMCPServerContainer.Image).To(Equal(utils.OpenShiftMCPServerImageDefault))
-			Expect(openshiftMCPServerContainer.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
-			Expect(openshiftMCPServerContainer.Command).To(Equal([]string{
-				"/openshift-mcp-server",
-				"--config", utils.GetOpenShiftMCPServerConfigPath(),
-				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
-			}))
-			Expect(openshiftMCPServerContainer.SecurityContext).To(Equal(utils.RestrictedContainerSecurityContext()))
-			Expect(openshiftMCPServerContainer.Resources).To(Equal(corev1.ResourceRequirements{
-				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
-				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
-				Claims:   []corev1.ResourceClaim{},
-			}))
-
-			// Verify MCP server has its own config volume mount
-			_, expectedConfigMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
-			Expect(openshiftMCPServerContainer.VolumeMounts).To(ContainElement(expectedConfigMount))
-
-			// Verify MCP server config volume is in deployment
-			expectedConfigVolume, _ := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
-			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(expectedConfigVolume))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
+			for _, c := range dep.Spec.Template.Spec.Containers {
+				Expect(c.Name).NotTo(Equal(utils.OpenShiftMCPServerContainerName))
+			}
+			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(HaveField("Name", utils.AppOpenShiftMCPServerCACertVolumeName)))
+			Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
 
 			By("Disabling introspection")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-
-			// Should have only 2 containers: main app and dataverse exporter (no MCP server)
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
-			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
+			Expect(dep.Annotations).NotTo(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
 		})
 
-		It("should deploy MCP container independently of data collection settings", func() {
-			By("Test case 1: introspection enabled, data collection enabled - should have both MCP and dataverse exporter containers")
+		It("should mount MCP CA independently of data collection settings", func() {
+			By("Test case 1: introspection enabled, data collection enabled")
+			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
@@ -1386,12 +1365,12 @@ var _ = Describe("App server assets", func() {
 
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(3)))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[2].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
+			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(HaveField("Name", utils.AppOpenShiftMCPServerCACertVolumeName)))
 
-			By("Test case 2: introspection enabled, data collection disabled - should have only MCP container (no dataverse exporter)")
+			By("Test case 2: introspection enabled, data collection disabled")
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
 				TranscriptsDisabled: true,
@@ -1399,11 +1378,11 @@ var _ = Describe("App server assets", func() {
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(1)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
+			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(HaveField("Name", utils.AppOpenShiftMCPServerCACertVolumeName)))
 
-			By("Test case 3: introspection disabled, data collection enabled - should have only dataverse exporter container (no MCP)")
+			By("Test case 3: introspection disabled, data collection enabled")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    false,
@@ -1415,8 +1394,11 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.DataverseExporterContainerName))
+			for _, v := range dep.Spec.Template.Spec.Volumes {
+				Expect(v.Name).NotTo(Equal(utils.AppOpenShiftMCPServerCACertVolumeName))
+			}
 
-			By("Test case 4: introspection disabled, data collection disabled - should have only main container")
+			By("Test case 4: introspection disabled, data collection disabled")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
@@ -1431,8 +1413,9 @@ var _ = Describe("App server assets", func() {
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
 
-		It("should deploy MCP container when introspection is enabled regardless of telemetry settings", func() {
-			By("Test case: introspection enabled with no telemetry pull secret - MCP should still be deployed")
+		It("should mount MCP CA when introspection is enabled regardless of telemetry settings", func() {
+			By("Test case: introspection enabled with no telemetry pull secret")
+			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
@@ -1441,23 +1424,10 @@ var _ = Describe("App server assets", func() {
 
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
+			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(1)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[1].Name).To(Equal(utils.OpenShiftMCPServerContainerName))
-
-			// Verify MCP container configuration
-			mcpContainer := dep.Spec.Template.Spec.Containers[1]
-			Expect(mcpContainer.Image).To(Equal(utils.OpenShiftMCPServerImageDefault))
-			Expect(mcpContainer.Command).To(Equal([]string{
-				"/openshift-mcp-server",
-				"--config", utils.GetOpenShiftMCPServerConfigPath(),
-				"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerPort),
-			}))
-			Expect(mcpContainer.Resources).To(Equal(corev1.ResourceRequirements{
-				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
-				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
-				Claims:   []corev1.ResourceClaim{},
-			}))
+			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(HaveField("Name", utils.AppOpenShiftMCPServerCACertVolumeName)))
+			Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
 		})
 
 		It("should generate exporter configmap with service_id 'ols' by default", func() {
@@ -1809,7 +1779,7 @@ var _ = Describe("App server assets", func() {
 
 			olsCm, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/otel-collector-ca/tls.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
+			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/otel-collector-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
 			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
@@ -2157,9 +2127,9 @@ func get7RequiredVolumes() []corev1.Volume {
 		{
 			Name: utils.AppOtelCollectorCACertVolumeName,
 			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  utils.OtelCollectorCertsSecretName,
-					DefaultMode: &defaultVolumeMode,
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: utils.OLSCAConfigMap},
+					DefaultMode:          &defaultVolumeMode,
 					Items: []corev1.KeyToPath{
 						{
 							Key:  utils.AppOtelCollectorCACertFile,
@@ -2283,7 +2253,7 @@ var _ = Describe("Helper function unit tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(servers).To(HaveLen(1))
 			Expect(servers[0].Name).To(Equal("openshift"))
-			Expect(servers[0].URL).To(Equal(fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort)))
+			Expect(servers[0].URL).To(Equal(utils.OpenShiftMCPServerServiceURL(utils.OLSNamespaceDefault)))
 			Expect(servers[0].Headers).To(HaveKey(utils.K8S_AUTH_HEADER))
 		})
 

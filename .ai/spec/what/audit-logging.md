@@ -53,7 +53,7 @@ spec:
 7. Trace export to the in-cluster collector is **always** configured (gRPC OTLP). External backends are reached via the collector (`spec.audit.tracingEndpoint`), not by setting a service endpoint on the CR.
 8. `spec.audit` MUST NOT affect generated `olsconfig.yaml` audit settings.
 9. Changes to `spec.ols.auditEventsEnabled` MUST trigger reconciliation that regenerates `olsconfig.yaml` and rolls the app-server deployment.
-10. The operator mounts the collector serving cert (`lightspeed-otel-collector-cert`) at `/etc/certs/otel-collector-ca/tls.crt` in the app-server and adds it to `extra_ca`. See `tls.md`.
+10. The operator mounts the OpenShift service-ca bundle (`openshift-service-ca.crt`) at `/etc/certs/otel-collector-ca/service-ca.crt` in the app-server, adds it to `extra_ca`, and sets `OTEL_EXPORTER_OTLP_CERTIFICATE` to that path for OTLP/gRPC trust. See `tls.md`.
 
 ### Reconciliation
 

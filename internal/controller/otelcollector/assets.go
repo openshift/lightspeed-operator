@@ -48,12 +48,17 @@ func GenerateOtelCollectorConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 
 // GenerateOtelCollectorClientConfigMap generates the client connectivity ConfigMap
 // consumed by agentic-operator (OTLP endpoint, admin API URL, and CA).
-// CA PEM is read from the collector serving-cert Secret (tls.crt).
+// CA PEM is the OpenShift service-ca bundle (same CA that signs the serving cert),
+// not the leaf tls.crt — mounting the leaf as a CA breaks gRPC/OpenSSL verify.
 func GenerateOtelCollectorClientConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
-	foundSecret := &corev1.Secret{}
-	content, err := utils.GetSecretContent(r, ctx, utils.OtelCollectorCertsSecretName, r.GetNamespace(), []string{"tls.crt"}, foundSecret)
-	if err != nil {
-		return nil, err
+	caCM := &corev1.ConfigMap{}
+	if err := r.Get(ctx, client.ObjectKey{Name: utils.OLSCAConfigMap, Namespace: r.GetNamespace()}, caCM); err != nil {
+		return nil, fmt.Errorf("%s: %w", utils.ErrGetOtelCollectorClientCAConfigMap, err)
+	}
+	caPEM, ok := caCM.Data[utils.AppOtelCollectorCACertFile]
+	if !ok || caPEM == "" {
+		return nil, fmt.Errorf("%s: key %q missing or empty in ConfigMap %s",
+			utils.ErrGetOtelCollectorClientCAConfigMap, utils.AppOtelCollectorCACertFile, utils.OLSCAConfigMap)
 	}
 
 	ns := r.GetNamespace()
@@ -68,7 +73,7 @@ func GenerateOtelCollectorClientConfigMap(r reconciler.Reconciler, ctx context.C
 		Data: map[string]string{
 			utils.OtelCollectorClientCollectorEndpointKey: fmt.Sprintf("%s:%d", host, utils.OtelCollectorGRPCPort),
 			utils.OtelCollectorClientAdminEndpointKey:     fmt.Sprintf("https://%s:%d", host, utils.OtelCollectorAdminPort),
-			utils.OtelCollectorClientCACertKey:            content["tls.crt"],
+			utils.OtelCollectorClientCACertKey:            caPEM,
 		},
 	}
 	if err := controllerutil.SetControllerReference(cr, &configMap, r.GetScheme()); err != nil {

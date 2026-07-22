@@ -81,6 +81,7 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/alertsadapter"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
+	"github.com/openshift/lightspeed-operator/internal/controller/ocpmcp"
 	"github.com/openshift/lightspeed-operator/internal/controller/otelcollector"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
@@ -312,6 +313,9 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		{Name: "OTEL Collector resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return otelcollector.ReconcileOtelCollectorResources(r, ctx, cr)
 		}},
+		{Name: "openshift-mcp-server resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return ocpmcp.ReconcileResources(r, ctx, cr)
+		}},
 	}
 
 	resourceSteps = append(resourceSteps, utils.ReconcileSteps{
@@ -398,6 +402,17 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		}, ConditionType: utils.TypeOtelCollectorReady, Deployment: utils.OtelCollectorDeploymentName},
 	}
 
+	if utils.BoolDeref(olsconfig.Spec.OLSConfig.IntrospectionEnabled, true) {
+		deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
+			Name: "openshift-mcp-server deployment",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return ocpmcp.ReconcileDeployment(r, ctx, cr)
+			},
+			ConditionType: utils.TypeMCPServerReady,
+			Deployment:    utils.OpenShiftMCPServerDeploymentName,
+		})
+	}
+
 	deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
 		Name: "application server deployment",
 		Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
@@ -414,6 +429,17 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		Conditions:     []metav1.Condition{},
 		OverallStatus:  olsv1alpha1.OverallStatusReady,
 		DiagnosticInfo: []olsv1alpha1.PodDiagnostic{},
+	}
+
+	if !utils.BoolDeref(olsconfig.Spec.OLSConfig.IntrospectionEnabled, true) {
+		newStatus.Conditions = append(newStatus.Conditions, metav1.Condition{
+			Type:               utils.TypeMCPServerReady,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: olsconfig.Generation,
+			Reason:             "NotConfigured",
+			Message:            "OpenShift MCP server is disabled; spec.ols.introspectionEnabled is false",
+			LastTransitionTime: metav1.Now(),
+		})
 	}
 
 	if _, enabled := utils.AlertsAdapterConfigMapRef(olsconfig); enabled {
@@ -627,6 +653,12 @@ func (r *OLSConfigReconciler) finalizeOLSConfig(ctx context.Context, cr *olsv1al
 	if err := alertsadapter.RemoveAlertsAdapter(r, ctx); err != nil {
 		r.Logger.Error(err, "Failed to remove alerts adapter during finalization")
 		r.Logger.V(1).Info("Proceeding with finalization despite alerts adapter removal error")
+	}
+
+	r.Logger.V(1).Info("Removing openshift-mcp-server operand during finalization")
+	if err := ocpmcp.Remove(r, ctx); err != nil {
+		r.Logger.Error(err, "Failed to remove openshift-mcp-server during finalization")
+		r.Logger.V(1).Info("Proceeding with finalization despite openshift-mcp-server removal error")
 	}
 
 	// Step 2: List all owned resources once (avoids duplicate API calls)

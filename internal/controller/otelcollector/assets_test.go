@@ -47,6 +47,7 @@ var _ = Describe("OTEL Collector assets", func() {
 	})
 
 	It("should generate the client connectivity ConfigMap for agentic-operator", func() {
+		ensureServiceCAConfigMap()
 		ensureCollectorTLSSecret()
 
 		cm, err := GenerateOtelCollectorClientConfigMap(testReconcilerInstance, ctx, testCR)
@@ -55,11 +56,11 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
 		Expect(cm.Labels).To(Equal(labels))
 
-		secret := &corev1.Secret{}
+		caCM := &corev1.ConfigMap{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{
-			Name:      utils.OtelCollectorCertsSecretName,
+			Name:      utils.OLSCAConfigMap,
 			Namespace: utils.OLSNamespaceDefault,
-		}, secret)).To(Succeed())
+		}, caCM)).To(Succeed())
 
 		host := utils.OtelCollectorServiceName + "." + utils.OLSNamespaceDefault + ".svc"
 		Expect(cm.Data[utils.OtelCollectorClientCollectorEndpointKey]).To(Equal(
@@ -68,7 +69,7 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(cm.Data[utils.OtelCollectorClientAdminEndpointKey]).To(Equal(
 			fmt.Sprintf("https://%s:%d", host, utils.OtelCollectorAdminPort),
 		))
-		Expect(cm.Data[utils.OtelCollectorClientCACertKey]).To(Equal(string(secret.Data["tls.crt"])))
+		Expect(cm.Data[utils.OtelCollectorClientCACertKey]).To(Equal(caCM.Data[utils.AppOtelCollectorCACertFile]))
 		Expect(cm.Data).NotTo(HaveKey(utils.OtelCollectorClientCredentialsSecretKey))
 	})
 

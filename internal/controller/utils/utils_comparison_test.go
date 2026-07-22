@@ -124,6 +124,27 @@ var _ = Describe("Container Comparison", func() {
 			Expect(ContainersEqual(containers1, containers2)).To(BeFalse())
 		})
 
+		It("should return false for different Command", func() {
+			containers1 := []corev1.Container{
+				{Name: "app", Command: []string{"/openshift-mcp-server", "--port", "8443"}},
+			}
+			containers2 := []corev1.Container{
+				{Name: "app", Command: []string{"/openshift-mcp-server", "--port", "9443"}},
+			}
+			Expect(ContainersEqual(containers1, containers2)).To(BeFalse())
+		})
+
+		It("should return true for identical Command", func() {
+			command := []string{"/openshift-mcp-server", "--tls-cert=/etc/tls/tls.crt"}
+			containers1 := []corev1.Container{
+				{Name: "app", Command: command},
+			}
+			containers2 := []corev1.Container{
+				{Name: "app", Command: append([]string{}, command...)},
+			}
+			Expect(ContainersEqual(containers1, containers2)).To(BeTrue())
+		})
+
 		It("should handle empty container lists", func() {
 			Expect(ContainersEqual([]corev1.Container{}, []corev1.Container{})).To(BeTrue())
 		})

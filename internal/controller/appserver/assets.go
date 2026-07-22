@@ -394,7 +394,7 @@ func generateMCPServerConfigs(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig
 
 		servers = append(servers, utils.MCPServerConfig{
 			Name:    "openshift",
-			URL:     fmt.Sprintf(utils.OpenShiftMCPServerURL, utils.OpenShiftMCPServerPort),
+			URL:     utils.OpenShiftMCPServerServiceURL(r.GetNamespace()),
 			Timeout: timeout,
 			Headers: map[string]string{
 				utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
@@ -532,6 +532,15 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 		utils.AppOtelCollectorCACertDir,
 		utils.AppOtelCollectorCACertFile,
 	))
+
+	// Trust the standalone openshift-mcp-server service-ca cert when introspection is enabled
+	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
+		olsConfig.ExtraCAs = append(olsConfig.ExtraCAs, path.Join(
+			utils.OLSAppCertsMountRoot,
+			utils.AppOpenShiftMCPServerCACertDir,
+			utils.AppOpenShiftMCPServerCACertFile,
+		))
+	}
 
 	// Append user-provided additional CA certificates if configured
 	if cr.Spec.OLSConfig.AdditionalCAConfigMapRef != nil {

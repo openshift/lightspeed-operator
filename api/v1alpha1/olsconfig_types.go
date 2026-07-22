@@ -234,8 +234,8 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Security Profile",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	TLSSecurityProfile *configv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
-	// Enable introspection features (e.g. built-in OpenShift MCP server). Omitted means use the
-	// CRD default (true); explicit false disables introspection.
+	// Enable introspection features (e.g. built-in OpenShift MCP server).
+	// Default: true when absent. Explicit false disables introspection.
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Introspection Enabled",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	IntrospectionEnabled *bool `json:"introspectionEnabled,omitempty"`
@@ -373,9 +373,9 @@ type DeploymentConfig struct {
 	// Data Collector container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Data Collector Container"
 	DataCollectorContainer ContainerConfig `json:"dataCollector,omitempty"`
-	// MCP server container settings.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Container"
-	MCPServerContainer ContainerConfig `json:"mcpServer,omitempty"`
+	// MCP server deployment settings.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Deployment"
+	MCPServerContainer Config `json:"mcpServer,omitempty"`
 	// RHOKP sidecar container settings (Solr / OKP).
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RHOKP Container"
 	RHOKPContainer ContainerConfig `json:"rhokp,omitempty"`
@@ -411,9 +411,10 @@ type AlertsAdapterSpec struct {
 
 // Config defines pod configuration using standard Kubernetes types
 type Config struct {
-	// Defines the number of desired OLS pods. Default: "1"
-	// Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-	// Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+	// Defines the number of desired pods. Default: "1"
+	// Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+	// For PostgreSQL, Console, Agentic Console, Alerts Adapter, and OTEL Collector,
+	// the number of replicas is always set to 1.
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}

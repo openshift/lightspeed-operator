@@ -17,16 +17,17 @@ The operator reconciles the OLSConfig CR into Kubernetes resources through a two
 8. Step 6 (Phase 2): Reconcile deployments and dependent resources -- Deployments, Services, TLS certificates, ServiceMonitors, PrometheusRules. After reconciliation, check deployment health and update CR status.
 
 ### Phase 1: Independent Resources
-9. Six component groups are reconciled in Phase 1: chat Console UI, agentic console plugin, PostgreSQL, OTEL Collector, the application server, and (when enabled) the agentic alerts adapter.
+9. Seven component groups are reconciled in Phase 1: chat Console UI, agentic console plugin, PostgreSQL, OTEL Collector, OpenShift MCP server (when introspection enabled), the application server, and (when enabled) the agentic alerts adapter.
 10. All Phase 1 resource groups are independent and can be reconciled in any order.
 11. If any Phase 1 resource fails, the operator continues reconciling the remaining resources, then reports all failures in the CR status with ResourceReconciliation conditions.
 11a. Alerts adapter (OLS-3348) is **opt-in** via `spec.ols.deployment.alertsAdapter.configMapRef`. When unset, `ReconcileAlertsAdapterResources()` calls `RemoveAlertsAdapter()` to delete operator-managed operand resources (deployment, SA, namespaced RBAC, NetworkPolicy, monitoring RoleBinding; AgenticRun ClusterRole/ClusterRoleBinding when the platform allows delete) and Phase 2 is skipped with `AlertsAdapterReady=True`, `Reason=NotConfigured`.
 11b. When `configMapRef` is set, Phase 1 reconciles: ServiceAccount, ClusterRole (`agentic.openshift.io/agenticruns`: create, list, get), ClusterRoleBinding, legacy config Role/RoleBinding cleanup, RoleBinding in `openshift-monitoring` (binds SA to `monitoring-alertmanager-view`), NetworkPolicy. The operator does not create, update, or validate ConfigMap data. When the referenced ConfigMap exists, Phase 2 mounts it at `/etc/alerts-adapter`; when absent, no config volume is mounted. The adapter reads `config.yaml` and uses built-in defaults when the file is missing or invalid.
 11c. Agentic console Phase 1 resources: ServiceAccount, ConfigMap (nginx.conf), NetworkPolicy.
 11d. OTEL Collector Phase 1 resources (OLS-3510 / OLS-3656): ConfigMap (collector runtime YAML `lightspeed-otel-collector-config`, including localhost metrics pull and `https_metrics`), ServiceAccount, Postgres DSN Secret, NetworkPolicy (in-namespace OTLP/admin plus Prometheus metrics ingress).
+11e. OpenShift MCP Phase 1 resources (`ocpmcp`, when `introspectionEnabled`): ConfigMap (TOML), CA ConfigMap (service-ca inject annotation), ServiceAccount, NetworkPolicy. When introspection is disabled, Phase 1 tears down those resources via `ocpmcp.Remove()` and Phase 2 sets `MCPServerReady=True`, `Reason=NotConfigured`.
 
 ### Phase 2: Deployments and Status
-12. Deployments reconciled in Phase 2: chat Console UI (condition: `ConsolePluginReady`), agentic console plugin (condition: `AgenticConsolePluginReady`), PostgreSQL (condition: `CacheReady`), OTEL Collector (condition: `OtelCollectorReady`), the active backend (condition: `ApiReady`), and (when `configMapRef` set) the agentic alerts adapter (condition: `AlertsAdapterReady`).
+12. Deployments reconciled in Phase 2: chat Console UI (condition: `ConsolePluginReady`), agentic console plugin (condition: `AgenticConsolePluginReady`), PostgreSQL (condition: `CacheReady`), OTEL Collector (condition: `OtelCollectorReady`), OpenShift MCP server when introspection enabled (condition: `MCPServerReady`, else `NotConfigured`), the active backend (condition: `ApiReady`), and (when `configMapRef` set) the agentic alerts adapter (condition: `AlertsAdapterReady`). MCP is reconciled before the app-server so the Service and CA ConfigMap exist for client wiring.
 12a. Alerts adapter Phase 2 (OLS-3348): Deployment (1 replica, `ALERTMANAGER_URL` env hardcoded to `https://alertmanager-main.openshift-monitoring.svc:9094`, `POD_NAMESPACE` via downward API).
 12b. Agentic console Phase 2: Deployment (1 replica, nginx with TLS via service-ca cert), Service (port 9443, serving-cert annotation), ConsolePlugin CR, Console CR activation.
 12c. OTEL Collector Phase 2 (OLS-3510 / OLS-3656): Service (OTLP gRPC `:4317`, HTTP `:4318`, admin HTTPS `:8080`, metrics HTTPS `:8888`, serving-cert annotation), TLS secret wait (`lightspeed-otel-collector-cert`), client connectivity ConfigMap (`lightspeed-otel-collector-client` with `collector-endpoint`, `admin-endpoint`, `ca.crt`), Deployment (1 replica, metrics container port), ServiceMonitor (`lightspeed-otel-collector-monitor`, skipped if Prometheus CRDs unavailable). Reconciled after PostgreSQL and before the app-server so the collector Service and client ConfigMap are available when the backend / agentic-operator start.
@@ -45,7 +46,7 @@ The operator reconciles the OLSConfig CR into Kubernetes resources through a two
 23. Console UI and agentic component removal errors during finalization are logged but do not block finalization.
 
 ### Status Conditions
-24. The operator sets these condition types: `ApiReady`, `CacheReady`, `ConsolePluginReady`, `AgenticConsolePluginReady`, `OtelCollectorReady`, `AlertsAdapterReady` (`NotConfigured` when `configMapRef` unset; does not block `OverallStatus=Ready`), `ResourceReconciliation`.
+24. The operator sets these condition types: `ApiReady`, `CacheReady`, `ConsolePluginReady`, `AgenticConsolePluginReady`, `OtelCollectorReady`, `MCPServerReady` (`NotConfigured` when introspection is disabled; does not block `OverallStatus=Ready`), `AlertsAdapterReady` (`NotConfigured` when `configMapRef` unset; does not block `OverallStatus=Ready`), `ResourceReconciliation`.
 25. OverallStatus is Ready only when all deployment conditions are True.
 26. OverallStatus is NotReady if any condition is False.
 27. When deployments are not ready, diagnosticInfo is populated with per-pod failure details including container name, reason, message, exit code, and diagnostic type.
@@ -71,4 +72,4 @@ Reconciliation behavior is not directly user-configurable. It is driven by the O
 | Ticket | Summary |
 |---|---|
 | OLS-3236 | Remove duplicate agentic console deployment from agentic-operator CSV; productize agentic operand images |
-| OLS-3526 | Standalone HTTPS ocp-mcp cluster service (replaces sidecar). Full reconciliation rules land with implementation; still in refinement. Related: OLS-3572 (inter-operator handoff), OLS-3594 (deferred agentic auto-injection) |
+| OLS-3572 / OLS-3594 | Agentic handoff / deferred auto-injection for standalone MCP Service and CA |

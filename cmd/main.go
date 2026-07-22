@@ -395,6 +395,14 @@ func main() {
 					Description:         "OTEL Collector TLS certificate (created by Service CA Operator)",
 					AffectedDeployments: []string{utils.OtelCollectorDeploymentName, "ACTIVE_BACKEND"},
 				},
+				{
+					// Gated at runtime by WatcherConfig.OpenShiftMCPServerTLSWatchEnabled
+					// (introspectionEnabled). Keep the entry static to avoid SystemResources races.
+					Name:                utils.OpenShiftMCPServerCertsSecretName,
+					Namespace:           namespace,
+					Description:         "OpenShift MCP server serving certificate (created by Service CA Operator)",
+					AffectedDeployments: []string{utils.OpenShiftMCPServerDeploymentName, "ACTIVE_BACKEND"},
+				},
 			},
 		},
 		// list here "special" external config maps that we need to watch in addition to

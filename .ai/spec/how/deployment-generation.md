@@ -40,8 +40,8 @@ GenerateOLSDeployment(r, cr)
   17. Set ImageStream triggers annotation (if RAG configured)
   18. Set owner reference to OLSConfig CR
   19. Conditionally add data collector sidecar container ("lightspeed-to-dataverse-exporter")
-  20. Conditionally add OpenShift MCP server sidecar container ("openshift-mcp-server")
-  21. Conditionally add RHOKP sidecar container ("rhokp") when `!byokRAGOnly`.
+  20. Conditionally add RHOKP sidecar container ("rhokp") when `!byokRAGOnly`.
+  21. When introspection is enabled, mount `openshift-mcp-server-ca` (no MCP sidecar; standalone operand)
       Container: image from r.GetRHOOKPImage(), Solr HTTP on port 9080 (remapped from image default 8080),
       resources from `spec.ols.deployment.rhokp.resources` or defaults (2 CPU / 2 GiB memory / 75 GiB ephemeral requests; CPU and memory requests only per OLS-3397),
       startup script remaps Apache Listen directives before `mel` start.
@@ -52,12 +52,12 @@ GenerateOLSDeployment(r, cr)
 All deployments use the same pattern in their update functions:
 1. Compare desired vs existing deployment spec using `DeploymentSpecEqual()` (from `utils/`)
 2. Compare ConfigMap ResourceVersions via deployment annotations (one per tracked CM)
-3. Compare content hashes (proxy CA cert hash) via annotations
+3. Compare content hashes (proxy CA cert hash; OpenShift MCP CA hash when introspection is enabled) via annotations
 4. If any differ: update spec + annotations, call RestartX() function
    - RestartX() sets `ols.openshift.io/force-reload` annotation to `time.Now().Format(time.RFC3339Nano)`
    - This triggers a rolling restart by changing the pod template
 
-**AppServer tracks:** OLS config CM version, MCP server config CM version, proxy CA cert hash
+**AppServer tracks:** OLS config CM version, MCP server config CM version, proxy CA cert hash, OpenShift MCP CA ConfigMap content hash (when introspection is enabled)
 
 ## Key Abstractions
 

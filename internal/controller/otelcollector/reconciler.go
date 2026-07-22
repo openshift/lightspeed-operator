@@ -239,8 +239,8 @@ func reconcileOtelCollectorServiceMonitor(r reconciler.Reconciler, ctx context.C
 	return utils.ReconcileServiceMonitor(r, ctx, sm)
 }
 
-// RestartOtelCollector refreshes the client connectivity ConfigMap (CA from the
-// serving cert) and triggers a rolling restart of the collector deployment.
+// RestartOtelCollector refreshes the client connectivity ConfigMap (service-ca PEM)
+// and triggers a rolling restart of the collector deployment.
 // The cert Secret watcher already calls this on TLS rotation.
 func RestartOtelCollector(r reconciler.Reconciler, ctx context.Context, deployment ...*appsv1.Deployment) error {
 	cr := &olsv1alpha1.OLSConfig{}

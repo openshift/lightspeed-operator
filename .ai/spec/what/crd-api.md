@@ -132,7 +132,7 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 ---|---|---|---
 `api` | `api` | `Config` | API container. Replicas configurable (default 1, min 0)
 `dataCollector` | `dataCollector` | `ContainerConfig` | Data collector container. Resources only
-`mcpServer` | `mcpServer` | `ContainerConfig` | MCP server sidecar container. Resources only
+`mcpServer` | `mcpServer` | `Config` | Standalone OpenShift MCP server Deployment (replicas, resources, tolerations, nodeSelector)
 `rhokp` | `rhokp` | `ContainerConfig` | RHOKP sidecar container (Solr / OKP). Resources only
 `console` | `console` | `Config` | Console container. Has replicas field but operator forces 1
 `database` | `database` | `Config` | Database container. Has replicas field but operator forces 1
@@ -399,7 +399,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.deployment.api.nodeSelector` | `map[string]string` | -- | No | -- | API node selector
 `spec.ols.deployment.dataCollector` | `ContainerConfig` | -- | No | -- | Data collector container
 `spec.ols.deployment.dataCollector.resources` | `*ResourceRequirements` | -- | No | -- | Data collector resources
-`spec.ols.deployment.mcpServer` | `ContainerConfig` | -- | No | -- | MCP server sidecar container
+`spec.ols.deployment.mcpServer` | `Config` | -- | No | -- | Standalone OpenShift MCP server Deployment
 `spec.ols.deployment.mcpServer.resources` | `*ResourceRequirements` | -- | No | -- | MCP server resources
 `spec.ols.deployment.rhokp` | `ContainerConfig` | -- | No | -- | RHOKP sidecar container
 `spec.ols.deployment.rhokp.resources` | `*ResourceRequirements` | -- | No | -- | RHOKP sidecar resources (default requests: 2 CPU, 2 GiB memory, 75 GiB ephemeral storage)
@@ -511,13 +511,13 @@ Path | Type | Default | Required | Validation | Description
 5. Period format for quota limiters must match the regex pattern in rule 38, enforcing human-readable duration strings with correct singular/plural agreement.
 6. `credentialKey` if set must contain at least one non-whitespace character.
 7. Tool filtering requires the `ToolFiltering` feature gate in `spec.featureGates`.
-8. User-defined MCP servers (`spec.mcpServers`) require the `MCPServer` feature gate in `spec.featureGates`. The built-in openshift MCP server is controlled exclusively by `spec.ols.introspectionEnabled` and does not require this gate.
-11. There is exactly one allowed CacheType value: `postgres`.
-12. `ToolFilteringConfig.alpha` and `ToolFilteringConfig.threshold` are validated via XValidation (not kubebuilder min/max) to enforce 0.0-1.0 range.
-13. Bedrock credentials: `credentialsSecretRef` must contain either `apitoken` (Bearer) or both `aws_access_key_id` and `aws_secret_access_key` (IAM). Optional `role_arn` is passed through to the service when present.
+8. User-defined MCP servers (`spec.mcpServers`) require the `MCPServer` feature gate in `spec.featureGates`. The built-in openshift MCP server is the standalone `ocpmcp` operand controlled exclusively by `spec.ols.introspectionEnabled` and does not require this gate.
+9. There is exactly one allowed CacheType value: `postgres`.
+10. `ToolFilteringConfig.alpha` and `ToolFilteringConfig.threshold` are validated via XValidation (not kubebuilder min/max) to enforce 0.0-1.0 range.
+11. Bedrock credentials: `credentialsSecretRef` must contain either `apitoken` (Bearer) or both `aws_access_key_id` and `aws_secret_access_key` (IAM). Optional `role_arn` is passed through to the service when present.
 
 ## Planned Changes
 
 - [PLANNED: OLS-3442] Add `reasoningConfig` field (`map[string]interface{}`) to `ModelParametersSpec`. Freeform map passed through to the service as `reasoning_config` for provider-specific reasoning/thinking parameters. Includes release notes and user-facing documentation for valid keys per provider.
-- [PLANNED: OLS-3526] Standalone HTTPS ocp-mcp cluster service may replace the sidecar; CRD/`MCPServerReady` details land with implementation. Still in refinement — see `app-server.md` Planned Changes.
+- Agentic/sandbox reuse of the standalone MCP Service and CA depends on inter-operator config handoff ([OLS-3572](https://redhat.atlassian.net/browse/OLS-3572)); optional agentic auto-injection is separately deferred ([OLS-3594](https://redhat.atlassian.net/browse/OLS-3594)).
 - [PLANNED: OLS-3572] Add `spec.agenticOLS` section with `sandboxMode` field (`bare-pod` default, `sandbox-claim`). The classic operator builds a base `corev1.PodSpec` for sandbox pods and writes it to the `lightspeed-sandbox-config` ConfigMap for the agentic operator. See design spec `docs/superpowers/specs/2026-07-21-inter-operator-handoff.md`.

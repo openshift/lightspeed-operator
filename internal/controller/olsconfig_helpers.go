@@ -447,7 +447,22 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to annotate %d external resources", len(errs))
 	}
+
+	r.syncOpenShiftMCPServerTLSWatcher(cr)
 	return nil
+}
+
+// syncOpenShiftMCPServerTLSWatcher enables watching openshift-mcp-server-tls only while
+// introspectionEnabled is true. The Secret is listed statically in WatcherConfig; this only
+// toggles OpenShiftMCPServerTLSWatchEnabled so informers never race on SystemResources rewrites.
+// When enabled, TLS rotation restarts the MCP Deployment and ACTIVE_BACKEND (app-server).
+func (r *OLSConfigReconciler) syncOpenShiftMCPServerTLSWatcher(cr *olsv1alpha1.OLSConfig) {
+	if r.WatcherConfig == nil {
+		return
+	}
+	r.WatcherConfig.OpenShiftMCPServerTLSWatchEnabled.Store(
+		utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true),
+	)
 }
 
 // annotateSecretIfNeeded annotates a secret with the watcher annotation if it doesn't already have it.
@@ -520,7 +535,7 @@ func (r *OLSConfigReconciler) shouldWatchSecret(obj client.Object) bool {
 		for _, systemSecret := range r.WatcherConfig.Secrets.SystemResources {
 			if obj.GetNamespace() == systemSecret.Namespace &&
 				obj.GetName() == systemSecret.Name {
-				return true
+				return r.WatcherConfig.IsSystemSecretWatchEnabled(systemSecret)
 			}
 		}
 	}

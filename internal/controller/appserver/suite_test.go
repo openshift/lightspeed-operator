@@ -140,6 +140,9 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Create(ctx, ns)
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Create openshift-mcp-server-ca ConfigMap with injected CA for deployment hash tests")
+	utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+
 	testReconcilerInstance = utils.NewTestReconciler(
 		k8sClient,
 		logf.Log.WithName("controller").WithName("OLSConfig"),
@@ -211,6 +214,14 @@ func expectedAppServerEnv() []corev1.EnvVar {
 		{
 			Name:  "OLS_CONFIG_FILE",
 			Value: filepath.Join(utils.OLSConfigMountRoot, utils.OLSConfigFilename),
+		},
+		{
+			Name: utils.OTELExporterOTLPCertificateEnvVar,
+			Value: filepath.Join(
+				utils.OLSAppCertsMountRoot,
+				utils.AppOtelCollectorCACertDir,
+				utils.AppOtelCollectorCACertFile,
+			),
 		},
 	}
 	if !cr.Spec.OLSConfig.ByokRAGOnly {

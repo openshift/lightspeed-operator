@@ -99,17 +99,17 @@ func RHOOKPContainerSecurityContext() *corev1.SecurityContext {
 // Parameters:
 //   - deployment: The deployment to modify
 //   - config: The PodDeploymentConfig containing the desired settings
-//   - applyReplicas: Whether to apply the Replicas field (only true for appserver)
+//   - applyReplicas: Whether to apply the Replicas field (true for appserver and MCP server)
 //
 // Usage:
 //
 //	// For console/postgres (replicas always 1):
 //	utils.ApplyPodDeploymentConfig(deployment, cr.Spec.OLSConfig.DeploymentConfig.ConsoleContainer, false)
 //
-//	// For appserver (replicas configurable):
+//	// For appserver or MCP server (replicas configurable):
 //	utils.ApplyPodDeploymentConfig(deployment, cr.Spec.OLSConfig.DeploymentConfig.APIContainer, true)
 func ApplyPodDeploymentConfig(deployment *appsv1.Deployment, config olsv1alpha1.Config, applyReplicas bool) {
-	// Apply replicas if allowed (only for appserver)
+	// Apply replicas if allowed (appserver and MCP server)
 	if applyReplicas && config.Replicas != nil {
 		deployment.Spec.Replicas = config.Replicas
 	} else {
@@ -235,13 +235,14 @@ func ContainersEqual(a, b []corev1.Container) bool {
 	return true
 }
 
-// containerSpecEqual compares two corev1.Container and returns true if they are equal.
+// ContainerSpecEqual compares two corev1.Container and returns true if they are equal.
 // checks performed on limited fields
 func ContainerSpecEqual(a, b *corev1.Container) bool {
 	return (a.Name == b.Name && // check name
 		a.Image == b.Image && // check image
 		apiequality.Semantic.DeepEqual(a.Ports, b.Ports) && // check ports
 		EnvEqual(a.Env, b.Env) && // check env (order-insensitive)
+		apiequality.Semantic.DeepEqual(a.Command, b.Command) && // check command (entrypoint + flags)
 		apiequality.Semantic.DeepEqual(a.Args, b.Args) && // check arguments
 		VolumeMountsEqual(a.VolumeMounts, b.VolumeMounts) && // check volume mounts (order-insensitive)
 		apiequality.Semantic.DeepEqual(a.Resources, b.Resources) && // check resources
