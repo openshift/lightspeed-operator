@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi9/go-toolset:9.7-1778171507
+FROM registry.redhat.io/ubi9/go-toolset:1.26.5-1784638038
 ARG KUSTOMIZE_VERSION=v5.3.0
 ARG OPERATOR_SDK_VERSION=v1.33.0
 ARG YQ_VERSION=v4.44.6
