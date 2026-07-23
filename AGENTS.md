@@ -50,6 +50,7 @@ OLSConfigReconciler.Reconcile() →
 │   ├── agenticconsole.ReconcileAgenticConsoleUIResources()
 │   ├── postgres.ReconcilePostgresResources()
 │   ├── otelcollector.ReconcileOtelCollectorResources()
+│   ├── ocpmcp.ReconcileResources()
 │   ├── appserver.ReconcileAppServerResources()
 │   └── alertsadapter.ReconcileAlertsAdapterResources()
 │       (opt-in via configMapRef; RemoveAlertsAdapter() when unset; no ConfigMap validation—
@@ -59,6 +60,8 @@ OLSConfigReconciler.Reconcile() →
     ├── agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin() → AgenticConsolePluginReady
     ├── postgres.ReconcilePostgresDeployment()           → CacheReady
     ├── otelcollector.ReconcileOtelCollectorDeployment() → OtelCollectorReady
+    ├── ocpmcp.ReconcileDeployment()                     → MCPServerReady
+    │   (when introspectionEnabled; else MCPServerReady=True, Reason=NotConfigured)
     ├── appserver.ReconcileAppServerDeployment()         → ApiReady
     └── alertsadapter.ReconcileAlertsAdapterDeployment() → AlertsAdapterReady
         (only when configMapRef set; else AlertsAdapterReady=True, Reason=NotConfigured)
@@ -93,6 +96,7 @@ make test-e2e   # E2E tests (requires cluster)
 - `internal/controller/appserver/` - App server
 - `internal/controller/postgres/` - PostgreSQL
 - `internal/controller/otelcollector/` - OTEL Collector (always deployed; Postgres audit log storage, optional trace forwarding, HTTPS metrics `:8888` + ServiceMonitor)
+- `internal/controller/ocpmcp/` - Standalone OpenShift MCP server (gated by `introspectionEnabled`; HTTPS via service-ca)
 - `internal/controller/console/` - Chat console plugin (Lightspeed assistant UI)
 - `internal/controller/agenticconsole/` - Agentic console plugin (AI Hub / proposals UI)
 - `internal/controller/alertsadapter/` - Agentic alerts adapter (opt-in via `configMapRef`; mounts user CM at `/etc/alerts-adapter` when present; adapter validates config)

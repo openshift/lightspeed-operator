@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"sync/atomic"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -17,6 +18,7 @@ const (
 	TypeAgenticConsolePluginReady = "AgenticConsolePluginReady"
 	TypeAlertsAdapterReady        = "AlertsAdapterReady"
 	TypeOtelCollectorReady        = "OtelCollectorReady"
+	TypeMCPServerReady            = "MCPServerReady"
 	TypeCRReconciled              = "Reconciled"
 )
 
@@ -71,6 +73,22 @@ type WatcherConfig struct {
 	ConfigMaps                ConfigMapWatcherConfig
 	AnnotatedSecretMapping    map[string][]string
 	AnnotatedConfigMapMapping map[string][]string
+	// OpenShiftMCPServerTLSWatchEnabled gates informer handling of openshift-mcp-server-tls.
+	// The Secret stays in Secrets.SystemResources (static); reconcile toggles this flag from
+	// introspectionEnabled so enable/disable does not rewrite SystemResources under the informer.
+	OpenShiftMCPServerTLSWatchEnabled atomic.Bool
+}
+
+// IsSystemSecretWatchEnabled reports whether a SystemResources entry should be active.
+// OpenShift MCP TLS is listed statically but only watched while introspection is enabled.
+func (c *WatcherConfig) IsSystemSecretWatchEnabled(secret SystemSecret) bool {
+	if c == nil {
+		return false
+	}
+	if secret.Name == OpenShiftMCPServerCertsSecretName {
+		return c.OpenShiftMCPServerTLSWatchEnabled.Load()
+	}
+	return true
 }
 
 /*** controller internal ***/

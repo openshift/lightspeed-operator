@@ -113,6 +113,7 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 
 	Context("Phase 2 deployment", func() {
 		BeforeAll(func() {
+			ensureServiceCAConfigMap()
 			ensureCollectorTLSSecret()
 			err := ReconcileOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
 			Expect(err).NotTo(HaveOccurred())
@@ -145,7 +146,7 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			Expect(string(*sm.Spec.Endpoints[0].Scheme)).To(Equal("https"))
 		})
 
-		It("should create the client connectivity ConfigMap with CA from the serving cert", func() {
+		It("should create the client connectivity ConfigMap with CA from service-ca", func() {
 			cm := &corev1.ConfigMap{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
 				Name:      utils.OtelCollectorClientConfigMapName,
@@ -154,11 +155,11 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(cm)
 
-			secret := &corev1.Secret{}
+			caCM := &corev1.ConfigMap{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OtelCollectorCertsSecretName,
+				Name:      utils.OLSCAConfigMap,
 				Namespace: utils.OLSNamespaceDefault,
-			}, secret)).To(Succeed())
+			}, caCM)).To(Succeed())
 
 			host := utils.OtelCollectorServiceName + "." + utils.OLSNamespaceDefault + ".svc"
 			Expect(cm.Data[utils.OtelCollectorClientCollectorEndpointKey]).To(Equal(
@@ -167,7 +168,7 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			Expect(cm.Data[utils.OtelCollectorClientAdminEndpointKey]).To(Equal(
 				fmt.Sprintf("https://%s:%d", host, utils.OtelCollectorAdminPort),
 			))
-			Expect(cm.Data[utils.OtelCollectorClientCACertKey]).To(Equal(string(secret.Data["tls.crt"])))
+			Expect(cm.Data[utils.OtelCollectorClientCACertKey]).To(Equal(caCM.Data[utils.AppOtelCollectorCACertFile]))
 			Expect(cm.Data).NotTo(HaveKey(utils.OtelCollectorClientCredentialsSecretKey))
 		})
 
@@ -236,18 +237,18 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			err = RestartOtelCollector(testReconcilerInstance, ctx, dep)
 			Expect(err).NotTo(HaveOccurred())
 
-			secret := &corev1.Secret{}
+			caCM := &corev1.ConfigMap{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OtelCollectorCertsSecretName,
+				Name:      utils.OLSCAConfigMap,
 				Namespace: utils.OLSNamespaceDefault,
-			}, secret)).To(Succeed())
+			}, caCM)).To(Succeed())
 
 			err = k8sClient.Get(ctx, types.NamespacedName{
 				Name:      utils.OtelCollectorClientConfigMapName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, cm)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Data[utils.OtelCollectorClientCACertKey]).To(Equal(string(secret.Data["tls.crt"])))
+			Expect(cm.Data[utils.OtelCollectorClientCACertKey]).To(Equal(caCM.Data[utils.AppOtelCollectorCACertFile]))
 		})
 
 		It("should skip Service update when spec and serving-cert annotation are unchanged", func() {

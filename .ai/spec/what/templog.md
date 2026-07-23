@@ -65,7 +65,7 @@ The operator generates service audit config independently of `spec.audit`:
 | `audit.otel.endpoint` | Always `lightspeed-otel-collector.<ns>.svc:4317` |
 | `audit.otel.tls_mode` | Always `Secure` (OTLP/gRPC with TLS) |
 
-The operator mounts the collector serving cert into the app-server at `/etc/certs/otel-collector-ca/tls.crt` and adds it to `extra_ca` in `olsconfig.yaml`. See `tls.md`.
+The operator mounts the OpenShift service-ca bundle into the app-server at `/etc/certs/otel-collector-ca/service-ca.crt`, adds it to `extra_ca` in `olsconfig.yaml`, and sets `OTEL_EXPORTER_OTLP_CERTIFICATE` to that path (required for OTLP/gRPC; `extra_ca` alone is not used by the exporter). See `tls.md`.
 
 Service continues to use the existing gRPC OTLP trace exporter (`opentelemetry.exporter.otlp.proto.grpc`).
 
@@ -106,7 +106,7 @@ Always published for in-cluster consumers (agentic-operator, alerts adapter, and
 |-----|--------|
 | `collector-endpoint` | Always set: `lightspeed-otel-collector.<ns>.svc:4317` |
 | `admin-endpoint` | Always set: `https://lightspeed-otel-collector.<ns>.svc:8080` |
-| `ca.crt` | Always set: PEM from serving Secret `tls.crt` (same trust material app-server mounts for OTLP) |
+| `ca.crt` | Always set: PEM from `openshift-service-ca.crt` ConfigMap key `service-ca.crt` (same trust material app-server mounts for OTLP) |
 | `credentials-secret` | Optional client-contract key: name of a Secret for client TLS credentials when mTLS is required. Omitted when the operator has not provisioned that Secret (CA-only trust today). Clients use the Secret when this key is present. |
 
 Created only after the serving-cert Secret exists. On `lightspeed-otel-collector-cert` rotation, `RestartOtelCollector` refreshes `ca.crt` then rolls the collector Deployment.

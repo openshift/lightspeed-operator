@@ -9,7 +9,7 @@
 | `api/v1alpha1/zz_generated.deepcopy.go` | Generated `DeepCopyObject()` methods | Auto-generated deep copy |
 | `cmd/main.go` | `main()`, `overrideImages()` | Operator entry point, flag parsing, manager setup |
 | `internal/controller/olsconfig_controller.go` | `OLSConfigReconciler`, `Reconcile()`, `SetupWithManager()` | Main reconciler, orchestration, watcher registration |
-| `internal/controller/olsconfig_helpers.go` | `UpdateStatusCondition()`, `checkDeploymentStatus()`, `annotateExternalResources()`, `shouldWatchSecret()`, `GetAgenticConsoleImage()` | Status management, diagnostics, annotation, watcher predicates, image getter for agentic console |
+| `internal/controller/olsconfig_helpers.go` | `UpdateStatusCondition()`, `checkDeploymentStatus()`, `annotateExternalResources()`, `syncOpenShiftMCPServerTLSWatcher()`, `shouldWatchSecret()`, `GetAgenticConsoleImage()` | Status management, diagnostics, annotation, conditional MCP TLS watcher, watcher predicates, image getter for agentic console |
 | `internal/controller/operator_assets.go` | `ReconcileServiceMonitorForOperator()`, `ReconcileNetworkPolicyForOperator()` | Operator-level resources |
 | `internal/controller/appserver/reconciler.go` | `ReconcileAppServerResources()`, `ReconcileAppServerDeployment()` | AppServer Phase 1 + Phase 2 orchestration |
 | `internal/controller/appserver/deployment.go` | `GenerateOLSDeployment()`, `updateOLSDeployment()` | AppServer deployment generation, update detection |
@@ -21,6 +21,9 @@
 | `internal/controller/otelcollector/reconciler.go` | `ReconcileOtelCollectorResources()`, `ReconcileOtelCollectorDeployment()`, `RestartOtelCollector()` | OTEL Collector Phase 1 + Phase 2 + rolling restart |
 | `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector deployment generation, update detection |
 | `internal/controller/otelcollector/assets.go` | ConfigMap (runtime + client), Service, NetworkPolicy, ServiceMonitor, ServiceAccount, Postgres DSN Secret generators | OTEL Collector resource generation, collector runtime YAML, client connectivity ConfigMap, HTTPS metrics |
+| `internal/controller/ocpmcp/reconciler.go` | `ReconcileResources()`, `ReconcileDeployment()`, `Remove()`, `Restart()` | Standalone OpenShift MCP Phase 1 + Phase 2 + teardown + rolling restart |
+| `internal/controller/ocpmcp/deployment.go` | `GenerateDeployment()`, `UpdateDeployment()` | MCP Deployment generation and update detection |
+| `internal/controller/ocpmcp/assets.go` | ConfigMap (TOML + CA), Service, NetworkPolicy, ServiceAccount generators | MCP resource generation |
 | `internal/controller/console/reconciler.go` | `ReconcileConsoleUIResources()`, `ReconcileConsoleUIDeploymentAndPlugin()`, `RemoveConsoleUI()` | Chat console plugin Phase 1 + Phase 2 + cleanup |
 | `internal/controller/console/deployment.go` | `GenerateConsoleUIDeployment()` | Chat console plugin deployment generation |
 | `internal/controller/console/assets.go` | ConsolePlugin CR generator, nginx config, service, network policy | Chat console plugin resource generation |
@@ -35,7 +38,7 @@
 | `internal/controller/reconciler/interface.go` | `Reconciler` interface | Dependency injection interface for component packages |
 | `internal/controller/utils/constants.go` | ~200 constants | Resource names, ports, paths, annotation keys, defaults |
 | `internal/controller/utils/errors.go` | ~80 error message constants | Structured error messages for all operations |
-| `internal/controller/utils/mcp_server_config.go` | `GenerateOpenShiftMCPServerConfigMap()`, TOML config | MCP server configuration with denied resources |
+| `internal/controller/utils/mcp_server_config.go` | `OpenShiftMCPServerServiceURL()`, CA hash helper, config volume mount helpers | App-server MCP client helpers |
 | `internal/controller/utils/postgres_wait.go` | `GeneratePostgresWaitInitContainer()` | PostgreSQL readiness init container |
 | `internal/controller/watchers/watchers.go` | `SecretUpdateHandler`, `ConfigMapUpdateHandler`, `SecretWatcherFilter()`, `ConfigMapWatcherFilter()` | External resource change handlers, deployment restart logic |
 | `internal/tls/` | `GetTLSProfileSpec()`, `FetchAPIServerTlsProfile()` | TLS profile resolution |
@@ -81,6 +84,7 @@ OLSConfigReconciler.Reconcile()
      +-- agenticconsole.ReconcileAgenticConsoleUIResources()
      +-- postgres.ReconcilePostgresResources()
      +-- otelcollector.ReconcileOtelCollectorResources()
+     +-- ocpmcp.ReconcileResources()   # when introspectionEnabled; else Remove()
      +-- appserver.ReconcileAppServerResources()
      +-- alertsadapter.ReconcileAlertsAdapterResources()
         (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
@@ -90,6 +94,7 @@ OLSConfigReconciler.Reconcile()
      +-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin()
      +-- postgres.ReconcilePostgresDeployment()
      +-- otelcollector.ReconcileOtelCollectorDeployment()  -> OtelCollectorReady
+     +-- ocpmcp.ReconcileDeployment()                      -> MCPServerReady (or NotConfigured)
      +-- appserver.ReconcileAppServerDeployment()
      +-- alertsadapter.ReconcileAlertsAdapterDeployment()  # when configMapRef set
      +-- checkDeploymentStatus() per deployment -> build newStatus
@@ -126,6 +131,7 @@ Declarative configuration for external resource watching. Built in `cmd/main.go`
   - `lightspeed-agentic-console-plugin-cert` → agentic console deployment (`AgenticConsoleUIDeploymentName`)
   - Postgres TLS cert → postgres + app server
   - `lightspeed-otel-collector-cert` → OTEL Collector + app server (`ACTIVE_BACKEND`); `RestartOtelCollector` also refreshes client ConfigMap `lightspeed-otel-collector-client`
+  - `openshift-mcp-server-tls` → OpenShift MCP server + app server (`ACTIVE_BACKEND`); static SystemResources entry, gated by `OpenShiftMCPServerTLSWatchEnabled` when `spec.ols.introspectionEnabled` is true
 - `ConfigMaps.SystemResources`: Fixed list of system configmaps (kube-root-ca.crt, service-ca bundle)
 - `AnnotatedSecretMapping`: Dynamic map populated from CR spec at runtime (maps secret name to deployment names)
 - `AnnotatedConfigMapMapping`: Dynamic map populated from CR spec at runtime (maps configmap name to deployment names)
@@ -134,7 +140,7 @@ The special deployment name `"ACTIVE_BACKEND"` resolves to the AppServer deploym
 When the service-ca operator rotates or populates a watched TLS secret, `SecretUpdateHandler` restarts the mapped deployment via `RestartConsoleUI()` or `RestartAgenticConsoleUI()` (registered in `watchers/watchers.go`).
 
 ### Component Package Pattern
-Each component (appserver, postgres, otelcollector, console, agenticconsole, alertsadapter) follows the same package structure:
+Each component (appserver, postgres, otelcollector, ocpmcp, console, agenticconsole, alertsadapter) follows the same package structure:
 - `reconciler.go`: Phase 1 (resources) and Phase 2 (deployment) entry points
 - `deployment.go`: Deployment spec generation and update detection
 - `assets.go` and/or `config.go`: Resource and config generation
@@ -154,10 +160,11 @@ The OLSConfig CR uses finalizer `ols.openshift.io/finalizer` (defined in `utils.
 1. Remove chat console UI (deactivate plugin, delete ConsolePlugin CR)
 2. Remove agentic console UI (deactivate plugin, delete ConsolePlugin CR)
 3. Remove alerts adapter operand resources (`alertsadapter.RemoveAlertsAdapter()`: deployment, namespaced RBAC, SA, NetworkPolicy, monitoring RoleBinding; AgenticRun ClusterRole/ClusterRoleBinding when the platform permits delete)
-3. List all owned resources via owner references
-4. Explicitly delete owned resources
-5. Wait up to 3 minutes for deletion (poll every 5 seconds)
-6. Remove finalizer (proceeds even if cleanup times out)
+4. Remove OpenShift MCP server operand (`ocpmcp.Remove()`: Deployment, Service, NetworkPolicy, ConfigMaps, ServiceAccount, TLS Secret)
+5. List all owned resources via owner references
+6. Explicitly delete owned resources
+7. Wait up to 3 minutes for deletion (poll every 5 seconds)
+8. Remove finalizer (proceeds even if cleanup times out)
 
 ## Integration Points
 

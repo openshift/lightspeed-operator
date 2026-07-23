@@ -130,7 +130,7 @@ func generateBaseOLSConfig(opts olsConfigOptions, customizer func(*olsv1alpha1.O
 		deploymentConfig.DataCollectorContainer = olsv1alpha1.ContainerConfig{
 			Resources: opts.sidecarResources,
 		}
-		deploymentConfig.MCPServerContainer = olsv1alpha1.ContainerConfig{
+		deploymentConfig.MCPServerContainer = olsv1alpha1.Config{
 			Resources: opts.sidecarResources,
 		}
 		deploymentConfig.ConsoleContainer = olsv1alpha1.Config{

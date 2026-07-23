@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/alertsadapter"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
+	"github.com/openshift/lightspeed-operator/internal/controller/ocpmcp"
 	"github.com/openshift/lightspeed-operator/internal/controller/otelcollector"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
@@ -247,6 +248,9 @@ func SecretWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj clien
 	if watcherConfig != nil {
 		for _, systemSecret := range watcherConfig.Secrets.SystemResources {
 			if obj.GetNamespace() == systemSecret.Namespace && obj.GetName() == systemSecret.Name {
+				if !watcherConfig.IsSystemSecretWatchEnabled(systemSecret) {
+					return
+				}
 				r.GetLogger().Info("Detected system secret change",
 					"secret", systemSecret.Name,
 					"namespace", systemSecret.Namespace,
@@ -366,12 +370,13 @@ type RestartFunc func(reconciler.Reconciler, context.Context, ...*appsv1.Deploym
 
 // restartFuncs maps deployment names to their restart functions
 var restartFuncs = map[string]RestartFunc{
-	utils.OLSAppServerDeploymentName:     appserver.RestartAppServer,
-	utils.PostgresDeploymentName:         postgres.RestartPostgres,
-	utils.ConsoleUIDeploymentName:        console.RestartConsoleUI,
-	utils.AgenticConsoleUIDeploymentName: agenticconsole.RestartAgenticConsoleUI,
-	utils.AlertsAdapterDeploymentName:    alertsadapter.RestartAlertsAdapter,
-	utils.OtelCollectorDeploymentName:    otelcollector.RestartOtelCollector,
+	utils.OLSAppServerDeploymentName:       appserver.RestartAppServer,
+	utils.PostgresDeploymentName:           postgres.RestartPostgres,
+	utils.ConsoleUIDeploymentName:          console.RestartConsoleUI,
+	utils.AgenticConsoleUIDeploymentName:   agenticconsole.RestartAgenticConsoleUI,
+	utils.AlertsAdapterDeploymentName:      alertsadapter.RestartAlertsAdapter,
+	utils.OtelCollectorDeploymentName:      otelcollector.RestartOtelCollector,
+	utils.OpenShiftMCPServerDeploymentName: ocpmcp.Restart,
 }
 
 // restart corresponding deployment

@@ -327,6 +327,51 @@ func CreateTelemetryPullSecret(ctx context.Context, k8sClient client.Client, wit
 	}
 }
 
+// EnsureOpenShiftMCPServerCAConfigMap creates or updates the MCP CA ConfigMap with
+// injected service-ca.crt content for unit tests (service-ca does not run in envtest).
+func EnsureOpenShiftMCPServerCAConfigMap(ctx context.Context, k8sClient client.Client, certData string) {
+	if certData == "" {
+		certData = "test-mcp-ca"
+	}
+	cm := &corev1.ConfigMap{}
+	err := k8sClient.Get(ctx, client.ObjectKey{Name: OpenShiftMCPServerCAConfigMapName, Namespace: OLSNamespaceDefault}, cm)
+	if apierrors.IsNotFound(err) {
+		cm = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      OpenShiftMCPServerCAConfigMapName,
+				Namespace: OLSNamespaceDefault,
+			},
+			Data: map[string]string{
+				OpenShiftMCPServerCACertKey: certData,
+			},
+		}
+		err = k8sClient.Create(ctx, cm)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		return
+	}
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	if cm.Data == nil {
+		cm.Data = map[string]string{}
+	}
+	cm.Data[OpenShiftMCPServerCACertKey] = certData
+	err = k8sClient.Update(ctx, cm)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+// ClearOpenShiftMCPServerCAConfigMap removes service-ca.crt from the MCP CA ConfigMap
+// (or leaves an empty ConfigMap) for tests that assert the not-ready path.
+func ClearOpenShiftMCPServerCAConfigMap(ctx context.Context, k8sClient client.Client) {
+	cm := &corev1.ConfigMap{}
+	err := k8sClient.Get(ctx, client.ObjectKey{Name: OpenShiftMCPServerCAConfigMapName, Namespace: OLSNamespaceDefault}, cm)
+	if apierrors.IsNotFound(err) {
+		return
+	}
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	cm.Data = map[string]string{}
+	err = k8sClient.Update(ctx, cm)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
 // DeleteTelemetryPullSecret removes the pull-secret from openshift-config namespace.
 // This function is idempotent - ignores "not found" errors.
 func DeleteTelemetryPullSecret(ctx context.Context, k8sClient client.Client) {

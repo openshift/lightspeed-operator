@@ -647,9 +647,36 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		Expect(bodyStr).NotTo(ContainSubstring("Related documentation"))
 	})
 
-	// Test 7: MCP Server Sidecar
-	It("should have openshift-mcp-server sidecar container", FlakeAttempts(5), func() {
-		By("Verifying openshift-mcp-server container is present in app deployment")
+	// Test 7: Standalone OpenShift MCP Server
+	It("should deploy openshift-mcp-server as a standalone Deployment and Service", FlakeAttempts(5), func() {
+		By("Verifying openshift-mcp-server Deployment exists")
+		mcpDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "openshift-mcp-server",
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.Get(mcpDeployment)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(mcpDeployment.Spec.Template.Spec.Containers).NotTo(BeEmpty())
+		Expect(mcpDeployment.Spec.Template.Spec.Containers[0].Name).To(ContainSubstring("openshift-mcp-server"))
+
+		By("Verifying openshift-mcp-server Service exists on HTTPS port 8443")
+		mcpService := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "openshift-mcp-server",
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.Get(mcpService)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(mcpService.Spec.Ports).NotTo(BeEmpty())
+		Expect(mcpService.Spec.Ports[0].Name).To(Equal("https"))
+		Expect(mcpService.Spec.Ports[0].Port).To(Equal(int32(utils.OpenShiftMCPServerHTTPSPort)))
+		Expect(mcpService.Spec.Ports[0].TargetPort.String()).To(Equal("https"))
+		Expect(mcpService.Annotations[ServiceAnnotationKeyTLSSecret]).To(Equal(utils.OpenShiftMCPServerCertsSecretName))
+
+		By("Verifying app-server does not include an openshift-mcp-server sidecar")
 		appDeployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      AppServerDeploymentName,
@@ -658,16 +685,9 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		}
 		err = client.Get(appDeployment)
 		Expect(err).NotTo(HaveOccurred())
-
-		Expect(len(appDeployment.Spec.Template.Spec.Containers)).To(BeNumerically(">", 1))
-		foundMCPServer := false
 		for _, container := range appDeployment.Spec.Template.Spec.Containers {
-			if strings.Contains(container.Name, "openshift-mcp-server") || strings.Contains(container.Image, "openshift-mcp-server") {
-				foundMCPServer = true
-				break
-			}
+			Expect(container.Name).NotTo(Equal("openshift-mcp-server"))
 		}
-		Expect(foundMCPServer).To(BeTrue(), "openshift-mcp-server sidecar container should be present")
 	})
 
 	// Test 8: Proxy Functionality

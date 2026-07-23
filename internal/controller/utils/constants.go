@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/openshift/lightspeed-operator/internal/relatedimages"
@@ -304,12 +305,16 @@ const (
 	OtelCollectorServingCertTLSFile = "/var/run/secrets/serving-cert/tls.crt"
 	// OtelCollectorServingCertTLSKeyFile is the serving certificate key path in collector YAML.
 	OtelCollectorServingCertTLSKeyFile = "/var/run/secrets/serving-cert/tls.key"
-	// AppOtelCollectorCACertDir is the app-server mount directory for the collector serving cert.
+	// AppOtelCollectorCACertDir is the app-server mount directory for the OpenShift service-ca
+	// used to verify the in-cluster OTEL Collector serving cert.
 	AppOtelCollectorCACertDir = "otel-collector-ca"
-	// AppOtelCollectorCACertVolumeName is the app-server volume name for the collector TLS secret.
-	AppOtelCollectorCACertVolumeName = "otel-collector-cert"
-	// AppOtelCollectorCACertFile is the serving cert filename within AppOtelCollectorCACertDir.
-	AppOtelCollectorCACertFile = "tls.crt"
+	// AppOtelCollectorCACertVolumeName is the app-server volume name for the service-ca ConfigMap.
+	AppOtelCollectorCACertVolumeName = "otel-collector-ca"
+	// AppOtelCollectorCACertFile is the CA filename within AppOtelCollectorCACertDir.
+	AppOtelCollectorCACertFile = "service-ca.crt"
+	// OTELExporterOTLPCertificateEnvVar is the OpenTelemetry SDK env var for the CA PEM
+	// used by the OTLP/gRPC exporter. gRPC does not use the certifi/extra_ca store.
+	OTELExporterOTLPCertificateEnvVar = "OTEL_EXPORTER_OTLP_CERTIFICATE"
 	// PostgresSecretName is the name of OLS application Postgres secret
 	PostgresSecretName = "lightspeed-postgres-secret"
 	// PostgresCertsSecretName is the name of the Postgres certs secret
@@ -447,10 +452,36 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MetricsReaderServiceAccountTokenSecretName = "metrics-reader-token" // #nosec G101
 	// MetricsReaderServiceAccountName is the name of the service account for the metrics reader
 	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
-	// MCP server URL
-	OpenShiftMCPServerURL = "http://localhost:%d/mcp"
-	// MCP server port.
-	OpenShiftMCPServerPort = 8080
+	// OpenShiftMCPServerHTTPSPort is the standalone Service/container HTTPS port (service-ca TLS).
+	OpenShiftMCPServerHTTPSPort = 8443
+	// OpenShiftMCPServerDeploymentName is the standalone openshift-mcp-server Deployment.
+	OpenShiftMCPServerDeploymentName = "openshift-mcp-server"
+	// OpenShiftMCPServerServiceName is the ClusterIP Service for the standalone MCP server.
+	OpenShiftMCPServerServiceName = "openshift-mcp-server"
+	// OpenShiftMCPServerServiceAccountName is the ServiceAccount for the standalone MCP server.
+	OpenShiftMCPServerServiceAccountName = "openshift-mcp-server"
+	// OpenShiftMCPServerNetworkPolicyName is the NetworkPolicy for the standalone MCP server.
+	OpenShiftMCPServerNetworkPolicyName = "openshift-mcp-server"
+	// OpenShiftMCPServerCertsSecretName is the service-ca TLS secret for the MCP Service.
+	OpenShiftMCPServerCertsSecretName = "openshift-mcp-server-tls" // #nosec G101
+	// OpenShiftMCPServerCAConfigMapName is the ConfigMap with inject-cabundle for client trust.
+	OpenShiftMCPServerCAConfigMapName = "openshift-mcp-server-ca"
+	// OpenShiftMCPServerCACertKey is the PEM key injected by service-ca into the CA ConfigMap.
+	OpenShiftMCPServerCACertKey = "service-ca.crt"
+	// AppOpenShiftMCPServerCACertDir is the app-server mount directory for the MCP service-ca bundle.
+	AppOpenShiftMCPServerCACertDir = "openshift-mcp-server-ca"
+	// AppOpenShiftMCPServerCACertVolumeName is the app-server volume name for the MCP CA ConfigMap.
+	AppOpenShiftMCPServerCACertVolumeName = "openshift-mcp-server-ca"
+	// AppOpenShiftMCPServerCACertFile is the CA filename within AppOpenShiftMCPServerCACertDir.
+	AppOpenShiftMCPServerCACertFile = "service-ca.crt"
+	// OpenShiftMCPServerTLSVolumeName is the pod volume name for the serving-cert Secret.
+	OpenShiftMCPServerTLSVolumeName = "tls"
+	// OpenShiftMCPServerTLSMountPath is where tls.crt/tls.key are mounted.
+	OpenShiftMCPServerTLSMountPath = "/etc/tls"
+	// OpenShiftMCPServerComponentLabel is the app.kubernetes.io/component label value.
+	OpenShiftMCPServerComponentLabel = "openshift-mcp-server"
+	// InjectCABundleAnnotationKey requests service-ca to inject the cluster CA into a ConfigMap.
+	InjectCABundleAnnotationKey = "service.beta.openshift.io/inject-cabundle"
 	// RHOOKPHTTPPort is the Solr HTTP proxy port for the RH OKP sidecar (remapped from image default 8080).
 	RHOOKPHTTPPort = 9080
 	// RHOOKPHTTPSPort is the RH OKP Apache HTTPS port (remapped from image default 8443; OLS uses 8443).
@@ -548,6 +579,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	OLSConfigMapResourceVersionAnnotation = "ols.openshift.io/olsconfig-configmap-version"
 	// OpenShiftMCPServerConfigMapResourceVersionAnnotation is the annotation key for tracking MCP Server ConfigMap ResourceVersion
 	OpenShiftMCPServerConfigMapResourceVersionAnnotation = "ols.openshift.io/mcp-server-configmap-version"
+	// OpenShiftMCPServerTLSSecretResourceVersionAnnotation tracks the MCP TLS Secret ResourceVersion on the MCP Deployment.
+	OpenShiftMCPServerTLSSecretResourceVersionAnnotation = "ols.openshift.io/mcp-server-tls-secret-version" // #nosec G101
+	// OpenShiftMCPServerCACertHashAnnotation tracks the MCP CA ConfigMap content hash on the app-server Deployment.
+	OpenShiftMCPServerCACertHashAnnotation = "ols.openshift.io/mcp-server-ca-configmap-hash"
 
 	/*** Environment Variable Suffixes ***/
 	// EnvVarSuffixAPIKey is the environment variable suffix for API key credentials
@@ -586,4 +621,9 @@ func imageDefaultOr(name, fallback string) string {
 		return img
 	}
 	return fallback
+}
+
+// OpenShiftMCPServerServiceURL returns the in-cluster HTTPS MCP endpoint for the given namespace.
+func OpenShiftMCPServerServiceURL(namespace string) string {
+	return fmt.Sprintf("https://%s.%s.svc:%d/mcp", OpenShiftMCPServerServiceName, namespace, OpenShiftMCPServerHTTPSPort)
 }

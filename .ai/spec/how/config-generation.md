@@ -7,7 +7,7 @@
 | `internal/controller/appserver/assets.go` | `GenerateOLSConfigMap()`, `buildProviderConfigs()`, `buildOLSConfig()`, `generateMCPServerConfigs()`, `buildToolFilteringConfig()` | OLS config YAML (olsconfig.yaml) |
 | `internal/controller/postgres/assets.go` | `GeneratePostgresConfigMap()`, `GeneratePostgresBootstrapSecret()`, `GeneratePostgresSecret()` | PostgreSQL config + bootstrap script + credentials |
 | `internal/controller/console/assets.go` | `GenerateConsoleUIConfigMap()` | Nginx config for console plugin |
-| `internal/controller/utils/mcp_server_config.go` | `GenerateOpenShiftMCPServerConfigMap()` | MCP server denied-resources config (TOML) |
+| `internal/controller/ocpmcp/assets.go` | `GenerateConfigMap()` | MCP server denied-resources config (TOML) |
 
 ## Data Flow
 
@@ -110,7 +110,7 @@ ols_config:
 
 mcp_servers:                                         # if any MCP servers configured
   - name: openshift                                  # if introspectionEnabled
-    url: http://localhost:<OpenShiftMCPServerPort>
+    url: https://openshift-mcp-server.<ns>.svc:8443/mcp
     timeout: <mcpKubeServerConfig.timeout or default 60>
     headers:
       x-kube-auth: "{{KUBERNETES_TOKEN}}"
@@ -167,7 +167,7 @@ Inline in `GenerateConsoleUIConfigMap()`:
 - TLS cert/key from `/var/cert/tls.crt` and `/var/cert/tls.key`
 
 ### MCP Server Config (TOML)
-Inline in `utils.OpenShiftMCPServerConfigTOML` constant:
+Inline in `ocpmcp` package `configTOML` constant:
 ```toml
 [[denied_resources]]
 group = ""

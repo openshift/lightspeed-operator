@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package otelcollector
+package ocpmcp
 
 import (
 	"context"
@@ -39,7 +39,6 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
-	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 )
 
 var (
@@ -52,9 +51,9 @@ var (
 	crNamespacedName       types.NamespacedName
 )
 
-func TestOtelCollector(t *testing.T) {
+func TestOpenShiftMCPServer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "OTEL Collector Suite")
+	RunSpecs(t, "OpenShift MCP Server Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -79,8 +78,6 @@ var _ = BeforeSuite(func() {
 	err = olsv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = configv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = monv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
@@ -119,26 +116,17 @@ var _ = AfterSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-func boolPtr(v bool) *bool {
-	return &v
-}
-
-func ensurePostgresSecret() {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.PostgresSecretName,
-			Namespace: utils.OLSNamespaceDefault,
-		},
-		Data: map[string][]byte{
-			utils.PostgresSecretKeyName: []byte("test-postgres-password"),
-		},
-	}
-	err := k8sClient.Create(ctx, secret)
+func ensureMCPTLSSecret() {
+	secret, err := utils.GenerateRandomTLSSecret()
+	Expect(err).NotTo(HaveOccurred())
+	secret.Name = utils.OpenShiftMCPServerCertsSecretName
+	secret.Namespace = utils.OLSNamespaceDefault
+	err = k8sClient.Create(ctx, secret)
 	Expect(client.IgnoreAlreadyExists(err)).NotTo(HaveOccurred())
 }
 
-func ensureCollectorConfigMap(testCR *olsv1alpha1.OLSConfig) {
-	cm, err := GenerateOtelCollectorConfigMap(testReconcilerInstance, testCR)
+func ensureMCPConfigMap(testCR *olsv1alpha1.OLSConfig) {
+	cm, err := GenerateConfigMap(testReconcilerInstance, testCR)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = k8sClient.Create(ctx, cm)
@@ -156,36 +144,4 @@ func ensureCollectorConfigMap(testCR *olsv1alpha1.OLSConfig) {
 		}
 		Expect(err).NotTo(HaveOccurred())
 	}
-}
-
-func ensureCollectorTLSSecret() {
-	secret, err := utils.GenerateRandomTLSSecret()
-	Expect(err).NotTo(HaveOccurred())
-	secret.Name = utils.OtelCollectorCertsSecretName
-	secret.Namespace = utils.OLSNamespaceDefault
-	err = k8sClient.Create(ctx, secret)
-	Expect(client.IgnoreAlreadyExists(err)).NotTo(HaveOccurred())
-}
-
-func ensureServiceCAConfigMap() {
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.OLSCAConfigMap,
-			Namespace: utils.OLSNamespaceDefault,
-		},
-		Data: map[string]string{
-			utils.AppOtelCollectorCACertFile: utils.TestCACert,
-		},
-	}
-	err := k8sClient.Create(ctx, cm)
-	Expect(client.IgnoreAlreadyExists(err)).NotTo(HaveOccurred())
-}
-
-func containerEnvNamed(container corev1.Container, name string) (corev1.EnvVar, bool) {
-	for _, env := range container.Env {
-		if env.Name == name {
-			return env, true
-		}
-	}
-	return corev1.EnvVar{}, false
 }

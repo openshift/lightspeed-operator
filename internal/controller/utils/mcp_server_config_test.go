@@ -1,51 +1,8 @@
 package utils
 
 import (
-	"strings"
 	"testing"
 )
-
-func TestOpenShiftMCPServerConfigTOML(t *testing.T) {
-	config := OpenShiftMCPServerConfigTOML
-
-	if !strings.Contains(config, `kind = "Secret"`) {
-		t.Error("TOML config should deny v1/Secret resources")
-	}
-	if !strings.Contains(config, `group = ""`) {
-		t.Error("TOML config should have empty group for core API resources")
-	}
-	if !strings.Contains(config, `version = "v1"`) {
-		t.Error("TOML config should target v1 API version")
-	}
-	if !strings.Contains(config, "rbac.authorization.k8s.io") {
-		t.Error("TOML config should deny RBAC resources")
-	}
-	if !strings.Contains(config, "[[denied_resources]]") {
-		t.Error("TOML config should use denied_resources table array syntax")
-	}
-
-	if !strings.Contains(config, `toolsets = ["core", "config", "helm", "metrics"]`) {
-		t.Error("TOML config should pin default toolsets explicitly")
-	}
-	if !strings.Contains(config, "[toolset_configs.metrics]") {
-		t.Error("TOML config should define metrics toolset config (toolset_configs key matches toolset name)")
-	}
-	if !strings.Contains(config, "prometheus_url = \"https://thanos-querier.openshift-monitoring.svc.cluster.local:9091\"") {
-		t.Error("TOML config should set Thanos Querier prometheus_url for metrics toolset")
-	}
-	if !strings.Contains(config, "alertmanager_url = \"https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094\"") {
-		t.Error("TOML config should set Alertmanager URL for metrics toolset")
-	}
-	if !strings.Contains(config, "guardrails = \"none\"") {
-		t.Error("TOML config should set guardrails to none for OCP Thanos compatibility")
-	}
-
-	// Verify there are exactly 2 denied_resources entries
-	count := strings.Count(config, "[[denied_resources]]")
-	if count != 2 {
-		t.Errorf("Expected 2 denied_resources entries, got %d", count)
-	}
-}
 
 func TestGetOpenShiftMCPServerConfigVolumeAndMount(t *testing.T) {
 	volume, mount := GetOpenShiftMCPServerConfigVolumeAndMount()
