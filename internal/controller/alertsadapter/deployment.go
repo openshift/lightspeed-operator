@@ -23,9 +23,6 @@ func getAlertsAdapterResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequir
 				corev1.ResourceCPU:    resource.MustParse("10m"),
 				corev1.ResourceMemory: resource.MustParse("50Mi"),
 			},
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("100Mi"),
-			},
 		},
 	)
 }

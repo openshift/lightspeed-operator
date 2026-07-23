@@ -23,9 +23,6 @@ func getDatabaseResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirement
 			corev1.ResourceCPU:    resource.MustParse("30m"),
 			corev1.ResourceMemory: resource.MustParse("300Mi"),
 		},
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("2Gi"),
-		},
 	}
 	return utils.GetResourcesOrDefault(
 		cr.Spec.OLSConfig.DeploymentConfig.DatabaseContainer.Resources,

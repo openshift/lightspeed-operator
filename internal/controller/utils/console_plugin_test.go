@@ -54,7 +54,7 @@ var _ = Describe("Console plugin shared utilities", func() {
 			resources := DefaultConsolePluginResourceRequirements()
 			Expect(resources.Requests[corev1.ResourceCPU]).To(Equal(resource.MustParse("10m")))
 			Expect(resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("50Mi")))
-			Expect(resources.Limits[corev1.ResourceMemory]).To(Equal(resource.MustParse("100Mi")))
+			Expect(resources.Limits).To(BeNil())
 		})
 	})
 
