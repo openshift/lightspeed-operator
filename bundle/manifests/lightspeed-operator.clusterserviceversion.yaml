@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-07-20T21:19:08Z"
+    createdAt: "2026-07-23T22:54:06Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -247,9 +247,10 @@ spec:
             displayName: Agentic Console Deployment
             path: ols.deployment.agenticConsole
           - description: |-
-              Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+              Defines the number of desired pods. Default: "1"
+              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+              For PostgreSQL, Console, Agentic Console, Alerts Adapter, and OTEL Collector,
+              the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.agenticConsole.replicas
             x-descriptors:
@@ -267,9 +268,10 @@ spec:
             displayName: Alerts Adapter ConfigMap Reference
             path: ols.deployment.alertsAdapter.configMapRef
           - description: |-
-              Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+              Defines the number of desired pods. Default: "1"
+              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+              For PostgreSQL, Console, Agentic Console, Alerts Adapter, and OTEL Collector,
+              the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.alertsAdapter.replicas
             x-descriptors:
@@ -278,9 +280,10 @@ spec:
             displayName: API Deployment
             path: ols.deployment.api
           - description: |-
-              Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+              Defines the number of desired pods. Default: "1"
+              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+              For PostgreSQL, Console, Agentic Console, Alerts Adapter, and OTEL Collector,
+              the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.api.replicas
             x-descriptors:
@@ -289,9 +292,10 @@ spec:
             displayName: Console Deployment
             path: ols.deployment.console
           - description: |-
-              Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+              Defines the number of desired pods. Default: "1"
+              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+              For PostgreSQL, Console, Agentic Console, Alerts Adapter, and OTEL Collector,
+              the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.console.replicas
             x-descriptors:
@@ -303,23 +307,34 @@ spec:
             displayName: Database Deployment
             path: ols.deployment.database
           - description: |-
-              Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+              Defines the number of desired pods. Default: "1"
+              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+              For PostgreSQL, Console, Agentic Console, Alerts Adapter, and OTEL Collector,
+              the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.database.replicas
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:podCount
-          - description: MCP server container settings.
-            displayName: MCP Server Container
+          - description: MCP server deployment settings.
+            displayName: MCP Server Deployment
             path: ols.deployment.mcpServer
+          - description: |-
+              Defines the number of desired pods. Default: "1"
+              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+              For PostgreSQL, Console, Agentic Console, Alerts Adapter, and OTEL Collector,
+              the number of replicas is always set to 1.
+            displayName: Number of replicas
+            path: ols.deployment.mcpServer.replicas
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:podCount
           - description: OTEL Collector deployment settings.
             displayName: OTEL Collector Deployment
             path: ols.deployment.otelCollector
           - description: |-
-              Defines the number of desired OLS pods. Default: "1"
-              Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-              Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+              Defines the number of desired pods. Default: "1"
+              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+              For PostgreSQL, Console, Agentic Console, Alerts Adapter, and OTEL Collector,
+              the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.otelCollector.replicas
             x-descriptors:
@@ -331,8 +346,8 @@ spec:
             displayName: Image Pull Secrets
             path: ols.imagePullSecrets
           - description: |-
-              Enable introspection features (e.g. built-in OpenShift MCP server). Omitted means use the
-              CRD default (true); explicit false disables introspection.
+              Enable introspection features (e.g. built-in OpenShift MCP server).
+              Default: true when absent. Explicit false disables introspection.
             displayName: Introspection Enabled
             path: ols.introspectionEnabled
             x-descriptors:
@@ -963,12 +978,12 @@ spec:
                       - --cert-dir=/etc/tls/private
                       - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --service-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:2cda2f011996b457462ac3da3b00b37d854bc8bd48c60a8879a386a3e54b9b79
-                      - --console-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:91b7c5316e44e414f0256c276cf975ce5525f0a1ca7c1683730c66f271632f5e
-                      - --openshift-mcp-server-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:5b8e3b6a9d46e4825f731819274efbc88dc63f1dc47e8eefe9339bf90da4c02d
-                      - --agentic-console-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:a7900060ec7928f03559bd2300bc1642ae0a57b10e30ce9f9804e8102a84b7f7
-                      - --alerts-adapter-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter@sha256:9049b11048de0717523b27e0c23ae283245df34b5dfb2d24571148e730cca4e2
-                      - --otel-collector-image=quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector@sha256:85e8f70fea5c9005088767f787e39c65ebabac2295f38b3cd846157ef9dcebea
+                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:73fa6825f8f24c4b893fba177ac415ad4322de56af7940b4a4084a9bc72a7910
+                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:f53e11c14e291fb19f87a24fb512bbf59ec350bcb3af7a114663febc77b4c1b9
+                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:5b8e3b6a9d46e4825f731819274efbc88dc63f1dc47e8eefe9339bf90da4c02d
+                      - --agentic-console-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:b08ceeb59e29b55ceab15e87700ac6173ccf59d146dd616a3e2e7ed5ddc8927e
+                      - --alerts-adapter-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:10af58d31ab3add2e6ec1058ba5d10a87e2d5a4d77258b3f47a0ffc84eff3770
+                      - --otel-collector-image=registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:fb86a2c82c959e8ec72e707ce6cc0c4005f806da38ec50da5606557346549cd3
                       - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest
                     command:
                       - /manager
@@ -977,7 +992,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:0f4eac671fafd4f27d683e150b6d767c701484c129f983c0d68fd1fb5ce790b1
+                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:cf864a9f6cd3af1ac3f539b982239fff4aafe576c518e3e189cfd9bd6733c4f7
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1098,18 +1113,18 @@ spec:
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     - name: lightspeed-service-api
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service@sha256:2cda2f011996b457462ac3da3b00b37d854bc8bd48c60a8879a386a3e54b9b79
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:73fa6825f8f24c4b893fba177ac415ad4322de56af7940b4a4084a9bc72a7910
     - name: lightspeed-console-plugin
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console@sha256:91b7c5316e44e414f0256c276cf975ce5525f0a1ca7c1683730c66f271632f5e
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:f53e11c14e291fb19f87a24fb512bbf59ec350bcb3af7a114663febc77b4c1b9
     - name: lightspeed-operator
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator@sha256:0f4eac671fafd4f27d683e150b6d767c701484c129f983c0d68fd1fb5ce790b1
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:cf864a9f6cd3af1ac3f539b982239fff4aafe576c518e3e189cfd9bd6733c4f7
     - name: openshift-mcp-server
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server@sha256:5b8e3b6a9d46e4825f731819274efbc88dc63f1dc47e8eefe9339bf90da4c02d
+      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:5b8e3b6a9d46e4825f731819274efbc88dc63f1dc47e8eefe9339bf90da4c02d
     - name: lightspeed-agentic-console-plugin
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console@sha256:a7900060ec7928f03559bd2300bc1642ae0a57b10e30ce9f9804e8102a84b7f7
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:b08ceeb59e29b55ceab15e87700ac6173ccf59d146dd616a3e2e7ed5ddc8927e
     - name: lightspeed-agentic-alerts-adapter
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter@sha256:9049b11048de0717523b27e0c23ae283245df34b5dfb2d24571148e730cca4e2
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:10af58d31ab3add2e6ec1058ba5d10a87e2d5a4d77258b3f47a0ffc84eff3770
     - name: lightspeed-otel-collector
-      image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector@sha256:85e8f70fea5c9005088767f787e39c65ebabac2295f38b3cd846157ef9dcebea
+      image: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:fb86a2c82c959e8ec72e707ce6cc0c4005f806da38ec50da5606557346549cd3
     - name: rhokp
       image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest
