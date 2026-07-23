@@ -491,6 +491,37 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should create a metrics reader ClusterRoleBinding with correct namespace", func() {
+			By("Get the metrics reader ClusterRoleBinding")
+			rb := &rbacv1.ClusterRoleBinding{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: utils.MetricsReaderClusterRoleBindingName}, rb)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rb.Subjects).To(HaveLen(1))
+			Expect(rb.Subjects[0].Name).To(Equal(utils.MetricsReaderServiceAccountName))
+			Expect(rb.Subjects[0].Namespace).To(Equal(utils.OLSNamespaceDefault))
+			Expect(rb.RoleRef.Name).To(Equal(utils.MetricsReaderClusterRoleName))
+		})
+
+		It("should fix a metrics reader ClusterRoleBinding with wrong namespace", func() {
+			By("Patch the ClusterRoleBinding to have a wrong namespace")
+			rb := &rbacv1.ClusterRoleBinding{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: utils.MetricsReaderClusterRoleBindingName}, rb)
+			Expect(err).NotTo(HaveOccurred())
+
+			rb.Subjects[0].Namespace = "wrong-namespace"
+			err = k8sClient.Update(ctx, rb)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Re-reconcile to fix the namespace")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify the namespace was corrected")
+			err = k8sClient.Get(ctx, client.ObjectKey{Name: utils.MetricsReaderClusterRoleBindingName}, rb)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rb.Subjects[0].Namespace).To(Equal(utils.OLSNamespaceDefault))
+		})
+
 		It("should create a prometheus rule", func() {
 			By("Get the prometheus rule")
 			pr := &monv1.PrometheusRule{}

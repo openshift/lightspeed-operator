@@ -447,6 +447,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	MetricsReaderServiceAccountTokenSecretName = "metrics-reader-token" // #nosec G101
 	// MetricsReaderServiceAccountName is the name of the service account for the metrics reader
 	MetricsReaderServiceAccountName = "lightspeed-operator-metrics-reader"
+	// MetricsReaderClusterRoleName is the name of the ClusterRole granting metrics read access
+	MetricsReaderClusterRoleName = "lightspeed-operator-ols-metrics-reader"
+	// MetricsReaderClusterRoleBindingName is the name of the ClusterRoleBinding for the metrics reader
+	MetricsReaderClusterRoleBindingName = "lightspeed-operator-ols-metrics-reader"
 	// MCP server URL
 	OpenShiftMCPServerURL = "http://localhost:%d/mcp"
 	// MCP server port.
