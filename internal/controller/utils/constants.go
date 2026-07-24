@@ -417,6 +417,17 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AlertsAdapterAlertmanagerURLEnvVar = "ALERTMANAGER_URL"
 	// AlertsAdapterComponentLabel is the app.kubernetes.io/component label value for alerts adapter resources
 	AlertsAdapterComponentLabel = "alerts-adapter"
+	// PostgresTerminationGracePeriodSeconds is the grace period for postgres pod termination.
+	// This must be greater than PostgresShutdownTimeoutSeconds to allow pg_ctl to complete.
+	PostgresTerminationGracePeriodSeconds = int64(60)
+
+	// PostgresShutdownTimeoutSeconds is the timeout for pg_ctl stop command.
+	// This must be less than PostgresTerminationGracePeriodSeconds to complete before SIGKILL.
+	PostgresShutdownTimeoutSeconds = int64(55)
+
+	// PostgresUserDataDir is the PostgreSQL data directory path.
+	// PostgreSQL's initdb creates this structure: PGDATA/data/userdata
+	PostgresUserDataDir = PostgresDataVolumeMountPath + "/data/userdata"
 
 	// PostgresPVCName is the name of the PVC for the OLS Postgres server
 	PostgresPVCName = "lightspeed-postgres-pvc"

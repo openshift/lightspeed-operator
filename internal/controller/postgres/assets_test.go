@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"fmt"
 	"path"
 	"strconv"
 
@@ -87,6 +88,19 @@ var _ = Describe("App postgres server assets", func() {
 		Expect(dep.Spec.Selector.MatchLabels).To(Equal(utils.GeneratePostgresSelectorLabels()))
 		Expect(dep.Spec.RevisionHistoryLimit).To(Equal(&revisionHistoryLimit))
 		Expect(dep.Spec.Replicas).To(Equal(&replicas))
+		// Verify preStop lifecycle hook for clean postgres shutdown
+		Expect(dep.Spec.Template.Spec.Containers[0].Lifecycle).NotTo(BeNil())
+		Expect(dep.Spec.Template.Spec.Containers[0].Lifecycle.PreStop).NotTo(BeNil())
+		Expect(dep.Spec.Template.Spec.Containers[0].Lifecycle.PreStop.Exec).NotTo(BeNil())
+		expectedPreStopCommand := fmt.Sprintf("if [ -f %s/PG_VERSION ]; then pg_ctl stop -D %s -m fast -w -t %d; fi", utils.PostgresUserDataDir, utils.PostgresUserDataDir, utils.PostgresShutdownTimeoutSeconds)
+		Expect(dep.Spec.Template.Spec.Containers[0].Lifecycle.PreStop.Exec.Command).To(Equal([]string{
+			"/bin/sh", "-c",
+			expectedPreStopCommand,
+		}))
+		// Verify terminationGracePeriodSeconds gives postgres time to shut down
+		Expect(dep.Spec.Template.Spec.TerminationGracePeriodSeconds).NotTo(BeNil())
+		Expect(*dep.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(utils.PostgresTerminationGracePeriodSeconds))
+
 		Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(Equal([]corev1.VolumeMount{
 			{
 				Name:      "secret-" + utils.PostgresCertsSecretName,
