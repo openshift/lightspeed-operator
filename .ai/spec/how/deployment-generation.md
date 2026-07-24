@@ -57,7 +57,7 @@ All deployments use the same pattern in their update functions:
    - RestartX() sets `ols.openshift.io/force-reload` annotation to `time.Now().Format(time.RFC3339Nano)`
    - This triggers a rolling restart by changing the pod template
 
-**AppServer tracks:** OLS config CM version, MCP server config CM version, proxy CA cert hash, OpenShift MCP CA ConfigMap content hash (when introspection is enabled)
+**AppServer tracks:** OLS config CM version, MCP server config CM version, proxy CA cert hash, MCP client CA Secret content hash (when introspection is enabled)
 
 ## Key Abstractions
 

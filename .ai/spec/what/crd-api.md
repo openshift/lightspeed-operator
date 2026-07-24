@@ -59,7 +59,7 @@ Settings consumed by the classic operator when publishing the agentic handoff Co
 Field path (relative to `spec.agenticOLS`) | JSON key | Go type | Required | Default | Validation | Description
 ---|---|---|---|---|---|---
 `sandboxMode` | `sandboxMode` | `SandboxMode` | No | `bare-pod` | Enum: `bare-pod`, `sandbox-claim` | How the agentic operator provisions sandbox pods
-`agenticSandboxConfig` | `agenticSandboxConfig` | `Config` | No | — | Resources, tolerations, nodeSelector for the thin sandbox PodSpec. Replicas ignored.
+`agenticSandboxConfig` | `agenticSandboxConfig` | `Config` | No | — | — | Resources, tolerations, nodeSelector for the thin sandbox PodSpec. Replicas ignored.
 
 #### AgenticOLS Behavioral Rules
 

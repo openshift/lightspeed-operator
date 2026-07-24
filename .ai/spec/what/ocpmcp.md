@@ -4,7 +4,7 @@ Standalone HTTPS OpenShift MCP server operand managed by the `ocpmcp` package ([
 
 ## Architecture
 
-```
+```text
 lightspeed-service (app-server)
   └─ HTTPS MCP client
        url: https://openshift-mcp-server.<ns>.svc:8443/mcp
@@ -36,7 +36,7 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 
 ### App-server Integration
 9. olsconfig `mcp_servers` includes an `openshift` entry pointing at `https://openshift-mcp-server.<namespace>.svc:8443/mcp` with `Authorization: ols` when introspection is enabled. See `app-server.md` and `config-generation.md`.
-10. App-server mounts client CA Secret `lightspeed-agentic-mcp-ca` (sourced from `openshift-service-ca.crt`) at `/etc/certs/openshift-mcp-server-ca/` and adds `service-ca.crt` to `extra_ca`. See `tls.md` / `agentic-sandbox-profile.md`. There is no dedicated MCP inject-cabundle ConfigMap.
+10. App-server mounts client CA Secret `lightspeed-agentic-mcp-ca` (sourced from `openshift-service-ca.crt`) at `/etc/certs/openshift-mcp-server-ca/` and adds `service-ca.crt` to `extra_ca`. See `tls.md` / `agentic-sandbox-profile.md`. There is no dedicated MCP inject-cabundle ConfigMap; Phase 1 / `Remove` deletes leftover `openshift-mcp-server-ca` on upgrade.
 11. App-server Deployment tracks MCP client CA content hash (`ols.openshift.io/mcp-server-ca-configmap-hash`) only while introspection is enabled.
 
 ### Watching and Restarts

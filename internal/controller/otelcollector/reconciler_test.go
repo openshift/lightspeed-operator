@@ -9,6 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -86,6 +87,25 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(np)
 			Expect(np.Spec.Ingress).To(HaveLen(2))
+		})
+
+		It("should delete the legacy OTEL client ConfigMap on upgrade", func() {
+			legacy := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.LegacyOtelCollectorClientConfigMapName,
+					Namespace: utils.OLSNamespaceDefault,
+				},
+				Data: map[string]string{"collector-endpoint": "stale"},
+			}
+			Expect(k8sClient.Create(ctx, legacy)).To(Succeed())
+
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.LegacyOtelCollectorClientConfigMapName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, &corev1.ConfigMap{})
+			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
 
 		It("should skip ConfigMap update when data is unchanged", func() {

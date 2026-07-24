@@ -6,7 +6,7 @@ Implementation details for the lightspeed-operator's role in the templog / OTEL 
 
 The OTEL Collector is the in-cluster telemetry hub. It is **always deployed** when Lightspeed is installed. Configuration is split between **service behavior** (stdout audit events, trace export to collector) and **collector behavior** (Postgres storage, trace forwarding).
 
-```
+```text
 lightspeed-service
   ├─ stdout JSON audit events     ← spec.ols.auditEventsEnabled
   └─ OTLP traces (gRPC :4317)   ← always → lightspeed-otel-collector Service
@@ -19,9 +19,9 @@ OTEL Collector (always deployed)
   └─ traces pipeline → backend    ← spec.audit.tracingEndpoint (optional)
 
 Agentic handoff — see agentic-sandbox-profile.md
-  appserver: Secret lightspeed-agentic-otel-ca
+  appserver: Secret lightspeed-agentic-otel-ca (PEM)
   agenticintegration (Phase 2 last): ConfigMap lightspeed-agentic-configuration
-  → agentic-operator: OTLP/admin endpoints, OTEL CA Secret name + PEM
+  → agentic-operator: OTLP/admin endpoints + otel-ca-secret name from ConfigMap; PEM from Secret
 ```
 
 ## CRD — OLSConfig ([OLS-3509](https://redhat.atlassian.net/browse/OLS-3509))

@@ -28,6 +28,7 @@ func ReconcileResources(r reconciler.Reconciler, ctx context.Context, olsconfig 
 		{Name: "reconcile openshift-mcp-server ConfigMap", Task: reconcileConfigMap},
 		{Name: "reconcile openshift-mcp-server ServiceAccount", Task: reconcileServiceAccount},
 		{Name: "reconcile openshift-mcp-server NetworkPolicy", Task: reconcileNetworkPolicy},
+		{Name: "remove legacy openshift-mcp-server CA ConfigMap", Task: removeLegacyCAConfigMap},
 	}, true)
 }
 
@@ -53,6 +54,7 @@ func Remove(r reconciler.Reconciler, ctx context.Context) error {
 		{Name: "delete openshift-mcp-server configmap", Task: deleteConfigMap},
 		{Name: "delete openshift-mcp-server service account", Task: deleteServiceAccount},
 		{Name: "delete openshift-mcp-server TLS secret", Task: deleteTLSSecret},
+		{Name: "delete legacy openshift-mcp-server CA ConfigMap", Task: deleteLegacyCAConfigMap},
 	})
 }
 
@@ -202,6 +204,27 @@ func deleteServiceAccount(r reconciler.Reconciler, ctx context.Context) error {
 
 func deleteTLSSecret(r reconciler.Reconciler, ctx context.Context) error {
 	return deleteNamespacedObject(r, ctx, &corev1.Secret{}, utils.OpenShiftMCPServerCertsSecretName)
+}
+
+// removeLegacyCAConfigMap deletes the pre-handoff MCP inject-cabundle ConfigMap left on upgrade.
+func removeLegacyCAConfigMap(r reconciler.Reconciler, ctx context.Context, _ *olsv1alpha1.OLSConfig) error {
+	return deleteLegacyCAConfigMap(r, ctx)
+}
+
+func deleteLegacyCAConfigMap(r reconciler.Reconciler, ctx context.Context) error {
+	cm := &corev1.ConfigMap{}
+	err := r.Get(ctx, client.ObjectKey{Name: utils.LegacyOpenShiftMCPServerCAConfigMapName, Namespace: r.GetNamespace()}, cm)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get legacy openshift-mcp-server CA ConfigMap: %w", err)
+	}
+	if err := r.Delete(ctx, cm); err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete legacy openshift-mcp-server CA ConfigMap: %w", err)
+	}
+	r.GetLogger().Info("deleted legacy openshift-mcp-server CA ConfigMap", "configmap", cm.Name)
+	return nil
 }
 
 func deleteNamespacedObject(r reconciler.Reconciler, ctx context.Context, obj client.Object, name string) error {
