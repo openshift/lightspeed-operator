@@ -221,7 +221,8 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 		It("should track MCP CA hash annotation when introspection is toggled", func() {
 			By("Ensure MCP CA ConfigMap has injected cert")
-			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "test-mcp-ca")
 
 			By("Disable introspection initially")
 			olsConfig := &olsv1alpha1.OLSConfig{}
@@ -272,7 +273,8 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 
 		It("should trigger rolling update when MCP CA ConfigMap content changes", func() {
 			By("Ensure MCP CA ConfigMap with initial cert")
-			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "initial-mcp-ca")
+			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "initial-mcp-ca")
+			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "initial-mcp-ca")
 
 			By("Enable introspection")
 			olsConfig := &olsv1alpha1.OLSConfig{}
@@ -292,7 +294,8 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(initialHash).NotTo(BeEmpty())
 
 			By("Update MCP CA ConfigMap content")
-			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "rotated-mcp-ca")
+			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "rotated-mcp-ca")
+			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "rotated-mcp-ca")
 
 			By("Reconcile again")
 			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)

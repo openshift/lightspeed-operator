@@ -58,10 +58,10 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 		return nil, err
 	}
 
-	configVolume, configMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
+	configVolume, configMount := GetConfigVolumeAndMount()
 	tlsVolumeDefaultMode := utils.VolumeRestrictedMode
 	httpsPort := intstr.FromInt32(utils.OpenShiftMCPServerHTTPSPort)
-	configPath := utils.GetOpenShiftMCPServerConfigPath()
+	configPath := GetConfigPath()
 	tlsCertPath := path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt")
 	tlsKeyPath := path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key")
 

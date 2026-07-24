@@ -36,6 +36,7 @@ limitations under the License.
 //   - console-image: Override default console plugin image
 //   - agentic-console-image: Override default agentic console plugin image
 //   - alerts-adapter-image: Override default agentic alerts adapter image
+//   - agentic-sandbox-image: Override default agentic sandbox container image
 //   - otel-collector-image: Override default OTEL Collector image
 //   - postgres-image: Override default PostgreSQL image
 //   - openshift-mcp-server-image: Override default MCP server image
@@ -101,6 +102,7 @@ var (
 		"console-plugin":             utils.ConsoleUIImageDefault,
 		"agentic-console-plugin":     utils.AgenticConsoleUIImageDefault,
 		"alerts-adapter":             utils.AlertsAdapterImageDefault,
+		"agentic-sandbox":            utils.AgenticSandboxImageDefault,
 		"otel-collector":             utils.OtelCollectorImageDefault,
 		"openshift-mcp-server-image": utils.OpenShiftMCPServerImageDefault,
 		"dataverse-exporter-image":   utils.DataverseExporterImageDefault,
@@ -122,7 +124,7 @@ func init() {
 
 // overrideImages overrides the default images with the images provided by the user.
 // If an image is not provided, the default is used.
-func overrideImages(serviceImage string, consoleImage string, agenticConsoleImage string, alertsAdapterImage string, otelCollectorImage string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, rhokpImage string) map[string]string {
+func overrideImages(serviceImage string, consoleImage string, agenticConsoleImage string, alertsAdapterImage string, agenticSandboxImage string, otelCollectorImage string, postgresImage string, openshiftMCPServerImage string, dataverseExporterImage string, rhokpImage string) map[string]string {
 	res := defaultImages
 	if serviceImage != "" {
 		res["lightspeed-service"] = serviceImage
@@ -135,6 +137,9 @@ func overrideImages(serviceImage string, consoleImage string, agenticConsoleImag
 	}
 	if alertsAdapterImage != "" {
 		res["alerts-adapter"] = alertsAdapterImage
+	}
+	if agenticSandboxImage != "" {
+		res["agentic-sandbox"] = agenticSandboxImage
 	}
 	if otelCollectorImage != "" {
 		res["otel-collector"] = otelCollectorImage
@@ -180,6 +185,7 @@ func main() {
 	var consoleImage string
 	var agenticConsoleImage string
 	var alertsAdapterImage string
+	var agenticSandboxImage string
 	var otelCollectorImage string
 	var namespace string
 	var postgresImage string
@@ -200,6 +206,7 @@ func main() {
 	flag.StringVar(&consoleImage, "console-image", utils.ConsoleUIImageDefault, "The image of the console-plugin container.")
 	flag.StringVar(&agenticConsoleImage, "agentic-console-image", utils.AgenticConsoleUIImageDefault, "The image of the agentic console-plugin container.")
 	flag.StringVar(&alertsAdapterImage, "alerts-adapter-image", utils.AlertsAdapterImageDefault, "The image of the agentic alerts adapter container.")
+	flag.StringVar(&agenticSandboxImage, "agentic-sandbox-image", utils.AgenticSandboxImageDefault, "The image of the agentic sandbox container.")
 	flag.StringVar(&otelCollectorImage, "otel-collector-image", utils.OtelCollectorImageDefault, "The image of the OTEL Collector container.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
 	flag.StringVar(&postgresImage, "postgres-image", utils.PostgresServerImageDefault, "The image of the PostgreSQL server.")
@@ -218,7 +225,7 @@ func main() {
 		namespace = getWatchNamespace()
 	}
 
-	imagesMap := overrideImages(serviceImage, consoleImage, agenticConsoleImage, alertsAdapterImage, otelCollectorImage, postgresImage, openshiftMCPServerImage, dataverseExporterImage, rhokpImage)
+	imagesMap := overrideImages(serviceImage, consoleImage, agenticConsoleImage, alertsAdapterImage, agenticSandboxImage, otelCollectorImage, postgresImage, openshiftMCPServerImage, dataverseExporterImage, rhokpImage)
 	setupLog.Info("Images setting loaded", "images", listImages())
 
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
@@ -446,6 +453,7 @@ func main() {
 			ConsoleUIImage:                 imagesMap["console-plugin"],
 			AgenticConsoleUIImage:          imagesMap["agentic-console-plugin"],
 			AlertsAdapterImage:             imagesMap["alerts-adapter"],
+			AgenticSandboxImage:            imagesMap["agentic-sandbox"],
 			OtelCollectorImage:             imagesMap["otel-collector"],
 			LightspeedServiceImage:         imagesMap["lightspeed-service"],
 			LightspeedServicePostgresImage: imagesMap["postgres-image"],

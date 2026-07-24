@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/agenticintegration"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
@@ -379,12 +380,12 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	volumes = append(volumes, corev1.Volume{
 		Name: utils.AppOtelCollectorCACertVolumeName,
 		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: utils.OLSCAConfigMap},
-				DefaultMode:          &volumeDefaultMode,
+			Secret: &corev1.SecretVolumeSource{
+				SecretName:  utils.AgenticOtelCASecretName,
+				DefaultMode: &volumeDefaultMode,
 				Items: []corev1.KeyToPath{
 					{
-						Key:  utils.AppOtelCollectorCACertFile,
+						Key:  utils.AgenticOtelCASecretDataKey,
 						Path: utils.AppOtelCollectorCACertFile,
 					},
 				},
@@ -396,12 +397,15 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		volumes = append(volumes, corev1.Volume{
 			Name: utils.AppOpenShiftMCPServerCACertVolumeName,
 			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: utils.OpenShiftMCPServerCAConfigMapName,
-					},
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  utils.AgenticMCPCASecretName,
 					DefaultMode: &volumeDefaultMode,
-					Optional:    utils.BoolPtr(true),
+					Items: []corev1.KeyToPath{
+						{
+							Key:  utils.AgenticMCPCASecretDataKey,
+							Path: utils.AppOpenShiftMCPServerCACertFile,
+						},
+					},
 				},
 			},
 		})
@@ -492,7 +496,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		utils.ProxyCACertHashAnnotation:             proxyCACMResourceVersion,
 	}
 	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
-		mcpCAHash, err := utils.GetOpenShiftMCPServerCACertHash(r, ctx, cr)
+		mcpCAHash, err := GetMCPClientCACertHash(r, ctx, cr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get OpenShift MCP server CA certificate hash: %w", err)
 		}
@@ -675,7 +679,7 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	// Step 4: Check OpenShift MCP CA hash when introspection is enabled
 	var currentMCPCAHash string
 	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
-		currentMCPCAHash, err = utils.GetOpenShiftMCPServerCACertHash(r, ctx, cr)
+		currentMCPCAHash, err = GetMCPClientCACertHash(r, ctx, cr)
 		if err != nil {
 			return fmt.Errorf("failed to get OpenShift MCP server CA certificate hash: %w", err)
 		}
@@ -758,37 +762,54 @@ func dataCollectorEnabled(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (b
 	return telemetryEnabled, nil
 }
 
-// RestartAppServer triggers a rolling restart of the app server deployment by updating its pod template annotation.
-// This is useful when configuration changes require a pod restart (e.g., ConfigMap or Secret updates).
+// RestartAppServer refreshes client CA Secrets, touches the agentic handoff ConfigMap
+// (RV bump so agentic-operator reloads certs), then rolls the app-server Deployment.
+// Fail-closed: if RefreshClientCASecrets fails (e.g. openshift-service-ca.crt missing
+// or empty), touch and force-reload are skipped so pods are not rolled with stale CA
+// material. A later reconcile or watcher event retries once the source CA is ready.
+//
+// After refresh+touch, the Deployment is always re-fetched so the Update uses a current
+// resourceVersion. An optional in-memory deployment may still be passed (e.g. from
+// updateOLSDeployment) to supply Spec / annotation mutations to apply on that fresh object.
 func RestartAppServer(r reconciler.Reconciler, ctx context.Context, deployment ...*appsv1.Deployment) error {
-	var dep *appsv1.Deployment
-	var err error
+	cr := &olsv1alpha1.OLSConfig{}
+	if err := r.Get(ctx, client.ObjectKey{Name: utils.OLSConfigName}, cr); err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGetOLSConfigForAppServerClientCARefresh, err)
+	}
+	if err := RefreshClientCASecrets(r, ctx, cr); err != nil {
+		return err
+	}
+	if err := agenticintegration.TouchAgenticConfiguration(r, ctx); err != nil {
+		return err
+	}
 
-	// If deployment is provided, use it; otherwise fetch it
+	dep := &appsv1.Deployment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: utils.OLSAppServerDeploymentName, Namespace: r.GetNamespace()}, dep); err != nil {
+		r.GetLogger().Info("failed to get deployment", "deploymentName", utils.OLSAppServerDeploymentName, "error", err)
+		return err
+	}
+
+	// Apply Spec / object annotations from the caller’s desired mutation, if any.
+	// Replace annotations (do not merge) so deletions from the caller take effect.
 	if len(deployment) > 0 && deployment[0] != nil {
-		dep = deployment[0]
-	} else {
-		// Get the app server deployment
-		dep = &appsv1.Deployment{}
-		err = r.Get(ctx, client.ObjectKey{Name: utils.OLSAppServerDeploymentName, Namespace: r.GetNamespace()}, dep)
-		if err != nil {
-			r.GetLogger().Info("failed to get deployment", "deploymentName", utils.OLSAppServerDeploymentName, "error", err)
-			return err
+		dep.Spec = deployment[0].Spec
+		if deployment[0].Annotations == nil {
+			dep.Annotations = nil
+		} else {
+			dep.Annotations = make(map[string]string, len(deployment[0].Annotations))
+			for k, v := range deployment[0].Annotations {
+				dep.Annotations[k] = v
+			}
 		}
 	}
 
-	// Initialize annotations map if empty
 	if dep.Spec.Template.Annotations == nil {
 		dep.Spec.Template.Annotations = make(map[string]string)
 	}
-
-	// Bump the annotation to trigger a rolling update (new template hash)
 	dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey] = time.Now().Format(time.RFC3339Nano)
 
-	// Update the deployment
 	r.GetLogger().Info("triggering app server rolling restart", "deployment", dep.Name)
-	err = r.Update(ctx, dep)
-	if err != nil {
+	if err := r.Update(ctx, dep); err != nil {
 		r.GetLogger().Info("failed to update deployment", "deploymentName", dep.Name, "error", err)
 		return err
 	}

@@ -18,30 +18,33 @@ Reconcile(ctx, req)
   -> handleFinalizer()                      # Add/remove finalizer, run cleanup
   -> reconcileOperatorResources()           # ServiceMonitor, NetworkPolicy (operator-level)
   -> annotateExternalResources()            # Validate secrets, annotate for watching
-  -> reconcileIndependentResources()        # Phase 1: console, agentic console, postgres, otel collector, appserver, alerts adapter resources
+  -> reconcileIndependentResources()        # Phase 1 (continue-on-error)
+  |   |-- postgres.ReconcilePostgresResources()
   |   |-- console.ReconcileConsoleUIResources()
   |   |-- agenticconsole.ReconcileAgenticConsoleUIResources()
-  |   |-- postgres.ReconcilePostgresResources()
+  |   |-- alertsadapter.ReconcileAlertsAdapterResources()
+  |   |   (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
+  |   |    mount at /etc/alerts-adapter when CM exists)
   |   |-- otelcollector.ReconcileOtelCollectorResources()
-  |   |-- appserver.ReconcileAppServerResources()
-  |   +-- alertsadapter.ReconcileAlertsAdapterResources()
-  |       (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
-  |        mount at /etc/alerts-adapter when CM exists)
+  |   |-- ocpmcp.ReconcileResources()
+  |   +-- appserver.ReconcileAppServerResources()
   -> reconcileDeploymentsAndStatus()        # Phase 2: deployments + status update
       |-- console.ReconcileConsoleUIDeploymentAndPlugin()
       |-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin()
       |-- postgres.ReconcilePostgresDeployment()
       |-- otelcollector.ReconcileOtelCollectorDeployment()  # OtelCollectorReady
+      |-- ocpmcp.ReconcileDeployment()                      # MCPServerReady / NotConfigured
       |-- appserver.ReconcileAppServerDeployment()
       |-- alertsadapter.ReconcileAlertsAdapterDeployment()  # when configMapRef set
-      |-- checkDeploymentStatus() for each  # Collect diagnostics
+      |   (each step above: checkDeploymentStatus → conditions)
+      |-- agenticintegration.ReconcileAgenticIntegrationResources()  # last: handoff ConfigMap only (CA Secrets: appserver)
       +-- UpdateStatusCondition()           # Single status update
 ```
 
 ## Key Abstractions
 
 ### Reconciler Interface
-The `reconciler.Reconciler` interface breaks the circular dependency between the main controller and component packages. Component packages (appserver, postgres, otelcollector, console, agenticconsole, alertsadapter) receive this interface instead of importing the controller package directly. It embeds `client.Client` and adds getter methods for images, namespace, and OpenShift version.
+The `reconciler.Reconciler` interface breaks the circular dependency between the main controller and component packages. Component packages (appserver, postgres, otelcollector, ocpmcp, agenticintegration, console, agenticconsole, alertsadapter) receive this interface instead of importing the controller package directly. It embeds `client.Client` and adds getter methods for images, namespace, and OpenShift version.
 
 ### ReconcileSteps Pattern
 Both phases use a slice of `ReconcileSteps` structs, each containing a Name, reconcile function, and (for Phase 2) a ConditionType and Deployment name. Phase 1 iterates with continue-on-error; Phase 2 iterates but tracks all conditions and diagnostics.

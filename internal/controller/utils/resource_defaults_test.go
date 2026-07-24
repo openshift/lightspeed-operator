@@ -66,6 +66,7 @@ var _ = Describe("Resource defaults and test reconciler", func() {
 		Expect(r.GetConsoleUIImage()).To(Equal(ConsoleUIImageDefault))
 		Expect(r.GetAgenticConsoleImage()).To(Equal(AgenticConsoleUIImageDefault))
 		Expect(r.GetAlertsAdapterImage()).To(Equal(AlertsAdapterImageDefault))
+		Expect(r.GetAgenticSandboxImage()).To(Equal(AgenticSandboxImageDefault))
 		Expect(r.GetOtelCollectorImage()).To(Equal(OtelCollectorImageDefault))
 		Expect(r.GetOpenShiftMajor()).To(Equal("123"))
 		Expect(r.GetOpenshiftMinor()).To(Equal("456"))

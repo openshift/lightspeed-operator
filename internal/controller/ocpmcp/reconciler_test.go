@@ -56,17 +56,6 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 			Expect(cm.Data[utils.OpenShiftMCPServerConfigFilename]).To(ContainSubstring(`kind = "Secret"`))
 		})
 
-		It("should create the MCP CA ConfigMap with inject-cabundle", func() {
-			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerCAConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			expectOwnedByOLSConfig(cm)
-			Expect(cm.Annotations[utils.InjectCABundleAnnotationKey]).To(Equal("true"))
-		})
-
 		It("should create the MCP ServiceAccount", func() {
 			sa := &corev1.ServiceAccount{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
@@ -105,52 +94,6 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 			}, cm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.ResourceVersion).To(Equal(oldRV))
-		})
-
-		It("should not overwrite CA ConfigMap Data on reconcile", func() {
-			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerCAConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			cm.Data = map[string]string{utils.OpenShiftMCPServerCACertKey: "injected-by-service-ca"}
-			Expect(k8sClient.Update(ctx, cm)).To(Succeed())
-
-			err = ReconcileResources(testReconcilerInstance, ctx, testCR)
-			Expect(err).NotTo(HaveOccurred())
-
-			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerCAConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Data[utils.OpenShiftMCPServerCACertKey]).To(Equal("injected-by-service-ca"))
-		})
-
-		It("should preserve foreign CA ConfigMap annotations on reconcile", func() {
-			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerCAConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			if cm.Annotations == nil {
-				cm.Annotations = map[string]string{}
-			}
-			cm.Annotations["service.beta.openshift.io/inject-cabundle-status"] = "injected"
-			Expect(k8sClient.Update(ctx, cm)).To(Succeed())
-
-			err = ReconcileResources(testReconcilerInstance, ctx, testCR)
-			Expect(err).NotTo(HaveOccurred())
-
-			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerCAConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Annotations[utils.InjectCABundleAnnotationKey]).To(Equal("true"))
-			Expect(cm.Annotations["service.beta.openshift.io/inject-cabundle-status"]).To(Equal("injected"))
 		})
 	})
 
@@ -269,7 +212,6 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 
 			for _, name := range []string{
 				utils.OpenShiftMCPServerConfigCmName,
-				utils.OpenShiftMCPServerCAConfigMapName,
 			} {
 				cm := &corev1.ConfigMap{}
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: utils.OLSNamespaceDefault}, cm)

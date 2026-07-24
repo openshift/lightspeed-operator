@@ -42,16 +42,6 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(strings.Count(toml, "[[denied_resources]]")).To(Equal(2))
 	})
 
-	It("should generate the CA ConfigMap with inject-cabundle annotation", func() {
-		cm, err := GenerateCAConfigMap(testReconcilerInstance, testCR)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(cm.Name).To(Equal(utils.OpenShiftMCPServerCAConfigMapName))
-		Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
-		Expect(cm.Labels).To(Equal(labels))
-		Expect(cm.Annotations[utils.InjectCABundleAnnotationKey]).To(Equal("true"))
-		Expect(cm.Data).To(BeEmpty())
-	})
-
 	It("should generate the Service with HTTPS port and serving-cert annotation", func() {
 		svc, err := GenerateService(testReconcilerInstance, testCR)
 		Expect(err).NotTo(HaveOccurred())
@@ -89,5 +79,19 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sa.Name).To(Equal(utils.OpenShiftMCPServerServiceAccountName))
 		Expect(sa.Namespace).To(Equal(utils.OLSNamespaceDefault))
+	})
+
+	It("should return config volume and mount for --config", func() {
+		volume, mount := GetConfigVolumeAndMount()
+		Expect(volume.Name).To(Equal(utils.OpenShiftMCPServerConfigVolumeName))
+		Expect(volume.ConfigMap).NotTo(BeNil())
+		Expect(volume.ConfigMap.Name).To(Equal(utils.OpenShiftMCPServerConfigCmName))
+		Expect(volume.ConfigMap.DefaultMode).NotTo(BeNil())
+		Expect(*volume.ConfigMap.DefaultMode).To(Equal(utils.VolumeDefaultMode))
+		Expect(mount.Name).To(Equal(utils.OpenShiftMCPServerConfigVolumeName))
+		Expect(mount.MountPath).To(Equal(GetConfigPath()))
+		Expect(mount.SubPath).To(Equal(utils.OpenShiftMCPServerConfigFilename))
+		Expect(mount.ReadOnly).To(BeTrue())
+		Expect(GetConfigPath()).To(Equal("/etc/mcp-server/config.toml"))
 	})
 })

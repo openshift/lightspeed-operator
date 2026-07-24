@@ -131,10 +131,12 @@ var _ = Describe("App server deployment generation", func() {
 		It("should mount openshift-mcp-server CA when introspectionEnabled is true", func() {
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
 			defer utils.DeleteTelemetryPullSecret(ctx, k8sClient)
-			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "test-mcp-ca")
 
 			By("Enabling introspection")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
+			Expect(reconcileMCPClientCASecret(testReconcilerInstance, ctx, cr)).To(Succeed())
 
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -149,12 +151,12 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
 				Name: utils.AppOpenShiftMCPServerCACertVolumeName,
 				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: utils.OpenShiftMCPServerCAConfigMapName,
-						},
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  utils.AgenticMCPCASecretName,
 						DefaultMode: &defaultVolumeMode,
-						Optional:    utils.BoolPtr(true),
+						Items: []corev1.KeyToPath{
+							{Key: utils.AgenticMCPCASecretDataKey, Path: utils.AppOpenShiftMCPServerCACertFile},
+						},
 					},
 				},
 			}))
@@ -180,6 +182,7 @@ var _ = Describe("App server deployment generation", func() {
 
 			By("Leaving introspection unset should use default enabled behavior")
 			cr.Spec.OLSConfig.IntrospectionEnabled = nil
+			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "test-mcp-ca")
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -187,9 +190,9 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(HaveField("Name", utils.AppOpenShiftMCPServerCACertVolumeName)))
 		})
 
-		It("should not generate app-server deployment when MCP CA is not injected yet", func() {
-			utils.ClearOpenShiftMCPServerCAConfigMap(ctx, k8sClient)
-			defer utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+		It("should not generate app-server deployment when MCP client CA Secret is missing", func() {
+			utils.DeleteAgenticMCPCASecret(ctx, k8sClient)
+			defer utils.EnsureAgenticMCPCASecret(ctx, k8sClient, utils.TestCACert)
 
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 
@@ -200,7 +203,8 @@ var _ = Describe("App server deployment generation", func() {
 
 		It("should mount MCP CA independently of data collection settings", func() {
 			By("introspection enabled, data collection enabled")
-			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "test-mcp-ca")
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
@@ -229,7 +233,8 @@ var _ = Describe("App server deployment generation", func() {
 
 		It("should mount MCP CA when introspection is enabled regardless of telemetry settings", func() {
 			By("introspection enabled with no telemetry pull secret")
-			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "test-mcp-ca")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
@@ -247,7 +252,8 @@ var _ = Describe("App server deployment generation", func() {
 
 	Context("empty custom resource - deployment tests", func() {
 		BeforeEach(func() {
-			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "test-mcp-ca")
 			cr = &olsv1alpha1.OLSConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "testOLSConfigCR",
@@ -443,18 +449,18 @@ var _ = Describe("App server deployment generation", func() {
 			cr = utils.GetDefaultOLSConfigCR()
 		})
 
-		It("should mount the OpenShift service-ca for collector TLS verify", func() {
+		It("should mount the OTEL client CA Secret for collector TLS verify", func() {
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(
 				corev1.Volume{
 					Name: utils.AppOtelCollectorCACertVolumeName,
 					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: utils.OLSCAConfigMap},
-							DefaultMode:          &defaultVolumeMode,
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  utils.AgenticOtelCASecretName,
+							DefaultMode: &defaultVolumeMode,
 							Items: []corev1.KeyToPath{
-								{Key: utils.AppOtelCollectorCACertFile, Path: utils.AppOtelCollectorCACertFile},
+								{Key: utils.AgenticOtelCASecretDataKey, Path: utils.AppOtelCollectorCACertFile},
 							},
 						},
 					},

@@ -28,12 +28,11 @@ func ReconcileOtelCollectorResources(r reconciler.Reconciler, ctx context.Contex
 }
 
 // ReconcileOtelCollectorDeployment reconciles the OTEL Collector Service, TLS material,
-// client connectivity ConfigMap, Deployment, and ServiceMonitor (Phase 2).
+// Deployment, and ServiceMonitor (Phase 2).
 func ReconcileOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
 	return utils.RunReconcileTasks(r, ctx, olsconfig, "reconcileOtelCollectorDeployment", []utils.ReconcileTask{
 		{Name: "reconcile OTEL Collector Service", Task: reconcileOtelCollectorService},
 		{Name: "reconcile OTEL Collector TLS Certs", Task: reconcileOtelCollectorTLSSecret},
-		{Name: "reconcile OTEL Collector client ConfigMap", Task: reconcileOtelCollectorClientConfigMap},
 		{Name: "reconcile OTEL Collector Deployment", Task: reconcileOtelCollectorDeployment},
 		{Name: "reconcile OTEL Collector ServiceMonitor", Task: reconcileOtelCollectorServiceMonitor},
 	}, false)
@@ -170,41 +169,6 @@ func reconcileOtelCollectorTLSSecret(r reconciler.Reconciler, ctx context.Contex
 	return utils.WaitForConsolePluginTLSSecret(r, ctx, utils.OtelCollectorCertsSecretName)
 }
 
-func reconcileOtelCollectorClientConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	cm, err := GenerateOtelCollectorClientConfigMap(r, ctx, cr)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateOtelCollectorClientConfigMap, err)
-	}
-
-	foundCm := &corev1.ConfigMap{}
-	err = r.Get(ctx, client.ObjectKey{Name: utils.OtelCollectorClientConfigMapName, Namespace: r.GetNamespace()}, foundCm)
-	if err != nil && errors.IsNotFound(err) {
-		r.GetLogger().Info("creating OTEL Collector client configmap", "configmap", cm.Name)
-		if err := r.Create(ctx, cm); err != nil {
-			return fmt.Errorf("%s: %w", utils.ErrCreateOtelCollectorClientConfigMap, err)
-		}
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetOtelCollectorClientConfigMap, err)
-	}
-
-	if utils.ConfigMapEqual(foundCm, cm) &&
-		reflect.DeepEqual(foundCm.Labels, cm.Labels) &&
-		reflect.DeepEqual(foundCm.OwnerReferences, cm.OwnerReferences) {
-		r.GetLogger().Info("OTEL Collector client configmap unchanged, reconciliation skipped", "configmap", cm.Name)
-		return nil
-	}
-
-	foundCm.Data = cm.Data
-	foundCm.Labels = cm.Labels
-	foundCm.OwnerReferences = cm.OwnerReferences
-	if err := r.Update(ctx, foundCm); err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdateOtelCollectorClientConfigMap, err)
-	}
-	r.GetLogger().Info("OTEL Collector client configmap reconciled", "configmap", cm.Name)
-	return nil
-}
-
 func reconcileOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	desiredDeployment, err := GenerateOtelCollectorDeployment(r, ctx, cr)
 	if err != nil {
@@ -239,18 +203,10 @@ func reconcileOtelCollectorServiceMonitor(r reconciler.Reconciler, ctx context.C
 	return utils.ReconcileServiceMonitor(r, ctx, sm)
 }
 
-// RestartOtelCollector refreshes the client connectivity ConfigMap (service-ca PEM)
-// and triggers a rolling restart of the collector deployment.
-// The cert Secret watcher already calls this on TLS rotation.
+// RestartOtelCollector triggers a rolling restart of the collector deployment.
+// The cert Secret watcher already calls this on TLS rotation; app-server restart
+// (same watcher) refreshes client CA Secrets and touches the agentic ConfigMap.
 func RestartOtelCollector(r reconciler.Reconciler, ctx context.Context, deployment ...*appsv1.Deployment) error {
-	cr := &olsv1alpha1.OLSConfig{}
-	if err := r.Get(ctx, client.ObjectKey{Name: utils.OLSConfigName}, cr); err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetOLSConfigForOtelCollectorClientConfigMapRefresh, err)
-	}
-	if err := reconcileOtelCollectorClientConfigMap(r, ctx, cr); err != nil {
-		return err
-	}
-
 	var dep *appsv1.Deployment
 	var err error
 

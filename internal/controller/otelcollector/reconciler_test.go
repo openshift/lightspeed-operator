@@ -1,8 +1,6 @@
 package otelcollector
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -146,109 +144,23 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			Expect(string(*sm.Spec.Endpoints[0].Scheme)).To(Equal("https"))
 		})
 
-		It("should create the client connectivity ConfigMap with CA from service-ca", func() {
-			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OtelCollectorClientConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			expectOwnedByOLSConfig(cm)
-
-			caCM := &corev1.ConfigMap{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OLSCAConfigMap,
-				Namespace: utils.OLSNamespaceDefault,
-			}, caCM)).To(Succeed())
-
-			host := utils.OtelCollectorServiceName + "." + utils.OLSNamespaceDefault + ".svc"
-			Expect(cm.Data[utils.OtelCollectorClientCollectorEndpointKey]).To(Equal(
-				fmt.Sprintf("%s:%d", host, utils.OtelCollectorGRPCPort),
-			))
-			Expect(cm.Data[utils.OtelCollectorClientAdminEndpointKey]).To(Equal(
-				fmt.Sprintf("https://%s:%d", host, utils.OtelCollectorAdminPort),
-			))
-			Expect(cm.Data[utils.OtelCollectorClientCACertKey]).To(Equal(caCM.Data[utils.AppOtelCollectorCACertFile]))
-			Expect(cm.Data).NotTo(HaveKey(utils.OtelCollectorClientCredentialsSecretKey))
-		})
-
-		It("should skip client ConfigMap update when data is unchanged", func() {
-			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OtelCollectorClientConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			oldRV := cm.ResourceVersion
-
-			err = ReconcileOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
-			Expect(err).NotTo(HaveOccurred())
-
-			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OtelCollectorClientConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.ResourceVersion).To(Equal(oldRV))
-		})
-
-		It("should restore client ConfigMap labels and owner references when data is unchanged", func() {
-			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OtelCollectorClientConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Labels).NotTo(BeEmpty())
-			Expect(cm.OwnerReferences).NotTo(BeEmpty())
-
-			cm.Labels = map[string]string{"drifted": "true"}
-			cm.OwnerReferences = nil
-			Expect(k8sClient.Update(ctx, cm)).To(Succeed())
-
-			err = ReconcileOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
-			Expect(err).NotTo(HaveOccurred())
-
-			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OtelCollectorClientConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Labels).To(Equal(utils.GenerateOtelCollectorSelectorLabels()))
-			expectOwnedByOLSConfig(cm)
-		})
-
-		It("should refresh client ConfigMap CA via RestartOtelCollector", func() {
-			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OtelCollectorClientConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			cm.Data[utils.OtelCollectorClientCACertKey] = "stale-ca"
-			Expect(k8sClient.Update(ctx, cm)).To(Succeed())
-
+		It("should trigger a rolling restart via RestartOtelCollector", func() {
 			dep := &appsv1.Deployment{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
 				Name:      utils.OtelCollectorDeploymentName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, dep)).To(Succeed())
+			oldReload := dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]
 
-			err = RestartOtelCollector(testReconcilerInstance, ctx, dep)
+			err := RestartOtelCollector(testReconcilerInstance, ctx, dep)
 			Expect(err).NotTo(HaveOccurred())
 
-			caCM := &corev1.ConfigMap{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OLSCAConfigMap,
+				Name:      utils.OtelCollectorDeploymentName,
 				Namespace: utils.OLSNamespaceDefault,
-			}, caCM)).To(Succeed())
-
-			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OtelCollectorClientConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Data[utils.OtelCollectorClientCACertKey]).To(Equal(caCM.Data[utils.AppOtelCollectorCACertFile]))
+			}, dep)).To(Succeed())
+			Expect(dep.Spec.Template.Annotations).To(HaveKey(utils.ForceReloadAnnotationKey))
+			Expect(dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]).NotTo(Equal(oldReload))
 		})
 
 		It("should skip Service update when spec and serving-cert annotation are unchanged", func() {

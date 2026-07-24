@@ -47,6 +47,30 @@ spec:
       - description: The name of the secret object that stores API provider credentials
         displayName: Credential Secret
         path: llm.providers[0].credentialsSecretRef
+      - description: Agentic OLS settings for inter-operator sandbox handoff to the
+          agentic operator.
+        displayName: Agentic OLS Settings
+        path: agenticOLS
+      - description: |-
+          AgenticSandboxConfig overrides for the composed sandbox PodSpec (resources, tolerations, nodeSelector).
+          Replicas are ignored and always treated as 1; sandbox pod count is managed by the agentic operator.
+        displayName: Agentic Sandbox Config
+        path: agenticOLS.agenticSandboxConfig
+      - description: |-
+          Defines the number of desired pods. Default: "1"
+          Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+          For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
+          Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+        displayName: Number of replicas
+        path: agenticOLS.agenticSandboxConfig.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: |-
+          sandboxMode selects bare Pods vs Agent Sandbox API claims.
+          Default: bare-pod when absent. When agenticOLS is omitted entirely, the operator
+          treats sandbox mode as bare-pod.
+        displayName: Sandbox Mode
+        path: agenticOLS.sandboxMode
       - description: Audit log and trace export configuration for the OTEL Collector.
         displayName: Audit Settings
         path: audit
@@ -217,9 +241,10 @@ spec:
         displayName: Agentic Console Deployment
         path: ols.deployment.agenticConsole
       - description: |-
-          Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+          Defines the number of desired pods. Default: "1"
+          Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+          For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
+          Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
         displayName: Number of replicas
         path: ols.deployment.agenticConsole.replicas
         x-descriptors:
@@ -237,9 +262,10 @@ spec:
         displayName: Alerts Adapter ConfigMap Reference
         path: ols.deployment.alertsAdapter.configMapRef
       - description: |-
-          Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+          Defines the number of desired pods. Default: "1"
+          Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+          For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
+          Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
         displayName: Number of replicas
         path: ols.deployment.alertsAdapter.replicas
         x-descriptors:
@@ -248,9 +274,10 @@ spec:
         displayName: API Deployment
         path: ols.deployment.api
       - description: |-
-          Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+          Defines the number of desired pods. Default: "1"
+          Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+          For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
+          Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
         displayName: Number of replicas
         path: ols.deployment.api.replicas
         x-descriptors:
@@ -259,9 +286,10 @@ spec:
         displayName: Console Deployment
         path: ols.deployment.console
       - description: |-
-          Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+          Defines the number of desired pods. Default: "1"
+          Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+          For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
+          Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
         displayName: Number of replicas
         path: ols.deployment.console.replicas
         x-descriptors:
@@ -273,23 +301,34 @@ spec:
         displayName: Database Deployment
         path: ols.deployment.database
       - description: |-
-          Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+          Defines the number of desired pods. Default: "1"
+          Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+          For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
+          Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
         displayName: Number of replicas
         path: ols.deployment.database.replicas
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podCount
-      - description: MCP server container settings.
-        displayName: MCP Server Container
+      - description: MCP server deployment settings.
+        displayName: MCP Server Deployment
         path: ols.deployment.mcpServer
+      - description: |-
+          Defines the number of desired pods. Default: "1"
+          Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+          For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
+          Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+        displayName: Number of replicas
+        path: ols.deployment.mcpServer.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
       - description: OTEL Collector deployment settings.
         displayName: OTEL Collector Deployment
         path: ols.deployment.otelCollector
       - description: |-
-          Defines the number of desired OLS pods. Default: "1"
-          Note: Replicas can only be changed for APIContainer. For PostgreSQL, Console, Agentic Console,
-          Alerts Adapter, and OTEL Collector containers, the number of replicas will always be set to 1.
+          Defines the number of desired pods. Default: "1"
+          Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+          For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
+          Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
         displayName: Number of replicas
         path: ols.deployment.otelCollector.replicas
         x-descriptors:
@@ -302,8 +341,8 @@ spec:
         displayName: Image Pull Secrets
         path: ols.imagePullSecrets
       - description: |-
-          Enable introspection features (e.g. built-in OpenShift MCP server). Omitted means use the
-          CRD default (true); explicit false disables introspection.
+          Enable introspection features (e.g. built-in OpenShift MCP server).
+          Default: true when absent. Explicit false disables introspection.
         displayName: Introspection Enabled
         path: ols.introspectionEnabled
         x-descriptors:

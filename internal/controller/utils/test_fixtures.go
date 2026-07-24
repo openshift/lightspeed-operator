@@ -327,22 +327,22 @@ func CreateTelemetryPullSecret(ctx context.Context, k8sClient client.Client, wit
 	}
 }
 
-// EnsureOpenShiftMCPServerCAConfigMap creates or updates the MCP CA ConfigMap with
-// injected service-ca.crt content for unit tests (service-ca does not run in envtest).
-func EnsureOpenShiftMCPServerCAConfigMap(ctx context.Context, k8sClient client.Client, certData string) {
+// EnsureOLSCAConfigMap creates or updates openshift-service-ca.crt with service-ca.crt
+// content for unit tests (service-ca does not run in envtest).
+func EnsureOLSCAConfigMap(ctx context.Context, k8sClient client.Client, certData string) {
 	if certData == "" {
-		certData = "test-mcp-ca"
+		certData = TestCACert
 	}
 	cm := &corev1.ConfigMap{}
-	err := k8sClient.Get(ctx, client.ObjectKey{Name: OpenShiftMCPServerCAConfigMapName, Namespace: OLSNamespaceDefault}, cm)
+	err := k8sClient.Get(ctx, client.ObjectKey{Name: OLSCAConfigMap, Namespace: OLSNamespaceDefault}, cm)
 	if apierrors.IsNotFound(err) {
 		cm = &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      OpenShiftMCPServerCAConfigMapName,
+				Name:      OLSCAConfigMap,
 				Namespace: OLSNamespaceDefault,
 			},
 			Data: map[string]string{
-				OpenShiftMCPServerCACertKey: certData,
+				AppOtelCollectorCACertFile: certData,
 			},
 		}
 		err = k8sClient.Create(ctx, cm)
@@ -353,23 +353,54 @@ func EnsureOpenShiftMCPServerCAConfigMap(ctx context.Context, k8sClient client.C
 	if cm.Data == nil {
 		cm.Data = map[string]string{}
 	}
-	cm.Data[OpenShiftMCPServerCACertKey] = certData
+	cm.Data[AppOtelCollectorCACertFile] = certData
 	err = k8sClient.Update(ctx, cm)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
-// ClearOpenShiftMCPServerCAConfigMap removes service-ca.crt from the MCP CA ConfigMap
-// (or leaves an empty ConfigMap) for tests that assert the not-ready path.
-func ClearOpenShiftMCPServerCAConfigMap(ctx context.Context, k8sClient client.Client) {
-	cm := &corev1.ConfigMap{}
-	err := k8sClient.Get(ctx, client.ObjectKey{Name: OpenShiftMCPServerCAConfigMapName, Namespace: OLSNamespaceDefault}, cm)
+// EnsureAgenticMCPCASecret creates or updates the appserver-owned MCP client CA Secret.
+func EnsureAgenticMCPCASecret(ctx context.Context, k8sClient client.Client, certData string) {
+	if certData == "" {
+		certData = "test-mcp-ca"
+	}
+	secret := &corev1.Secret{}
+	err := k8sClient.Get(ctx, client.ObjectKey{Name: AgenticMCPCASecretName, Namespace: OLSNamespaceDefault}, secret)
 	if apierrors.IsNotFound(err) {
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AgenticMCPCASecretName,
+				Namespace: OLSNamespaceDefault,
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{
+				AgenticMCPCASecretDataKey: []byte(certData),
+			},
+		}
+		err = k8sClient.Create(ctx, secret)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		return
 	}
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	cm.Data = map[string]string{}
-	err = k8sClient.Update(ctx, cm)
+	if secret.Data == nil {
+		secret.Data = map[string][]byte{}
+	}
+	secret.Data[AgenticMCPCASecretDataKey] = []byte(certData)
+	err = k8sClient.Update(ctx, secret)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+// DeleteAgenticMCPCASecret removes the MCP client CA Secret for not-ready path tests.
+func DeleteAgenticMCPCASecret(ctx context.Context, k8sClient client.Client) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      AgenticMCPCASecretName,
+			Namespace: OLSNamespaceDefault,
+		},
+	}
+	err := k8sClient.Delete(ctx, secret)
+	if err != nil && !apierrors.IsNotFound(err) {
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	}
 }
 
 // DeleteTelemetryPullSecret removes the pull-secret from openshift-config namespace.
