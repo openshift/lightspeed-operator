@@ -105,12 +105,14 @@ var _ = BeforeSuite(func() {
 		Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}})).To(Succeed())
 	}
 
-	testReconcilerInstance = utils.NewTestReconciler(
+	tr := utils.NewTestReconciler(
 		k8sClient,
 		logf.Log.WithName("controller").WithName("OLSConfig"),
 		scheme.Scheme,
 		utils.OLSNamespaceDefault,
 	)
+	tr.AgenticConsoleImage = "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9:latest"
+	testReconcilerInstance = tr
 
 	cr = &olsv1alpha1.OLSConfig{}
 	crNamespacedName = types.NamespacedName{Name: "cluster"}

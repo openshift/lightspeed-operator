@@ -53,7 +53,7 @@ var _ = Describe("Alerts adapter assets", func() {
 		Expect(deployment.Spec.Template.Spec.ServiceAccountName).To(Equal(utils.AlertsAdapterServiceAccountName))
 		Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 		Expect(deployment.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.AlertsAdapterContainerName))
-		Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.AlertsAdapterImageDefault))
+		Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal(testReconcilerInstance.GetAlertsAdapterImage()))
 		Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(1))
 		Expect(deployment.Spec.Template.Spec.Volumes[0].Name).To(Equal(utils.TmpVolumeName))
 	})
