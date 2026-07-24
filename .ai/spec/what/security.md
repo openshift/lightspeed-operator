@@ -14,7 +14,7 @@ The operator enforces security boundaries through RBAC, network policies, pod se
 5. Each component has its own NetworkPolicy restricting ingress:
    - Operator (`lightspeed-operator`): allows Prometheus scraping from `openshift-monitoring` namespace on port 8443.
    - Backend/AppServer (`lightspeed-app-server`): allows Prometheus from `openshift-monitoring`, OpenShift Console pods from `openshift-console`, and ingress controllers (namespaces with `network.openshift.io/policy-group: ingress`), all on port 8443.
-   - PostgreSQL (`lightspeed-postgres-server`): allows only backend pods (matched by `app.kubernetes.io/name: lightspeed-service-api` label).
+   - PostgreSQL (`lightspeed-postgres-server`): allows only backend pods (matched by `app.kubernetes.io/name: lightspeed-service-api` label) and OTel Collector pods (matched by the OTel Collector labels).
    - Console UI (`lightspeed-console-plugin`): allows only OpenShift Console pods from `openshift-console` namespace.
    - OTEL Collector (`lightspeed-otel-collector`): allows all pods in the operator namespace (empty `PodSelector`) on OTLP gRPC `:4317` and `postgres_admin` HTTPS `:8080`; allows Prometheus from `openshift-monitoring` on HTTPS metrics `:8888` only.
 6. Network policies use combined pod label selectors and namespace selectors for source filtering.
