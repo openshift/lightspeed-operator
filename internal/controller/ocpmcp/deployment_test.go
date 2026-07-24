@@ -42,7 +42,7 @@ var _ = Describe("OpenShift MCP Server deployment", func() {
 		Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 		Expect(container.Command).To(Equal([]string{
 			"/openshift-mcp-server",
-			"--config", utils.GetOpenShiftMCPServerConfigPath(),
+			"--config", GetConfigPath(),
 			"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerHTTPSPort),
 			"--tls-cert=" + path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"),
 			"--tls-key=" + path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"),
@@ -58,7 +58,7 @@ var _ = Describe("OpenShift MCP Server deployment", func() {
 			Claims:   []corev1.ResourceClaim{},
 		}))
 
-		_, expectedConfigMount := utils.GetOpenShiftMCPServerConfigVolumeAndMount()
+		_, expectedConfigMount := GetConfigVolumeAndMount()
 		Expect(container.VolumeMounts).To(ContainElement(expectedConfigMount))
 		Expect(container.VolumeMounts).To(ContainElement(corev1.VolumeMount{
 			Name:      utils.OpenShiftMCPServerTLSVolumeName,

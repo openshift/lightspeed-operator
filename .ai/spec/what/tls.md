@@ -17,8 +17,8 @@ The operator manages TLS certificates for all inter-component communication and 
 8. The TLS secret must contain at minimum `tls.key` and `tls.crt` keys. For service-ca secrets, the operator relies on the secret being created asynchronously by the service-ca operator.
 9. PostgreSQL CA certificates are mounted from the `openshift-service-ca.crt` ConfigMap into the backend container at `/etc/certs/postgres-ca/` for verifying PostgreSQL connections. The SSL mode is fixed to `require`.
 10. The OpenShift root CA (`kube-root-ca.crt`) is always mounted at `/etc/certs/ols-additional-ca/` in the backend container.
-11. The OpenShift service-ca bundle (`openshift-service-ca.crt` / `service-ca.crt`) is mounted in the app-server at `/etc/certs/otel-collector-ca/service-ca.crt` and added to `extra_ca` in `olsconfig.yaml`. The app-server also sets `OTEL_EXPORTER_OTLP_CERTIFICATE` to that path so the OTLP/gRPC exporter trusts the collector (gRPC does not use the certifi/`extra_ca` store). The same PEM is published to ConfigMap `lightspeed-otel-collector-client` key `ca.crt` for agentic-operator (OTLP + admin HTTPS), created in Phase 2 after the serving Secret exists.
-11a. When introspection is enabled, the `openshift-mcp-server-ca` ConfigMap (`inject-cabundle`) is mounted in the app-server at `/etc/certs/openshift-mcp-server-ca/` and `service-ca.crt` is added to `extra_ca` so lightspeed-service can verify TLS to the standalone MCP Service on `:8443`.
+11. Appserver copies the OpenShift service-ca bundle (`openshift-service-ca.crt` / `service-ca.crt`) into client-only Secret `lightspeed-agentic-otel-ca` (`otel-ca.crt`), mounts that Secret at `/etc/certs/otel-collector-ca/service-ca.crt`, and adds the path to `extra_ca` in `olsconfig.yaml`. The app-server also sets `OTEL_EXPORTER_OTLP_CERTIFICATE` to that path so the OTLP/gRPC exporter trusts the collector (gRPC does not use the certifi/`extra_ca` store). The same Secret is the agentic-operator CA source (see `agentic-sandbox-profile.md`).
+11a. When introspection is enabled, appserver copies the same cluster service-ca PEM into client-only Secret `lightspeed-agentic-mcp-ca` (`mcp-ca.crt`), mounts it at `/etc/certs/openshift-mcp-server-ca/service-ca.crt`, and adds the path to `extra_ca` so lightspeed-service can verify TLS to the standalone MCP Service on `:8443`. There is no dedicated MCP CA ConfigMap.
 
 ### Additional CA Certificates
 12. If `spec.ols.additionalCAConfigMapRef` is set, the operator mounts the referenced ConfigMap in the backend container at `/etc/certs/ols-user-ca/` and each certificate file path is added to the `extra_ca` list in the OLS config.
@@ -33,8 +33,8 @@ The operator manages TLS certificates for all inter-component communication and 
 ### Certificate Rotation
 18. Service-ca certificates are automatically rotated by the service-ca operator. The operator's watchers detect the Secret data change and trigger a deployment rolling restart via the `ols.openshift.io/force-reload` pod template annotation.
 19. Custom certificate rotation requires the user to update the referenced Secret. The operator detects the data change via the watcher and triggers a rolling restart using the same annotation mechanism.
-20. When `lightspeed-otel-collector-cert` rotates, the watcher restarts both the OTEL Collector deployment and the app-server (`ACTIVE_BACKEND`). `RestartOtelCollector` also refreshes `lightspeed-otel-collector-client` `ca.crt` before rolling the collector.
-21. When `openshift-mcp-server-tls` rotates, the watcher restarts both the OpenShift MCP server deployment and the app-server (`ACTIVE_BACKEND`).
+20. When `lightspeed-otel-collector-cert` rotates, the watcher restarts the OTEL Collector deployment then the app-server (`ACTIVE_BACKEND`). `RestartAppServer` refreshes client CA Secrets from `openshift-service-ca.crt`, touches the handoff ConfigMap (`ols.openshift.io/client-ca-reload`), then rolls the app-server. If CA refresh fails, touch and roll are skipped (fail-closed); see `agentic-sandbox-profile.md`.
+21. When `openshift-mcp-server-tls` rotates, the watcher restarts the OpenShift MCP server deployment then the app-server (`ACTIVE_BACKEND`) with the same fail-closed refresh+touch+roll path.
 
 ## Configuration Surface
 

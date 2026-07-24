@@ -258,17 +258,41 @@ const (
 	OtelCollectorConfigMapName = "lightspeed-otel-collector-config"
 	// OtelCollectorConfigMapDataKey is the key within OtelCollectorConfigMapName for collector YAML.
 	OtelCollectorConfigMapDataKey = "config.yaml"
-	// OtelCollectorClientConfigMapName is the ConfigMap publishing Collector connectivity for clients
-	// (agentic-operator OTLP export and admin API). Distinct from the collector runtime ConfigMap.
-	OtelCollectorClientConfigMapName = "lightspeed-otel-collector-client"
-	// OtelCollectorClientCollectorEndpointKey is the OTLP gRPC endpoint (host:port).
-	OtelCollectorClientCollectorEndpointKey = "collector-endpoint"
-	// OtelCollectorClientAdminEndpointKey is the HTTPS admin API base URL.
-	OtelCollectorClientAdminEndpointKey = "admin-endpoint"
-	// OtelCollectorClientCACertKey is the PEM CA used to verify Collector TLS.
-	OtelCollectorClientCACertKey = "ca.crt"
-	// OtelCollectorClientCredentialsSecretKey is an optional Secret name for mTLS client credentials.
-	OtelCollectorClientCredentialsSecretKey = "credentials-secret"
+	// LegacyOtelCollectorClientConfigMapName is the pre-handoff OTEL client ConfigMap.
+	// Deleted once on upgrade; connectivity moved to lightspeed-agentic-configuration + CA Secrets.
+	LegacyOtelCollectorClientConfigMapName = "lightspeed-otel-collector-client"
+	// AgenticConfigurationConfigMapName is the ConfigMap publishing classic→agentic handoff
+	// (sandbox mode/PodSpec, OTEL/MCP endpoints, CA Secret names).
+	AgenticConfigurationConfigMapName = "lightspeed-agentic-configuration"
+	// AgenticConfigurationSandboxModeKey is bare-pod or sandbox-claim.
+	AgenticConfigurationSandboxModeKey = "sandbox-mode"
+	// AgenticConfigurationSandboxPodSpecKey is JSON-serialized thin corev1.PodSpec.
+	AgenticConfigurationSandboxPodSpecKey = "sandbox-pod-spec"
+	// AgenticConfigurationOtelCollectorEndpointKey is the OTLP gRPC endpoint (host:port).
+	AgenticConfigurationOtelCollectorEndpointKey = "otel-collector-endpoint"
+	// AgenticConfigurationOtelAdminEndpointKey is the HTTPS admin API base URL.
+	AgenticConfigurationOtelAdminEndpointKey = "otel-admin-endpoint"
+	// AgenticConfigurationOtelCASecretKey is the ConfigMap data key naming the OTEL client-CA Secret.
+	AgenticConfigurationOtelCASecretKey = "otel-ca-secret" // #nosec G101
+	// AgenticConfigurationMCPEndpointKey is the OpenShift MCP HTTPS endpoint URL.
+	AgenticConfigurationMCPEndpointKey = "mcp-endpoint"
+	// AgenticConfigurationMCPCASecretKey is the ConfigMap data key naming the MCP client-CA Secret.
+	AgenticConfigurationMCPCASecretKey = "mcp-ca-secret" // #nosec G101
+	// AgenticConfigurationCertReloadAnnotation is bumped to force ConfigMap RV change
+	// when client CA Secrets rotate so agentic-operator reloads trust material.
+	AgenticConfigurationCertReloadAnnotation = "ols.openshift.io/client-ca-reload"
+	// AgenticOtelCASecretName holds the public CA for verifying the OTEL Collector.
+	AgenticOtelCASecretName = "lightspeed-agentic-otel-ca" // #nosec G101
+	// AgenticOtelCASecretDataKey is the only data key in AgenticOtelCASecretName.
+	AgenticOtelCASecretDataKey = "otel-ca.crt" // #nosec G101
+	// AgenticMCPCASecretName holds the public CA for verifying the OpenShift MCP server.
+	AgenticMCPCASecretName = "lightspeed-agentic-mcp-ca" // #nosec G101
+	// AgenticMCPCASecretDataKey is the only data key in AgenticMCPCASecretName.
+	AgenticMCPCASecretDataKey = "mcp-ca.crt" // #nosec G101
+	// AgenticSandboxContainerName is the container name in the thin sandbox PodSpec.
+	AgenticSandboxContainerName = "lightspeed-agentic-sandbox"
+	// AgenticIntegrationComponentLabel is the app.kubernetes.io/component value for handoff artifacts.
+	AgenticIntegrationComponentLabel = "agentic-integration"
 	// OtelCollectorConfigMapResourceVersionAnnotation tracks collector ConfigMap changes for rollout.
 	OtelCollectorConfigMapResourceVersionAnnotation = "ols.openshift.io/otel-collector-configmap-version"
 	// OtelCollectorConfigVolumeName is the pod volume name for the mounted collector config.
@@ -464,15 +488,11 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	OpenShiftMCPServerNetworkPolicyName = "openshift-mcp-server"
 	// OpenShiftMCPServerCertsSecretName is the service-ca TLS secret for the MCP Service.
 	OpenShiftMCPServerCertsSecretName = "openshift-mcp-server-tls" // #nosec G101
-	// OpenShiftMCPServerCAConfigMapName is the ConfigMap with inject-cabundle for client trust.
-	OpenShiftMCPServerCAConfigMapName = "openshift-mcp-server-ca"
-	// OpenShiftMCPServerCACertKey is the PEM key injected by service-ca into the CA ConfigMap.
-	OpenShiftMCPServerCACertKey = "service-ca.crt"
-	// AppOpenShiftMCPServerCACertDir is the app-server mount directory for the MCP service-ca bundle.
+	// AppOpenShiftMCPServerCACertDir is the app-server mount directory for the MCP client CA.
 	AppOpenShiftMCPServerCACertDir = "openshift-mcp-server-ca"
-	// AppOpenShiftMCPServerCACertVolumeName is the app-server volume name for the MCP CA ConfigMap.
+	// AppOpenShiftMCPServerCACertVolumeName is the app-server volume name for the MCP client CA Secret.
 	AppOpenShiftMCPServerCACertVolumeName = "openshift-mcp-server-ca"
-	// AppOpenShiftMCPServerCACertFile is the CA filename within AppOpenShiftMCPServerCACertDir.
+	// AppOpenShiftMCPServerCACertFile is the projected filename within AppOpenShiftMCPServerCACertDir.
 	AppOpenShiftMCPServerCACertFile = "service-ca.crt"
 	// OpenShiftMCPServerTLSVolumeName is the pod volume name for the serving-cert Secret.
 	OpenShiftMCPServerTLSVolumeName = "tls"
@@ -480,8 +500,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	OpenShiftMCPServerTLSMountPath = "/etc/tls"
 	// OpenShiftMCPServerComponentLabel is the app.kubernetes.io/component label value.
 	OpenShiftMCPServerComponentLabel = "openshift-mcp-server"
-	// InjectCABundleAnnotationKey requests service-ca to inject the cluster CA into a ConfigMap.
-	InjectCABundleAnnotationKey = "service.beta.openshift.io/inject-cabundle"
 	// RHOOKPHTTPPort is the Solr HTTP proxy port for the RH OKP sidecar (remapped from image default 8080).
 	RHOOKPHTTPPort = 9080
 	// RHOOKPHTTPSPort is the RH OKP Apache HTTPS port (remapped from image default 8443; OLS uses 8443).
@@ -534,6 +552,9 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	CLIENT_PLACEHOLDER = "client"
 	// MCPHeadersMountRoot is the directory hosting MCP headers in the container
 	MCPHeadersMountRoot = "/etc/mcp/headers"
+	// LegacyOpenShiftMCPServerCAConfigMapName is the pre-handoff MCP inject-cabundle ConfigMap.
+	// Deleted once on upgrade; client trust moved to Secret lightspeed-agentic-mcp-ca.
+	LegacyOpenShiftMCPServerCAConfigMapName = "openshift-mcp-server-ca"
 	// OpenShiftMCPServerConfigCmName is the name of the ConfigMap for openshift-mcp-server configuration
 	OpenShiftMCPServerConfigCmName = "openshift-mcp-server-config"
 	// OpenShiftMCPServerConfigFilename is the filename for the openshift-mcp-server TOML config
@@ -604,6 +625,7 @@ var (
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
 	AgenticConsoleUIImageDefault   = imageDefaultOr("lightspeed-agentic-console-plugin", agenticConsoleUIImageFallback)
 	AlertsAdapterImageDefault      = imageDefaultOr("lightspeed-agentic-alerts-adapter", alertsAdapterImageFallback)
+	AgenticSandboxImageDefault     = imageDefaultOr("lightspeed-agentic-sandbox", agenticSandboxImageFallback)
 	OtelCollectorImageDefault      = imageDefaultOr("lightspeed-otel-collector", otelCollectorImageFallback)
 	RHOOKPImageDefault             = imageDefaultOr("rhokp", rhokpImageFallback)
 )
@@ -612,6 +634,7 @@ const (
 	// Fallbacks when related_images.json is unavailable (e.g. local run outside repo root).
 	agenticConsoleUIImageFallback = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main"
 	alertsAdapterImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
+	agenticSandboxImageFallback   = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox:main"
 	otelCollectorImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector:main"
 	rhokpImageFallback            = "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest"
 )

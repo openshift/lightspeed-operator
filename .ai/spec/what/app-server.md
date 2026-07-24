@@ -8,7 +8,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 1. The deployment contains a primary API container and up to two sidecar containers (data collector, RHOKP).
 2. The primary container (lightspeed-service-api) runs the OLS service, listening on HTTPS.
 3. The data collector sidecar (lightspeed-to-dataverse-exporter) is added when data collection is enabled AND the telemetry pull secret exists in the openshift-config namespace with a cloud.openshift.com auth entry.
-4. The OpenShift MCP server runs as a standalone HTTPS Deployment/Service (`ocpmcp` package) when `spec.ols.introspectionEnabled` is true. The app-server connects via `https://openshift-mcp-server.<ns>.svc:8443/mcp` and trusts `openshift-mcp-server-ca` (`service-ca.crt`). See `ocpmcp.md`.
+4. The OpenShift MCP server runs as a standalone HTTPS Deployment/Service (`ocpmcp` package) when `spec.ols.introspectionEnabled` is true. The app-server connects via `https://openshift-mcp-server.<ns>.svc:8443/mcp` and trusts client CA Secret `lightspeed-agentic-mcp-ca` (cluster service-ca PEM). See `ocpmcp.md`.
 5. OKP (Offline Knowledge Portal) / Solr hybrid RAG is operator-managed (no CR toggle besides `byokRAGOnly`). When OKP is enabled, the RHOKP sidecar serves Solr HTTP on localhost:9080 for the `search_openshift_documentation` tool path. It requires ~75 GiB ephemeral storage. OKP is on by default; set `spec.ols.byokRAGOnly` to true to skip the RHOKP sidecar, `solr_hybrid` config, and OCP documentation retrieval via Solr.
 6. A PostgreSQL wait init container always runs before the main containers to ensure database readiness.
 7. When `spec.ols.rag` is configured, additional init containers copy BYOK RAG data from container images into a shared volume.
@@ -47,7 +47,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 23. The app-server service account can read the cluster version and the telemetry pull secret.
 
 ### Change Detection
-24. Deployment updates are triggered when: the deployment spec changes, the config ConfigMap resource version changes, the proxy CA certificate hash changes, or (when introspection is enabled) the OpenShift MCP CA ConfigMap content hash changes.
+24. Deployment updates are triggered when: the deployment spec changes, the config ConfigMap resource version changes, the proxy CA certificate hash changes, or (when introspection is enabled) the MCP client CA Secret content hash changes.
 25. When any of these change, the operator forces a rolling restart by updating a pod template annotation with the current timestamp.
 
 ### Health Probes [CHANGED: OLS-3221]
@@ -102,20 +102,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 ### RHOKP Image
 33. The RHOKP sidecar image is set via the operator `--rhokp-image` startup flag. Default comes from `related_images.json` entry `rhokp` (`utils.RHOOKPImageDefault` / `imageDefaultOr`). The OLM bundle lists it in CSV `spec.relatedImages` and passes the image via `--rhokp-image` on the manager deployment.
 
-### Agentic Sandbox Configuration Handoff [PLANNED: OLS-3572]
-
-34. The operator creates and maintains a `lightspeed-sandbox-config` ConfigMap in the operator namespace, providing the agentic operator with a ready-to-use base pod spec for sandbox pods. The ConfigMap contains:
-  - `sandbox-pod-spec`: JSON-serialized `corev1.PodSpec` with the sandbox container image (from `--agentic-sandbox-image` flag / related-images), OTEL endpoint env var (when templog collector is deployed), MCP CA cert volumes + volume mounts (when ocp-mcp is deployed as standalone HTTPS service), and resource defaults. CA certificates are mounted directly in the PodSpec — no separate CA bundle key.
-  - `sandbox-mode`: `bare-pod` or `sandbox-claim` from `OLSConfig.spec.agenticOLS.sandboxMode`.
-  - `mcp-endpoint`: MCP server endpoint URL (when ocp-mcp is deployed as standalone HTTPS service).
-  - `otel-endpoint`: OTEL collector gRPC endpoint (when templog collector is deployed).
-
-35. The ConfigMap is always created during reconciliation. Keys are absent when the corresponding feature is not enabled. The `sandbox-pod-spec` key is always present.
-
-36. The ConfigMap is reconciled whenever relevant config changes: sandbox image, cert rotation, OTEL collector deployment, MCP server deployment, or `spec.agenticOLS` field changes.
-
 ## Planned Changes
 
 - [PLANNED: OLS-3221] Liveness probe now checks PostgreSQL health via the service's background health-check loop status. Probe configuration (failureThreshold, periodSeconds) added to deployment generation. See Rules 24–25.
-- Agentic/sandbox reuse of the standalone MCP Service and CA is tracked under [OLS-3572](https://redhat.atlassian.net/browse/OLS-3572); optional agentic auto-injection is separately deferred ([OLS-3594](https://redhat.atlassian.net/browse/OLS-3594)).
-- [PLANNED: OLS-3572] Agentic sandbox configuration handoff — classic operator builds base PodSpec and writes `lightspeed-sandbox-config` ConfigMap for the agentic operator. See Rules 34–36.
+- Classic→agentic sandbox handoff: appserver owns client CA Secrets (`lightspeed-agentic-otel-ca` / `lightspeed-agentic-mcp-ca`) and mounts them; `agenticintegration` owns the handoff ConfigMap — see `agentic-sandbox-profile.md` (OLS-3683 / OLS-3684). Optional agentic auto-injection remains deferred ([OLS-3594](https://redhat.atlassian.net/browse/OLS-3594)).

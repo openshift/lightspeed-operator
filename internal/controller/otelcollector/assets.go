@@ -46,42 +46,6 @@ func GenerateOtelCollectorConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 	return &configMap, nil
 }
 
-// GenerateOtelCollectorClientConfigMap generates the client connectivity ConfigMap
-// consumed by agentic-operator (OTLP endpoint, admin API URL, and CA).
-// CA PEM is the OpenShift service-ca bundle (same CA that signs the serving cert),
-// not the leaf tls.crt — mounting the leaf as a CA breaks gRPC/OpenSSL verify.
-func GenerateOtelCollectorClientConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
-	caCM := &corev1.ConfigMap{}
-	if err := r.Get(ctx, client.ObjectKey{Name: utils.OLSCAConfigMap, Namespace: r.GetNamespace()}, caCM); err != nil {
-		return nil, fmt.Errorf("%s: %w", utils.ErrGetOtelCollectorClientCAConfigMap, err)
-	}
-	caPEM, ok := caCM.Data[utils.AppOtelCollectorCACertFile]
-	if !ok || caPEM == "" {
-		return nil, fmt.Errorf("%s: key %q missing or empty in ConfigMap %s",
-			utils.ErrGetOtelCollectorClientCAConfigMap, utils.AppOtelCollectorCACertFile, utils.OLSCAConfigMap)
-	}
-
-	ns := r.GetNamespace()
-	host := fmt.Sprintf("%s.%s.svc", utils.OtelCollectorServiceName, ns)
-
-	configMap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.OtelCollectorClientConfigMapName,
-			Namespace: ns,
-			Labels:    utils.GenerateOtelCollectorSelectorLabels(),
-		},
-		Data: map[string]string{
-			utils.OtelCollectorClientCollectorEndpointKey: fmt.Sprintf("%s:%d", host, utils.OtelCollectorGRPCPort),
-			utils.OtelCollectorClientAdminEndpointKey:     fmt.Sprintf("https://%s:%d", host, utils.OtelCollectorAdminPort),
-			utils.OtelCollectorClientCACertKey:            caPEM,
-		},
-	}
-	if err := controllerutil.SetControllerReference(cr, &configMap, r.GetScheme()); err != nil {
-		return nil, fmt.Errorf("%s: %w", utils.ErrSetOtelCollectorClientConfigMapOwnerReference, err)
-	}
-	return &configMap, nil
-}
-
 // GenerateOtelCollectorService generates the collector Service with a service-ca serving cert.
 func GenerateOtelCollectorService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
 	service := corev1.Service{
@@ -350,14 +314,18 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 		"extensions": collectorExtensions(),
 	}
 
-	exporters := map[string]interface{}{}
+	// nop silently drops data. Pipelines that must exist (so the OTLP receiver
+	// does not return UNIMPLEMENTED) but have no backend use this exporter.
+	exporters := map[string]interface{}{
+		"nop": map[string]interface{}{},
+	}
 	connectors := map[string]interface{}{}
 	pipelines := map[string]interface{}{}
 
 	if loggingEnabled {
 		exporters["postgres"] = postgresExporterConfig()
 		connectors["routing/logs"] = map[string]interface{}{
-			"default_pipelines": []interface{}{},
+			"default_pipelines": []interface{}{"logs/unmatched"},
 			"table": []interface{}{
 				map[string]interface{}{
 					"condition": fmt.Sprintf(`attributes["service.name"] == %q`, utils.OtelSandboxServiceName),
@@ -374,6 +342,16 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 			"receivers": []interface{}{"routing/logs"},
 			"exporters": []interface{}{"postgres"},
 		}
+		pipelines["logs/unmatched"] = map[string]interface{}{
+			"receivers": []interface{}{"routing/logs"},
+			"exporters": []interface{}{"nop"},
+		}
+	} else {
+		pipelines["logs"] = map[string]interface{}{
+			"receivers":  []interface{}{"otlp"},
+			"processors": []interface{}{"batch"},
+			"exporters":  []interface{}{"nop"},
+		}
 	}
 
 	if tracingEndpoint != "" {
@@ -383,23 +361,21 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 				"insecure": false,
 			},
 		}
-		connectors["routing/traces"] = map[string]interface{}{
-			"default_pipelines": []interface{}{"traces/lightspeed"},
-		}
 		pipelines["traces"] = map[string]interface{}{
 			"receivers":  []interface{}{"otlp"},
 			"processors": []interface{}{"batch"},
-			"exporters":  []interface{}{"routing/traces"},
+			"exporters":  []interface{}{"otlp/tracing"},
 		}
-		pipelines["traces/lightspeed"] = map[string]interface{}{
-			"receivers": []interface{}{"routing/traces"},
-			"exporters": []interface{}{"otlp/tracing"},
+	} else {
+		// Accept traces so the OTLP receiver does not return UNIMPLEMENTED when
+		// app-server (or others) export traces with no tracingEndpoint configured.
+		pipelines["traces"] = map[string]interface{}{
+			"receivers": []interface{}{"otlp"},
+			"exporters": []interface{}{"nop"},
 		}
 	}
 
-	if len(exporters) > 0 {
-		config["exporters"] = exporters
-	}
+	config["exporters"] = exporters
 	if len(connectors) > 0 {
 		config["connectors"] = connectors
 	}

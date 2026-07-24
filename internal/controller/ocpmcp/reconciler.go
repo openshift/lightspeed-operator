@@ -26,9 +26,9 @@ func ReconcileResources(r reconciler.Reconciler, ctx context.Context, olsconfig 
 
 	return utils.RunReconcileTasks(r, ctx, olsconfig, "reconcileOpenShiftMCPServerResources", []utils.ReconcileTask{
 		{Name: "reconcile openshift-mcp-server ConfigMap", Task: reconcileConfigMap},
-		{Name: "reconcile openshift-mcp-server CA ConfigMap", Task: reconcileCAConfigMap},
 		{Name: "reconcile openshift-mcp-server ServiceAccount", Task: reconcileServiceAccount},
 		{Name: "reconcile openshift-mcp-server NetworkPolicy", Task: reconcileNetworkPolicy},
+		{Name: "remove legacy openshift-mcp-server CA ConfigMap", Task: removeLegacyCAConfigMap},
 	}, true)
 }
 
@@ -52,9 +52,9 @@ func Remove(r reconciler.Reconciler, ctx context.Context) error {
 		{Name: "delete openshift-mcp-server service", Task: deleteService},
 		{Name: "delete openshift-mcp-server network policy", Task: deleteNetworkPolicy},
 		{Name: "delete openshift-mcp-server configmap", Task: deleteConfigMap},
-		{Name: "delete openshift-mcp-server CA configmap", Task: deleteCAConfigMap},
 		{Name: "delete openshift-mcp-server service account", Task: deleteServiceAccount},
 		{Name: "delete openshift-mcp-server TLS secret", Task: deleteTLSSecret},
+		{Name: "delete legacy openshift-mcp-server CA ConfigMap", Task: deleteLegacyCAConfigMap},
 	})
 }
 
@@ -88,60 +88,6 @@ func reconcileConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 	}
 	r.GetLogger().Info("openshift-mcp-server configmap reconciled", "configmap", cm.Name)
 	return nil
-}
-
-func reconcileCAConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	cm, err := GenerateCAConfigMap(r, cr)
-	if err != nil {
-		return err
-	}
-
-	foundCm := &corev1.ConfigMap{}
-	err = r.Get(ctx, client.ObjectKey{Name: utils.OpenShiftMCPServerCAConfigMapName, Namespace: r.GetNamespace()}, foundCm)
-	if err != nil && errors.IsNotFound(err) {
-		r.GetLogger().Info("creating openshift-mcp-server CA configmap", "configmap", cm.Name)
-		if err := r.Create(ctx, cm); err != nil {
-			return fmt.Errorf("%s: %w", utils.ErrCreateOpenShiftMCPServerCAConfigMap, err)
-		}
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetOpenShiftMCPServerCAConfigMap, err)
-	}
-
-	// Do not overwrite Data — service-ca injects service-ca.crt into this ConfigMap.
-	// Merge desired annotations so service-ca status annotations are preserved.
-	needsUpdate := !reflect.DeepEqual(foundCm.Labels, cm.Labels) ||
-		!reflect.DeepEqual(foundCm.OwnerReferences, cm.OwnerReferences) ||
-		!annotationsContain(foundCm.Annotations, cm.Annotations)
-
-	if !needsUpdate {
-		r.GetLogger().Info("openshift-mcp-server CA configmap unchanged, reconciliation skipped", "configmap", cm.Name)
-		return nil
-	}
-
-	foundCm.Labels = cm.Labels
-	foundCm.OwnerReferences = cm.OwnerReferences
-	if foundCm.Annotations == nil {
-		foundCm.Annotations = make(map[string]string, len(cm.Annotations))
-	}
-	for k, v := range cm.Annotations {
-		foundCm.Annotations[k] = v
-	}
-	if err := r.Update(ctx, foundCm); err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdateOpenShiftMCPServerCAConfigMap, err)
-	}
-	r.GetLogger().Info("openshift-mcp-server CA configmap reconciled", "configmap", cm.Name)
-	return nil
-}
-
-// annotationsContain reports whether actual has every key/value from desired.
-func annotationsContain(actual, desired map[string]string) bool {
-	for k, v := range desired {
-		if actual[k] != v {
-			return false
-		}
-	}
-	return true
 }
 
 func reconcileServiceAccount(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
@@ -252,16 +198,33 @@ func deleteConfigMap(r reconciler.Reconciler, ctx context.Context) error {
 	return deleteNamespacedObject(r, ctx, &corev1.ConfigMap{}, utils.OpenShiftMCPServerConfigCmName)
 }
 
-func deleteCAConfigMap(r reconciler.Reconciler, ctx context.Context) error {
-	return deleteNamespacedObject(r, ctx, &corev1.ConfigMap{}, utils.OpenShiftMCPServerCAConfigMapName)
-}
-
 func deleteServiceAccount(r reconciler.Reconciler, ctx context.Context) error {
 	return deleteNamespacedObject(r, ctx, &corev1.ServiceAccount{}, utils.OpenShiftMCPServerServiceAccountName)
 }
 
 func deleteTLSSecret(r reconciler.Reconciler, ctx context.Context) error {
 	return deleteNamespacedObject(r, ctx, &corev1.Secret{}, utils.OpenShiftMCPServerCertsSecretName)
+}
+
+// removeLegacyCAConfigMap deletes the pre-handoff MCP inject-cabundle ConfigMap left on upgrade.
+func removeLegacyCAConfigMap(r reconciler.Reconciler, ctx context.Context, _ *olsv1alpha1.OLSConfig) error {
+	return deleteLegacyCAConfigMap(r, ctx)
+}
+
+func deleteLegacyCAConfigMap(r reconciler.Reconciler, ctx context.Context) error {
+	cm := &corev1.ConfigMap{}
+	err := r.Get(ctx, client.ObjectKey{Name: utils.LegacyOpenShiftMCPServerCAConfigMapName, Namespace: r.GetNamespace()}, cm)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get legacy openshift-mcp-server CA ConfigMap: %w", err)
+	}
+	if err := r.Delete(ctx, cm); err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete legacy openshift-mcp-server CA ConfigMap: %w", err)
+	}
+	r.GetLogger().Info("deleted legacy openshift-mcp-server CA ConfigMap", "configmap", cm.Name)
+	return nil
 }
 
 func deleteNamespacedObject(r reconciler.Reconciler, ctx context.Context, obj client.Object, name string) error {
