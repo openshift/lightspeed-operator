@@ -95,6 +95,25 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.ResourceVersion).To(Equal(oldRV))
 		})
+
+		It("should delete the legacy MCP CA ConfigMap on upgrade", func() {
+			legacy := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.LegacyOpenShiftMCPServerCAConfigMapName,
+					Namespace: utils.OLSNamespaceDefault,
+				},
+				Data: map[string]string{"service-ca.crt": "stale"},
+			}
+			Expect(k8sClient.Create(ctx, legacy)).To(Succeed())
+
+			Expect(ReconcileResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.LegacyOpenShiftMCPServerCAConfigMapName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, &corev1.ConfigMap{})
+			Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		})
 	})
 
 	Context("Phase 2 deployment", func() {

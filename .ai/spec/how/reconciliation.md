@@ -36,8 +36,8 @@ Reconcile(ctx, req)
       |-- ocpmcp.ReconcileDeployment()                      # MCPServerReady / NotConfigured
       |-- appserver.ReconcileAppServerDeployment()
       |-- alertsadapter.ReconcileAlertsAdapterDeployment()  # when configMapRef set
-      |   (each step above: checkDeploymentStatus → conditions)
-      |-- agenticintegration.ReconcileAgenticIntegrationResources()  # last: handoff ConfigMap only (CA Secrets: appserver)
+      |   (each deployment step above: checkDeploymentStatus → conditions)
+      |-- agenticintegration.ReconcileAgenticIntegrationResources()  # last: ConfigMap only — no deployment health check; failure → OverallStatus NotReady
       +-- UpdateStatusCondition()           # Single status update
 ```
 

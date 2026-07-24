@@ -9,7 +9,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `crd-api.md` (
 ### Ownership
 1. Package `internal/controller/appserver` owns the client-only CA Secrets (`lightspeed-agentic-otel-ca`, `lightspeed-agentic-mcp-ca`) and mounts them into the app-server Deployment. It copies public PEM from service-ca source ConfigMaps; serving-cert private keys are never published.
 2. Package `internal/controller/agenticintegration` owns only the handoff ConfigMap (`lightspeed-agentic-configuration`). It references CA Secret **names** in ConfigMap data; it does not create or refresh those Secrets. It does not manage sandbox Pods, SandboxClaims, or SandboxTemplates.
-3. The former OTEL client ConfigMap `lightspeed-otel-collector-client` is removed. OTEL endpoints and CA are published only via the handoff ConfigMap + appserver-owned CA Secrets (no dual-write / migration).
+3. The former OTEL client ConfigMap `lightspeed-otel-collector-client` is no longer created. OTEL endpoints and CA are published only via the handoff ConfigMap + appserver-owned CA Secrets (no dual-write). On upgrade, otelcollector Phase 1 deletes any leftover `lightspeed-otel-collector-client` ConfigMap (`IgnoreNotFound`). Likewise, ocpmcp Phase 1 / `Remove` deletes leftover `openshift-mcp-server-ca`.
 
 ### OLSConfig
 4. `spec.agenticOLS` is optional. When omitted or `sandboxMode` is empty, sandbox mode is `bare-pod`.

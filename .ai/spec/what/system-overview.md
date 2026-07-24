@@ -17,7 +17,7 @@ The OpenShift Lightspeed Operator is a Kubernetes operator that manages the life
 6. Feature gates on `OLSConfig` (`MCPServer`, `ToolFiltering`) do not control the activation of the agentic controller.
 7. The agentic controller is inert until its CRs (`AgenticOLSConfig`, `Agent`, `LLMProvider`, `ApprovalPolicy`, etc.) are created.
 8. The agentic controller image is specified in the CSV deployment spec, following the same pattern as the lightspeed-operator's own controller image. Operand images for the agentic controller (agentic console plugin, etc.) are configured via startup flags on the agentic controller deployment.
-8a. The agentic controller accepts a `--sandbox-mode` flag (`bare-pod` default, `sandbox-claim` optional) that determines whether agent sandboxes run as bare Pods or use the Agent Sandbox API. In `bare-pod` mode, no Agent Sandbox API CRDs need to be installed. Classic operator also publishes `spec.agenticOLS.sandboxMode` and a thin PodSpec via `lightspeed-agentic-configuration` for agentic-operator to consume (see `agentic-sandbox-profile.md`).
+8a. The agentic controller accepts a `--sandbox-mode` flag (`bare-pod` default, `sandbox-claim` optional) that determines whether agent sandboxes run as bare Pods or use the Agent Sandbox API. In `bare-pod` mode, no Agent Sandbox API CRDs need to be installed. Classic operator also publishes `spec.agenticOLS.sandboxMode` and a thin PodSpec via `lightspeed-agentic-configuration` for agentic-operator to consume (see `agentic-sandbox-profile.md`); the sandbox container image in that PodSpec is set from classic `--agentic-sandbox-image`.
 9. See `bundle-composition.md` for details on the bundle structure, CRD ownership, and image references.
 
 ### Component Inventory
@@ -63,6 +63,7 @@ The OpenShift Lightspeed Operator is a Kubernetes operator that manages the life
 | `--openshift-mcp-server-image` | string | built-in default | Override OpenShift MCP server image |
 | `--dataverse-exporter-image` | string | built-in default | Override dataverse exporter image |
 | `--rhokp-image` | string | `related_images.json` (`rhokp`) | Override RHOKP (Solr / OKP) sidecar image |
+| `--agentic-sandbox-image` | string | `related_images.json` (`lightspeed-agentic-sandbox`) | Override sandbox container image embedded in the handoff PodSpec |
 
 ### Environment Variables
 

@@ -24,6 +24,7 @@ func ReconcileOtelCollectorResources(r reconciler.Reconciler, ctx context.Contex
 		{Name: "reconcile OTEL Collector ServiceAccount", Task: reconcileOtelCollectorServiceAccount},
 		{Name: "reconcile OTEL Collector Postgres Secret", Task: reconcileOtelCollectorPostgresSecret},
 		{Name: "reconcile OTEL Collector NetworkPolicy", Task: reconcileOtelCollectorNetworkPolicy},
+		{Name: "remove legacy OTEL Collector client ConfigMap", Task: removeLegacyClientConfigMap},
 	}, true)
 }
 
@@ -201,6 +202,23 @@ func reconcileOtelCollectorServiceMonitor(r reconciler.Reconciler, ctx context.C
 		return fmt.Errorf("%s: %w", utils.ErrGenerateOtelCollectorServiceMonitor, err)
 	}
 	return utils.ReconcileServiceMonitor(r, ctx, sm)
+}
+
+// removeLegacyClientConfigMap deletes the pre-handoff OTEL client ConfigMap left on upgrade.
+func removeLegacyClientConfigMap(r reconciler.Reconciler, ctx context.Context, _ *olsv1alpha1.OLSConfig) error {
+	cm := &corev1.ConfigMap{}
+	err := r.Get(ctx, client.ObjectKey{Name: utils.LegacyOtelCollectorClientConfigMapName, Namespace: r.GetNamespace()}, cm)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get legacy OTEL Collector client ConfigMap: %w", err)
+	}
+	if err := r.Delete(ctx, cm); err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete legacy OTEL Collector client ConfigMap: %w", err)
+	}
+	r.GetLogger().Info("deleted legacy OTEL Collector client ConfigMap", "configmap", cm.Name)
+	return nil
 }
 
 // RestartOtelCollector triggers a rolling restart of the collector deployment.

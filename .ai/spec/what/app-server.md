@@ -47,7 +47,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 23. The app-server service account can read the cluster version and the telemetry pull secret.
 
 ### Change Detection
-24. Deployment updates are triggered when: the deployment spec changes, the config ConfigMap resource version changes, the proxy CA certificate hash changes, or (when introspection is enabled) the OpenShift MCP CA ConfigMap content hash changes.
+24. Deployment updates are triggered when: the deployment spec changes, the config ConfigMap resource version changes, the proxy CA certificate hash changes, or (when introspection is enabled) the MCP client CA Secret content hash changes.
 25. When any of these change, the operator forces a rolling restart by updating a pod template annotation with the current timestamp.
 
 ### Health Probes [CHANGED: OLS-3221]

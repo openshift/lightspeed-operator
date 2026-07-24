@@ -258,6 +258,9 @@ const (
 	OtelCollectorConfigMapName = "lightspeed-otel-collector-config"
 	// OtelCollectorConfigMapDataKey is the key within OtelCollectorConfigMapName for collector YAML.
 	OtelCollectorConfigMapDataKey = "config.yaml"
+	// LegacyOtelCollectorClientConfigMapName is the pre-handoff OTEL client ConfigMap.
+	// Deleted once on upgrade; connectivity moved to lightspeed-agentic-configuration + CA Secrets.
+	LegacyOtelCollectorClientConfigMapName = "lightspeed-otel-collector-client"
 	// AgenticConfigurationConfigMapName is the ConfigMap publishing classic→agentic handoff
 	// (sandbox mode/PodSpec, OTEL/MCP endpoints, CA Secret names).
 	AgenticConfigurationConfigMapName = "lightspeed-agentic-configuration"
@@ -549,6 +552,9 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	CLIENT_PLACEHOLDER = "client"
 	// MCPHeadersMountRoot is the directory hosting MCP headers in the container
 	MCPHeadersMountRoot = "/etc/mcp/headers"
+	// LegacyOpenShiftMCPServerCAConfigMapName is the pre-handoff MCP inject-cabundle ConfigMap.
+	// Deleted once on upgrade; client trust moved to Secret lightspeed-agentic-mcp-ca.
+	LegacyOpenShiftMCPServerCAConfigMapName = "openshift-mcp-server-ca"
 	// OpenShiftMCPServerConfigCmName is the name of the ConfigMap for openshift-mcp-server configuration
 	OpenShiftMCPServerConfigCmName = "openshift-mcp-server-config"
 	// OpenShiftMCPServerConfigFilename is the filename for the openshift-mcp-server TOML config
