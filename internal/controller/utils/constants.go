@@ -602,18 +602,16 @@ var (
 	PostgresServerImageDefault     = relatedimages.GetDefaultImage("lightspeed-postgresql")
 	OpenShiftMCPServerImageDefault = relatedimages.GetDefaultImage("openshift-mcp-server")
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
-	AgenticConsoleUIImageDefault   = imageDefaultOr("lightspeed-agentic-console-plugin", agenticConsoleUIImageFallback)
-	AlertsAdapterImageDefault      = imageDefaultOr("lightspeed-agentic-alerts-adapter", alertsAdapterImageFallback)
+	AgenticConsoleUIImageDefault   = relatedimages.GetDefaultImage("lightspeed-agentic-console-plugin")
+	AlertsAdapterImageDefault      = relatedimages.GetDefaultImage("lightspeed-agentic-alerts-adapter")
 	OtelCollectorImageDefault      = imageDefaultOr("lightspeed-otel-collector", otelCollectorImageFallback)
 	RHOOKPImageDefault             = imageDefaultOr("rhokp", rhokpImageFallback)
 )
 
 const (
 	// Fallbacks when related_images.json is unavailable (e.g. local run outside repo root).
-	agenticConsoleUIImageFallback = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main"
-	alertsAdapterImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
-	otelCollectorImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector:main"
-	rhokpImageFallback            = "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest"
+	otelCollectorImageFallback = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector:main"
+	rhokpImageFallback         = "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest"
 )
 
 func imageDefaultOr(name, fallback string) string {

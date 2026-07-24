@@ -981,8 +981,6 @@ spec:
                       - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:73fa6825f8f24c4b893fba177ac415ad4322de56af7940b4a4084a9bc72a7910
                       - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:f53e11c14e291fb19f87a24fb512bbf59ec350bcb3af7a114663febc77b4c1b9
                       - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:5b8e3b6a9d46e4825f731819274efbc88dc63f1dc47e8eefe9339bf90da4c02d
-                      - --agentic-console-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:b08ceeb59e29b55ceab15e87700ac6173ccf59d146dd616a3e2e7ed5ddc8927e
-                      - --alerts-adapter-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:10af58d31ab3add2e6ec1058ba5d10a87e2d5a4d77258b3f47a0ffc84eff3770
                       - --otel-collector-image=registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:fb86a2c82c959e8ec72e707ce6cc0c4005f806da38ec50da5606557346549cd3
                       - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest
                     command:
@@ -1120,10 +1118,6 @@ spec:
       image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:cf864a9f6cd3af1ac3f539b982239fff4aafe576c518e3e189cfd9bd6733c4f7
     - name: openshift-mcp-server
       image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:5b8e3b6a9d46e4825f731819274efbc88dc63f1dc47e8eefe9339bf90da4c02d
-    - name: lightspeed-agentic-console-plugin
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:b08ceeb59e29b55ceab15e87700ac6173ccf59d146dd616a3e2e7ed5ddc8927e
-    - name: lightspeed-agentic-alerts-adapter
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:10af58d31ab3add2e6ec1058ba5d10a87e2d5a4d77258b3f47a0ffc84eff3770
     - name: lightspeed-otel-collector
       image: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:fb86a2c82c959e8ec72e707ce6cc0c4005f806da38ec50da5606557346549cd3
     - name: rhokp

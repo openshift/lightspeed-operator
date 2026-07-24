@@ -48,24 +48,6 @@
     "stable_prefix": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9"
   },
   {
-    "name": "lightspeed-agentic-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:b08ceeb59e29b55ceab15e87700ac6173ccf59d146dd616a3e2e7ed5ddc8927e",
-    "revision": "0f61a2b3c3b1966a26986d60fae1cdfb33235a1c",
-    "operator_arg": "agentic-console-image",
-    "snapshot_component": "lightspeed-agentic-console",
-    "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9"
-  },
-  {
-    "name": "lightspeed-agentic-alerts-adapter",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:10af58d31ab3add2e6ec1058ba5d10a87e2d5a4d77258b3f47a0ffc84eff3770",
-    "revision": "39bfcdcd8bc7963fe0caa0a6b99c1ad9c919a13d",
-    "operator_arg": "alerts-adapter-image",
-    "snapshot_component": "lightspeed-agentic-alerts-adapter",
-    "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9"
-  },
-  {
     "name": "lightspeed-otel-collector",
     "image": "registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:fb86a2c82c959e8ec72e707ce6cc0c4005f806da38ec50da5606557346549cd3",
     "revision": "8bc5f3bbc050e5912c113e485453e342ecea2d8c",

@@ -112,12 +112,14 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 	}
 
-	testReconcilerInstance = utils.NewTestReconciler(
+	tr := utils.NewTestReconciler(
 		k8sClient,
 		logf.Log.WithName("controller").WithName("OLSConfig"),
 		scheme.Scheme,
 		utils.OLSNamespaceDefault,
 	)
+	tr.AlertsAdapterImage = "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9:latest"
+	testReconcilerInstance = tr
 
 	cr = &olsv1alpha1.OLSConfig{}
 	crNamespacedName = types.NamespacedName{Name: utils.OLSConfigName}
