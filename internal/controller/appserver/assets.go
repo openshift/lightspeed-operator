@@ -319,6 +319,10 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		}
 	}
 
+	if cr.Spec.OLSConfig.CredentialHotReload != nil && *cr.Spec.OLSConfig.CredentialHotReload {
+		olsConfig.CredentialHotReload = true
+	}
+
 	tlsProfile := cr.Spec.OLSConfig.TLSSecurityProfile
 	if tlsProfile == nil {
 		apiServerProfile, err := utiltls.FetchAPIServerTlsProfile(r)

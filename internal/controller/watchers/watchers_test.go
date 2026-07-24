@@ -437,4 +437,5 @@ var _ = Describe("Watchers", func() {
 			Expect(updated.Spec.Template.Annotations).To(HaveKey(utils.ForceReloadAnnotationKey))
 		})
 	})
+
 })

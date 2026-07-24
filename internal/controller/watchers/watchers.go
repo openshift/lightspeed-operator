@@ -272,8 +272,9 @@ func SecretWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj clien
 
 	// Check 2: Look for watcher annotation (user-provided secrets)
 	if _, exist := annotations[utils.WatcherAnnotationKey]; exist {
-		// For annotated secrets, determine affected deployments from mapping
 		secretName := obj.GetName()
+
+		// For annotated secrets, determine affected deployments from mapping
 		var affectedDeployments []string
 		var found bool
 		if watcherConfig != nil {

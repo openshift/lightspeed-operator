@@ -67,7 +67,12 @@ type ConfigMapWatcherConfig struct {
 	SystemResources []SystemConfigMap
 }
 
-// WatcherConfig contains all watcher configuration
+// WatcherConfig contains all watcher configuration.
+// NOTE: This struct is written by the reconciler and read by watcher event handlers
+// (including predicate filters such as SecretWatcherFilter). This is safe because
+// controller-runtime serializes reconcile calls and predicate evaluations on the same
+// controller work queue. If MaxConcurrentReconciles is ever increased above 1,
+// a sync.RWMutex must be added here.
 type WatcherConfig struct {
 	Secrets                   SecretWatcherConfig
 	ConfigMaps                ConfigMapWatcherConfig
@@ -231,6 +236,8 @@ type OLSConfig struct {
 	Audit *AuditYAMLConfig `json:"audit,omitempty"`
 	// Solr hybrid RAG (portal-rag /hybrid-search); mirrors lightspeed-service solr_hybrid
 	SolrHybrid *SolrHybridSettings `json:"solr_hybrid,omitempty"`
+	// Enable in-process credential hot-reload for LLM provider secrets
+	CredentialHotReload bool `json:"credential_hot_reload,omitempty"`
 }
 
 type AuditYAMLConfig struct {
