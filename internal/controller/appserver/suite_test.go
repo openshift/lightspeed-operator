@@ -140,8 +140,9 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Create(ctx, ns)
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Create openshift-mcp-server-ca ConfigMap with injected CA for deployment hash tests")
-	utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+	By("Create service-ca source ConfigMap and MCP client CA Secret for appserver tests")
+	utils.EnsureOLSCAConfigMap(ctx, k8sClient, utils.TestCACert)
+	utils.EnsureAgenticMCPCASecret(ctx, k8sClient, utils.TestCACert)
 
 	testReconcilerInstance = utils.NewTestReconciler(
 		k8sClient,
@@ -200,6 +201,10 @@ var _ = BeforeEach(func() {
 	if tr, ok := testReconcilerInstance.(*utils.TestReconciler); ok {
 		tr.SetRosaOKPProductEnv(nil)
 	}
+	// Restore CA fixtures: reconcile paths may delete the MCP client Secret when
+	// introspection is disabled in a prior spec.
+	utils.EnsureOLSCAConfigMap(ctx, k8sClient, utils.TestCACert)
+	utils.EnsureAgenticMCPCASecret(ctx, k8sClient, utils.TestCACert)
 })
 
 func deploymentContainerCount(base int) int {

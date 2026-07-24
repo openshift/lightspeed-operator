@@ -39,6 +39,33 @@ type AuditConfig struct {
 	TracingEndpoint string `json:"tracingEndpoint,omitempty"`
 }
 
+// SandboxMode selects how the agentic operator provisions agent sandbox pods.
+// +kubebuilder:validation:Enum=bare-pod;sandbox-claim
+type SandboxMode string
+
+const (
+	// SandboxModeBarePod runs agent sandboxes as bare Pods (no Agent Sandbox API CRDs required).
+	SandboxModeBarePod SandboxMode = "bare-pod"
+	// SandboxModeSandboxClaim provisions sandboxes via the Agent Sandbox API.
+	SandboxModeSandboxClaim SandboxMode = "sandbox-claim"
+)
+
+// AgenticOLSSpec configures classic→agentic operator handoff for sandbox provisioning.
+type AgenticOLSSpec struct {
+	// sandboxMode selects bare Pods vs Agent Sandbox API claims.
+	// Default: bare-pod when absent. When agenticOLS is omitted entirely, the operator
+	// treats sandbox mode as bare-pod.
+	// +optional
+	// +kubebuilder:default=bare-pod
+	// +kubebuilder:validation:Enum=bare-pod;sandbox-claim
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Sandbox Mode"
+	SandboxMode SandboxMode `json:"sandboxMode,omitempty"`
+	// AgenticSandboxConfig overrides for the composed sandbox PodSpec (resources, tolerations, nodeSelector).
+	// Replicas are ignored and always treated as 1; sandbox pod count is managed by the agentic operator.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Agentic Sandbox Config"
+	AgenticSandboxConfig Config `json:"agenticSandboxConfig,omitempty"`
+}
+
 // OLSConfigSpec defines the desired state of OLSConfig
 type OLSConfigSpec struct {
 	// +kubebuilder:validation:Required
@@ -64,6 +91,10 @@ type OLSConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Audit Settings"
 	Audit AuditConfig `json:"audit"`
+	// Agentic OLS settings for inter-operator sandbox handoff to the agentic operator.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Agentic OLS Settings"
+	AgenticOLS *AgenticOLSSpec `json:"agenticOLS,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=MCPServer;ToolFiltering
@@ -413,8 +444,8 @@ type AlertsAdapterSpec struct {
 type Config struct {
 	// Defines the number of desired pods. Default: "1"
 	// Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
-	// For PostgreSQL, Console, Agentic Console, Alerts Adapter, and OTEL Collector,
-	// the number of replicas is always set to 1.
+	// For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
+	// Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}

@@ -377,7 +377,14 @@ var _ = Describe("Watchers", func() {
 					},
 				},
 			}
-			r := createTestReconciler(cr, dep)
+			otelCACM := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.OLSCAConfigMap,
+					Namespace: utils.OLSNamespaceDefault,
+				},
+				Data: map[string]string{utils.AppOtelCollectorCACertFile: "test-service-ca"},
+			}
+			r := createTestReconciler(cr, dep, otelCACM)
 			sec := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   utils.OLSNamespaceDefault,

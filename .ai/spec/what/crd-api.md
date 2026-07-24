@@ -23,6 +23,7 @@ Field path | JSON key | Go type | Required | Description
 `spec.mcpServers` | `mcpServers` | `[]MCPServerConfig` | No | External MCP server configurations. MaxItems=20
 `spec.featureGates` | `featureGates` | `[]FeatureGate` | No | Feature gates. Enum values: `MCPServer`, `ToolFiltering`
 `spec.audit` | `audit` | `AuditConfig` | No | OTEL Collector audit log storage and trace forwarding. Does not configure lightspeed-service. Value type (not pointer).
+`spec.agenticOLS` | `agenticOLS` | `*AgenticOLSSpec` | No | Classic→agentic sandbox handoff settings. When omitted, sandbox mode is treated as `bare-pod`.
 
 ### Audit Configuration (spec.audit)
 
@@ -48,6 +49,25 @@ Field path (relative to `spec.audit`) | JSON key | Go type | Required | Default 
 - `spec.audit.otel.endpoint`, `spec.audit.otel.tlsMode`
 - `AuditConfig.LoggingEnabled()`, `OTELEndpoint()`, `OTELInsecure()` helpers
 - Previous semantics: `spec.audit.logging` as `Enabled`/`Disabled` stdout enum — replaced by `spec.ols.auditEventsEnabled`
+
+### Agentic OLS Configuration (spec.agenticOLS)
+
+Settings consumed by the classic operator when publishing the agentic handoff ConfigMap (`lightspeed-agentic-configuration`). See OLS-3683 / OLS-3684.
+
+#### AgenticOLSSpec Fields
+
+Field path (relative to `spec.agenticOLS`) | JSON key | Go type | Required | Default | Validation | Description
+---|---|---|---|---|---|---
+`sandboxMode` | `sandboxMode` | `SandboxMode` | No | `bare-pod` | Enum: `bare-pod`, `sandbox-claim` | How the agentic operator provisions sandbox pods
+`agenticSandboxConfig` | `agenticSandboxConfig` | `Config` | No | — | Resources, tolerations, nodeSelector for the thin sandbox PodSpec. Replicas ignored.
+
+#### AgenticOLS Behavioral Rules
+
+58. `spec.agenticOLS` is optional (pointer). When omitted or `sandboxMode` is empty, the operator treats sandbox mode as `bare-pod`.
+59. `sandboxMode=bare-pod` runs agent sandboxes as bare Pods (no Agent Sandbox API CRDs required). `sandbox-claim` uses the Agent Sandbox API.
+60. OpenAPI enum validation rejects values other than `bare-pod` and `sandbox-claim`.
+61. `agenticSandboxConfig` overrides default sandbox PodSpec scheduling/resources (requests-only defaults: 500m CPU / 128Mi memory). Replicas are ignored.
+62. Classic operator publishes handoff via appserver-owned client CA Secrets plus `agenticintegration` ConfigMap (`lightspeed-agentic-configuration`). See `agentic-sandbox-profile.md`.
 
 ### LLM Provider Configuration (spec.llm)
 
@@ -519,5 +539,6 @@ Path | Type | Default | Required | Validation | Description
 ## Planned Changes
 
 - [PLANNED: OLS-3442] Add `reasoningConfig` field (`map[string]interface{}`) to `ModelParametersSpec`. Freeform map passed through to the service as `reasoning_config` for provider-specific reasoning/thinking parameters. Includes release notes and user-facing documentation for valid keys per provider.
-- Agentic/sandbox reuse of the standalone MCP Service and CA depends on inter-operator config handoff ([OLS-3572](https://redhat.atlassian.net/browse/OLS-3572)); optional agentic auto-injection is separately deferred ([OLS-3594](https://redhat.atlassian.net/browse/OLS-3594)).
-- [PLANNED: OLS-3572] Add `spec.agenticOLS` section with `sandboxMode` field (`bare-pod` default, `sandbox-claim`). The classic operator builds a base `corev1.PodSpec` for sandbox pods and writes it to the `lightspeed-sandbox-config` ConfigMap for the agentic operator. See design spec `docs/superpowers/specs/2026-07-21-inter-operator-handoff.md`.
+- [DONE: OLS-3683 / OLS-3684] `spec.agenticOLS` (`sandboxMode`, `agenticSandboxConfig`), appserver-owned client CA Secrets, and handoff ConfigMap (`lightspeed-agentic-configuration`). See `agentic-sandbox-profile.md`.
+- [PLANNED: OLS-3594] Optional agentic auto-injection of MCP into agent runs (deferred).
+- [PLANNED: OLS-3685+] Agentic-operator consumption of the handoff ConfigMap/Secrets.

@@ -13,17 +13,19 @@
 | `internal/controller/operator_assets.go` | `ReconcileServiceMonitorForOperator()`, `ReconcileNetworkPolicyForOperator()` | Operator-level resources |
 | `internal/controller/appserver/reconciler.go` | `ReconcileAppServerResources()`, `ReconcileAppServerDeployment()` | AppServer Phase 1 + Phase 2 orchestration |
 | `internal/controller/appserver/deployment.go` | `GenerateOLSDeployment()`, `updateOLSDeployment()` | AppServer deployment generation, update detection |
-| `internal/controller/appserver/assets.go` | `GenerateOLSConfigMap()`, service/RBAC/ServiceMonitor/PrometheusRule generators | AppServer resource generation, OLS config YAML |
+| `internal/controller/appserver/assets.go` | `GenerateOLSConfigMap()`, service/RBAC/ServiceMonitor/PrometheusRule generators, client CA Secrets, `GetMCPClientCACertHash()` | AppServer resource generation, OLS config YAML |
 | `internal/controller/appserver/rag.go` | `GenerateRAGInitContainers()`, `reconcileImageStreams()` | RAG init container and ImageStream management |
 | `internal/controller/postgres/reconciler.go` | `ReconcilePostgresResources()`, `ReconcilePostgresDeployment()` | PostgreSQL Phase 1 + Phase 2 |
 | `internal/controller/postgres/deployment.go` | `GeneratePostgresDeployment()` | PostgreSQL deployment generation |
 | `internal/controller/postgres/assets.go` | `GeneratePostgresConfigMap()`, `GeneratePostgresBootstrapSecret()`, `GeneratePostgresSecret()` | PostgreSQL config, bootstrap script, credentials |
 | `internal/controller/otelcollector/reconciler.go` | `ReconcileOtelCollectorResources()`, `ReconcileOtelCollectorDeployment()`, `RestartOtelCollector()` | OTEL Collector Phase 1 + Phase 2 + rolling restart |
 | `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector deployment generation, update detection |
-| `internal/controller/otelcollector/assets.go` | ConfigMap (runtime + client), Service, NetworkPolicy, ServiceMonitor, ServiceAccount, Postgres DSN Secret generators | OTEL Collector resource generation, collector runtime YAML, client connectivity ConfigMap, HTTPS metrics |
+| `internal/controller/otelcollector/assets.go` | Runtime ConfigMap, Service, NetworkPolicy, ServiceMonitor, ServiceAccount, Postgres DSN Secret generators | OTEL Collector resource generation, collector runtime YAML, HTTPS metrics |
+| `internal/controller/agenticintegration/reconciler.go` | `ReconcileAgenticIntegrationResources()` | Classic→agentic handoff ConfigMap at end of Phase 2 |
+| `internal/controller/agenticintegration/assets.go` | Thin PodSpec, handoff ConfigMap, `TouchAgenticConfiguration()` | Agentic handoff ConfigMap generation / cert-reload touch |
 | `internal/controller/ocpmcp/reconciler.go` | `ReconcileResources()`, `ReconcileDeployment()`, `Remove()`, `Restart()` | Standalone OpenShift MCP Phase 1 + Phase 2 + teardown + rolling restart |
 | `internal/controller/ocpmcp/deployment.go` | `GenerateDeployment()`, `UpdateDeployment()` | MCP Deployment generation and update detection |
-| `internal/controller/ocpmcp/assets.go` | ConfigMap (TOML + CA), Service, NetworkPolicy, ServiceAccount generators | MCP resource generation |
+| `internal/controller/ocpmcp/assets.go` | ConfigMap (TOML), Service, NetworkPolicy, ServiceAccount, `GetConfigVolumeAndMount()`, `GetConfigPath()` | MCP resource generation |
 | `internal/controller/console/reconciler.go` | `ReconcileConsoleUIResources()`, `ReconcileConsoleUIDeploymentAndPlugin()`, `RemoveConsoleUI()` | Chat console plugin Phase 1 + Phase 2 + cleanup |
 | `internal/controller/console/deployment.go` | `GenerateConsoleUIDeployment()` | Chat console plugin deployment generation |
 | `internal/controller/console/assets.go` | ConsolePlugin CR generator, nginx config, service, network policy | Chat console plugin resource generation |
@@ -38,7 +40,6 @@
 | `internal/controller/reconciler/interface.go` | `Reconciler` interface | Dependency injection interface for component packages |
 | `internal/controller/utils/constants.go` | ~200 constants | Resource names, ports, paths, annotation keys, defaults |
 | `internal/controller/utils/errors.go` | ~80 error message constants | Structured error messages for all operations |
-| `internal/controller/utils/mcp_server_config.go` | `OpenShiftMCPServerServiceURL()`, CA hash helper, config volume mount helpers | App-server MCP client helpers |
 | `internal/controller/utils/postgres_wait.go` | `GeneratePostgresWaitInitContainer()` | PostgreSQL readiness init container |
 | `internal/controller/watchers/watchers.go` | `SecretUpdateHandler`, `ConfigMapUpdateHandler`, `SecretWatcherFilter()`, `ConfigMapWatcherFilter()` | External resource change handlers, deployment restart logic |
 | `internal/tls/` | `GetTLSProfileSpec()`, `FetchAPIServerTlsProfile()` | TLS profile resolution |
@@ -121,7 +122,7 @@ External secret/configmap changes
 ## Key Abstractions
 
 ### Image Management
-Default images are stored in a `defaultImages` map in `cmd/main.go` keyed by logical name (e.g., `"lightspeed-service"`, `"postgres-image"`, `"console-plugin"`, `"agentic-console-plugin"`, `"alerts-adapter"`, `"otel-collector"`). Default values come from `internal/relatedimages/` which reads `related_images.json` at build time. Command-line flags override individual images (`--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, `--otel-collector-image`, etc.). The map is passed to the reconciler via `OLSConfigReconcilerOptions` as individual named fields (e.g., `LightspeedServiceImage`, `ConsoleUIImage`, `AgenticConsoleUIImage`, `AlertsAdapterImage`, `OtelCollectorImage`).
+Default images are stored in a `defaultImages` map in `cmd/main.go` keyed by logical name (e.g., `"lightspeed-service"`, `"postgres-image"`, `"console-plugin"`, `"agentic-console-plugin"`, `"alerts-adapter"`, `"otel-collector"`, `"agentic-sandbox"`). Default values come from `internal/relatedimages/` which reads `related_images.json` at build time. Command-line flags override individual images (`--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, `--otel-collector-image`, `--agentic-sandbox-image`, etc.). The map is passed to the reconciler via `OLSConfigReconcilerOptions` as individual named fields (e.g., `LightspeedServiceImage`, `ConsoleUIImage`, `AgenticConsoleUIImage`, `AlertsAdapterImage`, `OtelCollectorImage`, `AgenticSandboxImage`).
 
 ### WatcherConfig
 Declarative configuration for external resource watching. Built in `cmd/main.go` and passed via `OLSConfigReconcilerOptions.WatcherConfig`. Contains:
@@ -130,8 +131,8 @@ Declarative configuration for external resource watching. Built in `cmd/main.go`
   - `lightspeed-console-plugin-cert` → chat console deployment
   - `lightspeed-agentic-console-plugin-cert` → agentic console deployment (`AgenticConsoleUIDeploymentName`)
   - Postgres TLS cert → postgres + app server
-  - `lightspeed-otel-collector-cert` → OTEL Collector + app server (`ACTIVE_BACKEND`); `RestartOtelCollector` also refreshes client ConfigMap `lightspeed-otel-collector-client`
-  - `openshift-mcp-server-tls` → OpenShift MCP server + app server (`ACTIVE_BACKEND`); static SystemResources entry, gated by `OpenShiftMCPServerTLSWatchEnabled` when `spec.ols.introspectionEnabled` is true
+  - `lightspeed-otel-collector-cert` → OTEL Collector + app server (`ACTIVE_BACKEND`); `RestartAppServer` refreshes client CA Secrets and touches the handoff ConfigMap
+  - `openshift-mcp-server-tls` → OpenShift MCP server + app server (`ACTIVE_BACKEND`); static SystemResources entry, gated by `OpenShiftMCPServerTLSWatchEnabled` when `spec.ols.introspectionEnabled` is true; same app-server refresh+touch path
 - `ConfigMaps.SystemResources`: Fixed list of system configmaps (kube-root-ca.crt, service-ca bundle)
 - `AnnotatedSecretMapping`: Dynamic map populated from CR spec at runtime (maps secret name to deployment names)
 - `AnnotatedConfigMapMapping`: Dynamic map populated from CR spec at runtime (maps configmap name to deployment names)
@@ -140,16 +141,16 @@ The special deployment name `"ACTIVE_BACKEND"` resolves to the AppServer deploym
 When the service-ca operator rotates or populates a watched TLS secret, `SecretUpdateHandler` restarts the mapped deployment via `RestartConsoleUI()` or `RestartAgenticConsoleUI()` (registered in `watchers/watchers.go`).
 
 ### Component Package Pattern
-Each component (appserver, postgres, otelcollector, ocpmcp, console, agenticconsole, alertsadapter) follows the same package structure:
-- `reconciler.go`: Phase 1 (resources) and Phase 2 (deployment) entry points
-- `deployment.go`: Deployment spec generation and update detection
+Each component (appserver, postgres, otelcollector, ocpmcp, agenticintegration, console, agenticconsole, alertsadapter) follows the same package structure:
+- `reconciler.go`: Phase 1 (resources) and Phase 2 (deployment) entry points (agenticintegration is Phase 2-only handoff, no Deployment)
+- `deployment.go`: Deployment spec generation and update detection (when applicable)
 - `assets.go` and/or `config.go`: Resource and config generation
 The packages receive `reconciler.Reconciler` interface, never import the controller package.
 
 ### Reconciler Interface (`internal/controller/reconciler/interface.go`)
 Embeds `client.Client` and adds getter methods for:
 - `GetScheme()`, `GetLogger()`, `GetNamespace()`
-- Image getters: `GetAppServerImage()`, `GetPostgresImage()`, `GetConsoleUIImage()`, `GetAgenticConsoleImage()`, `GetAlertsAdapterImage()`, `GetOpenShiftMCPServerImage()`, `GetDataverseExporterImage()`
+- Image getters: `GetAppServerImage()`, `GetPostgresImage()`, `GetConsoleUIImage()`, `GetAgenticConsoleImage()`, `GetAlertsAdapterImage()`, `GetOpenShiftMCPServerImage()`, `GetDataverseExporterImage()`, `GetOtelCollectorImage()`, `GetAgenticSandboxImage()`
 - Version getters: `GetOpenShiftMajor()`, `GetOpenshiftMinor()`
 - Config getters: `IsPrometheusAvailable()`, `GetWatcherConfig()`
 

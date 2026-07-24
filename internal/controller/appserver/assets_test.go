@@ -1327,7 +1327,8 @@ var _ = Describe("App server assets", func() {
 		It("should mount openshift-mcp-server CA when introspectionEnabled is true", func() {
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
 			defer utils.DeleteTelemetryPullSecret(ctx, k8sClient)
-			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "test-mcp-ca")
 
 			By("Enabling introspection")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
@@ -1355,7 +1356,8 @@ var _ = Describe("App server assets", func() {
 
 		It("should mount MCP CA independently of data collection settings", func() {
 			By("Test case 1: introspection enabled, data collection enabled")
-			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "test-mcp-ca")
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
@@ -1415,7 +1417,8 @@ var _ = Describe("App server assets", func() {
 
 		It("should mount MCP CA when introspection is enabled regardless of telemetry settings", func() {
 			By("Test case: introspection enabled with no telemetry pull secret")
-			utils.EnsureOpenShiftMCPServerCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "test-mcp-ca")
+			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "test-mcp-ca")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
@@ -2127,12 +2130,12 @@ func get7RequiredVolumes() []corev1.Volume {
 		{
 			Name: utils.AppOtelCollectorCACertVolumeName,
 			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: utils.OLSCAConfigMap},
-					DefaultMode:          &defaultVolumeMode,
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  utils.AgenticOtelCASecretName,
+					DefaultMode: &defaultVolumeMode,
 					Items: []corev1.KeyToPath{
 						{
-							Key:  utils.AppOtelCollectorCACertFile,
+							Key:  utils.AgenticOtelCASecretDataKey,
 							Path: utils.AppOtelCollectorCACertFile,
 						},
 					},

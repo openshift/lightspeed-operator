@@ -78,6 +78,7 @@ import (
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/agenticconsole"
+	"github.com/openshift/lightspeed-operator/internal/controller/agenticintegration"
 	"github.com/openshift/lightspeed-operator/internal/controller/alertsadapter"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
@@ -297,18 +298,22 @@ func (r *OLSConfigReconciler) reconcileOperatorResources(ctx context.Context) er
 
 // reconcileIndependentResources reconciles Phase 1: independent resources for all components.
 // This phase creates ConfigMaps, Secrets, ServiceAccounts, Roles, NetworkPolicies, etc.
-// These resources are independent and can be reconciled in any order without race conditions.
-// Uses a continue-on-error pattern to reconcile as many resources as possible, even if some fail.
+// Order: postgres → console → agentic console → alerts adapter → otel → ocpmcp → appserver.
+// Agentic integration handoff runs at the end of Phase 2 (after Services/TLS).
+// Uses continue-on-error to reconcile as many resources as possible, even if some fail.
 func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
 	resourceSteps := []utils.ReconcileSteps{
+		{Name: "postgres resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return postgres.ReconcilePostgresResources(r, ctx, cr)
+		}},
 		{Name: "console UI resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return console.ReconcileConsoleUIResources(r, ctx, cr)
 		}},
 		{Name: "agentic console UI resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return agenticconsole.ReconcileAgenticConsoleUIResources(r, ctx, cr)
 		}},
-		{Name: "postgres resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-			return postgres.ReconcilePostgresResources(r, ctx, cr)
+		{Name: "alerts adapter resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return alertsadapter.ReconcileAlertsAdapterResources(r, ctx, cr)
 		}},
 		{Name: "OTEL Collector resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return otelcollector.ReconcileOtelCollectorResources(r, ctx, cr)
@@ -316,19 +321,10 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		{Name: "openshift-mcp-server resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return ocpmcp.ReconcileResources(r, ctx, cr)
 		}},
-	}
-
-	resourceSteps = append(resourceSteps, utils.ReconcileSteps{
-		Name: "application server resources",
-		Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+		{Name: "application server resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return appserver.ReconcileAppServerResources(r, ctx, cr)
-		},
-	}, utils.ReconcileSteps{
-		Name: "alerts adapter resources",
-		Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-			return alertsadapter.ReconcileAlertsAdapterResources(r, ctx, cr)
-		},
-	})
+		}},
+	}
 
 	// Reconcile all independent resources (continue on error to reconcile as many as possible)
 	resourceFailures := make(map[string]error)
@@ -546,6 +542,18 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		}
 	}
 
+	// Publish classic→agentic handoff last in Phase 2 so OTEL/MCP Services and CA
+	// sources are as far along as possible. First create is gated inside
+	// agenticintegration on OTEL±MCP Service + client CA Secret presence; updates
+	// to an existing ConfigMap are not gated.
+	var agenticIntegrationErr error
+	if err := agenticintegration.ReconcileAgenticIntegrationResources(r, ctx, olsconfig); err != nil {
+		agenticIntegrationErr = fmt.Errorf("failed to reconcile agentic integration handoff: %w", err)
+		r.Logger.Error(agenticIntegrationErr, "Failed to reconcile agentic integration handoff")
+		failedTasks["agentic integration handoff"] = agenticIntegrationErr
+		newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
+	}
+
 	// Update status once, regardless of outcome (with retry on conflict)
 	if updateErr := r.UpdateStatusCondition(ctx, olsconfig, newStatus); updateErr != nil {
 		r.Logger.Error(updateErr, "Failed to update status")
@@ -555,8 +563,9 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 	// Determine reconciliation result based on deployment status
 	var reconcileErr error
 
-	// If we have diagnostics, return error to trigger exponential backoff retry
-	if len(newStatus.DiagnosticInfo) > 0 {
+	if agenticIntegrationErr != nil {
+		reconcileErr = agenticIntegrationErr
+	} else if len(newStatus.DiagnosticInfo) > 0 {
 		r.Logger.Info("deployment has pod failures, will retry with exponential backoff",
 			"diagnosticCount", len(newStatus.DiagnosticInfo))
 		reconcileErr = fmt.Errorf("deployment has failing pods (count: %d), see status.diagnosticInfo for details",

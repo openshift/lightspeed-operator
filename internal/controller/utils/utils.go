@@ -531,6 +531,17 @@ func GenerateOtelCollectorSelectorLabels() map[string]string {
 	}
 }
 
+// GenerateAgenticIntegrationSelectorLabels returns labels for classic→agentic handoff artifacts.
+func GenerateAgenticIntegrationSelectorLabels() map[string]string {
+	return map[string]string{
+		"app":                          AgenticConfigurationConfigMapName,
+		"app.kubernetes.io/component":  AgenticIntegrationComponentLabel,
+		"app.kubernetes.io/managed-by": "lightspeed-operator",
+		"app.kubernetes.io/name":       AgenticConfigurationConfigMapName,
+		"app.kubernetes.io/part-of":    "openshift-lightspeed",
+	}
+}
+
 // GetPostgresCAConfigVolume returns the CA certificate volume for postgres TLS verification.
 func GetPostgresCAConfigVolume() corev1.Volume {
 	volumeDefaultMode := VolumeDefaultMode

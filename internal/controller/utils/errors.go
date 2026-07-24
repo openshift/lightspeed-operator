@@ -114,36 +114,57 @@ const (
 	ErrDeleteOldPostgresSecrets   = "failed to delete old OLS Postgres secret"
 
 	// Alerts adapter errors
-	ErrCreateAlertsAdapterDeployment                      = "failed to create alerts adapter deployment"
-	ErrCreateAlertsAdapterNetworkPolicy                   = "failed to create alerts adapter network policy"
-	ErrCreateAlertsAdapterServiceAccount                  = "failed to create alerts adapter service account"
-	ErrCreateAlertsAdapterAgenticRunsClusterRole          = "failed to create alerts adapter agenticruns cluster role"
-	ErrCreateAlertsAdapterAgenticRunsClusterRoleBinding   = "failed to create alerts adapter agenticruns cluster role binding"
-	ErrCreateAlertsAdapterAlertmanagerRoleBinding         = "failed to create alerts adapter alertmanager role binding"
-	ErrCreateAlertsAdapterConfigMap                       = "failed to create alerts adapter configmap"
-	ErrGenerateOtelCollectorConfigMap                     = "failed to generate OTEL Collector configmap"
-	ErrGenerateOtelCollectorClientConfigMap               = "failed to generate OTEL Collector client configmap"
-	ErrGenerateOtelCollectorService                       = "failed to generate OTEL Collector service"
-	ErrGenerateOtelCollectorNetworkPolicy                 = "failed to generate OTEL Collector network policy"
-	ErrGenerateOtelCollectorServiceAccount                = "failed to generate OTEL Collector service account"
-	ErrGenerateOtelCollectorPostgresSecret                = "failed to generate OTEL Collector Postgres secret" // #nosec G101
-	ErrGenerateOtelCollectorDeployment                    = "failed to generate OTEL Collector deployment"
-	ErrGenerateOtelCollectorServiceMonitor                = "failed to generate OTEL Collector ServiceMonitor"
-	ErrSetOtelCollectorConfigMapOwnerReference            = "failed to set OTEL Collector configmap owner reference"
-	ErrSetOtelCollectorClientConfigMapOwnerReference      = "failed to set OTEL Collector client configmap owner reference"
-	ErrSetOtelCollectorServiceOwnerReference              = "failed to set OTEL Collector service owner reference"
-	ErrSetOtelCollectorNetworkPolicyOwnerReference        = "failed to set OTEL Collector network policy owner reference"
-	ErrSetOtelCollectorPostgresSecretOwnerReference       = "failed to set OTEL Collector Postgres secret owner reference" // #nosec G101
-	ErrSetOtelCollectorDeploymentOwnerReference           = "failed to set OTEL Collector deployment owner reference"
-	ErrSetOtelCollectorServiceMonitorOwnerReference       = "failed to set OTEL Collector ServiceMonitor owner reference"
-	ErrCreateOtelCollectorConfigMap                       = "failed to create OTEL Collector configmap"
-	ErrGetOtelCollectorConfigMap                          = "failed to get OTEL Collector configmap"
-	ErrUpdateOtelCollectorConfigMap                       = "failed to update OTEL Collector configmap"
-	ErrCreateOtelCollectorClientConfigMap                 = "failed to create OTEL Collector client configmap"
-	ErrGetOtelCollectorClientConfigMap                    = "failed to get OTEL Collector client configmap"
-	ErrGetOtelCollectorClientCAConfigMap                  = "failed to get OpenShift service-ca ConfigMap for OTEL Collector clients"
-	ErrGetOLSConfigForOtelCollectorClientConfigMapRefresh = "failed to get OLSConfig for OTEL Collector client configmap refresh"
-	ErrUpdateOtelCollectorClientConfigMap                 = "failed to update OTEL Collector client configmap"
+	ErrCreateAlertsAdapterDeployment                    = "failed to create alerts adapter deployment"
+	ErrCreateAlertsAdapterNetworkPolicy                 = "failed to create alerts adapter network policy"
+	ErrCreateAlertsAdapterServiceAccount                = "failed to create alerts adapter service account"
+	ErrCreateAlertsAdapterAgenticRunsClusterRole        = "failed to create alerts adapter agenticruns cluster role"
+	ErrCreateAlertsAdapterAgenticRunsClusterRoleBinding = "failed to create alerts adapter agenticruns cluster role binding"
+	ErrCreateAlertsAdapterAlertmanagerRoleBinding       = "failed to create alerts adapter alertmanager role binding"
+	ErrCreateAlertsAdapterConfigMap                     = "failed to create alerts adapter configmap"
+	ErrGenerateOtelCollectorConfigMap                   = "failed to generate OTEL Collector configmap"
+	ErrGenerateOtelCollectorService                     = "failed to generate OTEL Collector service"
+	ErrGenerateOtelCollectorNetworkPolicy               = "failed to generate OTEL Collector network policy"
+	ErrGenerateOtelCollectorServiceAccount              = "failed to generate OTEL Collector service account"
+	ErrGenerateOtelCollectorPostgresSecret              = "failed to generate OTEL Collector Postgres secret" // #nosec G101
+	ErrGenerateOtelCollectorDeployment                  = "failed to generate OTEL Collector deployment"
+	ErrGenerateOtelCollectorServiceMonitor              = "failed to generate OTEL Collector ServiceMonitor"
+	ErrSetOtelCollectorConfigMapOwnerReference          = "failed to set OTEL Collector configmap owner reference"
+	ErrSetOtelCollectorServiceOwnerReference            = "failed to set OTEL Collector service owner reference"
+	ErrSetOtelCollectorNetworkPolicyOwnerReference      = "failed to set OTEL Collector network policy owner reference"
+	ErrSetOtelCollectorPostgresSecretOwnerReference     = "failed to set OTEL Collector Postgres secret owner reference" // #nosec G101
+	ErrSetOtelCollectorDeploymentOwnerReference         = "failed to set OTEL Collector deployment owner reference"
+	ErrSetOtelCollectorServiceMonitorOwnerReference     = "failed to set OTEL Collector ServiceMonitor owner reference"
+	ErrCreateOtelCollectorConfigMap                     = "failed to create OTEL Collector configmap"
+	ErrGetOtelCollectorConfigMap                        = "failed to get OTEL Collector configmap"
+	ErrUpdateOtelCollectorConfigMap                     = "failed to update OTEL Collector configmap"
+
+	// Agentic integration (classic→agentic handoff) errors
+	ErrGenerateAgenticConfigurationConfigMap     = "failed to generate agentic configuration configmap"
+	ErrGenerateAgenticSandboxPodSpec             = "failed to generate agentic sandbox pod spec"
+	ErrGenerateAgenticOtelCASecret               = "failed to generate agentic OTEL CA secret" // #nosec G101
+	ErrGenerateAgenticMCPCASecret                = "failed to generate agentic MCP CA secret"  // #nosec G101
+	ErrSetAgenticConfigurationConfigMapOwnerRef  = "failed to set agentic configuration configmap owner reference"
+	ErrSetAgenticOtelCASecretOwnerRef            = "failed to set agentic OTEL CA secret owner reference" // #nosec G101
+	ErrSetAgenticMCPCASecretOwnerRef             = "failed to set agentic MCP CA secret owner reference"  // #nosec G101
+	ErrGetAgenticOtelCASourceConfigMap           = "failed to get OpenShift service-ca ConfigMap for agentic OTEL CA"
+	ErrGetAgenticMCPCASourceConfigMap            = "failed to get openshift-mcp-server CA ConfigMap for agentic MCP CA"
+	ErrAgenticMCPCANotReady                      = "agentic MCP CA certificate is not ready"
+	ErrMarshalAgenticSandboxPodSpec              = "failed to marshal agentic sandbox pod spec"
+	ErrCreateAgenticConfigurationConfigMap       = "failed to create agentic configuration configmap"
+	ErrGetAgenticConfigurationConfigMap          = "failed to get agentic configuration configmap"
+	ErrUpdateAgenticConfigurationConfigMap       = "failed to update agentic configuration configmap"
+	ErrAgenticConfigurationPrerequisitesNotReady = "agentic configuration prerequisites not ready"
+	ErrCreateAgenticOtelCASecret                 = "failed to create agentic OTEL CA secret" // #nosec G101
+	ErrGetAgenticOtelCASecret                    = "failed to get agentic OTEL CA secret"    // #nosec G101
+	ErrUpdateAgenticOtelCASecret                 = "failed to update agentic OTEL CA secret" // #nosec G101
+	ErrCreateAgenticMCPCASecret                  = "failed to create agentic MCP CA secret"  // #nosec G101
+	ErrGetAgenticMCPCASecret                     = "failed to get agentic MCP CA secret"     // #nosec G101
+	ErrUpdateAgenticMCPCASecret                  = "failed to update agentic MCP CA secret"  // #nosec G101
+	ErrDeleteAgenticMCPCASecret                  = "failed to delete agentic MCP CA secret"  // #nosec G101
+	ErrGetOLSConfigForAgenticIntegrationRefresh  = "failed to get OLSConfig for agentic integration refresh"
+	ErrGetOLSConfigForAppServerClientCARefresh   = "failed to get OLSConfig for app-server client CA refresh"
+	ErrTouchAgenticConfigurationConfigMap        = "failed to touch agentic configuration configmap"
+
 	ErrCreateOtelCollectorService                         = "failed to create OTEL Collector service"
 	ErrGetOtelCollectorService                            = "failed to get OTEL Collector service"
 	ErrCreateOtelCollectorNetworkPolicy                   = "failed to create OTEL Collector network policy"
@@ -179,22 +200,17 @@ const (
 
 	// OpenShift MCP server (ocpmcp) generate / owner-ref / CRUD errors
 	ErrGenerateOpenShiftMCPServerConfigMap              = "failed to generate openshift-mcp-server configmap"
-	ErrGenerateOpenShiftMCPServerCAConfigMap            = "failed to generate openshift-mcp-server CA configmap"
 	ErrGenerateOpenShiftMCPServerService                = "failed to generate openshift-mcp-server service"
 	ErrGenerateOpenShiftMCPServerNetworkPolicy          = "failed to generate openshift-mcp-server network policy"
 	ErrGenerateOpenShiftMCPServerServiceAccount         = "failed to generate openshift-mcp-server service account"
 	ErrGenerateOpenShiftMCPServerDeployment             = "failed to generate openshift-mcp-server deployment"
 	ErrSetOpenShiftMCPServerConfigMapOwnerReference     = "failed to set openshift-mcp-server configmap owner reference"
-	ErrSetOpenShiftMCPServerCAConfigMapOwnerReference   = "failed to set openshift-mcp-server CA configmap owner reference"
 	ErrSetOpenShiftMCPServerServiceOwnerReference       = "failed to set openshift-mcp-server service owner reference"
 	ErrSetOpenShiftMCPServerNetworkPolicyOwnerReference = "failed to set openshift-mcp-server network policy owner reference"
 	ErrSetOpenShiftMCPServerDeploymentOwnerReference    = "failed to set openshift-mcp-server deployment owner reference"
 	ErrCreateOpenShiftMCPServerConfigMap                = "failed to create openshift-mcp-server configmap"
 	ErrGetOpenShiftMCPServerConfigMap                   = "failed to get openshift-mcp-server configmap"
 	ErrUpdateOpenShiftMCPServerConfigMap                = "failed to update openshift-mcp-server configmap"
-	ErrCreateOpenShiftMCPServerCAConfigMap              = "failed to create openshift-mcp-server CA configmap"
-	ErrGetOpenShiftMCPServerCAConfigMap                 = "failed to get openshift-mcp-server CA configmap"
-	ErrUpdateOpenShiftMCPServerCAConfigMap              = "failed to update openshift-mcp-server CA configmap"
 	ErrCreateOpenShiftMCPServerServiceAccount           = "failed to create openshift-mcp-server service account"
 	ErrGetOpenShiftMCPServerServiceAccount              = "failed to get openshift-mcp-server service account"
 	ErrCreateOpenShiftMCPServerNetworkPolicy            = "failed to create openshift-mcp-server network policy"
@@ -204,5 +220,5 @@ const (
 	ErrGetOpenShiftMCPServerDeployment                  = "failed to get openshift-mcp-server deployment"
 	ErrUpdateOpenShiftMCPServerDeployment               = "failed to update openshift-mcp-server deployment"
 	ErrGetOpenShiftMCPServerTLSSecret                   = "failed to get openshift-mcp-server TLS secret" // #nosec G101
-	ErrOpenShiftMCPServerCANotReady                     = "openshift-mcp-server CA certificate is not ready"
+	ErrOpenShiftMCPServerCANotReady                     = "MCP client CA certificate is not ready"
 )

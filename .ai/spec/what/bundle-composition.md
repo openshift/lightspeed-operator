@@ -46,8 +46,8 @@ The lightspeed-operator OLM bundle installs both the lightspeed-operator control
 | Agentic CRD pinned ref | lightspeed-operator repo (Makefile or config) | Git ref/tag for fetching agentic CRD YAML |
 | Agentic controller image | CSV deployment spec | Container image for the agentic controller |
 | Agentic controller startup flags | CSV deployment spec args | Operand image overrides for the agentic controller |
-| Agentic controller `--sandbox-mode` | CSV deployment spec args | `bare-pod` (default) or `sandbox-claim` — selects sandbox provisioning strategy |
-| Agentic controller `--agentic-sandbox-image` | CSV deployment spec args | [PLANNED: OLS-3236] Sandbox container image (default: `:main` tag, overridable) |
+| Agentic controller `--sandbox-mode` | CSV deployment spec args | `bare-pod` (default) or `sandbox-claim` — selects sandbox provisioning strategy (may later follow `spec.agenticOLS.sandboxMode` via handoff ConfigMap) |
+| Lightspeed controller `--agentic-sandbox-image` | `cmd/main.go` flag; CSV deployment spec args; `related_images.json` (`lightspeed-agentic-sandbox`) | Sandbox container image embedded in thin handoff PodSpec (OLS-3683) |
 | Lightspeed controller `--rhokp-image` | `cmd/main.go` flag; CSV deployment spec args; `related_images.json` (`rhokp`) | RHOKP sidecar image (external product image; `:latest` until digest pinned) |
 | Lightspeed controller `--alerts-adapter-image` | `cmd/main.go` flag; CSV deployment spec args; `related_images.json` (`lightspeed-agentic-alerts-adapter`) | Alerts adapter container image (interim tags until productized) |
 | Lightspeed controller `--agentic-console-image` | CSV deployment spec args; `related_images.json` (`lightspeed-agentic-console-plugin`) | Agentic console plugin container image (interim `:main` until productized) |

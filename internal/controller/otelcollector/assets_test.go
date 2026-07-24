@@ -9,9 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/yaml"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
@@ -38,7 +36,11 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(configYAML).To(ContainSubstring(`attributes["service.name"] == "` + utils.OtelSandboxServiceName + `"`))
 		Expect(configYAML).To(ContainSubstring("connection_string: ${env:POSTGRES_CONNECTION_STRING}"))
 		Expect(configYAML).To(ContainSubstring("schema: templogs"))
+		Expect(configYAML).To(ContainSubstring("logs/unmatched"))
+		Expect(configYAML).To(ContainSubstring("- logs/unmatched"))
 		Expect(configYAML).NotTo(ContainSubstring("TRACES_BACKEND_ENDPOINT"))
+		Expect(configYAML).To(ContainSubstring("nop:"))
+		Expect(configYAML).To(ContainSubstring("- nop"))
 		Expect(configYAML).To(ContainSubstring(utils.OtelCollectorHTTPSMetricsExtension + ":"))
 		Expect(configYAML).To(ContainSubstring("upstream: " + utils.OtelCollectorMetricsUpstreamURL))
 		Expect(configYAML).To(ContainSubstring("host: 127.0.0.1"))
@@ -47,41 +49,15 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(configYAML).To(ContainSubstring("without_units: true"))
 	})
 
-	It("should generate the client connectivity ConfigMap for agentic-operator", func() {
-		ensureServiceCAConfigMap()
-		ensureCollectorTLSSecret()
-
-		cm, err := GenerateOtelCollectorClientConfigMap(testReconcilerInstance, ctx, testCR)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(cm.Name).To(Equal(utils.OtelCollectorClientConfigMapName))
-		Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
-		Expect(cm.Labels).To(Equal(labels))
-
-		caCM := &corev1.ConfigMap{}
-		Expect(k8sClient.Get(ctx, types.NamespacedName{
-			Name:      utils.OLSCAConfigMap,
-			Namespace: utils.OLSNamespaceDefault,
-		}, caCM)).To(Succeed())
-
-		host := utils.OtelCollectorServiceName + "." + utils.OLSNamespaceDefault + ".svc"
-		Expect(cm.Data[utils.OtelCollectorClientCollectorEndpointKey]).To(Equal(
-			fmt.Sprintf("%s:%d", host, utils.OtelCollectorGRPCPort),
-		))
-		Expect(cm.Data[utils.OtelCollectorClientAdminEndpointKey]).To(Equal(
-			fmt.Sprintf("https://%s:%d", host, utils.OtelCollectorAdminPort),
-		))
-		Expect(cm.Data[utils.OtelCollectorClientCACertKey]).To(Equal(caCM.Data[utils.AppOtelCollectorCACertFile]))
-		Expect(cm.Data).NotTo(HaveKey(utils.OtelCollectorClientCredentialsSecretKey))
-	})
-
 	It("should omit postgres pipelines when audit logging is disabled", func() {
 		testCR.Spec.Audit.Logging = boolPtr(false)
 		cm, err := GenerateOtelCollectorConfigMap(testReconcilerInstance, testCR)
 		Expect(err).NotTo(HaveOccurred())
 
 		configYAML := cm.Data[utils.OtelCollectorConfigMapDataKey]
-		Expect(configYAML).NotTo(ContainSubstring("exporters:"))
+		Expect(configYAML).To(ContainSubstring("nop:"))
 		Expect(configYAML).NotTo(ContainSubstring("routing/logs"))
+		Expect(configYAML).NotTo(ContainSubstring("postgres:"))
 		Expect(configYAML).To(ContainSubstring("postgres_admin"))
 		Expect(configYAML).To(ContainSubstring("health_check"))
 		Expect(configYAML).To(ContainSubstring("file_storage"))
@@ -96,14 +72,7 @@ var _ = Describe("OTEL Collector assets", func() {
 		configYAML := cm.Data[utils.OtelCollectorConfigMapDataKey]
 		Expect(configYAML).To(ContainSubstring("otlp/tracing"))
 		Expect(configYAML).To(ContainSubstring("${env:TRACES_BACKEND_ENDPOINT}"))
-		Expect(configYAML).To(ContainSubstring("traces/lightspeed"))
-
-		var config map[string]interface{}
-		Expect(yaml.Unmarshal([]byte(configYAML), &config)).To(Succeed())
-		connectors := config["connectors"].(map[string]interface{})
-		routingTraces := connectors["routing/traces"].(map[string]interface{})
-		table := routingTraces["table"].([]interface{})
-		Expect(table).NotTo(BeEmpty(), "routing/traces table must have at least one entry")
+		Expect(configYAML).NotTo(ContainSubstring("routing/traces"))
 	})
 
 	It("should generate the collector Service with serving-cert annotation", func() {
