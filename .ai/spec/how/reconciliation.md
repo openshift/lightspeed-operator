@@ -18,11 +18,12 @@ Reconcile(ctx, req)
   -> handleFinalizer()                      # Add/remove finalizer, run cleanup
   -> reconcileOperatorResources()           # ServiceMonitor, NetworkPolicy (operator-level)
   -> annotateExternalResources()            # Validate secrets, annotate for watching
-  -> reconcileIndependentResources()        # Phase 1: console, agentic console, postgres, otel collector, appserver, alerts adapter resources
+  -> reconcileIndependentResources()        # Phase 1: console, agentic console, postgres, otel collector, ocpmcp, appserver, alerts adapter resources
   |   |-- console.ReconcileConsoleUIResources()
   |   |-- agenticconsole.ReconcileAgenticConsoleUIResources()
   |   |-- postgres.ReconcilePostgresResources()
   |   |-- otelcollector.ReconcileOtelCollectorResources()
+  |   |-- ocpmcp.ReconcileResources()          # when introspectionEnabled; else Remove()
   |   |-- appserver.ReconcileAppServerResources()
   |   +-- alertsadapter.ReconcileAlertsAdapterResources()
   |       (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;

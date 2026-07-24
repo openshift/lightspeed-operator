@@ -54,7 +54,7 @@ main()
   1. Parse flags (images, namespace, leader election, secure metrics)
   2. Get Kubernetes config and client
   3. Detect OpenShift version (major, minor)
-  4. Select console image: if minor < 19 -> PF5, else -> PF6
+  4. Select console image (single image; OCP minor version no longer determines selection)
   5. Check Prometheus Operator availability (probe CRD existence)
   6. Configure metrics TLS (if --secure-metrics-server):
      a. Read client CA from openshift-monitoring/metrics-client-ca

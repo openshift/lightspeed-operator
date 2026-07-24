@@ -50,7 +50,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 24. Deployment updates are triggered when: the deployment spec changes, the config ConfigMap resource version changes, the proxy CA certificate hash changes, or (when introspection is enabled) the OpenShift MCP CA ConfigMap content hash changes.
 25. When any of these change, the operator forces a rolling restart by updating a pod template annotation with the current timestamp.
 
-### Health Probes [CHANGED: OLS-3221]
+### Health Probes [PLANNED: OLS-3221]
 26. The app server deployment's liveness probe must point to the `/liveness` endpoint with `failureThreshold: 3` and `periodSeconds: 30`, giving the pod 90 seconds to self-heal via the background health-check loop before Kubernetes restarts it. These values are not currently user-configurable.
 27. The app server deployment's readiness probe must point to the `/readiness` endpoint. The readiness probe checks RAG index, LLM reachability, and cache health status (read from the background health-check loop). No changes to existing readiness probe configuration.
 

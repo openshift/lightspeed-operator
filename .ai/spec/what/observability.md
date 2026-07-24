@@ -18,7 +18,7 @@ The operator configures monitoring, health probes, and status reporting for all 
 8. All probe parameters are set as internal constants in the deployment generation code. They are not configurable via the CR.
 
 ### Status Reporting
-11. The operator reports status via four condition types defined in `utils/types.go`: `ApiReady`, `CacheReady`, `ConsolePluginReady`, and `ResourceReconciliation` (used for Phase 1 failures).
+11. The operator reports status via eight condition types defined in `utils/types.go`: `ApiReady`, `CacheReady`, `ConsolePluginReady`, `AgenticConsolePluginReady`, `OtelCollectorReady`, `MCPServerReady`, `AlertsAdapterReady`, and `ResourceReconciliation` (used for Phase 1 failures).
 12. `status.overallStatus` aggregates all conditions: `Ready` when all deployment conditions are `True`, `NotReady` otherwise. The field is required (no `omitempty`).
 13. When deployments fail health checks, `status.diagnosticInfo` is populated with per-pod diagnostic entries. Diagnostics are collected by listing pods matching the deployment's selector labels and inspecting container and pod statuses.
 14. Each `PodDiagnostic` entry includes: `failedComponent` (matching the condition type, e.g., `ApiReady`), `podName`, `containerName` (empty string for pod-level issues), `reason`, `message`, `exitCode` (pointer, set for terminated containers), `type` (diagnostic category), and `lastUpdated` timestamp.

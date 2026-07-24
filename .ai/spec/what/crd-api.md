@@ -104,7 +104,7 @@ Field path (relative to each model) | JSON key | Go type | Required | Descriptio
 Field path (relative to parameters) | JSON key | Go type | Required | Default | Validation
 ---|---|---|---|---|---
 `maxTokensForResponse` | `maxTokensForResponse` | `int` | No | (unset; application default is 2048) | None
-`toolBudgetRatio` | `toolBudgetRatio` | `float64` | No | `0.5` | Minimum=0.1, Maximum=0.5
+`toolBudgetRatio` | `toolBudgetRatio` | `float64` | No | `0.25` | Minimum=0.1, Maximum=0.5
 `reasoningConfig` | `reasoningConfig` | `map[string]interface{}` | No | (unset) | None. [PLANNED: OLS-3442] Freeform map of provider-specific reasoning/thinking parameters. Passed through to the service as `reasoning_config`. Valid keys vary by provider and model generation — see lightspeed-service `what/llm-providers.md` rule 13. When absent, no reasoning params are sent. When present with invalid keys, the provider API returns a clear 400 error.
 
 ### OLS Configuration (spec.ols)
