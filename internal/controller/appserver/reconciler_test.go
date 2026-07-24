@@ -896,9 +896,9 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Reconcile with RAG defined")
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
-					IndexPath: "/rag/vector_db/ocp_product_docs/4.19",
-					IndexID:   "ocp-product-docs-4_19",
-					Image:     "rag-ocp-product-docs:4.19",
+					IndexPath: "/rag/vector_db/internal_runbooks/1.0",
+					IndexID:   "internal-runbooks-1_0",
+					Image:     "rag-internal-runbooks:1.0",
 				},
 				{
 					IndexPath: "/rag/vector_db/ansible_docs/2.18",
@@ -950,9 +950,9 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			By("Reconcile with RAG defined")
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
-					IndexPath: "/rag/vector_db/ocp_product_docs/4.19",
-					IndexID:   "ocp-product-docs-4_19",
-					Image:     "rag-ocp-product-docs:4.19",
+					IndexPath: "/rag/vector_db/internal_runbooks/1.0",
+					IndexID:   "internal-runbooks-1_0",
+					Image:     "rag-internal-runbooks:1.0",
 				},
 				{
 					IndexPath: "/rag/vector_db/ansible_docs/2.18",
@@ -968,7 +968,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Data).To(HaveKey(utils.OLSConfigFilename))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("indexes:"))
-			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("product_docs_index_id: ocp-product-docs-4_19"))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("product_docs_index_id: internal-runbooks-1_0"))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("product_docs_index_path: " + utils.RAGVolumeMountPath + "/rag-0"))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("product_docs_index_id: ansible-docs-2_18"))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("product_docs_index_path: " + utils.RAGVolumeMountPath + "/rag-1"))

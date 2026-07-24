@@ -111,9 +111,9 @@ var _ = Describe("App server deployment generation", func() {
 		It("should generate RAG volumes and initContainers", func() {
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
-					IndexPath: "/rag/vector_db/ocp_product_docs/4.19",
-					IndexID:   "ocp-product-docs-4_19",
-					Image:     "rag-ocp-product-docs:4.19",
+					IndexPath: "/rag/vector_db/internal_runbooks/1.0",
+					IndexID:   "internal-runbooks-1_0",
+					Image:     "rag-internal-runbooks:1.0",
 				},
 			}
 			deployment, err := GenerateOLSDeployment(testReconcilerInstance, cr)
