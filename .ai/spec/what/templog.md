@@ -1,6 +1,6 @@
 # Temporary Audit Log Storage — Operator
 
-Implementation details for the lightspeed-operator's role in the templog / OTEL Collector epic ([OLS-3505](https://redhat.atlassian.net/browse/OLS-3505)). See parent spec `what/templog.md` (lightspeed-service repo) for product requirements.
+Implementation details for the lightspeed-operator's role in the templog / OTEL Collector epic ([OLS-3505](https://redhat.atlassian.net/browse/OLS-3505)). See parent spec `what/templog.md` (ols repo) for product requirements.
 
 ## Architecture
 
@@ -137,4 +137,4 @@ Separate story — not part of OLS-3509. Sandbox / agentic controller OTLP wirin
 - `what/postgres.md` — PostgreSQL deployment, bootstrap script
 - `what/reconciliation.md` — Phase 1/2 collector wiring, `OtelCollectorReady`
 - `what/tls.md` — collector serving cert, app-server `extra_ca`
-- Parent spec: `what/templog.md` (lightspeed-service / ols repo)
+- Parent spec: `what/templog.md` (ols repo)
