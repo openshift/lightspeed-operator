@@ -86,6 +86,47 @@ func TestOLSSpec_AuditEventsEnabled_JSONRoundTrip(t *testing.T) {
 	}
 }
 
+func TestAgenticOLSSpec_JSONRoundTrip(t *testing.T) {
+	in := AgenticOLSSpec{
+		SandboxMode: SandboxModeSandboxClaim,
+		AgenticSandboxConfig: Config{
+			NodeSelector: map[string]string{"node-role.kubernetes.io/worker": ""},
+		},
+	}
+	data, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var out AgenticOLSSpec
+	if err := json.Unmarshal(data, &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if out.SandboxMode != SandboxModeSandboxClaim {
+		t.Errorf("SandboxMode: got %q, want %q", out.SandboxMode, SandboxModeSandboxClaim)
+	}
+	if out.AgenticSandboxConfig.NodeSelector["node-role.kubernetes.io/worker"] != "" {
+		t.Errorf("AgenticSandboxConfig.NodeSelector: got %v", out.AgenticSandboxConfig.NodeSelector)
+	}
+}
+
+func TestOLSConfigSpec_AgenticOLS_Omitempty(t *testing.T) {
+	spec := OLSConfigSpec{
+		LLMConfig: LLMSpec{Providers: []ProviderSpec{{Name: "openai", Type: "openai"}}},
+		OLSConfig: OLSSpec{DefaultModel: "gpt-4", DefaultProvider: "openai"},
+	}
+	data, err := json.Marshal(spec)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal raw: %v", err)
+	}
+	if _, ok := raw["agenticOLS"]; ok {
+		t.Errorf("expected agenticOLS omitted when nil, got %s", raw["agenticOLS"])
+	}
+}
+
 func boolPtr(v bool) *bool {
 	return &v
 }

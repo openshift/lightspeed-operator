@@ -41,7 +41,7 @@ GenerateOLSDeployment(r, cr)
   18. Set owner reference to OLSConfig CR
   19. Conditionally add data collector sidecar container ("lightspeed-to-dataverse-exporter")
   20. Conditionally add RHOKP sidecar container ("rhokp") when `!byokRAGOnly`.
-  21. When introspection is enabled, mount `openshift-mcp-server-ca` (no MCP sidecar; standalone operand)
+  21. When introspection is enabled, mount MCP client CA Secret `lightspeed-agentic-mcp-ca` (no MCP sidecar; standalone operand)
       Container: image from r.GetRHOOKPImage(), Solr HTTP on port 9080 (remapped from image default 8080),
       resources from `spec.ols.deployment.rhokp.resources` or defaults (2 CPU / 2 GiB memory / 75 GiB ephemeral requests; CPU and memory requests only per OLS-3397),
       startup script remaps Apache Listen directives before `mel` start.
@@ -57,7 +57,7 @@ All deployments use the same pattern in their update functions:
    - RestartX() sets `ols.openshift.io/force-reload` annotation to `time.Now().Format(time.RFC3339Nano)`
    - This triggers a rolling restart by changing the pod template
 
-**AppServer tracks:** OLS config CM version, MCP server config CM version, proxy CA cert hash, OpenShift MCP CA ConfigMap content hash (when introspection is enabled)
+**AppServer tracks:** OLS config CM version, MCP server config CM version, proxy CA cert hash, MCP client CA Secret content hash (when introspection is enabled)
 
 ## Key Abstractions
 

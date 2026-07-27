@@ -3,6 +3,7 @@ package ocpmcp
 
 import (
 	"fmt"
+	"path"
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -81,25 +82,6 @@ func GenerateConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*cor
 	return cm, nil
 }
 
-// GenerateCAConfigMap generates an empty ConfigMap annotated for service-ca
-// inject-cabundle. Clients (app-server) mount service-ca.crt for TLS verify.
-func GenerateCAConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.OpenShiftMCPServerCAConfigMapName,
-			Namespace: r.GetNamespace(),
-			Labels:    selectorLabels(),
-			Annotations: map[string]string{
-				utils.InjectCABundleAnnotationKey: "true",
-			},
-		},
-	}
-	if err := controllerutil.SetControllerReference(cr, cm, r.GetScheme()); err != nil {
-		return nil, fmt.Errorf("%s: %w", utils.ErrSetOpenShiftMCPServerCAConfigMapOwnerReference, err)
-	}
-	return cm, nil
-}
-
 // GenerateService generates the ClusterIP Service on HTTPS port 8443 with a
 // service-ca serving-cert annotation.
 func GenerateService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
@@ -170,4 +152,36 @@ func GenerateNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		return nil, fmt.Errorf("%s: %w", utils.ErrSetOpenShiftMCPServerNetworkPolicyOwnerReference, err)
 	}
 	return &np, nil
+}
+
+// GetConfigVolumeAndMount returns the Volume and VolumeMount for the
+// openshift-mcp-server TOML configuration. The config file is mounted as a subPath
+// so the MCP container can reference it via --config.
+func GetConfigVolumeAndMount() (corev1.Volume, corev1.VolumeMount) {
+	volumeDefaultMode := utils.VolumeDefaultMode
+	volume := corev1.Volume{
+		Name: utils.OpenShiftMCPServerConfigVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: utils.OpenShiftMCPServerConfigCmName,
+				},
+				DefaultMode: &volumeDefaultMode,
+			},
+		},
+	}
+
+	volumeMount := corev1.VolumeMount{
+		Name:      utils.OpenShiftMCPServerConfigVolumeName,
+		MountPath: path.Join(utils.OpenShiftMCPServerConfigMountPath, utils.OpenShiftMCPServerConfigFilename),
+		SubPath:   utils.OpenShiftMCPServerConfigFilename,
+		ReadOnly:  true,
+	}
+
+	return volume, volumeMount
+}
+
+// GetConfigPath returns the full path to the MCP server config file inside the container.
+func GetConfigPath() string {
+	return path.Join(utils.OpenShiftMCPServerConfigMountPath, utils.OpenShiftMCPServerConfigFilename)
 }

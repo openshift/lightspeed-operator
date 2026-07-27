@@ -39,6 +39,7 @@ AI agents (Claude). Content is optimized for precision and machine consumption o
 | Understand app server deployment | `what/app-server.md` |
 | Understand PostgreSQL deployment | `what/postgres.md` |
 | Understand temporary audit log storage | `what/templog.md` |
+| Understand agentic handoff (sandbox profile) | `what/agentic-sandbox-profile.md` |
 | Understand audit logging | `what/audit-logging.md` |
 | Understand TLS configuration | `what/tls.md` |
 | Understand security constraints | `what/security.md` |
@@ -53,7 +54,7 @@ When what/ and how/ file names don't match 1:1, this table maps behavioral specs
 | what/ | how/ |
 |---|---|
 | `reconciliation.md` | `how/reconciliation.md` -- implementation patterns, code locations, task registration |
-| `app-server.md`, `postgres.md` | `how/deployment-generation.md` -- how deployments/services/configmaps are generated |
+| `app-server.md`, `postgres.md`, `agentic-sandbox-profile.md` | `how/deployment-generation.md` / `how/project-structure.md` — how deployments/services/configmaps are generated; agenticintegration package |
 | `console-ui.md`, `agentic-console-ui.md` | `how/deployment-generation.md` -- deployment/service/configmap generation; `how/reconciliation.md` -- ConsolePlugin lifecycle, activation, and cleanup |
 | `crd-api.md` | `how/config-generation.md` -- how CRD fields map to generated configuration |
 | `system-overview.md` | `how/project-structure.md` -- codebase layout, package responsibilities |

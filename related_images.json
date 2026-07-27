@@ -81,6 +81,15 @@
     "operator_arg": "rhokp-image"
   },
   {
+    "name": "lightspeed-agentic-sandbox",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox@sha256:7921997a9cc1e5cc1c72e293a235a43bf2177e8c40d1ad3505c1ef5954c9980c",
+    "revision": "",
+    "operator_arg": "agentic-sandbox-image",
+    "snapshot_component": "lightspeed-agentic-sandbox",
+    "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox",
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9"
+  },
+  {
     "name": "lightspeed-operator-bundle",
     "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle@sha256:2fe89ecff69893e25d8c8a3af6c4ad138286daaa1ad4582d0c390f21ba7aa57e",
     "revision": "08c3f24500e22d5c1d0c47301a620f4638a49abb",

@@ -46,15 +46,15 @@ OLSConfigReconciler.Reconcile() →
 ├── [Finalizer logic: handle CR deletion if DeletionTimestamp set]
 ├── annotateExternalResources() (validate LLM/TLS credentials)
 ├── Phase 1 — reconcileIndependentResources() (continue-on-error)
+│   ├── postgres.ReconcilePostgresResources()
 │   ├── console.ReconcileConsoleUIResources()
 │   ├── agenticconsole.ReconcileAgenticConsoleUIResources()
-│   ├── postgres.ReconcilePostgresResources()
+│   ├── alertsadapter.ReconcileAlertsAdapterResources()
+│   │   (opt-in via configMapRef; RemoveAlertsAdapter() when unset; no ConfigMap validation—
+│   │    mount at /etc/alerts-adapter when CM exists, adapter reads config.yaml)
 │   ├── otelcollector.ReconcileOtelCollectorResources()
 │   ├── ocpmcp.ReconcileResources()
-│   ├── appserver.ReconcileAppServerResources()
-│   └── alertsadapter.ReconcileAlertsAdapterResources()
-│       (opt-in via configMapRef; RemoveAlertsAdapter() when unset; no ConfigMap validation—
-│        mount at /etc/alerts-adapter when CM exists, adapter reads config.yaml)
+│   └── appserver.ReconcileAppServerResources()
 └── Phase 2 — reconcileDeploymentsAndStatus()
     ├── console.ReconcileConsoleUIDeploymentAndPlugin()  → ConsolePluginReady
     ├── agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin() → AgenticConsolePluginReady
@@ -63,8 +63,10 @@ OLSConfigReconciler.Reconcile() →
     ├── ocpmcp.ReconcileDeployment()                     → MCPServerReady
     │   (when introspectionEnabled; else MCPServerReady=True, Reason=NotConfigured)
     ├── appserver.ReconcileAppServerDeployment()         → ApiReady
-    └── alertsadapter.ReconcileAlertsAdapterDeployment() → AlertsAdapterReady
-        (only when configMapRef set; else AlertsAdapterReady=True, Reason=NotConfigured)
+    ├── alertsadapter.ReconcileAlertsAdapterDeployment() → AlertsAdapterReady
+    │   (only when configMapRef set; else AlertsAdapterReady=True, Reason=NotConfigured)
+    └── agenticintegration.ReconcileAgenticIntegrationResources()
+        (last: handoff ConfigMap only; client CA Secrets owned by appserver)
 ```
 
 ## Code Conventions
@@ -93,9 +95,10 @@ make test-e2e   # E2E tests (requires cluster)
 
 ### Controllers
 - `internal/controller/olsconfig_controller.go` - Main reconciler with finalizer logic
-- `internal/controller/appserver/` - App server
+- `internal/controller/appserver/` - App server (also owns client CA Secrets `lightspeed-agentic-otel-ca` / `lightspeed-agentic-mcp-ca`; `RestartAppServer` refreshes them and touches the handoff ConfigMap)
 - `internal/controller/postgres/` - PostgreSQL
 - `internal/controller/otelcollector/` - OTEL Collector (always deployed; Postgres audit log storage, optional trace forwarding, HTTPS metrics `:8888` + ServiceMonitor)
+- `internal/controller/agenticintegration/` - Classic→agentic handoff ConfigMap (`lightspeed-agentic-configuration`) only; end of Phase 2
 - `internal/controller/ocpmcp/` - Standalone OpenShift MCP server (gated by `introspectionEnabled`; HTTPS via service-ca)
 - `internal/controller/console/` - Chat console plugin (Lightspeed assistant UI)
 - `internal/controller/agenticconsole/` - Agentic console plugin (AI Hub / proposals UI)
@@ -131,7 +134,7 @@ make test-e2e   # E2E tests (requires cluster)
 
 ### Local Development (`make run`)
 - Sets `LOCAL_DEV_MODE=true`, which skips operator ServiceMonitor reconciliation and app-server metrics reader secret reconciliation (no local metrics scraping loop).
-- Image overrides: `--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, and other flags in `cmd/main.go`.
+- Image overrides: `--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, `--agentic-sandbox-image`, and other flags in `cmd/main.go`.
 
 ## AI Assistant Skills
 
