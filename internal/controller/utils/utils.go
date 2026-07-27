@@ -204,7 +204,8 @@ func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec, compareInitContainers bool
 		!apiequality.Semantic.DeepEqual(a.Strategy, b.Strategy) || // check strategy
 		!PodVolumeEqual(a.Template.Spec.Volumes, b.Template.Spec.Volumes) || // check volumes
 		*a.Replicas != *b.Replicas || // check replicas
-		a.Template.Spec.ServiceAccountName != b.Template.Spec.ServiceAccountName { // check service account name
+		a.Template.Spec.ServiceAccountName != b.Template.Spec.ServiceAccountName || // check service account name
+		!apiequality.Semantic.DeepEqual(a.Template.Spec.TerminationGracePeriodSeconds, b.Template.Spec.TerminationGracePeriodSeconds) { // check termination grace period
 		return false
 	}
 
@@ -250,7 +251,8 @@ func ContainerSpecEqual(a, b *corev1.Container) bool {
 		a.ImagePullPolicy == b.ImagePullPolicy && // check image pull policy
 		ProbeEqual(a.LivenessProbe, b.LivenessProbe) && // check liveness probe
 		ProbeEqual(a.ReadinessProbe, b.ReadinessProbe) && // check readiness probe
-		ProbeEqual(a.StartupProbe, b.StartupProbe)) // check startup probe
+		ProbeEqual(a.StartupProbe, b.StartupProbe) && // check startup probe
+		apiequality.Semantic.DeepEqual(a.Lifecycle, b.Lifecycle)) // check lifecycle hooks
 }
 
 // EnvEqual compares two EnvVar slices ignoring order
@@ -387,6 +389,13 @@ func SetDefaults_Deployment(obj *appsv1.Deployment) {
 	if obj.Spec.Replicas == nil {
 		obj.Spec.Replicas = new(int32)
 		*obj.Spec.Replicas = 1
+	}
+	// Set default TerminationGracePeriodSeconds to match the Kubernetes API server default (30s).
+	// Without this, the desired spec has nil while the existing spec (from the API server) has &30,
+	// causing spurious updates on every reconcile.
+	if obj.Spec.Template.Spec.TerminationGracePeriodSeconds == nil {
+		defaultTerminationGracePeriod := int64(corev1.DefaultTerminationGracePeriodSeconds)
+		obj.Spec.Template.Spec.TerminationGracePeriodSeconds = &defaultTerminationGracePeriod
 	}
 	strategy := &obj.Spec.Strategy
 	// Set default DeploymentStrategyType as RollingUpdate.

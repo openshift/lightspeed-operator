@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"strconv"
 
@@ -234,10 +235,21 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 									Value: strconv.Itoa(cr.Spec.OLSConfig.ConversationCache.Postgres.MaxConnections),
 								},
 							},
+							Lifecycle: &corev1.Lifecycle{
+								PreStop: &corev1.LifecycleHandler{
+									Exec: &corev1.ExecAction{
+										Command: []string{
+											"/bin/sh", "-c",
+											fmt.Sprintf("if [ -f %s/PG_VERSION ]; then pg_ctl stop -D %s -m fast -w -t %d; fi", utils.PostgresUserDataDir, utils.PostgresUserDataDir, utils.PostgresShutdownTimeoutSeconds),
+										},
+									},
+								},
+							},
 						},
 					},
-					Volumes:            volumes,
-					ServiceAccountName: utils.PostgreServiceAccountName,
+					Volumes:                       volumes,
+					ServiceAccountName:            utils.PostgreServiceAccountName,
+					TerminationGracePeriodSeconds: &[]int64{utils.PostgresTerminationGracePeriodSeconds}[0],
 				},
 			},
 			RevisionHistoryLimit: &revisionHistoryLimit,
