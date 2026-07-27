@@ -153,7 +153,7 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 `api` | `api` | `Config` | API container. Replicas configurable (default 1, min 0)
 `dataCollector` | `dataCollector` | `ContainerConfig` | Data collector container. Resources only
 `mcpServer` | `mcpServer` | `Config` | Standalone OpenShift MCP server Deployment (replicas, resources, tolerations, nodeSelector)
-`rhokp` | `rhokp` | `ContainerConfig` | RHOKP sidecar container (Solr / OKP). Resources only
+`rhokp` | `rhokp` | `Config` | [PLANNED: OLS-3697] Standalone RHOKP Deployment (Solr / OKP). Replicas (forced to 1), resources, tolerations, nodeSelector
 `console` | `console` | `Config` | Console container. Has replicas field but operator forces 1
 `database` | `database` | `Config` | Database container. Has replicas field but operator forces 1
 `alertsAdapter` | `alertsAdapter` | `AlertsAdapterSpec` | Agentic alerts adapter deployment and user-managed runtime config reference. Replicas forced to 1
@@ -162,7 +162,7 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 `agenticConsole` | `agenticConsole` | `Config` | Agentic console plugin container. Replicas forced to 1
 `otelCollector` | `otelCollector` | `Config` | OTEL Collector container ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510)). Replicas forced to 1
 
-20. Replicas are user-configurable for the API container (`spec.ols.deployment.api.replicas`). For console, database, alerts adapter, agentic console, and otel collector, the operator always overrides replicas to 1 regardless of spec value.
+20. Replicas are user-configurable for the API container (`spec.ols.deployment.api.replicas`). For console, database, alerts adapter, agentic console, otel collector, and RHOKP [PLANNED: OLS-3697], the operator always overrides replicas to 1 regardless of spec value.
 
 ##### Config Fields
 
@@ -264,16 +264,16 @@ Field | JSON key | Go type | Required | Validation
 
 #### Boolean/String Fields
 
-41. `spec.ols.byokRAGOnly` -- `bool`, optional. When true, only BYOK RAG sources are used: the operator does not deploy the RHOKP sidecar, does not write `solr_hybrid` into `olsconfig.yaml`, and does not set `OCP_CLUSTER_VERSION` on the app-server pod.
+41. `spec.ols.byokRAGOnly` -- `bool`, optional. When true, only BYOK RAG sources are used: the operator does not deploy the standalone RHOKP operand, does not write `solr_hybrid` into `olsconfig.yaml`, and does not set `OCP_CLUSTER_VERSION` on the app-server pod.
 
 #### Operator-managed OKP (not on CR)
 
 OKP / Solr hybrid RAG has no `spec.ols.solrHybrid` (or similar) field. It is enabled by default and turned off only via `byokRAGOnly`. When active, the operator:
-- deploys the RHOKP sidecar and writes `ols_config.solr_hybrid` with operator defaults (`http://localhost:9080`, hybrid tuning);
+- [PLANNED: OLS-3697] deploys the standalone RHOKP Deployment/Service (`lightspeed-rhokp`) and writes `ols_config.solr_hybrid` with operator defaults (`https://lightspeed-rhokp.<ns>.svc:8443`, hybrid tuning);
 - sets `OCP_CLUSTER_VERSION` on the app-server container for Solr version filtering;
 - serves OCP product documentation via Solr hybrid only; `reference_content.indexes` lists BYOK FAISS indexes from `spec.ols.rag` only.
 
-RHOKP sidecar CPU, memory, and ephemeral storage are overridable via `spec.ols.deployment.rhokp.resources` (defaults: 2 CPU, 2 GiB memory, and 75 GiB ephemeral storage requests).
+[PLANNED: OLS-3697] RHOKP standalone Deployment resources are overridable via `spec.ols.deployment.rhokp` (`Config`: replicas forced to 1, resources, tolerations, nodeSelector). Default resource requests: 2 CPU, 2 GiB memory. Storage: 75 GiB EmptyDir with sizeLimit.
 42. `spec.ols.querySystemPrompt` -- `string`, optional. Custom system prompt for LLM queries. If unset, the default OpenShift Lightspeed prompt is used.
 43. `spec.ols.maxIterations` -- `int`. Default: `5`. Minimum=1. Maximum number of iterations for agent execution.
 44. `spec.ols.imagePullSecrets` -- `[]corev1.LocalObjectReference`, optional. Pull secrets for BYOK RAG images.
@@ -421,8 +421,11 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.deployment.dataCollector.resources` | `*ResourceRequirements` | -- | No | -- | Data collector resources
 `spec.ols.deployment.mcpServer` | `Config` | -- | No | -- | Standalone OpenShift MCP server Deployment
 `spec.ols.deployment.mcpServer.resources` | `*ResourceRequirements` | -- | No | -- | MCP server resources
-`spec.ols.deployment.rhokp` | `ContainerConfig` | -- | No | -- | RHOKP sidecar container
-`spec.ols.deployment.rhokp.resources` | `*ResourceRequirements` | -- | No | -- | RHOKP sidecar resources (default requests: 2 CPU, 2 GiB memory, 75 GiB ephemeral storage)
+`spec.ols.deployment.rhokp` | `Config` | -- | No | -- | [PLANNED: OLS-3697] Standalone RHOKP Deployment
+`spec.ols.deployment.rhokp.replicas` | `*int32` | `1` | No | Min=0 | RHOKP replicas (operator forces 1)
+`spec.ols.deployment.rhokp.resources` | `*ResourceRequirements` | -- | No | -- | RHOKP resources (default requests: 2 CPU, 2 GiB memory)
+`spec.ols.deployment.rhokp.tolerations` | `[]Toleration` | -- | No | -- | RHOKP tolerations
+`spec.ols.deployment.rhokp.nodeSelector` | `map[string]string` | -- | No | -- | RHOKP node selector
 `spec.ols.deployment.console` | `Config` | -- | No | -- | Console container
 `spec.ols.deployment.console.replicas` | `*int32` | `1` | No | Min=0 | Console replicas (operator forces 1)
 `spec.ols.deployment.console.resources` | `*ResourceRequirements` | -- | No | -- | Console resources
@@ -542,3 +545,4 @@ Path | Type | Default | Required | Validation | Description
 - [DONE: OLS-3683 / OLS-3684] `spec.agenticOLS` (`sandboxMode`, `agenticSandboxConfig`), appserver-owned client CA Secrets, and handoff ConfigMap (`lightspeed-agentic-configuration`). See `agentic-sandbox-profile.md`.
 - [PLANNED: OLS-3594] Optional agentic auto-injection of MCP into agent runs (deferred).
 - [PLANNED: OLS-3685+] Agentic-operator consumption of the handoff ConfigMap/Secrets.
+- [PLANNED: OLS-3697] Change `spec.ols.deployment.rhokp` from `ContainerConfig` to `Config`. RHOKP becomes a standalone Deployment with replicas (forced to 1), resources, tolerations, and nodeSelector. See design spec `docs/superpowers/specs/2026-07-27-rhokp-standalone.md`.
