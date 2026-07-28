@@ -302,18 +302,13 @@ func (r *OLSConfigReconciler) reconcileOperatorResources(ctx context.Context) er
 // Agentic integration handoff runs at the end of Phase 2 (after Services/TLS).
 // Uses continue-on-error to reconcile as many resources as possible, even if some fail.
 func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
+	resourceFailures := make(map[string]error)
 	resourceSteps := []utils.ReconcileSteps{
-		{Name: "postgres resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-			return postgres.ReconcilePostgresResources(r, ctx, cr)
-		}},
 		{Name: "console UI resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return console.ReconcileConsoleUIResources(r, ctx, cr)
 		}},
-		{Name: "agentic console UI resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-			return agenticconsole.ReconcileAgenticConsoleUIResources(r, ctx, cr)
-		}},
-		{Name: "alerts adapter resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-			return alertsadapter.ReconcileAlertsAdapterResources(r, ctx, cr)
+		{Name: "postgres resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return postgres.ReconcilePostgresResources(r, ctx, cr)
 		}},
 		{Name: "OTEL Collector resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return otelcollector.ReconcileOtelCollectorResources(r, ctx, cr)
@@ -321,13 +316,43 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		{Name: "openshift-mcp-server resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return ocpmcp.ReconcileResources(r, ctx, cr)
 		}},
-		{Name: "application server resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-			return appserver.ReconcileAppServerResources(r, ctx, cr)
-		}},
 	}
 
+	if r.Options.AgenticConsoleUIImage != "" {
+		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
+			Name: "agentic console UI resources",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return agenticconsole.ReconcileAgenticConsoleUIResources(r, ctx, cr)
+			},
+		})
+	} else if wasComponentEnabled(olsconfig, utils.TypeAgenticConsolePluginReady) {
+		if err := agenticconsole.RemoveAgenticConsole(r, ctx); err != nil {
+			resourceFailures["agentic console UI cleanup"] = fmt.Errorf("failed to remove agentic console UI resources: %w", err)
+		}
+	}
+
+	_, alertsAdapterConfigMapEnabled := utils.AlertsAdapterConfigMapRef(olsconfig)
+	if r.Options.AlertsAdapterImage != "" && alertsAdapterConfigMapEnabled {
+		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
+			Name: "alerts adapter resources",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return alertsadapter.ReconcileAlertsAdapterResources(r, ctx, cr)
+			},
+		})
+	} else if wasComponentEnabled(olsconfig, utils.TypeAlertsAdapterReady) {
+		if err := alertsadapter.RemoveAlertsAdapter(r, ctx); err != nil {
+			resourceFailures["alerts adapter cleanup"] = fmt.Errorf("failed to remove alerts adapter resources: %w", err)
+		}
+	}
+
+	resourceSteps = append(resourceSteps, utils.ReconcileSteps{
+		Name: "application server resources",
+		Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+			return appserver.ReconcileAppServerResources(r, ctx, cr)
+		},
+	})
+
 	// Reconcile all independent resources (continue on error to reconcile as many as possible)
-	resourceFailures := make(map[string]error)
 	for _, step := range resourceSteps {
 		if err := step.Fn(ctx, olsconfig); err != nil {
 			r.Logger.Error(err, "Resource reconciliation failed", "resource", step.Name)
@@ -387,9 +412,6 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		{Name: "console UI deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return console.ReconcileConsoleUIDeploymentAndPlugin(r, ctx, cr)
 		}, ConditionType: utils.TypeConsolePluginReady, Deployment: utils.ConsoleUIDeploymentName},
-		{Name: "agentic console UI deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-			return agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin(r, ctx, cr)
-		}, ConditionType: utils.TypeAgenticConsolePluginReady, Deployment: utils.AgenticConsoleUIDeploymentName},
 		{Name: "postgres deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return postgres.ReconcilePostgresDeployment(r, ctx, cr)
 		}, ConditionType: utils.TypeCacheReady, Deployment: utils.PostgresDeploymentName},
@@ -430,30 +452,70 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 	if !utils.BoolDeref(olsconfig.Spec.OLSConfig.IntrospectionEnabled, true) {
 		newStatus.Conditions = append(newStatus.Conditions, metav1.Condition{
 			Type:               utils.TypeMCPServerReady,
-			Status:             metav1.ConditionTrue,
+			Status:             metav1.ConditionFalse,
 			ObservedGeneration: olsconfig.Generation,
-			Reason:             "NotConfigured",
+			Reason:             "Disabled",
 			Message:            "OpenShift MCP server is disabled; spec.ols.introspectionEnabled is false",
 			LastTransitionTime: metav1.Now(),
 		})
 	}
 
-	if _, enabled := utils.AlertsAdapterConfigMapRef(olsconfig); enabled {
+	if r.Options.AgenticConsoleUIImage != "" {
 		deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
-			Name: "alerts adapter deployment",
+			Name: "agentic console UI deployment",
 			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-				return alertsadapter.ReconcileAlertsAdapterDeployment(r, ctx, cr)
+				return agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin(r, ctx, cr)
 			},
-			ConditionType: utils.TypeAlertsAdapterReady,
-			Deployment:    utils.AlertsAdapterDeploymentName,
+			ConditionType: utils.TypeAgenticConsolePluginReady,
+			Deployment:    utils.AgenticConsoleUIDeploymentName,
 		})
 	} else {
 		newStatus.Conditions = append(newStatus.Conditions, metav1.Condition{
-			Type:               utils.TypeAlertsAdapterReady,
-			Status:             metav1.ConditionTrue,
+			Type:               utils.TypeAgenticConsolePluginReady,
+			Status:             metav1.ConditionFalse,
 			ObservedGeneration: olsconfig.Generation,
-			Reason:             "NotConfigured",
-			Message:            "Alerts adapter is disabled; spec.ols.deployment.alertsAdapter.configMapRef is not set",
+			Reason:             "Disabled",
+			Message:            "Agentic console plugin is disabled; image not provided",
+			LastTransitionTime: metav1.Now(),
+		})
+	}
+
+	if r.Options.AlertsAdapterImage != "" {
+		if _, enabled := utils.AlertsAdapterConfigMapRef(olsconfig); enabled {
+			deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
+				Name: "alerts adapter deployment",
+				Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+					return alertsadapter.ReconcileAlertsAdapterDeployment(r, ctx, cr)
+				},
+				ConditionType: utils.TypeAlertsAdapterReady,
+				Deployment:    utils.AlertsAdapterDeploymentName,
+			})
+		} else {
+			cleanupFailed := false
+			if wasComponentEnabled(olsconfig, utils.TypeAlertsAdapterReady) {
+				if err := alertsadapter.RemoveAlertsAdapter(r, ctx); err != nil {
+					failedTasks["alerts adapter cleanup"] = fmt.Errorf("failed to remove alerts adapter resources: %w", err)
+					cleanupFailed = true
+				}
+			}
+			if !cleanupFailed {
+				newStatus.Conditions = append(newStatus.Conditions, metav1.Condition{
+					Type:               utils.TypeAlertsAdapterReady,
+					Status:             metav1.ConditionFalse,
+					ObservedGeneration: olsconfig.Generation,
+					Reason:             "Disabled",
+					Message:            "Alerts adapter is disabled; spec.ols.deployment.alertsAdapter.configMapRef is not set",
+					LastTransitionTime: metav1.Now(),
+				})
+			}
+		}
+	} else {
+		newStatus.Conditions = append(newStatus.Conditions, metav1.Condition{
+			Type:               utils.TypeAlertsAdapterReady,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: olsconfig.Generation,
+			Reason:             "Disabled",
+			Message:            "Alerts adapter is disabled; image not provided",
 			LastTransitionTime: metav1.Now(),
 		})
 	}
@@ -955,6 +1017,18 @@ func (r *OLSConfigReconciler) waitForOwnedResourcesDeletion(ctx context.Context,
 
 		return false, nil // Not all deleted yet, keep polling
 	})
+}
+
+// wasComponentEnabled returns true if the CR has an existing status condition for the given
+// type that is not in the "Disabled" state, indicating the component was previously active.
+// This prevents unnecessary Remove calls on every reconcile loop when a component was never enabled.
+func wasComponentEnabled(cr *olsv1alpha1.OLSConfig, conditionType string) bool {
+	for _, c := range cr.Status.Conditions {
+		if c.Type == conditionType {
+			return c.Reason != "Disabled"
+		}
+	}
+	return false
 }
 
 // SetupWithManager sets up the controller with the Manager.

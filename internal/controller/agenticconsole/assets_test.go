@@ -52,7 +52,7 @@ var _ = Describe("Agentic Console UI assets", func() {
 				"app.kubernetes.io/name": utils.AgenticConsoleUIPluginName,
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.AgenticConsoleUIContainerName))
-			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.AgenticConsoleUIImageDefault))
+			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(testReconcilerInstance.GetAgenticConsoleImage()))
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].ContainerPort).To(Equal(int32(utils.AgenticConsoleUIHTTPSPort)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Ports[0].Name).To(BeEmpty())
 			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(*utils.DefaultConsolePluginResourceRequirements()))

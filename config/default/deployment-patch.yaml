@@ -18,12 +18,6 @@
   value: --openshift-mcp-server-image=__REPLACE_OPENSHIFT_MCP_SERVER__
 - op: add
   path: /spec/template/spec/containers/0/args/-
-  value: --agentic-console-image=__REPLACE_LIGHTSPEED_AGENTIC_CONSOLE_PLUGIN__
-- op: add
-  path: /spec/template/spec/containers/0/args/-
-  value: --alerts-adapter-image=__REPLACE_LIGHTSPEED_AGENTIC_ALERTS_ADAPTER__
-- op: add
-  path: /spec/template/spec/containers/0/args/-
   value: --otel-collector-image=__REPLACE_LIGHTSPEED_OTEL_COLLECTOR__
 - op: add
   path: /spec/template/spec/containers/0/args/-
