@@ -48,28 +48,10 @@
     "stable_prefix": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9"
   },
   {
-    "name": "lightspeed-otel-collector",
-    "image": "registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:fb86a2c82c959e8ec72e707ce6cc0c4005f806da38ec50da5606557346549cd3",
-    "revision": "8bc5f3bbc050e5912c113e485453e342ecea2d8c",
-    "operator_arg": "otel-collector-image",
-    "snapshot_component": "lightspeed-otel-collector",
-    "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9"
-  },
-  {
     "name": "rhokp",
     "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest",
     "revision": "",
     "operator_arg": "rhokp-image"
-  },
-  {
-    "name": "lightspeed-agentic-sandbox",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox@sha256:7921997a9cc1e5cc1c72e293a235a43bf2177e8c40d1ad3505c1ef5954c9980c",
-    "revision": "",
-    "operator_arg": "agentic-sandbox-image",
-    "snapshot_component": "lightspeed-agentic-sandbox",
-    "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9"
   },
   {
     "name": "lightspeed-operator-bundle",
