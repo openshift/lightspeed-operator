@@ -566,7 +566,7 @@ var _ = Describe("App server assets", func() {
 			Expect(appSrvConfigFile.MCPServers).NotTo(BeEmpty())
 			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Name":    Equal("openshift"),
-				"URL":     Equal(utils.OpenShiftMCPServerServiceURL(utils.OLSNamespaceDefault)),
+				"URL":     Equal("https://openshift-mcp-server.openshift-lightspeed.svc:8443/mcp"),
 				"Timeout": Equal(utils.OpenShiftMCPServerTimeout),
 				"Headers": Equal(map[string]string{
 					utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
@@ -734,7 +734,7 @@ var _ = Describe("App server assets", func() {
 
 			Expect(appSrvConfigFile.MCPServers).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Name":    Equal("openshift"),
-				"URL":     Equal(utils.OpenShiftMCPServerServiceURL(utils.OLSNamespaceDefault)),
+				"URL":     Equal("https://openshift-mcp-server.openshift-lightspeed.svc:8443/mcp"),
 				"Timeout": Equal(utils.OpenShiftMCPServerTimeout),
 			})))
 
@@ -789,7 +789,6 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal(expectedAppServerEnv()))
 			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get10RequiredVolumeMounts()))
 			Expect(dep.Spec.Template.Spec.Containers[0].Resources).To(Equal(corev1.ResourceRequirements{
-				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("4Gi")},
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("1Gi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
@@ -809,7 +808,6 @@ var _ = Describe("App server assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[1].VolumeMounts).To(ConsistOf(get10RequiredVolumeMounts()))
 			Expect(dep.Spec.Template.Spec.Containers[1].Resources).To(Equal(corev1.ResourceRequirements{
-				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
@@ -2256,7 +2254,7 @@ var _ = Describe("Helper function unit tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(servers).To(HaveLen(1))
 			Expect(servers[0].Name).To(Equal("openshift"))
-			Expect(servers[0].URL).To(Equal(utils.OpenShiftMCPServerServiceURL(utils.OLSNamespaceDefault)))
+			Expect(servers[0].URL).To(Equal("https://openshift-mcp-server.openshift-lightspeed.svc:8443/mcp"))
 			Expect(servers[0].Headers).To(HaveKey(utils.K8S_AUTH_HEADER))
 		})
 
