@@ -31,8 +31,8 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:74a5c2911a2bad23a33ec1cb4ada78d6b4483ca7d32e534930ac64298e7fa3da",
-    "revision": "b2274a8e08233d6a09923d1256e4a5533d44ad18",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:18ba78e3610cfd80cfd69ae2e300d726a0e5a00010aec1bd2fd1ab4e1118136b",
+    "revision": "86a5ebdfcec96d400c0cecb0ab03f4e17b3ca8eb",
     "operator_target": "image",
     "snapshot_component": "lightspeed-operator",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator",
