@@ -4,14 +4,14 @@ Implementation details for the lightspeed-operator's role in the templog / OTEL 
 
 ## Architecture
 
-The OTEL Collector is the in-cluster telemetry hub. It is **always deployed** when Lightspeed is installed. Configuration is split between **service behavior** (stdout audit events, trace export to collector) and **collector behavior** (Postgres storage, trace forwarding).
+The OTEL Collector is the in-cluster telemetry hub. Its reconciliation is currently **disabled** (OLS-3737) until e2e tests prove the pipeline works; it will not be deployed on new installs. Configuration is split between **service behavior** (stdout audit events) and **collector behavior** (Postgres storage, trace forwarding).
 
 ```text
 lightspeed-service
   ├─ stdout JSON audit events     ← spec.ols.auditEventsEnabled
-  └─ OTLP traces (gRPC :4317)   ← always → lightspeed-otel-collector Service
+  └─ OTLP traces (gRPC :4317)   ← disabled (OLS-3737); no-op tracer fallback
 
-OTEL Collector (always deployed)
+OTEL Collector (disabled — OLS-3737; re-enable in Phase 3)
   ├─ logs pipeline → Postgres     ← spec.audit.logging (*bool, default true)
   │     (only service.name=lightspeed-agentic-sandbox)
   ├─ postgres_admin HTTPS :8080   ← always (templog cleanup / GET for agentic-operator)
@@ -64,12 +64,10 @@ The operator generates service audit config independently of `spec.audit`:
 | olsconfig.yaml | Source |
 |----------------|--------|
 | `audit.logging` | `spec.ols.auditEventsEnabled` (default Enabled) |
-| `audit.otel.endpoint` | Always `lightspeed-otel-collector.<ns>.svc:4317` |
-| `audit.otel.tls_mode` | Always `Secure` (OTLP/gRPC with TLS) |
 
-The operator mounts the OpenShift service-ca bundle into the app-server at `/etc/certs/otel-collector-ca/service-ca.crt`, adds it to `extra_ca` in `olsconfig.yaml`, and sets `OTEL_EXPORTER_OTLP_CERTIFICATE` to that path (required for OTLP/gRPC; `extra_ca` alone is not used by the exporter). See `tls.md`.
+**OLS-3737**: OTEL endpoint injection (`audit.otel.endpoint`, `audit.otel.tls_mode`) is **disabled** until e2e tests prove the collector pipeline works. The service falls back to a no-op tracer when the otel section is absent. Re-enablement tracked in OLS-3737 Phase 3.
 
-Service continues to use the existing gRPC OTLP trace exporter (`opentelemetry.exporter.otlp.proto.grpc`).
+The operator still mounts the OpenShift service-ca bundle into the app-server at `/etc/certs/otel-collector-ca/service-ca.crt`, adds it to `extra_ca` in `olsconfig.yaml`, and sets `OTEL_EXPORTER_OTLP_CERTIFICATE` to that path. These mounts are retained for Phase 3 re-enablement. See `tls.md`.
 
 ## Operator image flag ([OLS-3509](https://redhat.atlassian.net/browse/OLS-3509))
 
@@ -82,13 +80,15 @@ Service continues to use the existing gRPC OTLP trace exporter (`opentelemetry.e
 
 The Postgres bootstrap script creates only `quota` and `conversation_cache` schemas. It does **not** create the `templogs` schema or tables.
 
-The OTEL Collector always creates and manages the `templogs` schema, `logs` table, and indexes via the `postgres_admin` extension at collector startup (`postgres_admin` is always enabled for clients). `spec.audit.logging` only controls whether new OTLP logs are exported into that schema. The operator never drops this schema. The `logs` table uses `agentic_run_id` (AgenticRun UID, normalized to 32-char hex) and `phase` (audit phase name) as the primary query dimensions, with a composite index on `(agentic_run_id, phase)`.
+When the collector is enabled, it creates and manages the `templogs` schema, `logs` table, and indexes via the `postgres_admin` extension at collector startup (`postgres_admin` is always enabled for clients). `spec.audit.logging` only controls whether new OTLP logs are exported into that schema. The operator never drops this schema. The `logs` table uses `agentic_run_id` (AgenticRun UID, normalized to 32-char hex) and `phase` (audit phase name) as the primary query dimensions, with a composite index on `(agentic_run_id, phase)`.
 
 See `postgres.md` for Postgres bootstrap scope and `templog.md` (lightspeed-service repo) for table DDL semantics.
 
 ## Collector Operand ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510), [OLS-3513](https://redhat.atlassian.net/browse/OLS-3513), [OLS-3656](https://redhat.atlassian.net/browse/OLS-3656))
 
-1. **Always** deploy a single-replica Collector Deployment. Service exposes OTLP gRPC `:4317`, OTLP HTTP `:4318`, `postgres_admin` HTTPS `:8080`, and HTTPS Prometheus metrics `:8888`. Health check listens on `:13133` (pod-local; not on the Service).
+> **OLS-3737**: Collector reconciliation is **disabled** — the rules below describe the target architecture when re-enabled in Phase 3. The collector code is commented out, not deleted.
+
+1. Deploy a single-replica Collector Deployment. Service exposes OTLP gRPC `:4317`, OTLP HTTP `:4318`, `postgres_admin` HTTPS `:8080`, and HTTPS Prometheus metrics `:8888`. Health check listens on `:13133` (pod-local; not on the Service).
 2. Image from `GetOtelCollectorImage()`; pod scheduling from `spec.ols.deployment.otelCollector`.
 3. ConfigMap pipelines driven by `spec.audit`:
    - `logging` true/absent → logs pipeline with `routing/logs` connector and `postgresexporter`; only OTLP logs where `service.name == "lightspeed-agentic-sandbox"` are stored in Postgres; unmatched logs go to `logs/unmatched` → `nop`
@@ -116,7 +116,7 @@ Agentic-operator reads OTLP/admin endpoints from `lightspeed-agentic-configurati
 
 ## Constraints
 
-1. Collector is always a single replica.
+1. Collector is a single replica (when enabled).
 2. Collector container image is operator-managed via `--otel-collector-image` (not user-supplied in CR).
 3. `templogs` schema is created by the OTEL Collector, not Postgres bootstrap; the operator never drops it.
 4. Only sandbox audit logs (`service.name=lightspeed-agentic-sandbox`) are routed to Postgres.

@@ -98,14 +98,17 @@ func GenerateAgenticConfigurationConfigMap(r reconciler.Reconciler, cr *olsv1alp
 	}
 
 	ns := r.GetNamespace()
-	otelHost := fmt.Sprintf("%s.%s.svc", utils.OtelCollectorServiceName, ns)
+	// OLS-3737: OTEL endpoint data disabled until e2e tests prove the
+	// collector pipeline works. Re-enable in OLS-3737 Phase 3.
+	// otelHost := fmt.Sprintf("%s.%s.svc", utils.OtelCollectorServiceName, ns)
 
 	data := map[string]string{
-		utils.AgenticConfigurationSandboxModeKey:           string(SandboxModeFromCR(cr)),
-		utils.AgenticConfigurationSandboxPodSpecKey:        string(podSpecJSON),
-		utils.AgenticConfigurationOtelCollectorEndpointKey: fmt.Sprintf("%s:%d", otelHost, utils.OtelCollectorGRPCPort),
-		utils.AgenticConfigurationOtelAdminEndpointKey:     fmt.Sprintf("https://%s:%d", otelHost, utils.OtelCollectorAdminPort),
-		utils.AgenticConfigurationOtelCASecretKey:          utils.AgenticOtelCASecretName,
+		utils.AgenticConfigurationSandboxModeKey:    string(SandboxModeFromCR(cr)),
+		utils.AgenticConfigurationSandboxPodSpecKey: string(podSpecJSON),
+		// OLS-3737: OTEL keys disabled until collector pipeline is proven.
+		// utils.AgenticConfigurationOtelCollectorEndpointKey: fmt.Sprintf("%s:%d", otelHost, utils.OtelCollectorGRPCPort),
+		// utils.AgenticConfigurationOtelAdminEndpointKey:     fmt.Sprintf("https://%s:%d", otelHost, utils.OtelCollectorAdminPort),
+		// utils.AgenticConfigurationOtelCASecretKey:          utils.AgenticOtelCASecretName,
 	}
 	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		data[utils.AgenticConfigurationMCPEndpointKey] = utils.OpenShiftMCPServerServiceURL(ns)
