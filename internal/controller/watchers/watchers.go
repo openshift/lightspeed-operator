@@ -15,6 +15,7 @@ import (
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/agenticconsole"
+	"github.com/openshift/lightspeed-operator/internal/controller/agenticintegration"
 	"github.com/openshift/lightspeed-operator/internal/controller/alertsadapter"
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
@@ -22,6 +23,7 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/otelcollector"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
+	"github.com/openshift/lightspeed-operator/internal/controller/rhokp"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
@@ -280,8 +282,8 @@ func SecretWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj clien
 			affectedDeployments, found = watcherConfig.AnnotatedSecretMapping[secretName]
 		}
 		if !found {
-			// Default: affect only ACTIVE_BACKEND (e.g., LLM provider secrets)
-			affectedDeployments = []string{"ACTIVE_BACKEND"}
+			// Default: affect only app-server (e.g., LLM provider secrets)
+			affectedDeployments = []string{utils.OLSAppServerDeploymentName}
 		}
 
 		r.GetLogger().Info("Detected annotated secret change",
@@ -350,8 +352,8 @@ func ConfigMapWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj cl
 			affectedDeployments, found = watcherConfig.AnnotatedConfigMapMapping[configMapName]
 		}
 		if !found {
-			// Default: affect only ACTIVE_BACKEND (e.g., CA bundle configmaps)
-			affectedDeployments = []string{"ACTIVE_BACKEND"}
+			// Default: affect only app-server (e.g., CA bundle configmaps)
+			affectedDeployments = []string{utils.OLSAppServerDeploymentName}
 		}
 
 		r.GetLogger().Info("Detected annotated configmap change",
@@ -368,7 +370,7 @@ func ConfigMapWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj cl
 // RestartFunc is a function that restarts a deployment
 type RestartFunc func(reconciler.Reconciler, context.Context, ...*appsv1.Deployment) error
 
-// restartFuncs maps deployment names to their restart functions
+// restartFuncs maps deployment names (or pseudo-targets) to their restart functions.
 var restartFuncs = map[string]RestartFunc{
 	utils.OLSAppServerDeploymentName:       appserver.RestartAppServer,
 	utils.PostgresDeploymentName:           postgres.RestartPostgres,
@@ -377,17 +379,20 @@ var restartFuncs = map[string]RestartFunc{
 	utils.AlertsAdapterDeploymentName:      alertsadapter.RestartAlertsAdapter,
 	utils.OtelCollectorDeploymentName:      otelcollector.RestartOtelCollector,
 	utils.OpenShiftMCPServerDeploymentName: ocpmcp.Restart,
+	utils.RHOKPDeploymentName:              rhokp.Restart,
+	// Pseudo-target: touch the agentic handoff ConfigMap so agentic-operator reloads CA material.
+	utils.AgenticConfigurationConfigMapName: touchAgenticConfigurationFunc,
+}
+
+// touchAgenticConfigurationFunc adapts TouchAgenticConfiguration to the RestartFunc signature.
+func touchAgenticConfigurationFunc(r reconciler.Reconciler, ctx context.Context, _ ...*appsv1.Deployment) error {
+	return agenticintegration.TouchAgenticConfiguration(r, ctx)
 }
 
 // restart corresponding deployment
 func restartDeployment(r reconciler.Reconciler, ctx context.Context, affectedDeployments []string, namespace string, name string) {
 
 	for _, depName := range affectedDeployments {
-		// Resolve ACTIVE_BACKEND to actual deployment name
-		if depName == "ACTIVE_BACKEND" {
-			depName = utils.OLSAppServerDeploymentName
-		}
-
 		// Restart the deployment using the appropriate function
 		restartFunc, exists := restartFuncs[depName]
 		if !exists {

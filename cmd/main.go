@@ -376,7 +376,7 @@ func main() {
 					Name:                utils.TelemetryPullSecretName,
 					Namespace:           utils.TelemetryPullSecretNamespace,
 					Description:         "OpenShift telemetry pull secret",
-					AffectedDeployments: []string{"ACTIVE_BACKEND"},
+					AffectedDeployments: []string{utils.OLSAppServerDeploymentName},
 				},
 				{
 					Name:                utils.ConsoleUIServiceCertSecretName,
@@ -394,13 +394,13 @@ func main() {
 					Name:                utils.PostgresCertsSecretName,
 					Namespace:           namespace,
 					Description:         "PostgreSQL TLS certificate (created by Service CA Operator)",
-					AffectedDeployments: []string{utils.PostgresDeploymentName, "ACTIVE_BACKEND"},
+					AffectedDeployments: []string{utils.PostgresDeploymentName, utils.OLSAppServerDeploymentName},
 				},
 				{
 					Name:                utils.OtelCollectorCertsSecretName,
 					Namespace:           namespace,
 					Description:         "OTEL Collector TLS certificate (created by Service CA Operator)",
-					AffectedDeployments: []string{utils.OtelCollectorDeploymentName, "ACTIVE_BACKEND"},
+					AffectedDeployments: []string{utils.OtelCollectorDeploymentName, utils.OLSAppServerDeploymentName, utils.AgenticConfigurationConfigMapName},
 				},
 				{
 					// Gated at runtime by WatcherConfig.OpenShiftMCPServerTLSWatchEnabled
@@ -408,7 +408,15 @@ func main() {
 					Name:                utils.OpenShiftMCPServerCertsSecretName,
 					Namespace:           namespace,
 					Description:         "OpenShift MCP server serving certificate (created by Service CA Operator)",
-					AffectedDeployments: []string{utils.OpenShiftMCPServerDeploymentName, "ACTIVE_BACKEND"},
+					AffectedDeployments: []string{utils.OpenShiftMCPServerDeploymentName, utils.OLSAppServerDeploymentName, utils.AgenticConfigurationConfigMapName},
+				},
+				{
+					// Gated at runtime by WatcherConfig.RHOKPTLSWatchEnabled
+					// (!byokRAGOnly). Keep the entry static to avoid SystemResources races.
+					Name:                utils.RHOKPCertsSecretName,
+					Namespace:           namespace,
+					Description:         "RHOKP serving certificate (created by Service CA Operator)",
+					AffectedDeployments: []string{utils.RHOKPDeploymentName, utils.OLSAppServerDeploymentName, utils.AgenticConfigurationConfigMapName},
 				},
 			},
 		},
@@ -420,26 +428,26 @@ func main() {
 					Name:                utils.DefaultOpenShiftCerts,
 					Namespace:           namespace,
 					Description:         "OpenShift default CA bundle",
-					AffectedDeployments: []string{"ACTIVE_BACKEND"},
+					AffectedDeployments: []string{utils.OLSAppServerDeploymentName},
 				},
 				{
 					Name:                utils.OLSCAConfigMap,
 					Namespace:           namespace,
 					Description:         "OpenShift Service CA certificate bundle",
-					AffectedDeployments: []string{"ACTIVE_BACKEND", utils.PostgresDeploymentName},
+					AffectedDeployments: []string{utils.OLSAppServerDeploymentName, utils.PostgresDeploymentName},
 				},
 			},
 		},
 		// AnnotatedSecretMapping maps secret names to their affected deployments.
 		// These are secrets that the operator manages and annotates with watchers.openshift.io/watch.
 		// When these secrets change, the watcher will restart the listed deployments.
-		// Key: secret name, Value: list of deployment names (use "ACTIVE_BACKEND" for appserver).
+		// Key: secret name, Value: list of deployment names.
 		// Only list secrets here that need to restart specific deployments beyond the active backend.
 		AnnotatedSecretMapping: map[string][]string{},
 		// AnnotatedConfigMapMapping maps configmap names to their affected deployments.
 		// These are configmaps that the operator manages and annotates with watchers.openshift.io/watch.
 		// When these configmaps change, the watcher will restart the listed deployments.
-		// Key: configmap name, Value: list of deployment names (use "ACTIVE_BACKEND" for appserver)
+		// Key: configmap name, Value: list of deployment names.
 		// Only list configmaps here that need to restart specific deployments beyond the active backend.
 		AnnotatedConfigMapMapping: map[string][]string{},
 	}

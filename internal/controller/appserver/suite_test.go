@@ -208,9 +208,6 @@ var _ = BeforeEach(func() {
 })
 
 func deploymentContainerCount(base int) int {
-	if !cr.Spec.OLSConfig.ByokRAGOnly {
-		return base + 1
-	}
 	return base
 }
 
@@ -227,6 +224,10 @@ func expectedAppServerEnv() []corev1.EnvVar {
 				utils.AppOtelCollectorCACertDir,
 				utils.AppOtelCollectorCACertFile,
 			),
+		},
+		{
+			Name:  "SSL_CERT_FILE",
+			Value: filepath.Join(utils.OLSAppCertsMountRoot, utils.CertBundleVolumeName, "ols.pem"),
 		},
 	}
 	if !cr.Spec.OLSConfig.ByokRAGOnly {

@@ -50,7 +50,7 @@ func createTestReconciler(objs ...client.Object) reconciler.Reconciler {
 				{
 					Name:                utils.DefaultOpenShiftCerts,
 					Namespace:           utils.OLSNamespaceDefault,
-					AffectedDeployments: []string{"ACTIVE_BACKEND"},
+					AffectedDeployments: []string{utils.OLSAppServerDeploymentName},
 					Description:         "test openshift CA",
 				},
 			},
@@ -135,7 +135,7 @@ var _ = Describe("Watchers", func() {
 			Expect(func() { SecretWatcherFilter(r, ctx, sec, false) }).NotTo(Panic())
 		})
 
-		It("uses default ACTIVE_BACKEND when annotation present but name not in mapping", func() {
+		It("uses default app-server deployment when annotation present but name not in mapping", func() {
 			r := createTestReconciler()
 			sec := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -362,7 +362,7 @@ var _ = Describe("Watchers", func() {
 	})
 
 	Describe("restartDeployment with in-cluster restart", func() {
-		It("resolves ACTIVE_BACKEND and attempts app server restart", func() {
+		It("restarts app server deployment", func() {
 			cr := utils.GetDefaultOLSConfigCR()
 			dep := &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{

@@ -41,8 +41,8 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 
 ### Watching and Restarts
 12. Secret `openshift-mcp-server-tls` is listed statically in `WatcherConfig.Secrets.SystemResources`. Watching is gated by `OpenShiftMCPServerTLSWatchEnabled` (`syncOpenShiftMCPServerTLSWatcher`), set from `introspectionEnabled`, so enable/disable does not rewrite the SystemResources slice under the informer.
-13. On TLS Secret data change, the watcher restarts both `openshift-mcp-server` and `ACTIVE_BACKEND` (app-server). `RestartAppServer` refreshes client CA Secrets from `openshift-service-ca.crt` and touches the handoff ConfigMap (fail-closed if CA refresh fails — see `agentic-sandbox-profile.md`).
-14. ConfigMap `openshift-service-ca.crt` changes also restart `ACTIVE_BACKEND`, refreshing both OTEL and MCP client CA Secrets.
+13. On TLS Secret data change, the watcher restarts `openshift-mcp-server`, `lightspeed-app-server`, and touches `lightspeed-agentic-configuration`. `RestartAppServer` refreshes client CA Secrets from `openshift-service-ca.crt` and touches the handoff ConfigMap (fail-closed if CA refresh fails — see `agentic-sandbox-profile.md`).
+14. ConfigMap `openshift-service-ca.crt` changes also restart `lightspeed-app-server`, refreshing all client CA Secrets (OTEL, MCP, RHOKP).
 15. MCP Deployment also tracks ConfigMap and TLS Secret ResourceVersions and rolls when they change.
 
 ### Security

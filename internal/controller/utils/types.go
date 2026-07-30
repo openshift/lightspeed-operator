@@ -19,6 +19,7 @@ const (
 	TypeAlertsAdapterReady        = "AlertsAdapterReady"
 	TypeOtelCollectorReady        = "OtelCollectorReady"
 	TypeMCPServerReady            = "MCPServerReady"
+	TypeRHOKPReady                = "RHOKPReady"
 	TypeCRReconciled              = "Reconciled"
 )
 
@@ -78,6 +79,9 @@ type WatcherConfig struct {
 	// The Secret stays in Secrets.SystemResources (static); reconcile toggles this flag from
 	// introspectionEnabled so enable/disable does not rewrite SystemResources under the informer.
 	OpenShiftMCPServerTLSWatchEnabled atomic.Bool
+	// RHOKPTLSWatchEnabled gates informer handling of lightspeed-rhokp-tls.
+	// Same pattern: static entry, toggled from !byokRAGOnly.
+	RHOKPTLSWatchEnabled atomic.Bool
 }
 
 // IsSystemSecretWatchEnabled reports whether a SystemResources entry should be active.
@@ -88,6 +92,9 @@ func (c *WatcherConfig) IsSystemSecretWatchEnabled(secret SystemSecret) bool {
 	}
 	if secret.Name == OpenShiftMCPServerCertsSecretName {
 		return c.OpenShiftMCPServerTLSWatchEnabled.Load()
+	}
+	if secret.Name == RHOKPCertsSecretName {
+		return c.RHOKPTLSWatchEnabled.Load()
 	}
 	return true
 }

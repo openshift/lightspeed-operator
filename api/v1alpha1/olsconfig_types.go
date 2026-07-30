@@ -407,9 +407,9 @@ type DeploymentConfig struct {
 	// MCP server deployment settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="MCP Server Deployment"
 	MCPServerContainer Config `json:"mcpServer,omitempty"`
-	// RHOKP sidecar container settings (Solr / OKP).
+	// RHOKP standalone deployment settings (Solr / OKP).
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RHOKP Container"
-	RHOKPContainer ContainerConfig `json:"rhokp,omitempty"`
+	RHOKPContainer Config `json:"rhokp,omitempty"`
 	// Console container settings.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Console Deployment"
 	ConsoleContainer Config `json:"console,omitempty"`

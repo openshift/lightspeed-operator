@@ -114,12 +114,8 @@ func ReconcileAppServerDeployment(r reconciler.Reconciler, ctx context.Context, 
 
 	tasks := []utils.ReconcileTask{
 		{
-			Name: "reconcile OTEL client CA Secret",
-			Task: reconcileOtelClientCASecret,
-		},
-		{
-			Name: "reconcile MCP client CA Secret",
-			Task: reconcileMCPClientCASecret,
+			Name: "reconcile client CA Secrets",
+			Task: RefreshClientCASecrets,
 		},
 		{
 			Name: "reconcile Exporter ConfigMap",

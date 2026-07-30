@@ -10,7 +10,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -136,7 +135,7 @@ var _ = Describe("App server deployment generation", func() {
 
 			By("Enabling introspection")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
-			Expect(reconcileMCPClientCASecret(testReconcilerInstance, ctx, cr)).To(Succeed())
+			Expect(RefreshClientCASecrets(testReconcilerInstance, ctx, cr)).To(Succeed())
 
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
@@ -165,8 +164,6 @@ var _ = Describe("App server deployment generation", func() {
 				MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.AppOpenShiftMCPServerCACertDir),
 				ReadOnly:  true,
 			}))
-			Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
-			Expect(dep.Annotations[utils.OpenShiftMCPServerCACertHashAnnotation]).NotTo(BeEmpty())
 
 			By("Disabling introspection")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
@@ -175,7 +172,6 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
-			Expect(dep.Annotations).NotTo(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
 			for _, v := range dep.Spec.Template.Spec.Volumes {
 				Expect(v.Name).NotTo(Equal(utils.AppOpenShiftMCPServerCACertVolumeName))
 			}
@@ -186,19 +182,7 @@ var _ = Describe("App server deployment generation", func() {
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(HaveField("Name", utils.AppOpenShiftMCPServerCACertVolumeName)))
-		})
-
-		It("should not generate app-server deployment when MCP client CA Secret is missing", func() {
-			utils.DeleteAgenticMCPCASecret(ctx, k8sClient)
-			defer utils.EnsureAgenticMCPCASecret(ctx, k8sClient, utils.TestCACert)
-
-			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
-
-			_, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(utils.ErrOpenShiftMCPServerCANotReady))
 		})
 
 		It("should mount MCP CA independently of data collection settings", func() {
@@ -246,7 +230,6 @@ var _ = Describe("App server deployment generation", func() {
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(1)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(HaveField("Name", utils.AppOpenShiftMCPServerCACertVolumeName)))
-			Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
 		})
 	})
 
@@ -567,7 +550,7 @@ var _ = Describe("App server deployment generation", func() {
 
 			olsCm, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/otel-collector-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
+			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/otel-collector-ca/service-ca.crt\n  - /etc/certs/rhokp-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
 			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
@@ -714,7 +697,7 @@ var _ = Describe("App server deployment generation", func() {
 			))
 		})
 
-		It("should add RHOKP sidecar by default", func() {
+		It("should not include RHOKP sidecar container (standalone replaces sidecar)", func() {
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
@@ -724,52 +707,9 @@ var _ = Describe("App server deployment generation", func() {
 			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 
-			var rhokpContainer *corev1.Container
 			for i := range dep.Spec.Template.Spec.Containers {
-				if dep.Spec.Template.Spec.Containers[i].Name == utils.RHOOKPContainerName {
-					rhokpContainer = &dep.Spec.Template.Spec.Containers[i]
-					break
-				}
-			}
-			Expect(rhokpContainer).NotTo(BeNil(), "expected RHOKP sidecar container")
-			Expect(rhokpContainer.Image).To(Equal(testReconcilerInstance.GetRHOOKPImage()))
-			Expect(rhokpContainer.Ports).To(ContainElement(
-				MatchFields(IgnoreExtras, Fields{
-					"ContainerPort": Equal(int32(utils.RHOOKPHTTPPort)),
-					"Name":          Equal("solr-http"),
-					"Protocol":      Equal(corev1.ProtocolTCP),
-				}),
-			))
-			Expect(rhokpContainer.Command).To(Equal(rhokpContainerCommand()))
-			Expect(rhokpContainer.Args).To(Equal(rhokpContainerArgs()))
-			Expect(rhokpContainer.StartupProbe).To(Equal(rhokpStartupProbe()))
-			Expect(rhokpContainer.ReadinessProbe).To(Equal(rhokpReadinessProbe()))
-			Expect(rhokpContainer.LivenessProbe).To(Equal(rhokpLivenessProbe()))
-			Expect(rhokpContainer.Resources).To(Equal(corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:              resource.MustParse("2"),
-					corev1.ResourceMemory:           resource.MustParse("2Gi"),
-					corev1.ResourceEphemeralStorage: resource.MustParse("75Gi"),
-				},
-				Claims: []corev1.ResourceClaim{},
-			}))
-			Expect(rhokpContainer.SecurityContext.ReadOnlyRootFilesystem).NotTo(BeNil())
-			Expect(*rhokpContainer.SecurityContext.ReadOnlyRootFilesystem).To(BeFalse())
-			Expect(rhokpContainer.Env).To(ContainElement(
-				MatchFields(IgnoreExtras, Fields{
-					"Name":  Equal("ACCESS_KEY"),
-					"Value": BeEmpty(),
-					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
-						"SecretKeyRef": PointTo(MatchFields(IgnoreExtras, Fields{
-							"LocalObjectReference": Equal(corev1.LocalObjectReference{Name: utils.RHOOKPAccessKeySecretName}),
-							"Key":                  Equal(utils.RHOOKPAccessKeySecretKey),
-							"Optional":             PointTo(BeTrue()),
-						})),
-					})),
-				}),
-			))
-			for _, ic := range dep.Spec.Template.Spec.InitContainers {
-				Expect(ic.Name).NotTo(HavePrefix("rhokp"), "RHOKP must not use an init container")
+				Expect(dep.Spec.Template.Spec.Containers[i].Name).NotTo(Equal(utils.RHOOKPContainerName),
+					"RHOKP sidecar must not be present; it is now a standalone Deployment")
 			}
 
 			var apiContainer *corev1.Container
@@ -786,40 +726,7 @@ var _ = Describe("App server deployment generation", func() {
 			}))
 		})
 
-		It("should apply custom RHOKP resources from the CR", func() {
-			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
-			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
-				FeedbackDisabled:    true,
-				TranscriptsDisabled: true,
-			}
-			cr.Spec.OLSConfig.DeploymentConfig.RHOKPContainer = olsv1alpha1.ContainerConfig{
-				Resources: &corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("1"),
-						corev1.ResourceMemory: resource.MustParse("1Gi"),
-					},
-					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("4"),
-						corev1.ResourceMemory: resource.MustParse("4Gi"),
-					},
-				},
-			}
-
-			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
-			Expect(err).NotTo(HaveOccurred())
-
-			var rhokpContainer *corev1.Container
-			for i := range dep.Spec.Template.Spec.Containers {
-				if dep.Spec.Template.Spec.Containers[i].Name == utils.RHOOKPContainerName {
-					rhokpContainer = &dep.Spec.Template.Spec.Containers[i]
-					break
-				}
-			}
-			Expect(rhokpContainer).NotTo(BeNil())
-			Expect(rhokpContainer.Resources).To(Equal(*cr.Spec.OLSConfig.DeploymentConfig.RHOKPContainer.Resources))
-		})
-
-		It("should not add RHOKP sidecar or OCP_CLUSTER_VERSION when byokRAGOnly is true", func() {
+		It("should not include RHOKP sidecar even when byokRAGOnly is true", func() {
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
 				FeedbackDisabled:    true,
