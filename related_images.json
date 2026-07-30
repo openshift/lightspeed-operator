@@ -13,8 +13,8 @@
   },
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:802897cc0906ae5dbfa1ac6976027ed690cedbc903878e64262c57270a2c0cab",
-    "revision": "38771432b12e704bc1adcb1009673504c891417c",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:029eddf46a62d4ae24d78b785372328de7ec6bc4d0742dc7065b5b93dbe6549c",
+    "revision": "5b712fd9729d93d4c542220fca8e1ad755a87e45",
     "operator_arg": "service-image",
     "snapshot_component": "lightspeed-service",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service",
@@ -31,8 +31,8 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:33754d9f419c2d6713b693aadcd8be37c5f293f4f9d07e28bae75a7768a18317",
-    "revision": "7132654399ec1289f5e1d3376bec3e4636b174af",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:cdeae6b87b9123cf9ec1d401f64ff07633e7da7116ac0be8cea0310ad5bf57d1",
+    "revision": "1aadd397c1f7305f97a81c4af406f65dccd9d2c9",
     "operator_target": "image",
     "snapshot_component": "lightspeed-operator",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator",
