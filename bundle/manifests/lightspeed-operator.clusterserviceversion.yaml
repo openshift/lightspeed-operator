@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-07-29T11:48:55Z"
+    createdAt: "2026-07-29T23:07:46Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -1012,7 +1012,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:74a5c2911a2bad23a33ec1cb4ada78d6b4483ca7d32e534930ac64298e7fa3da
+                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:18ba78e3610cfd80cfd69ae2e300d726a0e5a00010aec1bd2fd1ab4e1118136b
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1137,7 +1137,7 @@ spec:
     - name: lightspeed-console-plugin
       image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:abc8816ab7681a045dba349688fb26755a772045770327cfe41dae11475dabec
     - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:74a5c2911a2bad23a33ec1cb4ada78d6b4483ca7d32e534930ac64298e7fa3da
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:18ba78e3610cfd80cfd69ae2e300d726a0e5a00010aec1bd2fd1ab4e1118136b
     - name: openshift-mcp-server
       image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:e7626fae901d8855922cf77ab71ea6ce22f3ce15d32184632ac5985d359afd68
     - name: rhokp
