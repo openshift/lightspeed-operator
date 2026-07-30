@@ -2,6 +2,7 @@ package appserver
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -466,6 +467,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 
 	annotations := map[string]string{
 		utils.OLSConfigMapResourceVersionAnnotation: configMapResourceVersion,
+		utils.RAGSpecHashAnnotation:                 ragSpecHash(cr),
 		utils.ProxyCACertHashAnnotation:             proxyCACMResourceVersion,
 	}
 
@@ -616,6 +618,13 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		}
 	}
 
+	// Step 4: Check if RAG spec has changed
+	currentRAGHash := ragSpecHash(cr)
+	if existingDeployment.Annotations[utils.RAGSpecHashAnnotation] != currentRAGHash {
+		r.GetLogger().Info("RAG spec changed, updating deployment")
+		changed = true
+	}
+
 	// If nothing changed, skip update
 	if !changed {
 		return nil
@@ -630,6 +639,7 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	}
 
 	existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
+	existingDeployment.Annotations[utils.RAGSpecHashAnnotation] = currentRAGHash
 	existingDeployment.Annotations[utils.ProxyCACertHashAnnotation] = currentProxyCACMHash
 
 	r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
@@ -732,4 +742,12 @@ func RestartAppServer(r reconciler.Reconciler, ctx context.Context, deployment .
 	}
 
 	return nil
+}
+
+func ragSpecHash(cr *olsv1alpha1.OLSConfig) string {
+	if len(cr.Spec.OLSConfig.RAG) == 0 {
+		return ""
+	}
+	data, _ := json.Marshal(cr.Spec.OLSConfig.RAG)
+	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
