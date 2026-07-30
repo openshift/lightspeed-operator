@@ -144,7 +144,7 @@ Entries fall into two categories. Do not add inline comments to `related_images.
 ```json
 {
   "name": "rhokp",
-  "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest",
+  "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9",
   "revision": "",
   "operator_arg": "rhokp-image"
 }
