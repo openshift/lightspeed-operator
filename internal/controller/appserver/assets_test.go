@@ -1664,6 +1664,7 @@ var _ = Describe("App server assets", func() {
 			rb, err := generateMetricsReaderClusterRoleBinding(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rb.Name).To(Equal(utils.MetricsReaderClusterRoleBindingName))
+			Expect(rb.Labels).To(Equal(utils.GenerateAppServerSelectorLabels()))
 			Expect(rb.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(rb.RoleRef.Name).To(Equal(utils.MetricsReaderClusterRoleName))
 			Expect(rb.Subjects).To(HaveLen(1))

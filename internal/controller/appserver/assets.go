@@ -1020,12 +1020,8 @@ func GenerateMetricsReaderSecret(r reconciler.Reconciler, cr *olsv1alpha1.OLSCon
 func generateMetricsReaderClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRoleBinding, error) {
 	rb := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: utils.MetricsReaderClusterRoleBindingName,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":      "clusterrolebinding",
-				"app.kubernetes.io/component": "metrics",
-				"app.kubernetes.io/part-of":   "lightspeed-operator",
-			},
+			Name:   utils.MetricsReaderClusterRoleBindingName,
+			Labels: utils.GenerateAppServerSelectorLabels(),
 		},
 		Subjects: []rbacv1.Subject{
 			{
