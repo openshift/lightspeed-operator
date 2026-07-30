@@ -410,6 +410,7 @@ func reconcileMetricsReaderSecret(r reconciler.Reconciler, ctx context.Context, 
 	return nil
 }
 
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;create;update
 func reconcileMetricsReaderClusterRoleBinding(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	if os.Getenv("LOCAL_DEV_MODE") == "true" {
 		r.GetLogger().Info("Skipping metrics reader ClusterRoleBinding reconciliation in LOCAL_DEV_MODE")
