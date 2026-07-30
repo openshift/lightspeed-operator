@@ -1004,7 +1004,7 @@ spec:
                       - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:802897cc0906ae5dbfa1ac6976027ed690cedbc903878e64262c57270a2c0cab
                       - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:4fe49967001efe4e277c887a0b218e9d7ff7c051f2d7e8928afaab2d1705cfb0
                       - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:e7626fae901d8855922cf77ab71ea6ce22f3ce15d32184632ac5985d359afd68
-                      - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest
+                      - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9
                     command:
                       - /manager
                     env:
@@ -1141,4 +1141,4 @@ spec:
     - name: openshift-mcp-server
       image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:e7626fae901d8855922cf77ab71ea6ce22f3ce15d32184632ac5985d359afd68
     - name: rhokp
-      image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest
+      image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9
