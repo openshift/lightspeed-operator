@@ -20,8 +20,10 @@ var _ = Describe("Agentic integration reconciler", Ordered, func() {
 		testCR.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 	})
 
+	// OLS-3737: OTEL prerequisite gating is disabled. The handoff ConfigMap
+	// should be created even without the OTEL Collector Service.
 	Context("create gating", func() {
-		It("should not create the handoff ConfigMap when OTEL Service is missing", func() {
+		It("should create the handoff ConfigMap even when OTEL Service is missing", func() {
 			cm := &corev1.ConfigMap{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
 				Name:      utils.AgenticConfigurationConfigMapName,
@@ -33,7 +35,7 @@ var _ = Describe("Agentic integration reconciler", Ordered, func() {
 				Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}
 
-			// Other specs may have created prerequisites; remove OTEL Service for this gate.
+			// Remove OTEL Service to verify the handoff no longer gates on it.
 			otelSvc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{
 				Name: utils.OtelCollectorServiceName, Namespace: utils.OLSNamespaceDefault,
 			}}
@@ -43,14 +45,13 @@ var _ = Describe("Agentic integration reconciler", Ordered, func() {
 			gated := testCR.DeepCopy()
 			gated.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 			err = ReconcileAgenticIntegrationResources(testReconcilerInstance, ctx, gated)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(utils.ErrAgenticConfigurationPrerequisitesNotReady))
+			Expect(err).NotTo(HaveOccurred())
 
 			err = k8sClient.Get(ctx, types.NamespacedName{
 				Name:      utils.AgenticConfigurationConfigMapName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, cm)
-			Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
@@ -71,7 +72,8 @@ var _ = Describe("Agentic integration reconciler", Ordered, func() {
 			expectOwnedByOLSConfig(cm)
 			Expect(cm.Data[utils.AgenticConfigurationSandboxModeKey]).To(Equal(string(olsv1alpha1.SandboxModeBarePod)))
 			Expect(cm.Data).To(HaveKey(utils.AgenticConfigurationSandboxPodSpecKey))
-			Expect(cm.Data[utils.AgenticConfigurationOtelCASecretKey]).To(Equal(utils.AgenticOtelCASecretName))
+			// OLS-3737: OTEL keys no longer present in handoff ConfigMap.
+			Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationOtelCASecretKey))
 			Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationMCPEndpointKey))
 		})
 
