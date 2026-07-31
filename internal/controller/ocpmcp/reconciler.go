@@ -19,11 +19,6 @@ import (
 // ReconcileResources reconciles Phase 1 standalone MCP resources.
 // When introspectionEnabled is false, removes managed MCP resources instead.
 func ReconcileResources(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
-	if !utils.BoolDeref(olsconfig.Spec.OLSConfig.IntrospectionEnabled, true) {
-		r.GetLogger().Info("openshift-mcp-server disabled; removing operand resources")
-		return Remove(r, ctx)
-	}
-
 	return utils.RunReconcileTasks(r, ctx, olsconfig, "reconcileOpenShiftMCPServerResources", []utils.ReconcileTask{
 		{Name: "reconcile openshift-mcp-server ConfigMap", Task: reconcileConfigMap},
 		{Name: "reconcile openshift-mcp-server ServiceAccount", Task: reconcileServiceAccount},
@@ -34,10 +29,6 @@ func ReconcileResources(r reconciler.Reconciler, ctx context.Context, olsconfig 
 
 // ReconcileDeployment reconciles Phase 2: Service, TLS material, and Deployment.
 func ReconcileDeployment(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
-	if !utils.BoolDeref(olsconfig.Spec.OLSConfig.IntrospectionEnabled, true) {
-		return nil
-	}
-
 	return utils.RunReconcileTasks(r, ctx, olsconfig, "reconcileOpenShiftMCPServerDeployment", []utils.ReconcileTask{
 		{Name: "reconcile openshift-mcp-server Service", Task: reconcileService},
 		{Name: "reconcile openshift-mcp-server TLS Certs", Task: reconcileTLSSecret},

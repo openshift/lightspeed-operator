@@ -154,13 +154,21 @@ const (
 	ErrGetAgenticConfigurationConfigMap          = "failed to get agentic configuration configmap"
 	ErrUpdateAgenticConfigurationConfigMap       = "failed to update agentic configuration configmap"
 	ErrAgenticConfigurationPrerequisitesNotReady = "agentic configuration prerequisites not ready"
-	ErrCreateAgenticOtelCASecret                 = "failed to create agentic OTEL CA secret" // #nosec G101
-	ErrGetAgenticOtelCASecret                    = "failed to get agentic OTEL CA secret"    // #nosec G101
-	ErrUpdateAgenticOtelCASecret                 = "failed to update agentic OTEL CA secret" // #nosec G101
-	ErrCreateAgenticMCPCASecret                  = "failed to create agentic MCP CA secret"  // #nosec G101
-	ErrGetAgenticMCPCASecret                     = "failed to get agentic MCP CA secret"     // #nosec G101
-	ErrUpdateAgenticMCPCASecret                  = "failed to update agentic MCP CA secret"  // #nosec G101
-	ErrDeleteAgenticMCPCASecret                  = "failed to delete agentic MCP CA secret"  // #nosec G101
+	ErrCreateAgenticOtelCASecret                 = "failed to create agentic OTEL CA secret"               // #nosec G101
+	ErrGetAgenticOtelCASecret                    = "failed to get agentic OTEL CA secret"                  // #nosec G101
+	ErrUpdateAgenticOtelCASecret                 = "failed to update agentic OTEL CA secret"               // #nosec G101
+	ErrDeleteAgenticOtelCASecret                 = "failed to delete agentic OTEL CA secret"               // #nosec G101
+	ErrCreateAgenticMCPCASecret                  = "failed to create agentic MCP CA secret"                // #nosec G101
+	ErrGetAgenticMCPCASecret                     = "failed to get agentic MCP CA secret"                   // #nosec G101
+	ErrUpdateAgenticMCPCASecret                  = "failed to update agentic MCP CA secret"                // #nosec G101
+	ErrDeleteAgenticMCPCASecret                  = "failed to delete agentic MCP CA secret"                // #nosec G101
+	ErrGenerateAgenticRHOKPCASecret              = "failed to generate agentic RHOKP CA secret"            // #nosec G101
+	ErrSetAgenticRHOKPCASecretOwnerRef           = "failed to set agentic RHOKP CA secret owner reference" // #nosec G101
+	ErrGetAgenticRHOKPCASourceConfigMap          = "failed to get OpenShift service-ca ConfigMap for agentic RHOKP CA"
+	ErrCreateAgenticRHOKPCASecret                = "failed to create agentic RHOKP CA secret" // #nosec G101
+	ErrGetAgenticRHOKPCASecret                   = "failed to get agentic RHOKP CA secret"    // #nosec G101
+	ErrUpdateAgenticRHOKPCASecret                = "failed to update agentic RHOKP CA secret" // #nosec G101
+	ErrDeleteAgenticRHOKPCASecret                = "failed to delete agentic RHOKP CA secret" // #nosec G101
 	ErrGetOLSConfigForAgenticIntegrationRefresh  = "failed to get OLSConfig for agentic integration refresh"
 	ErrGetOLSConfigForAppServerClientCARefresh   = "failed to get OLSConfig for app-server client CA refresh"
 	ErrTouchAgenticConfigurationConfigMap        = "failed to touch agentic configuration configmap"
@@ -220,5 +228,25 @@ const (
 	ErrGetOpenShiftMCPServerDeployment                  = "failed to get openshift-mcp-server deployment"
 	ErrUpdateOpenShiftMCPServerDeployment               = "failed to update openshift-mcp-server deployment"
 	ErrGetOpenShiftMCPServerTLSSecret                   = "failed to get openshift-mcp-server TLS secret" // #nosec G101
-	ErrOpenShiftMCPServerCANotReady                     = "MCP client CA certificate is not ready"
+
+	/*** RHOKP Standalone Errors ***/
+	ErrGenerateRHOKPService                = "failed to generate RHOKP service"
+	ErrGenerateRHOKPNetworkPolicy          = "failed to generate RHOKP network policy"
+	ErrGenerateRHOKPDeployment             = "failed to generate RHOKP deployment"
+	ErrSetRHOKPServiceOwnerReference       = "failed to set RHOKP service owner reference"
+	ErrSetRHOKPNetworkPolicyOwnerReference = "failed to set RHOKP network policy owner reference"
+	ErrSetRHOKPDeploymentOwnerReference    = "failed to set RHOKP deployment owner reference"
+	ErrCreateRHOKPNetworkPolicy            = "failed to create RHOKP network policy"
+	ErrGetRHOKPNetworkPolicy               = "failed to get RHOKP network policy"
+	ErrUpdateRHOKPNetworkPolicy            = "failed to update RHOKP network policy"
+	ErrCreateRHOKPDeployment               = "failed to create RHOKP deployment"
+	ErrGetRHOKPDeployment                  = "failed to get RHOKP deployment"
+	ErrUpdateRHOKPDeployment               = "failed to update RHOKP deployment"
+	ErrGetRHOKPTLSSecret                   = "failed to get RHOKP TLS secret" // #nosec G101
+
+	// Cleanup error constants for conditional operand removal.
+	ErrRemoveOpenShiftMCPServerResources = "failed to remove openshift-mcp-server resources"
+	ErrRemoveRHOKPResources              = "failed to remove RHOKP resources"
+	ErrRemoveAgenticConsoleUIResources   = "failed to remove agentic console UI resources"
+	ErrRemoveAlertsAdapterResources      = "failed to remove alerts adapter resources"
 )

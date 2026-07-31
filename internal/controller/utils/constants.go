@@ -278,6 +278,10 @@ const (
 	AgenticConfigurationMCPEndpointKey = "mcp-endpoint"
 	// AgenticConfigurationMCPCASecretKey is the ConfigMap data key naming the MCP client-CA Secret.
 	AgenticConfigurationMCPCASecretKey = "mcp-ca-secret" // #nosec G101
+	// AgenticConfigurationRHOKPEndpointKey is the standalone RHOKP HTTPS endpoint URL.
+	AgenticConfigurationRHOKPEndpointKey = "rhokp-endpoint"
+	// AgenticConfigurationRHOKPCASecretKey is the ConfigMap data key naming the RHOKP client-CA Secret.
+	AgenticConfigurationRHOKPCASecretKey = "rhokp-ca-secret" // #nosec G101
 	// AgenticConfigurationCertReloadAnnotation is bumped to force ConfigMap RV change
 	// when client CA Secrets rotate so agentic-operator reloads trust material.
 	AgenticConfigurationCertReloadAnnotation = "ols.openshift.io/client-ca-reload"
@@ -289,6 +293,10 @@ const (
 	AgenticMCPCASecretName = "lightspeed-agentic-mcp-ca" // #nosec G101
 	// AgenticMCPCASecretDataKey is the only data key in AgenticMCPCASecretName.
 	AgenticMCPCASecretDataKey = "mcp-ca.crt" // #nosec G101
+	// AgenticRHOKPCASecretName holds the public CA for verifying the standalone RHOKP server.
+	AgenticRHOKPCASecretName = "lightspeed-agentic-rhokp-ca" // #nosec G101
+	// AgenticRHOKPCASecretDataKey is the only data key in AgenticRHOKPCASecretName.
+	AgenticRHOKPCASecretDataKey = "rhokp-ca.crt" // #nosec G101
 	// AgenticSandboxContainerName is the container name in the thin sandbox PodSpec.
 	AgenticSandboxContainerName = "lightspeed-agentic-sandbox"
 	// AgenticIntegrationComponentLabel is the app.kubernetes.io/component value for handoff artifacts.
@@ -507,6 +515,12 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AppOpenShiftMCPServerCACertVolumeName = "openshift-mcp-server-ca"
 	// AppOpenShiftMCPServerCACertFile is the projected filename within AppOpenShiftMCPServerCACertDir.
 	AppOpenShiftMCPServerCACertFile = "service-ca.crt"
+	// AppRHOKPCACertDir is the app-server mount directory for the RHOKP client CA.
+	AppRHOKPCACertDir = "rhokp-ca"
+	// AppRHOKPCACertVolumeName is the app-server volume name for the RHOKP client CA Secret.
+	AppRHOKPCACertVolumeName = "rhokp-ca"
+	// AppRHOKPCACertFile is the projected filename within AppRHOKPCACertDir.
+	AppRHOKPCACertFile = "service-ca.crt"
 	// OpenShiftMCPServerTLSVolumeName is the pod volume name for the serving-cert Secret.
 	OpenShiftMCPServerTLSVolumeName = "tls"
 	// OpenShiftMCPServerTLSMountPath is where tls.crt/tls.key are mounted.
@@ -615,8 +629,34 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	OpenShiftMCPServerConfigMapResourceVersionAnnotation = "ols.openshift.io/mcp-server-configmap-version"
 	// OpenShiftMCPServerTLSSecretResourceVersionAnnotation tracks the MCP TLS Secret ResourceVersion on the MCP Deployment.
 	OpenShiftMCPServerTLSSecretResourceVersionAnnotation = "ols.openshift.io/mcp-server-tls-secret-version" // #nosec G101
-	// OpenShiftMCPServerCACertHashAnnotation tracks the MCP CA ConfigMap content hash on the app-server Deployment.
-	OpenShiftMCPServerCACertHashAnnotation = "ols.openshift.io/mcp-server-ca-configmap-hash"
+
+	/*** Standalone RHOKP Constants ***/
+	// RHOKPDeploymentName is the Deployment name for the standalone RHOKP operand.
+	RHOKPDeploymentName = "lightspeed-rhokp"
+	// RHOKPServiceName is the Service name for standalone RHOKP (HTTPS :8443).
+	RHOKPServiceName = "lightspeed-rhokp"
+	// RHOKPNetworkPolicyName is the NetworkPolicy name for standalone RHOKP.
+	RHOKPNetworkPolicyName = "lightspeed-rhokp"
+	// RHOKPCertsSecretName is the TLS Secret populated by service-ca for the RHOKP Service.
+	RHOKPCertsSecretName = "lightspeed-rhokp-tls" // #nosec G101
+	// RHOKPTLSVolumeName is the volume name for the RHOKP TLS cert/key.
+	RHOKPTLSVolumeName = "rhokp-tls"
+	// RHOKPTLSMountPath is where Apache httpd expects the cert/key.
+	RHOKPTLSMountPath = "/etc/httpd/tls"
+	// RHOKPSolrDataVolumeName is the EmptyDir volume for Solr indexes.
+	RHOKPSolrDataVolumeName = "rhokp-solr-data"
+	// RHOKPSolrDataMountPath is the Solr data directory inside the container.
+	RHOKPSolrDataMountPath = "/var/solr/data"
+	// RHOKPSolrDataSizeLimitDefault is the default EmptyDir sizeLimit for Solr data.
+	RHOKPSolrDataSizeLimitDefault = "75Gi"
+	// RHOKPComponentLabel is the app.kubernetes.io/component label value.
+	RHOKPComponentLabel = "rhokp"
+	// RHOKPTLSSecretResourceVersionAnnotation tracks the TLS Secret ResourceVersion on the RHOKP Deployment.
+	RHOKPTLSSecretResourceVersionAnnotation = "ols.openshift.io/rhokp-tls-secret-version" // #nosec G101
+	// RHOKPProbeFailureThreshold is the liveness probe failure threshold for the standalone RHOKP.
+	RHOKPProbeFailureThreshold = 6
+	// RHOKPReadinessProbeFailureThreshold is the readiness probe failure threshold for the standalone RHOKP.
+	RHOKPReadinessProbeFailureThreshold = 3
 
 	/*** Environment Variable Suffixes ***/
 	// EnvVarSuffixAPIKey is the environment variable suffix for API key credentials
@@ -662,4 +702,9 @@ func imageDefaultOr(name, fallback string) string {
 // OpenShiftMCPServerServiceURL returns the in-cluster HTTPS MCP endpoint for the given namespace.
 func OpenShiftMCPServerServiceURL(namespace string) string {
 	return fmt.Sprintf("https://%s.%s.svc:%d/mcp", OpenShiftMCPServerServiceName, namespace, OpenShiftMCPServerHTTPSPort)
+}
+
+// RHOKPServiceURL returns the in-cluster HTTPS RHOKP Solr endpoint for the given namespace.
+func RHOKPServiceURL(namespace string) string {
+	return fmt.Sprintf("https://%s.%s.svc:%d", RHOKPServiceName, namespace, RHOOKPImageHTTPSPort)
 }

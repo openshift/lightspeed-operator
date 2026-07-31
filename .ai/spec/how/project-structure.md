@@ -114,9 +114,10 @@ External secret/configmap changes
      -> If changed: SecretWatcherFilter() / ConfigMapWatcherFilter()
         -> Match against SystemResources list (by name+namespace)
         -> OR match against WatcherAnnotationKey annotation
-        -> Resolve "ACTIVE_BACKEND" to appserver deployment name
-        -> Call RestartAppServer() / RestartPostgres() / RestartConsoleUI() / RestartAgenticConsoleUI() / RestartAlertsAdapter()
+        -> Call restart function for each affected deployment (appserver, OTEL, MCP, RHOKP, etc.)
            -> Set force-reload annotation with current timestamp
+        -> If applicable, call TouchAgenticConfiguration() to update the handoff ConfigMap timestamp
+        -> If applicable, call TouchAgenticConfiguration() to update the handoff ConfigMap timestamp
 ```
 
 ## Key Abstractions
@@ -127,16 +128,17 @@ Default images are stored in a `defaultImages` map in `cmd/main.go` keyed by log
 ### WatcherConfig
 Declarative configuration for external resource watching. Built in `cmd/main.go` and passed via `OLSConfigReconcilerOptions.WatcherConfig`. Contains:
 - `Secrets.SystemResources`: Fixed list of system secrets with affected deployment names:
-  - Telemetry pull secret → app server (`ACTIVE_BACKEND`)
+  - Telemetry pull secret → app server (`lightspeed-app-server`)
   - `lightspeed-console-plugin-cert` → chat console deployment
   - `lightspeed-agentic-console-plugin-cert` → agentic console deployment (`AgenticConsoleUIDeploymentName`)
   - Postgres TLS cert → postgres + app server
-  - `lightspeed-otel-collector-cert` → OTEL Collector + app server (`ACTIVE_BACKEND`); `RestartAppServer` refreshes client CA Secrets and touches the handoff ConfigMap
-  - `openshift-mcp-server-tls` → OpenShift MCP server + app server (`ACTIVE_BACKEND`); static SystemResources entry, gated by `OpenShiftMCPServerTLSWatchEnabled` when `spec.ols.introspectionEnabled` is true; same app-server refresh+touch path
+  - `lightspeed-otel-collector-cert` → OTEL Collector + app server + agentic ConfigMap; `RestartAppServer` refreshes client CA Secrets and touches the handoff ConfigMap
+  - `openshift-mcp-server-tls` → OpenShift MCP server + app server + agentic ConfigMap; static SystemResources entry, gated by `OpenShiftMCPServerTLSWatchEnabled` when `spec.ols.introspectionEnabled` is true; same app-server refresh+touch path
+  - `lightspeed-rhokp-tls` → RHOKP + app server + agentic ConfigMap; gated by `RHOKPTLSWatchEnabled` when `!byokRAGOnly`; same refresh+touch path
 - `ConfigMaps.SystemResources`: Fixed list of system configmaps (kube-root-ca.crt, service-ca bundle)
 - `AnnotatedSecretMapping`: Dynamic map populated from CR spec at runtime (maps secret name to deployment names)
 - `AnnotatedConfigMapMapping`: Dynamic map populated from CR spec at runtime (maps configmap name to deployment names)
-The special deployment name `"ACTIVE_BACKEND"` resolves to the AppServer deployment name (`lightspeed-app-server`).
+All deployment names in `AffectedDeployments` are explicit (e.g. `lightspeed-app-server`, `lightspeed-rhokp`).
 
 When the service-ca operator rotates or populates a watched TLS secret, `SecretUpdateHandler` restarts the mapped deployment via `RestartConsoleUI()` or `RestartAgenticConsoleUI()` (registered in `watchers/watchers.go`).
 

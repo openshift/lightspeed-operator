@@ -82,6 +82,11 @@ var _ = Describe("Agentic integration assets", func() {
 		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationOtelCollectorEndpointKey))
 		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationOtelAdminEndpointKey))
 		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationOtelCASecretKey))
+		// RHOKP keys present (byokRAGOnly defaults to false)
+		Expect(cm.Data[utils.AgenticConfigurationRHOKPEndpointKey]).To(Equal(
+			utils.RHOKPServiceURL(utils.OLSNamespaceDefault),
+		))
+		Expect(cm.Data[utils.AgenticConfigurationRHOKPCASecretKey]).To(Equal(utils.AgenticRHOKPCASecretName))
 
 		var podSpec corev1.PodSpec
 		Expect(json.Unmarshal([]byte(cm.Data[utils.AgenticConfigurationSandboxPodSpecKey]), &podSpec)).To(Succeed())
@@ -96,6 +101,20 @@ var _ = Describe("Agentic integration assets", func() {
 			utils.OpenShiftMCPServerServiceURL(utils.OLSNamespaceDefault),
 		))
 		Expect(cm.Data[utils.AgenticConfigurationMCPCASecretKey]).To(Equal(utils.AgenticMCPCASecretName))
+		// RHOKP also present (byokRAGOnly defaults to false)
+		Expect(cm.Data[utils.AgenticConfigurationRHOKPEndpointKey]).To(Equal(
+			utils.RHOKPServiceURL(utils.OLSNamespaceDefault),
+		))
+		Expect(cm.Data[utils.AgenticConfigurationRHOKPCASecretKey]).To(Equal(utils.AgenticRHOKPCASecretName))
+	})
+
+	It("should omit RHOKP keys when byokRAGOnly is true", func() {
+		testCR.Spec.OLSConfig.ByokRAGOnly = true
+		cm, err := GenerateAgenticConfigurationConfigMap(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationRHOKPEndpointKey))
+		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationRHOKPCASecretKey))
+		testCR.Spec.OLSConfig.ByokRAGOnly = false
 	})
 
 	It("should touch the ConfigMap annotation to bump resourceVersion", func() {

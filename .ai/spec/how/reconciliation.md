@@ -27,6 +27,9 @@ Reconcile(ctx, req)
   |   |    mount at /etc/alerts-adapter when CM exists)
   |   |-- otelcollector.ReconcileOtelCollectorResources()
   |   |-- ocpmcp.ReconcileResources()
+  |   |   (when introspectionEnabled; else ocpmcp.Remove())
+  |   |-- rhokp.ReconcileResources()
+  |   |   (when !byokRAGOnly; else rhokp.Remove())
   |   |-- appserver.ReconcileAppServerResources()
   |   +-- alertsadapter.ReconcileAlertsAdapterResources()
   |       (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
@@ -37,6 +40,7 @@ Reconcile(ctx, req)
       |-- postgres.ReconcilePostgresDeployment()
       |-- otelcollector.ReconcileOtelCollectorDeployment()  # OtelCollectorReady
       |-- ocpmcp.ReconcileDeployment()                      # MCPServerReady / NotConfigured
+      |-- rhokp.ReconcileDeployment()                       # RHOKPReady / NotConfigured
       |-- appserver.ReconcileAppServerDeployment()
       |-- alertsadapter.ReconcileAlertsAdapterDeployment()  # when configMapRef set
       |   (each deployment step above: checkDeploymentStatus → conditions)
@@ -47,7 +51,7 @@ Reconcile(ctx, req)
 ## Key Abstractions
 
 ### Reconciler Interface
-The `reconciler.Reconciler` interface breaks the circular dependency between the main controller and component packages. Component packages (appserver, postgres, otelcollector, ocpmcp, agenticintegration, console, agenticconsole, alertsadapter) receive this interface instead of importing the controller package directly. It embeds `client.Client` and adds getter methods for images, namespace, and OpenShift version.
+The `reconciler.Reconciler` interface breaks the circular dependency between the main controller and component packages. Component packages (appserver, postgres, otelcollector, ocpmcp, rhokp, agenticintegration, console, agenticconsole, alertsadapter) receive this interface instead of importing the controller package directly. It embeds `client.Client` and adds getter methods for images, namespace, and OpenShift version.
 
 ### ReconcileSteps Pattern
 Both phases use a slice of `ReconcileSteps` structs, each containing a Name, reconcile function, and (for Phase 2) a ConditionType and Deployment name. Phase 1 iterates with continue-on-error; Phase 2 iterates but tracks all conditions and diagnostics.

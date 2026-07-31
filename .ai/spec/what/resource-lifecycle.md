@@ -30,9 +30,9 @@ The operator manages two categories of Kubernetes resources: owned resources (cr
 
 14. When a watched secret's `.data` changes (compared via `apiequality.Semantic.DeepEqual`), the `SecretUpdateHandler` triggers restarts of affected deployments directly, without triggering a full reconciliation.
 15. When a watched configmap's `.data` or `.binaryData` changes, the `ConfigMapUpdateHandler` triggers restarts of affected deployments directly.
-16. Each external resource has a list of affected deployments configured in `WatcherConfig`. The special value `ACTIVE_BACKEND` resolves to the application server deployment name (`lightspeed-app-server`).
+16. Each external resource has a list of affected deployments configured in `WatcherConfig`. All deployment names are explicit (e.g. `lightspeed-app-server`, `lightspeed-rhokp`).
 17. Restarts are triggered by updating the `ols.openshift.io/force-reload` annotation on the deployment's pod template with the current timestamp (RFC3339Nano), causing a rolling update. Alerts adapter runtime ConfigMap changes restart `lightspeed-agentic-alerts-adapter` via `RestartAlertsAdapter()`.
-18. TLS secrets are mapped to affect both `lightspeed-console-plugin` and `ACTIVE_BACKEND` deployments. All other user-provided secrets default to `ACTIVE_BACKEND` only.
+18. TLS secrets are mapped to affect the relevant operand deployment plus the app-server and the agentic configuration ConfigMap. User-provided secrets default to app-server only.
 
 ### Validation
 

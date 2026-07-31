@@ -219,96 +219,6 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Spec.Template.Spec.Tolerations).To(Equal(olsConfig.Spec.OLSConfig.DeploymentConfig.APIContainer.Tolerations))
 		})
 
-		It("should track MCP CA hash annotation when introspection is toggled", func() {
-			By("Ensure MCP CA ConfigMap has injected cert")
-			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "test-mcp-ca")
-			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "test-mcp-ca")
-
-			By("Disable introspection initially")
-			olsConfig := &olsv1alpha1.OLSConfig{}
-			err := k8sClient.Get(ctx, crNamespacedName, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
-
-			By("Reconcile with introspection disabled")
-			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Get deployment and verify MCP CA hash annotation is absent")
-			dep := &appsv1.Deployment{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Annotations).NotTo(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
-
-			By("Enable introspection")
-			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
-
-			By("Reconcile with introspection enabled")
-			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Verify deployment annotation tracks MCP CA hash")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
-			firstHash := dep.Annotations[utils.OpenShiftMCPServerCACertHashAnnotation]
-			Expect(firstHash).NotTo(BeEmpty())
-
-			By("Disable introspection again")
-			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
-
-			By("Reconcile with introspection disabled again")
-			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Verify MCP CA hash annotation removed")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dep.Annotations).NotTo(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
-		})
-
-		It("should trigger rolling update when MCP CA ConfigMap content changes", func() {
-			By("Ensure MCP CA ConfigMap with initial cert")
-			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "initial-mcp-ca")
-			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "initial-mcp-ca")
-
-			By("Enable introspection")
-			olsConfig := &olsv1alpha1.OLSConfig{}
-			err := k8sClient.Get(ctx, crNamespacedName, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-			olsConfig.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
-
-			By("Reconcile to set MCP CA hash annotation")
-			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Get deployment and capture initial hash")
-			dep := &appsv1.Deployment{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-			initialHash := dep.Annotations[utils.OpenShiftMCPServerCACertHashAnnotation]
-			Expect(initialHash).NotTo(BeEmpty())
-
-			By("Update MCP CA ConfigMap content")
-			utils.EnsureOLSCAConfigMap(ctx, k8sClient, "rotated-mcp-ca")
-			utils.EnsureAgenticMCPCASecret(ctx, k8sClient, "rotated-mcp-ca")
-
-			By("Reconcile again")
-			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Verify deployment annotation updated to new hash")
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
-			Expect(err).NotTo(HaveOccurred())
-			newHash := dep.Annotations[utils.OpenShiftMCPServerCACertHashAnnotation]
-			Expect(newHash).NotTo(Equal(initialHash))
-			Expect(dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]).NotTo(BeEmpty())
-		})
-
 		It("should trigger rolling update of the deployment when updating the nodeselector ", func() {
 			By("Get the deployment")
 			dep := &appsv1.Deployment{}
@@ -749,7 +659,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSConfigCmName, Namespace: utils.OLSNamespaceDefault}, cm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Data).To(HaveKey(utils.OLSConfigFilename))
-			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/otel-collector-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/ca-cert-1.crt"))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/otel-collector-ca/service-ca.crt\n  - /etc/certs/rhokp-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/ca-cert-1.crt"))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
 
 			By("Get app deployment and check the volume mount")

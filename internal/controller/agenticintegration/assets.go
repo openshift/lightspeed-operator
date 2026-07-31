@@ -114,6 +114,10 @@ func GenerateAgenticConfigurationConfigMap(r reconciler.Reconciler, cr *olsv1alp
 		data[utils.AgenticConfigurationMCPEndpointKey] = utils.OpenShiftMCPServerServiceURL(ns)
 		data[utils.AgenticConfigurationMCPCASecretKey] = utils.AgenticMCPCASecretName
 	}
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		data[utils.AgenticConfigurationRHOKPEndpointKey] = utils.RHOKPServiceURL(ns)
+		data[utils.AgenticConfigurationRHOKPCASecretKey] = utils.AgenticRHOKPCASecretName
+	}
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

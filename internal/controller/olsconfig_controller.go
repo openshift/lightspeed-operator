@@ -86,6 +86,7 @@ import (
 	// OLS-3737: OTEL Collector reconciliation disabled until e2e coverage exists.
 	// "github.com/openshift/lightspeed-operator/internal/controller/otelcollector"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
+	"github.com/openshift/lightspeed-operator/internal/controller/rhokp"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	"github.com/openshift/lightspeed-operator/internal/controller/watchers"
 	utiltls "github.com/openshift/lightspeed-operator/internal/tls"
@@ -304,6 +305,8 @@ func (r *OLSConfigReconciler) reconcileOperatorResources(ctx context.Context) er
 // Uses continue-on-error to reconcile as many resources as possible, even if some fail.
 func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
 	resourceFailures := make(map[string]error)
+
+	// Always-included operands (unconditionally reconciled).
 	resourceSteps := []utils.ReconcileSteps{
 		{Name: "console UI resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return console.ReconcileConsoleUIResources(r, ctx, cr)
@@ -315,9 +318,35 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		// {Name: "OTEL Collector resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 		// 	return otelcollector.ReconcileOtelCollectorResources(r, ctx, cr)
 		// }},
-		{Name: "openshift-mcp-server resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-			return ocpmcp.ReconcileResources(r, ctx, cr)
-		}},
+	}
+
+	// Optional operands — gated by CR fields or image flags.
+	// Each block appends when enabled, or removes resources when transitioning to disabled.
+
+	if utils.BoolDeref(olsconfig.Spec.OLSConfig.IntrospectionEnabled, true) {
+		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
+			Name: "openshift-mcp-server resources",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return ocpmcp.ReconcileResources(r, ctx, cr)
+			},
+		})
+	} else if wasComponentEnabled(olsconfig, utils.TypeMCPServerReady) {
+		if err := ocpmcp.Remove(r, ctx); err != nil {
+			resourceFailures["openshift-mcp-server cleanup"] = fmt.Errorf("%s: %w", utils.ErrRemoveOpenShiftMCPServerResources, err)
+		}
+	}
+
+	if !olsconfig.Spec.OLSConfig.ByokRAGOnly {
+		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
+			Name: "RHOKP resources",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return rhokp.ReconcileResources(r, ctx, cr)
+			},
+		})
+	} else if wasComponentEnabled(olsconfig, utils.TypeRHOKPReady) {
+		if err := rhokp.Remove(r, ctx); err != nil {
+			resourceFailures["RHOKP cleanup"] = fmt.Errorf("%s: %w", utils.ErrRemoveRHOKPResources, err)
+		}
 	}
 
 	if r.Options.AgenticConsoleUIImage != "" {
@@ -329,7 +358,7 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		})
 	} else if wasComponentEnabled(olsconfig, utils.TypeAgenticConsolePluginReady) {
 		if err := agenticconsole.RemoveAgenticConsole(r, ctx); err != nil {
-			resourceFailures["agentic console UI cleanup"] = fmt.Errorf("failed to remove agentic console UI resources: %w", err)
+			resourceFailures["agentic console UI cleanup"] = fmt.Errorf("%s: %w", utils.ErrRemoveAgenticConsoleUIResources, err)
 		}
 	}
 
@@ -343,7 +372,7 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		})
 	} else if wasComponentEnabled(olsconfig, utils.TypeAlertsAdapterReady) {
 		if err := alertsadapter.RemoveAlertsAdapter(r, ctx); err != nil {
-			resourceFailures["alerts adapter cleanup"] = fmt.Errorf("failed to remove alerts adapter resources: %w", err)
+			resourceFailures["alerts adapter cleanup"] = fmt.Errorf("%s: %w", utils.ErrRemoveAlertsAdapterResources, err)
 		}
 	}
 
@@ -410,6 +439,7 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 // These resources depend on Phase 1 resources being available.
 // Uses a fail-fast pattern and updates status conditions based on deployment health.
 func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) (ctrl.Result, error) {
+	// Always-included operands (unconditionally reconciled).
 	deploymentSteps := []utils.ReconcileSteps{
 		{Name: "console UI deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return console.ReconcileConsoleUIDeploymentAndPlugin(r, ctx, cr)
@@ -423,6 +453,9 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		// }, ConditionType: utils.TypeOtelCollectorReady, Deployment: utils.OtelCollectorDeploymentName},
 	}
 
+	// Optional operands — gated by CR fields or image flags.
+	// Each block appends when enabled, or sets a "Disabled" status condition when not.
+
 	if utils.BoolDeref(olsconfig.Spec.OLSConfig.IntrospectionEnabled, true) {
 		deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
 			Name: "openshift-mcp-server deployment",
@@ -434,6 +467,18 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		})
 	}
 
+	if !olsconfig.Spec.OLSConfig.ByokRAGOnly {
+		deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
+			Name: "RHOKP deployment",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return rhokp.ReconcileDeployment(r, ctx, cr)
+			},
+			ConditionType: utils.TypeRHOKPReady,
+			Deployment:    utils.RHOKPDeploymentName,
+		})
+	}
+
+	// App server is always-included but appended last (depends on other operand Services/TLS).
 	deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
 		Name: "application server deployment",
 		Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
@@ -459,6 +504,17 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 			ObservedGeneration: olsconfig.Generation,
 			Reason:             "Disabled",
 			Message:            "OpenShift MCP server is disabled; spec.ols.introspectionEnabled is false",
+			LastTransitionTime: metav1.Now(),
+		})
+	}
+
+	if olsconfig.Spec.OLSConfig.ByokRAGOnly {
+		newStatus.Conditions = append(newStatus.Conditions, metav1.Condition{
+			Type:               utils.TypeRHOKPReady,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: olsconfig.Generation,
+			Reason:             "Disabled",
+			Message:            "RHOKP is disabled; spec.ols.byokRAGOnly is true",
 			LastTransitionTime: metav1.Now(),
 		})
 	}
@@ -497,7 +553,7 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 			cleanupFailed := false
 			if wasComponentEnabled(olsconfig, utils.TypeAlertsAdapterReady) {
 				if err := alertsadapter.RemoveAlertsAdapter(r, ctx); err != nil {
-					failedTasks["alerts adapter cleanup"] = fmt.Errorf("failed to remove alerts adapter resources: %w", err)
+					failedTasks["alerts adapter cleanup"] = fmt.Errorf("%s: %w", utils.ErrRemoveAlertsAdapterResources, err)
 					cleanupFailed = true
 				}
 			}
@@ -741,6 +797,12 @@ func (r *OLSConfigReconciler) finalizeOLSConfig(ctx context.Context, cr *olsv1al
 	if err := ocpmcp.Remove(r, ctx); err != nil {
 		r.Logger.Error(err, "Failed to remove openshift-mcp-server during finalization")
 		r.Logger.V(1).Info("Proceeding with finalization despite openshift-mcp-server removal error")
+	}
+
+	r.Logger.V(1).Info("Removing RHOKP operand during finalization")
+	if err := rhokp.Remove(r, ctx); err != nil {
+		r.Logger.Error(err, "Failed to remove RHOKP during finalization")
+		r.Logger.V(1).Info("Proceeding with finalization despite RHOKP removal error")
 	}
 
 	// Step 2: List all owned resources once (avoids duplicate API calls)

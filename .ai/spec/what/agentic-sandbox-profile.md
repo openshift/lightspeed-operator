@@ -47,10 +47,13 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `crd-api.md` (
 18. App-server mounts these Secrets at `/etc/certs/otel-collector-ca/` and `/etc/certs/openshift-mcp-server-ca/` (projected filename `service-ca.crt` for path compatibility). There is no dedicated MCP inject-cabundle ConfigMap.
 
 ### Refresh / rotation
-19. Serving-cert watchers restart the server Deployment then the app-server (`ACTIVE_BACKEND`):
-    - OTEL: `lightspeed-otel-collector-cert` → `RestartOtelCollector` → `RestartAppServer`
-    - MCP: `openshift-mcp-server-tls` → MCP restart → `RestartAppServer`
-20. `RestartAppServer` order: (1) refresh client CA Secrets from `openshift-service-ca.crt` (`RefreshClientCASecrets`), (2) bump annotation `ols.openshift.io/client-ca-reload` on the handoff ConfigMap (`TouchAgenticConfiguration`), (3) **re-Get** the app-server Deployment (current resourceVersion), apply any caller Spec mutations, bump `force-reload`, Update. **Fail-closed:** if step (1) fails (source CA ConfigMap missing/empty), steps (2)–(3) are skipped so pods are not rolled with stale CA material. Retry happens on a later OLSConfig reconcile or watcher event once the source CA is ready.
+19. Serving-cert watchers restart the server Deployment then the app-server (`lightspeed-app-server`) and touch `lightspeed-agentic-configuration`:
+    - OTEL: `lightspeed-otel-collector-cert` → `RestartOtelCollector` + `RestartAppServer` + `TouchAgenticConfiguration`
+    - MCP: `openshift-mcp-server-tls` → MCP restart + `RestartAppServer` + `TouchAgenticConfiguration`
+    - RHOKP: `lightspeed-rhokp-tls` → RHOKP restart + `RestartAppServer` + `TouchAgenticConfiguration`
+    All three targets are declared in `AffectedDeployments` for each secret; the watcher invokes them independently.
+20. `RestartAppServer` order: (1) refresh client CA Secrets from `openshift-service-ca.crt` (`RefreshClientCASecrets`), (2) **re-Get** the app-server Deployment (current resourceVersion), apply any caller Spec mutations, bump `force-reload`, Update. **Fail-closed:** if step (1) fails (source CA ConfigMap missing/empty), the app-server roll is skipped so pods are not rolled with stale CA material. Retry happens on a later OLSConfig reconcile or watcher event once the source CA is ready.
+21. `TouchAgenticConfiguration` bumps `ols.openshift.io/client-ca-reload` annotation on the handoff ConfigMap so agentic-operator detects the change. It is a separate watcher callback (not part of `RestartAppServer`).
 21. `RestartOtelCollector` only rolls the collector; it does **not** refresh agentic artifacts (that work is on the app-server restart path).
 22. Agenticintegration ConfigMap reconcile preserves the cert-reload annotation when updating Data/Labels.
 23. Content equality skips Secret/ConfigMap updates when Data, Labels, and OwnerReferences are unchanged.

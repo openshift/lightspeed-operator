@@ -54,6 +54,9 @@ OLSConfigReconciler.Reconcile() →
 │   │    mount at /etc/alerts-adapter when CM exists, adapter reads config.yaml)
 │   ├── otelcollector.ReconcileOtelCollectorResources()
 │   ├── ocpmcp.ReconcileResources()
+│   │   (when introspectionEnabled; else ocpmcp.Remove())
+│   ├── rhokp.ReconcileResources()
+│   │   (when !byokRAGOnly; else rhokp.Remove())
 │   └── appserver.ReconcileAppServerResources()
 └── Phase 2 — reconcileDeploymentsAndStatus()
     ├── console.ReconcileConsoleUIDeploymentAndPlugin()  → ConsolePluginReady
@@ -62,6 +65,8 @@ OLSConfigReconciler.Reconcile() →
     ├── otelcollector.ReconcileOtelCollectorDeployment() → OtelCollectorReady
     ├── ocpmcp.ReconcileDeployment()                     → MCPServerReady
     │   (when introspectionEnabled; else MCPServerReady=True, Reason=NotConfigured)
+    ├── rhokp.ReconcileDeployment()                      → RHOKPReady
+    │   (when !byokRAGOnly; else RHOKPReady=False, Reason=Disabled)
     ├── appserver.ReconcileAppServerDeployment()         → ApiReady
     ├── alertsadapter.ReconcileAlertsAdapterDeployment() → AlertsAdapterReady
     │   (only when configMapRef set; else AlertsAdapterReady=True, Reason=NotConfigured)
@@ -95,11 +100,12 @@ make test-e2e   # E2E tests (requires cluster)
 
 ### Controllers
 - `internal/controller/olsconfig_controller.go` - Main reconciler with finalizer logic
-- `internal/controller/appserver/` - App server (also owns client CA Secrets `lightspeed-agentic-otel-ca` / `lightspeed-agentic-mcp-ca`; `RestartAppServer` refreshes them and touches the handoff ConfigMap)
+- `internal/controller/appserver/` - App server (also owns client CA Secrets `lightspeed-agentic-otel-ca` / `lightspeed-agentic-mcp-ca` / `lightspeed-agentic-rhokp-ca`; `RestartAppServer` calls `RefreshClientCASecrets` and touches the handoff ConfigMap)
 - `internal/controller/postgres/` - PostgreSQL
 - `internal/controller/otelcollector/` - OTEL Collector (always deployed; Postgres audit log storage, optional trace forwarding, HTTPS metrics `:8888` + ServiceMonitor)
 - `internal/controller/agenticintegration/` - Classic→agentic handoff ConfigMap (`lightspeed-agentic-configuration`) only; end of Phase 2
 - `internal/controller/ocpmcp/` - Standalone OpenShift MCP server (gated by `introspectionEnabled`; HTTPS via service-ca)
+- `internal/controller/rhokp/` - Standalone RHOKP (Red Hat Offline Knowledge Portal) for Solr RAG (gated by `!byokRAGOnly`; HTTPS via service-ca)
 - `internal/controller/console/` - Chat console plugin (Lightspeed assistant UI)
 - `internal/controller/agenticconsole/` - Agentic console plugin (AI Hub / proposals UI)
 - `internal/controller/alertsadapter/` - Agentic alerts adapter (opt-in via `configMapRef`; mounts user CM at `/etc/alerts-adapter` when present; adapter validates config)

@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
-	"github.com/openshift/lightspeed-operator/internal/controller/agenticintegration"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
@@ -56,6 +55,11 @@ func appServerEnv(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) []corev1.E
 			utils.AppOtelCollectorCACertDir,
 			utils.AppOtelCollectorCACertFile,
 		),
+	}, corev1.EnvVar{
+		// Make Python ssl (and httpx) use the merged ols.pem bundle that
+		// includes extra_ca entries (service-ca CAs for RHOKP, MCP, OTEL, etc.)
+		Name:  "SSL_CERT_FILE",
+		Value: path.Join(utils.OLSAppCertsMountRoot, utils.CertBundleVolumeName, "ols.pem"),
 	})
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
 		env = append(env, corev1.EnvVar{
@@ -67,59 +71,6 @@ func appServerEnv(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) []corev1.E
 		}
 	}
 	return env
-}
-
-func rhokpHTTPProbeHandler() corev1.ProbeHandler {
-	return corev1.ProbeHandler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Path:   utils.RHOOKPReadinessHTTPPath,
-			Port:   intstr.FromInt32(utils.RHOOKPHTTPPort),
-			Scheme: corev1.URISchemeHTTP,
-		},
-	}
-}
-
-func rhokpProbeBase() corev1.Probe {
-	return corev1.Probe{
-		ProbeHandler:     rhokpHTTPProbeHandler(),
-		PeriodSeconds:    utils.RHOOKPProbePeriodSeconds,
-		TimeoutSeconds:   utils.RHOOKPProbeTimeoutSeconds,
-		SuccessThreshold: 1,
-	}
-}
-
-func rhokpStartupProbe() *corev1.Probe {
-	probe := rhokpProbeBase()
-	probe.InitialDelaySeconds = utils.RHOOKPStartupProbeInitialDelaySeconds
-	probe.FailureThreshold = utils.RHOOKPStartupProbeFailureThreshold
-	probe.PeriodSeconds = utils.RHOOKPStartupProbePeriodSeconds
-	return &probe
-}
-
-func rhokpReadinessProbe() *corev1.Probe {
-	probe := rhokpProbeBase()
-	probe.FailureThreshold = utils.RHOOKPProbeFailureThreshold
-	return &probe
-}
-
-func rhokpLivenessProbe() *corev1.Probe {
-	return rhokpReadinessProbe()
-}
-
-func getRHOOKPResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
-	// RHOKP recommended sizing: 2 CPU, 2 GiB memory, 75 GiB ephemeral (product docs).
-	// Defaults follow OpenShift conventions: requests only for CPU/memory (OLS-3397).
-	return utils.GetResourcesOrDefault(
-		cr.Spec.OLSConfig.DeploymentConfig.RHOKPContainer.Resources,
-		&corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:              resource.MustParse("2"),
-				corev1.ResourceMemory:           resource.MustParse("2Gi"),
-				corev1.ResourceEphemeralStorage: resource.MustParse("75Gi"),
-			},
-			Claims: []corev1.ResourceClaim{},
-		},
-	)
 }
 
 func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
@@ -409,6 +360,24 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		})
 	}
 
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		volumes = append(volumes, corev1.Volume{
+			Name: utils.AppRHOKPCACertVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  utils.AgenticRHOKPCASecretName,
+					DefaultMode: &volumeDefaultMode,
+					Items: []corev1.KeyToPath{
+						{
+							Key:  utils.AgenticRHOKPCASecretDataKey,
+							Path: utils.AppRHOKPCACertFile,
+						},
+					},
+				},
+			},
+		})
+	}
+
 	volumes = append(volumes,
 		corev1.Volume{
 			Name: utils.TmpVolumeName,
@@ -435,6 +404,13 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      utils.AppOpenShiftMCPServerCACertVolumeName,
 			MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.AppOpenShiftMCPServerCACertDir),
+			ReadOnly:  true,
+		})
+	}
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      utils.AppRHOKPCACertVolumeName,
+			MountPath: path.Join(utils.OLSAppCertsMountRoot, utils.AppRHOKPCACertDir),
 			ReadOnly:  true,
 		})
 	}
@@ -474,7 +450,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 
 	ols_server_resources := getOLSServerResources(cr)
 	data_collector_resources := getOLSDataCollectorResources(cr)
-	rhokp_resources := getRHOOKPResources(cr)
 
 	// Get ResourceVersions for tracking - these resources should already exist
 	// If they don't exist (NotFound), we'll get empty strings which is fine for initial creation
@@ -492,13 +467,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	annotations := map[string]string{
 		utils.OLSConfigMapResourceVersionAnnotation: configMapResourceVersion,
 		utils.ProxyCACertHashAnnotation:             proxyCACMResourceVersion,
-	}
-	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
-		mcpCAHash, err := GetMCPClientCACertHash(r, ctx, cr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get OpenShift MCP server CA certificate hash: %w", err)
-		}
-		annotations[utils.OpenShiftMCPServerCACertHashAnnotation] = mcpCAHash
 	}
 
 	deployment := appsv1.Deployment{
@@ -582,9 +550,8 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		return nil, err
 	}
 
-	// Add additional containers in a consistent order:
-	// 1. Data collector container (if enabled)
-	// 2. RHOKP Solr sidecar (if Solr hybrid RAG is configured)
+	// Add the data collector container (if enabled).
+	// RHOKP now runs as a standalone Deployment, not a sidecar.
 
 	if dataCollectorEnabled {
 		// Add data exporter container
@@ -613,31 +580,6 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Resources: *data_collector_resources,
 		}
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, exporterContainer)
-	}
-
-	if !cr.Spec.OLSConfig.ByokRAGOnly {
-		rhokpSidecarContainer := corev1.Container{
-			Name:            utils.RHOOKPContainerName,
-			Image:           r.GetRHOOKPImage(),
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Command:         rhokpContainerCommand(),
-			Args:            rhokpContainerArgs(),
-			SecurityContext: utils.RHOOKPContainerSecurityContext(),
-			Env:             generateRHOOKPEnv(),
-			Ports: []corev1.ContainerPort{
-				{
-					ContainerPort: utils.RHOOKPHTTPPort,
-					Name:          "solr-http",
-					Protocol:      corev1.ProtocolTCP,
-				},
-			},
-			// portal-rag admin ping; startupProbe tolerates Solr cold start before readiness/liveness run.
-			StartupProbe:   rhokpStartupProbe(),
-			ReadinessProbe: rhokpReadinessProbe(),
-			LivenessProbe:  rhokpLivenessProbe(),
-			Resources:      *rhokp_resources,
-		}
-		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, rhokpSidecarContainer)
 	}
 
 	return &deployment, nil
@@ -674,21 +616,6 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		}
 	}
 
-	// Step 4: Check OpenShift MCP CA hash when introspection is enabled
-	var currentMCPCAHash string
-	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
-		currentMCPCAHash, err = GetMCPClientCACertHash(r, ctx, cr)
-		if err != nil {
-			return fmt.Errorf("failed to get OpenShift MCP server CA certificate hash: %w", err)
-		}
-		if existingDeployment.Annotations[utils.OpenShiftMCPServerCACertHashAnnotation] != currentMCPCAHash {
-			r.GetLogger().Info("OpenShift MCP server CA certificate content changed, updating deployment")
-			changed = true
-		}
-	} else if _, exists := existingDeployment.Annotations[utils.OpenShiftMCPServerCACertHashAnnotation]; exists {
-		changed = true
-	}
-
 	// If nothing changed, skip update
 	if !changed {
 		return nil
@@ -704,11 +631,6 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 
 	existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.ProxyCACertHashAnnotation] = currentProxyCACMHash
-	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
-		existingDeployment.Annotations[utils.OpenShiftMCPServerCACertHashAnnotation] = currentMCPCAHash
-	} else {
-		delete(existingDeployment.Annotations, utils.OpenShiftMCPServerCACertHashAnnotation)
-	}
 
 	r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
 
@@ -775,9 +697,6 @@ func RestartAppServer(r reconciler.Reconciler, ctx context.Context, deployment .
 		return fmt.Errorf("%s: %w", utils.ErrGetOLSConfigForAppServerClientCARefresh, err)
 	}
 	if err := RefreshClientCASecrets(r, ctx, cr); err != nil {
-		return err
-	}
-	if err := agenticintegration.TouchAgenticConfiguration(r, ctx); err != nil {
 		return err
 	}
 

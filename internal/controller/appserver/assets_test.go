@@ -117,7 +117,7 @@ var _ = Describe("App server assets", func() {
 						MinTLSVersion: string(configv1.TLSProfiles[configv1.TLSProfileIntermediateType].MinTLSVersion),
 						Ciphers:       configv1.TLSProfiles[configv1.TLSProfileIntermediateType].Ciphers,
 					},
-					SolrHybrid: buildSolrHybridSettings(),
+					SolrHybrid: buildSolrHybridSettings(utils.OLSNamespaceDefault),
 					UserDataCollection: utils.UserDataCollectionConfig{
 						FeedbackDisabled:    false,
 						FeedbackStorage:     "/app-root/ols-user-data/feedback",
@@ -127,6 +127,7 @@ var _ = Describe("App server assets", func() {
 					ExtraCAs: []string{
 						"/etc/certs/ols-additional-ca/service-ca.crt",
 						"/etc/certs/otel-collector-ca/service-ca.crt",
+						"/etc/certs/rhokp-ca/service-ca.crt",
 					},
 					CertificateDirectory: "/etc/certs/cert-bundle",
 					ToolsApproval: &utils.ToolsApprovalConfig{
@@ -584,7 +585,7 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(appSrvConfigFile.OLSConfig.SolrHybrid).NotTo(BeNil())
 			Expect(appSrvConfigFile.OLSConfig.SolrHybrid).To(PointTo(MatchFields(IgnoreExtras, Fields{
-				"SolrHTTPBase":             Equal(fmt.Sprintf("http://localhost:%d", utils.RHOOKPHTTPPort)),
+				"SolrHTTPBase":             Equal(utils.RHOKPServiceURL(utils.OLSNamespaceDefault)),
 				"MaxResults":               Equal(utils.SolrHybridMaxResultsDefault),
 				"HybridVectorBoost":        Equal(utils.SolrHybridVectorBoostDefault),
 				"HybridPoolDocs":           Equal(utils.SolrHybridPoolDocsDefault),
@@ -811,7 +812,7 @@ var _ = Describe("App server assets", func() {
 				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
 				Claims:   []corev1.ResourceClaim{},
 			}))
-			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(11))
+			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(12))
 			Expect(dep.Spec.Selector.MatchLabels).To(Equal(utils.GenerateAppServerSelectorLabels()))
 
 			By("generate deployment without data collector when telemetry pull secret does not exist")
@@ -834,7 +835,7 @@ var _ = Describe("App server assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal(expectedAppServerEnv()))
 			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get8RequiredVolumeMounts()))
-			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(9))
+			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(10))
 
 			By("generate deployment without data collector when telemetry pull secret does not contain telemetry token")
 			utils.CreateTelemetryPullSecret(ctx, k8sClient, false)
@@ -857,7 +858,7 @@ var _ = Describe("App server assets", func() {
 			}))
 			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(Equal(expectedAppServerEnv()))
 			Expect(dep.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(get8RequiredVolumeMounts()))
-			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(9))
+			Expect(len(dep.Spec.Template.Spec.Volumes)).To(Equal(10))
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
 
@@ -1341,7 +1342,6 @@ var _ = Describe("App server assets", func() {
 				Expect(c.Name).NotTo(Equal(utils.OpenShiftMCPServerContainerName))
 			}
 			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(HaveField("Name", utils.AppOpenShiftMCPServerCACertVolumeName)))
-			Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
 
 			By("Disabling introspection")
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
@@ -1349,7 +1349,6 @@ var _ = Describe("App server assets", func() {
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(2)))
-			Expect(dep.Annotations).NotTo(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
 		})
 
 		It("should mount MCP CA independently of data collection settings", func() {
@@ -1428,7 +1427,6 @@ var _ = Describe("App server assets", func() {
 			Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(deploymentContainerCount(1)))
 			Expect(dep.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.OLSAppServerContainerName))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(HaveField("Name", utils.AppOpenShiftMCPServerCACertVolumeName)))
-			Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerCACertHashAnnotation))
 		})
 
 		It("should generate exporter configmap with service_id 'ols' by default", func() {
@@ -1497,7 +1495,7 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.LLMProviders).To(BeEmpty())
-			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(Equal(buildSolrHybridSettings()))
+			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(Equal(buildSolrHybridSettings(utils.OLSNamespaceDefault)))
 			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("reference_content:"))
 			Expect(olsconfigGenerated.OLSConfig.Audit).To(Equal(buildServiceAuditConfig(cr, utils.OLSNamespaceDefault)))
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeFalse())
@@ -1520,7 +1518,7 @@ var _ = Describe("App server assets", func() {
 			var olsconfigGenerated utils.AppSrvConfigFile
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(Equal(buildSolrHybridSettings()))
+			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(Equal(buildSolrHybridSettings(utils.OLSNamespaceDefault)))
 			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("reference_content:"))
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeTrue())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeTrue())
@@ -1780,7 +1778,7 @@ var _ = Describe("App server assets", func() {
 
 			olsCm, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/otel-collector-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
+			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("extra_ca:\n  - /etc/certs/ols-additional-ca/service-ca.crt\n  - /etc/certs/otel-collector-ca/service-ca.crt\n  - /etc/certs/rhokp-ca/service-ca.crt\n  - /etc/certs/ols-user-ca/additional-ca.crt"))
 			Expect(olsCm.Data[utils.OLSConfigFilename]).To(ContainSubstring("certificate_directory: /etc/certs/cert-bundle"))
 
 			dep, err = GenerateOLSDeployment(testReconcilerInstance, cr)
@@ -2056,6 +2054,11 @@ func get7RequiredVolumeMounts() []corev1.VolumeMount {
 			ReadOnly:  false,
 			MountPath: "/etc/certs/cert-bundle",
 		},
+		{
+			Name:      utils.AppRHOKPCACertVolumeName,
+			ReadOnly:  true,
+			MountPath: "/etc/certs/rhokp-ca",
+		},
 	}
 }
 
@@ -2159,6 +2162,21 @@ func get7RequiredVolumes() []corev1.Volume {
 			Name: "cert-bundle",
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		{
+			Name: utils.AppRHOKPCACertVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  utils.AgenticRHOKPCASecretName,
+					DefaultMode: &defaultVolumeMode,
+					Items: []corev1.KeyToPath{
+						{
+							Key:  utils.AgenticRHOKPCASecretDataKey,
+							Path: utils.AppRHOKPCACertFile,
+						},
+					},
+				},
 			},
 		},
 	}

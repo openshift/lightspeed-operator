@@ -43,7 +43,7 @@ var _ = Describe("Watcher Predicates", func() {
 							Namespace: utils.OLSNamespaceDefault,
 							AffectedDeployments: []string{
 								utils.OpenShiftMCPServerDeploymentName,
-								"ACTIVE_BACKEND",
+								utils.OLSAppServerDeploymentName,
 							},
 						},
 					},
@@ -54,7 +54,7 @@ var _ = Describe("Watcher Predicates", func() {
 							Name:      "kube-root-ca.crt",
 							Namespace: utils.OLSNamespaceDefault,
 							AffectedDeployments: []string{
-								"ACTIVE_BACKEND",
+								utils.OLSAppServerDeploymentName,
 							},
 						},
 					},
@@ -602,7 +602,7 @@ var _ = Describe("Helper Functions", func() {
 							Namespace: testNamespace,
 							AffectedDeployments: []string{
 								utils.OpenShiftMCPServerDeploymentName,
-								"ACTIVE_BACKEND",
+								utils.OLSAppServerDeploymentName,
 							},
 						},
 					},

@@ -2,8 +2,6 @@ package appserver
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -346,7 +344,7 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 	olsConfig.Audit = buildServiceAuditConfig(cr, r.GetNamespace())
 
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
-		olsConfig.SolrHybrid = buildSolrHybridSettings()
+		olsConfig.SolrHybrid = buildSolrHybridSettings(r.GetNamespace())
 	}
 
 	return olsConfig, nil
@@ -373,9 +371,9 @@ func buildServiceAuditConfig(cr *olsv1alpha1.OLSConfig, namespace string) *utils
 	}
 }
 
-func buildSolrHybridSettings() *utils.SolrHybridSettings {
+func buildSolrHybridSettings(namespace string) *utils.SolrHybridSettings {
 	return &utils.SolrHybridSettings{
-		SolrHTTPBase:             fmt.Sprintf("http://localhost:%d", utils.RHOOKPHTTPPort),
+		SolrHTTPBase:             utils.RHOKPServiceURL(namespace),
 		MaxResults:               utils.SolrHybridMaxResultsDefault,
 		HybridVectorBoost:        utils.SolrHybridVectorBoostDefault,
 		HybridPoolDocs:           utils.SolrHybridPoolDocsDefault,
@@ -545,6 +543,15 @@ func GenerateOLSConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv
 			utils.OLSAppCertsMountRoot,
 			utils.AppOpenShiftMCPServerCACertDir,
 			utils.AppOpenShiftMCPServerCACertFile,
+		))
+	}
+
+	// Trust the standalone RHOKP service-ca cert when OKP is enabled
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		olsConfig.ExtraCAs = append(olsConfig.ExtraCAs, path.Join(
+			utils.OLSAppCertsMountRoot,
+			utils.AppRHOKPCACertDir,
+			utils.AppRHOKPCACertFile,
 		))
 	}
 
@@ -1041,103 +1048,127 @@ func getQueryFilters(cr *olsv1alpha1.OLSConfig) []utils.QueryFilters {
 	return filters
 }
 
-// GenerateOtelClientCASecret copies the public service-ca PEM into a client-only Secret.
-func GenerateOtelClientCASecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.Secret, error) {
-	caCM := &corev1.ConfigMap{}
-	if err := r.Get(ctx, client.ObjectKey{Name: utils.OLSCAConfigMap, Namespace: r.GetNamespace()}, caCM); err != nil {
-		return nil, fmt.Errorf("%s: %w", utils.ErrGetAgenticOtelCASourceConfigMap, err)
-	}
-	caPEM, ok := caCM.Data[utils.AppOtelCollectorCACertFile]
-	if !ok || caPEM == "" {
-		return nil, fmt.Errorf("%s: key %q missing or empty in ConfigMap %s",
-			utils.ErrGetAgenticOtelCASourceConfigMap, utils.AppOtelCollectorCACertFile, utils.OLSCAConfigMap)
-	}
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.AgenticOtelCASecretName,
-			Namespace: r.GetNamespace(),
-			Labels:    utils.GenerateAppServerSelectorLabels(),
-		},
-		Type: corev1.SecretTypeOpaque,
-		Data: map[string][]byte{
-			utils.AgenticOtelCASecretDataKey: []byte(caPEM),
-		},
-	}
-	if err := controllerutil.SetControllerReference(cr, secret, r.GetScheme()); err != nil {
-		return nil, fmt.Errorf("%s: %w", utils.ErrSetAgenticOtelCASecretOwnerRef, err)
-	}
-	return secret, nil
+// clientCAConfig describes a single client CA Secret that the app-server owns.
+// Each entry copies the cluster service-ca PEM into a dedicated Secret so that
+// consumers (app-server, sandbox) can mount it independently.
+type clientCAConfig struct {
+	SecretName  string
+	DataKey     string
+	Enabled     func(*olsv1alpha1.OLSConfig) bool
+	ErrSource   string
+	ErrOwnerRef string
+	ErrCreate   string
+	ErrGet      string
+	ErrUpdate   string
+	ErrDelete   string
 }
 
-// GenerateMCPClientCASecret copies the public service-ca PEM into a client-only Secret
-// for verifying the OpenShift MCP server (same cluster CA source as OTEL).
-// Returns (nil, nil) when introspection is disabled.
-func GenerateMCPClientCASecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*corev1.Secret, error) {
-	if !utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
+// clientCASecrets enumerates all client CA Secrets managed by the app-server.
+var clientCASecrets = []clientCAConfig{
+	{
+		SecretName:  utils.AgenticOtelCASecretName,
+		DataKey:     utils.AgenticOtelCASecretDataKey,
+		Enabled:     func(_ *olsv1alpha1.OLSConfig) bool { return true },
+		ErrSource:   utils.ErrGetAgenticOtelCASourceConfigMap,
+		ErrOwnerRef: utils.ErrSetAgenticOtelCASecretOwnerRef,
+		ErrCreate:   utils.ErrCreateAgenticOtelCASecret,
+		ErrGet:      utils.ErrGetAgenticOtelCASecret,
+		ErrUpdate:   utils.ErrUpdateAgenticOtelCASecret,
+		ErrDelete:   utils.ErrDeleteAgenticOtelCASecret,
+	},
+	{
+		SecretName: utils.AgenticMCPCASecretName,
+		DataKey:    utils.AgenticMCPCASecretDataKey,
+		Enabled: func(cr *olsv1alpha1.OLSConfig) bool {
+			return utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true)
+		},
+		ErrSource:   utils.ErrAgenticMCPCANotReady,
+		ErrOwnerRef: utils.ErrSetAgenticMCPCASecretOwnerRef,
+		ErrCreate:   utils.ErrCreateAgenticMCPCASecret,
+		ErrGet:      utils.ErrGetAgenticMCPCASecret,
+		ErrUpdate:   utils.ErrUpdateAgenticMCPCASecret,
+		ErrDelete:   utils.ErrDeleteAgenticMCPCASecret,
+	},
+	{
+		SecretName:  utils.AgenticRHOKPCASecretName,
+		DataKey:     utils.AgenticRHOKPCASecretDataKey,
+		Enabled:     func(cr *olsv1alpha1.OLSConfig) bool { return !cr.Spec.OLSConfig.ByokRAGOnly },
+		ErrSource:   utils.ErrGetAgenticRHOKPCASourceConfigMap,
+		ErrOwnerRef: utils.ErrSetAgenticRHOKPCASecretOwnerRef,
+		ErrCreate:   utils.ErrCreateAgenticRHOKPCASecret,
+		ErrGet:      utils.ErrGetAgenticRHOKPCASecret,
+		ErrUpdate:   utils.ErrUpdateAgenticRHOKPCASecret,
+		ErrDelete:   utils.ErrDeleteAgenticRHOKPCASecret,
+	},
+}
+
+func generateClientCA(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, cfg clientCAConfig) (*corev1.Secret, error) {
+	if !cfg.Enabled(cr) {
 		return nil, nil
 	}
 
 	caCM := &corev1.ConfigMap{}
 	if err := r.Get(ctx, client.ObjectKey{Name: utils.OLSCAConfigMap, Namespace: r.GetNamespace()}, caCM); err != nil {
-		return nil, fmt.Errorf("%s: %w", utils.ErrAgenticMCPCANotReady, err)
+		return nil, fmt.Errorf("%s: %w", cfg.ErrSource, err)
 	}
 	caPEM, ok := caCM.Data[utils.AppOtelCollectorCACertFile]
 	if !ok || caPEM == "" {
 		return nil, fmt.Errorf("%s: key %q missing or empty in ConfigMap %s",
-			utils.ErrAgenticMCPCANotReady, utils.AppOtelCollectorCACertFile, utils.OLSCAConfigMap)
+			cfg.ErrSource, utils.AppOtelCollectorCACertFile, utils.OLSCAConfigMap)
 	}
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.AgenticMCPCASecretName,
+			Name:      cfg.SecretName,
 			Namespace: r.GetNamespace(),
 			Labels:    utils.GenerateAppServerSelectorLabels(),
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			utils.AgenticMCPCASecretDataKey: []byte(caPEM),
+			cfg.DataKey: []byte(caPEM),
 		},
 	}
 	if err := controllerutil.SetControllerReference(cr, secret, r.GetScheme()); err != nil {
-		return nil, fmt.Errorf("%s: %w", utils.ErrSetAgenticMCPCASecretOwnerRef, err)
+		return nil, fmt.Errorf("%s: %w", cfg.ErrOwnerRef, err)
 	}
 	return secret, nil
 }
 
-func reconcileOtelClientCASecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	secret, err := GenerateOtelClientCASecret(r, ctx, cr)
+func deleteClientCA(r reconciler.Reconciler, ctx context.Context, cfg clientCAConfig) error {
+	secret := &corev1.Secret{}
+	err := r.Get(ctx, client.ObjectKey{Name: cfg.SecretName, Namespace: r.GetNamespace()}, secret)
 	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateAgenticOtelCASecret, err)
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("%s: %w", cfg.ErrGet, err)
 	}
-	return reconcileClientCASecret(r, ctx, secret,
-		utils.ErrCreateAgenticOtelCASecret,
-		utils.ErrGetAgenticOtelCASecret,
-		utils.ErrUpdateAgenticOtelCASecret,
-	)
+	r.GetLogger().Info("deleting client CA secret (component disabled)", "secret", secret.Name)
+	if err := r.Delete(ctx, secret); err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("%s: %w", cfg.ErrDelete, err)
+	}
+	return nil
 }
 
-func reconcileMCPClientCASecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	secret, err := GenerateMCPClientCASecret(r, ctx, cr)
-	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGenerateAgenticMCPCASecret, err)
-	}
-	if secret == nil {
-		return deleteMCPClientCASecret(r, ctx)
-	}
-	return reconcileClientCASecret(r, ctx, secret,
-		utils.ErrCreateAgenticMCPCASecret,
-		utils.ErrGetAgenticMCPCASecret,
-		utils.ErrUpdateAgenticMCPCASecret,
-	)
-}
-
-// RefreshClientCASecrets updates OTEL/MCP client CA Secrets from their source ConfigMaps.
+// RefreshClientCASecrets updates all client CA Secrets from the cluster service-ca ConfigMap.
+// When a component is disabled, the corresponding Secret is deleted.
 func RefreshClientCASecrets(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	if err := reconcileOtelClientCASecret(r, ctx, cr); err != nil {
-		return err
+	for _, cfg := range clientCASecrets {
+		secret, err := generateClientCA(r, ctx, cr, cfg)
+		if err != nil {
+			return err
+		}
+		if secret == nil {
+			if err := deleteClientCA(r, ctx, cfg); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := reconcileClientCASecret(r, ctx, secret, cfg.ErrCreate, cfg.ErrGet, cfg.ErrUpdate); err != nil {
+			return err
+		}
 	}
-	return reconcileMCPClientCASecret(r, ctx, cr)
+	return nil
 }
 
 func reconcileClientCASecret(
@@ -1173,47 +1204,5 @@ func reconcileClientCASecret(
 		return fmt.Errorf("%s: %w", errUpdate, err)
 	}
 	r.GetLogger().Info("client CA secret reconciled", "secret", desired.Name)
-	return nil
-}
-
-// GetMCPClientCACertHash returns a SHA256 hash of the MCP client CA Secret when
-// introspection is enabled. Empty string when disabled. Returns not-ready when
-// the Secret is missing or empty so callers requeue.
-func GetMCPClientCACertHash(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
-	if !utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
-		return "", nil
-	}
-
-	secret := &corev1.Secret{}
-	err := r.Get(ctx, client.ObjectKey{Name: utils.AgenticMCPCASecretName, Namespace: r.GetNamespace()}, secret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return "", fmt.Errorf("%s: %w", utils.ErrOpenShiftMCPServerCANotReady, err)
-		}
-		return "", err
-	}
-
-	certData, ok := secret.Data[utils.AgenticMCPCASecretDataKey]
-	if !ok || len(certData) == 0 {
-		return "", fmt.Errorf("%s: waiting for MCP client CA secret %s", utils.ErrOpenShiftMCPServerCANotReady, utils.AgenticMCPCASecretName)
-	}
-
-	hash := sha256.Sum256(certData)
-	return hex.EncodeToString(hash[:]), nil
-}
-
-func deleteMCPClientCASecret(r reconciler.Reconciler, ctx context.Context) error {
-	secret := &corev1.Secret{}
-	err := r.Get(ctx, client.ObjectKey{Name: utils.AgenticMCPCASecretName, Namespace: r.GetNamespace()}, secret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil
-		}
-		return fmt.Errorf("%s: %w", utils.ErrGetAgenticMCPCASecret, err)
-	}
-	r.GetLogger().Info("deleting MCP client CA secret (introspection disabled)", "secret", secret.Name)
-	if err := r.Delete(ctx, secret); err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("%s: %w", utils.ErrDeleteAgenticMCPCASecret, err)
-	}
 	return nil
 }

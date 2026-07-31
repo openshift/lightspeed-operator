@@ -1,4 +1,4 @@
-package ocpmcp
+package rhokp
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -31,12 +31,12 @@ func expectOwnedByOLSConfig(obj metav1.Object) {
 	Expect(ownerRef.Name).To(Equal(olsConfig.Name))
 }
 
-var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
+var _ = Describe("RHOKP reconciler", Ordered, func() {
 	var testCR *olsv1alpha1.OLSConfig
 
 	BeforeAll(func() {
 		testCR = cr.DeepCopy()
-		testCR.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
+		testCR.Spec.OLSConfig.ByokRAGOnly = false
 	})
 
 	Context("Phase 1 resources", func() {
@@ -45,134 +45,134 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should create the MCP ConfigMap", func() {
-			cm := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerConfigCmName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
-			Expect(err).NotTo(HaveOccurred())
-			expectOwnedByOLSConfig(cm)
-			Expect(cm.Data[utils.OpenShiftMCPServerConfigFilename]).To(ContainSubstring(`kind = "Secret"`))
-		})
-
-		It("should create the MCP ServiceAccount", func() {
-			sa := &corev1.ServiceAccount{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerServiceAccountName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, sa)
-			Expect(err).NotTo(HaveOccurred())
-			expectOwnedByOLSConfig(sa)
-		})
-
-		It("should create the MCP NetworkPolicy", func() {
+		It("should create the RHOKP NetworkPolicy", func() {
 			np := &networkingv1.NetworkPolicy{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerNetworkPolicyName,
+				Name:      utils.RHOKPNetworkPolicyName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, np)
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(np)
 		})
 
-		It("should skip ConfigMap update when data is unchanged", func() {
-			cm := &corev1.ConfigMap{}
+		It("should skip NetworkPolicy update when spec is unchanged", func() {
+			np := &networkingv1.NetworkPolicy{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerConfigCmName,
+				Name:      utils.RHOKPNetworkPolicyName,
 				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
+			}, np)
 			Expect(err).NotTo(HaveOccurred())
-			oldRV := cm.ResourceVersion
+			oldRV := np.ResourceVersion
 
 			err = ReconcileResources(testReconcilerInstance, ctx, testCR)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerConfigCmName,
+				Name:      utils.RHOKPNetworkPolicyName,
 				Namespace: utils.OLSNamespaceDefault,
-			}, cm)
+			}, np)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.ResourceVersion).To(Equal(oldRV))
-		})
-
-		It("should delete the legacy MCP CA ConfigMap on upgrade", func() {
-			legacy := &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.LegacyOpenShiftMCPServerCAConfigMapName,
-					Namespace: utils.OLSNamespaceDefault,
-				},
-				Data: map[string]string{"service-ca.crt": "stale"},
-			}
-			Expect(k8sClient.Create(ctx, legacy)).To(Succeed())
-
-			Expect(ReconcileResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
-
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.LegacyOpenShiftMCPServerCAConfigMapName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, &corev1.ConfigMap{})
-			Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			Expect(np.ResourceVersion).To(Equal(oldRV))
 		})
 	})
 
 	Context("Phase 2 deployment", func() {
 		BeforeAll(func() {
-			ensureMCPTLSSecret()
+			ensureRHOKPTLSSecret()
 			err := ReconcileDeployment(testReconcilerInstance, ctx, testCR)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should create the MCP Service", func() {
+		It("should create the RHOKP Service with serving-cert annotation", func() {
 			svc := &corev1.Service{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerServiceName,
+				Name:      utils.RHOKPServiceName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, svc)
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(svc)
-			Expect(svc.Annotations[utils.ServingCertSecretAnnotationKey]).To(Equal(utils.OpenShiftMCPServerCertsSecretName))
+			Expect(svc.Annotations[utils.ServingCertSecretAnnotationKey]).To(Equal(utils.RHOKPCertsSecretName))
 		})
 
-		It("should create the MCP Deployment", func() {
+		It("should create the RHOKP Deployment", func() {
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerDeploymentName,
+				Name:      utils.RHOKPDeploymentName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(dep)
-			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.OpenShiftMCPServerImageDefault))
-			Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation))
-			Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerTLSSecretResourceVersionAnnotation))
+			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.RHOOKPImageDefault))
+			Expect(dep.Annotations).To(HaveKey(utils.RHOKPTLSSecretResourceVersionAnnotation))
+		})
+
+		It("should mount TLS as localhost.crt/localhost.key for Apache httpd", func() {
+			dep := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.RHOKPDeploymentName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, dep)
+			Expect(err).NotTo(HaveOccurred())
+
+			var tlsVolume *corev1.Volume
+			for i := range dep.Spec.Template.Spec.Volumes {
+				if dep.Spec.Template.Spec.Volumes[i].Name == utils.RHOKPTLSVolumeName {
+					tlsVolume = &dep.Spec.Template.Spec.Volumes[i]
+					break
+				}
+			}
+			Expect(tlsVolume).NotTo(BeNil())
+			Expect(tlsVolume.Secret.SecretName).To(Equal(utils.RHOKPCertsSecretName))
+			Expect(tlsVolume.Secret.Items).To(ConsistOf(
+				corev1.KeyToPath{Key: "tls.crt", Path: "localhost.crt"},
+				corev1.KeyToPath{Key: "tls.key", Path: "localhost.key"},
+			))
+		})
+
+		It("should have an EmptyDir volume for Solr data with 75Gi sizeLimit", func() {
+			dep := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.RHOKPDeploymentName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, dep)
+			Expect(err).NotTo(HaveOccurred())
+
+			var solrVolume *corev1.Volume
+			for i := range dep.Spec.Template.Spec.Volumes {
+				if dep.Spec.Template.Spec.Volumes[i].Name == utils.RHOKPSolrDataVolumeName {
+					solrVolume = &dep.Spec.Template.Spec.Volumes[i]
+					break
+				}
+			}
+			Expect(solrVolume).NotTo(BeNil())
+			Expect(solrVolume.EmptyDir).NotTo(BeNil())
+			Expect(solrVolume.EmptyDir.SizeLimit.String()).To(Equal(utils.RHOKPSolrDataSizeLimitDefault))
 		})
 
 		It("should skip Deployment update when spec and versions are unchanged", func() {
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerDeploymentName,
+				Name:      utils.RHOKPDeploymentName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			oldRV := dep.ResourceVersion
-			oldForceReload := dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]
 
 			err = ReconcileDeployment(testReconcilerInstance, ctx, testCR)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerDeploymentName,
+				Name:      utils.RHOKPDeploymentName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.ResourceVersion).To(Equal(oldRV))
-			Expect(dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]).To(Equal(oldForceReload))
 		})
 
 		It("should trigger a rolling restart via Restart", func() {
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerDeploymentName,
+				Name:      utils.RHOKPDeploymentName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, dep)
 			Expect(err).NotTo(HaveOccurred())
@@ -182,7 +182,7 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 
 			updated := &appsv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerDeploymentName,
+				Name:      utils.RHOKPDeploymentName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, updated)
 			Expect(err).NotTo(HaveOccurred())
@@ -192,7 +192,7 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 		It("should skip Restart when the Deployment is missing", func() {
 			Expect(k8sClient.Delete(ctx, &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.OpenShiftMCPServerDeploymentName,
+					Name:      utils.RHOKPDeploymentName,
 					Namespace: utils.OLSNamespaceDefault,
 				},
 			})).To(Succeed())
@@ -201,9 +201,8 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should remove all MCP resources via Remove", func() {
-			// Prior tests may have deleted the Deployment; recreate so cleanup is exercised.
-			ensureMCPTLSSecret()
+		It("should remove all RHOKP resources via Remove", func() {
+			ensureRHOKPTLSSecret()
 			Expect(ReconcileDeployment(testReconcilerInstance, ctx, testCR)).To(Succeed())
 
 			err := Remove(testReconcilerInstance, ctx)
@@ -211,43 +210,28 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 
 			dep := &appsv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerDeploymentName,
+				Name:      utils.RHOKPDeploymentName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, dep)
 			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "deployment should be deleted")
 
 			svc := &corev1.Service{}
 			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerServiceName,
+				Name:      utils.RHOKPServiceName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, svc)
 			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "service should be deleted")
 
-			for _, name := range []string{
-				utils.OpenShiftMCPServerConfigCmName,
-			} {
-				cm := &corev1.ConfigMap{}
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: utils.OLSNamespaceDefault}, cm)
-				Expect(apierrors.IsNotFound(err)).To(BeTrue(), "configmap %s should be deleted", name)
-			}
-
-			sa := &corev1.ServiceAccount{}
-			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerServiceAccountName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, sa)
-			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "service account should be deleted")
-
 			np := &networkingv1.NetworkPolicy{}
 			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerNetworkPolicyName,
+				Name:      utils.RHOKPNetworkPolicyName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, np)
 			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "network policy should be deleted")
 
 			tlsSecret := &corev1.Secret{}
 			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerCertsSecretName,
+				Name:      utils.RHOKPCertsSecretName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, tlsSecret)
 			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "TLS secret should be deleted")

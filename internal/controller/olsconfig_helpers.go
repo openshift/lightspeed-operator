@@ -411,11 +411,10 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	// Annotate all external secrets
 	err := utils.ForEachExternalSecret(cr, func(name string, source string) error {
 		// TLS secrets affect both console (CA cert) and backend (server cert)
-		// All other secrets use the default behavior (ACTIVE_BACKEND only)
 		if r.WatcherConfig != nil && source == "tls" {
 			r.WatcherConfig.AnnotatedSecretMapping[name] = []string{
 				utils.ConsoleUIDeploymentName,
-				"ACTIVE_BACKEND",
+				utils.OLSAppServerDeploymentName,
 			}
 		}
 
@@ -453,13 +452,14 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	}
 
 	r.syncOpenShiftMCPServerTLSWatcher(cr)
+	r.syncRHOKPTLSWatcher(cr)
 	return nil
 }
 
 // syncOpenShiftMCPServerTLSWatcher enables watching openshift-mcp-server-tls only while
 // introspectionEnabled is true. The Secret is listed statically in WatcherConfig; this only
 // toggles OpenShiftMCPServerTLSWatchEnabled so informers never race on SystemResources rewrites.
-// When enabled, TLS rotation restarts the MCP Deployment and ACTIVE_BACKEND (app-server).
+// When enabled, TLS rotation restarts the MCP Deployment and app-server.
 func (r *OLSConfigReconciler) syncOpenShiftMCPServerTLSWatcher(cr *olsv1alpha1.OLSConfig) {
 	if r.WatcherConfig == nil {
 		return
@@ -467,6 +467,15 @@ func (r *OLSConfigReconciler) syncOpenShiftMCPServerTLSWatcher(cr *olsv1alpha1.O
 	r.WatcherConfig.OpenShiftMCPServerTLSWatchEnabled.Store(
 		utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true),
 	)
+}
+
+// syncRHOKPTLSWatcher enables watching lightspeed-rhokp-tls only while
+// byokRAGOnly is false. Same pattern as MCP TLS watcher.
+func (r *OLSConfigReconciler) syncRHOKPTLSWatcher(cr *olsv1alpha1.OLSConfig) {
+	if r.WatcherConfig == nil {
+		return
+	}
+	r.WatcherConfig.RHOKPTLSWatchEnabled.Store(!cr.Spec.OLSConfig.ByokRAGOnly)
 }
 
 // annotateSecretIfNeeded annotates a secret with the watcher annotation if it doesn't already have it.

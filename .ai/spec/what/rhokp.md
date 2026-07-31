@@ -8,7 +8,7 @@ Standalone HTTPS RHOKP operand managed by the `rhokp` package ([OLS-3697](https:
 lightspeed-service (app-server)
   └─ HTTPS Solr client
        url: https://lightspeed-rhokp.<ns>.svc:8443/solr/portal-rag/hybrid-search
-       trust: /etc/certs/lightspeed-rhokp-ca/service-ca.crt  (extra_ca)
+       trust: /etc/certs/rhokp-ca/service-ca.crt  (extra_ca, from Secret lightspeed-agentic-rhokp-ca)
             │
             ▼
 lightspeed-rhokp Deployment + ClusterIP Service (:8443)
@@ -23,7 +23,7 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 
 ### Activation
 1. When `spec.ols.byokRAGOnly` is false (or absent), Phase 1 and Phase 2 reconcile the standalone RHOKP operand.
-2. When true, Phase 1 calls `rhokp.Remove()`; Phase 2 skips deployment reconciliation. No status condition is emitted (RHOKP readiness is implicit in `ApiReady` — the app-server cannot become ready if its configured Solr backend is unreachable).
+2. When true, Phase 1 calls `rhokp.Remove()`; Phase 2 skips deployment reconciliation. The status condition `RHOKPReady=False, Reason=Disabled` is emitted to signal that RHOKP is intentionally off.
 
 ### Phase 1 Resources
 3. ConfigMap `lightspeed-rhokp-ca` — empty ConfigMap with `service.beta.openshift.io/inject-cabundle: "true"` for client trust. Reconcile must not wipe injected `Data`.
@@ -45,22 +45,22 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 
 ### App-server Integration
 15. `olsconfig.yaml` `solr_hybrid.solr_http_base` is set to `https://lightspeed-rhokp.<namespace>.svc:8443` (replaces former `http://localhost:9080`).
-16. App-server mounts `lightspeed-rhokp-ca` at `/etc/certs/lightspeed-rhokp-ca/` and adds `service-ca.crt` to `extra_ca`. See `tls.md`.
-17. App-server Deployment tracks RHOKP CA content hash (`ols.openshift.io/rhokp-ca-configmap-hash`) only while OKP is enabled.
+16. App-server mounts Secret `lightspeed-agentic-rhokp-ca` at `/etc/certs/rhokp-ca/` and adds `service-ca.crt` to `extra_ca`. See `tls.md`.
+17. Client CA Secrets for RHOKP are refreshed via the table-driven `RefreshClientCASecrets` in `RestartAppServer`. No hash annotation is stored on the app-server Deployment.
 
 ### Monitoring
-18. ServiceMonitor `lightspeed-rhokp-monitor` — scrapes RHOKP metrics via HTTPS on port 8443, path `/solr/admin/metrics` (Solr built-in Prometheus metrics reporter). Uses service-ca TLS for the scrape connection. Skipped if Prometheus Operator CRDs are not installed.
+18. [PLANNED: separate ticket] ServiceMonitor `lightspeed-rhokp-monitor` — will scrape RHOKP metrics via HTTPS on port 8443, path `/solr/admin/metrics` (Solr built-in Prometheus metrics reporter). Uses service-ca TLS for the scrape connection. Skipped if Prometheus Operator CRDs are not installed.
 
 ### Agentic Handoff
-19. When OKP is enabled, the inter-operator handoff ConfigMap (`lightspeed-sandbox-config`) includes `rhokp-endpoint` key with the HTTPS URL and the RHOKP CA cert volume + mount in the base `sandbox-pod-spec` PodSpec. When `byokRAGOnly` is true, both are absent.
+19. When OKP is enabled, the inter-operator handoff ConfigMap (`lightspeed-agentic-configuration`) includes `rhokp-endpoint` and `rhokp-ca-secret` keys. When `byokRAGOnly` is true, both are absent.
 
 ### Watching and Restarts
 20. Secret `lightspeed-rhokp-tls` is watched via the operator's watcher infrastructure (same pattern as `openshift-mcp-server-tls`).
-21. On TLS Secret data change, the watcher restarts both `lightspeed-rhokp` and `ACTIVE_BACKEND` (app-server).
+21. On TLS Secret data change, the watcher restarts `lightspeed-rhokp`, `lightspeed-app-server` (app-server), and touches the `lightspeed-agentic-configuration` ConfigMap.
 22. RHOKP Deployment tracks TLS Secret ResourceVersion and rolls when it changes.
 
 ### Finalizer
-23. On CR deletion, `rhokp.Remove()` deletes Deployment, Service, NetworkPolicy, CA ConfigMap, TLS Secret (`lightspeed-rhokp-tls`), and ServiceMonitor (`lightspeed-rhokp-monitor`) before owned-resource sweep.
+23. On CR deletion, `rhokp.Remove()` deletes Deployment, Service, NetworkPolicy, CA ConfigMap, and TLS Secret (`lightspeed-rhokp-tls`) before owned-resource sweep.
 
 ## Configuration Surface
 
@@ -79,4 +79,4 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 
 ## Planned Changes
 
-None for the standalone HTTPS cutover itself. Agentic handoff remains planned (OLS-3572).
+- ServiceMonitor for RHOKP metrics (deferred from standalone cutover).
