@@ -109,7 +109,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260724162435-b2f20204f0df // indirect
 	google.golang.org/grpc v1.82.1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/streaming v0.36.3 // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
@@ -118,7 +117,7 @@ require (
 
 require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.93.0
-	go.podman.io/image/v5 v5.40.0
+	go.podman.io/image/v5 v5.41.0
 )
 
 require (
