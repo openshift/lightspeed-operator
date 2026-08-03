@@ -62,11 +62,27 @@ func GenerateSandboxPodSpec(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) 
 	resources := utils.GetResourcesOrDefault(cfg.Resources, defaultSandboxResources())
 
 	spec := &corev1.PodSpec{
+		SecurityContext: &corev1.PodSecurityContext{
+			RunAsNonRoot: utils.BoolPtr(true),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		},
 		Containers: []corev1.Container{
 			{
 				Name:      utils.AgenticSandboxContainerName,
 				Image:     r.GetAgenticSandboxImage(),
 				Resources: *resources,
+				SecurityContext: &corev1.SecurityContext{
+					AllowPrivilegeEscalation: utils.BoolPtr(false),
+					RunAsNonRoot:             utils.BoolPtr(true),
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+					SeccompProfile: &corev1.SeccompProfile{
+						Type: corev1.SeccompProfileTypeRuntimeDefault,
+					},
+				},
 				VolumeMounts: []corev1.VolumeMount{
 					{Name: sandboxHomeVolumeName, MountPath: sandboxHomeMountPath},
 					{Name: sandboxSkillsWorkdirVolumeName, MountPath: sandboxSkillsWorkdirMountPath},

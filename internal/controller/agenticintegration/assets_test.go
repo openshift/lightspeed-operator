@@ -43,6 +43,18 @@ var _ = Describe("Agentic integration assets", func() {
 		Expect(spec.Volumes).To(HaveLen(2))
 		Expect(spec.Volumes[0].EmptyDir).NotTo(BeNil())
 		Expect(spec.Volumes[1].EmptyDir).NotTo(BeNil())
+
+		By("setting PSA restricted-compliant pod-level securityContext")
+		Expect(spec.SecurityContext).NotTo(BeNil())
+		Expect(*spec.SecurityContext.RunAsNonRoot).To(BeTrue())
+		Expect(spec.SecurityContext.SeccompProfile.Type).To(Equal(corev1.SeccompProfileTypeRuntimeDefault))
+
+		By("setting PSA restricted-compliant container-level securityContext")
+		Expect(c.SecurityContext).NotTo(BeNil())
+		Expect(*c.SecurityContext.AllowPrivilegeEscalation).To(BeFalse())
+		Expect(*c.SecurityContext.RunAsNonRoot).To(BeTrue())
+		Expect(c.SecurityContext.Capabilities.Drop).To(ConsistOf(corev1.Capability("ALL")))
+		Expect(c.SecurityContext.SeccompProfile.Type).To(Equal(corev1.SeccompProfileTypeRuntimeDefault))
 	})
 
 	It("should apply AgenticSandboxConfig resources, tolerations, and nodeSelector", func() {
