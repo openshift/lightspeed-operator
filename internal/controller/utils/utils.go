@@ -1089,6 +1089,7 @@ func GenerateConsolePluginDeployment(
 					Labels: opts.Labels,
 				},
 				Spec: corev1.PodSpec{
+					AutomountServiceAccountToken: BoolPtr(false),
 					Containers: []corev1.Container{
 						{
 							Name:            opts.ContainerName,

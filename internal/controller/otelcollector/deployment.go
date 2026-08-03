@@ -158,7 +158,8 @@ func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Contex
 					Labels: utils.GenerateOtelCollectorSelectorLabels(),
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: utils.OtelCollectorServiceAccountName,
+					AutomountServiceAccountToken: utils.BoolPtr(false),
+					ServiceAccountName:           utils.OtelCollectorServiceAccountName,
 					// No explicit UID/GID — OpenShift assigns from the namespace range via restricted SCC.
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: &runAsNonRoot,

@@ -191,6 +191,7 @@ func GeneratePostgresDeployment(r reconciler.Reconciler, ctx context.Context, cr
 					Labels: utils.GeneratePostgresSelectorLabels(),
 				},
 				Spec: corev1.PodSpec{
+					AutomountServiceAccountToken: utils.BoolPtr(false),
 					Containers: []corev1.Container{
 						{
 							Name:            utils.PostgresDeploymentName,
