@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -147,6 +148,19 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 			Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerTLSSecretResourceVersionAnnotation))
 		})
 
+		It("should create the MCP ServiceMonitor", func() {
+			sm := &monv1.ServiceMonitor{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OpenShiftMCPServerServiceMonitorName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, sm)
+			Expect(err).NotTo(HaveOccurred())
+			expectOwnedByOLSConfig(sm)
+			Expect(sm.Spec.Endpoints).To(HaveLen(1))
+			Expect(sm.Spec.Endpoints[0].Port).To(Equal("https"))
+			Expect(sm.Spec.Endpoints[0].Path).To(Equal(utils.OpenShiftMCPServerMetricsPath))
+		})
+
 		It("should skip Deployment update when spec and versions are unchanged", func() {
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
@@ -251,6 +265,13 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 				Namespace: utils.OLSNamespaceDefault,
 			}, tlsSecret)
 			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "TLS secret should be deleted")
+
+			sm := &monv1.ServiceMonitor{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OpenShiftMCPServerServiceMonitorName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, sm)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "ServiceMonitor should be deleted")
 		})
 	})
 })

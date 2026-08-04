@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -27,12 +28,13 @@ func ReconcileResources(r reconciler.Reconciler, ctx context.Context, olsconfig 
 	}, true)
 }
 
-// ReconcileDeployment reconciles Phase 2: Service, TLS material, and Deployment.
+// ReconcileDeployment reconciles Phase 2: Service, TLS material, Deployment, and ServiceMonitor.
 func ReconcileDeployment(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
 	return utils.RunReconcileTasks(r, ctx, olsconfig, "reconcileOpenShiftMCPServerDeployment", []utils.ReconcileTask{
 		{Name: "reconcile openshift-mcp-server Service", Task: reconcileService},
 		{Name: "reconcile openshift-mcp-server TLS Certs", Task: reconcileTLSSecret},
 		{Name: "reconcile openshift-mcp-server Deployment", Task: reconcileDeployment},
+		{Name: "reconcile openshift-mcp-server ServiceMonitor", Task: reconcileServiceMonitor},
 	}, false)
 }
 
@@ -45,6 +47,7 @@ func Remove(r reconciler.Reconciler, ctx context.Context) error {
 		{Name: "delete openshift-mcp-server configmap", Task: deleteConfigMap},
 		{Name: "delete openshift-mcp-server service account", Task: deleteServiceAccount},
 		{Name: "delete openshift-mcp-server TLS secret", Task: deleteTLSSecret},
+		{Name: "delete openshift-mcp-server ServiceMonitor", Task: deleteServiceMonitor},
 		{Name: "delete legacy openshift-mcp-server CA ConfigMap", Task: deleteLegacyCAConfigMap},
 	})
 }
@@ -171,6 +174,18 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 
 	r.GetLogger().Info("openshift-mcp-server deployment reconciled", "deployment", desiredDeployment.Name)
 	return nil
+}
+
+func reconcileServiceMonitor(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	sm, err := GenerateServiceMonitor(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGenerateOpenShiftMCPServerServiceMonitor, err)
+	}
+	return utils.ReconcileServiceMonitor(r, ctx, sm)
+}
+
+func deleteServiceMonitor(r reconciler.Reconciler, ctx context.Context) error {
+	return deleteNamespacedObject(r, ctx, &monv1.ServiceMonitor{}, utils.OpenShiftMCPServerServiceMonitorName)
 }
 
 func deleteDeployment(r reconciler.Reconciler, ctx context.Context) error {
