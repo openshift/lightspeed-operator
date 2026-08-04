@@ -1038,7 +1038,7 @@ func generateMetricsReaderClusterRoleBinding(r reconciler.Reconciler, cr *olsv1a
 	}
 
 	if err := controllerutil.SetControllerReference(cr, &rb, r.GetScheme()); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", utils.ErrSetMetricsReaderCRBOwnerReference, err)
 	}
 
 	return &rb, nil
