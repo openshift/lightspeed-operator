@@ -11,6 +11,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 4. The OpenShift MCP server runs as a standalone HTTPS Deployment/Service (`ocpmcp` package) when `spec.ols.introspectionEnabled` is true. The app-server connects via `https://openshift-mcp-server.<ns>.svc:8443/mcp` and trusts client CA Secret `lightspeed-agentic-mcp-ca` (cluster service-ca PEM). See `ocpmcp.md`.
 5. OKP (Offline Knowledge Portal) / Solr hybrid RAG is operator-managed (no CR toggle besides `byokRAGOnly`). When OKP is enabled, the RHOKP standalone Deployment serves Solr via HTTPS at `https://lightspeed-rhokp.<ns>.svc:8443`. The app-server connects as a client, trusting client CA Secret `lightspeed-agentic-rhokp-ca` (cluster service-ca PEM) via `extra_ca`. OKP is on by default; set `spec.ols.byokRAGOnly` to true to skip the RHOKP standalone operand, `solr_hybrid` config, and OCP documentation retrieval via Solr. See `rhokp.md`.
 6. A PostgreSQL wait init container always runs before the main containers to ensure database readiness.
+6a. When `byokRAGOnly` is false, a RHOKP wait init container runs after the PostgreSQL wait init container and before the main containers. It polls the RHOKP Solr ping endpoint until it responds, with a timeout matching RHOKP's startup probe budget (~360s). This follows the existing PostgreSQL wait pattern and ensures the app-server main process does not start until RHOKP is reachable.
 7. When `spec.ols.rag` is configured, additional init containers copy BYOK RAG data from container images into a shared volume.
 
 ### Configuration Mapping
@@ -93,7 +94,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 2. Tool filtering requires MCP servers to be configured (either introspection or user-defined).
 3. The service always connects to PostgreSQL via the internal cluster service DNS.
 4. RAG init containers run in index order, copying data to subdirectories of the shared RAG volume.
-5. RHOKP runs as a standalone Deployment (`lightspeed-rhokp`) with its own 75 GiB EmptyDir. The app-server pod no longer requires ephemeral storage for OKP. See `rhokp.md`.
+5. RHOKP runs as a standalone Deployment (`lightspeed-rhokp`) with its own 75 GiB EmptyDir. The app-server pod no longer requires ephemeral storage for OKP. The wait-for-rhokp init container (Rule 6a) ensures the app-server does not start until RHOKP is reachable. See `rhokp.md`.
 
 ### Resource Conventions [OLS-3397]
 30. All operator-managed container defaults follow the [OpenShift resource conventions](https://github.com/openshift/enhancements/blob/master/CONVENTIONS.md#resources-and-limits): defaults declare CPU and memory requests only, and do not set resource limits. This applies to the primary API container, sidecars (data collector), the standalone MCP Deployment, and the standalone RHOKP Deployment.
@@ -119,5 +120,6 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 ## Planned Changes
 
 - [PLANNED: OLS-3221] Liveness probe now checks PostgreSQL health via the service's background health-check loop status. Probe configuration (failureThreshold, periodSeconds) added to deployment generation. See Rules 24–25.
+- [PLANNED: OLS-3799] Wait-for-rhokp init container added when `!byokRAGOnly` to block app-server startup until RHOKP Solr is reachable. See Rule 6a.
 - Classic→agentic sandbox handoff: appserver owns client CA Secrets (`lightspeed-agentic-otel-ca` / `lightspeed-agentic-mcp-ca` / `lightspeed-agentic-rhokp-ca`) and mounts them; `agenticintegration` owns the handoff ConfigMap — see `agentic-sandbox-profile.md` (OLS-3683 / OLS-3684). Optional agentic auto-injection remains deferred ([OLS-3594](https://redhat.atlassian.net/browse/OLS-3594)).
 - [PLANNED: OLS-3572] Agentic sandbox configuration handoff — classic operator builds base PodSpec and writes `lightspeed-sandbox-config` ConfigMap for the agentic operator. See Rules 34–36.
