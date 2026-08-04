@@ -83,6 +83,7 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
 	"github.com/openshift/lightspeed-operator/internal/controller/ocpmcp"
+
 	// OLS-3737: OTEL Collector reconciliation disabled until e2e coverage exists.
 	// "github.com/openshift/lightspeed-operator/internal/controller/otelcollector"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"

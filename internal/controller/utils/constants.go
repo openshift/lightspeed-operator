@@ -527,6 +527,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	OpenShiftMCPServerTLSMountPath = "/etc/tls"
 	// OpenShiftMCPServerComponentLabel is the app.kubernetes.io/component label value.
 	OpenShiftMCPServerComponentLabel = "openshift-mcp-server"
+	// OpenShiftMCPServerServiceMonitorName is the ServiceMonitor for scraping MCP server metrics.
+	OpenShiftMCPServerServiceMonitorName = "openshift-mcp-server-monitor"
+	// OpenShiftMCPServerMetricsPath is the Prometheus metrics endpoint path on the MCP server.
+	OpenShiftMCPServerMetricsPath = "/metrics"
 	// RHOOKPHTTPPort is the Solr HTTP proxy port for the RH OKP sidecar (remapped from image default 8080).
 	RHOOKPHTTPPort = 9080
 	// RHOOKPHTTPSPort is the RH OKP Apache HTTPS port (remapped from image default 8443; OLS uses 8443).

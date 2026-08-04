@@ -5,6 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,5 +94,29 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(mount.SubPath).To(Equal(utils.OpenShiftMCPServerConfigFilename))
 		Expect(mount.ReadOnly).To(BeTrue())
 		Expect(GetConfigPath()).To(Equal("/etc/mcp-server/config.toml"))
+	})
+
+	It("should generate the ServiceMonitor with HTTPS scrape config", func() {
+		sm, err := GenerateServiceMonitor(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(sm.Name).To(Equal(utils.OpenShiftMCPServerServiceMonitorName))
+		Expect(sm.Namespace).To(Equal(utils.OLSNamespaceDefault))
+		Expect(sm.Labels).To(HaveKeyWithValue("monitoring.openshift.io/collection-profile", "full"))
+		Expect(sm.Labels).To(HaveKeyWithValue("openshift.io/user-monitoring", "false"))
+
+		Expect(sm.Spec.Endpoints).To(HaveLen(1))
+		ep := sm.Spec.Endpoints[0]
+		Expect(ep.Port).To(Equal("https"))
+		Expect(ep.Path).To(Equal(utils.OpenShiftMCPServerMetricsPath))
+		Expect(ep.Interval).To(Equal(monv1.Duration("30s")))
+		Expect(string(*ep.Scheme)).To(Equal("https"))
+		Expect(ep.TLSConfig).NotTo(BeNil())
+		Expect(ep.TLSConfig.CAFile).To(Equal("/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt"))
+		Expect(*ep.TLSConfig.InsecureSkipVerify).To(BeFalse())
+		expectedServerName := utils.OpenShiftMCPServerServiceName + "." + utils.OLSNamespaceDefault + ".svc"
+		Expect(*ep.TLSConfig.ServerName).To(Equal(expectedServerName))
+
+		Expect(sm.Spec.Selector.MatchLabels).To(Equal(selectorLabels()))
+		Expect(sm.Spec.JobLabel).To(Equal("app.kubernetes.io/name"))
 	})
 })

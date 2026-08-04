@@ -33,7 +33,7 @@ var _ = Describe("OTEL Collector assets", func() {
 		configYAML := cm.Data[utils.OtelCollectorConfigMapDataKey]
 		Expect(configYAML).To(ContainSubstring("cert_file: " + utils.OtelCollectorServingCertTLSFile))
 		Expect(configYAML).To(ContainSubstring("key_file: " + utils.OtelCollectorServingCertTLSKeyFile))
-		Expect(configYAML).To(ContainSubstring(`attributes["service.name"] == "` + utils.OtelSandboxServiceName + `"`))
+		Expect(configYAML).To(ContainSubstring(`resource.attributes["service.name"] == "` + utils.OtelSandboxServiceName + `"`))
 		Expect(configYAML).To(ContainSubstring("connection_string: ${env:POSTGRES_CONNECTION_STRING}"))
 		Expect(configYAML).To(ContainSubstring("schema: templogs"))
 		Expect(configYAML).To(ContainSubstring("logs/unmatched"))

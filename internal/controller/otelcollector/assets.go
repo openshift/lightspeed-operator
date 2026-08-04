@@ -328,7 +328,7 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 			"default_pipelines": []interface{}{"logs/unmatched"},
 			"table": []interface{}{
 				map[string]interface{}{
-					"condition": fmt.Sprintf(`attributes["service.name"] == %q`, utils.OtelSandboxServiceName),
+					"condition": fmt.Sprintf(`resource.attributes["service.name"] == %q`, utils.OtelSandboxServiceName),
 					"pipelines": []interface{}{"logs/postgres"},
 				},
 			},
