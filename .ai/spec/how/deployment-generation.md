@@ -27,6 +27,7 @@ GenerateOLSDeployment(r, cr)
   12. Build init containers:
       a. PostgreSQL wait init container (polls pg service)
       b. RAG init containers (one per RAG entry, copies data to shared emptyDir)
+      c. RHOKP wait init container (when `!byokRAGOnly`): polls RHOKP Solr ping endpoint until it responds, timeout ~360s matching RHOKP startup probe budget
   13. Get ConfigMap ResourceVersions for tracking annotations
   14. Get proxy CA cert hash for tracking annotation
   15. Assemble Deployment:
@@ -77,6 +78,7 @@ Volumes and mounts are built as slices and conditionally appended using inline a
 
 ### Init Container Generation
 - **PostgreSQL wait:** `utils.GeneratePostgresWaitInitContainer()` generates a container that polls the PostgreSQL service until it responds.
+- **RHOKP wait (when `!byokRAGOnly`):** `utils.GenerateRHOKPWaitInitContainer()` generates a container that polls the RHOKP Solr ping endpoint until it responds, with a timeout matching RHOKP's startup probe budget (~360s). Follows the same pattern as the PostgreSQL wait init container.
 - **RAG (AppServer only):** `GenerateRAGInitContainers()` creates one init container per RAG entry, each copying data from the RAG image to the shared emptyDir volume at `/app-root/rag/rag-<index>`.
 
 ### ImageStream Triggers (AppServer only)
