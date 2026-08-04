@@ -216,9 +216,9 @@ func GenerateOtelCollectorNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1
 	return &np, nil
 }
 
-// GenerateOtelCollectorServiceMonitor generates a ServiceMonitor for HTTPS scraping of
+// generateOtelCollectorServiceMonitor generates a ServiceMonitor for HTTPS scraping of
 // collector metrics on :8888. Server TLS only (service-ca); no client mTLS or Bearer.
-func GenerateOtelCollectorServiceMonitor(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*monv1.ServiceMonitor, error) {
+func generateOtelCollectorServiceMonitor(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*monv1.ServiceMonitor, error) {
 	metaLabels := utils.GenerateOtelCollectorSelectorLabels()
 	metaLabels["monitoring.openshift.io/collection-profile"] = "full"
 	metaLabels["app.kubernetes.io/component"] = "metrics"

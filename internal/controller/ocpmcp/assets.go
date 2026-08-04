@@ -188,9 +188,9 @@ func GetConfigPath() string {
 	return path.Join(utils.OpenShiftMCPServerConfigMountPath, utils.OpenShiftMCPServerConfigFilename)
 }
 
-// GenerateServiceMonitor generates a ServiceMonitor for HTTPS scraping of
+// generateServiceMonitor generates a ServiceMonitor for HTTPS scraping of
 // MCP server metrics on :8443, path /metrics. Server TLS only (service-ca).
-func GenerateServiceMonitor(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*monv1.ServiceMonitor, error) {
+func generateServiceMonitor(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*monv1.ServiceMonitor, error) {
 	metaLabels := selectorLabels()
 	metaLabels["monitoring.openshift.io/collection-profile"] = "full"
 	metaLabels["app.kubernetes.io/component"] = "metrics"

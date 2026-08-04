@@ -197,7 +197,7 @@ func reconcileOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Conte
 }
 
 func reconcileOtelCollectorServiceMonitor(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	sm, err := GenerateOtelCollectorServiceMonitor(r, cr)
+	sm, err := generateOtelCollectorServiceMonitor(r, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateOtelCollectorServiceMonitor, err)
 	}

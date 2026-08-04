@@ -2,7 +2,9 @@ package rhokp
 
 import (
 	"fmt"
+	"strings"
 
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,4 +96,57 @@ func GenerateNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		return nil, fmt.Errorf("%s: %w", utils.ErrSetRHOKPNetworkPolicyOwnerReference, err)
 	}
 	return &np, nil
+}
+
+// generateServiceMonitor generates a ServiceMonitor for HTTPS scraping of
+// RHOKP Solr metrics on :8443, path /solr/admin/metrics. Server TLS only (service-ca).
+func generateServiceMonitor(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*monv1.ServiceMonitor, error) {
+	metaLabels := selectorLabels()
+	metaLabels["monitoring.openshift.io/collection-profile"] = "full"
+	metaLabels["app.kubernetes.io/component"] = "metrics"
+	metaLabels["openshift.io/user-monitoring"] = "false"
+
+	valFalse := false
+	serverName := strings.Join([]string{utils.RHOKPServiceName, r.GetNamespace(), "svc"}, ".")
+	var schemeHTTPS monv1.Scheme = "https"
+
+	serviceMonitor := monv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.RHOKPServiceMonitorName,
+			Namespace: r.GetNamespace(),
+			Labels:    metaLabels,
+		},
+		Spec: monv1.ServiceMonitorSpec{
+			Endpoints: []monv1.Endpoint{
+				{
+					Port:     "https",
+					Path:     utils.RHOKPMetricsPath,
+					Interval: "30s",
+					Scheme:   &schemeHTTPS,
+					HTTPConfigWithProxyAndTLSFiles: monv1.HTTPConfigWithProxyAndTLSFiles{
+						HTTPConfigWithTLSFiles: monv1.HTTPConfigWithTLSFiles{
+							TLSConfig: &monv1.TLSConfig{
+								TLSFilesConfig: monv1.TLSFilesConfig{
+									CAFile: "/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt",
+								},
+								SafeTLSConfig: monv1.SafeTLSConfig{
+									InsecureSkipVerify: &valFalse,
+									ServerName:         &serverName,
+								},
+							},
+						},
+					},
+				},
+			},
+			JobLabel: "app.kubernetes.io/name",
+			Selector: metav1.LabelSelector{
+				MatchLabels: selectorLabels(),
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &serviceMonitor, r.GetScheme()); err != nil {
+		return nil, fmt.Errorf("%s: %w", utils.ErrSetRHOKPServiceMonitorOwnerReference, err)
+	}
+	return &serviceMonitor, nil
 }

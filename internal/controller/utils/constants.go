@@ -661,6 +661,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	RHOKPProbeFailureThreshold = 6
 	// RHOKPReadinessProbeFailureThreshold is the readiness probe failure threshold for the standalone RHOKP.
 	RHOKPReadinessProbeFailureThreshold = 3
+	// RHOKPServiceMonitorName is the ServiceMonitor for scraping RHOKP Solr metrics.
+	RHOKPServiceMonitorName = "lightspeed-rhokp-monitor"
+	// RHOKPMetricsPath is the Prometheus metrics endpoint path on the RHOKP Solr server.
+	RHOKPMetricsPath = "/solr/admin/metrics"
 
 	/*** Environment Variable Suffixes ***/
 	// EnvVarSuffixAPIKey is the environment variable suffix for API key credentials

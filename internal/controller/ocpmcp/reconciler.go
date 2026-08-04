@@ -177,7 +177,7 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 }
 
 func reconcileServiceMonitor(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	sm, err := GenerateServiceMonitor(r, cr)
+	sm, err := generateServiceMonitor(r, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateOpenShiftMCPServerServiceMonitor, err)
 	}

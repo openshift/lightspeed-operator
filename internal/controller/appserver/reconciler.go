@@ -410,7 +410,7 @@ func reconcileMetricsReaderSecret(r reconciler.Reconciler, ctx context.Context, 
 }
 
 func reconcileServiceMonitor(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	sm, err := GenerateServiceMonitor(r, cr)
+	sm, err := generateServiceMonitor(r, cr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateServiceMonitor, err)
 	}
