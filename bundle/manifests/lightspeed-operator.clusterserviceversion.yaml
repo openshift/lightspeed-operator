@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-08-03T13:34:13Z"
+    createdAt: "2026-08-05T17:15:21Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -1010,7 +1010,7 @@ spec:
                       - --cert-dir=/etc/tls/private
                       - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:89ce76bf7ed7953e7fe7a88e1b0f0dbbea27f158d6f0aeb6bd352bd2396f5d0d
+                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:74b3872c7d90d1287b9e36cd92e5cb4bfa095f3f8886bc9e15590ffebba64b77
                       - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:cee704e99168bf7baecddcc84ce25e2f9e7f420ee0d481afed5a7af8a759049a
                       - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:2c5dd069c93b881d2c8940d8dc709c4a40e8d3dbdf7d3e1a27c97e2203142d8c
                       - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9
@@ -1021,7 +1021,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:cc1a6dd2ad3c022c881346ecce101f677d5f39ff1c9836eb7da78649489557d7
+                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:2e652b1aae48b031184e9bb45c9de6ae6d0416a6dfda8d3f2a8eaf124ae36d17
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1142,11 +1142,11 @@ spec:
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     - name: lightspeed-service-api
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:89ce76bf7ed7953e7fe7a88e1b0f0dbbea27f158d6f0aeb6bd352bd2396f5d0d
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:74b3872c7d90d1287b9e36cd92e5cb4bfa095f3f8886bc9e15590ffebba64b77
     - name: lightspeed-console-plugin
       image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:cee704e99168bf7baecddcc84ce25e2f9e7f420ee0d481afed5a7af8a759049a
     - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:cc1a6dd2ad3c022c881346ecce101f677d5f39ff1c9836eb7da78649489557d7
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:2e652b1aae48b031184e9bb45c9de6ae6d0416a6dfda8d3f2a8eaf124ae36d17
     - name: openshift-mcp-server
       image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:2c5dd069c93b881d2c8940d8dc709c4a40e8d3dbdf7d3e1a27c97e2203142d8c
     - name: rhokp
