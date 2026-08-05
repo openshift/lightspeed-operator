@@ -148,7 +148,7 @@ var _ = Describe("OTEL Collector assets", func() {
 	})
 
 	It("should generate the collector ServiceMonitor for HTTPS metrics scraping", func() {
-		sm, err := GenerateOtelCollectorServiceMonitor(testReconcilerInstance, testCR)
+		sm, err := generateOtelCollectorServiceMonitor(testReconcilerInstance, testCR)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sm.Name).To(Equal(utils.OtelCollectorServiceMonitorName))
 		Expect(sm.Namespace).To(Equal(utils.OLSNamespaceDefault))

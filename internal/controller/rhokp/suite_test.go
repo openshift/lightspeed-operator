@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	configv1 "github.com/openshift/api/config/v1"
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,6 +79,8 @@ var _ = BeforeSuite(func() {
 	err = olsv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = configv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = monv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})

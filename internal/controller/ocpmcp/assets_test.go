@@ -97,7 +97,7 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 	})
 
 	It("should generate the ServiceMonitor with HTTPS scrape config", func() {
-		sm, err := GenerateServiceMonitor(testReconcilerInstance, testCR)
+		sm, err := generateServiceMonitor(testReconcilerInstance, testCR)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sm.Name).To(Equal(utils.OpenShiftMCPServerServiceMonitorName))
 		Expect(sm.Namespace).To(Equal(utils.OLSNamespaceDefault))

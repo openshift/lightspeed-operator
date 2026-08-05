@@ -780,7 +780,7 @@ func GenerateService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev
 	return &service, nil
 }
 
-func GenerateServiceMonitor(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*monv1.ServiceMonitor, error) {
+func generateServiceMonitor(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*monv1.ServiceMonitor, error) {
 	metaLabels := utils.GenerateAppServerSelectorLabels()
 	metaLabels["monitoring.openshift.io/collection-profile"] = "full"
 	metaLabels["app.kubernetes.io/component"] = "metrics"

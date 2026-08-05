@@ -1607,7 +1607,7 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate the OLS service monitor", func() {
-			serviceMonitor, err := GenerateServiceMonitor(testReconcilerInstance, cr)
+			serviceMonitor, err := generateServiceMonitor(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(serviceMonitor.Name).To(Equal(utils.AppServerServiceMonitorName))
 			Expect(serviceMonitor.Namespace).To(Equal(utils.OLSNamespaceDefault))

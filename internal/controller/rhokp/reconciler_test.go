@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -104,6 +105,26 @@ var _ = Describe("RHOKP reconciler", Ordered, func() {
 			expectOwnedByOLSConfig(dep)
 			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.RHOOKPImageDefault))
 			Expect(dep.Annotations).To(HaveKey(utils.RHOKPTLSSecretResourceVersionAnnotation))
+		})
+
+		It("should create the RHOKP ServiceMonitor", func() {
+			sm := &monv1.ServiceMonitor{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.RHOKPServiceMonitorName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, sm)
+			Expect(err).NotTo(HaveOccurred())
+			expectOwnedByOLSConfig(sm)
+			Expect(sm.Spec.Endpoints).To(HaveLen(1))
+			ep := sm.Spec.Endpoints[0]
+			Expect(ep.Port).To(Equal("https"))
+			Expect(ep.Path).To(Equal(utils.RHOKPMetricsPath))
+			Expect(string(*ep.Scheme)).To(Equal("https"))
+			Expect(ep.TLSConfig).NotTo(BeNil())
+			Expect(*ep.TLSConfig.InsecureSkipVerify).To(BeFalse())
+			Expect(ep.TLSConfig.CAFile).To(Equal("/etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt"))
+			expectedServerName := utils.RHOKPServiceName + "." + utils.OLSNamespaceDefault + ".svc"
+			Expect(*ep.TLSConfig.ServerName).To(Equal(expectedServerName))
 		})
 
 		It("should mount TLS as localhost.crt/localhost.key for Apache httpd", func() {
@@ -235,6 +256,13 @@ var _ = Describe("RHOKP reconciler", Ordered, func() {
 				Namespace: utils.OLSNamespaceDefault,
 			}, tlsSecret)
 			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "TLS secret should be deleted")
+
+			sm := &monv1.ServiceMonitor{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.RHOKPServiceMonitorName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, sm)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "ServiceMonitor should be deleted")
 		})
 	})
 })

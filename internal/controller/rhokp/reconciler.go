@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -29,6 +30,7 @@ func ReconcileDeployment(r reconciler.Reconciler, ctx context.Context, olsconfig
 		{Name: "reconcile RHOKP Service", Task: reconcileService},
 		{Name: "reconcile RHOKP TLS Certs", Task: reconcileTLSSecret},
 		{Name: "reconcile RHOKP Deployment", Task: reconcileDeployment},
+		{Name: "reconcile RHOKP ServiceMonitor", Task: reconcileServiceMonitor},
 	}, false)
 }
 
@@ -39,6 +41,7 @@ func Remove(r reconciler.Reconciler, ctx context.Context) error {
 		{Name: "delete RHOKP service", Task: deleteService},
 		{Name: "delete RHOKP network policy", Task: deleteNetworkPolicy},
 		{Name: "delete RHOKP TLS secret", Task: deleteTLSSecret},
+		{Name: "delete RHOKP ServiceMonitor", Task: deleteServiceMonitor},
 	})
 }
 
@@ -126,6 +129,18 @@ func deleteNetworkPolicy(r reconciler.Reconciler, ctx context.Context) error {
 
 func deleteTLSSecret(r reconciler.Reconciler, ctx context.Context) error {
 	return deleteNamespacedObject(r, ctx, &corev1.Secret{}, utils.RHOKPCertsSecretName)
+}
+
+func reconcileServiceMonitor(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	sm, err := generateServiceMonitor(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGenerateRHOKPServiceMonitor, err)
+	}
+	return utils.ReconcileServiceMonitor(r, ctx, sm)
+}
+
+func deleteServiceMonitor(r reconciler.Reconciler, ctx context.Context) error {
+	return deleteNamespacedObject(r, ctx, &monv1.ServiceMonitor{}, utils.RHOKPServiceMonitorName)
 }
 
 func deleteNamespacedObject(r reconciler.Reconciler, ctx context.Context, obj client.Object, name string) error {

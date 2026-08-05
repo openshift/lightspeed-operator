@@ -232,19 +232,21 @@ const (
 	ErrGetOpenShiftMCPServerTLSSecret                    = "failed to get openshift-mcp-server TLS secret" // #nosec G101
 
 	/*** RHOKP Standalone Errors ***/
-	ErrGenerateRHOKPService                = "failed to generate RHOKP service"
-	ErrGenerateRHOKPNetworkPolicy          = "failed to generate RHOKP network policy"
-	ErrGenerateRHOKPDeployment             = "failed to generate RHOKP deployment"
-	ErrSetRHOKPServiceOwnerReference       = "failed to set RHOKP service owner reference"
-	ErrSetRHOKPNetworkPolicyOwnerReference = "failed to set RHOKP network policy owner reference"
-	ErrSetRHOKPDeploymentOwnerReference    = "failed to set RHOKP deployment owner reference"
-	ErrCreateRHOKPNetworkPolicy            = "failed to create RHOKP network policy"
-	ErrGetRHOKPNetworkPolicy               = "failed to get RHOKP network policy"
-	ErrUpdateRHOKPNetworkPolicy            = "failed to update RHOKP network policy"
-	ErrCreateRHOKPDeployment               = "failed to create RHOKP deployment"
-	ErrGetRHOKPDeployment                  = "failed to get RHOKP deployment"
-	ErrUpdateRHOKPDeployment               = "failed to update RHOKP deployment"
-	ErrGetRHOKPTLSSecret                   = "failed to get RHOKP TLS secret" // #nosec G101
+	ErrGenerateRHOKPService                 = "failed to generate RHOKP service"
+	ErrGenerateRHOKPNetworkPolicy           = "failed to generate RHOKP network policy"
+	ErrGenerateRHOKPDeployment              = "failed to generate RHOKP deployment"
+	ErrSetRHOKPServiceOwnerReference        = "failed to set RHOKP service owner reference"
+	ErrSetRHOKPNetworkPolicyOwnerReference  = "failed to set RHOKP network policy owner reference"
+	ErrSetRHOKPDeploymentOwnerReference     = "failed to set RHOKP deployment owner reference"
+	ErrCreateRHOKPNetworkPolicy             = "failed to create RHOKP network policy"
+	ErrGetRHOKPNetworkPolicy                = "failed to get RHOKP network policy"
+	ErrUpdateRHOKPNetworkPolicy             = "failed to update RHOKP network policy"
+	ErrCreateRHOKPDeployment                = "failed to create RHOKP deployment"
+	ErrGetRHOKPDeployment                   = "failed to get RHOKP deployment"
+	ErrUpdateRHOKPDeployment                = "failed to update RHOKP deployment"
+	ErrGetRHOKPTLSSecret                    = "failed to get RHOKP TLS secret" // #nosec G101
+	ErrGenerateRHOKPServiceMonitor          = "failed to generate RHOKP ServiceMonitor"
+	ErrSetRHOKPServiceMonitorOwnerReference = "failed to set RHOKP ServiceMonitor owner reference"
 
 	// Cleanup error constants for conditional operand removal.
 	ErrRemoveOpenShiftMCPServerResources = "failed to remove openshift-mcp-server resources"
