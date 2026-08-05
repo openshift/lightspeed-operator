@@ -1158,6 +1158,7 @@ var _ = Describe("App server assets", func() {
 
 			Expect(deployment.Spec.Template.Spec.InitContainers).To(ConsistOf(
 				utils.GeneratePostgresWaitInitContainer(testReconcilerInstance.GetPostgresImage()),
+				utils.GenerateRHOKPWaitInitContainer(testReconcilerInstance.GetAppServerImage(), testReconcilerInstance.GetNamespace()),
 				corev1.Container{
 					Name:    "rag-0",
 					Image:   "rag-ocp-product-docs:4.19",

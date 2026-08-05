@@ -761,6 +761,34 @@ var _ = Describe("App server deployment generation", func() {
 			}
 		})
 
+		It("should include wait-for-rhokp init container when ByokRAGOnly is false", func() {
+			cr.Spec.OLSConfig.ByokRAGOnly = false
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var found bool
+			for _, ic := range dep.Spec.Template.Spec.InitContainers {
+				if ic.Name == utils.RHOKPWaitInitContainerName {
+					found = true
+					Expect(ic.Image).To(Equal(testReconcilerInstance.GetAppServerImage()))
+					Expect(ic.VolumeMounts).ToNot(BeEmpty())
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "wait-for-rhokp init container should be present when ByokRAGOnly is false")
+		})
+
+		It("should not include wait-for-rhokp init container when ByokRAGOnly is true", func() {
+			cr.Spec.OLSConfig.ByokRAGOnly = true
+			dep, err := GenerateOLSDeployment(testReconcilerInstance, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, ic := range dep.Spec.Template.Spec.InitContainers {
+				Expect(ic.Name).NotTo(Equal(utils.RHOKPWaitInitContainerName),
+					"wait-for-rhokp init container should not be present when ByokRAGOnly is true")
+			}
+		})
+
 		It("should add OLS_ROSA_PRODUCT when configured on the reconciler", func() {
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 			cr.Spec.OLSConfig.UserDataCollection = olsv1alpha1.UserDataCollectionSpec{
