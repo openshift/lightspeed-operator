@@ -42,6 +42,8 @@ import (
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 )
 
+const testOtelCollectorImage = "quay.io/test/lightspeed-otel-collector:test"
+
 var (
 	ctx                    context.Context
 	cfg                    *rest.Config
@@ -92,12 +94,14 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: utils.OLSNamespaceDefault}})
 	Expect(err).NotTo(HaveOccurred())
 
-	testReconcilerInstance = utils.NewTestReconciler(
+	tr := utils.NewTestReconciler(
 		k8sClient,
 		logf.Log.WithName("controller").WithName("OLSConfig"),
 		scheme.Scheme,
 		utils.OLSNamespaceDefault,
 	)
+	tr.OtelCollectorImage = testOtelCollectorImage
+	testReconcilerInstance = tr
 
 	cr = &olsv1alpha1.OLSConfig{}
 	crNamespacedName = types.NamespacedName{Name: utils.OLSConfigName}

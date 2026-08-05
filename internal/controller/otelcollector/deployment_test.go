@@ -31,7 +31,7 @@ var _ = Describe("OTEL Collector deployment", func() {
 
 		container := spec.Containers[0]
 		Expect(container.Name).To(Equal(utils.OtelCollectorContainerName))
-		Expect(container.Image).To(Equal(utils.OtelCollectorImageDefault))
+		Expect(container.Image).To(Equal(testOtelCollectorImage))
 		Expect(container.Args).To(ConsistOf("--config=/etc/otelcol/config.yaml"))
 
 		postgresEnv, ok := containerEnvNamed(container, utils.OtelCollectorPostgresConnectionStringEnvVar)

@@ -83,9 +83,7 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/appserver"
 	"github.com/openshift/lightspeed-operator/internal/controller/console"
 	"github.com/openshift/lightspeed-operator/internal/controller/ocpmcp"
-
-	// OLS-3737: OTEL Collector reconciliation disabled until e2e coverage exists.
-	// "github.com/openshift/lightspeed-operator/internal/controller/otelcollector"
+	"github.com/openshift/lightspeed-operator/internal/controller/otelcollector"
 	"github.com/openshift/lightspeed-operator/internal/controller/postgres"
 	"github.com/openshift/lightspeed-operator/internal/controller/rhokp"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
@@ -315,10 +313,6 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		{Name: "postgres resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return postgres.ReconcilePostgresResources(r, ctx, cr)
 		}},
-		// OLS-3737: OTEL Collector reconciliation disabled until e2e coverage exists.
-		// {Name: "OTEL Collector resources", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-		// 	return otelcollector.ReconcileOtelCollectorResources(r, ctx, cr)
-		// }},
 	}
 
 	// Optional operands — gated by CR fields or image flags.
@@ -375,6 +369,15 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		if err := alertsadapter.RemoveAlertsAdapter(r, ctx); err != nil {
 			resourceFailures["alerts adapter cleanup"] = fmt.Errorf("%s: %w", utils.ErrRemoveAlertsAdapterResources, err)
 		}
+	}
+
+	if r.Options.OtelCollectorImage != "" {
+		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
+			Name: "OTEL Collector resources",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return otelcollector.ReconcileOtelCollectorResources(r, ctx, cr)
+			},
+		})
 	}
 
 	resourceSteps = append(resourceSteps, utils.ReconcileSteps{
@@ -448,10 +451,6 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		{Name: "postgres deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 			return postgres.ReconcilePostgresDeployment(r, ctx, cr)
 		}, ConditionType: utils.TypeCacheReady, Deployment: utils.PostgresDeploymentName},
-		// OLS-3737: OTEL Collector reconciliation disabled until e2e coverage exists.
-		// {Name: "OTEL Collector deployment", Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-		// 	return otelcollector.ReconcileOtelCollectorDeployment(r, ctx, cr)
-		// }, ConditionType: utils.TypeOtelCollectorReady, Deployment: utils.OtelCollectorDeploymentName},
 	}
 
 	// Optional operands — gated by CR fields or image flags.
@@ -516,6 +515,26 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 			ObservedGeneration: olsconfig.Generation,
 			Reason:             "Disabled",
 			Message:            "RHOKP is disabled; spec.ols.byokRAGOnly is true",
+			LastTransitionTime: metav1.Now(),
+		})
+	}
+
+	if r.Options.OtelCollectorImage != "" {
+		deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
+			Name: "OTEL Collector deployment",
+			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+				return otelcollector.ReconcileOtelCollectorDeployment(r, ctx, cr)
+			},
+			ConditionType: utils.TypeOtelCollectorReady,
+			Deployment:    utils.OtelCollectorDeploymentName,
+		})
+	} else {
+		newStatus.Conditions = append(newStatus.Conditions, metav1.Condition{
+			Type:               utils.TypeOtelCollectorReady,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: olsconfig.Generation,
+			Reason:             "Disabled",
+			Message:            "OTEL Collector is disabled; image not provided",
 			LastTransitionTime: metav1.Now(),
 		})
 	}
