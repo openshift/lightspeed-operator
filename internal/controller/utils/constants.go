@@ -633,6 +633,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	OpenShiftMCPServerConfigMapResourceVersionAnnotation = "ols.openshift.io/mcp-server-configmap-version"
 	// OpenShiftMCPServerTLSSecretResourceVersionAnnotation tracks the MCP TLS Secret ResourceVersion on the MCP Deployment.
 	OpenShiftMCPServerTLSSecretResourceVersionAnnotation = "ols.openshift.io/mcp-server-tls-secret-version" // #nosec G101
+	// RAGSpecHashAnnotation tracks the hash of .spec.ols.rag on the app-server Deployment.
+	RAGSpecHashAnnotation = "ols.openshift.io/rag-spec-hash"
 
 	/*** Standalone RHOKP Constants ***/
 	// RHOKPDeploymentName is the Deployment name for the standalone RHOKP operand.
