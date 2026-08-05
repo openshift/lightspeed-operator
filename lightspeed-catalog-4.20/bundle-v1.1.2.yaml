@@ -1,5 +1,5 @@
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:8a7e4b19448527047db01c7d2b586a50b1944e71b73080b9321c01ba74bb3675
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:26ac8434a8784a538f3c33b8ddf7d7775c678c01f49414a2602a1676a4d05d4f
 name: lightspeed-operator.v1.1.2
 package: lightspeed-operator
 properties:
@@ -51,7 +51,7 @@ properties:
           ]
         capabilities: Seamless Upgrades
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2026-08-03T13:34:13Z"
+        createdAt: "2026-08-05T17:15:21Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -625,7 +625,7 @@ relatedImages:
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     operator_arg: postgres-image
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:89ce76bf7ed7953e7fe7a88e1b0f0dbbea27f158d6f0aeb6bd352bd2396f5d0d
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:74b3872c7d90d1287b9e36cd92e5cb4bfa095f3f8886bc9e15590ffebba64b77
     operator_arg: service-image
     snapshot_component: lightspeed-service
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service
@@ -637,7 +637,7 @@ relatedImages:
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
     stable_prefix: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:cc1a6dd2ad3c022c881346ecce101f677d5f39ff1c9836eb7da78649489557d7
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:2e652b1aae48b031184e9bb45c9de6ae6d0416a6dfda8d3f2a8eaf124ae36d17
     operator_target: image
     snapshot_component: lightspeed-operator
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator
@@ -652,7 +652,7 @@ relatedImages:
     image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9
     operator_arg: rhokp-image
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:8a7e4b19448527047db01c7d2b586a50b1944e71b73080b9321c01ba74bb3675
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:26ac8434a8784a538f3c33b8ddf7d7775c678c01f49414a2602a1676a4d05d4f
     snapshot_component: ols-bundle
     snapshot_source: bundle
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle
