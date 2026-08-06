@@ -232,7 +232,7 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			}, dep)
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(dep)
-			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.OtelCollectorImageDefault))
+			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(testOtelCollectorImage))
 			Expect(dep.Annotations).To(HaveKey(utils.OtelCollectorConfigMapResourceVersionAnnotation))
 		})
 

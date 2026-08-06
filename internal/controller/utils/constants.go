@@ -695,10 +695,10 @@ var (
 
 const (
 	// Fallbacks when related_images.json is unavailable (e.g. local run outside repo root).
-	agenticConsoleUIImageFallback = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console:main"
-	alertsAdapterImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter:main"
-	agenticSandboxImageFallback   = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox:main"
-	otelCollectorImageFallback    = "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector:main"
+	agenticConsoleUIImageFallback = ""
+	alertsAdapterImageFallback    = ""
+	agenticSandboxImageFallback   = ""
+	otelCollectorImageFallback    = ""
 	rhokpImageFallback            = "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9"
 )
 
