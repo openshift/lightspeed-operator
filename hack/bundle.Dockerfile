@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi9/ubi-minimal:9.8-1785339117
+FROM registry.redhat.io/ubi9/ubi-minimal:9.8-1785906621
 
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
