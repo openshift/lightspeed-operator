@@ -10,17 +10,16 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func writeTestKubeconfig(t *testing.T, content string) string {
-	t.Helper()
-	dir := t.TempDir()
+func writeTestKubeconfig(content string) string {
+	dir := GinkgoT().TempDir()
 	path := filepath.Join(dir, "kubeconfig")
-	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
-		t.Fatal(err)
-	}
+	Expect(os.WriteFile(path, []byte(content), 0600)).To(Succeed())
 	return path
 }
 
@@ -64,90 +63,64 @@ users:
     client-key-data: dGVzdA==
 `
 
-func TestLoadKubeConfig_ExtractsToken(t *testing.T) {
-	path := writeTestKubeconfig(t, testKubeconfigWithToken)
-	kc, err := LoadKubeConfig(path, "", false, "")
-	if err != nil {
-		t.Fatalf("LoadKubeConfig: %v", err)
-	}
-	if kc.BearerToken != "sha256~testtoken123" {
-		t.Errorf("expected token 'sha256~testtoken123', got %q", kc.BearerToken)
-	}
-	if kc.ContextName != "test-ctx" {
-		t.Errorf("expected context 'test-ctx', got %q", kc.ContextName)
-	}
-}
+var _ = Describe("LoadKubeConfig", func() {
+	It("extracts the bearer token and context name", func() {
+		path := writeTestKubeconfig(testKubeconfigWithToken)
+		kc, err := LoadKubeConfig(path, "", false, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kc.BearerToken).To(Equal("sha256~testtoken123"))
+		Expect(kc.ContextName).To(Equal("test-ctx"))
+	})
 
-func TestLoadKubeConfig_NoTokenErrors(t *testing.T) {
-	path := writeTestKubeconfig(t, testKubeconfigNoToken)
-	_, err := LoadKubeConfig(path, "", false, "")
-	if err == nil {
-		t.Fatal("expected error for kubeconfig without bearer token")
-	}
-}
+	It("returns an error for kubeconfig without bearer token", func() {
+		path := writeTestKubeconfig(testKubeconfigNoToken)
+		_, err := LoadKubeConfig(path, "", false, "")
+		Expect(err).To(HaveOccurred())
+	})
 
-func TestLoadKubeConfig_InsecureSkipTLS(t *testing.T) {
-	path := writeTestKubeconfig(t, testKubeconfigWithToken)
-	kc, err := LoadKubeConfig(path, "", true, "")
-	if err != nil {
-		t.Fatalf("LoadKubeConfig: %v", err)
-	}
-	if !kc.TLSConfig.InsecureSkipVerify {
-		t.Error("expected InsecureSkipVerify to be true")
-	}
-}
+	It("sets InsecureSkipVerify when requested", func() {
+		path := writeTestKubeconfig(testKubeconfigWithToken)
+		kc, err := LoadKubeConfig(path, "", true, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kc.TLSConfig.InsecureSkipVerify).To(BeTrue())
+	})
 
-func TestLoadKubeConfig_InvalidPath(t *testing.T) {
-	_, err := LoadKubeConfig("/nonexistent/kubeconfig", "", false, "")
-	if err == nil {
-		t.Fatal("expected error for nonexistent kubeconfig")
-	}
-}
+	It("returns an error for nonexistent kubeconfig", func() {
+		_, err := LoadKubeConfig("/nonexistent/kubeconfig", "", false, "")
+		Expect(err).To(HaveOccurred())
+	})
 
-func TestLoadKubeConfig_CustomCACert(t *testing.T) {
-	dir := t.TempDir()
-	caPath := filepath.Join(dir, "ca.crt")
+	It("loads a custom CA certificate", func() {
+		dir := GinkgoT().TempDir()
+		caPath := filepath.Join(dir, "ca.crt")
 
-	// Generate a fresh self-signed CA cert for testing
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	template := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{Organization: []string{"Test"}},
-		NotBefore:             time.Now().Add(-time.Hour),
-		NotAfter:              time.Now().Add(time.Hour),
-		IsCA:                  true,
-		BasicConstraintsValid: true,
-	}
-	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-	if err := os.WriteFile(caPath, certPEM, 0600); err != nil {
-		t.Fatal(err)
-	}
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		Expect(err).NotTo(HaveOccurred())
+		template := &x509.Certificate{
+			SerialNumber:          big.NewInt(1),
+			Subject:               pkix.Name{Organization: []string{"Test"}},
+			NotBefore:             time.Now().Add(-time.Hour),
+			NotAfter:              time.Now().Add(time.Hour),
+			IsCA:                  true,
+			BasicConstraintsValid: true,
+		}
+		certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+		Expect(err).NotTo(HaveOccurred())
+		certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+		Expect(os.WriteFile(caPath, certPEM, 0600)).To(Succeed())
 
-	path := writeTestKubeconfig(t, testKubeconfigWithToken)
-	kc, err := LoadKubeConfig(path, "", false, caPath)
-	if err != nil {
-		t.Fatalf("LoadKubeConfig: %v", err)
-	}
-	if kc.TLSConfig.RootCAs == nil {
-		t.Error("expected RootCAs to be set when CA cert provided")
-	}
-}
+		path := writeTestKubeconfig(testKubeconfigWithToken)
+		kc, err := LoadKubeConfig(path, "", false, caPath)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kc.TLSConfig.RootCAs).NotTo(BeNil())
+	})
 
-func TestLoadKubeConfig_TokenFile(t *testing.T) {
-	dir := t.TempDir()
-	tokenPath := filepath.Join(dir, "token")
-	if err := os.WriteFile(tokenPath, []byte("file-based-token\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
+	It("reads token from file and trims whitespace", func() {
+		dir := GinkgoT().TempDir()
+		tokenPath := filepath.Join(dir, "token")
+		Expect(os.WriteFile(tokenPath, []byte("file-based-token\n"), 0600)).To(Succeed())
 
-	kubeconfig := `
+		kubeconfig := `
 apiVersion: v1
 kind: Config
 current-context: sa-ctx
@@ -165,18 +138,14 @@ users:
   user:
     tokenFile: ` + tokenPath + `
 `
-	path := writeTestKubeconfig(t, kubeconfig)
-	kc, err := LoadKubeConfig(path, "", false, "")
-	if err != nil {
-		t.Fatalf("LoadKubeConfig: %v", err)
-	}
-	if kc.BearerToken != "file-based-token" {
-		t.Errorf("expected token 'file-based-token', got %q", kc.BearerToken)
-	}
-}
+		path := writeTestKubeconfig(kubeconfig)
+		kc, err := LoadKubeConfig(path, "", false, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kc.BearerToken).To(Equal("file-based-token"))
+	})
 
-func TestLoadKubeConfig_ServerName(t *testing.T) {
-	kubeconfig := `
+	It("preserves tls-server-name from kubeconfig", func() {
+		kubeconfig := `
 apiVersion: v1
 kind: Config
 current-context: sni-ctx
@@ -195,12 +164,9 @@ users:
   user:
     token: sha256~testtoken123
 `
-	path := writeTestKubeconfig(t, kubeconfig)
-	kc, err := LoadKubeConfig(path, "", false, "")
-	if err != nil {
-		t.Fatalf("LoadKubeConfig: %v", err)
-	}
-	if kc.TLSConfig.ServerName != "custom-sni.example.com" {
-		t.Errorf("expected ServerName 'custom-sni.example.com', got %q", kc.TLSConfig.ServerName)
-	}
-}
+		path := writeTestKubeconfig(kubeconfig)
+		kc, err := LoadKubeConfig(path, "", false, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kc.TLSConfig.ServerName).To(Equal("custom-sni.example.com"))
+	})
+})
