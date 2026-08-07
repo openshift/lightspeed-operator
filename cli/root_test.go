@@ -1,56 +1,40 @@
 package cli
 
 import (
-	"strings"
-	"testing"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestRootCmd_VersionSubcommand(t *testing.T) {
-	streams, out, _ := fakeStreams()
-	cmd := NewRootCmd(streams)
-	cmd.SetArgs([]string{"version"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if !strings.Contains(out.String(), "oc-ols") {
-		t.Errorf("expected 'oc-ols' in output, got: %s", out.String())
-	}
-}
+var _ = Describe("RootCmd", func() {
+	It("routes the version subcommand", func() {
+		streams, out, _ := fakeStreams()
+		cmd := NewRootCmd(streams)
+		cmd.SetArgs([]string{"version"})
+		Expect(cmd.Execute()).To(Succeed())
+		Expect(out.String()).To(ContainSubstring("oc-ols"))
+	})
 
-func TestRootCmd_NoArgsShowsHelp(t *testing.T) {
-	streams, out, _ := fakeStreams()
-	cmd := NewRootCmd(streams)
-	cmd.SetArgs([]string{})
-	_ = cmd.Execute()
-	if out.Len() == 0 {
-		t.Error("expected help output, got nothing")
-	}
-}
+	It("shows help when no args are given", func() {
+		streams, out, _ := fakeStreams()
+		cmd := NewRootCmd(streams)
+		cmd.SetArgs([]string{})
+		_ = cmd.Execute()
+		Expect(out.Len()).NotTo(BeZero())
+	})
 
-func TestRootCmd_HasGlobalFlags(t *testing.T) {
-	streams, _, _ := fakeStreams()
-	cmd := NewRootCmd(streams)
-
-	flags := []string{"kubeconfig", "insecure-skip-tls-verify", "ca-cert"}
-	for _, name := range flags {
-		if cmd.PersistentFlags().Lookup(name) == nil {
-			t.Errorf("expected persistent flag %q to be registered", name)
+	It("registers global flags", func() {
+		streams, _, _ := fakeStreams()
+		cmd := NewRootCmd(streams)
+		for _, name := range []string{"kubeconfig", "insecure-skip-tls-verify", "ca-cert"} {
+			Expect(cmd.PersistentFlags().Lookup(name)).NotTo(BeNil(), "expected persistent flag %q", name)
 		}
-	}
-}
+	})
 
-func TestRootCmd_DefaultModeDispatch(t *testing.T) {
-	streams, _, errOut := fakeStreams()
-	cmd := NewRootCmd(streams)
-	cmd.SetArgs([]string{"why is my pod crashing"})
-	err := cmd.Execute()
-	if err != nil {
-		errStr := err.Error()
-		if strings.Contains(errStr, "unknown command") {
-			t.Errorf("default mode dispatch failed — got 'unknown command' error: %v", err)
-		}
-	}
-	if !strings.Contains(errOut.String(), "not yet implemented") {
-		t.Errorf("expected stub message on stderr, got: %s", errOut.String())
-	}
-}
+	It("dispatches unrecognized args to the default mode stub", func() {
+		streams, _, errOut := fakeStreams()
+		cmd := NewRootCmd(streams)
+		cmd.SetArgs([]string{"why is my pod crashing"})
+		Expect(cmd.Execute()).To(Succeed())
+		Expect(errOut.String()).To(ContainSubstring("not yet implemented"))
+	})
+})
