@@ -1673,6 +1673,19 @@ var _ = Describe("App server assets", func() {
 			Expect(rb.Subjects[0].Namespace).To(Equal(utils.OLSNamespaceDefault))
 		})
 
+		It("should use the reconciler's actual namespace in the metrics reader ClusterRoleBinding subject", func() {
+			customNS := "custom-operator-namespace"
+			customReconciler := utils.NewTestReconciler(
+				k8sClient,
+				testReconcilerInstance.GetLogger(),
+				testReconcilerInstance.GetScheme(),
+				customNS,
+			)
+			rb, err := generateMetricsReaderClusterRoleBinding(customReconciler, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rb.Subjects[0].Namespace).To(Equal(customNS))
+		})
+
 		It("should generate the OLS prometheus rules", func() {
 			prometheusRule, err := GeneratePrometheusRule(testReconcilerInstance, cr)
 			Expect(err).NotTo(HaveOccurred())
