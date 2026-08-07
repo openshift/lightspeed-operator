@@ -105,6 +105,7 @@ func LoadKubeConfig(kubeconfigPath string, contextName string, insecureSkipTLS b
 	}, nil
 }
 
+// loadCACertPool reads a PEM-encoded CA certificate file and returns a certificate pool.
 func loadCACertPool(path string) (*x509.CertPool, error) {
 	caCert, err := os.ReadFile(path) //#nosec G304 -- path is user-controlled via --ca-cert flag or kubeconfig CAFile
 	if err != nil {
