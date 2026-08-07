@@ -5,8 +5,19 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"strings"
 
 	"k8s.io/client-go/tools/clientcmd"
+)
+
+const (
+	ErrLoadKubeConfig = "failed to load kubeconfig"
+	ErrResolveContext = "failed to resolve kubeconfig context"
+	ErrReadTokenFile  = "failed to read bearer token file"
+	ErrReadCACert     = "failed to read CA certificate"
+	ErrInvalidCACert  = "CA certificate contains no valid certificates"
+	ErrInvalidCAData  = "kubeconfig CA data contains no valid certificates"
+	ErrNoBearerToken  = "kubeconfig context does not provide a bearer token" //#nosec G101 -- error message, not a credential
 )
 
 // KubeConfig holds the resolved authentication and TLS configuration
@@ -31,7 +42,7 @@ func LoadKubeConfig(kubeconfigPath string, contextName string, insecureSkipTLS b
 
 	rawConfig, err := clientConfig.RawConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load kubeconfig: %w", err)
+		return nil, fmt.Errorf("%s: %w", ErrLoadKubeConfig, err)
 	}
 
 	resolvedContext := rawConfig.CurrentContext
@@ -41,28 +52,28 @@ func LoadKubeConfig(kubeconfigPath string, contextName string, insecureSkipTLS b
 
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve kubeconfig context %q: %w", resolvedContext, err)
+		return nil, fmt.Errorf("%s %q: %w", ErrResolveContext, resolvedContext, err)
 	}
 
-	token := restConfig.BearerToken
+	token := strings.TrimSpace(restConfig.BearerToken)
 	if token == "" && restConfig.BearerTokenFile != "" {
 		tokenBytes, err := os.ReadFile(restConfig.BearerTokenFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read bearer token file: %w", err)
+			return nil, fmt.Errorf("%s: %w", ErrReadTokenFile, err)
 		}
-		token = string(tokenBytes)
+		token = strings.TrimSpace(string(tokenBytes))
 	}
 
 	if token == "" {
 		return nil, fmt.Errorf(
-			"kubeconfig context %q does not provide a bearer token. "+
-				"oc-ols requires token-based authentication",
-			resolvedContext,
+			"%s %q: oc-ols requires token-based authentication",
+			ErrNoBearerToken, resolvedContext,
 		)
 	}
 
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: insecureSkipTLS, //#nosec G402 -- user-controlled via --insecure-skip-tls-verify flag
+		ServerName:         restConfig.ServerName,
 	}
 
 	if !insecureSkipTLS {
@@ -75,7 +86,7 @@ func LoadKubeConfig(kubeconfigPath string, contextName string, insecureSkipTLS b
 		} else if len(restConfig.CAData) > 0 {
 			pool := x509.NewCertPool()
 			if !pool.AppendCertsFromPEM(restConfig.CAData) {
-				return nil, fmt.Errorf("kubeconfig CA data contains no valid certificates")
+				return nil, fmt.Errorf("%s", ErrInvalidCAData)
 			}
 			tlsConfig.RootCAs = pool
 		} else if restConfig.CAFile != "" {
@@ -97,11 +108,11 @@ func LoadKubeConfig(kubeconfigPath string, contextName string, insecureSkipTLS b
 func loadCACertPool(path string) (*x509.CertPool, error) {
 	caCert, err := os.ReadFile(path) //#nosec G304 -- path is user-controlled via --ca-cert flag or kubeconfig CAFile
 	if err != nil {
-		return nil, fmt.Errorf("failed to read CA certificate %q: %w", path, err)
+		return nil, fmt.Errorf("%s %q: %w", ErrReadCACert, path, err)
 	}
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(caCert) {
-		return nil, fmt.Errorf("CA certificate %q contains no valid certificates", path)
+		return nil, fmt.Errorf("%s %q", ErrInvalidCACert, path)
 	}
 	return pool, nil
 }

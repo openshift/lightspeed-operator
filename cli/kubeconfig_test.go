@@ -143,7 +143,7 @@ func TestLoadKubeConfig_CustomCACert(t *testing.T) {
 func TestLoadKubeConfig_TokenFile(t *testing.T) {
 	dir := t.TempDir()
 	tokenPath := filepath.Join(dir, "token")
-	if err := os.WriteFile(tokenPath, []byte("file-based-token"), 0600); err != nil {
+	if err := os.WriteFile(tokenPath, []byte("file-based-token\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -172,5 +172,35 @@ users:
 	}
 	if kc.BearerToken != "file-based-token" {
 		t.Errorf("expected token 'file-based-token', got %q", kc.BearerToken)
+	}
+}
+
+func TestLoadKubeConfig_ServerName(t *testing.T) {
+	kubeconfig := `
+apiVersion: v1
+kind: Config
+current-context: sni-ctx
+clusters:
+- cluster:
+    server: https://api.test.example.com:6443
+    tls-server-name: custom-sni.example.com
+  name: test-cluster
+contexts:
+- context:
+    cluster: test-cluster
+    user: test-user
+  name: sni-ctx
+users:
+- name: test-user
+  user:
+    token: sha256~testtoken123
+`
+	path := writeTestKubeconfig(t, kubeconfig)
+	kc, err := LoadKubeConfig(path, "", false, "")
+	if err != nil {
+		t.Fatalf("LoadKubeConfig: %v", err)
+	}
+	if kc.TLSConfig.ServerName != "custom-sni.example.com" {
+		t.Errorf("expected ServerName 'custom-sni.example.com', got %q", kc.TLSConfig.ServerName)
 	}
 }
