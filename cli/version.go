@@ -16,8 +16,10 @@ func NewVersionCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Use:   "version",
 		Short: "Print the plugin version",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := fmt.Fprintf(streams.Out, "oc-ols %s\n", Version)
-			return err
+			if _, err := fmt.Fprintf(streams.Out, "oc-ols %s\n", Version); err != nil {
+				return fmt.Errorf("%s: %w", ErrWriteOutput, err)
+			}
+			return nil
 		},
 	}
 }

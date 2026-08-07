@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"strings"
 	"testing"
 )
@@ -19,14 +18,11 @@ func TestRootCmd_VersionSubcommand(t *testing.T) {
 }
 
 func TestRootCmd_NoArgsShowsHelp(t *testing.T) {
-	streams, _, _ := fakeStreams()
+	streams, out, _ := fakeStreams()
 	cmd := NewRootCmd(streams)
-	// Cobra writes help to cmd.OutOrStdout(), so redirect it to a buffer
-	helpOut := &bytes.Buffer{}
-	cmd.SetOut(helpOut)
 	cmd.SetArgs([]string{})
 	_ = cmd.Execute()
-	if helpOut.Len() == 0 {
+	if out.Len() == 0 {
 		t.Error("expected help output, got nothing")
 	}
 }
