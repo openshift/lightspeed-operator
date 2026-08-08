@@ -15,15 +15,16 @@ Audience: AI agents. This document describes **code layout, client wiring, and I
 
 | File | Types | Key functions |
 |------|-------|---------------|
-| `root.go` | — | `NewRootCmd(streams)` — registers `ask`, `troubleshoot` (default mode dispatching), `config` subtree, and `version` |
+| `root.go` | — | `NewRootCmd(streams)` — registers subcommands, default mode dispatching, global flags |
 | `version.go` | Package var `Version` (default `dev`) | `NewVersionCmd(streams)` |
+| `kubeconfig.go` | `KubeConfig` | `LoadKubeConfig(kubeconfigPath, contextName, insecureSkipTLS, caCertPath)` — bearer token extraction, TLS config |
 | `ask.go` | `AskOptions` | `NewAskCmd`, `Complete`, `Validate`, `Run` — streams query in `ask` mode |
 | `troubleshoot.go` | `TroubleshootOptions` | `NewTroubleshootCmd`, `Complete`, `Validate`, `Run` — streams query in `troubleshooting` mode |
 | `streaming.go` | `SSEClient` | `NewSSEClient`, `StreamQuery` — shared HTTP + SSE streaming logic |
 | `attachments.go` | — | `ReadAttachments(paths)` — reads files, builds attachment array |
 | `render.go` | — | `RenderMarkdown(text)` — terminal markdown rendering via glamour |
 
-*File names are planned. Update during implementation.*
+*Implemented: `root.go`, `version.go`, `kubeconfig.go` (OLS-3632). Remaining files are planned.*
 
 ---
 
@@ -254,4 +255,11 @@ User invokes: oc ols "why is my pod crashing" --file pod.yaml
 
 ## Implementation notes
 
-*Placeholder for findings during implementation. Update with actual file names, type signatures, and discovered constraints as implementation proceeds under OLS-1062.*
+### OLS-3632: Scaffolding + kubeconfig integration
+
+- `cmd/oc-ols/main.go` entry point follows oc-agentic pattern exactly (IOStreams → `NewRootCmd` → `Execute`)
+- Global flags registered on root command: `--kubeconfig`, `--insecure-skip-tls-verify`, `--ca-cert`. `--endpoint` deferred to OLS-3633.
+- `LoadKubeConfig` checks `restConfig.BearerToken` first, then `restConfig.BearerTokenFile`. Exec-based auth providers that populate tokens via transport wrappers (not `BearerToken` field) will be rejected — this is by design per the spec's "as long as `BearerToken` or `BearerTokenFile` is populated" requirement.
+- TLS CA priority: `--ca-cert` flag > kubeconfig `CAData` > kubeconfig `CAFile`.
+- New direct dependencies: `github.com/spf13/cobra`, `k8s.io/cli-runtime` (neither was in go.mod previously).
+- Build: `go build -o bin/oc-ols ./cmd/oc-ols/`. No Makefile target yet (deferred to OLS-3640).

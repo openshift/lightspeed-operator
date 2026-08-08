@@ -98,6 +98,10 @@ make test-e2e   # E2E tests (requires cluster)
 
 ## Key File Locations
 
+### CLI Plugin
+- `cmd/oc-ols/main.go` - CLI binary entry point (IOStreams, root command)
+- `cli/` - CLI command implementations (root, version, kubeconfig integration)
+
 ### Controllers
 - `internal/controller/olsconfig_controller.go` - Main reconciler with finalizer logic
 - `internal/controller/appserver/` - App server (also owns client CA Secrets `lightspeed-agentic-otel-ca` / `lightspeed-agentic-mcp-ca` / `lightspeed-agentic-rhokp-ca`; `RestartAppServer` calls `RefreshClientCASecrets` and touches the handoff ConfigMap)
