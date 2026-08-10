@@ -32,7 +32,10 @@ type KubeConfig struct {
 // and extracts the bearer token and TLS settings. oc-ols requires
 // token-based auth — client-certificate-only contexts are rejected.
 func LoadKubeConfig(kubeconfigPath string, contextName string, insecureSkipTLS bool, caCertPath string) (*KubeConfig, error) {
-	loadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath}
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if kubeconfigPath != "" {
+		loadingRules.ExplicitPath = kubeconfigPath
+	}
 	overrides := &clientcmd.ConfigOverrides{}
 	if contextName != "" {
 		overrides.CurrentContext = contextName
@@ -71,12 +74,13 @@ func LoadKubeConfig(kubeconfigPath string, contextName string, insecureSkipTLS b
 		)
 	}
 
+	insecure := insecureSkipTLS || restConfig.Insecure
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: insecureSkipTLS, //#nosec G402 -- user-controlled via --insecure-skip-tls-verify flag
+		InsecureSkipVerify: insecure, //#nosec G402 -- user-controlled via --insecure-skip-tls-verify flag or kubeconfig
 		ServerName:         restConfig.ServerName,
 	}
 
-	if !insecureSkipTLS {
+	if !insecure {
 		if caCertPath != "" {
 			pool, err := loadCACertPool(caCertPath)
 			if err != nil {

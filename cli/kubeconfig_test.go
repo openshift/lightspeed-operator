@@ -72,22 +72,56 @@ var _ = Describe("LoadKubeConfig", func() {
 		Expect(kc.ContextName).To(Equal("test-ctx"))
 	})
 
-	It("returns an error for kubeconfig without bearer token", func() {
+	It("returns ErrNoBearerToken for kubeconfig without bearer token", func() {
 		path := writeTestKubeconfig(testKubeconfigNoToken)
 		_, err := LoadKubeConfig(path, "", false, "")
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring(ErrNoBearerToken)))
 	})
 
-	It("sets InsecureSkipVerify when requested", func() {
+	It("sets InsecureSkipVerify from CLI flag", func() {
 		path := writeTestKubeconfig(testKubeconfigWithToken)
 		kc, err := LoadKubeConfig(path, "", true, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kc.TLSConfig.InsecureSkipVerify).To(BeTrue())
 	})
 
-	It("returns an error for nonexistent kubeconfig", func() {
+	It("sets InsecureSkipVerify from kubeconfig cluster setting", func() {
+		kubeconfig := `
+apiVersion: v1
+kind: Config
+current-context: insecure-ctx
+clusters:
+- cluster:
+    server: https://api.test.example.com:6443
+    insecure-skip-tls-verify: true
+  name: test-cluster
+contexts:
+- context:
+    cluster: test-cluster
+    user: test-user
+  name: insecure-ctx
+users:
+- name: test-user
+  user:
+    token: sha256~testtoken123
+`
+		path := writeTestKubeconfig(kubeconfig)
+		kc, err := LoadKubeConfig(path, "", false, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kc.TLSConfig.InsecureSkipVerify).To(BeTrue())
+	})
+
+	It("returns ErrLoadKubeConfig for nonexistent kubeconfig", func() {
 		_, err := LoadKubeConfig("/nonexistent/kubeconfig", "", false, "")
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring(ErrLoadKubeConfig)))
+	})
+
+	It("loads default kubeconfig via KUBECONFIG env when path is empty", func() {
+		path := writeTestKubeconfig(testKubeconfigWithToken)
+		GinkgoT().Setenv("KUBECONFIG", path)
+		kc, err := LoadKubeConfig("", "", false, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kc.BearerToken).To(Equal("sha256~testtoken123"))
 	})
 
 	It("loads a custom CA certificate", func() {
