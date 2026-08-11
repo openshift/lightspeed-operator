@@ -83,6 +83,7 @@ const (
 	ErrCreateMetricsReaderCRB              = "failed to create metrics reader cluster role binding"
 	ErrGetMetricsReaderCRB                 = "failed to get metrics reader cluster role binding"
 	ErrUpdateMetricsReaderCRB              = "failed to update metrics reader cluster role binding"
+	ErrDeleteMetricsReaderCRB              = "failed to delete metrics reader cluster role binding"
 	ErrSetMetricsReaderCRBOwnerReference   = "failed to set metrics reader cluster role binding owner reference"
 	ErrGetPrometheusRule                   = "failed to get PrometheusRule"
 	ErrUpdateAPIConfigmap                  = "failed to update OLS configmap"

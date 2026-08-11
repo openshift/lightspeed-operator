@@ -435,14 +435,38 @@ func reconcileMetricsReaderClusterRoleBinding(r reconciler.Reconciler, ctx conte
 		return fmt.Errorf("%s: %w", utils.ErrGetMetricsReaderCRB, err)
 	}
 
+	// RoleRef is immutable in Kubernetes, so a mismatch can only be fixed by
+	// deleting and recreating the ClusterRoleBinding.
+	if found.RoleRef != desired.RoleRef {
+		r.GetLogger().Info("recreating metrics reader ClusterRoleBinding due to RoleRef mismatch",
+			"ClusterRoleBinding", found.Name, "foundRoleRef", found.RoleRef, "desiredRoleRef", desired.RoleRef)
+		if err := r.Delete(ctx, found); err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrDeleteMetricsReaderCRB, err)
+		}
+		if err := r.Create(ctx, desired); err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrCreateMetricsReaderCRB, err)
+		}
+		return nil
+	}
+
 	needsUpdate := false
 	if !reflect.DeepEqual(found.Subjects, desired.Subjects) {
 		found.Subjects = desired.Subjects
 		needsUpdate = true
 	}
 
+	if !reflect.DeepEqual(found.OwnerReferences, desired.OwnerReferences) {
+		found.OwnerReferences = desired.OwnerReferences
+		needsUpdate = true
+	}
+
+	if !reflect.DeepEqual(found.Labels, desired.Labels) {
+		found.Labels = desired.Labels
+		needsUpdate = true
+	}
+
 	if needsUpdate {
-		r.GetLogger().Info("updating metrics reader ClusterRoleBinding subject namespace",
+		r.GetLogger().Info("updating metrics reader ClusterRoleBinding",
 			"ClusterRoleBinding", found.Name, "namespace", r.GetNamespace())
 		err = r.Update(ctx, found)
 		if err != nil {
