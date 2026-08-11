@@ -802,13 +802,7 @@ spec:
               resources:
                 - secrets
               verbs:
-                - create
-                - delete
-                - deletecollection
-                - get
                 - list
-                - patch
-                - update
                 - watch
             - apiGroups:
                 - ""
@@ -1098,6 +1092,18 @@ spec:
               verbs:
                 - create
                 - patch
+            - apiGroups:
+                - ""
+              resources:
+                - secrets
+              verbs:
+                - create
+                - delete
+                - deletecollection
+                - get
+                - list
+                - update
+                - watch
             - apiGroups:
                 - rbac.authorization.k8s.io
               resources:

@@ -123,9 +123,9 @@ type OLSConfigReconciler struct {
 // OLM cannot create a role and rolebinding for a specific single namespace that is not the namespace the operator is installed in and/or watching
 // This has to be a cluster role
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
-// Secret access for conversation cache server configuration
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete;deletecollection
-// Secret access for telemetry pull secret, must be a cluster role due to OLM limitations in managing roles in operator namespace
+// Secret CRUD scoped to the operator namespace (namespace-scoped Role, not ClusterRole)
+// +kubebuilder:rbac:groups="",resources=secrets,namespace=system,verbs=get;list;watch;create;update;delete;deletecollection
+// Secret access for telemetry pull secret in openshift-config, must be a cluster role due to OLM limitations
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,resourceNames=pull-secret,verbs=get;list;watch
 // ConsolePlugin for install console plugin
@@ -137,7 +137,7 @@ type OLSConfigReconciler struct {
 // +kubebuilder:rbac:groups=agentic.openshift.io,resources=agenticruns,verbs=get;list;create
 // Alertmanager API for alerts adapter RoleBinding to monitoring-alertmanager-view (operator must hold permissions it grants)
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=alertmanagers/api,resourceNames=main,verbs=get;list
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=openshift-lightspeed,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=system,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // NonResourceURLs for Lightspeed access control and metrics
 // +kubebuilder:rbac:urls=/ls-access,verbs=get
 // +kubebuilder:rbac:urls=/ols-metrics-access,verbs=get

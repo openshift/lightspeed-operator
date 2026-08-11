@@ -37,13 +37,7 @@ rules:
   resources:
   - secrets
   verbs:
-  - create
-  - delete
-  - deletecollection
-  - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - ""
@@ -217,8 +211,20 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: manager-role
-  namespace: openshift-lightspeed
+  namespace: system
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - update
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
