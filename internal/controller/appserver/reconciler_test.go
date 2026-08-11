@@ -396,6 +396,70 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(rb.Subjects[0].Namespace).To(Equal(utils.OLSNamespaceDefault))
 		})
 
+		It("should fix a metrics reader ClusterRoleBinding missing owner references and labels", func() {
+			By("Strip the owner references and labels from the ClusterRoleBinding")
+			rb := &rbacv1.ClusterRoleBinding{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: utils.MetricsReaderClusterRoleBindingName}, rb)
+			Expect(err).NotTo(HaveOccurred())
+
+			rb.OwnerReferences = nil
+			rb.Labels = nil
+			err = k8sClient.Update(ctx, rb)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Re-reconcile to restore owner references and labels")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify the owner references and labels were restored")
+			err = k8sClient.Get(ctx, client.ObjectKey{Name: utils.MetricsReaderClusterRoleBindingName}, rb)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rb.OwnerReferences).NotTo(BeEmpty())
+			Expect(rb.Labels).To(Equal(utils.GenerateAppServerSelectorLabels()))
+		})
+
+		It("should recreate a metrics reader ClusterRoleBinding with a mismatched RoleRef", func() {
+			By("Delete the ClusterRoleBinding and recreate it with a wrong RoleRef")
+			rb := &rbacv1.ClusterRoleBinding{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: utils.MetricsReaderClusterRoleBindingName}, rb)
+			Expect(err).NotTo(HaveOccurred())
+			originalUID := rb.UID
+
+			err = k8sClient.Delete(ctx, rb)
+			Expect(err).NotTo(HaveOccurred())
+
+			wrongRB := &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: utils.MetricsReaderClusterRoleBindingName,
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      "ServiceAccount",
+						Name:      utils.MetricsReaderServiceAccountName,
+						Namespace: utils.OLSNamespaceDefault,
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					APIGroup: "rbac.authorization.k8s.io",
+					Kind:     "ClusterRole",
+					Name:     "wrong-cluster-role",
+				},
+			}
+			err = k8sClient.Create(ctx, wrongRB)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Re-reconcile to fix the RoleRef")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verify the ClusterRoleBinding was recreated with the correct RoleRef")
+			fixedRB := &rbacv1.ClusterRoleBinding{}
+			err = k8sClient.Get(ctx, client.ObjectKey{Name: utils.MetricsReaderClusterRoleBindingName}, fixedRB)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fixedRB.RoleRef.Name).To(Equal(utils.MetricsReaderClusterRoleName))
+			Expect(fixedRB.UID).NotTo(Equal(originalUID))
+		})
+
 		It("should create a prometheus rule", func() {
 			By("Get the prometheus rule")
 			pr := &monv1.PrometheusRule{}
