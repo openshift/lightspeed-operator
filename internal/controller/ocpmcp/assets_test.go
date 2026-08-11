@@ -32,6 +32,7 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(cm.Labels).To(Equal(labels))
 
 		toml := cm.Data[utils.OpenShiftMCPServerConfigFilename]
+		Expect(toml).To(ContainSubstring("read_only = false"))
 		Expect(toml).To(ContainSubstring(`toolsets = ["core", "config", "helm", "metrics"]`))
 		Expect(toml).To(ContainSubstring(`kind = "Secret"`))
 		Expect(toml).To(ContainSubstring(`group = ""`))
