@@ -32,12 +32,12 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `crd-api.md` (
    - `mcp-endpoint` — OpenShift MCP HTTPS Service URL
    - `mcp-ca-secret` — name of the MCP client CA Secret (`lightspeed-agentic-mcp-ca`)
 11. When introspection is disabled, MCP keys are omitted. Appserver deletes the MCP client CA Secret when present.
-11a. [PLANNED: OLS-3491] When `spec.agenticOLS.instructions` is set, also publish optional per-step instruction keys (omit a key when that step string is empty/unset):
+11a. [PLANNED: OLS-3491] Optional per-step instruction keys derived from `spec.agenticOLS.instructions`:
    - `instructions-analysis` — cluster default analysis system instructions
    - `instructions-execution` — cluster default execution system instructions
    - `instructions-verification` — cluster default verification system instructions
    - `instructions-escalation` — cluster default escalation system instructions
-   Agentic-operator consumes these for create-time materialization (analysis/execution/verification) and for call-time escalation resolution. See agentic-operator `what/sandbox-execution.md` and `what/crd-api.md`.
+   On each reconcile, the classic operator MUST replace the complete `instructions-*` key subset: publish a key only when its source string is non-empty; **delete** any existing `instructions-*` key whose source is empty or unset. Stale keys MUST NOT remain after a non-empty→empty/unset transition. Agentic-operator consumes these for create-time materialization (analysis/execution/verification) and for call-time escalation resolution. See agentic-operator `what/sandbox-execution.md` and `what/crd-api.md`.
 
 ### Thin sandbox PodSpec
 12. PodSpec contains one container (`lightspeed-agentic-sandbox`) with image from `GetAgenticSandboxImage()`, optional resource/toleration/nodeSelector overrides, and writable emptyDirs:

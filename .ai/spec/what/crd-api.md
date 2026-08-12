@@ -78,10 +78,11 @@ Field path (relative to `spec.agenticOLS.instructions`) | JSON key | Go type | R
 60. OpenAPI enum validation rejects values other than `bare-pod` and `sandbox-claim`.
 61. `agenticSandboxConfig` overrides default sandbox PodSpec scheduling/resources (requests-only defaults: 500m CPU / 128Mi memory). Replicas are ignored.
 62. Classic operator publishes handoff via appserver-owned client CA Secrets plus `agenticintegration` ConfigMap (`lightspeed-agentic-configuration`). See `agentic-sandbox-profile.md`.
-63. [PLANNED: OLS-3491] `spec.agenticOLS.instructions` is optional. Each step key is independently optional. Omitted keys mean “use product built-in for that step” (unless an AgenticRun step override applies — agentic-operator).
-64. [PLANNED: OLS-3491] When a step instruction string is set, it is a **full replacement** of the built-in system instructions for that step (not an append). Task/request input remains separate (`AgenticRun.spec.request` and step query payloads).
-65. [PLANNED: OLS-3491] Classic operator MUST publish non-empty `instructions.*` values into the handoff ConfigMap so agentic-operator can consume them without importing `ols.openshift.io` types. See `agentic-sandbox-profile.md`.
+63. [PLANNED: OLS-3491] `spec.agenticOLS.instructions` is optional. Each step key is independently optional. Omitted or empty keys mean “no cluster default for that step” (agentic-operator falls through to product built-in unless an AgenticRun step override applies).
+64. [PLANNED: OLS-3491] When a step instruction string is set (non-empty), it is a **full replacement** of the built-in system instructions for that step (not an append). Task/request input remains separate (`AgenticRun.spec.request` and step query payloads).
+65. [PLANNED: OLS-3491] Classic operator MUST publish non-empty `instructions.*` values into the handoff ConfigMap (`lightspeed-agentic-configuration`) and delete cleared keys (see `agentic-sandbox-profile.md` rule 11a) so agentic-operator can consume them without importing `ols.openshift.io` types.
 66. [PLANNED: OLS-3491] `instructions` on `AgenticOLSSpec` MUST NOT be used for chat/classic OLS query prompts (`spec.ols.querySystemPrompt` remains the classic override).
+67. [PLANNED: OLS-3491] **Precedence (cross-component):** effective step system instructions resolve as `AgenticRun.spec.<step>.instructions` (creator-supplied or materialized) > `OLSConfig.spec.agenticOLS.instructions.<step>` (via handoff ConfigMap) > product built-in. For analysis / execution / verification, the selected value is **materialized into the AgenticRun spec at create time**; later cluster ConfigMap changes MUST NOT alter an existing run. Escalation has no run field and resolves at **call time** (cluster ConfigMap or built-in). Authoritative materialization rules: agentic-operator `what/crd-api.md` rules 10a–10c.
 
 ### LLM Provider Configuration (spec.llm)
 
