@@ -60,6 +60,16 @@ Field path (relative to `spec.agenticOLS`) | JSON key | Go type | Required | Def
 ---|---|---|---|---|---|---
 `sandboxMode` | `sandboxMode` | `SandboxMode` | No | `bare-pod` | Enum: `bare-pod`, `sandbox-claim` | How the agentic operator provisions sandbox pods
 `agenticSandboxConfig` | `agenticSandboxConfig` | `Config` | No | — | — | Resources, tolerations, nodeSelector for the thin sandbox PodSpec. Replicas ignored.
+`instructions` | `instructions` | `*AgenticStepInstructions` | No | — | — | [PLANNED: OLS-3491] Optional cluster-wide per-step system instructions (analysis / execution / verification / escalation). When set for a step, replaces the product built-in for that step for **new** AgenticRuns (and for escalation, when the escalation step runs). See agentic-operator `sandbox-execution.md`.
+
+#### AgenticStepInstructions Fields [PLANNED: OLS-3491]
+
+Field path (relative to `spec.agenticOLS.instructions`) | JSON key | Go type | Required | Default | Validation | Description
+---|---|---|---|---|---|---
+`analysis` | `analysis` | `string` | No | — | MaxLength=32768 | Cluster default system instructions for the analysis step
+`execution` | `execution` | `string` | No | — | MaxLength=32768 | Cluster default system instructions for the execution step
+`verification` | `verification` | `string` | No | — | MaxLength=32768 | Cluster default system instructions for the verification step
+`escalation` | `escalation` | `string` | No | — | MaxLength=32768 | Cluster default system instructions for the escalation step
 
 #### AgenticOLS Behavioral Rules
 
@@ -68,6 +78,10 @@ Field path (relative to `spec.agenticOLS`) | JSON key | Go type | Required | Def
 60. OpenAPI enum validation rejects values other than `bare-pod` and `sandbox-claim`.
 61. `agenticSandboxConfig` overrides default sandbox PodSpec scheduling/resources (requests-only defaults: 500m CPU / 128Mi memory). Replicas are ignored.
 62. Classic operator publishes handoff via appserver-owned client CA Secrets plus `agenticintegration` ConfigMap (`lightspeed-agentic-configuration`). See `agentic-sandbox-profile.md`.
+63. [PLANNED: OLS-3491] `spec.agenticOLS.instructions` is optional. Each step key is independently optional. Omitted keys mean “use product built-in for that step” (unless an AgenticRun step override applies — agentic-operator).
+64. [PLANNED: OLS-3491] When a step instruction string is set, it is a **full replacement** of the built-in system instructions for that step (not an append). Task/request input remains separate (`AgenticRun.spec.request` and step query payloads).
+65. [PLANNED: OLS-3491] Classic operator MUST publish non-empty `instructions.*` values into the handoff ConfigMap so agentic-operator can consume them without importing `ols.openshift.io` types. See `agentic-sandbox-profile.md`.
+66. [PLANNED: OLS-3491] `instructions` on `AgenticOLSSpec` MUST NOT be used for chat/classic OLS query prompts (`spec.ols.querySystemPrompt` remains the classic override).
 
 ### LLM Provider Configuration (spec.llm)
 
