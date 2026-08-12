@@ -32,6 +32,12 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `crd-api.md` (
    - `mcp-endpoint` — OpenShift MCP HTTPS Service URL
    - `mcp-ca-secret` — name of the MCP client CA Secret (`lightspeed-agentic-mcp-ca`)
 11. When introspection is disabled, MCP keys are omitted. Appserver deletes the MCP client CA Secret when present.
+11a. [PLANNED: OLS-3491] When `spec.agenticOLS.instructions` is set, also publish optional per-step instruction keys (omit a key when that step string is empty/unset):
+   - `instructions-analysis` — cluster default analysis system instructions
+   - `instructions-execution` — cluster default execution system instructions
+   - `instructions-verification` — cluster default verification system instructions
+   - `instructions-escalation` — cluster default escalation system instructions
+   Agentic-operator consumes these for create-time materialization (analysis/execution/verification) and for call-time escalation resolution. See agentic-operator `what/sandbox-execution.md` and `what/crd-api.md`.
 
 ### Thin sandbox PodSpec
 12. PodSpec contains one container (`lightspeed-agentic-sandbox`) with image from `GetAgenticSandboxImage()`, optional resource/toleration/nodeSelector overrides, and writable emptyDirs:
@@ -79,6 +85,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `crd-api.md` (
 |---|---|
 | `spec.agenticOLS.sandboxMode` | `bare-pod` (default) or `sandbox-claim` |
 | `spec.agenticOLS.agenticSandboxConfig` | Resources / tolerations / nodeSelector for thin PodSpec |
+| `spec.agenticOLS.instructions.*` | [PLANNED: OLS-3491] Optional cluster per-step system instructions → ConfigMap `instructions-*` keys |
 | `spec.ols.introspectionEnabled` | Gates MCP keys and MCP client CA Secret |
 | `--agentic-sandbox-image` | Sandbox container image in thin PodSpec |
 
