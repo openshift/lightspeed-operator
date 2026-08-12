@@ -1,5 +1,5 @@
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:5ed9a21ffb45c852a2657b39b93e0b78f82792a226982a052b306126a1f94ed1
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:71f337ce7e23b45513d775815d9f717df82f512b39ba3bd6b4611e9937dcd9e1
 name: lightspeed-operator.v1.1.2
 package: lightspeed-operator
 properties:
@@ -51,7 +51,7 @@ properties:
           ]
         capabilities: Seamless Upgrades
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2026-08-06T14:34:33Z"
+        createdAt: "2026-08-06T18:28:59Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -652,7 +652,7 @@ relatedImages:
     image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9
     operator_arg: rhokp-image
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:5ed9a21ffb45c852a2657b39b93e0b78f82792a226982a052b306126a1f94ed1
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:71f337ce7e23b45513d775815d9f717df82f512b39ba3bd6b4611e9937dcd9e1
     snapshot_component: ols-bundle
     snapshot_source: bundle
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle
