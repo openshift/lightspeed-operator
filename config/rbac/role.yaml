@@ -34,19 +34,6 @@ rules:
   - watch
 - apiGroups:
   - ""
-  resources:
-  - secrets
-  verbs:
-  - create
-  - delete
-  - deletecollection
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
   resourceNames:
   - pull-secret
   resources:
@@ -144,18 +131,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - networking.k8s.io
-  resources:
-  - networkpolicies
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - ols.openshift.io
   resources:
   - olsconfigs
@@ -192,16 +167,48 @@ rules:
   - watch
 - apiGroups:
   - rbac.authorization.k8s.io
+  resourceNames:
+  - lightspeed-agentic-alerts-adapter-agenticruns
+  - lightspeed-app-server-sar-role-binding
+  resources:
+  - clusterrolebindings
+  verbs:
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
   - clusterroles
   - rolebindings
   verbs:
   - create
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - lightspeed-agentic-alerts-adapter-agenticruns
+  - lightspeed-app-server-sar-role
+  resources:
+  - clusterroles
+  verbs:
   - delete
   - get
   - list
-  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - lightspeed-agentic-alerts-adapter-alertmanager
+  resources:
+  - rolebindings
+  verbs:
+  - delete
+  - get
+  - list
   - update
   - watch
 - apiGroups:
@@ -217,8 +224,33 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: manager-role
-  namespace: openshift-lightspeed
+  namespace: system
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:

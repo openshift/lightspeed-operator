@@ -120,21 +120,25 @@ type OLSConfigReconciler struct {
 // OLM cannot create a role and rolebinding for a specific single namespace that is not the namespace the operator is installed in and/or watching
 // This has to be a cluster role
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
-// Secret access for conversation cache server configuration
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete;deletecollection
-// Secret access for telemetry pull secret, must be a cluster role due to OLM limitations in managing roles in operator namespace
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=list;watch
+// Secret access scoped to operator namespace (OLS-3886: was cluster-wide, now namespace-scoped)
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete;deletecollection
+// Secret access for telemetry pull secret in openshift-config, must be a cluster role due to OLM limitations
 // +kubebuilder:rbac:groups="",resources=secrets,resourceNames=pull-secret,verbs=get;list;watch
 // ConsolePlugin for install console plugin
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks;consoleplugins;consoleplugins/finalizers,verbs=get;create;update;delete
 // Modify console CR to activate console plugin
 // +kubebuilder:rbac:groups=operator.openshift.io,resources=consoles,verbs=watch;list;get;update
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;rolebindings,verbs=get;list;create;update;patch;delete;watch
+// RBAC: split create (cannot use resourceNames) from get/update/delete/watch (pinned to named resources) (OLS-3886)
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=create
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=lightspeed-app-server-sar-role;lightspeed-agentic-alerts-adapter-agenticruns,verbs=get;list;update;delete;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,resourceNames=lightspeed-app-server-sar-role-binding;lightspeed-agentic-alerts-adapter-agenticruns,verbs=get;list;update;delete;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,resourceNames=lightspeed-agentic-alerts-adapter-alertmanager,verbs=get;list;update;delete;watch
 // AgenticRun API for alerts adapter ClusterRole (operator must hold permissions it grants to operands)
 // +kubebuilder:rbac:groups=agentic.openshift.io,resources=agenticruns,verbs=get;list;create
 // Alertmanager API for alerts adapter RoleBinding to monitoring-alertmanager-view (operator must hold permissions it grants)
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=alertmanagers/api,resourceNames=main,verbs=get;list
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=openshift-lightspeed,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,namespace=system,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // NonResourceURLs for Lightspeed access control and metrics
 // +kubebuilder:rbac:urls=/ls-access,verbs=get
 // +kubebuilder:rbac:urls=/ols-metrics-access,verbs=get
@@ -152,8 +156,8 @@ type OLSConfigReconciler struct {
 // clusterversion for checking the openshift cluster version; infrastructure for ROSA OKP product detection (OLS-1894)
 // +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions;apiservers;infrastructures,verbs=get;list;watch
 
-// NetworkPolicy for restricting access to OLS pods
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
+// NetworkPolicy scoped to operator namespace (OLS-3886: was cluster-wide)
+// +kubebuilder:rbac:groups=networking.k8s.io,namespace=system,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // PVC access for the Postgres PVC
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete

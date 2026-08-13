@@ -35,7 +35,6 @@ func ReconcileAlertsAdapterResources(r reconciler.Reconciler, ctx context.Contex
 		{Name: "reconcile alerts adapter ServiceAccount", Task: reconcileServiceAccount},
 		{Name: "reconcile alerts adapter agenticruns ClusterRole", Task: reconcileAgenticRunsClusterRole},
 		{Name: "reconcile alerts adapter agenticruns ClusterRoleBinding", Task: reconcileAgenticRunsClusterRoleBinding},
-		{Name: "remove legacy alerts adapter proposals cluster RBAC", Task: removeLegacyProposalsClusterRBAC},
 		{Name: "remove legacy alerts adapter config RoleBinding", Task: removeLegacyConfigRoleBinding},
 		{Name: "remove legacy alerts adapter config Role", Task: removeLegacyConfigRole},
 		{Name: "reconcile alerts adapter Alertmanager RoleBinding", Task: reconcileAlertmanagerRoleBinding},
@@ -460,38 +459,6 @@ func deleteAgenticRunsClusterRole(r reconciler.Reconciler, ctx context.Context) 
 	}
 
 	r.GetLogger().Info("alerts adapter agenticruns ClusterRole deleted")
-	return nil
-}
-
-// removeLegacyProposalsClusterRBAC deletes pre-OLS-3475 ClusterRole/Binding names after Proposal→AgenticRun rename.
-func removeLegacyProposalsClusterRBAC(r reconciler.Reconciler, ctx context.Context, _ *olsv1alpha1.OLSConfig) error {
-	rb := &rbacv1.ClusterRoleBinding{}
-	err := r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterLegacyProposalsClusterRoleName}, rb)
-	if err == nil {
-		delErr := r.Delete(ctx, rb)
-		if delErr != nil && !apierrors.IsNotFound(delErr) && !isOpenShiftManagedCRBDeleteDenied(delErr) {
-			return fmt.Errorf("failed to delete legacy alerts adapter proposals ClusterRoleBinding: %w", delErr)
-		}
-		if delErr == nil {
-			r.GetLogger().Info("deleted legacy alerts adapter proposals ClusterRoleBinding", "ClusterRoleBinding", rb.Name)
-		}
-	} else if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to get legacy alerts adapter proposals ClusterRoleBinding: %w", err)
-	}
-
-	role := &rbacv1.ClusterRole{}
-	err = r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterLegacyProposalsClusterRoleName}, role)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to get legacy alerts adapter proposals ClusterRole: %w", err)
-	}
-
-	if delErr := r.Delete(ctx, role); delErr != nil && !apierrors.IsNotFound(delErr) {
-		return fmt.Errorf("failed to delete legacy alerts adapter proposals ClusterRole: %w", delErr)
-	}
-	r.GetLogger().Info("deleted legacy alerts adapter proposals ClusterRole", "ClusterRole", role.Name)
 	return nil
 }
 
