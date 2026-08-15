@@ -117,7 +117,7 @@ require (
 
 require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.93.1
-	go.podman.io/image/v5 v5.41.0
+	go.podman.io/image/v5 v5.41.1
 )
 
 require (
