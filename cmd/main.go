@@ -68,6 +68,7 @@ import (
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -314,8 +315,14 @@ func main() {
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Secret{}: {
 					Namespaces: map[string]cache.Config{
-						namespace:                          {},
-						utils.TelemetryPullSecretNamespace: {},
+						namespace: {},
+						// The ClusterRole only permits reading the telemetry pull-secret by name
+						// (resourceNames=pull-secret). Kubernetes requires list/watch requests on a
+						// resourceNames-restricted rule to carry a matching metadata.name field selector,
+						// otherwise the informer's bare LIST is denied with 403 and the manager fails to start.
+						utils.TelemetryPullSecretNamespace: {
+							FieldSelector: fields.SelectorFromSet(fields.Set{"metadata.name": utils.TelemetryPullSecretName}),
+						},
 					},
 				},
 				&rbacv1.RoleBinding{}: {
