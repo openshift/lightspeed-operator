@@ -72,6 +72,42 @@ var _ = Describe("LoadKubeConfig", func() {
 		Expect(kc.ContextName).To(Equal("test-ctx"))
 	})
 
+	It("selects an explicit context over current-context", func() {
+		kubeconfig := `
+apiVersion: v1
+kind: Config
+current-context: default-ctx
+clusters:
+- cluster:
+    server: https://api.default.example.com:6443
+  name: default-cluster
+- cluster:
+    server: https://api.other.example.com:6443
+  name: other-cluster
+contexts:
+- context:
+    cluster: default-cluster
+    user: default-user
+  name: default-ctx
+- context:
+    cluster: other-cluster
+    user: other-user
+  name: other-ctx
+users:
+- name: default-user
+  user:
+    token: sha256~defaulttoken
+- name: other-user
+  user:
+    token: sha256~othertoken
+`
+		path := writeTestKubeconfig(kubeconfig)
+		kc, err := LoadKubeConfig(path, "other-ctx", false, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kc.BearerToken).To(Equal("sha256~othertoken"))
+		Expect(kc.ContextName).To(Equal("other-ctx"))
+	})
+
 	It("returns ErrNoBearerToken for kubeconfig without bearer token", func() {
 		path := writeTestKubeconfig(testKubeconfigNoToken)
 		_, err := LoadKubeConfig(path, "", false, "")
