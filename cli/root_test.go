@@ -25,7 +25,7 @@ var _ = Describe("RootCmd", func() {
 	It("registers global flags", func() {
 		streams, _, _ := fakeStreams()
 		cmd := NewRootCmd(streams)
-		for _, name := range []string{"kubeconfig", "insecure-skip-tls-verify", "ca-cert"} {
+		for _, name := range []string{"kubeconfig", "context", "insecure-skip-tls-verify", "ca-cert"} {
 			Expect(cmd.PersistentFlags().Lookup(name)).NotTo(BeNil(), "expected persistent flag %q", name)
 		}
 	})

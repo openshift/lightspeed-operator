@@ -39,6 +39,8 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		"Path to kubeconfig file (default: $KUBECONFIG or ~/.kube/config)")
 	cmd.PersistentFlags().Bool("insecure-skip-tls-verify", false,
 		"Skip TLS certificate verification")
+	cmd.PersistentFlags().String("context", "",
+		"Kubeconfig context to use")
 	cmd.PersistentFlags().String("ca-cert", "",
 		"Path to CA certificate for TLS verification")
 
