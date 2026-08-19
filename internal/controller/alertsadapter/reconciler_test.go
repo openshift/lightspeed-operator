@@ -165,14 +165,20 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 			expectOwnedByOLSConfig(sa)
 		})
 
-		It("should create the agenticruns ClusterRole and ClusterRoleBinding", func() {
-			role := &rbacv1.ClusterRole{}
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: utils.AlertsAdapterAgenticRunsClusterRoleName}, role)
+		It("should create the agenticruns Role and RoleBinding", func() {
+			role := &rbacv1.Role{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.AlertsAdapterAgenticRunsRoleName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, role)
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(role)
 
-			rb := &rbacv1.ClusterRoleBinding{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.AlertsAdapterAgenticRunsClusterRoleBindingName}, rb)
+			rb := &rbacv1.RoleBinding{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.AlertsAdapterAgenticRunsRoleBindingName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, rb)
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(rb)
 		})
@@ -276,8 +282,11 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 			}, sa)
 			Expect(err).To(HaveOccurred())
 
-			role := &rbacv1.ClusterRole{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.AlertsAdapterAgenticRunsClusterRoleName}, role)
+			role := &rbacv1.Role{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.AlertsAdapterAgenticRunsRoleName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, role)
 			Expect(err).To(HaveOccurred())
 		})
 	})
