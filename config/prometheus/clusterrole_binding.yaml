@@ -14,4 +14,4 @@ subjects:
 
   - kind: ServiceAccount
     name: metrics-reader
-    namespace: openshift-lightspeed
+    namespace: system
