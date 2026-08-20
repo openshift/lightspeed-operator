@@ -29,6 +29,10 @@ echo "---------------------------------------------"
 
 bash .tekton/integration-tests/scripts/install-oc-if-missing.sh "${ocp_channel}"
 
+# Secret volumes are read-only; oc project writes context back to kubeconfig.
+cp "${KUBECONFIG}" /tmp/kubeconfig
+export KUBECONFIG=/tmp/kubeconfig
+
 ols_ns="${OLS_NAMESPACE:-openshift-lightspeed}"
 echo "Setting default namespace for oc (e2e harness uses commands without -n)"
 oc project "${ols_ns}"
