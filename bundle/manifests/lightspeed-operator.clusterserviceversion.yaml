@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-08-12T15:24:56Z"
+    createdAt: "2026-08-20T16:46:46Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -799,19 +799,6 @@ spec:
                 - watch
             - apiGroups:
                 - ""
-              resources:
-                - secrets
-              verbs:
-                - create
-                - delete
-                - deletecollection
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
-                - ""
               resourceNames:
                 - pull-secret
               resources:
@@ -909,18 +896,6 @@ spec:
                 - update
                 - watch
             - apiGroups:
-                - networking.k8s.io
-              resources:
-                - networkpolicies
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - patch
-                - update
-                - watch
-            - apiGroups:
                 - ols.openshift.io
               resources:
                 - olsconfigs
@@ -957,16 +932,48 @@ spec:
                 - watch
             - apiGroups:
                 - rbac.authorization.k8s.io
+              resourceNames:
+                - lightspeed-agentic-alerts-adapter-agenticruns
+                - lightspeed-app-server-sar-role-binding
+              resources:
+                - clusterrolebindings
+              verbs:
+                - delete
+                - get
+                - list
+                - update
+                - watch
+            - apiGroups:
+                - rbac.authorization.k8s.io
               resources:
                 - clusterrolebindings
                 - clusterroles
                 - rolebindings
               verbs:
                 - create
+            - apiGroups:
+                - rbac.authorization.k8s.io
+              resourceNames:
+                - lightspeed-agentic-alerts-adapter-agenticruns
+                - lightspeed-app-server-sar-role
+              resources:
+                - clusterroles
+              verbs:
                 - delete
                 - get
                 - list
-                - patch
+                - update
+                - watch
+            - apiGroups:
+                - rbac.authorization.k8s.io
+              resourceNames:
+                - lightspeed-agentic-alerts-adapter-alertmanager
+              resources:
+                - rolebindings
+              verbs:
+                - delete
+                - get
+                - list
                 - update
                 - watch
             - apiGroups:
@@ -1010,9 +1017,9 @@ spec:
                       - --cert-dir=/etc/tls/private
                       - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:958693ae1cdd0c1549d8ad9d618643da6cfb73196742723c3d78f7f023a70502
-                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:b935868e60f03e5d16849caaf1789feaf2da2ab1358d32d702cfe0708124e53d
-                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:588577fec9f42aff4e3e4b3c7fdf1d1c6e2ead441978e25c0b7775b106d5baaf
+                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:7cefa901793ca8d0ecc39e29e30abda16d0d8f9823caff5f1bf1c80efda1633d
+                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:321743fbda2f9346feef8049b38b49358873b1f62749dd66c7e553c82c50710f
+                      - --openshift-mcp-server-image=registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:8a8321cc2e00c3f13bf8e433da0fb3c990def939d5c7dec5f3978e9e323fc98b
                       - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9
                     command:
                       - /manager
@@ -1021,7 +1028,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:71abcf4b043e20096a670badf767f4d99e30a34fc21326750621392d3f10004e
+                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ad4559ce40870ba2a68398b539d8ba89ecccde68099f1a63fd969d98fd741470
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1099,6 +1106,31 @@ spec:
                 - create
                 - patch
             - apiGroups:
+                - ""
+              resources:
+                - secrets
+              verbs:
+                - create
+                - delete
+                - deletecollection
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - networking.k8s.io
+              resources:
+                - networkpolicies
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
                 - rbac.authorization.k8s.io
               resources:
                 - rolebindings
@@ -1142,12 +1174,12 @@ spec:
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     - name: lightspeed-service-api
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:958693ae1cdd0c1549d8ad9d618643da6cfb73196742723c3d78f7f023a70502
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:7cefa901793ca8d0ecc39e29e30abda16d0d8f9823caff5f1bf1c80efda1633d
     - name: lightspeed-console-plugin
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:b935868e60f03e5d16849caaf1789feaf2da2ab1358d32d702cfe0708124e53d
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:321743fbda2f9346feef8049b38b49358873b1f62749dd66c7e553c82c50710f
     - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:71abcf4b043e20096a670badf767f4d99e30a34fc21326750621392d3f10004e
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ad4559ce40870ba2a68398b539d8ba89ecccde68099f1a63fd969d98fd741470
     - name: openshift-mcp-server
-      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:588577fec9f42aff4e3e4b3c7fdf1d1c6e2ead441978e25c0b7775b106d5baaf
+      image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:8a8321cc2e00c3f13bf8e433da0fb3c990def939d5c7dec5f3978e9e323fc98b
     - name: rhokp
       image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9
