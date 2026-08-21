@@ -100,7 +100,8 @@ make test-e2e   # E2E tests (requires cluster)
 
 ### CLI Plugin
 - `cmd/oc-ols/main.go` - CLI binary entry point (IOStreams, root command)
-- `cli/` - CLI command implementations (root, version, kubeconfig integration)
+- `cli/` - CLI command implementations (root, version, kubeconfig integration, endpoint resolution)
+- `cli/config/` - Per-context configuration storage (endpoint persistence, set-endpoint subcommand)
 
 ### Controllers
 - `internal/controller/olsconfig_controller.go` - Main reconciler with finalizer logic
