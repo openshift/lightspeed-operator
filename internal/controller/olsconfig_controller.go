@@ -131,10 +131,11 @@ type OLSConfigReconciler struct {
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks;consoleplugins;consoleplugins/finalizers,verbs=get;create;update;delete
 // Modify console CR to activate console plugin
 // +kubebuilder:rbac:groups=operator.openshift.io,resources=consoles,verbs=watch;list;get;update
-// RBAC: split create (cannot use resourceNames) from get/update/delete/watch (pinned to named resources) (OLS-3886)
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=create
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=lightspeed-app-server-sar-role;lightspeed-agentic-alerts-adapter-agenticruns,verbs=get;list;update;delete;watch
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,resourceNames=lightspeed-app-server-sar-role-binding;lightspeed-agentic-alerts-adapter-agenticruns,verbs=get;list;update;delete;watch
+// RBAC: split create (cannot use resourceNames) from get/update/delete (pinned to named resources) (OLS-3886)
+// list+watch must be unscoped because Owns() sets up a cluster-wide informer that lists all resources of the type
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=create;list;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=lightspeed-app-server-sar-role;lightspeed-agentic-alerts-adapter-agenticruns,verbs=get;update;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,resourceNames=lightspeed-app-server-sar-role-binding;lightspeed-agentic-alerts-adapter-agenticruns,verbs=get;update;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,resourceNames=lightspeed-agentic-alerts-adapter-alertmanager,verbs=get;list;update;delete;watch
 // AgenticRun API for alerts adapter ClusterRole (operator must hold permissions it grants to operands)

@@ -932,6 +932,21 @@ spec:
                 - watch
             - apiGroups:
                 - rbac.authorization.k8s.io
+              resources:
+                - clusterrolebindings
+                - clusterroles
+              verbs:
+                - create
+                - list
+                - watch
+            - apiGroups:
+                - rbac.authorization.k8s.io
+              resources:
+                - rolebindings
+              verbs:
+                - create
+            - apiGroups:
+                - rbac.authorization.k8s.io
               resourceNames:
                 - lightspeed-agentic-alerts-adapter-agenticruns
                 - lightspeed-app-server-sar-role-binding
@@ -940,17 +955,7 @@ spec:
               verbs:
                 - delete
                 - get
-                - list
                 - update
-                - watch
-            - apiGroups:
-                - rbac.authorization.k8s.io
-              resources:
-                - clusterrolebindings
-                - clusterroles
-                - rolebindings
-              verbs:
-                - create
             - apiGroups:
                 - rbac.authorization.k8s.io
               resourceNames:
@@ -961,9 +966,7 @@ spec:
               verbs:
                 - delete
                 - get
-                - list
                 - update
-                - watch
             - apiGroups:
                 - rbac.authorization.k8s.io
               resourceNames:
