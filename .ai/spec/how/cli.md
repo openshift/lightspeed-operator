@@ -24,7 +24,7 @@ Audience: AI agents. This document describes **code layout, client wiring, and I
 | `attachments.go` | — | `ReadAttachments(paths)` — reads files, builds attachment array |
 | `render.go` | — | `RenderMarkdown(text)` — terminal markdown rendering via glamour |
 
-*Implemented: `root.go`, `version.go`, `kubeconfig.go` (OLS-3632). Remaining files are planned.*
+*Implemented: `root.go`, `version.go`, `kubeconfig.go` (OLS-3632); `config/endpoint.go`, `config/persistence.go`, `config/kubeconfig.go` (OLS-3633). Remaining files are planned.*
 
 ---
 
@@ -32,8 +32,9 @@ Audience: AI agents. This document describes **code layout, client wiring, and I
 
 | File | Types | Key functions |
 |------|-------|---------------|
-| `endpoint.go` | `SetEndpointOptions` | `NewSetEndpointCmd`, `Run` — persists URL keyed by kubeconfig context |
-| `persistence.go` | `ContextStore` | `LoadConversationID`, `SaveConversationID`, `LoadEndpoint`, `SaveEndpoint` — local file storage per kubeconfig context |
+| `endpoint.go` | — | `NewSetEndpointCmd`, `NewConfigCmd` — validates URL (HTTPS required, `--insecure-allow-http` for dev), persists URL keyed by kubeconfig context |
+| `persistence.go` | `ContextStore` | `LoadEndpoint`, `SaveEndpoint` — per-context local file storage under `<UserConfigDir>/oc-ols/contexts/<sanitized-context-name>/` |
+| `kubeconfig.go` | — | `loadRawKubeConfig` — minimal kubeconfig loading for context name resolution |
 
 ---
 
@@ -139,7 +140,7 @@ LLM responses contain markdown formatting (headings, code blocks, lists, bold/it
 
 ## Conversation persistence
 
-- **Storage location:** `~/.config/oc-ols/contexts/<storage-key>/` directory, where `<storage-key>` is derived from a SHA-256 hash of the canonical kubeconfig path + context name (e.g., `sha256(abs_kubeconfig_path + ":" + context_name)[:16]`). This ensures context names from different `--kubeconfig` files do not collide, and prevents path traversal from malicious context names. A `manifest.json` at `~/.config/oc-ols/contexts/` maps storage keys back to human-readable `{kubeconfig, context}` pairs for debugging.
+- **Storage location:** `<UserConfigDir>/oc-ols/contexts/<sanitized-context-name>/` directory, where `<sanitized-context-name>` is the kubeconfig context name with characters outside `[a-zA-Z0-9._-]` replaced by `_`. When sanitization modifies the name, a short SHA-256 hash suffix of the original name is appended to prevent collisions (e.g., `admin:cluster` → `admin_cluster_a3f8b2c1`, `admin_cluster` → `admin_cluster`). Empty, `.`, and `..` names are rejected.
   - `conversation.json` stores `{"conversation_id": "<uuid>", "updated_at": "<timestamp>"}`.
   - `endpoint` file stores the configured URL as plain text.
 - **Behavior:** After each successful query, the returned `conversation_id` is persisted for the current kubeconfig context. On subsequent queries, the persisted `conversation_id` is included in the request automatically.
