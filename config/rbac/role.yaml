@@ -175,9 +175,7 @@ rules:
   verbs:
   - delete
   - get
-  - list
   - update
-  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -186,6 +184,8 @@ rules:
   - rolebindings
   verbs:
   - create
+  - list
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resourceNames:
@@ -196,9 +196,7 @@ rules:
   verbs:
   - delete
   - get
-  - list
   - update
-  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resourceNames:
@@ -208,9 +206,7 @@ rules:
   verbs:
   - delete
   - get
-  - list
   - update
-  - watch
 - apiGroups:
   - storage.k8s.io
   resources:

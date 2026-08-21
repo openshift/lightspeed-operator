@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-08-20T16:46:46Z"
+    createdAt: "2026-08-24T06:57:41Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -940,9 +940,7 @@ spec:
               verbs:
                 - delete
                 - get
-                - list
                 - update
-                - watch
             - apiGroups:
                 - rbac.authorization.k8s.io
               resources:
@@ -951,6 +949,8 @@ spec:
                 - rolebindings
               verbs:
                 - create
+                - list
+                - watch
             - apiGroups:
                 - rbac.authorization.k8s.io
               resourceNames:
@@ -961,9 +961,7 @@ spec:
               verbs:
                 - delete
                 - get
-                - list
                 - update
-                - watch
             - apiGroups:
                 - rbac.authorization.k8s.io
               resourceNames:
@@ -973,9 +971,7 @@ spec:
               verbs:
                 - delete
                 - get
-                - list
                 - update
-                - watch
             - apiGroups:
                 - storage.k8s.io
               resources:
