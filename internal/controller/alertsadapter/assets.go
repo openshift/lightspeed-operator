@@ -22,12 +22,13 @@ func GenerateServiceAccount(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) 
 	return utils.GenerateServiceAccount(r, cr, utils.AlertsAdapterServiceAccountName)
 }
 
-// GenerateAgenticRunsClusterRole generates the ClusterRole granting AgenticRun create/list/get access.
-func GenerateAgenticRunsClusterRole(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRole, error) {
-	role := rbacv1.ClusterRole{
+// GenerateAgenticRunsRole generates the namespaced Role granting AgenticRun create/list/get access.
+func GenerateAgenticRunsRole(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.Role, error) {
+	role := rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   utils.AlertsAdapterAgenticRunsClusterRoleName,
-			Labels: utils.GenerateAlertsAdapterSelectorLabels(),
+			Name:      utils.AlertsAdapterAgenticRunsRoleName,
+			Namespace: r.GetNamespace(),
+			Labels:    utils.GenerateAlertsAdapterSelectorLabels(),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -45,12 +46,13 @@ func GenerateAgenticRunsClusterRole(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 	return &role, nil
 }
 
-// GenerateAgenticRunsClusterRoleBinding binds the alerts adapter ServiceAccount to the AgenticRun ClusterRole.
-func GenerateAgenticRunsClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRoleBinding, error) {
-	rb := rbacv1.ClusterRoleBinding{
+// GenerateAgenticRunsRoleBinding binds the alerts adapter ServiceAccount to the AgenticRun Role.
+func GenerateAgenticRunsRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.RoleBinding, error) {
+	rb := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   utils.AlertsAdapterAgenticRunsClusterRoleBindingName,
-			Labels: utils.GenerateAlertsAdapterSelectorLabels(),
+			Name:      utils.AlertsAdapterAgenticRunsRoleBindingName,
+			Namespace: r.GetNamespace(),
+			Labels:    utils.GenerateAlertsAdapterSelectorLabels(),
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -61,8 +63,8 @@ func GenerateAgenticRunsClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alp
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     utils.AlertsAdapterAgenticRunsClusterRoleName,
+			Kind:     "Role",
+			Name:     utils.AlertsAdapterAgenticRunsRoleName,
 		},
 	}
 

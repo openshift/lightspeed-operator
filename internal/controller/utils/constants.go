@@ -421,10 +421,14 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AlertsAdapterContainerName = "adapter"
 	// AlertsAdapterNetworkPolicyName is the name of the network policy for the alerts adapter
 	AlertsAdapterNetworkPolicyName = "lightspeed-agentic-alerts-adapter"
-	// AlertsAdapterAgenticRunsClusterRoleName is the cluster role granting AgenticRun create/list/get
-	AlertsAdapterAgenticRunsClusterRoleName = "lightspeed-agentic-alerts-adapter-agenticruns"
-	// AlertsAdapterAgenticRunsClusterRoleBindingName binds the AgenticRun ClusterRole to the alerts adapter SA
-	AlertsAdapterAgenticRunsClusterRoleBindingName = "lightspeed-agentic-alerts-adapter-agenticruns"
+	// AlertsAdapterAgenticRunsRoleName is the namespaced role granting AgenticRun create/list/get
+	AlertsAdapterAgenticRunsRoleName = "lightspeed-agentic-alerts-adapter-agenticruns"
+	// AlertsAdapterAgenticRunsRoleBindingName binds the AgenticRun Role to the alerts adapter SA
+	AlertsAdapterAgenticRunsRoleBindingName = "lightspeed-agentic-alerts-adapter-agenticruns"
+	// AlertsAdapterAgenticRunsClusterRoleName is the legacy cluster role name (kept for migration cleanup)
+	AlertsAdapterAgenticRunsClusterRoleName = AlertsAdapterAgenticRunsRoleName
+	// AlertsAdapterAgenticRunsClusterRoleBindingName is the legacy cluster role binding name (kept for migration cleanup)
+	AlertsAdapterAgenticRunsClusterRoleBindingName = AlertsAdapterAgenticRunsRoleBindingName
 	// AlertsAdapterAlertmanagerRoleBindingName is the RoleBinding in openshift-monitoring for Alertmanager read access
 	AlertsAdapterAlertmanagerRoleBindingName = "lightspeed-agentic-alerts-adapter-alertmanager"
 	// AlertsAdapterConfigMapName is the ConfigMap holding runtime adapter settings (poll interval, cooldown, tools)
