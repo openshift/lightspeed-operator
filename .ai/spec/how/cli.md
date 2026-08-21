@@ -140,6 +140,8 @@ LLM responses contain markdown formatting (headings, code blocks, lists, bold/it
 
 ## Conversation persistence
 
+*Implemented: storage layout and endpoint persistence (OLS-3633). Conversation ID persistence planned for OLS-3636.*
+
 - **Storage location:** `<UserConfigDir>/oc-ols/contexts/<sanitized-context-name>/` directory, where `<sanitized-context-name>` is the kubeconfig context name with characters outside `[a-zA-Z0-9._-]` replaced by `_`. When sanitization modifies the name, a short SHA-256 hash suffix of the original name is appended to prevent collisions (e.g., `admin:cluster` → `admin_cluster_a3f8b2c1`, `admin_cluster` → `admin_cluster`). Empty, `.`, and `..` names are rejected.
   - `conversation.json` stores `{"conversation_id": "<uuid>", "updated_at": "<timestamp>"}`.
   - `endpoint` file stores the configured URL as plain text.
