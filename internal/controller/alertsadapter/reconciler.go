@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -433,17 +432,6 @@ func deleteAgenticRunsRole(r reconciler.Reconciler, ctx context.Context) error {
 
 	r.GetLogger().Info("alerts adapter agenticruns Role deleted")
 	return nil
-}
-
-// isOpenShiftManagedCRBDeleteDenied reports whether err is the OpenShift admission webhook
-// that blocks deleting ClusterRoleBindings whose subjects are ServiceAccounts in openshift-* namespaces.
-func isOpenShiftManagedCRBDeleteDenied(err error) bool {
-	if err == nil || !apierrors.IsForbidden(err) {
-		return false
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "clusterrolebindings-validation.managed.openshift.io") ||
-		(strings.Contains(msg, "Deleting ClusterRoleBinding") && strings.Contains(msg, "is not allowed"))
 }
 
 // RestartAlertsAdapter triggers a rolling restart of the alerts adapter deployment by updating

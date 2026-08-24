@@ -1,17 +1,13 @@
 package alertsadapter
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -38,16 +34,6 @@ func expectOwnedByOLSConfig(obj metav1.Object) {
 }
 
 var _ = Describe("Alerts adapter reconciler", Ordered, func() {
-	It("detects OpenShift managed ClusterRoleBinding delete denial", func() {
-		webhookErr := apierrors.NewForbidden(
-			schema.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
-			"lightspeed-agentic-alerts-adapter-agenticruns",
-			fmt.Errorf(`admission webhook "clusterrolebindings-validation.managed.openshift.io" denied the request: Deleting ClusterRoleBinding lightspeed-agentic-alerts-adapter-agenticruns is not allowed`),
-		)
-		Expect(isOpenShiftManagedCRBDeleteDenied(webhookErr)).To(BeTrue())
-		Expect(isOpenShiftManagedCRBDeleteDenied(fmt.Errorf("some other error"))).To(BeFalse())
-	})
-
 	It("does not create resources when configMapRef is unset", func() {
 		err := ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, cr)
 		Expect(err).NotTo(HaveOccurred())

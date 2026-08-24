@@ -306,15 +306,16 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 					"alerts adapter ServiceAccount should not exist when image is empty")
 			})
 
-			It("should not create alerts adapter ClusterRole", func() {
+			It("should not create alerts adapter Role", func() {
 				_ = emptyImageReconciler.reconcileIndependentResources(ctx, cr)
 
-				role := &rbacv1.ClusterRole{}
+				role := &rbacv1.Role{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.AlertsAdapterAgenticRunsClusterRoleName,
+					Name:      utils.AlertsAdapterAgenticRunsRoleName,
+					Namespace: namespace,
 				}, role)
 				Expect(apierrors.IsNotFound(err)).To(BeTrue(),
-					"alerts adapter ClusterRole should not exist when image is empty")
+					"alerts adapter Role should not exist when image is empty")
 			})
 		})
 
