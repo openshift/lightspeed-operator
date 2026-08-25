@@ -13,8 +13,8 @@
   },
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:7cefa901793ca8d0ecc39e29e30abda16d0d8f9823caff5f1bf1c80efda1633d",
-    "revision": "681505eee4d5972448dd164f5330afc45383fc29",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:5c6426ec827b469a10a093ded2e9551e5f28d698ff4073ab474bb7d95e1c1694",
+    "revision": "722fca46fefc40d773a19c44a3a36ffe322b6e5a",
     "operator_arg": "service-image",
     "snapshot_component": "lightspeed-service",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service",
@@ -22,8 +22,8 @@
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:321743fbda2f9346feef8049b38b49358873b1f62749dd66c7e553c82c50710f",
-    "revision": "16f8e3ca4a06e6e15a675fc5e145d8d06dbab6c0",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:1077f7f87b7e701e3d719bf4d5af3cbabdf9145dd02569df435dbebf433939fa",
+    "revision": "c19142937ff6e2521314017c28016e78a02b86d5",
     "operator_arg": "console-image",
     "snapshot_component": "lightspeed-console",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console",
@@ -31,8 +31,8 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ad4559ce40870ba2a68398b539d8ba89ecccde68099f1a63fd969d98fd741470",
-    "revision": "2094895b277d36194f529e6910c15fabda4a7d41",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ab7701e98d36002ca215a055aaaadd37c11cd50e01193e0306c545e4ab3cfa05",
+    "revision": "35b51b02719c93c4e519774c91bda6e339f7a012",
     "operator_target": "image",
     "snapshot_component": "lightspeed-operator",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator",
