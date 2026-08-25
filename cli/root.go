@@ -2,10 +2,14 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+
+	"github.com/openshift/lightspeed-operator/cli/config"
 )
 
 const (
@@ -44,7 +48,44 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd.PersistentFlags().String("ca-cert", "",
 		"Path to CA certificate for TLS verification")
 
+	cmd.PersistentFlags().String("endpoint", "",
+		"OLS service endpoint URL (overrides persisted endpoint)")
+
 	cmd.AddCommand(NewVersionCmd(streams))
+	cmd.AddCommand(config.NewConfigCmd(streams))
 
 	return cmd
+}
+
+// ResolveEndpoint determines the OLS service endpoint using the resolution order:
+// 1. --endpoint flag (highest priority)
+// 2. Persisted endpoint for the current kubeconfig context
+// 3. Error with guidance
+func ResolveEndpoint(cmd *cobra.Command, contextName string) (string, error) {
+	endpoint, err := cmd.Flags().GetString("endpoint")
+	if err != nil {
+		return "", err
+	}
+	if endpoint != "" {
+		return endpoint, nil
+	}
+
+	store, err := config.NewContextStore()
+	if err != nil {
+		return "", err
+	}
+
+	endpoint, err = store.LoadEndpoint(contextName)
+	if err == nil {
+		return endpoint, nil
+	}
+
+	if errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf(
+			"no endpoint configured for context %q. Run: oc ols config set-endpoint <URL>",
+			contextName,
+		)
+	}
+
+	return "", err
 }
