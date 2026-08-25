@@ -2463,16 +2463,14 @@ var _ = Describe("Helper function unit tests", func() {
 })
 
 func serviceAuditYAMLMatcher(logging string) OmegaMatcher {
-	// OLS-3737: OTEL endpoint assertion disabled until e2e tests prove the
-	// collector pipeline works. Re-enable in OLS-3737 Phase 3.
-	// endpoint := fmt.Sprintf("%s.%s.svc:%d",
-	// 	utils.OtelCollectorServiceName, utils.OLSNamespaceDefault, utils.OtelCollectorGRPCPort)
+	endpoint := fmt.Sprintf("%s.%s.svc:%d",
+		utils.OtelCollectorServiceName, utils.OLSNamespaceDefault, utils.OtelCollectorGRPCPort)
 	return MatchAllKeys(Keys{
 		"logging": Equal(logging),
-		// "otel": MatchAllKeys(Keys{
-		// 	"endpoint": Equal(endpoint),
-		// 	"tls_mode": Equal("Secure"),
-		// }),
+		"otel": MatchAllKeys(Keys{
+			"endpoint": Equal(endpoint),
+			"tls_mode": Equal("Secure"),
+		}),
 	})
 }
 
