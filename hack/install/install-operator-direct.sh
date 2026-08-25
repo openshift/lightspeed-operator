@@ -56,6 +56,13 @@ direct_deploy_skip_idms() {
 	local operator_img="$IMG"
 	local kustomize="${localbin}/kustomize"
 	local jqbin="${localbin}/jq"
+	if [[ ! -x "$jqbin" ]]; then
+		jqbin=$(command -v jq 2>/dev/null || true)
+	fi
+	if [[ -z "$jqbin" ]]; then
+		echo "error: jq not found (install jq or run make jq)" >&2
+		exit 1
+	fi
 	local kubectlbin="${KUBECTL:-kubectl}"
 	local yq_cmd
 
