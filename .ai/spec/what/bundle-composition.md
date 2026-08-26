@@ -1,14 +1,37 @@
 # Bundle Composition
 
-The lightspeed-operator OLM bundle installs both the lightspeed-operator controller and the lightspeed-agentic-operator controller. This spec defines the bundle structure, CRD ownership, image references, and the boundaries between the two controllers.
+Each release produces **two version-split OLM bundles under one package**
+(`lightspeed-operator`, same channels), partitioned by the
+`com.redhat.openshift.versions` annotation and gating the agentic layer to OCP ≥ 5.0
+(OLS-3899, cross-repo decision `0037-agentic-version-gating.md`):
+
+- **v1 bundle** (`1.x` line, OCP 4.x): classic only. Installs the lightspeed-operator
+  controller alone.
+- **v2 bundle** (`2.x` line, OCP ≥ 5.0): classic + agentic. Installs both the
+  lightspeed-operator controller and the lightspeed-agentic-operator controller.
+
+This spec defines the bundle structure, CRD ownership, image references, and the
+boundaries between the two controllers in the v2 bundle. The v1 bundle contains none of
+the agentic resources described here.
 
 ## Behavioral Rules
 
 ### Bundle Structure
 
-1. The lightspeed-operator OLM bundle (CSV + manifests in `bundle/`) contains the static resources for both the lightspeed-operator controller and the lightspeed-agentic-operator controller.
-2. The CSV defines two deployments: one for the lightspeed-operator controller and one for the lightspeed-agentic-operator controller.
-3. Both controllers start when the operator is installed. No feature gate or manual step is required to start either controller process.
+1. Both bundles are built from the same source under `bundle/` via selector-driven
+   tooling (`hack/update_bundle.sh v1|v2`). The selector chooses the CSV template, the
+   image set from `related_images.json`, and the `com.redhat.openshift.versions`
+   annotation. The v1 annotation is upper-bounded to 4.x; the v2 annotation is `>=v5.0`.
+2. The **v1 CSV** defines one deployment (the lightspeed-operator controller). The **v2
+   CSV** defines two deployments: the lightspeed-operator controller and the
+   lightspeed-agentic-operator controller.
+3. In the v2 bundle both controllers start when the operator is installed — no feature
+   gate or manual step is required to start either controller process. The v1 bundle
+   never contains the agentic controller, its CRDs, or its RBAC.
+3a. A cluster only ever installs the bundle whose `com.redhat.openshift.versions`
+   matches its OCP version, because each per-OCP-version FBC catalog includes only the
+   matching bundle. The 4.x → 5.0 upgrade uses `olm.skipRange: ">=1.0.0 <2.0.0"` on the
+   v2 channel head, so the 5.x catalog needs only the v2 bundle.
 
 ### CRD Ownership
 
@@ -22,6 +45,7 @@ The lightspeed-operator OLM bundle installs both the lightspeed-operator control
 8. The lightspeed-operator controller image is specified in its CSV deployment spec (as today).
 9. The lightspeed-agentic-operator controller image is specified in its own CSV deployment spec, following the same pattern.
 10. Operand images for each controller (console plugins, service images, etc.) are passed via startup flags or environment variables on their respective deployments.
+10a. Each `related_images.json` entry is tagged with a `bundles` field naming the variants it belongs to: shared entries are `["v1","v2"]`; agentic-only entries (`lightspeed-agentic-operator`, `lightspeed-agentic-console-plugin`, `lightspeed-agentic-alerts-adapter`, `lightspeed-agentic-sandbox`) are `["v2"]`. `hack/update_bundle.sh v1|v2` filters entries by this field so only the v2 bundle carries agentic images in its `spec.relatedImages` and deployment args. Entries without the field default to both bundles.
 
 ### Controller Independence
 
@@ -55,7 +79,7 @@ The lightspeed-operator OLM bundle installs both the lightspeed-operator control
 ## Constraints
 
 1. The lightspeed-operator controller code does not import, reference, or reconcile any `agentic.openshift.io` types.
-2. The agentic CRD YAML in `bundle/manifests/` must not be hand-edited — it is synced from the agentic-operator repo via the make target.
+2. The agentic CRD YAML and agentic RBAC (the `agentic-operator-manager-role` rules that become the v2 CSV `clusterPermissions`, and the standalone `agentic-run-approver` ClusterRole/Binding shipped as v2 bundle manifests) in the v2 bundle must not be hand-edited — they are synced from the agentic-operator repo via the make target at a pinned ref. Per-run sandbox RBAC is created at runtime by the agentic controller, bounded to a subset of its own permissions (no `escalate`/`bind`), and is not part of the bundle.
 3. Both controllers must be able to run in disconnected (air-gapped) environments. All image references must be overridable.
 
 ## Planned Changes
@@ -63,3 +87,4 @@ The lightspeed-operator OLM bundle installs both the lightspeed-operator control
 | Ticket | Summary |
 |---|---|
 | OLS-3236 | Remove agentic console deployment from agentic-operator CSV (lightspeed-operator now reconciles the plugin and wires `--agentic-console-image` / `--alerts-adapter-image` in its CSV). Productize agentic operand images to SHA-pinned `registry.redhat.io` entries. |
+| OLS-3899 | Split into two version-gated bundles (v1 classic / v2 full). Add `bundles` tags to `related_images.json`, selector-driven `update_bundle.sh v1\|v2`, two CSV templates, v2-only agentic CRDs/RBAC/operands, and 5.x FBC catalogs. Sync agentic RBAC (`agentic-operator-manager-role`, `agentic-run-approver`) from the agentic-operator repo into the v2 bundle. See decision 0037. |
