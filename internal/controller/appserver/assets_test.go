@@ -209,6 +209,58 @@ var _ = Describe("App server assets", func() {
 			Expect(olsconfigGenerated.LLMProviders[0].Models).To(HaveLen(1))
 			Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.ToolBudgetRatio).To(Equal(0.5))
 			Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.MaxTokensForResponse).To(Equal(0))
+			// temperature_supported is omitted so the service default applies
+			Expect(olsconfigGenerated.LLMProviders[0].Models[0].Parameters.TemperatureSupported).To(BeNil())
+		})
+
+		It("should propagate temperature_supported when set on the model", func() {
+			temperatureSupported := false
+			crTempUnsupported := &olsv1alpha1.OLSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: utils.OLSConfigName,
+				},
+				Spec: olsv1alpha1.OLSConfigSpec{
+					LLMConfig: olsv1alpha1.LLMSpec{
+						Providers: []olsv1alpha1.ProviderSpec{
+							{
+								Name: "testProvider",
+								Type: "bam",
+								URL:  "https://testURL",
+								Models: []olsv1alpha1.ModelSpec{
+									{
+										Name:              "testModel",
+										URL:               "https://testURL",
+										ContextWindowSize: 32768,
+										Parameters: olsv1alpha1.ModelParametersSpec{
+											TemperatureSupported: &temperatureSupported,
+										},
+									},
+								},
+								CredentialsSecretRef: corev1.LocalObjectReference{
+									Name: "test-secret",
+								},
+							},
+						},
+					},
+					OLSConfig: olsv1alpha1.OLSSpec{
+						DefaultModel:    "testModel",
+						DefaultProvider: "testProvider",
+					},
+				},
+			}
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), crTempUnsupported)
+			Expect(err).NotTo(HaveOccurred())
+
+			olsconfigGenerated := utils.AppSrvConfigFile{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(olsconfigGenerated.LLMProviders).To(HaveLen(1))
+			Expect(olsconfigGenerated.LLMProviders[0].Models).To(HaveLen(1))
+			got := olsconfigGenerated.LLMProviders[0].Models[0].Parameters.TemperatureSupported
+			Expect(got).NotTo(BeNil())
+			Expect(*got).To(BeFalse())
 		})
 
 		It("should generate configmap with TLS profile from APIServer when CR has none", func() {
