@@ -46,6 +46,7 @@ AI agents (Claude). Content is optimized for precision and machine consumption o
 | Debug external resource watching | `what/resource-lifecycle.md` + `how/reconciliation.md` |
 | Add metrics or alerts | `what/observability.md` |
 | Understand the OLM bundle (both controllers) | `what/bundle-composition.md` |
+| Add a new OCP version / FBC release pipeline | `how/fbc-release.md` |
 
 ## Cross-Reference
 
@@ -58,6 +59,7 @@ When what/ and how/ file names don't match 1:1, this table maps behavioral specs
 | `console-ui.md`, `agentic-console-ui.md` | `how/deployment-generation.md` -- deployment/service/configmap generation; `how/reconciliation.md` -- ConsolePlugin lifecycle, activation, and cleanup |
 | `crd-api.md` | `how/config-generation.md` -- how CRD fields map to generated configuration |
 | `system-overview.md` | `how/project-structure.md` -- codebase layout, package responsibilities |
+| `bundle-composition.md` | `how/fbc-release.md` -- FBC Application naming, ReleasePlan structure, per-version steps |
 
 The `what/` specs are authoritative for behavior. The `how/` specs are authoritative for implementation. When they conflict, the `what/` spec wins and the `how/` spec should be updated.
 
