@@ -21,7 +21,12 @@ the agentic resources described here.
 1. Both bundles are built from the same source under `bundle/` via selector-driven
    tooling (`hack/update_bundle.sh v1|v2`). The selector chooses the CSV template, the
    image set from `related_images.json`, and the `com.redhat.openshift.versions`
-   annotation. The v1 annotation is upper-bounded to 4.x; the v2 annotation is `>=v5.0`.
+   annotation. The v1 annotation covers `v4.16-v4.22` (current); it must be extended to
+   include each new OCP 4.x minor as it ships — [PLANNED: OLS-2991] to `v4.16-v4.23`.
+   The v2 annotation is `>=v5.0` — [PLANNED: OLS-2992] first release for OCP 5.0.
+   Each new OCP version also requires a matching FBC Konflux Application
+   (`ols-fbc-v4-XX` or `ols-fbc-v5-0`) and ReleasePlan entries in
+   `konflux-release-data`. See `how/fbc-release.md` for the full process.
 2. The **v1 CSV** defines one deployment (the lightspeed-operator controller). The **v2
    CSV** defines two deployments: the lightspeed-operator controller and the
    lightspeed-agentic-operator controller.
@@ -88,3 +93,5 @@ the agentic resources described here.
 |---|---|
 | OLS-3236 | Remove agentic console deployment from agentic-operator CSV (lightspeed-operator now reconciles the plugin and wires `--agentic-console-image` / `--alerts-adapter-image` in its CSV). Productize agentic operand images to SHA-pinned `registry.redhat.io` entries. |
 | OLS-3899 | Split into two version-gated bundles (v1 classic / v2 full). Add `bundles` tags to `related_images.json`, selector-driven `update_bundle.sh v1\|v2`, two CSV templates, v2-only agentic CRDs/RBAC/operands, and 5.x FBC catalogs. Sync agentic RBAC (`agentic-operator-manager-role`, `agentic-run-approver`) from the agentic-operator repo into the v2 bundle. See decision 0037. |
+| OLS-2991 | OCP 4.23 release artifacts — extend v1 bundle annotation to `v4.16-v4.23`; create `ols-fbc-v4-23` Konflux Application; add staging and prod ReleasePlan entries to `konflux-release-data`. |
+| OLS-2992 | OCP 5.0 release artifacts — create v2 bundle Konflux Application; create `ols-fbc-v5-0` FBC Konflux Application; add staging and prod ReleasePlan entries to `konflux-release-data`; inaugural release of the full agentic stack. |
