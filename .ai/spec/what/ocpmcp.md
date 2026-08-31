@@ -75,3 +75,5 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 ## Planned Changes
 
 None for the standalone HTTPS cutover itself. Optional agentic auto-injection remains planned (OLS-3594). [PLANNED: OLS-3697] ServiceMonitor for Prometheus scraping of MCP server `/metrics` endpoint via HTTPS.
+
+[PLANNED: OLS-3680] Publish per-tool RBAC in the `tools/list` response `_meta["openshift.io/rbac"]` so agentic execution can derive least-privilege RBAC for MCP tool calls (subresources, generic pass-throughs, manifest-embedded GVKs). Requires an RFE to the OpenShift MCP server (upstream `kubernetes-mcp-server`). The Secret/RBAC deny-list (rule 16) is mirrored consumer-side as a hard deny ceiling on materialized RBAC. See the workspace-level spec `ols/.ai/spec/what/mcp-tool-rbac.md`.
