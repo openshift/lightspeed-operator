@@ -50,11 +50,11 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 17. Toolsets are pinned to `core`, `config`, `helm`, `metrics`. Metrics uses in-cluster Thanos Querier and Alertmanager URLs. Metrics `guardrails = "!tsdb"` (PromQL query safety, not RBAC) follows upstream OpenShift guidance when Thanos lacks the TSDB status API; auth remains the caller's bearer token.
 18. User-defined MCP servers (`spec.mcpServers`) are out of scope for this operand.
 
-### Monitoring [PLANNED: OLS-3697]
-19. ServiceMonitor `openshift-mcp-server-monitor` — scrapes MCP server metrics via HTTPS on port 8443, path `/metrics` (Go promhttp). Uses service-ca TLS for the scrape connection. Skipped if Prometheus Operator CRDs are not installed.
+### Monitoring
+19. ServiceMonitor `openshift-mcp-server-monitor` (OLS-3728) — scrapes MCP server metrics via HTTPS on port 8443, path `/metrics` (Go promhttp). Server TLS only (service-ca CA bundle + `serverName`; no client certs / Bearer token), 30s interval. Reconciled in Phase 2 via `utils.ReconcileServiceMonitor()`. Skipped if Prometheus Operator CRDs are not installed.
 
 ### Finalizer
-19. On CR deletion, `ocpmcp.Remove()` deletes Deployment, Service, NetworkPolicy, ConfigMap, ServiceAccount, TLS Secret (`openshift-mcp-server-tls`), and ServiceMonitor (`openshift-mcp-server-monitor`) before owned-resource sweep.
+20. On CR deletion, `ocpmcp.Remove()` deletes Deployment, Service, NetworkPolicy, ConfigMap, ServiceAccount, TLS Secret (`openshift-mcp-server-tls`), and ServiceMonitor (`openshift-mcp-server-monitor`) before owned-resource sweep.
 
 ## Configuration Surface
 
@@ -74,4 +74,4 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 
 ## Planned Changes
 
-None for the standalone HTTPS cutover itself. Optional agentic auto-injection remains planned (OLS-3594). [PLANNED: OLS-3697] ServiceMonitor for Prometheus scraping of MCP server `/metrics` endpoint via HTTPS.
+None for the standalone HTTPS cutover itself. Optional agentic auto-injection remains planned (OLS-3594).

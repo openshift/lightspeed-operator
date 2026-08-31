@@ -80,24 +80,27 @@ OLSConfigReconciler.Reconcile()
   2. handleFinalizer()              -- Add finalizer or run deletion cleanup
   3. reconcileOperatorResources()   -- ServiceMonitor, NetworkPolicy (operator-level)
   4. annotateExternalResources()    -- Mark external secrets/configmaps for watching
-  5. reconcileIndependentResources()  -- Phase 1: ConfigMaps, Secrets, ServiceAccounts, RBAC, NetworkPolicies
+  5. reconcileIndependentResources()  -- Phase 1: ConfigMaps, Secrets, ServiceAccounts, RBAC, NetworkPolicies (order matches code)
      +-- console.ReconcileConsoleUIResources()
-     +-- agenticconsole.ReconcileAgenticConsoleUIResources()
      +-- postgres.ReconcilePostgresResources()
-     +-- otelcollector.ReconcileOtelCollectorResources()
      +-- ocpmcp.ReconcileResources()   # when introspectionEnabled; else Remove()
-     +-- appserver.ReconcileAppServerResources()
+     +-- rhokp.ReconcileResources()     # when !byokRAGOnly; else Remove()
+     +-- agenticconsole.ReconcileAgenticConsoleUIResources()
      +-- alertsadapter.ReconcileAlertsAdapterResources()
         (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
          mount at /etc/alerts-adapter when CM exists)
-  6. reconcileDeploymentsAndStatus()  -- Phase 2: Deployments, Services, TLS certs, status
+     +-- otelcollector.ReconcileOtelCollectorResources()
+     +-- appserver.ReconcileAppServerResources()
+  6. reconcileDeploymentsAndStatus()  -- Phase 2: Deployments, Services, TLS certs, status (order matches code)
      +-- console.ReconcileConsoleUIDeploymentAndPlugin()
-     +-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin()
      +-- postgres.ReconcilePostgresDeployment()
-     +-- otelcollector.ReconcileOtelCollectorDeployment()  -> OtelCollectorReady
      +-- ocpmcp.ReconcileDeployment()                      -> MCPServerReady (or NotConfigured)
+     +-- rhokp.ReconcileDeployment()                       -> RHOKPReady (or Disabled)
      +-- appserver.ReconcileAppServerDeployment()
+     +-- otelcollector.ReconcileOtelCollectorDeployment()  -> OtelCollectorReady
+     +-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin()
      +-- alertsadapter.ReconcileAlertsAdapterDeployment()  # when configMapRef set
+     +-- agenticintegration.ReconcileAgenticIntegrationResources()  # last (separate call after loop): handoff ConfigMap only
      +-- checkDeploymentStatus() per deployment -> build newStatus
      +-- UpdateStatusCondition()
 ```
@@ -116,7 +119,6 @@ External secret/configmap changes
         -> OR match against WatcherAnnotationKey annotation
         -> Call restart function for each affected deployment (appserver, OTEL, MCP, RHOKP, etc.)
            -> Set force-reload annotation with current timestamp
-        -> If applicable, call TouchAgenticConfiguration() to update the handoff ConfigMap timestamp
         -> If applicable, call TouchAgenticConfiguration() to update the handoff ConfigMap timestamp
 ```
 

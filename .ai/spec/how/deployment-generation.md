@@ -7,6 +7,11 @@
 | `internal/controller/appserver/deployment.go` | `GenerateOLSDeployment()`, `updateOLSDeployment()`, `RestartAppServer()`, `dataCollectorEnabled()` | AppServer deployment spec, change detection, restart |
 | `internal/controller/postgres/deployment.go` | `GeneratePostgresDeployment()`, `UpdatePostgresDeployment()` | PostgreSQL deployment spec |
 | `internal/controller/console/deployment.go` | `GenerateConsoleUIDeployment()` | Console UI deployment spec |
+| `internal/controller/agenticconsole/deployment.go` | `GenerateAgenticConsoleUIDeployment()` | Agentic console plugin deployment spec |
+| `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector deployment spec |
+| `internal/controller/ocpmcp/deployment.go` | `GenerateDeployment()`, `UpdateDeployment()` | Standalone OpenShift MCP deployment spec |
+| `internal/controller/rhokp/deployment.go` | `GenerateDeployment()`, `UpdateDeployment()` | Standalone RHOKP deployment spec |
+| `internal/controller/alertsadapter/deployment.go` | `GenerateDeployment()` | Alerts adapter deployment spec |
 
 ## Data Flow
 
@@ -27,7 +32,7 @@ GenerateOLSDeployment(r, cr)
   12. Build init containers:
       a. PostgreSQL wait init container (polls pg service)
       b. RAG init containers (one per RAG entry, copies data to shared emptyDir)
-      c. RHOKP wait init container (when `!byokRAGOnly`): polls RHOKP Solr ping endpoint until it responds, timeout ~360s matching RHOKP startup probe budget
+      c. [PLANNED: OLS-3799] RHOKP wait init container (when `!byokRAGOnly`) — not yet implemented; today only the PostgreSQL wait + RAG init containers are generated.
   13. Get ConfigMap ResourceVersions for tracking annotations
   14. Get proxy CA cert hash for tracking annotation
   15. Assemble Deployment:
@@ -35,18 +40,14 @@ GenerateOLSDeployment(r, cr)
       - Env: OLS_CONFIG_FILE path + proxy vars (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
       - Env: OCP_CLUSTER_VERSION (`<major>.<minor>`) when `!byokRAGOnly` (same cluster-version source as console UI)
       - Env: OLS_ROSA_PRODUCT when `!byokRAGOnly` and startup detection finds ROSA brand. `External` topology → `red_hat_openshift_service_on_aws` (HCP); any other topology on ROSA → `red_hat_openshift_service_on_aws_classic_architecture` (Classic). Omitted on non-ROSA or detection failure.
-      - Probes: HTTPS GET on /readiness, /liveness (initial: 30s, period: 30s, timeout: 30s, failure: 15)
+      - Probes: HTTPS GET on /readiness (initial: 30s, period: 30s, timeout: 30s, failure: 15) and /liveness (initial: 30s, period: 30s, timeout: 30s, failure: 3 — OLS-3221)
       - Default resources: 500m CPU request, 1Gi memory request (no limits)
   16. Apply pod-level config (replicas, nodeSelector, tolerations)
   17. Set ImageStream triggers annotation (if RAG configured)
   18. Set owner reference to OLSConfig CR
   19. Conditionally add data collector sidecar container ("lightspeed-to-dataverse-exporter")
-  20. Conditionally add RHOKP sidecar container ("rhokp") when `!byokRAGOnly`.
-  21. When introspection is enabled, mount MCP client CA Secret `lightspeed-agentic-mcp-ca` (no MCP sidecar; standalone operand)
-      Container: image from r.GetRHOOKPImage(), Solr HTTP on port 9080 (remapped from image default 8080),
-      resources from `spec.ols.deployment.rhokp.resources` or defaults (2 CPU / 2 GiB memory / 75 GiB ephemeral requests; CPU and memory requests only per OLS-3397),
-      startup script remaps Apache Listen directives before `mel` start.
-      Writable root filesystem (Solr data).
+  20. When `!byokRAGOnly`, mount the RHOKP client CA Secret `lightspeed-agentic-rhokp-ca` at `/etc/certs/rhokp-ca/` (added to `extra_ca`). RHOKP itself runs as a standalone Deployment (`internal/controller/rhokp/`, HTTPS `:8443`), not an app-server sidecar — see `rhokp.md`.
+  21. When introspection is enabled, mount MCP client CA Secret `lightspeed-agentic-mcp-ca` (no MCP sidecar; standalone operand).
 ```
 
 ### Change Detection Pattern
@@ -70,15 +71,15 @@ Default resources by container:
 |---|---|---|---|
 | AppServer `lightspeed-service-api` | 500m | 1Gi | — |
 | Data collector | 50m | 64Mi | — |
-| MCP server | 50m | 64Mi | — |
-| RHOKP `rhokp` | 2000m | 2Gi | 75Gi |
+| MCP server (standalone) | 50m | 64Mi | — |
+| RHOKP `rhokp` (standalone) | 2000m | 2Gi | — (75Gi EmptyDir `sizeLimit`, not an ephemeral-storage request) |
 
 ### Volume/Mount Construction
 Volumes and mounts are built as slices and conditionally appended using inline append patterns.
 
 ### Init Container Generation
 - **PostgreSQL wait:** `utils.GeneratePostgresWaitInitContainer()` generates a container that polls the PostgreSQL service until it responds.
-- **RHOKP wait (when `!byokRAGOnly`):** `utils.GenerateRHOKPWaitInitContainer()` generates a container that polls the RHOKP Solr ping endpoint until it responds, with a timeout matching RHOKP's startup probe budget (~360s). Follows the same pattern as the PostgreSQL wait init container.
+- **RHOKP wait (when `!byokRAGOnly`):** [PLANNED: OLS-3799] — not yet implemented. When added, `utils.GenerateRHOKPWaitInitContainer()` would poll the RHOKP Solr ping endpoint until it responds (~360s budget), following the PostgreSQL wait pattern. No such function exists today.
 - **RAG (AppServer only):** `GenerateRAGInitContainers()` creates one init container per RAG entry, each copying data from the RAG image to the shared emptyDir volume at `/app-root/rag/rag-<index>`.
 
 ### ImageStream Triggers (AppServer only)
@@ -111,7 +112,7 @@ Affinity and topology spread constraints are not exposed on `Config` (CRD size);
 | Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config |
 | Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY from cluster |
 | RAG images | CR `spec.ols.rag[].image` | Container images for init containers |
-| RHOKP image | `--rhokp-image` flag | RHOKP sidecar container image; default from `related_images.json` (`rhokp`) |
+| RHOKP image | `--rhokp-image` flag | Standalone RHOKP Deployment container image; default from `related_images.json` (`rhokp`) |
 
 ## Agentic Controller Deployment (OLM-managed)
 

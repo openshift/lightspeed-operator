@@ -13,7 +13,6 @@ lightspeed-service (app-server)
             ▼
 lightspeed-rhokp Deployment + ClusterIP Service (:8443)
   ├─ service-ca serving cert Secret  lightspeed-rhokp-tls
-  ├─ CA ConfigMap (inject-cabundle)  lightspeed-rhokp-ca
   └─ NetworkPolicy                   lightspeed-rhokp
 ```
 
@@ -26,8 +25,7 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 2. When true, Phase 1 calls `rhokp.Remove()`; Phase 2 skips deployment reconciliation. The status condition `RHOKPReady=False, Reason=Disabled` is emitted to signal that RHOKP is intentionally off.
 
 ### Phase 1 Resources
-3. ConfigMap `lightspeed-rhokp-ca` — empty ConfigMap with `service.beta.openshift.io/inject-cabundle: "true"` for client trust. Reconcile must not wipe injected `Data`.
-4. NetworkPolicy `lightspeed-rhokp` — ingress from any pod in the operator namespace on TCP `:8443`.
+3. NetworkPolicy `lightspeed-rhokp` — ingress from any pod in the operator namespace on TCP `:8443`. (Client trust is provided by the appserver-owned Secret `lightspeed-agentic-rhokp-ca`, not an inject-cabundle ConfigMap — see rule 16 and `agentic-sandbox-profile.md`.)
 
 ### Phase 2 Resources
 5. Service `lightspeed-rhokp` — ClusterIP, port `https` `:8443`, serving-cert annotation → Secret `lightspeed-rhokp-tls`.
@@ -49,7 +47,7 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 17. Client CA Secrets for RHOKP are refreshed via the table-driven `RefreshClientCASecrets` in `RestartAppServer`. No hash annotation is stored on the app-server Deployment.
 
 ### Monitoring
-18. [PLANNED: separate ticket] ServiceMonitor `lightspeed-rhokp-monitor` — will scrape RHOKP metrics via HTTPS on port 8443, path `/solr/admin/metrics` (Solr built-in Prometheus metrics reporter). Uses service-ca TLS for the scrape connection. Skipped if Prometheus Operator CRDs are not installed.
+18. ServiceMonitor `lightspeed-rhokp-monitor` (OLS-3727) — scrapes RHOKP Solr metrics via HTTPS on port 8443, path `/solr/admin/metrics` (Solr built-in Prometheus metrics reporter). Server TLS only (service-ca CA bundle + `serverName`), 30s interval. Reconciled in Phase 2 via `utils.ReconcileServiceMonitor()`. Skipped if Prometheus Operator CRDs are not installed.
 
 ### Agentic Handoff
 19. When OKP is enabled, the inter-operator handoff ConfigMap (`lightspeed-agentic-configuration`) includes `rhokp-endpoint` and `rhokp-ca-secret` keys. When `byokRAGOnly` is true, both are absent.
@@ -60,7 +58,7 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 22. RHOKP Deployment tracks TLS Secret ResourceVersion and rolls when it changes.
 
 ### Finalizer
-23. On CR deletion, `rhokp.Remove()` deletes Deployment, Service, NetworkPolicy, CA ConfigMap, and TLS Secret (`lightspeed-rhokp-tls`) before owned-resource sweep.
+23. On CR deletion, `rhokp.Remove()` deletes Deployment, Service, NetworkPolicy, TLS Secret (`lightspeed-rhokp-tls`), and ServiceMonitor (`lightspeed-rhokp-monitor`) before owned-resource sweep.
 
 ## Configuration Surface
 
@@ -79,4 +77,4 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 
 ## Planned Changes
 
-- ServiceMonitor for RHOKP metrics (deferred from standalone cutover).
+None.
