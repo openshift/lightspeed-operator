@@ -82,7 +82,7 @@ The Postgres bootstrap script creates only `quota` and `conversation_cache` sche
 
 When the collector is enabled, it creates and manages the `templogs` schema, `logs` table, and indexes via the `postgres_admin` extension at collector startup (`postgres_admin` is always enabled for clients). `spec.audit.logging` only controls whether new OTLP logs are exported into that schema. The operator never drops this schema. The `logs` table uses `agentic_run_id` (AgenticRun UID, normalized to 32-char hex) and `phase` (audit phase name) as the primary query dimensions, with a composite index on `(agentic_run_id, phase)`.
 
-See `postgres.md` for Postgres bootstrap scope and `templog.md` (lightspeed-service repo) for table DDL semantics.
+See `postgres.md` for Postgres bootstrap scope and `templog.md` (ols repo) for table DDL semantics.
 
 ## Collector Operand ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510), [OLS-3513](https://redhat.atlassian.net/browse/OLS-3513), [OLS-3656](https://redhat.atlassian.net/browse/OLS-3656))
 

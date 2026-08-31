@@ -37,6 +37,8 @@ AI agents (Claude). Content is optimized for precision and machine consumption o
 | Navigate the codebase | `how/project-structure.md` |
 | Understand console plugins | `what/console-ui.md` (chat), `what/agentic-console-ui.md` (agentic) |
 | Understand app server deployment | `what/app-server.md` |
+| Understand the standalone OpenShift MCP server | `what/ocpmcp.md` |
+| Understand the standalone RHOKP (OKP / Solr) server | `what/rhokp.md` |
 | Understand PostgreSQL deployment | `what/postgres.md` |
 | Understand temporary audit log storage | `what/templog.md` |
 | Understand agentic handoff (sandbox profile) | `what/agentic-sandbox-profile.md` |
@@ -57,6 +59,7 @@ When what/ and how/ file names don't match 1:1, this table maps behavioral specs
 | `reconciliation.md` | `how/reconciliation.md` -- implementation patterns, code locations, task registration |
 | `app-server.md`, `postgres.md`, `agentic-sandbox-profile.md` | `how/deployment-generation.md` / `how/project-structure.md` — how deployments/services/configmaps are generated; agenticintegration package |
 | `console-ui.md`, `agentic-console-ui.md` | `how/deployment-generation.md` -- deployment/service/configmap generation; `how/reconciliation.md` -- ConsolePlugin lifecycle, activation, and cleanup |
+| `ocpmcp.md`, `rhokp.md` | `how/reconciliation.md` -- Phase 1/2 standalone component groups; `how/config-generation.md` / `how/deployment-generation.md` -- app-server client wiring and client CA Secret mounts |
 | `crd-api.md` | `how/config-generation.md` -- how CRD fields map to generated configuration |
 | `system-overview.md` | `how/project-structure.md` -- codebase layout, package responsibilities |
 | `bundle-composition.md` | `how/fbc-release.md` -- FBC Application naming, ReleasePlan structure, per-version steps |

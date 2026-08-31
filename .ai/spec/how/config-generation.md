@@ -77,7 +77,7 @@ ols_config:
     embeddings_model_path: /app-root/embeddings_model
 
   solr_hybrid:                                # unless byokRAGOnly
-    solr_http_base: "http://localhost:9080"
+    solr_http_base: "https://lightspeed-rhokp.<ns>.svc:8443"
     max_results: 10
     hybrid_vector_boost: 8.0
     hybrid_pool_docs: 100
@@ -210,8 +210,8 @@ PostgreSQL schemas isolate data from different components within the same databa
 | PostgreSQL connection | `utils/constants.go` | Host built from service name + namespace + ".svc" |
 | TLS certs | Service-ca operator or user-provided secret | Path: `/etc/certs/lightspeed-tls/` |
 | BYOK RAG indexes | CR `spec.ols.rag[]` | Local FAISS indexes only; empty list when no BYOK RAG configured |
-| `solr_hybrid` | Operator defaults + `!byokRAGOnly` | OCP product docs via OKP Solr at `http://localhost:9080` |
-| RHOKP image | `--rhokp-image` flag | Sidecar image; default from `related_images.json` (`rhokp`); listed in bundle `relatedImages` |
+| `solr_hybrid` | Operator defaults + `!byokRAGOnly` | OCP product docs via OKP Solr at `https://lightspeed-rhokp.<ns>.svc:8443` (standalone RHOKP Deployment) |
+| RHOKP image | `--rhokp-image` flag | Standalone RHOKP Deployment image; default from `related_images.json` (`rhokp`); listed in bundle `relatedImages` |
 | ROSA product | Console brand + Infrastructure topology (detected at operator startup) | `OLS_ROSA_PRODUCT` env var on app-server when brand is `ROSA` (not in config YAML). `External` → HCP product; otherwise Classic. Omitted on detection failure or non-ROSA. |
 | MCP servers | CR `spec.mcpServers[]` + `spec.ols.introspectionEnabled` | Feature gated by `MCPServer` gate |
 | Tool filtering | CR `spec.ols.toolFilteringConfig` | Feature gated by `ToolFiltering` gate; requires MCP servers |

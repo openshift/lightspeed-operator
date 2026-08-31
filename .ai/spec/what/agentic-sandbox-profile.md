@@ -2,12 +2,12 @@
 
 Classic lightspeed-operator publishes cluster objects that lightspeed-agentic-operator consumes for sandbox provisioning and OTEL/MCP connectivity. Sandbox Pod/Claim lifecycle stays in agentic-operator. Stories: [OLS-3683](https://redhat.atlassian.net/browse/OLS-3683) (CRD + image), [OLS-3684](https://redhat.atlassian.net/browse/OLS-3684) (handoff artifacts). Agentic-operator consumption: OLS-3685+.
 
-See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `crd-api.md` (`spec.agenticOLS`), `bundle-composition.md` (dual controller), `app-server.md` (client CA Secrets). ADR: `.ols/adrs/OLS-3683-agenticintegration-handoff.md`.
+See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RHOKP Service/CA), `crd-api.md` (`spec.agenticOLS`), `bundle-composition.md` (dual controller), `app-server.md` (client CA Secrets).
 
 ## Behavioral Rules
 
 ### Ownership
-1. Package `internal/controller/appserver` owns the client-only CA Secrets (`lightspeed-agentic-otel-ca`, `lightspeed-agentic-mcp-ca`) and mounts them into the app-server Deployment. It copies public PEM from service-ca source ConfigMaps; serving-cert private keys are never published.
+1. Package `internal/controller/appserver` owns the client-only CA Secrets (`lightspeed-agentic-otel-ca`, `lightspeed-agentic-mcp-ca` when introspection is enabled, and `lightspeed-agentic-rhokp-ca` when OKP is enabled) and mounts them into the app-server Deployment. It copies public PEM from service-ca source ConfigMaps; serving-cert private keys are never published.
 2. Package `internal/controller/agenticintegration` owns only the handoff ConfigMap (`lightspeed-agentic-configuration`). It references CA Secret **names** in ConfigMap data; it does not create or refresh those Secrets. It does not manage sandbox Pods, SandboxClaims, or SandboxTemplates.
 3. The former OTEL client ConfigMap `lightspeed-otel-collector-client` is no longer created. OTEL endpoints and CA are published only via the handoff ConfigMap + appserver-owned CA Secrets (no dual-write). On upgrade, otelcollector Phase 1 deletes any leftover `lightspeed-otel-collector-client` ConfigMap (`IgnoreNotFound`). Likewise, ocpmcp Phase 1 / `Remove` deletes leftover `openshift-mcp-server-ca`.
 
@@ -32,6 +32,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `crd-api.md` (
    - `mcp-endpoint` — OpenShift MCP HTTPS Service URL
    - `mcp-ca-secret` — name of the MCP client CA Secret (`lightspeed-agentic-mcp-ca`)
 11. When introspection is disabled, MCP keys are omitted. Appserver deletes the MCP client CA Secret when present.
+11b. When OKP is enabled (`!spec.ols.byokRAGOnly`, default), also set `rhokp-endpoint` (RHOKP HTTPS Service URL) and `rhokp-ca-secret` (name of the RHOKP client CA Secret, `lightspeed-agentic-rhokp-ca`). When `byokRAGOnly` is true, both keys are omitted and appserver does not publish the RHOKP CA Secret.
 11a. [PLANNED: OLS-3491] Optional per-step instruction keys derived from `spec.agenticOLS.instructions`:
    - `instructions-analysis` — cluster default analysis system instructions
    - `instructions-execution` — cluster default execution system instructions
@@ -49,8 +50,9 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `crd-api.md` (
 ### Client-CA Secrets (appserver)
 15. `lightspeed-agentic-otel-ca` — opaque Secret with sole key `otel-ca.crt` (PEM copied from `openshift-service-ca.crt` / `service-ca.crt`). Always reconciled in appserver Phase 2 before Deployment.
 16. `lightspeed-agentic-mcp-ca` — opaque Secret with sole key `mcp-ca.crt` (same cluster service-ca PEM as OTEL). Published only when introspection is enabled; deleted when introspection is disabled.
+16a. `lightspeed-agentic-rhokp-ca` — opaque Secret with sole key `rhokp-ca.crt` (same cluster service-ca PEM). Published only when OKP is enabled (`!byokRAGOnly`); deleted when `byokRAGOnly` is true.
 17. Secrets contain public CA material only — never serving-cert private keys.
-18. App-server mounts these Secrets at `/etc/certs/otel-collector-ca/` and `/etc/certs/openshift-mcp-server-ca/` (projected filename `service-ca.crt` for path compatibility). There is no dedicated MCP inject-cabundle ConfigMap.
+18. App-server mounts these Secrets at `/etc/certs/otel-collector-ca/`, `/etc/certs/openshift-mcp-server-ca/`, and `/etc/certs/rhokp-ca/` (projected filename `service-ca.crt` for path compatibility). There is no dedicated MCP or RHOKP inject-cabundle ConfigMap.
 
 ### Refresh / rotation
 19. Serving-cert watchers restart the server Deployment then the app-server (`lightspeed-app-server`) and touch `lightspeed-agentic-configuration`:
@@ -77,6 +79,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `crd-api.md` (
 | Handoff ConfigMap | `lightspeed-agentic-configuration` | `agenticintegration` |
 | OTEL client-CA Secret | `lightspeed-agentic-otel-ca` (`otel-ca.crt`) | `appserver` |
 | MCP client-CA Secret | `lightspeed-agentic-mcp-ca` (`mcp-ca.crt`) | `appserver` |
+| RHOKP client-CA Secret | `lightspeed-agentic-rhokp-ca` (`rhokp-ca.crt`) | `appserver` |
 | Sandbox container (in PodSpec) | `lightspeed-agentic-sandbox` | (embedded in ConfigMap) |
 
 ## Configuration Surface

@@ -360,6 +360,8 @@ Condition types used by the operator:
 - `ConsolePluginReady` -- Console UI plugin deployment health
 - `AgenticConsolePluginReady` -- Agentic console plugin deployment health
 - `OtelCollectorReady` -- OTEL Collector deployment health
+- `MCPServerReady` -- Standalone OpenShift MCP server deployment health (`NotConfigured` when `introspectionEnabled` is false; does not block `OverallStatus=Ready`)
+- `RHOKPReady` -- Standalone RHOKP deployment health (`Disabled` when `byokRAGOnly` is true; does not block `OverallStatus=Ready`)
 - `AlertsAdapterReady` -- Agentic alerts adapter deployment health
 - `ResourceReconciliation` -- Overall resource reconciliation status (set directly, not deployment-based)
 

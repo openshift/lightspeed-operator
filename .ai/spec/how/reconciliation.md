@@ -18,33 +18,30 @@ Reconcile(ctx, req)
   -> handleFinalizer()                      # Add/remove finalizer, run cleanup
   -> reconcileOperatorResources()           # ServiceMonitor, NetworkPolicy (operator-level)
   -> annotateExternalResources()            # Validate secrets, annotate for watching
-  -> reconcileIndependentResources()        # Phase 1 (continue-on-error)
-  |   |-- postgres.ReconcilePostgresResources()
+  -> reconcileIndependentResources()        # Phase 1 (continue-on-error; order below matches code)
   |   |-- console.ReconcileConsoleUIResources()
+  |   |-- postgres.ReconcilePostgresResources()
+  |   |-- ocpmcp.ReconcileResources()
+  |   |   (when introspectionEnabled; else ocpmcp.Remove())
+  |   |-- rhokp.ReconcileResources()
+  |   |   (when !byokRAGOnly; else rhokp.Remove())
   |   |-- agenticconsole.ReconcileAgenticConsoleUIResources()
   |   |-- alertsadapter.ReconcileAlertsAdapterResources()
   |   |   (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
   |   |    mount at /etc/alerts-adapter when CM exists)
   |   |-- otelcollector.ReconcileOtelCollectorResources()
-  |   |-- ocpmcp.ReconcileResources()
-  |   |   (when introspectionEnabled; else ocpmcp.Remove())
-  |   |-- rhokp.ReconcileResources()
-  |   |   (when !byokRAGOnly; else rhokp.Remove())
-  |   |-- appserver.ReconcileAppServerResources()
-  |   +-- alertsadapter.ReconcileAlertsAdapterResources()
-  |       (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
-  |        mount at /etc/alerts-adapter when CM exists)
-  -> reconcileDeploymentsAndStatus()        # Phase 2: deployments + status update
-      |-- console.ReconcileConsoleUIDeploymentAndPlugin()
-      |-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin()
-      |-- postgres.ReconcilePostgresDeployment()
-      |-- otelcollector.ReconcileOtelCollectorDeployment()  # OtelCollectorReady
+  |   +-- appserver.ReconcileAppServerResources()
+  -> reconcileDeploymentsAndStatus()        # Phase 2: deployments + status update (order below matches code)
+      |-- console.ReconcileConsoleUIDeploymentAndPlugin()   # ConsolePluginReady
+      |-- postgres.ReconcilePostgresDeployment()            # CacheReady
       |-- ocpmcp.ReconcileDeployment()                      # MCPServerReady / NotConfigured
       |-- rhokp.ReconcileDeployment()                       # RHOKPReady / NotConfigured
-      |-- appserver.ReconcileAppServerDeployment()
+      |-- appserver.ReconcileAppServerDeployment()          # ApiReady (MCP/RHOKP Services already reconciled)
+      |-- otelcollector.ReconcileOtelCollectorDeployment()  # OtelCollectorReady
+      |-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin() # AgenticConsolePluginReady
       |-- alertsadapter.ReconcileAlertsAdapterDeployment()  # when configMapRef set
       |   (each deployment step above: checkDeploymentStatus → conditions)
-      |-- agenticintegration.ReconcileAgenticIntegrationResources()  # last: ConfigMap only — no deployment health check; failure → OverallStatus NotReady
+      |-- agenticintegration.ReconcileAgenticIntegrationResources()  # last (separate call after the loop): ConfigMap only — no deployment health check; failure → OverallStatus NotReady
       +-- UpdateStatusCondition()           # Single status update
 ```
 
