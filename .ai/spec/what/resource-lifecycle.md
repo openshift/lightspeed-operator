@@ -23,6 +23,7 @@ The operator manages two categories of Kubernetes resources: owned resources (cr
 ### Annotation-Based Watching
 
 11. The operator annotates each user-provided external resource with `ols.openshift.io/watcher: cluster` to mark it for watching.
+11a. **Credential hot-reload exception (OLS-3450):** When `spec.ols.credentialHotReload` is `true`, LLM credential secrets (those with source prefix `llm-provider-*`) are excluded from annotation. Instead, `removeSecretAnnotationIfNeeded()` removes the watcher annotation if it was previously set. This prevents the watcher predicate from matching these secrets, so `SecretUpdateHandler` never fires for them. Non-LLM secrets (TLS, MCP headers) are always annotated regardless of the flag.
 12. On each reconciliation, the operator clears the `AnnotatedSecretMapping` and `AnnotatedConfigMapMapping` in `WatcherConfig` and repopulates them from the current CR spec via `ForEachExternalSecret()` and `ForEachExternalConfigMap()`, then annotates any resources that lack the annotation.
 13. The watcher predicate on Update events checks for two conditions: (a) the resource has the `ols.openshift.io/watcher` annotation, or (b) the resource is a configured system resource. Create events are allowed for all resources in the operator namespace (to handle recreated resources that have not been annotated yet). Create events also verify the resource is referenced in the CR before acting. Delete events are always ignored.
 
@@ -62,4 +63,4 @@ Resource lifecycle behavior is not directly user-configurable. External resource
 
 ## Planned Changes
 
-None.
+- [OLS-3450] Credential hot-reload: `removeSecretAnnotationIfNeeded()` added to remove watcher annotations from LLM credential secrets when `credentialHotReload` is enabled. See design spec `docs/superpowers/specs/2026-09-01-credential-hot-reload-design.md`.

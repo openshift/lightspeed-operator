@@ -104,6 +104,7 @@ ols_config:
     alpha: <default 0.8>
     top_k: <default 10>
     threshold: <default 0.01>
+  credential_hot_reload: <credentialHotReload>         # OLS-3450; true when CR flag enabled
   tools_approval:                                    # always present
     approval_type: <default "tool_annotations">
     approval_timeout: <default 600>

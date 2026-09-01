@@ -277,6 +277,16 @@ Field | JSON key | Go type | Required | Validation
 39. `spec.ols.storage.size` -- `resource.Quantity`, optional. Size of the requested persistent volume.
 40. `spec.ols.storage.class` -- `string`, optional. Storage class name.
 
+#### Credential Hot-Reload (spec.ols.credentialHotReload) [OLS-3450]
+
+40a. `spec.ols.credentialHotReload` -- `bool`, optional. Default: `false`. When `true`:
+  - The operator does **not** annotate LLM credential secrets with `ols.openshift.io/watcher: cluster` (and removes existing annotations). This prevents the watcher from triggering pod restarts on LLM secret `.data` changes.
+  - The operator writes `credential_hot_reload: true` into the generated `olsconfig.yaml`.
+  - The service re-reads LLM credentials from disk on each request (instead of using startup-cached values). On read failure, the last good credential is retained.
+  - A warning log is emitted during reconciliation when the flag is enabled.
+  - Non-LLM secrets (TLS, MCP headers, system) are unaffected — they are always annotated and always trigger restarts.
+  - Changing `credentialsSecretRef.name` in the CR still triggers a standard reconciliation and restart (volume mount change).
+
 #### Boolean/String Fields
 
 41. `spec.ols.byokRAGOnly` -- `bool`, optional. When true, only BYOK RAG sources are used: the operator does not deploy the standalone RHOKP operand, does not write `solr_hybrid` into `olsconfig.yaml`, and does not set `OCP_CLUSTER_VERSION` on the app-server pod.
@@ -504,6 +514,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.storage` | `*Storage` | -- | No | -- | Persistent storage
 `spec.ols.storage.size` | `resource.Quantity` | -- | No | -- | Volume size
 `spec.ols.storage.class` | `string` | -- | No | -- | Storage class
+`spec.ols.credentialHotReload` | `bool` | `false` | No | -- | Opt-in LLM credential hot-reload: skip secret watching/restart, service re-reads per request (OLS-3450)
 `spec.ols.byokRAGOnly` | `bool` | -- | No | -- | Disable operator-managed OKP; BYOK FAISS only
 `spec.ols.querySystemPrompt` | `string` | -- | No | -- | Custom system prompt
 `spec.ols.maxIterations` | `int` | `5` | No | Min=1 | Max agent iterations
@@ -558,6 +569,7 @@ Path | Type | Default | Required | Validation | Description
 
 ## Planned Changes
 
+- [OLS-3450] Added `spec.ols.credentialHotReload` boolean field. When enabled, the operator skips annotating LLM credential secrets (no restart on rotation) and writes `credential_hot_reload: true` into `olsconfig.yaml`. See design spec `docs/superpowers/specs/2026-09-01-credential-hot-reload-design.md`.
 - [PLANNED: OLS-3442] Add `reasoningConfig` field (`map[string]interface{}`) to `ModelParametersSpec`. Freeform map passed through to the service as `reasoning_config` for provider-specific reasoning/thinking parameters. Includes release notes and user-facing documentation for valid keys per provider.
 - [DONE: OLS-3683 / OLS-3684] `spec.agenticOLS` (`sandboxMode`, `agenticSandboxConfig`), appserver-owned client CA Secrets, and handoff ConfigMap (`lightspeed-agentic-configuration`). See `agentic-sandbox-profile.md`.
 - [DONE: OLS-3697] Change `spec.ols.deployment.rhokp` from `ContainerConfig` to `Config`. RHOKP becomes a standalone Deployment with replicas (forced to 1), resources, tolerations, and nodeSelector. See `rhokp.md`.
