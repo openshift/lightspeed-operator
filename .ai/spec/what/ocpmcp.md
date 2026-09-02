@@ -69,7 +69,7 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 
 1. Multi-replica is allowed; Streamable HTTP is configured for stateless operation upstream.
 2. The MCP ServiceAccount has no cluster RBAC; authorization uses the calling user's token.
-3. Bundle/CSV/related_images updates for digests are a separate release step from the operator cutover PR.
+3. The `openshift-mcp-server` image is shipped by the OCP MCP team from `registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9`. OLS does not build or release this image. Digest/tag updates track the OCP MCP team's releases; bump `related_images.json` and regenerate the bundle when a new Tech Preview release is available.
 4. Agentic/sandbox reuse of the MCP Service URL is published in the handoff ConfigMap; the MCP client CA Secret is owned by appserver when introspection is enabled — see `agentic-sandbox-profile.md`. Optional auto-injection into agent runs remains deferred (OLS-3594).
 
 ## Planned Changes

@@ -20,7 +20,7 @@ import (
 
 // configTOML is the openshift-mcp-server runtime config.
 // Denied resources keep Secret (and RBAC) data out of the LLM path; toolsets are pinned
-// so upstream default changes do not affect OLS. Metrics uses in-cluster Thanos/Alertmanager.
+// so upstream default changes do not affect OLS. Observability metrics uses in-cluster Thanos/Alertmanager.
 // read_only = false is required: openshift-mcp-server-rhel9 sets ReadOnly=true in build-time defaults;
 // omitting this leaves only readOnlyHint tools (no resources_create_or_update, etc.).
 const configTOML = `# Denied resources prevent the MCP server from accessing these Kubernetes resource types.
@@ -29,7 +29,7 @@ const configTOML = `# Denied resources prevent the MCP server from accessing the
 # Toolsets are pinned explicitly so upstream default changes do not affect OLS.
 
 read_only = false
-toolsets = ["core", "config", "helm", "metrics"]
+toolsets = ["core", "config", "helm", "observability/metrics"]
 
 [[denied_resources]]
 group = ""
@@ -40,9 +40,9 @@ kind = "Secret"
 group = "rbac.authorization.k8s.io"
 version = "v1"
 
-[toolset_configs.metrics]
+[toolset_configs."observability/metrics"]
 prometheus_url = "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091"
-alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094"
+alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9095"
 # Query-safety PromQL checks (not RBAC). "!tsdb" disables TSDB-dependent guardrails that
 # OpenShift Thanos Querier often lacks (/api/v1/status/tsdb); other guardrails stay on.
 # Auth still uses the caller's bearer token forwarded to Thanos/Alertmanager.
