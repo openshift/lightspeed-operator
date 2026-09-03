@@ -29,7 +29,7 @@ const configTOML = `# Denied resources prevent the MCP server from accessing the
 # Toolsets are pinned explicitly so upstream default changes do not affect OLS.
 
 read_only = false
-toolsets = ["core", "config", "helm", "metrics"]
+toolsets = ["core", "config", "helm", "observability/metrics"]
 
 [[denied_resources]]
 group = ""
@@ -40,7 +40,7 @@ kind = "Secret"
 group = "rbac.authorization.k8s.io"
 version = "v1"
 
-[toolset_configs.metrics]
+[toolset_configs."observability/metrics"]
 prometheus_url = "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091"
 alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094"
 # Query-safety PromQL checks (not RBAC). "!tsdb" disables TSDB-dependent guardrails that
