@@ -1098,6 +1098,114 @@ cNHlzbRSivTDuHmXJdCYIdd8cnH6EbPm3zNg0jU5Au6OrvDZYifP+DtuiLmJct4=
 			Expect(err.Error()).To(ContainSubstring("aws_access_key_id"))
 		})
 
+		It("should accept IBM Cloud watsonx secret with apitoken only", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-watsonx-ibm-cloud-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte("ibm-cloud-token"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithWatsonxProvider(GetDefaultOLSConfigCR(), "https://us-south.ml.cloud.ibm.com")
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-watsonx-ibm-cloud-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should accept IBM Cloud watsonx with empty URL (service default)", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-watsonx-default-url-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte("ibm-cloud-token"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithWatsonxProvider(GetDefaultOLSConfigCR(), "")
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-watsonx-default-url-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should accept Cloud Pak for Data watsonx secret with username and version", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-watsonx-cpd-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte("cpd-token"),
+					WatsonxUsernameKey:   []byte("cpd-user"),
+					WatsonxVersionKey:    []byte("5.1"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithWatsonxProvider(GetDefaultOLSConfigCR(), "https://cpd-instance.apps.example.com")
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-watsonx-cpd-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reject Cloud Pak for Data watsonx secret missing username", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-watsonx-cpd-no-user-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte("cpd-token"),
+					WatsonxVersionKey:    []byte("5.1"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithWatsonxProvider(GetDefaultOLSConfigCR(), "https://cpd-instance.apps.example.com")
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-watsonx-cpd-no-user-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("missing key 'username'"))
+			Expect(err.Error()).To(ContainSubstring("Cloud Pak for Data"))
+		})
+
+		It("should reject Cloud Pak for Data watsonx secret missing version", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-watsonx-cpd-no-version-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte("cpd-token"),
+					WatsonxUsernameKey:   []byte("cpd-user"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithWatsonxProvider(GetDefaultOLSConfigCR(), "https://cpd-instance.apps.example.com")
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-watsonx-cpd-no-version-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("missing key 'version'"))
+			Expect(err.Error()).To(ContainSubstring("Cloud Pak for Data"))
+		})
+
 	})
 })
 

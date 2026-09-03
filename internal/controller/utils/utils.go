@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -598,11 +599,27 @@ func GetCAFromSecret(rclient client.Client, ctx context.Context, namespace, secr
 	return string(caCert), nil
 }
 
+// IsIBMCloudWatsonxURL reports whether url is IBM Cloud watsonx SaaS.
+// Empty URL is treated as IBM Cloud because the service default is
+// https://us-south.ml.cloud.ibm.com.
+func IsIBMCloudWatsonxURL(rawURL string) bool {
+	if strings.TrimSpace(rawURL) == "" {
+		return true
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Hostname() == "" {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	return host == IBMCloudWatsonxHostSuffix || strings.HasSuffix(host, "."+IBMCloudWatsonxHostSuffix)
+}
+
 // ValidateLLMCredentials validates that all LLM provider credentials are present and usable.
 // For each provider it requires credentialsSecretRef, loads the secret, then checks Data keys:
 // Azure OpenAI accepts the default credential key or client_id/tenant_id/client_secret;
 // Google Vertex (and Anthropic) use credentialKey when set, otherwise the default key;
 // Bedrock accepts either the default credential key (Bearer token) or AWS IAM keys;
+// watsonx requires apitoken; on-prem Cloud Pak for Data URLs also require username and version;
 // all other supported types require the default credential key
 func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	for _, provider := range cr.Spec.LLMConfig.Providers {
@@ -669,6 +686,26 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 				BedrockAccessKeyIDKey,
 				BedrockSecretAccessKeyKey,
 			)
+		} else if provider.Type == WatsonxType {
+			if _, ok := secret.Data[DefaultCredentialKey]; !ok {
+				return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, DefaultCredentialKey)
+			}
+			// IBM Cloud watsonx keeps working with apitoken only. On-prem
+			// Cloud Pak for Data also needs username and version (OLS-2190, OLS-2849).
+			if !IsIBMCloudWatsonxURL(provider.URL) {
+				for _, key := range []string{WatsonxUsernameKey, WatsonxVersionKey} {
+					val, ok := secret.Data[key]
+					if !ok || strings.TrimSpace(string(val)) == "" {
+						return fmt.Errorf(
+							"LLM provider %s credential secret %s missing key '%s' (required for on-prem Cloud Pak for Data watsonx; IBM Cloud watsonx only needs '%s')",
+							provider.Name,
+							provider.CredentialsSecretRef.Name,
+							key,
+							DefaultCredentialKey,
+						)
+					}
+				}
+			}
 		} else {
 			// Standard providers: must contain the default credential key
 			if _, ok := secret.Data[DefaultCredentialKey]; !ok {
