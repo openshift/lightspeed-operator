@@ -384,12 +384,32 @@ var _ = Describe("idleTimeoutReader", func() {
 	})
 
 	It("resets timeout on successful reads", func() {
-		input := "some data"
-		reader := newIdleTimeoutReader(io.NopCloser(strings.NewReader(input)), 1*time.Second)
+		// Use a pipe to control timing: send chunks within the idle window
+		// but make the total duration exceed the timeout.
+		pr, pw := io.Pipe()
+		timeout := 200 * time.Millisecond
+		reader := newIdleTimeoutReader(pr, timeout)
 
+		// Write 3 chunks spaced 100ms apart (total 300ms > 200ms timeout).
+		// Each chunk resets the timer, so no timeout should occur.
+		go func() {
+			for i := 0; i < 3; i++ {
+				time.Sleep(100 * time.Millisecond)
+				_, _ = pw.Write([]byte("chunk"))
+			}
+			pw.Close()
+		}()
+
+		var total int
 		buf := make([]byte, 64)
-		n, err := reader.Read(buf)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(n).To(BeNumerically(">", 0))
+		for {
+			n, err := reader.Read(buf)
+			total += n
+			if err != nil {
+				Expect(err).To(Equal(io.EOF))
+				break
+			}
+		}
+		Expect(total).To(Equal(15)) // 3 x "chunk"
 	})
 })

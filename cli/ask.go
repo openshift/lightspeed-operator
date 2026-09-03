@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,11 +22,12 @@ const (
 
 // AskOptions holds the configuration for the ask command.
 type AskOptions struct {
-	streams    genericclioptions.IOStreams
-	query      string
-	endpoint   string
-	kubeConfig *KubeConfig
-	mode       string
+	streams          genericclioptions.IOStreams
+	query            string
+	endpoint         string
+	kubeConfig       *KubeConfig
+	mode             string
+	insecureAllowHTTP bool
 }
 
 // NewAskCmd creates the "ask" subcommand that sends a question to OLS
@@ -70,6 +72,7 @@ func (o *AskOptions) Complete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	o.kubeConfig = kc
+	o.insecureAllowHTTP = insecureSkipTLS
 
 	endpoint, err := ResolveEndpoint(cmd, kc.ContextName)
 	if err != nil {
@@ -87,6 +90,14 @@ func (o *AskOptions) Validate() error {
 	}
 	if o.endpoint == "" {
 		return errors.New(ErrNoEndpoint)
+	}
+	// Reject cleartext HTTP to prevent sending bearer token unencrypted.
+	parsed, err := url.Parse(o.endpoint)
+	if err != nil {
+		return fmt.Errorf("invalid endpoint URL: %w", err)
+	}
+	if parsed.Scheme == "http" && !o.insecureAllowHTTP {
+		return fmt.Errorf("cleartext HTTP endpoint %q is not allowed: bearer token would be sent unencrypted. Use https:// or reconfigure with: oc ols config set-endpoint", o.endpoint)
 	}
 	return nil
 }
@@ -107,6 +118,8 @@ func (o *AskOptions) Run(cmd *cobra.Command) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	events, errc, err := client.StreamQuery(ctx, req)
 	if err != nil {

@@ -46,6 +46,7 @@ var _ = Describe("AskCmd", func() {
 				streams:  streams,
 				query:    "test question",
 				endpoint: server.URL,
+				insecureAllowHTTP: true,
 				mode:     "ask",
 				kubeConfig: &KubeConfig{
 					BearerToken: "test-token",
@@ -73,6 +74,7 @@ var _ = Describe("AskCmd", func() {
 				streams:  streams,
 				query:    "test",
 				endpoint: server.URL,
+				insecureAllowHTTP: true,
 				mode:     "ask",
 				kubeConfig: &KubeConfig{
 					BearerToken: "test-token",
@@ -98,6 +100,7 @@ var _ = Describe("AskCmd", func() {
 				streams:  streams,
 				query:    "test",
 				endpoint: server.URL,
+				insecureAllowHTTP: true,
 				mode:     "ask",
 				kubeConfig: &KubeConfig{
 					BearerToken: "test-token",
@@ -121,6 +124,7 @@ var _ = Describe("AskCmd", func() {
 				streams:  streams,
 				query:    "test",
 				endpoint: server.URL,
+				insecureAllowHTTP: true,
 				mode:     "ask",
 				kubeConfig: &KubeConfig{
 					BearerToken: "bad-token",
@@ -149,6 +153,7 @@ var _ = Describe("AskCmd", func() {
 				streams:  streams,
 				query:    "test",
 				endpoint: server.URL,
+				insecureAllowHTTP: true,
 				mode:     "ask",
 				kubeConfig: &KubeConfig{
 					BearerToken: "test-token",
@@ -177,6 +182,7 @@ var _ = Describe("AskCmd", func() {
 				streams:  streams,
 				query:    "test",
 				endpoint: server.URL,
+				insecureAllowHTTP: true,
 				mode:     "ask",
 				kubeConfig: &KubeConfig{
 					BearerToken: "test-token",
@@ -201,6 +207,7 @@ var _ = Describe("AskCmd", func() {
 				streams:  streams,
 				query:    "test",
 				endpoint: server.URL,
+				insecureAllowHTTP: true,
 				mode:     "ask",
 				kubeConfig: &KubeConfig{
 					BearerToken: "test-token",
@@ -225,6 +232,7 @@ var _ = Describe("AskCmd", func() {
 				streams:  streams,
 				query:    "test",
 				endpoint: server.URL,
+				insecureAllowHTTP: true,
 				mode:     "ask",
 				kubeConfig: &KubeConfig{
 					BearerToken: "test-token",
