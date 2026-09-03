@@ -18,6 +18,11 @@ const (
 
 // NewRootCmd creates the root oc-ols command and registers subcommands.
 func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
+	askOpts := &AskOptions{
+		streams: streams,
+		mode:    "ask",
+	}
+
 	cmd := &cobra.Command{
 		Use:   "oc-ols [command]",
 		Short: "CLI for OpenShift Lightspeed",
@@ -26,10 +31,14 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
-			if _, err := fmt.Fprintf(streams.ErrOut, "ask command not yet implemented\n"); err != nil {
-				return fmt.Errorf("%s: %w", ErrWriteOutput, err)
+			// Default mode: dispatch unrecognized args to ask
+			if err := askOpts.Complete(cmd, args); err != nil {
+				return err
 			}
-			return nil
+			if err := askOpts.Validate(); err != nil {
+				return err
+			}
+			return askOpts.Run(cmd)
 		},
 		SilenceUsage: true,
 		Args:         cobra.ArbitraryArgs,
@@ -53,6 +62,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 	cmd.AddCommand(NewVersionCmd(streams))
 	cmd.AddCommand(config.NewConfigCmd(streams))
+	cmd.AddCommand(NewAskCmd(streams))
 
 	return cmd
 }

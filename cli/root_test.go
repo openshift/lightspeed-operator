@@ -98,11 +98,17 @@ var _ = Describe("RootCmd", func() {
 		})
 	})
 
-	It("dispatches unrecognized args to the default mode stub", func() {
-		streams, _, errOut := fakeStreams()
+	It("dispatches unrecognized args to ask mode", func() {
+		// Point to a non-existent kubeconfig so the test doesn't pick up
+		// the real one from the environment.
+		streams, _, _ := fakeStreams()
 		cmd := NewRootCmd(streams)
-		cmd.SetArgs([]string{"why is my pod crashing"})
-		Expect(cmd.Execute()).To(Succeed())
-		Expect(errOut.String()).To(ContainSubstring("not yet implemented"))
+		cmd.SetArgs([]string{"--kubeconfig", "/nonexistent/kubeconfig", "why is my pod crashing"})
+		// Without a valid kubeconfig, this will fail at Complete() —
+		// but it proves dispatch happened (not "unknown command" error)
+		err := cmd.Execute()
+		Expect(err).To(HaveOccurred())
+		// Should be a kubeconfig/auth error, not an "unknown command" error
+		Expect(err.Error()).NotTo(ContainSubstring("unknown command"))
 	})
 })
