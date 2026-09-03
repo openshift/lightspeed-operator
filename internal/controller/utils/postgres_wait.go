@@ -65,10 +65,7 @@ done
 		Image:           image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         []string{"/bin/sh", "-c", script},
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &[]bool{false}[0],
-			ReadOnlyRootFilesystem:   &[]bool{true}[0],
-		},
+		SecurityContext: RestrictedContainerSecurityContext(),
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
