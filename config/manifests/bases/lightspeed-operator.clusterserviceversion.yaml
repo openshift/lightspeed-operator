@@ -145,6 +145,11 @@ spec:
       - description: Max tokens for response. The default is 2048 tokens.
         displayName: Max Tokens For Response
         path: llm.providers[0].models[0].parameters.maxTokensForResponse
+      - description: Whether the model accepts the temperature parameter. Leave unset
+          for models that support it; set to false for models that reject it (e.g.
+          claude-sonnet-5). When unset, the service default (true) applies.
+        displayName: Temperature Supported
+        path: llm.providers[0].models[0].parameters.temperatureSupported
       - description: Ratio of context window size allocated for tool token budget.
           Must be between 0.1 and 0.5. The default is 0.5.
         displayName: Tool Budget Ratio

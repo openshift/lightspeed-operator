@@ -536,6 +536,11 @@ type ModelParametersSpec struct {
 	// +kubebuilder:validation:Maximum=0.5
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tool Budget Ratio"
 	ToolBudgetRatio float64 `json:"toolBudgetRatio,omitempty"`
+	// Whether the model accepts the temperature parameter. Leave unset for models
+	// that support it; set to false for models that reject it (e.g. claude-sonnet-5).
+	// When unset, the service default (true) applies.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Temperature Supported"
+	TemperatureSupported *bool `json:"temperatureSupported,omitempty"`
 }
 
 // ModelSpec defines the LLM model to use and its parameters.

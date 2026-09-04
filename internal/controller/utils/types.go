@@ -186,6 +186,9 @@ type ModelParameters struct {
 	MaxTokensForResponse int `json:"max_tokens_for_response,omitempty"`
 	// Ratio of context window size allocated for tool token budget
 	ToolBudgetRatio float64 `json:"tool_budget_ratio"`
+	// Whether the model accepts the temperature parameter. Omitted when unset so
+	// the service default (true) applies.
+	TemperatureSupported *bool `json:"temperature_supported,omitempty"`
 }
 
 // ModelSpec defines the desired state of in-memory cache.
