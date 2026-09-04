@@ -33,13 +33,14 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 
 		toml := cm.Data[utils.OpenShiftMCPServerConfigFilename]
 		Expect(toml).To(ContainSubstring("read_only = false"))
-		Expect(toml).To(ContainSubstring(`toolsets = ["core", "config", "helm", "metrics"]`))
+		Expect(toml).To(ContainSubstring(`toolsets = ["core", "config", "helm", "observability/metrics"]`))
 		Expect(toml).To(ContainSubstring(`kind = "Secret"`))
 		Expect(toml).To(ContainSubstring(`group = ""`))
 		Expect(toml).To(ContainSubstring(`group = "rbac.authorization.k8s.io"`))
 		Expect(toml).To(ContainSubstring("[[denied_resources]]"))
-		Expect(toml).To(ContainSubstring("thanos-querier.openshift-monitoring"))
-		Expect(toml).To(ContainSubstring("alertmanager-main.openshift-monitoring"))
+		Expect(toml).To(ContainSubstring(`[toolset_configs."observability/metrics"]`))
+		Expect(toml).To(ContainSubstring(`prometheus_url = "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091"`))
+		Expect(toml).To(ContainSubstring(`alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9095"`))
 		Expect(toml).To(ContainSubstring(`guardrails = "!tsdb"`))
 		Expect(strings.Count(toml, "[[denied_resources]]")).To(Equal(2))
 	})

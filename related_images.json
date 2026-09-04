@@ -40,16 +40,13 @@
   },
   {
     "name": "openshift-mcp-server",
-    "image": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:8a8321cc2e00c3f13bf8e433da0fb3c990def939d5c7dec5f3978e9e323fc98b",
-    "revision": "2641eb9bfb35492be42a12fca2da2ade19d33bde",
+    "image": "registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9@sha256:efa0d55626466c588932c0320bee73dd221b1979aafbbaf4b3ad4685aa9f317d",
     "operator_arg": "openshift-mcp-server-image",
-    "snapshot_component": "openshift-mcp-server",
-    "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9"
+    "stable_prefix": "registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9"
   },
   {
     "name": "rhokp",
-    "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9",
+    "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4",
     "revision": "",
     "operator_arg": "rhokp-image"
   },
