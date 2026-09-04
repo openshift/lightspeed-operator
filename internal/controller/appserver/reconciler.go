@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
@@ -70,6 +71,10 @@ func ReconcileAppServerResources(r reconciler.Reconciler, ctx context.Context, o
 		{
 			Name: "reconcile Metrics Reader Secret",
 			Task: reconcileMetricsReaderSecret,
+		},
+		{
+			Name: "reconcile Metrics Reader ClusterRoleBinding",
+			Task: reconcileMetricsReaderClusterRoleBinding,
 		},
 		{
 			Name: "reconcile App NetworkPolicy",
@@ -406,6 +411,75 @@ func reconcileMetricsReaderSecret(r reconciler.Reconciler, ctx context.Context, 
 		}
 	}
 	r.GetLogger().Info("OLS metrics reader secret reconciled", "secret", secret.Name)
+	return nil
+}
+
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,resourceNames=lightspeed-operator-ols-metrics-reader,verbs=get;update;delete
+func reconcileMetricsReaderClusterRoleBinding(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	if os.Getenv("LOCAL_DEV_MODE") == "true" {
+		r.GetLogger().Info("Skipping metrics reader ClusterRoleBinding reconciliation in LOCAL_DEV_MODE")
+		return nil
+	}
+
+	desired, err := generateMetricsReaderClusterRoleBinding(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGenerateMetricsReaderCRB, err)
+	}
+
+	found := &rbacv1.ClusterRoleBinding{}
+	err = r.Get(ctx, client.ObjectKey{Name: desired.Name}, found)
+	if err != nil && errors.IsNotFound(err) {
+		r.GetLogger().Info("creating metrics reader ClusterRoleBinding", "ClusterRoleBinding", desired.Name)
+		err = r.Create(ctx, desired)
+		if err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrCreateMetricsReaderCRB, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGetMetricsReaderCRB, err)
+	}
+
+	// RoleRef is immutable in Kubernetes, so a mismatch can only be fixed by
+	// deleting and recreating the ClusterRoleBinding.
+	if found.RoleRef != desired.RoleRef {
+		r.GetLogger().Info("recreating metrics reader ClusterRoleBinding due to RoleRef mismatch",
+			"ClusterRoleBinding", found.Name, "foundRoleRef", found.RoleRef, "desiredRoleRef", desired.RoleRef)
+		if err := r.Delete(ctx, found); err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrDeleteMetricsReaderCRB, err)
+		}
+		if err := r.Create(ctx, desired); err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrCreateMetricsReaderCRB, err)
+		}
+		return nil
+	}
+
+	needsUpdate := false
+	if !reflect.DeepEqual(found.Subjects, desired.Subjects) {
+		found.Subjects = desired.Subjects
+		needsUpdate = true
+	}
+
+	if !reflect.DeepEqual(found.OwnerReferences, desired.OwnerReferences) {
+		found.OwnerReferences = desired.OwnerReferences
+		needsUpdate = true
+	}
+
+	if !reflect.DeepEqual(found.Labels, desired.Labels) {
+		found.Labels = desired.Labels
+		needsUpdate = true
+	}
+
+	if needsUpdate {
+		r.GetLogger().Info("updating metrics reader ClusterRoleBinding",
+			"ClusterRoleBinding", found.Name, "namespace", r.GetNamespace())
+		err = r.Update(ctx, found)
+		if err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrUpdateMetricsReaderCRB, err)
+		}
+	} else {
+		r.GetLogger().Info("metrics reader ClusterRoleBinding reconciled", "ClusterRoleBinding", found.Name)
+	}
+
 	return nil
 }
 
