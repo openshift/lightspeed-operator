@@ -85,17 +85,14 @@ func reconcileConfigurationConfigMap(r reconciler.Reconciler, ctx context.Contex
 func handoffCreatePrerequisites(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	ns := r.GetNamespace()
 
-	// OLS-3737: OTEL Collector prerequisite checks disabled until e2e tests
-	// prove the collector pipeline works. Re-enable in OLS-3737 Phase 3.
-	// svc := &corev1.Service{}
-	// if err := r.Get(ctx, client.ObjectKey{Name: utils.OtelCollectorServiceName, Namespace: ns}, svc); err != nil {
-	// 	return fmt.Errorf("OTEL Collector Service %s: %w", utils.OtelCollectorServiceName, err)
-	// }
-	// if err := requireSecretKey(r, ctx, ns, utils.AgenticOtelCASecretName, utils.AgenticOtelCASecretDataKey); err != nil {
-	// 	return err
-	// }
-
 	svc := &corev1.Service{}
+	if err := r.Get(ctx, client.ObjectKey{Name: utils.OtelCollectorServiceName, Namespace: ns}, svc); err != nil {
+		return fmt.Errorf("OTEL Collector Service %s: %w", utils.OtelCollectorServiceName, err)
+	}
+	if err := requireSecretKey(r, ctx, ns, utils.AgenticOtelCASecretName, utils.AgenticOtelCASecretDataKey); err != nil {
+		return err
+	}
+
 	if !utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		return nil
 	}

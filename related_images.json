@@ -48,6 +48,15 @@
     "stable_prefix": "registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9"
   },
   {
+    "name": "lightspeed-otel-collector",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector:main",
+    "revision": "8bc5f3bbc050e5912c113e485453e342ecea2d8c",
+    "operator_arg": "otel-collector-image",
+    "snapshot_component": "lightspeed-otel-collector",
+    "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector",
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9"
+  },
+  {
     "name": "rhokp",
     "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9",
     "revision": "",

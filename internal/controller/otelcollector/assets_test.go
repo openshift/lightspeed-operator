@@ -72,6 +72,7 @@ var _ = Describe("OTEL Collector assets", func() {
 		configYAML := cm.Data[utils.OtelCollectorConfigMapDataKey]
 		Expect(configYAML).To(ContainSubstring("otlp/tracing"))
 		Expect(configYAML).To(ContainSubstring("${env:TRACES_BACKEND_ENDPOINT}"))
+		Expect(configYAML).To(ContainSubstring("ca_file: " + utils.OtelCollectorServiceCAFile))
 		Expect(configYAML).NotTo(ContainSubstring("routing/traces"))
 	})
 

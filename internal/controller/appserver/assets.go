@@ -352,22 +352,20 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 
 // buildServiceAuditConfig maps OLS service audit settings into olsconfig.yaml.
 // spec.audit on the CR is collector-only; stdout audit uses spec.ols.auditEventsEnabled.
+// Traces are always exported to the in-cluster OTEL Collector.
 func buildServiceAuditConfig(cr *olsv1alpha1.OLSConfig, namespace string) *utils.AuditYAMLConfig {
 	logging := "Enabled"
 	if !utils.BoolDeref(cr.Spec.OLSConfig.AuditEventsEnabled, true) {
 		logging = "Disabled"
 	}
-	// OLS-3737: OTEL endpoint injection is disabled until e2e tests prove the
-	// collector pipeline works end-to-end. The service falls back to a no-op
-	// tracer when the otel section is absent. Re-enable in OLS-3737 Phase 3.
-	// endpoint := fmt.Sprintf("%s.%s.svc:%d",
-	// 	utils.OtelCollectorServiceName, namespace, utils.OtelCollectorGRPCPort)
+	endpoint := fmt.Sprintf("%s.%s.svc:%d",
+		utils.OtelCollectorServiceName, namespace, utils.OtelCollectorGRPCPort)
 	return &utils.AuditYAMLConfig{
 		Logging: logging,
-		// OTEL: &utils.OTELYAMLConfig{
-		// 	Endpoint: endpoint,
-		// 	TLSMode:  "Secure",
-		// },
+		OTEL: &utils.OTELYAMLConfig{
+			Endpoint: endpoint,
+			TLSMode:  "Secure",
+		},
 	}
 }
 
