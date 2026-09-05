@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -387,6 +388,73 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			return newCmHash != firstCmHash, nil
 		})
 
+	})
+
+	It("should remove LLM secret annotation and propagate config when credentialHotReload is enabled", func() {
+		llmSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      LLMTokenSecondSecretName,
+				Namespace: OLSNameSpace,
+			},
+		}
+
+		By("verify the LLM secret is annotated before enabling hot-reload")
+		Eventually(func() bool {
+			if err := client.Get(llmSecret); err != nil {
+				return false
+			}
+			_, exists := llmSecret.Annotations[utils.WatcherAnnotationKey]
+			return exists
+		}, 30*time.Second, 2*time.Second).Should(BeTrue())
+
+		By("enable credentialHotReload on the CR")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			config := obj.(*olsv1alpha1.OLSConfig)
+			hotReload := true
+			config.Spec.OLSConfig.CredentialHotReload = &hotReload
+			// The previous CA-cert test deletes its ConfigMap via defer but
+			// leaves the dangling ref on the CR.  Clear it so
+			// GenerateOLSConfigMap won't fail with a NotFound error.
+			config.Spec.OLSConfig.AdditionalCAConfigMapRef = nil
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verify the LLM secret annotation is removed")
+		Eventually(func() bool {
+			if err := client.Get(llmSecret); err != nil {
+				return false
+			}
+			_, exists := llmSecret.Annotations[utils.WatcherAnnotationKey]
+			return !exists
+		}, 30*time.Second, 2*time.Second).Should(BeTrue())
+
+		By("verify the olsconfig ConfigMap contains credential_hot_reload: true")
+		configMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AppServerConfigMapName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.WaitForConfigMapContainString(configMap, AppServerConfigMapKey, "credential_hot_reload: true")
+		Expect(err).NotTo(HaveOccurred())
+
+		By("disable credentialHotReload to restore default behavior")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			config := obj.(*olsv1alpha1.OLSConfig)
+			config.Spec.OLSConfig.CredentialHotReload = nil
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verify the LLM secret annotation is restored")
+		Eventually(func() bool {
+			if err := client.Get(llmSecret); err != nil {
+				return false
+			}
+			_, exists := llmSecret.Annotations[utils.WatcherAnnotationKey]
+			return exists
+		}, 30*time.Second, 2*time.Second).Should(BeTrue())
 	})
 
 })
