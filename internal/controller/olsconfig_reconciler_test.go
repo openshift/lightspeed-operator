@@ -460,5 +460,54 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 					"alerts adapter ServiceAccount should be removed during disabled-state cleanup")
 			})
 		})
+
+		Context("reasoningConfig field preservation", func() {
+			It("should preserve nested reasoningConfig values in model parameters", func() {
+				By("fetching and updating CR with reasoningConfig containing nested values")
+				var err error
+				err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, cr)
+				Expect(err).NotTo(HaveOccurred())
+
+				cr.Spec.LLMConfig.Providers[0].Models[0].Parameters = olsv1alpha1.ModelParametersSpec{
+					ReasoningConfig: map[string]interface{}{
+						"thinking_budget": float64(5000),
+						"effort":          "high",
+						"nested": map[string]interface{}{
+							"key": "value",
+						},
+					},
+				}
+
+				By("updating the CR")
+				err = k8sClient.Update(ctx, cr)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("retrieving the CR and verifying reasoningConfig is preserved")
+				retrievedCR := &olsv1alpha1.OLSConfig{}
+				err = k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.OLSConfigName,
+				}, retrievedCR)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify the nested reasoningConfig values are preserved
+				config := retrievedCR.Spec.LLMConfig.Providers[0].Models[0].Parameters.ReasoningConfig
+				Expect(config).NotTo(BeNil())
+				// JSON unmarshaling converts numbers to either int64 or float64 depending on value
+				thinking := config["thinking_budget"]
+				Expect(thinking).NotTo(BeNil())
+				switch v := thinking.(type) {
+				case float64:
+					Expect(v).To(Equal(float64(5000)))
+				case int64:
+					Expect(v).To(Equal(int64(5000)))
+				default:
+					Fail("thinking_budget has unexpected type")
+				}
+				Expect(config["effort"]).To(Equal("high"))
+				Expect(config["nested"]).NotTo(BeNil())
+				nested := config["nested"].(map[string]interface{})
+				Expect(nested["key"]).To(Equal("value"))
+			})
+		})
 	})
 })

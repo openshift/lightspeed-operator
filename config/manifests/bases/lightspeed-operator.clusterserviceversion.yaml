@@ -145,9 +145,15 @@ spec:
       - description: Max tokens for response. The default is 2048 tokens.
         displayName: Max Tokens For Response
         path: llm.providers[0].models[0].parameters.maxTokensForResponse
-      - description: Whether the model accepts the temperature parameter. Leave unset
-          for models that support it; set to false for models that reject it (e.g.
-          claude-sonnet-5). When unset, the service default (true) applies.
+      - description: |-
+          Reasoning configuration for the model (provider-agnostic freeform config).
+          The service and provider API validate the contents.
+        displayName: Reasoning Config
+        path: llm.providers[0].models[0].parameters.reasoningConfig
+      - description: |-
+          Whether the model accepts the temperature parameter. Leave unset for models
+          that support it; set to false for models that reject it (e.g. claude-sonnet-5).
+          When unset, the service default (true) applies.
         displayName: Temperature Supported
         path: llm.providers[0].models[0].parameters.temperatureSupported
       - description: Ratio of context window size allocated for tool token budget.
@@ -338,9 +344,18 @@ spec:
         path: ols.deployment.otelCollector.replicas
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podCount
-      - description: RHOKP sidecar container settings (Solr / OKP).
+      - description: RHOKP standalone deployment settings (Solr / OKP).
         displayName: RHOKP Container
         path: ols.deployment.rhokp
+      - description: |-
+          Defines the number of desired pods. Default: "1"
+          Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
+          For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
+          Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+        displayName: Number of replicas
+        path: ols.deployment.rhokp.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
       - description: Pull secrets for BYOK RAG images from image registries requiring
           authentication
         displayName: Image Pull Secrets
