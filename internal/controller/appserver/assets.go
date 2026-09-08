@@ -321,6 +321,10 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		}
 	}
 
+	if cr.Spec.OLSConfig.CredentialHotReload != nil && *cr.Spec.OLSConfig.CredentialHotReload {
+		olsConfig.CredentialHotReload = true
+	}
+
 	resolvedTLSProfile, err := utiltls.ResolveTLSProfile(r, cr.Spec.OLSConfig.TLSSecurityProfile)
 	if err != nil {
 		r.GetLogger().Error(err, "failed to fetch TLS profile from APIServer, using defaults")

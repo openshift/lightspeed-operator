@@ -399,30 +399,41 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 		}
 	}
 
-	// Clear the mappings before repopulating them
-	// This ensures that resources removed from CR are also removed from mappings
-	if r.WatcherConfig != nil {
-		r.WatcherConfig.AnnotatedConfigMapMapping = make(map[string][]string)
-		r.WatcherConfig.AnnotatedSecretMapping = make(map[string][]string)
-	}
+	credentialHotReload := cr.Spec.OLSConfig.CredentialHotReload != nil &&
+		*cr.Spec.OLSConfig.CredentialHotReload
 
 	var errs []error
+
+	// Build replacement annotated-resource mappings locally, then publish them
+	// atomically so watcher event handlers never see a partially-populated map.
+	secretMapping := make(map[string][]string)
+	configMapMapping := make(map[string][]string)
 
 	// Annotate all external secrets
 	err := utils.ForEachExternalSecret(cr, func(name string, source string) error {
 		// TLS secrets affect both console (CA cert) and backend (server cert)
-		if r.WatcherConfig != nil && source == "tls" {
-			r.WatcherConfig.AnnotatedSecretMapping[name] = []string{
+		if source == "tls" {
+			secretMapping[name] = []string{
 				utils.ConsoleUIDeploymentName,
 				utils.OLSAppServerDeploymentName,
 			}
+		}
+
+		// When credentialHotReload is enabled, LLM secrets are not watched —
+		// the service re-reads credentials from disk (RFE-9380).
+		if credentialHotReload && strings.HasPrefix(source, "llm-provider-") {
+			if err := r.removeSecretAnnotationIfNeeded(ctx, name, r.Options.Namespace); err != nil {
+				r.Logger.Error(err, "Failed to remove annotation from secret", "secret", name)
+				errs = append(errs, err)
+			}
+			return nil
 		}
 
 		if err := r.annotateSecretIfNeeded(ctx, name, r.Options.Namespace); err != nil {
 			r.Logger.Error(err, "Failed to annotate secret", "source", source, "secret", name)
 			errs = append(errs, err)
 		}
-		return nil // Continue iteration even on error
+		return nil
 	})
 	if err != nil {
 		errs = append(errs, err)
@@ -433,8 +444,8 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 		// Alerts adapter runtime config restarts only the adapter deployment.
 		// annotateConfigMapIfNeeded no-ops when the CM is absent; the ConfigMap Create
 		// watcher handles annotation and restart on first creation.
-		if r.WatcherConfig != nil && source == "alerts-adapter" {
-			r.WatcherConfig.AnnotatedConfigMapMapping[name] = []string{utils.AlertsAdapterDeploymentName}
+		if source == "alerts-adapter" {
+			configMapMapping[name] = []string{utils.AlertsAdapterDeploymentName}
 		}
 
 		if err := r.annotateConfigMapIfNeeded(ctx, name, r.Options.Namespace); err != nil {
@@ -445,6 +456,12 @@ func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	})
 	if err != nil {
 		errs = append(errs, err)
+	}
+
+	// Publish complete mappings atomically for watcher event handlers.
+	if r.WatcherConfig != nil {
+		r.WatcherConfig.PublishAnnotatedSecrets(secretMapping)
+		r.WatcherConfig.PublishAnnotatedConfigMaps(configMapMapping)
 	}
 
 	if len(errs) > 0 {
@@ -499,6 +516,28 @@ func (r *OLSConfigReconciler) annotateSecretIfNeeded(ctx context.Context, name, 
 	}
 
 	secret.Annotations[utils.WatcherAnnotationKey] = utils.OLSConfigName
+	return r.Update(ctx, secret)
+}
+
+// removeSecretAnnotationIfNeeded removes the watcher annotation from a secret if present.
+func (r *OLSConfigReconciler) removeSecretAnnotationIfNeeded(ctx context.Context, name, namespace string) error {
+	secret := &corev1.Secret{}
+	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, secret)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	if secret.Annotations == nil {
+		return nil
+	}
+	if _, exists := secret.Annotations[utils.WatcherAnnotationKey]; !exists {
+		return nil
+	}
+
+	delete(secret.Annotations, utils.WatcherAnnotationKey)
 	return r.Update(ctx, secret)
 }
 

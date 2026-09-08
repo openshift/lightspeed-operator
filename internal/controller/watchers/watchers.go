@@ -232,7 +232,7 @@ func (h *ConfigMapUpdateHandler) Generic(ctx context.Context, evt event.GenericE
 // 2. Annotated secrets (user-provided from CR) - marked with utils.WatcherAnnotationKey
 //
 // For system secrets, it uses the AffectedDeployments from WatcherConfig.
-// For annotated secrets, it looks up the deployment mapping in WatcherConfig.AnnotatedSecretMapping.
+// For annotated secrets, it looks up the deployment mapping via WatcherConfig.GetAnnotatedSecretDeployments.
 //
 // This function directly restarts affected deployments and does not trigger reconciliation.
 func SecretWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj client.Object, inCluster ...bool) {
@@ -274,12 +274,13 @@ func SecretWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj clien
 
 	// Check 2: Look for watcher annotation (user-provided secrets)
 	if _, exist := annotations[utils.WatcherAnnotationKey]; exist {
-		// For annotated secrets, determine affected deployments from mapping
 		secretName := obj.GetName()
+
+		// For annotated secrets, determine affected deployments from mapping
 		var affectedDeployments []string
 		var found bool
 		if watcherConfig != nil {
-			affectedDeployments, found = watcherConfig.AnnotatedSecretMapping[secretName]
+			affectedDeployments, found = watcherConfig.GetAnnotatedSecretDeployments(secretName)
 		}
 		if !found {
 			// Default: affect only app-server (e.g., LLM provider secrets)
@@ -305,7 +306,7 @@ func SecretWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj clien
 // 2. Annotated configmaps (user-provided from CR) - marked with utils.WatcherAnnotationKey
 //
 // For system configmaps, it uses the AffectedDeployments from WatcherConfig.
-// For annotated configmaps, it looks up the deployment mapping in WatcherConfig.AnnotatedConfigMapMapping.
+// For annotated configmaps, it looks up the deployment mapping via WatcherConfig.GetAnnotatedConfigMapDeployments.
 //
 // This function directly restarts affected deployments and does not trigger reconciliation.
 func ConfigMapWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj client.Object, inCluster ...bool) {
@@ -349,7 +350,7 @@ func ConfigMapWatcherFilter(r reconciler.Reconciler, ctx context.Context, obj cl
 		var affectedDeployments []string
 		var found bool
 		if watcherConfig != nil {
-			affectedDeployments, found = watcherConfig.AnnotatedConfigMapMapping[configMapName]
+			affectedDeployments, found = watcherConfig.GetAnnotatedConfigMapDeployments(configMapName)
 		}
 		if !found {
 			// Default: affect only app-server (e.g., CA bundle configmaps)

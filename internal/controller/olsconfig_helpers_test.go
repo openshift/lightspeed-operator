@@ -854,4 +854,48 @@ var _ = Describe("Helper Functions", func() {
 			Expect(found).To(BeTrue())
 		})
 	})
+
+	Context("removeSecretAnnotationIfNeeded", func() {
+		It("should remove annotation when present", func() {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "remove-test-secret",
+					Namespace: testNamespace,
+					Annotations: map[string]string{
+						utils.WatcherAnnotationKey: utils.OLSConfigName,
+					},
+				},
+				Data: map[string][]byte{"key": []byte("val")},
+			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(ctx, secret) }()
+
+			err := reconciler.removeSecretAnnotationIfNeeded(ctx, "remove-test-secret", testNamespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			fetched := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "remove-test-secret", Namespace: testNamespace}, fetched)).To(Succeed())
+			Expect(fetched.Annotations).NotTo(HaveKey(utils.WatcherAnnotationKey))
+		})
+
+		It("should do nothing when annotation is absent", func() {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "no-annot-secret",
+					Namespace: testNamespace,
+				},
+				Data: map[string][]byte{"key": []byte("val")},
+			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(ctx, secret) }()
+
+			err := reconciler.removeSecretAnnotationIfNeeded(ctx, "no-annot-secret", testNamespace)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should do nothing when secret does not exist", func() {
+			err := reconciler.removeSecretAnnotationIfNeeded(ctx, "nonexistent-secret", testNamespace)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
 })
