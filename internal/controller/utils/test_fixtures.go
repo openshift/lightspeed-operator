@@ -198,6 +198,16 @@ func WithBedrockProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	return cr
 }
 
+// WithWatsonxProvider configures the first LLM provider as IBM watsonx.
+// URL decides IBM Cloud vs Cloud Pak for Data credential requirements.
+func WithWatsonxProvider(cr *olsv1alpha1.OLSConfig, watsonxURL string) *olsv1alpha1.OLSConfig {
+	cr.Spec.LLMConfig.Providers[0].Name = "watsonx"
+	cr.Spec.LLMConfig.Providers[0].Type = WatsonxType
+	cr.Spec.LLMConfig.Providers[0].URL = watsonxURL
+	cr.Spec.LLMConfig.Providers[0].WatsonProjectID = "01234567-89ab-cdef-0123-456789abcdef"
+	return cr
+}
+
 // ========================================
 // Kubernetes Resource Generators
 // ========================================

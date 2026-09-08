@@ -142,6 +142,16 @@ const (
 	GoogleVertexAnthropicType = "google_vertex_anthropic"
 	// BedrockType is the name of the AWS Bedrock provider type
 	BedrockType = "bedrock"
+	// WatsonxType is the name of the IBM watsonx provider type
+	WatsonxType = "watsonx"
+	// WatsonxUsernameKey is the secret key for Cloud Pak for Data username (OLS-2190)
+	WatsonxUsernameKey = "username"
+	// WatsonxVersionKey is the secret key for Cloud Pak for Data version (OLS-2849)
+	WatsonxVersionKey = "version"
+	// WatsonxInstanceIDKey is the optional secret key for Cloud Pak for Data instance_id
+	WatsonxInstanceIDKey = "instance_id"
+	// IBMCloudWatsonxHostSuffix is the hostname suffix for IBM Cloud watsonx SaaS
+	IBMCloudWatsonxHostSuffix = "ml.cloud.ibm.com"
 	// DeploymentInProgress message
 	DeploymentInProgress = "In Progress"
 	// OLSSystemPromptFileName is the filename for the system prompt

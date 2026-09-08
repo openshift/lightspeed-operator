@@ -36,12 +36,28 @@ IMG="docker.io/username/ols-operator:0.10" make deploy
 2. Create a secret containing the API Key for Watsonx, OpenAI, Azure OpenAI. The key for API key is `apitoken`.
 
 > [!TIP]
-> Watsonx example
+> Watsonx (IBM Cloud) example. Only `apitoken` is required.
 
 ```yaml
 apiVersion: v1
 data:
   apitoken: <base64 encoded API Key>
+kind: Secret
+metadata:
+  name: watsonx-api-keys
+  namespace: openshift-lightspeed
+type: Opaque
+```
+
+> [!TIP]
+> Watsonx on Cloud Pak for Data (on-prem). Same secret as IBM Cloud, plus `username` and `version`. `instance_id` is optional.
+
+```yaml
+apiVersion: v1
+data:
+  apitoken: <base64 encoded API Key>
+  username: <base64 encoded CP4D username>
+  version: <base64 encoded CP4D version, for example 5.1>
 kind: Secret
 metadata:
   name: watsonx-api-keys
