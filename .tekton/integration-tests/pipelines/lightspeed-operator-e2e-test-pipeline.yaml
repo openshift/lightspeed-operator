@@ -21,15 +21,15 @@ spec:
       type: string
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
-      default: 'ols-e2e-tests-4.19'
+      default: 'ols-e2e-tests-4.22'
       type: string
     - name: namespace
       description: 'Namespace to run tests in'
       default: 'openshift-lightspeed'
       type: string
     - name: openshift-version-prefix
-      description: 'Minor line prefix for eaas-get-latest-openshift-version-by-prefix (include trailing dot, e.g. 4.19.)'
-      default: '4.19.'
+      description: 'OpenShift minor version to provision (for example, 4.22).'
+      default: '4.22'
       type: string
     - name: artifact-oci-tag-prefix
       description: 'Prepended to commit SHA in ols-operator-artifacts Quay tag. Use "416" for OCP 4.16; empty for other minors.'
@@ -40,71 +40,33 @@ spec:
       type: string
       default: 'bundle'
   tasks:
-    - name: eaas-provision-space
+    - name: provision-ephemeral-cluster
       taskRef:
         resolver: git
         params:
           - name: url
-            value: https://github.com/konflux-ci/build-definitions.git
+            value: https://github.com/openshift/konflux-tasks
           - name: revision
             value: main
           - name: pathInRepo
-            value: task/eaas-provision-space/0.1/eaas-provision-space.yaml
+            value: tasks/provision-ephemeral-cluster/0.1/provision-ephemeral-cluster.yaml
       params:
-        - name: ownerKind
-          value: PipelineRun
         - name: ownerName
           value: $(context.pipelineRun.name)
         - name: ownerUid
           value: $(context.pipelineRun.uid)
-    - name: provision-cluster
-      runAfter:
-        - eaas-provision-space
-      params:
-        - name: openshift-version-prefix
-          value: $(params.openshift-version-prefix)
-      taskSpec:
-        params:
-          - name: openshift-version-prefix
-            type: string
-        results:
-          - name: clusterName
-            value: "$(steps.create-cluster.results.clusterName)"
-        steps:
-          - name: pick-version
-            ref:
-              resolver: git
-              params:
-                - name: url
-                  value: https://github.com/konflux-ci/build-definitions.git
-                - name: revision
-                  value: main
-                - name: pathInRepo
-                  value: stepactions/eaas-get-latest-openshift-version-by-prefix/0.1/eaas-get-latest-openshift-version-by-prefix.yaml
-            params:
-              - name: prefix
-                value: "$(params.openshift-version-prefix)"
-          - name: create-cluster
-            ref:
-              resolver: git
-              params:
-                - name: url
-                  value: https://github.com/konflux-ci/build-definitions.git
-                - name: revision
-                  value: main
-                - name: pathInRepo
-                  value: stepactions/eaas-create-ephemeral-cluster-hypershift-aws/0.1/eaas-create-ephemeral-cluster-hypershift-aws.yaml
-            params:
-              - name: eaasSpaceSecretRef
-                value: $(tasks.eaas-provision-space.results.secretRef)
-              - name: version
-                value: "$(steps.pick-version.results.version)"
-              - name: instanceType
-                value: "m5.2xlarge"
+        - name: workflow
+          value: hypershift-hostedcluster-workflow
+        - name: clusterProfile
+          value: aws-konflux-prod
+        - name: env
+          value: '{"COMPUTE_NODE_TYPE": "m5.2xlarge", "HYPERSHIFT_NODE_COUNT": "3", "HOSTED_MANAGEMENT_CLUSTER": "hosted-mgmt2"}'
+        - name: releases
+          value: '{"latest":{"release":{"channel":"stable","version":"$(params.openshift-version-prefix)","architecture":"multi"}}}'
     - name: ols-install
       description: Install operator (OLM bundle or direct); record SNAPSHOT containerImage and commit for downstream tasks.
       runAfter:
-        - provision-cluster
+        - provision-ephemeral-cluster
       params:
         - name: SNAPSHOT
           value: $(params.SNAPSHOT)
@@ -112,6 +74,8 @@ spec:
           value: "$(params.namespace)"
         - name: install-mode
           value: $(params.install-mode)
+        - name: clusterCredentialsSecretRef
+          value: $(tasks.provision-ephemeral-cluster.results.secretRef)
       taskSpec:
         results:
           - name: bundle-image
@@ -125,27 +89,13 @@ spec:
           - name: install-mode
             type: string
             default: "bundle"
+          - name: clusterCredentialsSecretRef
+            type: string
         volumes:
-          - name: credentials
-            emptyDir: {}
+          - name: cluster-credentials
+            secret:
+              secretName: $(params.clusterCredentialsSecretRef)
         steps:
-          - name: get-kubeconfig
-            ref:
-              resolver: git
-              params:
-                - name: url
-                  value: https://github.com/konflux-ci/build-definitions.git
-                - name: revision
-                  value: main
-                - name: pathInRepo
-                  value: stepactions/eaas-get-ephemeral-cluster-credentials/0.1/eaas-get-ephemeral-cluster-credentials.yaml
-            params:
-              - name: eaasSpaceSecretRef
-                value: $(tasks.eaas-provision-space.results.secretRef)
-              - name: clusterName
-                value: "$(tasks.provision-cluster.results.clusterName)"
-              - name: credentials
-                value: credentials
           - name: install-operator
             env:
               - name: SNAPSHOT
@@ -155,11 +105,11 @@ spec:
                   fieldRef:
                     fieldPath: metadata.labels['appstudio.openshift.io/component']
               - name: KUBECONFIG
-                value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
+                value: "/credentials/kubeconfig"
               - name: OLS_NAMESPACE
                 value: "$(params.namespace)"
             volumeMounts:
-              - name: credentials
+              - name: cluster-credentials
                 mountPath: /credentials
             image: registry.redhat.io/openshift4/ose-cli:latest
             script: |
@@ -202,6 +152,10 @@ spec:
           value: $(tasks.ols-install.results.commit)
         - name: artifact-oci-tag-prefix
           value: $(params.artifact-oci-tag-prefix)
+        - name: openshift-version-prefix
+          value: $(params.openshift-version-prefix)
+        - name: clusterCredentialsSecretRef
+          value: $(tasks.provision-ephemeral-cluster.results.secretRef)
       runAfter:
         - ols-install
       taskSpec:
@@ -210,6 +164,10 @@ spec:
           - name: artifact-oci-tag-prefix
             type: string
             default: ""
+          - name: openshift-version-prefix
+            type: string
+          - name: clusterCredentialsSecretRef
+            type: string
         volumes:
           - name: azure-openai-token
             secret:
@@ -226,29 +184,25 @@ spec:
           - name: watsonx-token
             secret:
               secretName: watsonx-apitoken
-          - name: credentials
-            emptyDir: {}
+          - name: insights-stage-upload-offline-token
+            secret:
+              secretName: insights-stage-upload-offline-token
           - name: ols-konflux-artifacts-bot-creds
             secret:
               secretName: ols-konflux-artifacts-bot
+          - name: vertex-token
+            secret:
+              secretName: vertex-apitoken
+          - name: bedrock-token
+            secret:
+              secretName: bedrock-apitoken
+          - name: bedrock-role-token
+            secret:
+              secretName: bedrock-role-apitoken
+          - name: cluster-credentials
+            secret:
+              secretName: $(params.clusterCredentialsSecretRef)
         steps:
-          - name: get-kubeconfig
-            ref:
-              resolver: git
-              params:
-                - name: url
-                  value: https://github.com/konflux-ci/build-definitions.git
-                - name: revision
-                  value: main
-                - name: pathInRepo
-                  value: stepactions/eaas-get-ephemeral-cluster-credentials/0.1/eaas-get-ephemeral-cluster-credentials.yaml
-            params:
-              - name: eaasSpaceSecretRef
-                value: $(tasks.eaas-provision-space.results.secretRef)
-              - name: clusterName
-                value: "$(tasks.provision-cluster.results.clusterName)"
-              - name: credentials
-                value: credentials
           - name: run-e2e-tests
             resources:
               requests:
@@ -267,11 +221,19 @@ spec:
                 mountPath: /var/run/openai
               - name: watsonx-token
                 mountPath: /var/run/watsonx
-              - name: credentials
+              - name: vertex-token
+                mountPath: /var/run/vertex
+              - name: bedrock-token
+                mountPath: /var/run/bedrock
+              - name: bedrock-role-token
+                mountPath: /var/run/bedrock-role
+              - name: insights-stage-upload-offline-token
+                mountPath: /var/run/insights-stage-upload-offline-token
+              - name: cluster-credentials
                 mountPath: /credentials
             env:
               - name: KUBECONFIG
-                value: "/credentials/$(steps.get-kubeconfig.results.kubeconfig)"
+                value: "/credentials/kubeconfig"
               - name: BAM_PROVIDER_KEY_PATH
                 value: "/var/run/bam/token"
               - name: AZUREOPENAI_PROVIDER_KEY_PATH
@@ -280,7 +242,29 @@ spec:
                 value: "/var/run/openai/token"
               - name: WATSONX_PROVIDER_KEY_PATH
                 value: "/var/run/watsonx/token"
-              - name: COMMIT_SHA
+              - name: VERTEX_PROVIDER_KEY_PATH
+                value: "/var/run/vertex/token"
+              - name: BEDROCK_AWS_ACCESS_KEY_ID
+                value: "/var/run/bedrock/aws_access_key_id"
+              - name: BEDROCK_AWS_SECRET_ACCESS_KEY
+                value: "/var/run/bedrock/aws_secret_access_key"
+              - name: BEDROCK_ROLE_AWS_ACCESS_KEY_ID
+                value: "/var/run/bedrock-role/aws_access_key_id"
+              - name: BEDROCK_ROLE_AWS_SECRET_ACCESS_KEY
+                value: "/var/run/bedrock-role/aws_secret_access_key"
+              - name: BEDROCK_ROLE_ARN
+                value: "arn:aws:iam::103138678430:role/BedrockAccessRole"
+              - name: KUBECONFIG
+                value: "/credentials/kubeconfig"
+              - name: ARTIFACT_DIR
+                value: "/workspace/artifacts"
+              - name: SUITE_ID
+                value: "nosuite"
+              - name: KONFLUX_BOOL
+                value: "true"
+              - name: OLS_IMAGE
+                value: ""
+              - name: BUNDLE_COMMIT_SHA
                 value: "$(params.commit)"
               - name: ARTIFACT_DIR
                 value: "/workspace"
@@ -290,8 +274,9 @@ spec:
               git init lightspeed-operator
               cd lightspeed-operator
               git remote add origin https://github.com/openshift/lightspeed-operator.git
-              git fetch --depth=1 --filter=blob:none origin ${COMMIT_SHA}
-              git show "${COMMIT_SHA}:.tekton/integration-tests/scripts/run-operator-e2e-tests.sh" | bash -s -- "latest-4.18"
+              export COMMIT_SHA="${BUNDLE_COMMIT_SHA}"
+              git fetch --depth=1 --filter=blob:none origin "${BUNDLE_COMMIT_SHA}"
+              git show "${BUNDLE_COMMIT_SHA}:.tekton/integration-tests/scripts/run-operator-e2e-tests.sh" | bash -s -- "latest-$(params.openshift-version-prefix)"
           - name: gather-cluster-resources
             onError: continue
             ref:
@@ -305,9 +290,9 @@ spec:
                   value: .tekton/integration-tests/stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
             params:
               - name: credentials
-                value: "credentials"
+                value: "cluster-credentials"
               - name: kubeconfig
-                value: "$(steps.get-kubeconfig.results.kubeconfig)"
+                value: "kubeconfig"
               - name: artifact-dir
                 value: "/workspace/konflux-artifacts"
               - name: gather-script-url
@@ -349,6 +334,21 @@ spec:
                 - name: pathInRepo
                   value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
   finally:
+    - name: deprovision-ephemeral-cluster
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/openshift/konflux-tasks
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/deprovision-ephemeral-cluster/0.1/deprovision-ephemeral-cluster.yaml
+      params:
+        - name: testPlatformClusterClaimName
+          value: $(tasks.provision-ephemeral-cluster.results.testPlatformClusterClaimName)
+        - name: testPlatformClusterClaimNamespace
+          value: $(tasks.provision-ephemeral-cluster.results.testPlatformClusterClaimNamespace)
     - name: export-logs-for-retention
       taskRef:
         resolver: git
