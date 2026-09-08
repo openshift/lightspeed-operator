@@ -238,6 +238,17 @@ spec:
       - description: 'Conversation cache type. Default: "postgres"'
         displayName: Cache Type
         path: ols.conversationCache.type
+      - description: |-
+          Enable in-process credential hot-reload for LLM provider secrets.
+          When true, the operator will not restart the app-server when LLM credential
+          secret data is rotated — the service re-reads credentials from disk on each request.
+          IMPORTANT: Requires lightspeed-service with get_credentials() hot-reload support
+          (service PR #2955 / RFE-9380). If enabled with an older service image, rotated
+          credentials (including revoked keys) will remain stale until the pod is manually restarted.
+        displayName: Credential Hot Reload
+        path: ols.credentialHotReload
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Default model for usage
         displayName: Default Model
         path: ols.defaultModel
