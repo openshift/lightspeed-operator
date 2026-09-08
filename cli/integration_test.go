@@ -94,6 +94,7 @@ users:
 				"--kubeconfig", kubeconfigPath,
 				"--endpoint", server.URL,
 				"--insecure-skip-tls-verify",
+				"--insecure-allow-http",
 				"why is my pod crashing",
 			})
 
@@ -142,6 +143,7 @@ users:
 				"--kubeconfig", kubeconfigPath,
 				"--endpoint", server.URL,
 				"--insecure-skip-tls-verify",
+				"--insecure-allow-http",
 				"ask", "what is a deployment",
 			})
 
@@ -164,6 +166,7 @@ users:
 				"--kubeconfig", kubeconfigPath,
 				"--endpoint", server.URL,
 				"--insecure-skip-tls-verify",
+				"--insecure-allow-http",
 				"check my cluster",
 			})
 

@@ -22,12 +22,21 @@ const (
 
 // AskOptions holds the configuration for the ask command.
 type AskOptions struct {
-	streams          genericclioptions.IOStreams
-	query            string
-	endpoint         string
-	kubeConfig       *KubeConfig
-	mode             string
+	streams           genericclioptions.IOStreams
+	query             string
+	endpoint          string
+	kubeConfig        *KubeConfig
+	mode              string
 	insecureAllowHTTP bool
+
+	// conversationID is extracted from the start event during Run.
+	// Available after Run completes for conversation persistence (OLS-3636).
+	conversationID string
+
+	// capturedEvents accumulates non-token, non-end events (start, reasoning,
+	// tool_call, tool_result) during Run. Not displayed in default mode but
+	// available for --output json (OLS-3639).
+	capturedEvents []SSEEvent
 }
 
 // NewAskCmd creates the "ask" subcommand that sends a question to OLS
@@ -66,13 +75,14 @@ func (o *AskOptions) Complete(cmd *cobra.Command, args []string) error {
 	contextName, _ := cmd.Flags().GetString("context")
 	insecureSkipTLS, _ := cmd.Flags().GetBool("insecure-skip-tls-verify")
 	caCertPath, _ := cmd.Flags().GetString("ca-cert")
+	insecureAllowHTTP, _ := cmd.Flags().GetBool("insecure-allow-http")
 
 	kc, err := LoadKubeConfig(kubeconfigPath, contextName, insecureSkipTLS, caCertPath)
 	if err != nil {
 		return err
 	}
 	o.kubeConfig = kc
-	o.insecureAllowHTTP = insecureSkipTLS
+	o.insecureAllowHTTP = insecureAllowHTTP
 
 	endpoint, err := ResolveEndpoint(cmd, kc.ContextName)
 	if err != nil {
@@ -129,6 +139,7 @@ func (o *AskOptions) Run(cmd *cobra.Command) error {
 	var endData *EndEventData
 	var hasTokens bool
 	var endParseErr error
+	o.capturedEvents = nil
 
 	for ev := range events {
 		switch ev.Type {
@@ -142,6 +153,13 @@ func (o *AskOptions) Run(cmd *cobra.Command) error {
 			if _, err := fmt.Fprint(o.streams.Out, td.Token); err != nil {
 				return fmt.Errorf("%s: %w", ErrWriteOutput, err)
 			}
+		case EventStart:
+			// Extract conversation_id for persistence (OLS-3636).
+			var sd StartEventData
+			if err := json.Unmarshal([]byte(ev.Data), &sd); err == nil {
+				o.conversationID = sd.ConversationID
+			}
+			o.capturedEvents = append(o.capturedEvents, ev)
 		case EventEnd:
 			var ed EndEventData
 			if err := json.Unmarshal([]byte(ev.Data), &ed); err != nil {
@@ -149,10 +167,12 @@ func (o *AskOptions) Run(cmd *cobra.Command) error {
 			} else {
 				endData = &ed
 			}
-		// start: conversation_id bookkeeping (used in PR5/OLS-3636)
-		// reasoning, tool_call, tool_result: not displayed in default mode.
-		// TODO(OLS-3639): accumulate for --output json
+		case EventReasoning, EventToolCall, EventToolResult:
+			// Captured but not displayed in default mode.
+			// Available via o.capturedEvents for --output json (OLS-3639).
+			o.capturedEvents = append(o.capturedEvents, ev)
 		default:
+			// Unknown event types are silently ignored.
 		}
 	}
 

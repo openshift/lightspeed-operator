@@ -32,7 +32,7 @@ var _ = Describe("AskCmd", func() {
 	}
 
 	Describe("Run", func() {
-		It("streams token events to stdout", func() {
+		It("streams token events to stdout and extracts conversation_id", func() {
 			body := sseEvent(EventStart, map[string]interface{}{"conversation_id": "conv-123"}) +
 				sseEvent(EventToken, map[string]interface{}{"id": 0, "token": "Hello"}) +
 				sseEvent(EventToken, map[string]interface{}{"id": 1, "token": " world"}) +
@@ -43,11 +43,11 @@ var _ = Describe("AskCmd", func() {
 
 			streams, out, _ := fakeStreams()
 			o := &AskOptions{
-				streams:  streams,
-				query:    "test question",
-				endpoint: server.URL,
+				streams:           streams,
+				query:             "test question",
+				endpoint:          server.URL,
 				insecureAllowHTTP: true,
-				mode:     "ask",
+				mode:              "ask",
 				kubeConfig: &KubeConfig{
 					BearerToken: "test-token",
 				},
@@ -56,6 +56,7 @@ var _ = Describe("AskCmd", func() {
 			cmd := NewAskCmd(streams)
 			Expect(o.Run(cmd)).To(Succeed())
 			Expect(out.String()).To(Equal("Hello world\n"))
+			Expect(o.conversationID).To(Equal("conv-123"))
 		})
 
 		It("displays referenced documents on stdout", func() {
@@ -137,7 +138,7 @@ var _ = Describe("AskCmd", func() {
 			Expect(err.Error()).To(ContainSubstring(ErrAuthFailed))
 		})
 
-		It("silently consumes reasoning, tool_call, and tool_result events", func() {
+		It("captures reasoning, tool_call, and tool_result events without displaying them", func() {
 			body := sseEvent(EventStart, map[string]interface{}{"conversation_id": "conv-abc"}) +
 				sseEvent(EventReasoning, map[string]interface{}{"content": "thinking..."}) +
 				sseEvent(EventToken, map[string]interface{}{"id": 0, "token": "result"}) +
@@ -150,11 +151,11 @@ var _ = Describe("AskCmd", func() {
 
 			streams, out, errOut := fakeStreams()
 			o := &AskOptions{
-				streams:  streams,
-				query:    "test",
-				endpoint: server.URL,
+				streams:           streams,
+				query:             "test",
+				endpoint:          server.URL,
 				insecureAllowHTTP: true,
-				mode:     "ask",
+				mode:              "ask",
 				kubeConfig: &KubeConfig{
 					BearerToken: "test-token",
 				},
@@ -162,10 +163,20 @@ var _ = Describe("AskCmd", func() {
 
 			cmd := NewAskCmd(streams)
 			Expect(o.Run(cmd)).To(Succeed())
+
+			// Not displayed to stdout or stderr
 			Expect(out.String()).To(Equal("result\n"))
 			Expect(errOut.String()).NotTo(ContainSubstring("thinking"))
 			Expect(errOut.String()).NotTo(ContainSubstring("search"))
 			Expect(errOut.String()).NotTo(ContainSubstring("found it"))
+
+			// But captured internally for --output json (OLS-3639)
+			// start + reasoning + tool_call + tool_result = 4 captured events
+			Expect(o.capturedEvents).To(HaveLen(4))
+			Expect(o.capturedEvents[0].Type).To(Equal(EventStart))
+			Expect(o.capturedEvents[1].Type).To(Equal(EventReasoning))
+			Expect(o.capturedEvents[2].Type).To(Equal(EventToolCall))
+			Expect(o.capturedEvents[3].Type).To(Equal(EventToolResult))
 		})
 
 		It("warns on malformed end event JSON", func() {
@@ -280,6 +291,25 @@ var _ = Describe("AskCmd", func() {
 			o := &AskOptions{
 				query:    "why is my pod crashing",
 				endpoint: "https://ols.example.com",
+			}
+			Expect(o.Validate()).To(Succeed())
+		})
+
+		It("rejects cleartext HTTP endpoint by default", func() {
+			o := &AskOptions{
+				query:    "test",
+				endpoint: "http://ols.example.com",
+			}
+			err := o.Validate()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cleartext HTTP"))
+		})
+
+		It("allows cleartext HTTP with --insecure-allow-http", func() {
+			o := &AskOptions{
+				query:             "test",
+				endpoint:          "http://ols.example.com",
+				insecureAllowHTTP: true,
 			}
 			Expect(o.Validate()).To(Succeed())
 		})

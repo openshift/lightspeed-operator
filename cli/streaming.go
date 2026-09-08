@@ -94,6 +94,7 @@ func (c *SSEClient) StreamQuery(ctx context.Context, req LLMRequest) (<-chan SSE
 		return nil, nil, fmt.Errorf("%s: %w", ErrSendRequest, err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("Authorization", "Bearer "+c.token)
 
 	resp, err := c.httpClient.Do(httpReq)
@@ -208,13 +209,24 @@ func (r *idleTimeoutReader) Read(p []byte) (int, error) {
 // returned channel. Each frame is delimited by a blank line. The channel
 // is closed when the reader is exhausted or an error occurs.
 //
-// lightspeed-service sends events as JSON envelopes inside SSE data lines:
+// The parser supports two framing styles:
 //
-//	data: {"event": "<type>", "data": <payload>}
+// 1. Standard SSE with event: and data: lines:
+//
+//	event: token
+//	data: {"id": 0, "token": "hello"}
 //	<blank line>
 //
-// The parser extracts the event type and re-serializes the inner data
-// as the SSEEvent.Data string.
+// 2. JSON envelope (lightspeed-service current format) — event type is
+// inside the JSON payload, no SSE event: line:
+//
+//	data: {"event": "token", "data": {"id": 0, "token": "hello"}}
+//	<blank line>
+//
+// When an SSE event: field is present, the parser uses it as the event
+// type and passes data: content through as-is. When no event: field is
+// present, the parser falls back to extracting the type from the JSON
+// envelope.
 func parseSSEStream(ctx context.Context, rc io.ReadCloser) (<-chan SSEEvent, <-chan error) {
 	events := make(chan SSEEvent)
 	errc := make(chan error, 1)
@@ -229,6 +241,8 @@ func parseSSEStream(ctx context.Context, rc io.ReadCloser) (<-chan SSEEvent, <-c
 		// Default is 64KB; tool_result events with resource dumps
 		// (e.g. pods_list) can reach ~35KB observed, ~500KB extreme.
 		scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), 1024*1024)
+
+		var eventField string // SSE event: field for current frame
 		var dataLines []string
 
 		for scanner.Scan() {
@@ -238,7 +252,7 @@ func parseSSEStream(ctx context.Context, rc io.ReadCloser) (<-chan SSEEvent, <-c
 			if line == "" {
 				if len(dataLines) > 0 {
 					raw := strings.Join(dataLines, "\n")
-					ev, err := parseSSEEnvelope(raw)
+					ev, err := buildSSEEvent(eventField, raw)
 					if err != nil {
 						errc <- fmt.Errorf("%s: %w", ErrParseSSE, err)
 						return
@@ -250,11 +264,19 @@ func parseSSEStream(ctx context.Context, rc io.ReadCloser) (<-chan SSEEvent, <-c
 					}
 					dataLines = nil
 				}
+				eventField = ""
 				continue
 			}
 
 			// SSE comment lines (starting with :) are ignored
 			if strings.HasPrefix(line, ":") {
+				continue
+			}
+
+			// SSE event: field — sets the event type for this frame
+			if strings.HasPrefix(line, "event:") {
+				value := strings.TrimPrefix(line, "event:")
+				eventField = strings.TrimPrefix(value, " ")
 				continue
 			}
 
@@ -272,6 +294,19 @@ func parseSSEStream(ctx context.Context, rc io.ReadCloser) (<-chan SSEEvent, <-c
 	}()
 
 	return events, errc
+}
+
+// buildSSEEvent constructs an SSEEvent from a parsed frame. When the SSE
+// event: field is present, it is used as the event type and the raw data
+// is passed through. Otherwise, the data is parsed as a JSON envelope
+// to extract the event type (lightspeed-service format).
+func buildSSEEvent(eventField, rawData string) (SSEEvent, error) {
+	if eventField != "" {
+		// Standard SSE framing: event type from event: line, data as-is.
+		return SSEEvent{Type: eventField, Data: rawData}, nil
+	}
+	// JSON envelope fallback: extract type from envelope.
+	return parseSSEEnvelope(rawData)
 }
 
 // parseSSEEnvelope extracts the event type and inner data from a

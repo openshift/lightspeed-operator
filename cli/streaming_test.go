@@ -82,6 +82,48 @@ var _ = Describe("parseSSEStream", func() {
 		Expect(tok.ID).To(Equal(0))
 	})
 
+	It("parses standard SSE framing with event: and data: lines", func() {
+		// Standard SSE format: event type in event: field, payload in data: field
+		input := "event: start\ndata: {\"conversation_id\": \"abc-123\"}\n\n" +
+			"event: token\ndata: {\"id\": 0, \"token\": \"Hello\"}\n\n" +
+			"event: token\ndata: {\"id\": 1, \"token\": \" world\"}\n\n" +
+			"event: end\ndata: {\"referenced_documents\": [], \"truncated\": false}\n\n"
+
+		events, errc := parseSSEStream(context.Background(), nopCloser(strings.NewReader(input)))
+		result, err := collectEvents(events, errc)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(HaveLen(4))
+
+		Expect(result[0].Type).To(Equal(EventStart))
+		Expect(result[1].Type).To(Equal(EventToken))
+		Expect(result[2].Type).To(Equal(EventToken))
+		Expect(result[3].Type).To(Equal(EventEnd))
+
+		// With standard framing, data is raw JSON (not envelope-wrapped)
+		var start StartEventData
+		Expect(json.Unmarshal([]byte(result[0].Data), &start)).To(Succeed())
+		Expect(start.ConversationID).To(Equal("abc-123"))
+
+		var tok TokenEventData
+		Expect(json.Unmarshal([]byte(result[1].Data), &tok)).To(Succeed())
+		Expect(tok.Token).To(Equal("Hello"))
+	})
+
+	It("handles mixed framing (event: field present on some frames)", func() {
+		// Frame 1: standard SSE with event: field
+		// Frame 2: JSON envelope without event: field
+		input := "event: token\ndata: {\"id\": 0, \"token\": \"first\"}\n\n" +
+			sseEvent(EventToken, map[string]interface{}{"id": 1, "token": "second"})
+
+		events, errc := parseSSEStream(context.Background(), nopCloser(strings.NewReader(input)))
+		result, err := collectEvents(events, errc)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(HaveLen(2))
+
+		Expect(result[0].Type).To(Equal(EventToken))
+		Expect(result[1].Type).To(Equal(EventToken))
+	})
+
 	It("ignores SSE comment lines", func() {
 		input := ": keep-alive\n" + sseEvent(EventToken, map[string]interface{}{"id": 0, "token": "hi"})
 		events, errc := parseSSEStream(context.Background(), nopCloser(strings.NewReader(input)))
@@ -285,6 +327,7 @@ var _ = Describe("SSEClient", func() {
 			Expect(capturedReq.URL.Path).To(Equal(streamingQueryPath))
 			Expect(capturedReq.Header.Get("Authorization")).To(Equal("Bearer test-token"))
 			Expect(capturedReq.Header.Get("Content-Type")).To(Equal("application/json"))
+			Expect(capturedReq.Header.Get("Accept")).To(Equal("text/event-stream"))
 
 			var reqBody LLMRequest
 			Expect(json.Unmarshal(capturedBody, &reqBody)).To(Succeed())
