@@ -382,6 +382,26 @@ var _ = Describe("SSEClient", func() {
 			Expect(err.Error()).To(ContainSubstring("500"))
 		})
 
+		It("rejects redirect to HTTP target", func() {
+			// An HTTPS-to-HTTP redirect would expose the bearer token
+			// over cleartext. The client must reject it.
+			httpTarget := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Should never reach here
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer httpTarget.Close()
+
+			// Server that redirects to the HTTP target
+			handler := func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, httpTarget.URL+"/v1/streaming_query", http.StatusFound)
+			}
+			setupClient(handler)
+
+			_, _, err := client.StreamQuery(ctx, baseRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(ErrInsecureRedirect))
+		})
+
 		It("respects context cancellation", func() {
 			// Server blocks until request context is done
 			handler := func(w http.ResponseWriter, r *http.Request) {

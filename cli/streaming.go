@@ -24,13 +24,14 @@ const (
 	EventToolResult = "tool_result"
 	EventEnd        = "end"
 
-	ErrParseSSE      = "failed to parse SSE stream"
-	ErrSendRequest   = "failed to send request" //#nosec G101 -- error message, not a credential
-	ErrAuthFailed    = "authentication failed"  //#nosec G101 -- error message, not a credential
-	ErrAccessDenied  = "access denied"
-	ErrPromptTooLong = "query exceeds maximum length"
-	ErrServiceError  = "service error"
-	ErrStreamTimeout = "stream idle timeout"
+	ErrParseSSE         = "failed to parse SSE stream"
+	ErrSendRequest      = "failed to send request" //#nosec G101 -- error message, not a credential
+	ErrAuthFailed       = "authentication failed"  //#nosec G101 -- error message, not a credential
+	ErrAccessDenied     = "access denied"
+	ErrPromptTooLong    = "query exceeds maximum length"
+	ErrServiceError     = "service error"
+	ErrStreamTimeout    = "stream idle timeout"
+	ErrInsecureRedirect = "redirect to non-HTTPS URL blocked" //#nosec G101 -- error message, not a credential
 
 	streamingQueryPath = "/v1/streaming_query"
 
@@ -71,10 +72,24 @@ func NewSSEClient(endpoint, token string, tlsConfig *tls.Config) *SSEClient {
 	}
 
 	return &SSEClient{
-		httpClient: &http.Client{Transport: transport},
-		endpoint:   endpoint,
-		token:      token,
+		httpClient: &http.Client{
+			Transport: transport,
+			// Reject redirects to non-HTTPS targets to prevent leaking
+			// the bearer token over cleartext HTTP (CWE-319).
+			CheckRedirect: rejectHTTPRedirect,
+		},
+		endpoint: endpoint,
+		token:    token,
 	}
+}
+
+// rejectHTTPRedirect prevents the HTTP client from following redirects to
+// non-HTTPS URLs, which would expose the bearer token over cleartext.
+func rejectHTTPRedirect(req *http.Request, _ []*http.Request) error {
+	if req.URL.Scheme != "https" {
+		return fmt.Errorf("%s: %s", ErrInsecureRedirect, req.URL)
+	}
+	return nil
 }
 
 // StreamQuery sends a query to lightspeed-service and returns a channel of
