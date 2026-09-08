@@ -13,8 +13,8 @@
   },
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:5c6426ec827b469a10a093ded2e9551e5f28d698ff4073ab474bb7d95e1c1694",
-    "revision": "722fca46fefc40d773a19c44a3a36ffe322b6e5a",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:c5113f8f8a49890052e2bf550df6e4f64502a4a78abbbd43ac956dc9e8cf6f4d",
+    "revision": "719b6c24133be90fceca410e53e741218c67803c",
     "operator_arg": "service-image",
     "snapshot_component": "lightspeed-service",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service",
@@ -22,8 +22,8 @@
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:1077f7f87b7e701e3d719bf4d5af3cbabdf9145dd02569df435dbebf433939fa",
-    "revision": "c19142937ff6e2521314017c28016e78a02b86d5",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:47f794226255e9c80951ce35bbd6be5b956cd10b3d51703b93dd6006d3f9b5b7",
+    "revision": "310b4b978b41af8b4440545b799148c265b90c61",
     "operator_arg": "console-image",
     "snapshot_component": "lightspeed-console",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console",
@@ -31,8 +31,8 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ab7701e98d36002ca215a055aaaadd37c11cd50e01193e0306c545e4ab3cfa05",
-    "revision": "35b51b02719c93c4e519774c91bda6e339f7a012",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:5c7e98bc22999cd9947d00fc9a35f4f0076e60a0b0c6ce71add303390fbf5f0c",
+    "revision": "0e3e67f0b0085545f7bb68892fc0650b34234022",
     "operator_target": "image",
     "snapshot_component": "lightspeed-operator",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator",
@@ -42,7 +42,8 @@
     "name": "openshift-mcp-server",
     "image": "registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9@sha256:efa0d55626466c588932c0320bee73dd221b1979aafbbaf4b3ad4685aa9f317d",
     "operator_arg": "openshift-mcp-server-image",
-    "stable_prefix": "registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9"
+    "stable_prefix": "registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9",
+    "revision": ""
   },
   {
     "name": "rhokp",
