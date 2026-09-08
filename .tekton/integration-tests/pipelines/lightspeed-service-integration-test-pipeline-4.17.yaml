@@ -206,6 +206,12 @@ spec:
           - name: vertex-token
             secret:
               secretName: vertex-apitoken
+          - name: bedrock-token
+            secret:
+              secretName: bedrock-apitoken
+          - name: bedrock-role-token
+            secret:
+              secretName: bedrock-role-apitoken
           - name: cluster-credentials
             secret:
               secretName: $(params.clusterCredentialsSecretRef)
@@ -231,6 +237,10 @@ spec:
                 mountPath: /var/run/watsonx
               - name: vertex-token
                 mountPath: /var/run/vertex
+              - name: bedrock-token
+                mountPath: /var/run/bedrock
+              - name: bedrock-role-token
+                mountPath: /var/run/bedrock-role
               - name: insights-stage-upload-offline-token
                 mountPath: /var/run/insights-stage-upload-offline-token
               - name: cluster-credentials
@@ -246,6 +256,16 @@ spec:
                 value: "/var/run/watsonx/token"
               - name: VERTEX_PROVIDER_KEY_PATH
                 value: "/var/run/vertex/token"
+              - name: BEDROCK_AWS_ACCESS_KEY_ID
+                value: "/var/run/bedrock/aws_access_key_id"
+              - name: BEDROCK_AWS_SECRET_ACCESS_KEY
+                value: "/var/run/bedrock/aws_secret_access_key"
+              - name: BEDROCK_ROLE_AWS_ACCESS_KEY_ID
+                value: "/var/run/bedrock-role/aws_access_key_id"
+              - name: BEDROCK_ROLE_AWS_SECRET_ACCESS_KEY
+                value: "/var/run/bedrock-role/aws_secret_access_key"
+              - name: BEDROCK_ROLE_ARN
+                value: "arn:aws:iam::103138678430:role/BedrockAccessRole"
               - name: KUBECONFIG
                 value: "/credentials/kubeconfig"
               - name: ARTIFACT_DIR
