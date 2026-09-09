@@ -105,7 +105,14 @@ spec:
             image: registry.redhat.io/openshift4/ose-cli:latest
             script: |
               set -euo pipefail
-              dnf -y install jq python3-pip git curl yq
+              dnf -y install jq python3-pip git curl
+              # yq is not shipped by the repositories enabled in ose-cli. Install the
+              # pinned upstream static binary so it is also available to the fallback path.
+              YQ_VERSION="v4.44.3"
+              curl --fail --location --silent --show-error \
+                "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" \
+                --output /usr/local/bin/yq
+              chmod 0755 /usr/local/bin/yq
               COMMIT="$(jq -r --arg component_name "${KONFLUX_COMPONENT_NAME}" '.components[] | select(.name == $component_name) | .source.git.revision' <<< "$SNAPSHOT")"
               echo "Cloning lightspeed-operator@${COMMIT} for Konflux operator install"
               rm -rf /workspace/lightspeed-operator
@@ -257,7 +264,14 @@ spec:
                 value: "/workspace"
             image: registry.redhat.io/openshift4/ose-cli:latest
             script: |
-              dnf -y install git make golang jq gpgme-devel yq
+              dnf -y install git make golang jq gpgme-devel curl
+              # yq is not shipped by the repositories enabled in ose-cli. Use the
+              # same pinned upstream static binary as the install-operator step.
+              YQ_VERSION="v4.44.3"
+              curl --fail --location --silent --show-error \
+                "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" \
+                --output /usr/local/bin/yq
+              chmod 0755 /usr/local/bin/yq
               git init lightspeed-operator
               cd lightspeed-operator
               git remote add origin https://github.com/openshift/lightspeed-operator.git

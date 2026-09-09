@@ -11,7 +11,7 @@ spec:
     Provisions the cluster, installs the operator (OLM bundle or direct/kustomize per install-mode),
     runs tests from the snapshot commit, collects artifacts, then deprovisions.
 
-    Per OpenShift minor: set params.openshift-version-prefix (e.g. 4.16.) and params.test-name
+    Per OpenShift minor: set params.openshift-version-prefix (e.g. 4.16) and params.test-name
     (Konflux integration test id). For OpenShift 4.16 only, set params.artifact-oci-tag-prefix to "416"
     so pushed artifacts use tag 416<commit>; leave artifact-oci-tag-prefix empty for other versions.
   params:

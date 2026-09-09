@@ -10,7 +10,7 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: |
       event == "pull_request" &&
       target_branch == "main" &&
-      (".tekton/lightspeed-operator-pull-request.yaml".pathChanged() || "Dockerfile".pathChanged() || "LICENSE".pathChanged() || "go.*".pathChanged() || "cmd/***".pathChanged() || "api/***".pathChanged() || "internal/***".pathChanged() || "test/***".pathChanged() || "hack/install/***".pathChanged())
+      (".tekton/lightspeed-operator-pull-request.yaml".pathChanged() || ".tekton/integration-tests/pipelines/***".pathChanged() || "Dockerfile".pathChanged() || "LICENSE".pathChanged() || "go.*".pathChanged() || "cmd/***".pathChanged() || "api/***".pathChanged() || "internal/***".pathChanged() || "test/***".pathChanged() || "hack/install/***".pathChanged())
   creationTimestamp:
   labels:
     appstudio.openshift.io/application: ols
