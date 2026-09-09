@@ -73,6 +73,15 @@ func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Contex
 				},
 			},
 		},
+		{
+			Name: utils.OtelCollectorServiceCAVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: utils.OLSCAConfigMap},
+					DefaultMode:          &[]int32{utils.VolumeDefaultMode}[0],
+				},
+			},
+		},
 	}
 
 	volumeMounts := []corev1.VolumeMount{
@@ -89,6 +98,11 @@ func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Contex
 		{
 			Name:      otelCollectorFileStorageVolumeName,
 			MountPath: utils.OtelCollectorFileStorageMountPath,
+		},
+		{
+			Name:      utils.OtelCollectorServiceCAVolumeName,
+			MountPath: utils.OtelCollectorServiceCAMountPath,
+			ReadOnly:  true,
 		},
 	}
 

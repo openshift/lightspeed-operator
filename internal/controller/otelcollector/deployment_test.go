@@ -51,6 +51,18 @@ var _ = Describe("OTEL Collector deployment", func() {
 		}
 		Expect(portNames).To(ConsistOf("otlp-grpc", "otlp-http", "admin", "metrics"))
 		Expect(container.ReadinessProbe.HTTPGet.Port.IntValue()).To(Equal(int(utils.OtelCollectorHealthCheckPort)))
+
+		volumeNames := make([]string, 0, len(spec.Volumes))
+		for _, v := range spec.Volumes {
+			volumeNames = append(volumeNames, v.Name)
+		}
+		Expect(volumeNames).To(ContainElement(utils.OtelCollectorServiceCAVolumeName))
+
+		mountNames := make([]string, 0, len(container.VolumeMounts))
+		for _, m := range container.VolumeMounts {
+			mountNames = append(mountNames, m.Name)
+		}
+		Expect(mountNames).To(ContainElement(utils.OtelCollectorServiceCAVolumeName))
 	})
 
 	It("should keep postgres wiring when audit logging is disabled", func() {

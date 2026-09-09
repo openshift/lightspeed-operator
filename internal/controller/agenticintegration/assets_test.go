@@ -2,6 +2,7 @@ package agenticintegration
 
 import (
 	"encoding/json"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -87,13 +88,9 @@ var _ = Describe("Agentic integration assets", func() {
 		Expect(cm.Name).To(Equal(utils.AgenticConfigurationConfigMapName))
 		Expect(cm.Labels).To(Equal(labels))
 		Expect(cm.Data[utils.AgenticConfigurationSandboxModeKey]).To(Equal(string(olsv1alpha1.SandboxModeBarePod)))
-		// OLS-3737: OTEL key assertions disabled until collector pipeline is proven.
-		// Expect(cm.Data[utils.AgenticConfigurationOtelCASecretKey]).To(Equal(utils.AgenticOtelCASecretName))
+		Expect(cm.Data[utils.AgenticConfigurationOtelCASecretKey]).To(Equal(utils.AgenticOtelCASecretName))
 		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationMCPEndpointKey))
 		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationMCPCASecretKey))
-		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationOtelCollectorEndpointKey))
-		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationOtelAdminEndpointKey))
-		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationOtelCASecretKey))
 		// RHOKP keys present (byokRAGOnly defaults to false)
 		Expect(cm.Data[utils.AgenticConfigurationRHOKPEndpointKey]).To(Equal(
 			utils.RHOKPServiceURL(utils.OLSNamespaceDefault),
@@ -103,6 +100,14 @@ var _ = Describe("Agentic integration assets", func() {
 		var podSpec corev1.PodSpec
 		Expect(json.Unmarshal([]byte(cm.Data[utils.AgenticConfigurationSandboxPodSpecKey]), &podSpec)).To(Succeed())
 		Expect(podSpec.Containers[0].Image).To(Equal(utils.AgenticSandboxImageDefault))
+
+		host := fmt.Sprintf("%s.%s.svc", utils.OtelCollectorServiceName, utils.OLSNamespaceDefault)
+		Expect(cm.Data[utils.AgenticConfigurationOtelCollectorEndpointKey]).To(Equal(
+			fmt.Sprintf("%s:%d", host, utils.OtelCollectorGRPCPort),
+		))
+		Expect(cm.Data[utils.AgenticConfigurationOtelAdminEndpointKey]).To(Equal(
+			fmt.Sprintf("https://%s:%d", host, utils.OtelCollectorAdminPort),
+		))
 	})
 
 	It("should include MCP keys when introspection is enabled", func() {

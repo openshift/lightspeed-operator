@@ -346,6 +346,12 @@ const (
 	AppOtelCollectorCACertVolumeName = "otel-collector-ca"
 	// AppOtelCollectorCACertFile is the CA filename within AppOtelCollectorCACertDir.
 	AppOtelCollectorCACertFile = "service-ca.crt"
+	// OtelCollectorServiceCAVolumeName is the pod volume name for the service-ca CA bundle in the collector.
+	OtelCollectorServiceCAVolumeName = "service-ca-bundle"
+	// OtelCollectorServiceCAMountPath is where the collector mounts the service-ca CA bundle.
+	OtelCollectorServiceCAMountPath = "/etc/certs/service-ca"
+	// OtelCollectorServiceCAFile is the full path to the service-ca CA cert file in the collector.
+	OtelCollectorServiceCAFile = "/etc/certs/service-ca/service-ca.crt"
 	// OTELExporterOTLPCertificateEnvVar is the OpenTelemetry SDK env var for the CA PEM
 	// used by the OTLP/gRPC exporter. gRPC does not use the certifi/extra_ca store.
 	OTELExporterOTLPCertificateEnvVar = "OTEL_EXPORTER_OTLP_CERTIFICATE"
