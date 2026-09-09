@@ -55,6 +55,9 @@ func LoadKubeConfig(kubeconfigPath string, contextName string, insecureSkipTLS b
 
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
+		if clientcmd.IsEmptyConfig(err) || resolvedContext == "" {
+			return nil, fmt.Errorf("could not load kubeconfig: no valid configuration found. Try: oc login")
+		}
 		return nil, fmt.Errorf("%s %q: %w", ErrResolveContext, resolvedContext, err)
 	}
 
