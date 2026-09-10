@@ -192,4 +192,87 @@ users:
 			Expect(err.Error()).To(ContainSubstring(ErrQueryEmpty))
 		})
 	})
+
+	Describe("troubleshoot subcommand", func() {
+		It("sends query with mode troubleshooting", func() {
+			var capturedBody []byte
+
+			body := sseEvent(EventStart, map[string]interface{}{"conversation_id": "conv-ts-int"}) +
+				sseEvent(EventToken, map[string]interface{}{"id": 0, "token": "restart the pod"}) +
+				buildEndEvent([]ReferencedDocument{})
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedBody, _ = io.ReadAll(r.Body)
+				w.Header().Set("Content-Type", "text/event-stream")
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, body)
+			}))
+			defer server.Close()
+
+			kubeconfigPath := createKubeconfig("https://k8s.example.com", "test-token")
+			defer os.Remove(kubeconfigPath)
+
+			streams, out, _ := fakeStreams()
+			cmd := NewRootCmd(streams)
+			cmd.SetArgs([]string{
+				"--kubeconfig", kubeconfigPath,
+				"--endpoint", server.URL,
+				"--insecure-skip-tls-verify",
+				"--insecure-allow-http",
+				"troubleshoot", "pod keeps restarting",
+			})
+
+			Expect(cmd.Execute()).To(Succeed())
+
+			// Verify mode is "troubleshooting" in request body
+			var reqBody LLMRequest
+			Expect(json.Unmarshal(capturedBody, &reqBody)).To(Succeed())
+			Expect(reqBody.Query).To(Equal("pod keeps restarting"))
+			Expect(reqBody.Mode).To(Equal("troubleshooting"))
+			Expect(reqBody.MediaType).To(Equal("application/json"))
+
+			Expect(out.String()).To(ContainSubstring("restart the pod"))
+		})
+
+		It("returns error when no query is provided", func() {
+			kubeconfigPath := createKubeconfig("https://k8s.example.com", "token")
+			defer os.Remove(kubeconfigPath)
+
+			streams, _, _ := fakeStreams()
+			cmd := NewRootCmd(streams)
+			cmd.SetArgs([]string{
+				"--kubeconfig", kubeconfigPath,
+				"--endpoint", "https://ols.example.com",
+				"troubleshoot",
+			})
+
+			err := cmd.Execute()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(ErrQueryEmpty))
+		})
+
+		It("returns error on HTTP 401", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusUnauthorized)
+			}))
+			defer server.Close()
+
+			kubeconfigPath := createKubeconfig("https://k8s.example.com", "expired-token")
+			defer os.Remove(kubeconfigPath)
+
+			streams, _, _ := fakeStreams()
+			cmd := NewRootCmd(streams)
+			cmd.SetArgs([]string{
+				"--kubeconfig", kubeconfigPath,
+				"--endpoint", server.URL,
+				"--insecure-skip-tls-verify",
+				"--insecure-allow-http",
+				"troubleshoot", "something broke",
+			})
+
+			err := cmd.Execute()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(ErrAuthFailed))
+		})
+	})
 })
