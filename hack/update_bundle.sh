@@ -1,7 +1,7 @@
 #!/bin/bash
 # Helper tool to update the bundle artifacts
 # Pre-requisites: opm, make, yq, operator-sdk
-# Usage: ./hack/update_bundle.sh
+# Usage: ./hack/update_bundle.sh v1|v2 [-v bundle_version]
 
 set -euo pipefail
 
@@ -19,18 +19,29 @@ trap cleanup EXIT
 SCRIPT_DIR=$(dirname "$0")
 
 usage() {
-  echo "Usage: $0 [-v bundle_version] [-h]"
-  echo "  -v bundle_version: The version of the bundle"
+  echo "Usage: $0 v1|v2 [-v bundle_version] [-i related_images_filename]"
+  echo "  v1|v2: Bundle variant (v1 is classic, v2 includes agentic components)"
+  echo "  -v bundle_version: The version of the bundle (defaults to 1.0.0 or 2.0.0)"
   echo "  -i related_images_filename: The JSON file containing the related images"
-
   echo "  -h: Show this help message"
 }
 
-BUNDLE_VERSION=""
+if [ "$#" -ge 1 ] && [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  usage
+  exit 0
+fi
+if [ "$#" -lt 1 ] || [[ "$1" != "v1" && "$1" != "v2" ]]; then
+  echo "a bundle variant (v1 or v2) is required"
+  usage
+  exit 1
+fi
+BUNDLE_VARIANT="$1"
+shift
+BUNDLE_VERSION="${BUNDLE_VERSION:-${BUNDLE_VARIANT/v/}.0.0}"
 RELATED_IMAGES_FILENAME=""
 CHANNEL_NAME="alpha"
 
-while getopts ":v:i:h" opt; do
+while getopts ":v:i:c:h" opt; do
   case "$opt" in
   "v")
     BUNDLE_VERSION=${OPTARG}
@@ -64,9 +75,9 @@ while getopts ":v:i:h" opt; do
   esac
 done
 
-if [ -z "${BUNDLE_VERSION}" ]; then
-  echo "bundle_version is required"
-  usage
+if [[ "${BUNDLE_VARIANT}" == "v1" && "${BUNDLE_VERSION}" != 1.* ]] ||
+   [[ "${BUNDLE_VARIANT}" == "v2" && "${BUNDLE_VERSION}" != 2.* ]]; then
+  echo "bundle version ${BUNDLE_VERSION} does not match ${BUNDLE_VARIANT}"
   exit 1
 fi
 
@@ -111,8 +122,8 @@ BUNDLE_DOCKERFILE="bundle.Dockerfile"
 # related_images.json is the single source of truth for (component_name, image) pairs.
 # When -i is not provided, fall back to existing CSV so make bundle without -i still works.
 if [ -f "${RELATED_IMAGES_FILENAME}" ]; then
-  echo "using related images from file ${RELATED_IMAGES_FILENAME}"
-  RELATED_IMAGES=$(${JQ} '.' ${RELATED_IMAGES_FILENAME})
+  echo "using related images from file ${RELATED_IMAGES_FILENAME} for ${BUNDLE_VARIANT}"
+  RELATED_IMAGES=$(${JQ} --arg bundle "${BUNDLE_VARIANT}" '[.[] | select((has("bundles") | not) or (.bundles | index($bundle)))]' "${RELATED_IMAGES_FILENAME}")
 else
   echo "error: provide -i related_images.json or run from a tree with an existing bundle CSV"
   exit 1
@@ -127,7 +138,9 @@ OPERATOR_IMAGE=$(${JQ} -r '.[] | select(.name == "lightspeed-operator") | .image
 echo "Updating bundle artifacts for image ${OPERATOR_IMAGE:-<from related_images>}"
 rm -rf ./bundle
 
-RELATED_IMAGES_FILE="${RELATED_IMAGES_FILENAME}" ./hack/generate_deployment_patch.sh
+FILTERED_RELATED_IMAGES_FILE="${TEMP_BUNDLE_CONTAINER_FILE}.related_images.json"
+printf '%s\n' "${RELATED_IMAGES}" > "${FILTERED_RELATED_IMAGES_FILE}"
+RELATED_IMAGES_FILE="${FILTERED_RELATED_IMAGES_FILE}" ./hack/generate_deployment_patch.sh
 
 ${OPERATOR_SDK} generate kustomize manifests -q
 ${KUSTOMIZE} build config/manifests | ${OPERATOR_SDK} generate bundle ${BUNDLE_GEN_FLAGS}
@@ -147,7 +160,7 @@ while IFS='|' read -r name placeholder target _; do
   else
     ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"${placeholder}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
   fi
-done < <(image_args::list_patch_entries "${RELATED_IMAGES_FILENAME}" "${JQ}")
+done < <(image_args::list_patch_entries "${FILTERED_RELATED_IMAGES_FILE}" "${JQ}")
 
 # Set spec.relatedImages from related_images.json (strip revision and snapshot metadata for OLM CSV).
 # The bundle image is only referenced in catalog files, not in the CSV.
@@ -155,7 +168,12 @@ RELATED_IMAGES_CSV=$(${JQ} 'map(del(.revision, .snapshot_component, .snapshot_so
 # set related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES_CSV}" ${CSV_FILE}
 # add compatibility labels to the annotations file
-${YQ} eval -i '.annotations."com.redhat.openshift.versions"="v4.16-v4.21"' ${ANNOTATION_FILE}
+if [ "${BUNDLE_VARIANT}" = "v1" ]; then
+  OCP_VERSIONS="v4.16-v4.22"
+else
+  OCP_VERSIONS=">=v5.0"
+fi
+${YQ} eval -i '.annotations."com.redhat.openshift.versions"="'"${OCP_VERSIONS}"'"' ${ANNOTATION_FILE}
 ${YQ} eval -i '(.annotations."com.redhat.openshift.versions" | key) head_comment="OCP compatibility labels"' ${ANNOTATION_FILE}
 ${YQ} eval -i '.annotations."features.operators.openshift.io/fips-compliant"="true"' ${ANNOTATION_FILE}
 
