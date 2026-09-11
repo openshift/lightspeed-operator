@@ -10,7 +10,6 @@ import (
 )
 
 var _ = Describe("AskCmd", func() {
-	// sseServer creates a test HTTP server that returns a canned SSE response.
 	sseServer := func(sseBody string) *httptest.Server {
 		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/event-stream")
@@ -19,7 +18,6 @@ var _ = Describe("AskCmd", func() {
 		}))
 	}
 
-	// buildEndEvent builds an end event payload matching the real server format.
 	buildEndEvent := func(docs []ReferencedDocument) string {
 		payload := map[string]interface{}{
 			"referenced_documents": docs,
@@ -31,7 +29,7 @@ var _ = Describe("AskCmd", func() {
 		return sseEndEvent(payload)
 	}
 
-	Describe("Run", func() {
+	Describe("queryRun with ask mode", func() {
 		It("streams token events to stdout and extracts conversation_id", func() {
 			body := sseEvent(EventStart, map[string]interface{}{"conversation_id": "conv-123"}) +
 				sseEvent(EventToken, map[string]interface{}{"id": 0, "token": "Hello"}) +
@@ -42,19 +40,16 @@ var _ = Describe("AskCmd", func() {
 			defer server.Close()
 
 			streams, out, _ := fakeStreams()
-			o := &AskOptions{
+			o := &commandOptions{
 				streams:           streams,
 				query:             "test question",
 				endpoint:          server.URL,
 				insecureAllowHTTP: true,
-				mode:              "ask",
-				kubeConfig: &KubeConfig{
-					BearerToken: "test-token",
-				},
+				kubeConfig:        &KubeConfig{BearerToken: "test-token"},
 			}
 
 			cmd := NewAskCmd(streams)
-			Expect(o.Run(cmd)).To(Succeed())
+			Expect(queryRun(cmd, o, "ask")).To(Succeed())
 			Expect(out.String()).To(Equal("Hello world\n"))
 			Expect(o.conversationID).To(Equal("conv-123"))
 		})
@@ -71,19 +66,16 @@ var _ = Describe("AskCmd", func() {
 			defer server.Close()
 
 			streams, out, _ := fakeStreams()
-			o := &AskOptions{
-				streams:  streams,
-				query:    "test",
-				endpoint: server.URL,
+			o := &commandOptions{
+				streams:           streams,
+				query:             "test",
+				endpoint:          server.URL,
 				insecureAllowHTTP: true,
-				mode:     "ask",
-				kubeConfig: &KubeConfig{
-					BearerToken: "test-token",
-				},
+				kubeConfig:        &KubeConfig{BearerToken: "test-token"},
 			}
 
 			cmd := NewAskCmd(streams)
-			Expect(o.Run(cmd)).To(Succeed())
+			Expect(queryRun(cmd, o, "ask")).To(Succeed())
 			Expect(out.String()).To(ContainSubstring("References:"))
 			Expect(out.String()).To(ContainSubstring("Pod Debugging"))
 			Expect(out.String()).To(ContainSubstring("https://docs.example.com/pods"))
@@ -97,19 +89,16 @@ var _ = Describe("AskCmd", func() {
 			defer server.Close()
 
 			streams, out, _ := fakeStreams()
-			o := &AskOptions{
-				streams:  streams,
-				query:    "test",
-				endpoint: server.URL,
+			o := &commandOptions{
+				streams:           streams,
+				query:             "test",
+				endpoint:          server.URL,
 				insecureAllowHTTP: true,
-				mode:     "ask",
-				kubeConfig: &KubeConfig{
-					BearerToken: "test-token",
-				},
+				kubeConfig:        &KubeConfig{BearerToken: "test-token"},
 			}
 
 			cmd := NewAskCmd(streams)
-			Expect(o.Run(cmd)).To(Succeed())
+			Expect(queryRun(cmd, o, "ask")).To(Succeed())
 			Expect(out.String()).To(ContainSubstring("simple answer"))
 			Expect(out.String()).NotTo(ContainSubstring("References:"))
 		})
@@ -121,19 +110,16 @@ var _ = Describe("AskCmd", func() {
 			defer server.Close()
 
 			streams, _, _ := fakeStreams()
-			o := &AskOptions{
-				streams:  streams,
-				query:    "test",
-				endpoint: server.URL,
+			o := &commandOptions{
+				streams:           streams,
+				query:             "test",
+				endpoint:          server.URL,
 				insecureAllowHTTP: true,
-				mode:     "ask",
-				kubeConfig: &KubeConfig{
-					BearerToken: "bad-token",
-				},
+				kubeConfig:        &KubeConfig{BearerToken: "bad-token"},
 			}
 
 			cmd := NewAskCmd(streams)
-			err := o.Run(cmd)
+			err := queryRun(cmd, o, "ask")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(ErrAuthFailed))
 		})
@@ -150,27 +136,22 @@ var _ = Describe("AskCmd", func() {
 			defer server.Close()
 
 			streams, out, errOut := fakeStreams()
-			o := &AskOptions{
+			o := &commandOptions{
 				streams:           streams,
 				query:             "test",
 				endpoint:          server.URL,
 				insecureAllowHTTP: true,
-				mode:              "ask",
-				kubeConfig: &KubeConfig{
-					BearerToken: "test-token",
-				},
+				kubeConfig:        &KubeConfig{BearerToken: "test-token"},
 			}
 
 			cmd := NewAskCmd(streams)
-			Expect(o.Run(cmd)).To(Succeed())
+			Expect(queryRun(cmd, o, "ask")).To(Succeed())
 
-			// Not displayed to stdout or stderr
 			Expect(out.String()).To(Equal("result\n"))
 			Expect(errOut.String()).NotTo(ContainSubstring("thinking"))
 			Expect(errOut.String()).NotTo(ContainSubstring("search"))
 			Expect(errOut.String()).NotTo(ContainSubstring("found it"))
 
-			// But captured internally for --output json (OLS-3639)
 			// start + reasoning + tool_call + tool_result = 4 captured events
 			Expect(o.capturedEvents).To(HaveLen(4))
 			Expect(o.capturedEvents[0].Type).To(Equal(EventStart))
@@ -180,8 +161,6 @@ var _ = Describe("AskCmd", func() {
 		})
 
 		It("warns on malformed end event JSON", func() {
-			// Simulate an end event where the inner data is not valid EndEventData
-			// but the envelope is still valid JSON
 			body := sseEvent(EventToken, map[string]interface{}{"id": 0, "token": "answer"}) +
 				sseEvent(EventEnd, "not-a-json-object")
 
@@ -189,19 +168,16 @@ var _ = Describe("AskCmd", func() {
 			defer server.Close()
 
 			streams, _, errOut := fakeStreams()
-			o := &AskOptions{
-				streams:  streams,
-				query:    "test",
-				endpoint: server.URL,
+			o := &commandOptions{
+				streams:           streams,
+				query:             "test",
+				endpoint:          server.URL,
 				insecureAllowHTTP: true,
-				mode:     "ask",
-				kubeConfig: &KubeConfig{
-					BearerToken: "test-token",
-				},
+				kubeConfig:        &KubeConfig{BearerToken: "test-token"},
 			}
 
 			cmd := NewAskCmd(streams)
-			err := o.Run(cmd)
+			err := queryRun(cmd, o, "ask")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(ErrMalformedEnd))
 			Expect(errOut.String()).To(ContainSubstring(ErrMalformedEnd))
@@ -214,19 +190,16 @@ var _ = Describe("AskCmd", func() {
 			defer server.Close()
 
 			streams, _, errOut := fakeStreams()
-			o := &AskOptions{
-				streams:  streams,
-				query:    "test",
-				endpoint: server.URL,
+			o := &commandOptions{
+				streams:           streams,
+				query:             "test",
+				endpoint:          server.URL,
 				insecureAllowHTTP: true,
-				mode:     "ask",
-				kubeConfig: &KubeConfig{
-					BearerToken: "test-token",
-				},
+				kubeConfig:        &KubeConfig{BearerToken: "test-token"},
 			}
 
 			cmd := NewAskCmd(streams)
-			err := o.Run(cmd)
+			err := queryRun(cmd, o, "ask")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(ErrMissingEnd))
 			Expect(errOut.String()).To(ContainSubstring(ErrStreamIncomplete))
@@ -239,79 +212,59 @@ var _ = Describe("AskCmd", func() {
 			defer server.Close()
 
 			streams, out, _ := fakeStreams()
-			o := &AskOptions{
-				streams:  streams,
-				query:    "test",
-				endpoint: server.URL,
+			o := &commandOptions{
+				streams:           streams,
+				query:             "test",
+				endpoint:          server.URL,
 				insecureAllowHTTP: true,
-				mode:     "ask",
-				kubeConfig: &KubeConfig{
-					BearerToken: "test-token",
-				},
+				kubeConfig:        &KubeConfig{BearerToken: "test-token"},
 			}
 
 			cmd := NewAskCmd(streams)
-			Expect(o.Run(cmd)).To(Succeed())
+			Expect(queryRun(cmd, o, "ask")).To(Succeed())
 			Expect(out.String()).To(Equal(""))
 		})
 	})
 
-	Describe("Validate", func() {
+	Describe("validate", func() {
 		It("rejects empty query", func() {
-			o := &AskOptions{
-				query:    "",
-				endpoint: "https://example.com",
-			}
-			err := o.Validate()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(ErrQueryEmpty))
+			o := &commandOptions{query: "", endpoint: "https://example.com"}
+			Expect(o.validate()).To(MatchError(ContainSubstring(ErrQueryEmpty)))
 		})
 
 		It("rejects whitespace-only query", func() {
-			o := &AskOptions{
-				query:    "   ",
-				endpoint: "https://example.com",
-			}
-			err := o.Validate()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(ErrQueryEmpty))
+			o := &commandOptions{query: "   ", endpoint: "https://example.com"}
+			Expect(o.validate()).To(MatchError(ContainSubstring(ErrQueryEmpty)))
 		})
 
 		It("rejects missing endpoint", func() {
-			o := &AskOptions{
-				query:    "test question",
-				endpoint: "",
-			}
-			err := o.Validate()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(ErrNoEndpoint))
+			o := &commandOptions{query: "test question", endpoint: ""}
+			Expect(o.validate()).To(MatchError(ContainSubstring(ErrNoEndpoint)))
 		})
 
 		It("accepts valid options", func() {
-			o := &AskOptions{
-				query:    "why is my pod crashing",
-				endpoint: "https://ols.example.com",
-			}
-			Expect(o.Validate()).To(Succeed())
+			o := &commandOptions{query: "why is my pod crashing", endpoint: "https://ols.example.com"}
+			Expect(o.validate()).To(Succeed())
 		})
 
 		It("rejects cleartext HTTP endpoint by default", func() {
-			o := &AskOptions{
-				query:    "test",
-				endpoint: "http://ols.example.com",
-			}
-			err := o.Validate()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cleartext HTTP"))
+			o := &commandOptions{query: "test", endpoint: "http://ols.example.com"}
+			Expect(o.validate()).To(MatchError(ContainSubstring("cleartext HTTP")))
 		})
 
-		It("allows cleartext HTTP with --insecure-allow-http", func() {
-			o := &AskOptions{
-				query:             "test",
-				endpoint:          "http://ols.example.com",
-				insecureAllowHTTP: true,
-			}
-			Expect(o.Validate()).To(Succeed())
+		It("allows cleartext HTTP with insecureAllowHTTP", func() {
+			o := &commandOptions{query: "test", endpoint: "http://ols.example.com", insecureAllowHTTP: true}
+			Expect(o.validate()).To(Succeed())
+		})
+
+		It("rejects endpoint without host", func() {
+			o := &commandOptions{query: "test", endpoint: "https:///v1"}
+			Expect(o.validate()).To(MatchError(ContainSubstring("host is required")))
+		})
+
+		It("rejects unsupported scheme", func() {
+			o := &commandOptions{query: "test", endpoint: "ftp://ols.example.com"}
+			Expect(o.validate()).To(MatchError(ContainSubstring("unsupported endpoint scheme")))
 		})
 	})
 

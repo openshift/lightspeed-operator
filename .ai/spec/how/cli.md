@@ -18,13 +18,14 @@ Audience: AI agents. This document describes **code layout, client wiring, and I
 | `root.go` | — | `NewRootCmd(streams)` — registers subcommands, default mode dispatching, global flags |
 | `version.go` | Package var `Version` (default `dev`) | `NewVersionCmd(streams)` |
 | `kubeconfig.go` | `KubeConfig` | `LoadKubeConfig(kubeconfigPath, contextName, insecureSkipTLS, caCertPath)` — bearer token extraction, TLS config |
-| `ask.go` | `AskOptions` | `NewAskCmd`, `Complete`, `Validate`, `Run` — streams query in `ask` mode |
-| `troubleshoot.go` | `TroubleshootOptions` | `NewTroubleshootCmd`, `Complete`, `Validate`, `Run` — streams query in `troubleshooting` mode |
+| `query.go` | `commandOptions` | `complete`, `validate`, `queryRun` — shared options, validation, and streaming query logic |
+| `ask.go` | — | `NewAskCmd` — thin command wiring, delegates to `queryRun` with `mode: "ask"` |
+| `troubleshoot.go` | — | `NewTroubleshootCmd` — thin command wiring, delegates to `queryRun` with `mode: "troubleshooting"` |
 | `streaming.go` | `SSEClient` | `NewSSEClient`, `StreamQuery` — shared HTTP + SSE streaming logic |
 | `attachments.go` | — | `ReadAttachments(paths)` — reads files, builds attachment array |
 | `render.go` | — | `RenderMarkdown(text)` — terminal markdown rendering via glamour |
 
-*Implemented: `root.go`, `version.go`, `kubeconfig.go` (OLS-3632); `config/endpoint.go`, `config/persistence.go`, `config/kubeconfig.go` (OLS-3633). Remaining files are planned.*
+*Implemented: `root.go`, `version.go`, `kubeconfig.go` (OLS-3632); `config/endpoint.go`, `config/persistence.go`, `config/kubeconfig.go` (OLS-3633); `ask.go`, `streaming.go`, `types.go`, `query.go` (OLS-3634); `troubleshoot.go` (OLS-3635). Remaining files are planned.*
 
 ---
 

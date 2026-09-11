@@ -18,10 +18,7 @@ const (
 
 // NewRootCmd creates the root oc-ols command and registers subcommands.
 func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
-	askOpts := &AskOptions{
-		streams: streams,
-		mode:    "ask",
-	}
+	o := &commandOptions{streams: streams}
 
 	cmd := &cobra.Command{
 		Use:   "oc-ols [command]",
@@ -32,13 +29,13 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return cmd.Help()
 			}
 			// Default mode: dispatch unrecognized args to ask
-			if err := askOpts.Complete(cmd, args); err != nil {
+			if err := o.complete(cmd, args); err != nil {
 				return err
 			}
-			if err := askOpts.Validate(); err != nil {
+			if err := o.validate(); err != nil {
 				return err
 			}
-			return askOpts.Run(cmd)
+			return queryRun(cmd, o, "ask")
 		},
 		SilenceUsage: true,
 		Args:         cobra.ArbitraryArgs,
@@ -65,6 +62,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd.AddCommand(NewVersionCmd(streams))
 	cmd.AddCommand(config.NewConfigCmd(streams))
 	cmd.AddCommand(NewAskCmd(streams))
+	cmd.AddCommand(NewTroubleshootCmd(streams))
 
 	return cmd
 }
