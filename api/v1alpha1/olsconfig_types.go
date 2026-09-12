@@ -541,6 +541,14 @@ type ModelParametersSpec struct {
 	// When unset, the service default (true) applies.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Temperature Supported"
 	TemperatureSupported *bool `json:"temperatureSupported,omitempty"`
+	// Reasoning configuration for the model (provider-agnostic freeform config).
+	// The service and provider API validate the contents.
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Reasoning Config"
+	ReasoningConfig map[string]interface{} `json:"reasoningConfig,omitempty"`
 }
 
 // ModelSpec defines the LLM model to use and its parameters.
