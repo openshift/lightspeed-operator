@@ -24,15 +24,15 @@ spec:
       type: string
     - name: test-name
       description: 'The name of the test corresponding to a defined Konflux integration test.'
-      default: 'ols-e2e-tests-4.19'
+      default: 'ols-e2e-tests-4.18'
       type: string
     - name: namespace
       description: 'Namespace to run tests in'
       default: 'openshift-lightspeed'
       type: string
     - name: openshift-version-prefix
-      description: 'OpenShift minor version prefix (include trailing dot, e.g. 4.19.) passed to test scripts.'
-      default: '4.19.'
+      description: 'OpenShift minor version to provision (for example, 4.22).'
+      default: '4.22'
       type: string
     - name: artifact-oci-tag-prefix
       description: 'Prepended to commit SHA in ols-service-artifacts Quay tag. Use "416" for OCP 4.16; empty for other minors.'
@@ -65,7 +65,7 @@ spec:
         - name: env
           value: '{"COMPUTE_NODE_TYPE": "m5.2xlarge", "HYPERSHIFT_NODE_COUNT": "3", "HOSTED_MANAGEMENT_CLUSTER": "hosted-mgmt2"}'
         - name: releases
-          value: '{"latest":{"release":{"channel":"stable","version":"4.19","architecture":"multi"}}}'
+          value: '{"latest":{"release":{"channel":"stable","version":"$(params.openshift-version-prefix)","architecture":"multi"}}}'
     - name: ols-install
       description: Install operator (OLM bundle or direct); record SNAPSHOT image ref and commit for service tests.
       runAfter:
@@ -160,7 +160,7 @@ spec:
         - name: namespace
           value: "$(params.namespace)"
         - name: openshift-version-prefix
-          value: $(params.openshift-version-prefix)
+          value: "$(params.openshift-version-prefix)."
         - name: artifact-oci-tag-prefix
           value: $(params.artifact-oci-tag-prefix)
         - name: clusterCredentialsSecretRef
@@ -349,21 +349,6 @@ spec:
                 - name: pathInRepo
                   value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
   finally:
-    - name: deprovision-ephemeral-cluster
-      taskRef:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/openshift/konflux-tasks
-          - name: revision
-            value: main
-          - name: pathInRepo
-            value: tasks/deprovision-ephemeral-cluster/0.1/deprovision-ephemeral-cluster.yaml
-      params:
-        - name: testPlatformClusterClaimName
-          value: $(tasks.provision-ephemeral-cluster.results.testPlatformClusterClaimName)
-        - name: testPlatformClusterClaimNamespace
-          value: $(tasks.provision-ephemeral-cluster.results.testPlatformClusterClaimNamespace)
     - name: export-logs-for-retention
       taskRef:
         resolver: git
@@ -383,3 +368,18 @@ spec:
           value: "quay.io/openshift-lightspeed/ols-service-artifacts"
         - name: artifact-credentials-secret
           value: ols-konflux-artifacts-bot
+    - name: deprovision-ephemeral-cluster
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/openshift/konflux-tasks
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/deprovision-ephemeral-cluster/0.1/deprovision-ephemeral-cluster.yaml
+      params:
+        - name: testPlatformClusterClaimName
+          value: $(tasks.provision-ephemeral-cluster.results.testPlatformClusterClaimName)
+        - name: testPlatformClusterClaimNamespace
+          value: $(tasks.provision-ephemeral-cluster.results.testPlatformClusterClaimNamespace)
