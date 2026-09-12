@@ -36,6 +36,7 @@ IMAGE_TAG_BASE ?= quay.io/openshift-lightspeed/lightspeed-operator
 # BUNDLE_TAG defines the version of the bundle.
 # You can use it as an arg. (E.g make bundle BUNDLE_TAG=0.0.1)
 BUNDLE_TAG ?= 1.1.4
+BUNDLE_VARIANT ?= v1
 
 # set the base image for docker files
 # You can use it as an arg.  (E.g make bundle BASE_IMG=registry.redhat.io/ubi9/ubi-minimal)
@@ -394,7 +395,7 @@ endif
 ## to use image digests instead of version tag, set the USE_IMAGE_DIGESTS variable to true
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
-	OPERATOR_SDK=$(OPERATOR_SDK) YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i related_images.json
+	OPERATOR_SDK=$(OPERATOR_SDK) YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh $(BUNDLE_VARIANT) -v $(BUNDLE_TAG) -i related_images.json
 
 parking:
 	$(OPERATOR_SDK) generate kustomize manifests -q
