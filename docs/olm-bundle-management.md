@@ -159,7 +159,7 @@ Field reference for Konflux-managed entries:
 
 **Workflow:**
 ```
-related_images.json → make manifests (deployment-patch.yaml) → hack/update_bundle.sh → CSV relatedImages + deployment args → Controller → Operand deployments
+related_images.json → make manifests (deployment-patch.yaml) → hack/update_bundle.sh v1|v2 → variant CSV relatedImages + deployment args → Controller → Operand deployments
 ```
 
 **Best practice:**
@@ -247,7 +247,7 @@ operator-sdk bundle validate ./bundle -o text  # Verbose output
 ### Images Not Updated in CSV
 
 ```bash
-YQ=$(which yq) JQ=$(which jq) ./hack/update_bundle.sh -v 0.1.0 -i related_images.json
+YQ=$(which yq) JQ=$(which jq) ./hack/update_bundle.sh v1 -v 1.0.0 -i related_images.json
 ```
 
 **Common fixes:**

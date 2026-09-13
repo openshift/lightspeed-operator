@@ -13,15 +13,15 @@ When we update the bundle?
 
 `update_bundle.sh` is the tool for updating bundle.
 Normally we just need to specify a version for the bundle, using argument `-v`. For example this command updates the bundle with version `0.2.1`.
-`./hack/update_bundle.sh -v 0.2.1`
+`./hack/update_bundle.sh v1 -v 1.2.1`
 
 We can also update the `.spec.relatedImages` field in the bundle by passing an image list JSON file using argument `-i`
-`./hack/update_bundle.sh -v 0.2.1 -i related_images.json`
+`./hack/update_bundle.sh v1 -v 1.2.1 -i related_images.json`
 
 If related images is not specified, it keeps the `.spec.relatedImages` field in the ClusterServiceVersion file in the bundle.
 
 We can also use `make bundle` to update the bundle.
-- `BUNDLE_TAG=0.2.1  make bundle` generates a bunlde with version `0.2.1`
+- `BUNDLE_TAG=1.2.1 BUNDLE_VARIANT=v1 make bundle` generates a classic bundle with version `1.2.1`
 - `RELATED_IMAGES_FILE=related_images.json make bundle` generates a bundle with version `0.2.1` and images in the file `related_images.json`
 
 Anyway, after building the bundle image from `bundle.Dockerfile` the `.spec.relatedImages` field in the file `/manifests/lightspeed-operator.clusterserviceversion.yaml` is set to the images in `related_images.json`.

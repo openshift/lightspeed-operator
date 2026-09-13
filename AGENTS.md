@@ -29,7 +29,7 @@ When updating the operator version for a release, you **MUST** update version nu
 - Both files MUST have matching versions
 - The CSV `name` field includes a `v` prefix (e.g., `lightspeed-operator.v1.0.8`)
 - The CSV `version` field does NOT have a prefix (e.g., `1.0.8`)
-- After version changes, regenerate bundle using `make bundle` or `hack/update_bundle.sh -v X.Y.Z`
+- After version changes, regenerate the selected bundle using `make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.x.y` or `hack/update_bundle.sh v1 -v 1.x.y` (use `v2`/`2.x.y` for the agentic bundle)
 
 ## Architecture Quick Reference
 
