@@ -56,6 +56,7 @@ lightspeed-catalog-4.18/
 | 4.18 | `lightspeed-catalog-4.18/` | 1.31 |
 | 4.19 | `lightspeed-catalog-4.19/` | 1.32 |
 | 4.20 | `lightspeed-catalog-4.20/` | 1.33 |
+| 5.0 | `lightspeed-catalog-5.0/` | v2 bundle only |
 
 **Why separate catalogs?**
 - Bundle metadata differs per OCP version (`com.redhat.openshift.versions` annotation)
@@ -75,7 +76,7 @@ make bundle-build BUNDLE_IMG=quay.io/org/bundle:v0.2.0
 make bundle-push BUNDLE_IMG=quay.io/org/bundle:v0.2.0
 
 # 2. Add to catalogs using our script
-./hack/bundle_to_catalog.sh quay.io/org/bundle:v0.2.0
+./hack/bundle_to_catalog.sh -b <bundle-snapshot> -t v1 -c lightspeed-catalog-4.22/index.yaml
 
 # 3. Build and push catalog images
 for v in 4.16 4.17 4.18 4.19 4.20; do
@@ -86,8 +87,10 @@ done
 
 **Our script** (`hack/bundle_to_catalog.sh`):
 - Renders bundle to FBC format
-- Adds to all OCP-version catalogs
-- Updates channel entries
+- Adds the selected bundle variant to the target OCP-version catalog
+- Removes bundle files from the other major version so catalogs are partitioned
+- Updates package-level channel entries
+- Applies `>=1.0.0 <2.0.0` to the v2 channel head
 - Handles skip ranges
 
 **Validate catalogs:**
@@ -136,6 +139,16 @@ entries:
 
 ## Common Tasks
 
+### Version-partitioned catalogs
+
+Use `-t v1` for every 4.x catalog and `-t v2` for every 5.x catalog. The catalog generator removes bundle files from the other major version and writes the v2 channel head with:
+
+```yaml
+skipRange: ">=1.0.0 <2.0.0"
+```
+
+Both variants use the same package name and channel names; the graph is authored at the package/channel level and does not depend on an Application resource.
+
 ### Add New Bundle to All Catalogs
 
 ```bash
@@ -145,7 +158,7 @@ make bundle-build BUNDLE_IMG=quay.io/org/bundle:v0.3.0
 make bundle-push BUNDLE_IMG=quay.io/org/bundle:v0.3.0
 
 # 2. Add to all catalogs
-./hack/bundle_to_catalog.sh quay.io/org/bundle:v0.3.0
+./hack/bundle_to_catalog.sh -b <bundle-snapshot> -t v1 -c lightspeed-catalog-4.22/index.yaml
 
 # 3. Build and push catalogs
 for v in 4.16 4.17 4.18 4.19 4.20; do
