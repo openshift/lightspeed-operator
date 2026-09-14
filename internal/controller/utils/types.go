@@ -189,6 +189,8 @@ type ModelParameters struct {
 	// Whether the model accepts the temperature parameter. Omitted when unset so
 	// the service default (true) applies.
 	TemperatureSupported *bool `json:"temperature_supported,omitempty"`
+	// Reasoning configuration for the model (provider-agnostic freeform config)
+	ReasoningConfig map[string]interface{} `json:"reasoning_config,omitempty"`
 }
 
 // ModelSpec defines the desired state of in-memory cache.

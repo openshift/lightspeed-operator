@@ -3,7 +3,6 @@ package e2e
 import (
 	"fmt"
 	"path"
-	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -210,7 +209,14 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		err = client.Update(cr, func(obj ctrlclient.Object) error {
 			cr := obj.(*olsv1alpha1.OLSConfig)
 			cr.Spec.OLSConfig.DefaultModel = OpenAIAlternativeModel
-			if !slices.Contains(cr.Spec.LLMConfig.Providers[0].Models, olsv1alpha1.ModelSpec{Name: OpenAIAlternativeModel}) {
+			modelExists := false
+			for _, m := range cr.Spec.LLMConfig.Providers[0].Models {
+				if m.Name == OpenAIAlternativeModel {
+					modelExists = true
+					break
+				}
+			}
+			if !modelExists {
 				cr.Spec.LLMConfig.Providers[0].Models = append(cr.Spec.LLMConfig.Providers[0].Models, olsv1alpha1.ModelSpec{Name: OpenAIAlternativeModel})
 			}
 			return nil

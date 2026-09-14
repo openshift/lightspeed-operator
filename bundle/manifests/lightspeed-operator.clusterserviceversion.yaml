@@ -38,7 +38,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     console.openshift.io/operator-monitoring-default: "true"
-    createdAt: "2026-09-08T09:48:26Z"
+    createdAt: "2026-09-11T10:38:53Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -177,6 +177,11 @@ spec:
           - description: Max tokens for response. The default is 2048 tokens.
             displayName: Max Tokens For Response
             path: llm.providers[0].models[0].parameters.maxTokensForResponse
+          - description: |-
+              Reasoning configuration for the model (provider-agnostic freeform config).
+              The service and provider API validate the contents.
+            displayName: Reasoning Config
+            path: llm.providers[0].models[0].parameters.reasoningConfig
           - description: |-
               Whether the model accepts the temperature parameter. Leave unset for models
               that support it; set to false for models that reject it (e.g. claude-sonnet-5).

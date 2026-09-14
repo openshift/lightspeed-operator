@@ -131,7 +131,7 @@ Field path (relative to parameters) | JSON key | Go type | Required | Default | 
 ---|---|---|---|---|---
 `maxTokensForResponse` | `maxTokensForResponse` | `int` | No | (unset; application default is 2048) | None
 `toolBudgetRatio` | `toolBudgetRatio` | `float64` | No | `0.25` | Minimum=0.1, Maximum=0.5
-`reasoningConfig` | `reasoningConfig` | `map[string]interface{}` | No | (unset) | None. [PLANNED: OLS-3442] Freeform map of provider-specific reasoning/thinking parameters. Passed through to the service as `reasoning_config`. Valid keys vary by provider and model generation — see lightspeed-service `what/llm-providers.md` rule 13. When absent, no reasoning params are sent. When present with invalid keys, the provider API returns a clear 400 error.
+`reasoningConfig` | `reasoningConfig` | `map[string]interface{}` | No | (unset) | None.  Freeform map of provider-specific reasoning/thinking parameters. Passed through to the service as `reasoning_config`. Valid keys vary by provider and model generation — see lightspeed-service `what/llm-providers.md` rule 13. When absent, no reasoning params are sent. When present with invalid keys, the provider API returns a clear 400 error.
 
 ### OLS Configuration (spec.ols)
 
@@ -406,7 +406,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.llm.providers[].models[].parameters` | `ModelParametersSpec` | -- | No | -- | Model parameters
 `spec.llm.providers[].models[].parameters.maxTokensForResponse` | `int` | -- | No | -- | Max response tokens
 `spec.llm.providers[].models[].parameters.toolBudgetRatio` | `float64` | `0.25` | No | Min=0.1, Max=0.5 | Tool token budget ratio
-`spec.llm.providers[].models[].parameters.reasoningConfig` | `map[string]interface{}` | -- | No | -- | [PLANNED: OLS-3442] Provider-specific reasoning/thinking params
+`spec.llm.providers[].models[].parameters.reasoningConfig` | `map[string]interface{}` | -- | No | -- |  Provider-specific reasoning/thinking params
 `spec.llm.providers[].type` | `string` | -- | Yes | Enum (see rule 7; includes `bedrock`) | Provider type
 `spec.llm.providers[].deploymentName` | `string` | -- | No | XValidation (rule 8) | Azure deployment name
 `spec.llm.providers[].apiVersion` | `string` | -- | No | -- | Azure API version
@@ -561,7 +561,7 @@ Path | Type | Default | Required | Validation | Description
 ## Planned Changes
 
 - [OLS-3450] Added `spec.ols.credentialHotReload` boolean field. When enabled, the operator skips annotating LLM credential secrets (no restart on rotation) and writes `credential_hot_reload: true` into `olsconfig.yaml`. See design spec `docs/superpowers/specs/2026-09-01-credential-hot-reload-design.md`.
-- [PLANNED: OLS-3442] Add `reasoningConfig` field (`map[string]interface{}`) to `ModelParametersSpec`. Freeform map passed through to the service as `reasoning_config` for provider-specific reasoning/thinking parameters. Includes release notes and user-facing documentation for valid keys per provider.
+-  Add `reasoningConfig` field (`map[string]interface{}`) to `ModelParametersSpec`. Freeform map passed through to the service as `reasoning_config` for provider-specific reasoning/thinking parameters. Includes release notes and user-facing documentation for valid keys per provider.
 - [DONE: OLS-3683 / OLS-3684] `spec.agenticOLS` (`sandboxMode`, `agenticSandboxConfig`), appserver-owned client CA Secrets, and handoff ConfigMap (`lightspeed-agentic-configuration`). See `agentic-sandbox-profile.md`.
 - [DONE: OLS-3697] Change `spec.ols.deployment.rhokp` from `ContainerConfig` to `Config`. RHOKP becomes a standalone Deployment with replicas (forced to 1), resources, tolerations, and nodeSelector. See `rhokp.md`.
 - [PLANNED: OLS-3594] Optional agentic auto-injection of MCP into agent runs (deferred).

@@ -127,6 +127,53 @@ func TestOLSConfigSpec_AgenticOLS_Omitempty(t *testing.T) {
 	}
 }
 
+func TestModelParametersSpec_DeepCopy_ReasoningConfig(t *testing.T) {
+	// Test that ReasoningConfig is properly deep-copied and not aliased.
+	in := ModelParametersSpec{
+		TemperatureSupported: boolPtr(true),
+		ReasoningConfig: map[string]interface{}{
+			"budget_tokens": float64(5000),
+			"think_steps":   float64(10),
+		},
+	}
+
+	// Create a deep copy
+	out := in.DeepCopy()
+
+	// Verify the copy has the same initial values
+	if out.ReasoningConfig["budget_tokens"] != in.ReasoningConfig["budget_tokens"] {
+		t.Errorf("budget_tokens: got %v, want %v", out.ReasoningConfig["budget_tokens"], in.ReasoningConfig["budget_tokens"])
+	}
+	if out.ReasoningConfig["think_steps"] != in.ReasoningConfig["think_steps"] {
+		t.Errorf("think_steps: got %v, want %v", out.ReasoningConfig["think_steps"], in.ReasoningConfig["think_steps"])
+	}
+
+	// Mutate the copy and verify the original is unchanged
+	out.ReasoningConfig["budget_tokens"] = float64(10000)
+	out.ReasoningConfig["new_field"] = "new_value"
+
+	// The original should still have the original value
+	if in.ReasoningConfig["budget_tokens"] != float64(5000) {
+		t.Errorf("original budget_tokens was mutated: got %v, want %v", in.ReasoningConfig["budget_tokens"], float64(5000))
+	}
+	if _, exists := in.ReasoningConfig["new_field"]; exists {
+		t.Errorf("original has new_field that was added to copy (aliased maps)")
+	}
+}
+
+func TestModelParametersSpec_DeepCopy_NilReasoningConfig(t *testing.T) {
+	// Test that nil ReasoningConfig is handled correctly
+	in := ModelParametersSpec{
+		TemperatureSupported: boolPtr(false),
+	}
+
+	out := in.DeepCopy()
+
+	if out.ReasoningConfig != nil {
+		t.Errorf("expected nil ReasoningConfig, got %v", out.ReasoningConfig)
+	}
+}
+
 func boolPtr(v bool) *bool {
 	return &v
 }

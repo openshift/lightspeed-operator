@@ -257,13 +257,25 @@ spec:
               - name: VERTEX_PROVIDER_KEY_PATH
                 value: "/var/run/vertex/token"
               - name: BEDROCK_AWS_ACCESS_KEY_ID
-                value: "/var/run/bedrock/aws_access_key_id"
+                valueFrom:
+                  secretKeyRef:
+                    name: bedrock-apitoken
+                    key: aws_access_key_id
               - name: BEDROCK_AWS_SECRET_ACCESS_KEY
-                value: "/var/run/bedrock/aws_secret_access_key"
+                valueFrom:
+                  secretKeyRef:
+                    name: bedrock-apitoken
+                    key: aws_secret_access_key
               - name: BEDROCK_ROLE_AWS_ACCESS_KEY_ID
-                value: "/var/run/bedrock-role/aws_access_key_id"
+                valueFrom:
+                  secretKeyRef:
+                    name: bedrock-role-apitoken
+                    key: aws_access_key_id
               - name: BEDROCK_ROLE_AWS_SECRET_ACCESS_KEY
-                value: "/var/run/bedrock-role/aws_secret_access_key"
+                valueFrom:
+                  secretKeyRef:
+                    name: bedrock-role-apitoken
+                    key: aws_secret_access_key
               - name: BEDROCK_ROLE_ARN
                 value: "arn:aws:iam::103138678430:role/BedrockAccessRole"
               - name: KUBECONFIG
