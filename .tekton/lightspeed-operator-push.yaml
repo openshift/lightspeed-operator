@@ -9,7 +9,7 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: |
       event == "push" &&
       target_branch == "main" &&
-      (".tekton/lightspeed-operator-push.yaml".pathChanged() || "Dockerfile".pathChanged() || "LICENSE".pathChanged() || "go.*".pathChanged() || "cmd/***".pathChanged() || "api/***".pathChanged() || "internal/***".pathChanged() || "test/***".pathChanged())
+      (".tekton/lightspeed-operator-push.yaml".pathChanged() || ".tekton/integration-tests/pipelines/***".pathChanged() || "Dockerfile".pathChanged() || "LICENSE".pathChanged() || "go.*".pathChanged() || "cmd/***".pathChanged() || "api/***".pathChanged() || "internal/***".pathChanged() || "test/***".pathChanged())
   creationTimestamp:
   labels:
     appstudio.openshift.io/application: ols
