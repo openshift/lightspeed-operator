@@ -126,25 +126,41 @@ trap cleanup EXIT
 DEFAULT_CHANNEL_NAME=$(cut -d ',' -f 1 <<<${CHANNEL_NAMES})
 sed "s/defaultChannel: alpha/defaultChannel: ${DEFAULT_CHANNEL_NAME}/" ${CATALOG_INITIAL_FILE} >"${CATALOG_FILE}"
 
-# get bundle image on konflux workspace, replace CI registry with the stable registry
-oc get -n ${KONFLUX_NAMESPACE} snapshot ${BUNDLE_SNAPSHOT_REF} -o json >"${TMP_BUNDLE_SNAPSHOT_JSON}"
-BUNDLE_IMAGE_ORIGIN=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .containerImage' "${TMP_BUNDLE_SNAPSHOT_JSON}")
-BUNDLE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .source.git.revision' "${TMP_BUNDLE_SNAPSHOT_JSON}")
-BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle"
-BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle|'"${BUNDLE_IMAGE_BASE}"'|g' <<<${BUNDLE_IMAGE_ORIGIN})
+# Resolve the bundle component and its delivery repository from the requested
+# variant. v1 and v2 are distinct Konflux components and must never publish to
+# each other's stable repository.
+if ! BUNDLE_METADATA=$(${JQ} -ce --arg bundle "${BUNDLE_VARIANT}" '
+  [.[] | select(.snapshot_source == "bundle" and (.bundles | index($bundle)))]
+  | if length == 1 then .[0] else error("expected exactly one bundle entry") end
+' "${RELATED_IMAGES_FILE}"); then
+  echo "could not resolve the ${BUNDLE_VARIANT} bundle metadata" >&2
+  exit 1
+fi
+BUNDLE_NAME=$(${JQ} -r '.name' <<<"${BUNDLE_METADATA}")
+BUNDLE_COMPONENT=$(${JQ} -r '.snapshot_component' <<<"${BUNDLE_METADATA}")
+BUNDLE_KONFLUX_PREFIX=$(${JQ} -r '.konflux_prefix' <<<"${BUNDLE_METADATA}")
+BUNDLE_IMAGE_BASE=$(${JQ} -r '.stable_prefix' <<<"${BUNDLE_METADATA}")
 
-# Update or add lightspeed-operator-bundle in RELATED_IMAGES
-RELATED_IMAGES=$(${JQ} --arg img "$BUNDLE_IMAGE" --arg rev "$BUNDLE_REVISION" '
-  if map(select(.name == "lightspeed-operator-bundle")) | length > 0 then
-    map(if .name == "lightspeed-operator-bundle" then .image = $img | .revision = $rev else . end)
-  else
-    . + [{"name":"lightspeed-operator-bundle","image":$img,"revision":$rev}]
-  end
-' <${RELATED_IMAGES_FILE})
-# save the bundle image to the related images file
-${JQ} <<<${RELATED_IMAGES} >"${RELATED_IMAGES_FILE}"
-# remove revision from each element
-RELATED_IMAGES=$(${JQ} <<<${RELATED_IMAGES} 'map(del(.revision))')
+# Get the selected bundle image from its Konflux application snapshot, then
+# replace the CI registry prefix with the matching stable delivery repository.
+oc get -n ${KONFLUX_NAMESPACE} snapshot ${BUNDLE_SNAPSHOT_REF} -o json >"${TMP_BUNDLE_SNAPSHOT_JSON}"
+BUNDLE_IMAGE_ORIGIN=$(${JQ} -r --arg component "${BUNDLE_COMPONENT}" '.spec.components[] | select(.name == $component) | .containerImage' "${TMP_BUNDLE_SNAPSHOT_JSON}")
+BUNDLE_REVISION=$(${JQ} -r --arg component "${BUNDLE_COMPONENT}" '.spec.components[] | select(.name == $component) | .source.git.revision' "${TMP_BUNDLE_SNAPSHOT_JSON}")
+if [ -z "${BUNDLE_IMAGE_ORIGIN}" ] || [ "${BUNDLE_IMAGE_ORIGIN}" = "null" ]; then
+  echo "bundle component ${BUNDLE_COMPONENT} was not found in snapshot ${BUNDLE_SNAPSHOT_REF}" >&2
+  exit 1
+fi
+BUNDLE_IMAGE=$(sed 's|'"${BUNDLE_KONFLUX_PREFIX}"'|'"${BUNDLE_IMAGE_BASE}"'|g' <<<"${BUNDLE_IMAGE_ORIGIN}")
+
+# Persist the resolved image for the selected bundle entry, then use only the
+# images that belong to this bundle variant in the generated catalog metadata.
+RELATED_IMAGES_ALL=$(${JQ} --arg name "${BUNDLE_NAME}" --arg img "${BUNDLE_IMAGE}" --arg rev "${BUNDLE_REVISION}" '
+  map(if .name == $name then .image = $img | .revision = $rev else . end)
+' <"${RELATED_IMAGES_FILE}")
+${JQ} <<<"${RELATED_IMAGES_ALL}" >"${RELATED_IMAGES_FILE}"
+RELATED_IMAGES=$(${JQ} --arg bundle "${BUNDLE_VARIANT}" '
+  [.[] | select((has("bundles") | not) or (.bundles | index($bundle))) | del(.revision)]
+' <<<"${RELATED_IMAGES_ALL}")
 echo "Catalog will use the following images: ${RELATED_IMAGES}"
 
 OPM_ARGS=""

@@ -180,7 +180,7 @@ done < <(image_args::list_patch_entries "${FILTERED_RELATED_IMAGES_FILE}" "${JQ}
 
 # Set spec.relatedImages from related_images.json (strip revision and snapshot metadata for OLM CSV).
 # The bundle image is only referenced in catalog files, not in the CSV.
-RELATED_IMAGES_CSV=$(${JQ} 'map(del(.revision, .snapshot_component, .snapshot_source, .konflux_prefix, .stable_prefix, .operator_arg, .operator_target)) | map(select(.name != "lightspeed-operator-bundle"))' <<<"${RELATED_IMAGES}")
+RELATED_IMAGES_CSV=$(${JQ} 'map(select(.snapshot_source != "bundle") | del(.revision, .snapshot_component, .snapshot_source, .konflux_prefix, .stable_prefix, .operator_arg, .operator_target))' <<<"${RELATED_IMAGES}")
 # set related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES_CSV}" ${CSV_FILE}
 # v1 must not grant access to agentic API resources. Keep this filtering at

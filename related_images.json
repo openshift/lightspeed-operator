@@ -132,7 +132,18 @@
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle",
     "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle",
     "bundles": [
-      "v1",
+      "v1"
+    ]
+  },
+  {
+    "name": "lightspeed-agentic-operator-bundle",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-agentic-bundle:main",
+    "revision": "",
+    "snapshot_component": "ols-agentic-bundle",
+    "snapshot_source": "bundle",
+    "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-agentic-bundle",
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-operator-bundle",
+    "bundles": [
       "v2"
     ]
   }
