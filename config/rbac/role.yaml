@@ -170,6 +170,7 @@ rules:
   resourceNames:
   - lightspeed-agentic-alerts-adapter-agenticruns
   - lightspeed-app-server-sar-role-binding
+  - lightspeed-operator-ols-metrics-reader
   resources:
   - clusterrolebindings
   verbs:

@@ -126,6 +126,7 @@ var _ = Describe("manager-role YAML", func() {
 			allowedCRBs := map[string]bool{
 				"lightspeed-app-server-sar-role-binding":        true,
 				"lightspeed-agentic-alerts-adapter-agenticruns": true,
+				"lightspeed-operator-ols-metrics-reader":        true,
 			}
 			allowedRoleBindings := map[string]bool{
 				"lightspeed-agentic-alerts-adapter-alertmanager": true,
