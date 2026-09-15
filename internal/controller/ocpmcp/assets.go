@@ -29,7 +29,8 @@ const configTOML = `# Denied resources prevent the MCP server from accessing the
 # Toolsets are pinned explicitly so upstream default changes do not affect OLS.
 
 read_only = false
-toolsets = ["core", "config", "helm", "observability/metrics"]
+toolsets = ["core", "config", "helm", "observability/metrics", "kubevirt"]
+experimental_enable_target_compatibility_tool_filters = true
 
 [[denied_resources]]
 group = ""
