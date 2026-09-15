@@ -13,6 +13,10 @@ spec:
     - name: releasePlan
       type: string
       description: The release plan name, which is not used in this pipeline. Provided by Konflux.
+    - name: bundle-variant
+      type: string
+      description: "Bundle line to publish: v1 (classic) or v2 (full agentic)."
+      default: v1
     - name: forkGitUrl
       type: string
       description: The git repository URL where the updated catalog is committed to
@@ -44,6 +48,9 @@ spec:
           - name: release
             type: string
             description: The release name and namespace in the format of <namespace>/<release-name>
+          - name: bundle-variant
+            type: string
+            description: "Bundle line to publish: v1 (classic) or v2 (full agentic)."
           - name: forkGitUrl
             type: string
             description: The git repository URL where the updated catalog is committed to
@@ -101,13 +108,24 @@ spec:
               IFS='/' read -r SNAPSHOT_NAMESPACE SNAPSHOT_NAME <<< "$(params.snapshot)"
 
               cd repo
-              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.16/index.yaml
-              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.17/index.yaml -m
-              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.18/index.yaml -m
-              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.19/index.yaml -m
-              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.20/index.yaml -m
-              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.21/index.yaml -m
-              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.22/index.yaml -m
+              case "$(params.bundle-variant)" in
+                v1)
+                  ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -t v1 -n stable,alpha -c lightspeed-catalog-4.16/index.yaml
+                  ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -t v1 -n stable,alpha -c lightspeed-catalog-4.17/index.yaml -m
+                  ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -t v1 -n stable,alpha -c lightspeed-catalog-4.18/index.yaml -m
+                  ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -t v1 -n stable,alpha -c lightspeed-catalog-4.19/index.yaml -m
+                  ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -t v1 -n stable,alpha -c lightspeed-catalog-4.20/index.yaml -m
+                  ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -t v1 -n stable,alpha -c lightspeed-catalog-4.21/index.yaml -m
+                  ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -t v1 -n stable,alpha -c lightspeed-catalog-4.22/index.yaml -m
+                  ;;
+                v2)
+                  ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -t v2 -n stable,alpha -c lightspeed-catalog-5.0/index.yaml -m
+                  ;;
+                *)
+                  echo "unsupported bundle variant: $(params.bundle-variant)" >&2
+                  exit 1
+                  ;;
+              esac
 
             workingDir: /workspace
             env:
@@ -142,7 +160,7 @@ spec:
               cd repo
               git add lightspeed-catalog-4.16/ lightspeed-catalog-4.17/ \
                 lightspeed-catalog-4.18/ lightspeed-catalog-4.19/ lightspeed-catalog-4.20/ \
-                lightspeed-catalog-4.21/ lightspeed-catalog-4.22/
+                lightspeed-catalog-4.21/ lightspeed-catalog-4.22/ lightspeed-catalog-5.0/
               git add related_images.json
               git commit -m "Update catalog with bundle snapshot $(params.snapshot)"
               git config credential.helper '!f() { sleep 1; echo "username=git"; echo "password=$GITHUB_TOKEN"; }; f'
@@ -179,6 +197,8 @@ spec:
           value: $(params.sourceBranch)
         - name: releasePlan
           value: $(params.releasePlan)
+        - name: bundle-variant
+          value: $(params.bundle-variant)
   results:
     - name: commit-id
       description: The commit ID where bundle is updated
