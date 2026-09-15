@@ -1,5 +1,5 @@
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:1c1714aa6fd2ad3fc2d4bf926d57ea3f3bff9be7d00b7bbe7b91853c444bf4a7
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:0a5dc1345734cd31636221069e1486fcda49ce84df36b8ba02adaed76fa0670e
 name: lightspeed-operator.v1.1.3
 package: lightspeed-operator
 properties:
@@ -51,7 +51,7 @@ properties:
           ]
         capabilities: Seamless Upgrades
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2026-08-25T10:37:52Z"
+        createdAt: "2026-09-08T09:48:26Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -187,6 +187,12 @@ properties:
               - description: Max tokens for response. The default is 2048 tokens.
                 displayName: Max Tokens For Response
                 path: llm.providers[0].models[0].parameters.maxTokensForResponse
+              - description: |-
+                  Whether the model accepts the temperature parameter. Leave unset for models
+                  that support it; set to false for models that reject it (e.g. claude-sonnet-5).
+                  When unset, the service default (true) applies.
+                displayName: Temperature Supported
+                path: llm.providers[0].models[0].parameters.temperatureSupported
               - description: Ratio of context window size allocated for tool token budget. Must be between 0.1 and 0.5. The default is 0.5.
                 displayName: Tool Budget Ratio
                 path: llm.providers[0].models[0].parameters.toolBudgetRatio
@@ -625,34 +631,32 @@ relatedImages:
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     operator_arg: postgres-image
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:5c6426ec827b469a10a093ded2e9551e5f28d698ff4073ab474bb7d95e1c1694
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:c5113f8f8a49890052e2bf550df6e4f64502a4a78abbbd43ac956dc9e8cf6f4d
     operator_arg: service-image
     snapshot_component: lightspeed-service
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service
     stable_prefix: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:1077f7f87b7e701e3d719bf4d5af3cbabdf9145dd02569df435dbebf433939fa
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:47f794226255e9c80951ce35bbd6be5b956cd10b3d51703b93dd6006d3f9b5b7
     operator_arg: console-image
     snapshot_component: lightspeed-console
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
     stable_prefix: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ab7701e98d36002ca215a055aaaadd37c11cd50e01193e0306c545e4ab3cfa05
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:5c7e98bc22999cd9947d00fc9a35f4f0076e60a0b0c6ce71add303390fbf5f0c
     operator_target: image
     snapshot_component: lightspeed-operator
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator
     stable_prefix: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator
   - name: openshift-mcp-server
-    image: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:8a8321cc2e00c3f13bf8e433da0fb3c990def939d5c7dec5f3978e9e323fc98b
+    image: registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9@sha256:efa0d55626466c588932c0320bee73dd221b1979aafbbaf4b3ad4685aa9f317d
     operator_arg: openshift-mcp-server-image
-    snapshot_component: openshift-mcp-server
-    konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/openshift-mcp-server
-    stable_prefix: registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9
+    stable_prefix: registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9
   - name: rhokp
-    image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:f46082f2dc2972582f3b85ed2a563b554d0aba3255ba2f00835e65f4929ae9a9
+    image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
     operator_arg: rhokp-image
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:1c1714aa6fd2ad3fc2d4bf926d57ea3f3bff9be7d00b7bbe7b91853c444bf4a7
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:0a5dc1345734cd31636221069e1486fcda49ce84df36b8ba02adaed76fa0670e
     snapshot_component: ols-bundle
     snapshot_source: bundle
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle
