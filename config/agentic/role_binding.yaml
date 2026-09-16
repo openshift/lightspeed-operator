@@ -1,0 +1,16 @@
+# Binds agentic-operator-manager-role to the agentic controller SA (OLS-3188).
+# Synced from agentic-operator config/rbac/role_binding.yaml; subject retargeted
+# to the `agentic-controller-manager` ServiceAccount name. `system` is transformed by the v2 Kustomize
+# assembly to the deployed namespace, matching config/rbac/role_binding.yaml.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: agentic-operator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: agentic-operator-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: agentic-controller-manager
+    namespace: system

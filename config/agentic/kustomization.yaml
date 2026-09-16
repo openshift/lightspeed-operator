@@ -1,0 +1,23 @@
+# Agentic controller inputs for the v2 (OCP >= 5.0) bundle only (OLS-3188).
+#
+# Included by the v2 kustomize assembly so that `operator-sdk generate bundle`
+# emits, in the v2 CSV:
+#   * a second deployment (lightspeed-agentic-operator-controller-manager), and
+#   * the agentic-operator-manager-role rules as clusterPermissions.
+# The run_approver ClusterRole/Binding ship as standalone v2 bundle manifests.
+#
+# These files are synced from the agentic-operator repo (OLS-3189); do not
+# hand-edit their rule/spec content.
+#
+# NOTE: This directory is NOT referenced by config/default or config/manifests
+# on main. The v2 assembly + `update_bundle.sh v2` selection that pulls it in is
+# provided by OLS-4008/OLS-4009 and is wired at merge time.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - manager.yaml
+  - role.yaml
+  - role_binding.yaml
+  - secret_reader_role_binding.yaml
+  - run_approver_role.yaml
+  - run_approver_binding.yaml
