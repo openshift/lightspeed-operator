@@ -358,7 +358,9 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 		exporters["otlp/tracing"] = map[string]interface{}{
 			"endpoint": "${env:" + utils.OtelCollectorTracesBackendEndpointEnvVar + "}",
 			"tls": map[string]interface{}{
-				"insecure": false,
+				"insecure":                     false,
+				"ca_file":                      utils.OtelCollectorServiceCAFile,
+				"include_system_ca_certs_pool": true,
 			},
 		}
 		pipelines["traces"] = map[string]interface{}{
