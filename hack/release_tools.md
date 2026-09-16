@@ -11,21 +11,19 @@ When we update the bundle?
 1. change in the CRD (change in api/v1alpha1/olsconfig_types.go)
 2. change in any resources (deployment, role, service, etc.) in config/ directory
 
-`update_bundle.sh` is the tool for updating bundle.
-Normally we just need to specify a version for the bundle, using argument `-v`. For example this command updates the bundle with version `0.2.1`.
-`./hack/update_bundle.sh -v 0.2.1`
+`update_bundle.sh` updates the bundle. It requires a bundle variant (`v1` or
+`v2`) before its options; the bundle version passed with `-v` must use the
+variant's major version. The image list passed with `-i` is required because it
+contains the selector metadata. For example, this command updates the classic
+bundle with version `1.2.1`.
+`./hack/update_bundle.sh v1 -v 1.2.1 -i related_images.json`
 
-We can also update the `.spec.relatedImages` field in the bundle by passing an image list JSON file using argument `-i`
-`./hack/update_bundle.sh -v 0.2.1 -i related_images.json`
-
-If related images is not specified, it keeps the `.spec.relatedImages` field in the ClusterServiceVersion file in the bundle.
-
-We can also use `make bundle` to update the bundle.
-- `BUNDLE_TAG=0.2.1  make bundle` generates a bunlde with version `0.2.1`
-- `RELATED_IMAGES_FILE=related_images.json make bundle` generates a bundle with version `0.2.1` and images in the file `related_images.json`
+We can also use `make bundle` to update the bundle. The recipe always supplies
+`related_images.json`.
+- `BUNDLE_VARIANT=v1 BUNDLE_TAG=1.2.1 make bundle` generates a classic bundle with version `1.2.1`.
+- `BUNDLE_VARIANT=v2 BUNDLE_TAG=2.0.0 make bundle` generates an agentic bundle with version `2.0.0`.
 
 Anyway, after building the bundle image from `bundle.Dockerfile` the `.spec.relatedImages` field in the file `/manifests/lightspeed-operator.clusterserviceversion.yaml` is set to the images in `related_images.json`.
-Specifying the RELATED_IMAGES_FILE is for previewing the final bundle build.
 
 ## Image List Update
 

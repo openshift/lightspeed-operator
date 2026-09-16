@@ -94,16 +94,19 @@ version: X.Y.Z
 
 ### Step 4: Regenerate Bundle
 
-After updating both files, regenerate the bundle:
+After updating the selected bundle line, regenerate the bundle. Use a matching
+variant and major version:
 
 ```bash
-make bundle BUNDLE_TAG=X.Y.Z
+make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.X.Y
+# or, for the agentic bundle:
+make bundle BUNDLE_VARIANT=v2 BUNDLE_TAG=2.X.Y
 ```
 
 Or use the script:
 
 ```bash
-hack/update_bundle.sh -v X.Y.Z -i related_images.json
+hack/update_bundle.sh v1 -v 1.X.Y -i related_images.json
 ```
 
 This ensures all generated files are consistent with the new version and stable images.
@@ -140,7 +143,7 @@ git commit -m "OLS-XXXX: Release vX.Y.Z"
 - [ ] `bundle.Dockerfile` updated (lines 63, 66)
 - [ ] `bundle/manifests/lightspeed-operator.clusterserviceversion.yaml` name updated (line ~58, with `v` prefix)
 - [ ] `bundle/manifests/lightspeed-operator.clusterserviceversion.yaml` version updated (line ~715, without prefix)
-- [ ] Bundle regenerated with `make bundle BUNDLE_TAG=X.Y.Z` or `hack/update_bundle.sh -v X.Y.Z -i related_images.json`
+- [ ] Bundle regenerated with `make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.X.Y` or `hack/update_bundle.sh v1 -v 1.X.Y -i related_images.json` (use v2/2.X.Y for the agentic bundle)
 - [ ] `operator-sdk bundle validate ./bundle` passes
 - [ ] Both version files have matching `X.Y.Z`
 - [ ] Changes committed (when requested)
