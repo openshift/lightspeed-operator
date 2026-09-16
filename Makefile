@@ -121,6 +121,16 @@ generate-deployment-patch: jq ## Generate config/default/deployment-patch.yaml f
 manifests: generate-deployment-patch controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook $(CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases
 
+# Agentic CRD/RBAC sync (OLS-3189). Update the reviewed agentic-operator
+# release version when changing manifests vendored into the v2 bundle. Synced
+# files must not be hand-edited.
+AGENTIC_OPERATOR_REPO ?= https://github.com/openshift/lightspeed-agentic-operator
+AGENTIC_OPERATOR_REF ?= 2.0.0
+
+.PHONY: sync-agentic-crds
+sync-agentic-crds: ## Sync agentic CRDs and RBAC from lightspeed-agentic-operator at AGENTIC_OPERATOR_REF.
+	AGENTIC_OPERATOR_REPO=$(AGENTIC_OPERATOR_REPO) AGENTIC_OPERATOR_REF=$(AGENTIC_OPERATOR_REF) ./hack/sync_agentic_manifests.sh
+
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" $(CONTROLLER_GEN_PATHS)
