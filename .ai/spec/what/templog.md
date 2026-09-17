@@ -16,7 +16,8 @@ OTEL Collector (always deployed)
   │     (only service.name=lightspeed-agentic-sandbox)
   ├─ postgres_admin HTTPS :8080   ← always (templog cleanup / GET for agentic-operator)
   ├─ HTTPS metrics :8888          ← always (https_metrics; Prometheus scrape)
-  └─ traces pipeline → backend    ← spec.audit.tracingEndpoint (optional)
+  ├─ traces pipeline → backend    ← spec.audit.tracingEndpoint (optional)
+  └─ [PLANNED: OLS-3569] Agentic product-collection pipeline (traces only; conditionally configured)
 
 Agentic handoff — see agentic-sandbox-profile.md
   appserver: Secret lightspeed-agentic-otel-ca (PEM)
@@ -95,6 +96,7 @@ See `postgres.md` for Postgres bootstrap scope and `templog.md` (ols repo) for t
    - `logging` false → logs pipeline exports to `nop` (no Postgres); `postgres_admin` extension remains enabled (agentic templog cleanup)
    - `tracingEndpoint` set → traces pipeline to backend (TLS); when unset, traces pipeline exports to `nop` so the OTLP receiver does not return `UNIMPLEMENTED`
    - `nop` exporter is always present for pipelines that must exist but have no backend
+   - [PLANNED: OLS-3569] the Agentic collection gate conditionally adds a traces-only product-collection pipeline; it does not alter or consume the existing OTLP logs pipelines. See `agentic-data-collection.md`
 4. Postgres DSN uses operator-managed Postgres credentials (`sslmode=require`, service-ca TLS), always injected into the Deployment (DSN Secret env, admin container port, Postgres wait init) because `postgres_admin` is always enabled for clients. `spec.audit.logging` only toggles the logs export pipeline in the runtime ConfigMap.
 5. NetworkPolicy: (a) ingress from all pods in the operator namespace (empty `PodSelector`) on `:4317` **and** `:8080`; (b) ingress from Prometheus pods in `openshift-monitoring` on HTTPS metrics `:8888` only.
 6. Serving cert via service-ca (`lightspeed-otel-collector-cert`); used for OTLP, `postgres_admin`, and `https_metrics`. Cert rotation restarts collector and app-server deployments; `RestartAppServer` refreshes `lightspeed-agentic-otel-ca` and touches the handoff ConfigMap.
@@ -128,4 +130,9 @@ Agentic-operator reads OTLP/admin endpoints from `lightspeed-agentic-configurati
 - `what/reconciliation.md` — Phase 1/2 collector wiring, `OtelCollectorReady`
 - `what/tls.md` — collector serving cert, app-server `extra_ca`
 - `what/agentic-sandbox-profile.md` — agentic handoff ConfigMap + appserver-owned OTEL CA Secret
+- `what/agentic-data-collection.md` — Agentic gate and conditional Collector configuration
 - Parent spec: `what/templog.md` (lightspeed-service / ols repo)
+
+## Planned Changes
+
+- [PLANNED: OLS-3569] Add the gated Agentic traces pipeline without changing the templog/PostgreSQL logs pipeline.

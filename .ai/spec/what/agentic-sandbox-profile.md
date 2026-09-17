@@ -39,6 +39,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
    - `instructions-verification` — cluster default verification system instructions
    - `instructions-escalation` — cluster default escalation system instructions
    On each reconcile, the classic operator MUST replace the complete `instructions-*` key subset: publish a key only when its source string is non-empty; **delete** any existing `instructions-*` key whose source is empty or unset. Stale keys MUST NOT remain after a non-empty→empty/unset transition. Agentic-operator consumes these for create-time materialization (analysis/execution/verification) and for call-time escalation resolution. See agentic-operator `what/sandbox-execution.md` and `what/crd-api.md`.
+11c. [PLANNED: OLS-3569] Agentic collection does not add or change any `lightspeed-agentic-configuration` key. In particular, the ConfigMap carries no collection state, `transcriptsDisabled` value, telemetry-credential state, or spool path; Agentic trace transport continues to use the existing `otel-collector-endpoint`.
 
 ### Thin sandbox PodSpec
 12. PodSpec contains one container (`lightspeed-agentic-sandbox`) with image from `GetAgenticSandboxImage()`, optional resource/toleration/nodeSelector overrides, and writable emptyDirs:
@@ -113,3 +114,8 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
 - `what/reconciliation.md` — Phase 2 ordering (appserver then agenticintegration)
 - `what/tls.md` — service-ca PEM sources and rotation
 - `how/project-structure.md` — `appserver` / `agenticintegration` packages
+- `what/agentic-data-collection.md` — collection gate and unchanged-handoff contract
+
+## Planned Changes
+
+- [PLANNED: OLS-3569] Keep Agentic collection state and storage paths out of the handoff ConfigMap.
