@@ -47,6 +47,17 @@ Security behavior is not directly user-configurable beyond the TLS and network-r
 2. Network policies require a CNI plugin that supports NetworkPolicy enforcement.
 3. All containers must run as non-root with read-only root filesystems.
 
+## Known Limitations
+
+1. **Agentic v2 dynamic cluster RBAC is not yet ownership-safe.** The agentic
+   controller currently creates and deletes per-run `ClusterRole` and
+   `ClusterRoleBinding` resources named `ls-exec-cluster-<AgenticRun UID>` and
+   updates reader bindings discovered by ServiceAccount subject. Its controller
+   identity therefore requires unrestricted mutation of those cluster-scoped
+   RBAC resource types. Kubernetes RBAC cannot restrict this access to a
+   dynamic name prefix, and a static `resourceNames` list would break creation
+   and cleanup for new runs.
+
 ## Planned Changes
 
 None.
