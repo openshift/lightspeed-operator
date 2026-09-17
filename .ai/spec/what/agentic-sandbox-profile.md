@@ -16,7 +16,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
 5. `spec.agenticOLS.sandboxMode` is `bare-pod` or `sandbox-claim` (OpenAPI enum).
 6. `spec.agenticOLS.agenticSandboxConfig` uses shared `Config` for resources, tolerations, and nodeSelector. Replicas are ignored (sandbox count is managed by agentic-operator).
 7. Sandbox container image comes from classic operator `--agentic-sandbox-image` / `related_images.json` entry `lightspeed-agentic-sandbox`, not from the CR.
-7a. [PLANNED: OLS-3928] `spec.ols.guardrails.toolResultInspection.enabled` is optional and defaults to `true`.
+7a. [PLANNED: OLS-3928] The handoff MUST conform to `openshift/ols/.ai/spec/what/tool-result-inspection.md`. `spec.ols.guardrails.toolResultInspection.enabled` is optional and defaults to `true`.
 7b. The classic operator MUST use one effective value for the Classic service and the agentic handoff.
 
 ### Handoff ConfigMap (`lightspeed-agentic-configuration`)

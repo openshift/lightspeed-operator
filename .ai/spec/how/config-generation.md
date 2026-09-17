@@ -11,6 +11,8 @@
 
 ## Data Flow
 
+Tool-result inspection generation conforms to `openshift/ols/.ai/spec/what/tool-result-inspection.md`. This document defines only the operator mappings.
+
 ### OLS Config (olsconfig.yaml)
 ```
 CR spec -> GenerateOLSConfigMap() -> ConfigMap "olsconfig"

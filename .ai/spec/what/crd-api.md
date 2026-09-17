@@ -143,7 +143,7 @@ Field path (relative to parameters) | JSON key | Go type | Required | Default | 
 
 #### Guardrails (spec.ols.guardrails) [PLANNED: OLS-3928]
 
-16a. `spec.ols.guardrails` is optional and contains cluster-wide guardrail configuration.
+16a. Guardrail configuration MUST conform to `openshift/ols/.ai/spec/what/tool-result-inspection.md`. `spec.ols.guardrails` is the optional cluster-wide API surface.
 
 16b. `spec.ols.guardrails.toolResultInspection.enabled` is an optional boolean with a default value of `true`.
 
