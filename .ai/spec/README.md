@@ -42,6 +42,7 @@ AI agents (Claude). Content is optimized for precision and machine consumption o
 | Understand PostgreSQL deployment | `what/postgres.md` |
 | Understand temporary audit log storage | `what/templog.md` |
 | Understand agentic handoff (sandbox profile) | `what/agentic-sandbox-profile.md` |
+| Understand Agentic data collection | `what/agentic-data-collection.md` |
 | Understand audit logging | `what/audit-logging.md` |
 | Understand TLS configuration | `what/tls.md` |
 | Understand security constraints | `what/security.md` |
@@ -58,6 +59,7 @@ When what/ and how/ file names don't match 1:1, this table maps behavioral specs
 |---|---|
 | `reconciliation.md` | `how/reconciliation.md` -- implementation patterns, code locations, task registration |
 | `app-server.md`, `postgres.md`, `agentic-sandbox-profile.md` | `how/deployment-generation.md` / `how/project-structure.md` — how deployments/services/configmaps are generated; agenticintegration package |
+| `agentic-data-collection.md`, `templog.md`, `agentic-sandbox-profile.md` | `how/deployment-generation.md` — conditional Collector configuration and Deployment resources; unchanged Agentic handoff |
 | `console-ui.md`, `agentic-console-ui.md` | `how/deployment-generation.md` -- deployment/service/configmap generation; `how/reconciliation.md` -- ConsolePlugin lifecycle, activation, and cleanup |
 | `ocpmcp.md`, `rhokp.md` | `how/reconciliation.md` -- Phase 1/2 standalone component groups; `how/config-generation.md` / `how/deployment-generation.md` -- app-server client wiring and client CA Secret mounts |
 | `crd-api.md` | `how/config-generation.md` -- how CRD fields map to generated configuration |
