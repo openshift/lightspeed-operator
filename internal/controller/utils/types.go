@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 
 	corev1 "k8s.io/api/core/v1"
@@ -69,12 +70,16 @@ type ConfigMapWatcherConfig struct {
 	SystemResources []SystemConfigMap
 }
 
-// WatcherConfig contains all watcher configuration
+// WatcherConfig contains all watcher configuration.
+// This struct is written by the reconciler and read concurrently by informer
+// event handlers (predicate filters such as SecretWatcherFilter).  The mu
+// RWMutex protects the annotated mappings; callers must use the provided
+// accessor methods for thread-safe access.  The reconciler builds replacement
+// maps locally and publishes each complete map under the write lock via
+// PublishAnnotatedSecrets / PublishAnnotatedConfigMaps.
 type WatcherConfig struct {
-	Secrets                   SecretWatcherConfig
-	ConfigMaps                ConfigMapWatcherConfig
-	AnnotatedSecretMapping    map[string][]string
-	AnnotatedConfigMapMapping map[string][]string
+	Secrets    SecretWatcherConfig
+	ConfigMaps ConfigMapWatcherConfig
 	// OpenShiftMCPServerTLSWatchEnabled gates informer handling of openshift-mcp-server-tls.
 	// The Secret stays in Secrets.SystemResources (static); reconcile toggles this flag from
 	// introspectionEnabled so enable/disable does not rewrite SystemResources under the informer.
@@ -82,6 +87,42 @@ type WatcherConfig struct {
 	// RHOKPTLSWatchEnabled gates informer handling of lightspeed-rhokp-tls.
 	// Same pattern: static entry, toggled from !byokRAGOnly.
 	RHOKPTLSWatchEnabled atomic.Bool
+
+	mu                        sync.RWMutex
+	annotatedSecretMapping    map[string][]string
+	annotatedConfigMapMapping map[string][]string
+}
+
+// PublishAnnotatedSecrets atomically replaces the annotated secret mapping.
+// The reconciler should build the complete map locally, then publish it here.
+func (c *WatcherConfig) PublishAnnotatedSecrets(m map[string][]string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.annotatedSecretMapping = m
+}
+
+// PublishAnnotatedConfigMaps atomically replaces the annotated configmap mapping.
+// The reconciler should build the complete map locally, then publish it here.
+func (c *WatcherConfig) PublishAnnotatedConfigMaps(m map[string][]string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.annotatedConfigMapMapping = m
+}
+
+// GetAnnotatedSecretDeployments returns the deployments affected by a secret, if mapped.
+func (c *WatcherConfig) GetAnnotatedSecretDeployments(name string) ([]string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	d, ok := c.annotatedSecretMapping[name]
+	return d, ok
+}
+
+// GetAnnotatedConfigMapDeployments returns the deployments affected by a configmap, if mapped.
+func (c *WatcherConfig) GetAnnotatedConfigMapDeployments(name string) ([]string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	d, ok := c.annotatedConfigMapMapping[name]
+	return d, ok
 }
 
 // IsSystemSecretWatchEnabled reports whether a SystemResources entry should be active.
@@ -244,6 +285,8 @@ type OLSConfig struct {
 	Audit *AuditYAMLConfig `json:"audit,omitempty"`
 	// Solr hybrid RAG (portal-rag /hybrid-search); mirrors lightspeed-service solr_hybrid
 	SolrHybrid *SolrHybridSettings `json:"solr_hybrid,omitempty"`
+	// Enable in-process credential hot-reload for LLM provider secrets
+	CredentialHotReload bool `json:"credential_hot_reload,omitempty"`
 }
 
 type AuditYAMLConfig struct {

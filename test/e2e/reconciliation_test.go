@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -393,6 +394,129 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			return newCmHash != firstCmHash, nil
 		})
 
+	})
+
+	It("should remove LLM secret annotation and propagate config when credentialHotReload is enabled", func() {
+		llmSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      LLMTokenSecondSecretName,
+				Namespace: OLSNameSpace,
+			},
+		}
+
+		By("verify the LLM secret is annotated before enabling hot-reload")
+		Eventually(func() bool {
+			if err := client.Get(llmSecret); err != nil {
+				return false
+			}
+			_, exists := llmSecret.Annotations[utils.WatcherAnnotationKey]
+			return exists
+		}, 30*time.Second, 2*time.Second).Should(BeTrue())
+
+		By("enable credentialHotReload on the CR")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			config := obj.(*olsv1alpha1.OLSConfig)
+			hotReload := true
+			config.Spec.OLSConfig.CredentialHotReload = &hotReload
+			// The previous CA-cert test deletes its ConfigMap via defer but
+			// leaves the dangling ref on the CR.  Clear it so
+			// GenerateOLSConfigMap won't fail with a NotFound error.
+			config.Spec.OLSConfig.AdditionalCAConfigMapRef = nil
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verify the LLM secret annotation is removed")
+		Eventually(func() bool {
+			if err := client.Get(llmSecret); err != nil {
+				return false
+			}
+			_, exists := llmSecret.Annotations[utils.WatcherAnnotationKey]
+			return !exists
+		}, 30*time.Second, 2*time.Second).Should(BeTrue())
+
+		By("verify the olsconfig ConfigMap contains credential_hot_reload: true")
+		configMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AppServerConfigMapName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.WaitForConfigMapContainString(configMap, AppServerConfigMapKey, "credential_hot_reload: true")
+		Expect(err).NotTo(HaveOccurred())
+
+		By("capture app-server deployment generation before secret update")
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AppServerDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.WaitForDeploymentRollout(deployment)
+		Expect(err).NotTo(HaveOccurred())
+		generationBeforeSecretUpdate := deployment.Generation
+
+		By("update LLM secret data while hot-reload is enabled")
+		err = client.Update(llmSecret, func(obj ctrlclient.Object) error {
+			secret := obj.(*corev1.Secret)
+			if secret.Data == nil {
+				secret.Data = make(map[string][]byte)
+			}
+			secret.Data[LLMApiTokenFileName] = []byte("rotated-token-hot-reload") // #nosec G101
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verify app-server is NOT restarted (generation stays the same)")
+		Consistently(func() int64 {
+			err := client.Get(deployment)
+			if err != nil {
+				return -1
+			}
+			return deployment.Generation
+		}, 30*time.Second, 5*time.Second).Should(Equal(generationBeforeSecretUpdate))
+
+		By("disable credentialHotReload to restore default behavior")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			config := obj.(*olsv1alpha1.OLSConfig)
+			config.Spec.OLSConfig.CredentialHotReload = nil
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verify the LLM secret annotation is restored")
+		Eventually(func() bool {
+			if err := client.Get(llmSecret); err != nil {
+				return false
+			}
+			_, exists := llmSecret.Annotations[utils.WatcherAnnotationKey]
+			return exists
+		}, 30*time.Second, 2*time.Second).Should(BeTrue())
+
+		By("wait for any deployment rollout from disabling hot-reload")
+		err = client.WaitForDeploymentRollout(deployment)
+		Expect(err).NotTo(HaveOccurred())
+		generationAfterRestore := deployment.Generation
+
+		By("update LLM secret data with hot-reload disabled")
+		err = client.Update(llmSecret, func(obj ctrlclient.Object) error {
+			secret := obj.(*corev1.Secret)
+			if secret.Data == nil {
+				secret.Data = make(map[string][]byte)
+			}
+			secret.Data[LLMApiTokenFileName] = []byte("rotated-token-restart") // #nosec G101
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verify app-server IS restarted (generation increases)")
+		Eventually(func() bool {
+			err := client.Get(deployment)
+			if err != nil {
+				return false
+			}
+			return deployment.Generation > generationAfterRestore
+		}, 60*time.Second, 5*time.Second).Should(BeTrue())
 	})
 
 })
