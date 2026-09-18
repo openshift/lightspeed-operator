@@ -42,9 +42,9 @@ The operator configures monitoring, health probes, and status reporting for all 
 | Field path | Description |
 |---|---|
 | `spec.ols.logLevel` | Log level for backend service (app, lib, uvicorn levels all set to this value) |
-| `spec.olsDataCollector.logLevel` | Log level for data collector sidecar (defaults to `info`) |
+| `spec.olsDataCollector.logLevel` | Log level for the Classic app-server data collector sidecar and the Collector-side Agentic exporter (defaults to `info`; see `agentic-data-collection.md` Rule 3) |
 | `spec.ols.userDataCollection.feedbackDisabled` | Disable feedback collection |
-| `spec.ols.userDataCollection.transcriptsDisabled` | Disable transcript collection |
+| `spec.ols.userDataCollection.transcriptsDisabled` | Disable Classic transcript collection; when true, also disables the independently gated Agentic collection pipeline, exporter, and spool (see `agentic-data-collection.md` Rules 1-2) |
 
 ## Constraints
 
