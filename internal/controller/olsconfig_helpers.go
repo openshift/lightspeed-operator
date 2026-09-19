@@ -9,6 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
@@ -173,6 +174,24 @@ func (r *OLSConfigReconciler) UpdateStatusCondition(ctx context.Context, olsconf
 			return updateErr
 		}
 		return nil
+	}
+}
+
+// markNotReadyFromExternalValidation records LLM/TLS validation failure on OLSConfig
+// without replacing existing component conditions (ApiReady and friends stay intact).
+func (r *OLSConfigReconciler) markNotReadyFromExternalValidation(ctx context.Context, olsconfig *olsv1alpha1.OLSConfig, validationErr error) {
+	newStatus := *olsconfig.Status.DeepCopy()
+	newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
+	apimeta.SetStatusCondition(&newStatus.Conditions, metav1.Condition{
+		Type:               "ResourceReconciliation",
+		Status:             metav1.ConditionFalse,
+		ObservedGeneration: olsconfig.Generation,
+		Reason:             "Failed",
+		Message:            validationErr.Error(),
+		LastTransitionTime: metav1.Now(),
+	})
+	if updateErr := r.UpdateStatusCondition(ctx, olsconfig, newStatus); updateErr != nil {
+		r.Logger.Error(updateErr, "Failed to update status after external resource validation failure")
 	}
 }
 

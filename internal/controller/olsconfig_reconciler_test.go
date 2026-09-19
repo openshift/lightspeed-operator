@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -11,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -508,6 +510,34 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 				nested := config["nested"].(map[string]interface{})
 				Expect(nested["key"]).To(Equal("value"))
 			})
+		})
+	})
+
+	Describe("markNotReadyFromExternalValidation", func() {
+		It("sets OverallStatus NotReady without wiping existing component conditions", func() {
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			cr.Status = olsv1alpha1.OLSConfigStatus{
+				OverallStatus: olsv1alpha1.OverallStatusReady,
+				Conditions: []metav1.Condition{{
+					Type:               utils.TypeApiReady,
+					Status:             metav1.ConditionTrue,
+					Reason:             "Available",
+					Message:            "Ready",
+					LastTransitionTime: metav1.Now(),
+				}},
+			}
+			Expect(k8sClient.Status().Update(ctx, cr)).To(Succeed())
+
+			reconciler.markNotReadyFromExternalValidation(ctx, cr, fmt.Errorf("LLM credentials validation failed: secret missing"))
+
+			updated := &olsv1alpha1.OLSConfig{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, updated)).To(Succeed())
+			Expect(updated.Status.OverallStatus).To(Equal(olsv1alpha1.OverallStatusNotReady))
+			Expect(apimeta.IsStatusConditionFalse(updated.Status.Conditions, "ResourceReconciliation")).To(BeTrue())
+			apiReady := apimeta.FindStatusCondition(updated.Status.Conditions, utils.TypeApiReady)
+			Expect(apiReady).NotTo(BeNil())
+			Expect(apiReady.Status).To(Equal(metav1.ConditionTrue))
 		})
 	})
 })

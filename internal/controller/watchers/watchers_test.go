@@ -10,12 +10,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
@@ -32,6 +35,15 @@ func testScheme() *runtime.Scheme {
 	utilruntime.Must(clientgoscheme.AddToScheme(s))
 	utilruntime.Must(olsv1alpha1.AddToScheme(s))
 	return s
+}
+
+type recordingQueue struct {
+	workqueue.TypedRateLimitingInterface[reconcile.Request]
+	items []reconcile.Request
+}
+
+func (q *recordingQueue) Add(item reconcile.Request) {
+	q.items = append(q.items, item)
 }
 
 func createTestReconciler(objs ...client.Object) reconciler.Reconciler {
@@ -241,12 +253,68 @@ var _ = Describe("Watchers", func() {
 			h.Update(ctx, event.UpdateEvent{ObjectOld: oldS, ObjectNew: newS}, nil)
 		})
 
-		It("Delete and Generic are no-ops", func() {
+		It("Generic is a no-op", func() {
 			r := createTestReconciler()
 			h := &SecretUpdateHandler{Reconciler: r}
 			sec := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "x"}}
-			h.Delete(ctx, event.DeleteEvent{Object: sec}, nil)
 			h.Generic(ctx, event.GenericEvent{Object: sec}, nil)
+		})
+
+		It("Delete enqueues OLSConfig for a referenced LLM credential secret", func() {
+			cr := utils.GetDefaultOLSConfigCR()
+			r := createTestReconciler(cr)
+			h := &SecretUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+			sec := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+				Namespace: utils.OLSNamespaceDefault,
+				Name:      "test-secret",
+			}}
+			h.Delete(ctx, event.DeleteEvent{Object: sec}, q)
+			Expect(q.items).To(Equal([]reconcile.Request{{NamespacedName: types.NamespacedName{Name: utils.OLSConfigName}}}))
+		})
+
+		It("Delete does not enqueue for an OLSConfig-owned secret", func() {
+			cr := utils.GetDefaultOLSConfigCR()
+			r := createTestReconciler(cr)
+			h := &SecretUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+			sec := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+				Name:      "owned",
+				Namespace: utils.OLSNamespaceDefault,
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: utils.OLSConfigAPIVersion,
+					Kind:       utils.OLSConfigKind,
+					Name:       utils.OLSConfigName,
+					UID:        "1",
+				}},
+			}}
+			h.Delete(ctx, event.DeleteEvent{Object: sec}, q)
+			Expect(q.items).To(BeEmpty())
+		})
+
+		It("Delete does not enqueue for an unreferenced secret", func() {
+			cr := utils.GetDefaultOLSConfigCR()
+			r := createTestReconciler(cr)
+			h := &SecretUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+			sec := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+				Namespace: utils.OLSNamespaceDefault,
+				Name:      "unrelated",
+			}}
+			h.Delete(ctx, event.DeleteEvent{Object: sec}, q)
+			Expect(q.items).To(BeEmpty())
+		})
+
+		It("Delete enqueues OLSConfig for a configured system secret", func() {
+			r := createTestReconciler()
+			h := &SecretUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+			sec := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+				Namespace: utils.TelemetryPullSecretNamespace,
+				Name:      utils.TelemetryPullSecretName,
+			}}
+			h.Delete(ctx, event.DeleteEvent{Object: sec}, q)
+			Expect(q.items).To(Equal([]reconcile.Request{{NamespacedName: types.NamespacedName{Name: utils.OLSConfigName}}}))
 		})
 	})
 
@@ -286,12 +354,57 @@ var _ = Describe("Watchers", func() {
 			h.Create(ctx, event.CreateEvent{Object: cm}, nil)
 		})
 
-		It("Delete and Generic are no-ops", func() {
+		It("Generic is a no-op", func() {
 			r := createTestReconciler()
 			h := &ConfigMapUpdateHandler{Reconciler: r}
 			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "c"}}
-			h.Delete(ctx, event.DeleteEvent{Object: cm}, nil)
 			h.Generic(ctx, event.GenericEvent{Object: cm}, nil)
+		})
+
+		It("Delete enqueues OLSConfig for a referenced additional CA configmap", func() {
+			cr := utils.GetDefaultOLSConfigCR()
+			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{Name: "extra-ca"}
+			r := createTestReconciler(cr)
+			h := &ConfigMapUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
+				Namespace: utils.OLSNamespaceDefault,
+				Name:      "extra-ca",
+			}}
+			h.Delete(ctx, event.DeleteEvent{Object: cm}, q)
+			Expect(q.items).To(Equal([]reconcile.Request{{NamespacedName: types.NamespacedName{Name: utils.OLSConfigName}}}))
+		})
+
+		It("Delete does not enqueue for an OLSConfig-owned configmap", func() {
+			cr := utils.GetDefaultOLSConfigCR()
+			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{Name: "owned-cm"}
+			r := createTestReconciler(cr)
+			h := &ConfigMapUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
+				Name:      "owned-cm",
+				Namespace: utils.OLSNamespaceDefault,
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: utils.OLSConfigAPIVersion,
+					Kind:       utils.OLSConfigKind,
+					Name:       utils.OLSConfigName,
+					UID:        "1",
+				}},
+			}}
+			h.Delete(ctx, event.DeleteEvent{Object: cm}, q)
+			Expect(q.items).To(BeEmpty())
+		})
+
+		It("Delete enqueues OLSConfig for a configured system configmap", func() {
+			r := createTestReconciler()
+			h := &ConfigMapUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
+				Namespace: utils.OLSNamespaceDefault,
+				Name:      utils.DefaultOpenShiftCerts,
+			}}
+			h.Delete(ctx, event.DeleteEvent{Object: cm}, q)
+			Expect(q.items).To(Equal([]reconcile.Request{{NamespacedName: types.NamespacedName{Name: utils.OLSConfigName}}}))
 		})
 	})
 
