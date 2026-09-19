@@ -137,8 +137,10 @@ Field path (relative to parameters) | JSON key | Go type | Required | Default | 
 
 #### Core Fields
 
-14. `spec.ols.defaultModel` -- `string`, required. The default model name for usage.
-15. `spec.ols.defaultProvider` -- `string`, required. The default provider name for usage.
+14. `spec.ols.defaultModel` -- `string`, required. Must match a model `name` on the provider named by `spec.ols.defaultProvider`. Enforced by XValidation on `OLSConfigSpec` ([OLS-4244](https://redhat.atlassian.net/browse/OLS-4244)).
+15. `spec.ols.defaultProvider` -- `string`, required. Must match `spec.llm.providers[].name`. Enforced by XValidation on `OLSConfigSpec` ([OLS-4244](https://redhat.atlassian.net/browse/OLS-4244)).
+15a. XValidation: `self.llm.providers.exists(p, p.name == self.ols.defaultProvider)`.
+15b. XValidation: that provider's `models` must include `self.ols.defaultModel`. The operator also refuses to generate `olsconfig.yaml` when either check fails (covers clusters still on an older CRD).
 16. `spec.ols.logLevel` -- `LogLevel` enum, optional. Values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. Default: `INFO`.
 
 #### Guardrails (spec.ols.guardrails) [PLANNED: OLS-3928]
@@ -433,8 +435,8 @@ Path | Type | Default | Required | Validation | Description
 `spec.llm.providers[].tlsSecurityProfile` | `*TLSSecurityProfile` | -- | No | -- | Provider TLS profile
 `spec.llm.providers[].credentialKey` | `string` | -- | No | XValidation (rule 10) | Secret key name
 `spec.ols` | `OLSSpec` | -- | Yes | -- | OLS settings
-`spec.ols.defaultModel` | `string` | -- | Yes | -- | Default model name
-`spec.ols.defaultProvider` | `string` | -- | Yes | -- | Default provider name
+`spec.ols.defaultModel` | `string` | -- | Yes | XValidation (rules 15a–15b) | Default model name; must exist on the default provider
+`spec.ols.defaultProvider` | `string` | -- | Yes | XValidation (rules 15a–15b) | Default provider name; must match `spec.llm.providers[].name`
 `spec.ols.logLevel` | `LogLevel` | `INFO` | No | Enum: DEBUG/INFO/WARNING/ERROR/CRITICAL | Log level
 `spec.ols.guardrails` | `GuardrailsSpec` | -- | No | -- | Cluster-wide guardrail configuration
 `spec.ols.guardrails.toolResultInspection` | `ToolResultInspectionSpec` | -- | No | -- | Tool-result inspection configuration
@@ -572,6 +574,7 @@ Path | Type | Default | Required | Validation | Description
 9. There is exactly one allowed CacheType value: `postgres`.
 10. `ToolFilteringConfig.alpha` and `ToolFilteringConfig.threshold` are validated via XValidation (not kubebuilder min/max) to enforce 0.0-1.0 range.
 11. Bedrock credentials: `credentialsSecretRef` must contain either `apitoken` (Bearer) or both `aws_access_key_id` and `aws_secret_access_key` (IAM). Optional `role_arn` is passed through to the service when present.
+12. `spec.ols.defaultProvider` must match a `spec.llm.providers[].name`, and `spec.ols.defaultModel` must match a model on that provider (XValidation on `OLSConfigSpec`; operator `ValidateDefaultProviderAndModel`).
 
 ## Verification
 

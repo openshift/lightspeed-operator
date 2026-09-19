@@ -387,6 +387,11 @@ func messageOrDefault(message, defaultMessage string) string {
 func (r *OLSConfigReconciler) annotateExternalResources(ctx context.Context,
 	cr *olsv1alpha1.OLSConfig) error {
 
+	// Validate default provider/model against spec.llm.providers before generating config.
+	if err := utils.ValidateDefaultProviderAndModel(cr); err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrValidateDefaultProviderAndModel, err)
+	}
+
 	// Validate external secrets first (fail fast)
 	if err := utils.ValidateLLMCredentials(r, ctx, cr); err != nil {
 		return fmt.Errorf("LLM credentials validation failed: %w", err)

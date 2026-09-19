@@ -598,6 +598,32 @@ func GetCAFromSecret(rclient client.Client, ctx context.Context, namespace, secr
 	return string(caCert), nil
 }
 
+// ValidateDefaultProviderAndModel checks that spec.ols.defaultProvider names a
+// configured LLM provider and spec.ols.defaultModel is a model on that provider.
+func ValidateDefaultProviderAndModel(cr *olsv1alpha1.OLSConfig) error {
+	if cr == nil {
+		return fmt.Errorf("OLSConfig is nil")
+	}
+	defaultProvider := cr.Spec.OLSConfig.DefaultProvider
+	defaultModel := cr.Spec.OLSConfig.DefaultModel
+	var matched *olsv1alpha1.ProviderSpec
+	for i := range cr.Spec.LLMConfig.Providers {
+		if cr.Spec.LLMConfig.Providers[i].Name == defaultProvider {
+			matched = &cr.Spec.LLMConfig.Providers[i]
+			break
+		}
+	}
+	if matched == nil {
+		return fmt.Errorf("defaultProvider %q does not match any spec.llm.providers[].name", defaultProvider)
+	}
+	for _, model := range matched.Models {
+		if model.Name == defaultModel {
+			return nil
+		}
+	}
+	return fmt.Errorf("defaultModel %q is not a model on provider %q", defaultModel, defaultProvider)
+}
+
 // ValidateLLMCredentials validates that all LLM provider credentials are present and usable.
 // For each provider it requires credentialsSecretRef, loads the secret, then checks Data keys:
 // Azure OpenAI accepts the default credential key or client_id/tenant_id/client_secret;
