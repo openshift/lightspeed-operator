@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
 usage() {
-  echo "Usage: $0 -b <bundle-snapshot-ref> -i <images-file> -c <catalog-file> -n <channel-names> -m"
+  echo "Usage: $0 -b <bundle-snapshot-ref> -t v1|v2 -i <images-file> -c <catalog-file> -n <channel-names> -m"
   echo "  -b bundle-snapshot-ref: required, the bunlde snapshot references, example: ols-bundle-2dhtr"
   echo "  -i images-file: required, json file containing related images, at least operands, default related_images.json"
   echo "  -c catalog-file: the catalog index file to update, default: lightspeed-catalog-4.16/index.yaml"
   echo "  -n channel-names: the channel names to update, default: alpha"
+  echo "  -t bundle variant: v1 (1.x classic) or v2 (2.x full), required"
   echo "  -m migrate: migrate the bundle object to csv metadata, required for OCP 4.17+, default: false"
   echo "Example: $0 -s ols-cq8sl -b ols-bundle-2dhtr -c lightspeed-catalog-4.16/index.yaml"
 }
@@ -24,8 +25,9 @@ CATALOG_FILE="lightspeed-catalog-4.16/index.yaml"
 CHANNEL_NAMES="alpha"
 MIGRATE=""
 RELATED_IMAGES_FILE="related_images.json"
+BUNDLE_VARIANT=""
 
-while getopts ":b:i:c:n:mh" argname; do
+while getopts ":b:i:c:n:t:mh" argname; do
   case "$argname" in
   "i")
     RELATED_IMAGES_FILE=${OPTARG}
@@ -38,6 +40,9 @@ while getopts ":b:i:c:n:mh" argname; do
     ;;
   "n")
     CHANNEL_NAMES=${OPTARG}
+    ;;
+  "t")
+    BUNDLE_VARIANT=${OPTARG}
     ;;
   "m")
     MIGRATE="true"
@@ -59,9 +64,13 @@ while getopts ":b:i:c:n:mh" argname; do
   esac
 done
 
-if [ -z "${BUNDLE_SNAPSHOT_REF}" ]; then
-  echo "bundle-snapshot-refs is required"
+if [ -z "${BUNDLE_SNAPSHOT_REF}" ] || [ -z "${BUNDLE_VARIANT}" ]; then
+  echo "bundle snapshot reference and variant are required"
   usage
+  exit 1
+fi
+if [[ "${BUNDLE_VARIANT}" != "v1" && "${BUNDLE_VARIANT}" != "v2" ]]; then
+  echo "bundle variant must be v1 or v2"
   exit 1
 fi
 
@@ -117,12 +126,25 @@ trap cleanup EXIT
 DEFAULT_CHANNEL_NAME=$(cut -d ',' -f 1 <<<${CHANNEL_NAMES})
 sed "s/defaultChannel: alpha/defaultChannel: ${DEFAULT_CHANNEL_NAME}/" ${CATALOG_INITIAL_FILE} >"${CATALOG_FILE}"
 
-# get bundle image on konflux workspace, replace CI registry with the stable registry
+# Select the independent Konflux bundle component for the target catalog. OCP 5.0
+# must consume the v2 bundle, never the classic v1 bundle.
+if [[ "${BUNDLE_VARIANT}" == "v1" ]]; then
+  BUNDLE_COMPONENT="ols-bundle"
+else
+  BUNDLE_COMPONENT="lightspeed-agentic-operator-bundle"
+fi
+
+# Get the selected bundle image from its Konflux snapshot and replace the CI
+# registry prefix with the stable delivery registry.
 oc get -n ${KONFLUX_NAMESPACE} snapshot ${BUNDLE_SNAPSHOT_REF} -o json >"${TMP_BUNDLE_SNAPSHOT_JSON}"
-BUNDLE_IMAGE_ORIGIN=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .containerImage' "${TMP_BUNDLE_SNAPSHOT_JSON}")
-BUNDLE_REVISION=$(${JQ} -r '.spec.components[]| select(.name=="ols-bundle") | .source.git.revision' "${TMP_BUNDLE_SNAPSHOT_JSON}")
+BUNDLE_IMAGE_ORIGIN=$(${JQ} -r --arg component "${BUNDLE_COMPONENT}" '.spec.components[] | select(.name == $component) | .containerImage' "${TMP_BUNDLE_SNAPSHOT_JSON}")
+BUNDLE_REVISION=$(${JQ} -r --arg component "${BUNDLE_COMPONENT}" '.spec.components[] | select(.name == $component) | .source.git.revision' "${TMP_BUNDLE_SNAPSHOT_JSON}")
+if [[ -z "${BUNDLE_IMAGE_ORIGIN}" || "${BUNDLE_IMAGE_ORIGIN}" == "null" ]]; then
+  echo "bundle component ${BUNDLE_COMPONENT} was not found in snapshot ${BUNDLE_SNAPSHOT_REF}" >&2
+  exit 1
+fi
 BUNDLE_IMAGE_BASE="registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle"
-BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle|'"${BUNDLE_IMAGE_BASE}"'|g' <<<${BUNDLE_IMAGE_ORIGIN})
+BUNDLE_IMAGE=$(sed 's|quay\.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/'"${BUNDLE_COMPONENT}"'|'"${BUNDLE_IMAGE_BASE}"'|g' <<<"${BUNDLE_IMAGE_ORIGIN}")
 
 # Update or add lightspeed-operator-bundle in RELATED_IMAGES
 RELATED_IMAGES=$(${JQ} --arg img "$BUNDLE_IMAGE" --arg rev "$BUNDLE_REVISION" '
@@ -144,7 +166,12 @@ if [ -n "${MIGRATE}" ]; then
 fi
 ${OPM} render ${BUNDLE_IMAGE_ORIGIN} --output=yaml ${OPM_ARGS} >"${TEMP_BUNDLE_FILE}"
 BUNDLE_VERSION=$(${YQ} eval '.properties[]| select(.type=="olm.package")| select(.value.packageName=="lightspeed-operator") |.value.version' ${TEMP_BUNDLE_FILE})
-echo "Bundle version is ${BUNDLE_VERSION}"
+echo "Bundle version is ${BUNDLE_VERSION} (${BUNDLE_VARIANT})"
+if [[ "${BUNDLE_VARIANT}" == "v1" && "${BUNDLE_VERSION}" != 1.* ]] ||
+   [[ "${BUNDLE_VARIANT}" == "v2" && "${BUNDLE_VERSION}" != 2.* ]]; then
+  echo "bundle version ${BUNDLE_VERSION} does not match ${BUNDLE_VARIANT}" >&2
+  exit 1
+fi
 # restore bundle image to the bundle file
 ${YQ} eval -i '.image='"\"${BUNDLE_IMAGE}\"" "${TEMP_BUNDLE_FILE}"
 # restore bundle related images and the bundle itself to the bundle file
@@ -163,6 +190,12 @@ for bundle_file in "${CATALOG_DIR}"/bundle-v*.yaml; do
   if [ -f "$bundle_file" ]; then
     # Extract version from filename (bundle-v1.0.8.yaml -> 1.0.8)
     version=$(basename "$bundle_file" | sed 's/bundle-v\(.*\)\.yaml/\1/')
+    if [[ "${BUNDLE_VARIANT}" == "v1" && "${version}" != 1.* ]] ||
+       [[ "${BUNDLE_VARIANT}" == "v2" && "${version}" != 2.* ]]; then
+      # A catalog is version-partitioned, not merely channel-partitioned.
+      rm -f "${bundle_file}"
+      continue
+    fi
     ALL_BUNDLE_VERSIONS+=("$version")
   fi
 done
@@ -188,7 +221,11 @@ EOF
     cat <<EOF >>"${CATALOG_FILE}"
   - name: lightspeed-operator.v${BUNDLE_VER}
 EOF
-    if [ -z "${PREV_VERSION}" ]; then
+    if [ "${BUNDLE_VARIANT}" = "v2" ] && [ -z "${PREV_VERSION}" ]; then
+      cat <<EOF >>"${CATALOG_FILE}"
+    skipRange: ">=1.0.0 <2.0.0"
+EOF
+    elif [ -z "${PREV_VERSION}" ]; then
       cat <<EOF >>"${CATALOG_FILE}"
     skipRange: ">=0.1.0 <${BUNDLE_VER}"
 EOF
