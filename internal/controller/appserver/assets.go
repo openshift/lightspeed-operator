@@ -253,6 +253,10 @@ func buildToolFilteringConfig(cr *olsv1alpha1.OLSConfig, mcpServers []utils.MCPS
 // buildOLSConfig builds the main OLS configuration including conversation cache, TLS, proxy,
 // RAG indexes, logging, and user data collection settings.
 func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, dataCollectorEnabled bool) (utils.OLSConfig, error) {
+	if err := utils.ValidateDefaultProviderAndModel(cr); err != nil {
+		return utils.OLSConfig{}, fmt.Errorf("%s: %w", utils.ErrValidateDefaultProviderAndModel, err)
+	}
+
 	// Configure conversation cache using PostgreSQL
 	conversationCache := utils.ConversationCacheConfig{
 		Type:     string(utils.OLSDefaultCacheType),
