@@ -16,6 +16,8 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
 5. `spec.agenticOLS.sandboxMode` is `bare-pod` or `sandbox-claim` (OpenAPI enum).
 6. `spec.agenticOLS.agenticSandboxConfig` uses shared `Config` for resources, tolerations, and nodeSelector. Replicas are ignored (sandbox count is managed by agentic-operator).
 7. Sandbox container image comes from classic operator `--agentic-sandbox-image` / `related_images.json` entry `lightspeed-agentic-sandbox`, not from the CR.
+7a. [PLANNED: OLS-3928] The handoff MUST conform to `openshift/ols/.ai/spec/what/tool-result-inspection.md`. `spec.ols.guardrails.toolResultInspection.enabled` is optional and defaults to `true`.
+7b. The classic operator MUST use one effective value for the Classic service and the agentic handoff.
 
 ### Handoff ConfigMap (`lightspeed-agentic-configuration`)
 8. Always reconciled **last in Phase 2** (after appserver deployment) so CA Secrets and OTEL/MCP Services exist before the ConfigMap advertises their names/endpoints.
@@ -28,6 +30,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
    - `otel-collector-endpoint` — `lightspeed-otel-collector.<ns>.svc:4317`
    - `otel-admin-endpoint` — `https://lightspeed-otel-collector.<ns>.svc:8080`
    - `otel-ca-secret` — name of the OTEL client CA Secret (`lightspeed-agentic-otel-ca`)
+   - [PLANNED: OLS-3928] `tool-output-inspection-enabled` — effective `spec.ols.guardrails.toolResultInspection.enabled` value as `"true"` or `"false"`
 10. When `spec.ols.introspectionEnabled` is true (default), also set:
    - `mcp-endpoint` — OpenShift MCP HTTPS Service URL
    - `mcp-ca-secret` — name of the MCP client CA Secret (`lightspeed-agentic-mcp-ca`)
@@ -91,6 +94,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
 | `spec.agenticOLS.agenticSandboxConfig` | Resources / tolerations / nodeSelector for thin PodSpec |
 | `spec.agenticOLS.instructions.*` | [PLANNED: OLS-3491] Optional cluster per-step system instructions → ConfigMap `instructions-*` keys |
 | `spec.ols.introspectionEnabled` | Gates MCP keys and MCP client CA Secret |
+| `spec.ols.guardrails.toolResultInspection.enabled` | [PLANNED: OLS-3928] Publishes `tool-output-inspection-enabled`; defaults to `true` |
 | `--agentic-sandbox-image` | Sandbox container image in thin PodSpec |
 
 ## Constraints
@@ -106,6 +110,10 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
 - Agentic-operator wait loop, PodSpec injection, and SandboxTemplate path (OLS-3685+)
 - Optional agentic auto-injection of MCP into runs ([OLS-3594](https://redhat.atlassian.net/browse/OLS-3594))
 - Defining `agentic.openshift.io` CRD changes
+
+## Planned Changes
+
+- [PLANNED: OLS-3928] Publish `tool-output-inspection-enabled` from the cluster-wide tool-result inspection configuration.
 
 ## Cross-References
 

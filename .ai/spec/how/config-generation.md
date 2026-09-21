@@ -11,6 +11,8 @@
 
 ## Data Flow
 
+Tool-result inspection generation conforms to `openshift/ols/.ai/spec/what/tool-result-inspection.md`. This document defines only the operator mappings.
+
 ### OLS Config (olsconfig.yaml)
 ```
 CR spec -> GenerateOLSConfigMap() -> ConfigMap "olsconfig"
@@ -105,6 +107,9 @@ ols_config:
     top_k: <default 10>
     threshold: <default 0.01>
   credential_hot_reload: <credentialHotReload>         # OLS-3450; true when CR flag enabled
+  guardrails:                                        # [PLANNED: OLS-3928]
+    tool_result_inspection:
+      enabled: <spec.ols.guardrails.toolResultInspection.enabled, default true>
   tools_approval:                                    # always present
     approval_type: <default "tool_annotations">
     approval_timeout: <default 600>
@@ -219,6 +224,7 @@ PostgreSQL schemas isolate data from different components within the same databa
 | Proxy config | CR `spec.ols.proxyConfig` | Proxy URL + optional CA cert configmap |
 | Query filters | CR `spec.ols.queryFilters[]` | Regex patterns for content filtering |
 | Quota config | CR `spec.ols.quotaHandlersConfig` | Rate limiting with scheduler period fixed at 300s |
+| Tool-result inspection | CR `spec.ols.guardrails.toolResultInspection.enabled` | [PLANNED: OLS-3928] Writes `ols_config.guardrails.tool_result_inspection.enabled`; same effective value enters the agentic handoff |
 
 ## Implementation Notes
 

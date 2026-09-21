@@ -141,6 +141,18 @@ Field path (relative to parameters) | JSON key | Go type | Required | Default | 
 15. `spec.ols.defaultProvider` -- `string`, required. The default provider name for usage.
 16. `spec.ols.logLevel` -- `LogLevel` enum, optional. Values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. Default: `INFO`.
 
+#### Guardrails (spec.ols.guardrails) [PLANNED: OLS-3928]
+
+16a. Guardrail configuration MUST conform to `openshift/ols/.ai/spec/what/tool-result-inspection.md`. `spec.ols.guardrails` is the optional cluster-wide API surface.
+
+16b. `spec.ols.guardrails.toolResultInspection.enabled` is an optional boolean with a default value of `true`.
+
+16c. One effective value controls the Classic service and DeepAgents sandboxes.
+
+16d. The operator must publish the effective value even when the administrator omits the field.
+
+16e. Write access follows the existing cluster-administrator access policy for the cluster-scoped `OLSConfig` resource.
+
 #### Conversation Cache (spec.ols.conversationCache)
 
 17. `spec.ols.conversationCache.type` -- `CacheType` enum. Only valid value: `postgres`. Default: `postgres`.
@@ -425,6 +437,9 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.defaultModel` | `string` | -- | Yes | -- | Default model name
 `spec.ols.defaultProvider` | `string` | -- | Yes | -- | Default provider name
 `spec.ols.logLevel` | `LogLevel` | `INFO` | No | Enum: DEBUG/INFO/WARNING/ERROR/CRITICAL | Log level
+`spec.ols.guardrails` | `GuardrailsSpec` | -- | No | -- | Cluster-wide guardrail configuration
+`spec.ols.guardrails.toolResultInspection` | `ToolResultInspectionSpec` | -- | No | -- | Tool-result inspection configuration
+`spec.ols.guardrails.toolResultInspection.enabled` | `*bool` | `true` | No | -- | Enable LLM inspection in Classic OLS and DeepAgents
 `spec.ols.conversationCache` | `ConversationCacheSpec` | -- | No | -- | Cache config
 `spec.ols.conversationCache.type` | `CacheType` | `postgres` | No | Enum: `postgres` | Cache type
 `spec.ols.conversationCache.postgres` | `PostgresSpec` | -- | No | -- | Postgres settings
@@ -559,6 +574,10 @@ Path | Type | Default | Required | Validation | Description
 10. `ToolFilteringConfig.alpha` and `ToolFilteringConfig.threshold` are validated via XValidation (not kubebuilder min/max) to enforce 0.0-1.0 range.
 11. Bedrock credentials: `credentialsSecretRef` must contain either `apitoken` (Bearer) or both `aws_access_key_id` and `aws_secret_access_key` (IAM). Optional `role_arn` is passed through to the service when present.
 
+## Verification
+
+- [PLANNED: OLS-3928] Operator tests cover explicit values, the default value, generated Classic configuration, and the `tool-output-inspection-enabled` handoff key.
+
 ## Planned Changes
 
 - [OLS-3450] Added `spec.ols.credentialHotReload` boolean field. When enabled, the operator skips annotating LLM credential secrets (no restart on rotation) and writes `credential_hot_reload: true` into `olsconfig.yaml`. See design spec `docs/superpowers/specs/2026-09-01-credential-hot-reload-design.md`.
@@ -568,3 +587,4 @@ Path | Type | Default | Required | Validation | Description
 - [PLANNED: OLS-3594] Optional agentic auto-injection of MCP into agent runs (deferred).
 - [PLANNED: OLS-3685+] Agentic-operator consumption of the handoff ConfigMap/Secrets.
 - [PLANNED: OLS-3569] Reuse `spec.ols.userDataCollection.transcriptsDisabled` for the credential-gated Agentic Collector resources; add no CRD field. See `agentic-data-collection.md`.
+- [PLANNED: OLS-3928] Add `spec.ols.guardrails.toolResultInspection.enabled`, default it to `true`, and publish one effective value to both guarded paths.
