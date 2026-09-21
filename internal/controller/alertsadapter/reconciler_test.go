@@ -169,6 +169,22 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 			expectOwnedByOLSConfig(rb)
 		})
 
+		It("should create the agenticolsconfig ClusterRole and ClusterRoleBinding", func() {
+			role := &rbacv1.ClusterRole{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name: utils.AlertsAdapterAgenticOLSConfigClusterRoleName,
+			}, role)
+			Expect(err).NotTo(HaveOccurred())
+			expectOwnedByOLSConfig(role)
+
+			rb := &rbacv1.ClusterRoleBinding{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name: utils.AlertsAdapterAgenticOLSConfigClusterRoleBindingName,
+			}, rb)
+			Expect(err).NotTo(HaveOccurred())
+			expectOwnedByOLSConfig(rb)
+		})
+
 		It("should create the Alertmanager RoleBinding", func() {
 			rb := &rbacv1.RoleBinding{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
@@ -273,6 +289,18 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 				Name:      utils.AlertsAdapterAgenticRunsRoleName,
 				Namespace: utils.OLSNamespaceDefault,
 			}, role)
+			Expect(err).To(HaveOccurred())
+
+			clusterRole := &rbacv1.ClusterRole{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name: utils.AlertsAdapterAgenticOLSConfigClusterRoleName,
+			}, clusterRole)
+			Expect(err).To(HaveOccurred())
+
+			clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name: utils.AlertsAdapterAgenticOLSConfigClusterRoleBindingName,
+			}, clusterRoleBinding)
 			Expect(err).To(HaveOccurred())
 		})
 	})

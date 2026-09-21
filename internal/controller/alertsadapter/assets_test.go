@@ -39,6 +39,30 @@ var _ = Describe("Alerts adapter assets", func() {
 		}))
 	})
 
+	It("should generate the agenticolsconfig ClusterRole", func() {
+		role, err := GenerateAgenticOLSConfigClusterRole(testReconcilerInstance, cr)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(role.Name).To(Equal(utils.AlertsAdapterAgenticOLSConfigClusterRoleName))
+		Expect(role.Rules).To(ContainElement(rbacv1.PolicyRule{
+			APIGroups: []string{"agentic.openshift.io"},
+			Resources: []string{"agenticolsconfigs"},
+			Verbs:     []string{"get"},
+		}))
+	})
+
+	It("should generate the agenticolsconfig ClusterRoleBinding", func() {
+		rb, err := GenerateAgenticOLSConfigClusterRoleBinding(testReconcilerInstance, cr)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rb.Name).To(Equal(utils.AlertsAdapterAgenticOLSConfigClusterRoleBindingName))
+		Expect(rb.RoleRef.Kind).To(Equal("ClusterRole"))
+		Expect(rb.RoleRef.Name).To(Equal(utils.AlertsAdapterAgenticOLSConfigClusterRoleName))
+		Expect(rb.Subjects).To(ContainElement(rbacv1.Subject{
+			Kind:      "ServiceAccount",
+			Name:      utils.AlertsAdapterServiceAccountName,
+			Namespace: utils.OLSNamespaceDefault,
+		}))
+	})
+
 	It("should generate the Alertmanager RoleBinding in openshift-monitoring", func() {
 		rb, err := GenerateAlertmanagerRoleBinding(testReconcilerInstance, cr)
 		Expect(err).NotTo(HaveOccurred())
