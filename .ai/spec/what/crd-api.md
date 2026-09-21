@@ -211,6 +211,7 @@ Field | JSON key | Go type | Required
 
 22. `spec.ols.userDataCollection.feedbackDisabled` -- `bool`, optional. Disables user feedback collection.
 23. `spec.ols.userDataCollection.transcriptsDisabled` -- `bool`, optional. Disables transcript collection.
+23a. [PLANNED: OLS-3569] The operator reuses `transcriptsDisabled` as the Agentic collection opt-out and adds no CRD field. Subject to the parent-defined Agentic v2 bundle availability and telemetry credentials, `false` or absent permits the conditional Collector resources; `true` omits them. `feedbackDisabled` is not part of the Agentic gate. See `agentic-data-collection.md`.
 
 #### TLS Configuration (spec.ols.tlsConfig)
 
@@ -491,7 +492,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.queryFilters[].replaceWith` | `string` | -- | No | -- | Replacement text
 `spec.ols.userDataCollection` | `UserDataCollectionSpec` | -- | No | -- | Data collection switches
 `spec.ols.userDataCollection.feedbackDisabled` | `bool` | -- | No | -- | Disable feedback
-`spec.ols.userDataCollection.transcriptsDisabled` | `bool` | -- | No | -- | Disable transcripts
+`spec.ols.userDataCollection.transcriptsDisabled` | `bool` | -- | No | -- | Disable transcripts and, [PLANNED: OLS-3569], Agentic collection
 `spec.ols.tlsConfig` | `*TLSConfig` | -- | No | -- | Backend HTTPS TLS config
 `spec.ols.tlsConfig.keyCertSecretRef` | `LocalObjectReference` | -- | No | -- | Secret with tls.crt, tls.key, ca.crt
 `spec.ols.additionalCAConfigMapRef` | `*LocalObjectReference` | -- | No | -- | Extra CA certs for LLM TLS
@@ -585,4 +586,5 @@ Path | Type | Default | Required | Validation | Description
 - [DONE: OLS-3697] Change `spec.ols.deployment.rhokp` from `ContainerConfig` to `Config`. RHOKP becomes a standalone Deployment with replicas (forced to 1), resources, tolerations, and nodeSelector. See `rhokp.md`.
 - [PLANNED: OLS-3594] Optional agentic auto-injection of MCP into agent runs (deferred).
 - [PLANNED: OLS-3685+] Agentic-operator consumption of the handoff ConfigMap/Secrets.
+- [PLANNED: OLS-3569] Reuse `spec.ols.userDataCollection.transcriptsDisabled` for the credential-gated Agentic Collector resources; add no CRD field. See `agentic-data-collection.md`.
 - [PLANNED: OLS-3928] Add `spec.ols.guardrails.toolResultInspection.enabled`, default it to `true`, and publish one effective value to both guarded paths.

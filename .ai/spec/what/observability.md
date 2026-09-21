@@ -35,15 +35,16 @@ The operator configures monitoring, health probes, and status reporting for all 
 21. Data collection is enabled only when both conditions are met: (a) user data collection is not fully disabled (at least one of `spec.ols.userDataCollection.feedbackDisabled` or `spec.ols.userDataCollection.transcriptsDisabled` is false), AND (b) the telemetry pull secret (`openshift-config/pull-secret`) contains valid `cloud.openshift.com` credentials in its `.dockerconfigjson` data.
 22. The service ID for data collection is `ols` by default, or `rhos-lightspeed` if the OLSConfig CR has the `openstack.org/lightspeed-owner-id` label.
 23. The exporter config is generated as a ConfigMap (`lightspeed-exporter-config`) with a fixed 300-second collection interval.
+24. [PLANNED: OLS-3569] Agentic collection adds a separately gated exporter instance to the Collector Deployment without changing this app-server exporter. See `agentic-data-collection.md` and its parent-spec reference.
 
 ## Configuration Surface
 
 | Field path | Description |
 |---|---|
 | `spec.ols.logLevel` | Log level for backend service (app, lib, uvicorn levels all set to this value) |
-| `spec.olsDataCollector.logLevel` | Log level for data collector sidecar (defaults to `info`) |
+| `spec.olsDataCollector.logLevel` | Log level for the Classic app-server data collector sidecar and the Collector-side Agentic exporter (defaults to `info`; see `agentic-data-collection.md` Rule 3) |
 | `spec.ols.userDataCollection.feedbackDisabled` | Disable feedback collection |
-| `spec.ols.userDataCollection.transcriptsDisabled` | Disable transcript collection |
+| `spec.ols.userDataCollection.transcriptsDisabled` | Disable Classic transcript collection; when true, also disables the independently gated Agentic collection pipeline, exporter, and spool (see `agentic-data-collection.md` Rules 1-2) |
 
 ## Constraints
 
@@ -54,4 +55,4 @@ The operator configures monitoring, health probes, and status reporting for all 
 
 ## Planned Changes
 
-None.
+- [PLANNED: OLS-3569] Add the conditional Collector-side Agentic exporter without changing the app-server exporter. See `agentic-data-collection.md`.
