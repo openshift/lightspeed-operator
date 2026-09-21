@@ -12,6 +12,13 @@ const (
 	APIServerName = "cluster"
 )
 
+// ResolvedTLSProfile contains the effective TLS settings consumed by operator components.
+type ResolvedTLSProfile struct {
+	ProfileType   string
+	MinTLSVersion string
+	Ciphers       []string
+}
+
 var (
 	// DefaultTLSProfileType is the intermediate profile type
 	DefaultTLSProfileType = configv1.TLSProfileIntermediateType
@@ -29,6 +36,53 @@ func FetchAPIServerTlsProfile(k8sClient client.Client) (*configv1.TLSSecurityPro
 		return nil, err
 	}
 	return apiServer.Spec.TLSSecurityProfile, nil
+}
+
+// ResolveTLSProfile resolves the configured TLS profile, falling back to the
+// cluster APIServer profile and then the operator default.
+func ResolveTLSProfile(k8sClient client.Client, configured *configv1.TLSSecurityProfile) (*ResolvedTLSProfile, error) {
+	profile := configured
+	var resolveErr error
+	profileComplete := profile != nil && profile.Type != "" &&
+		(profile.Type != configv1.TLSProfileCustomType || profile.Custom != nil)
+	if !profileComplete {
+		serverProfile, err := FetchAPIServerTlsProfile(k8sClient)
+		if err != nil {
+			profile = &configv1.TLSSecurityProfile{Type: DefaultTLSProfileType}
+			resolveErr = err
+		} else {
+			serverProfileComplete := serverProfile != nil && serverProfile.Type != "" &&
+				(serverProfile.Type != configv1.TLSProfileCustomType || serverProfile.Custom != nil)
+			if serverProfileComplete {
+				profile = serverProfile
+			} else {
+				profile = &configv1.TLSSecurityProfile{Type: DefaultTLSProfileType}
+			}
+		}
+	}
+
+	profileSpec := GetTLSProfileSpec(profile)
+
+	return &ResolvedTLSProfile{
+		ProfileType:   tlsProfileTypeName(profile.Type),
+		MinTLSVersion: MinTLSVersion(profileSpec),
+		Ciphers:       TLSCiphers(profileSpec),
+	}, resolveErr
+}
+
+func tlsProfileTypeName(profileType configv1.TLSProfileType) string {
+	switch profileType {
+	case configv1.TLSProfileOldType:
+		return "OldType"
+	case configv1.TLSProfileIntermediateType:
+		return "IntermediateType"
+	case configv1.TLSProfileModernType:
+		return "ModernType"
+	case configv1.TLSProfileCustomType:
+		return "Custom"
+	default:
+		return "IntermediateType"
+	}
 }
 
 // TLSCiphers returns the TLS ciphers for the

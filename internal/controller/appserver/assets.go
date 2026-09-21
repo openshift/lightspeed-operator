@@ -9,8 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	configv1 "github.com/openshift/api/config/v1"
-
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	utiltls "github.com/openshift/lightspeed-operator/internal/tls"
 
@@ -323,24 +321,14 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		}
 	}
 
-	tlsProfile := cr.Spec.OLSConfig.TLSSecurityProfile
-	if tlsProfile == nil {
-		apiServerProfile, err := utiltls.FetchAPIServerTlsProfile(r)
-		if err != nil {
-			r.GetLogger().Error(err, "failed to fetch TLS profile from APIServer, using defaults")
-		} else {
-			tlsProfile = apiServerProfile
-		}
+	resolvedTLSProfile, err := utiltls.ResolveTLSProfile(r, cr.Spec.OLSConfig.TLSSecurityProfile)
+	if err != nil {
+		r.GetLogger().Error(err, "failed to fetch TLS profile from APIServer, using defaults")
 	}
-	tlsProfileType := utiltls.DefaultTLSProfileType
-	if tlsProfile != nil && tlsProfile.Type != "" {
-		tlsProfileType = tlsProfile.Type
-	}
-	tlsProfileSpec := utiltls.GetTLSProfileSpec(tlsProfile)
 	olsConfig.TLSSecurityProfile = &utils.TLSSecurityProfileConfig{
-		ProfileType:   serviceTLSProfileType(tlsProfileType),
-		MinTLSVersion: utiltls.MinTLSVersion(tlsProfileSpec),
-		Ciphers:       utiltls.TLSCiphers(tlsProfileSpec),
+		ProfileType:   resolvedTLSProfile.ProfileType,
+		MinTLSVersion: resolvedTLSProfile.MinTLSVersion,
+		Ciphers:       resolvedTLSProfile.Ciphers,
 	}
 
 	olsConfig.Audit = buildServiceAuditConfig(cr, r.GetNamespace())
@@ -1042,21 +1030,6 @@ func generateMetricsReaderClusterRoleBinding(r reconciler.Reconciler, cr *olsv1a
 	}
 
 	return &rb, nil
-}
-
-func serviceTLSProfileType(profileType configv1.TLSProfileType) string {
-	switch profileType {
-	case configv1.TLSProfileOldType:
-		return "OldType"
-	case configv1.TLSProfileIntermediateType:
-		return "IntermediateType"
-	case configv1.TLSProfileModernType:
-		return "ModernType"
-	case configv1.TLSProfileCustomType:
-		return "Custom"
-	default:
-		return "IntermediateType"
-	}
 }
 
 func getQueryFilters(cr *olsv1alpha1.OLSConfig) []utils.QueryFilters {

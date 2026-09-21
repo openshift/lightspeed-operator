@@ -6,12 +6,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
+	utiltls "github.com/openshift/lightspeed-operator/internal/tls"
 )
 
 var _ = Describe("Agentic integration assets", func() {
@@ -83,12 +85,22 @@ var _ = Describe("Agentic integration assets", func() {
 
 	It("should generate the handoff ConfigMap without MCP keys when introspection is off", func() {
 		testCR.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
+		testCR.Spec.OLSConfig.TLSSecurityProfile = &configv1.TLSSecurityProfile{Type: configv1.TLSProfileModernType}
+		testCR.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{Name: "custom-ca"}
 		cm, err := GenerateAgenticConfigurationConfigMap(testReconcilerInstance, testCR)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cm.Name).To(Equal(utils.AgenticConfigurationConfigMapName))
 		Expect(cm.Labels).To(Equal(labels))
 		Expect(cm.Data[utils.AgenticConfigurationSandboxModeKey]).To(Equal(string(olsv1alpha1.SandboxModeBarePod)))
 		Expect(cm.Data[utils.AgenticConfigurationOtelCASecretKey]).To(Equal(utils.AgenticOtelCASecretName))
+		resolvedTLSProfile, tlsProfileErr := utiltls.ResolveTLSProfile(testReconcilerInstance, testCR.Spec.OLSConfig.TLSSecurityProfile)
+		Expect(tlsProfileErr).NotTo(HaveOccurred())
+		Expect(cm.Data[utils.AgenticConfigurationTLSProfileKey]).To(Equal(resolvedTLSProfile.ProfileType))
+		Expect(cm.Data[utils.AgenticConfigurationTLSMinVersionKey]).To(Equal(resolvedTLSProfile.MinTLSVersion))
+		var cipherSuites []string
+		Expect(json.Unmarshal([]byte(cm.Data[utils.AgenticConfigurationTLSCipherSuitesKey]), &cipherSuites)).To(Succeed())
+		Expect(cipherSuites).To(Equal(resolvedTLSProfile.Ciphers))
+		Expect(cm.Data[utils.AgenticConfigurationAdditionalCAConfigMapKey]).To(Equal("custom-ca"))
 		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationMCPEndpointKey))
 		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationMCPCASecretKey))
 		// RHOKP keys present (byokRAGOnly defaults to false)

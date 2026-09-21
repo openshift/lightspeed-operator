@@ -282,6 +282,14 @@ const (
 	AgenticConfigurationRHOKPEndpointKey = "rhokp-endpoint"
 	// AgenticConfigurationRHOKPCASecretKey is the ConfigMap data key naming the RHOKP client-CA Secret.
 	AgenticConfigurationRHOKPCASecretKey = "rhokp-ca-secret" // #nosec G101
+	// AgenticConfigurationTLSProfileKey is the effective TLS profile.
+	AgenticConfigurationTLSProfileKey = "tls-profile"
+	// AgenticConfigurationTLSMinVersionKey is the effective minimum TLS version.
+	AgenticConfigurationTLSMinVersionKey = "tls-min-version"
+	// AgenticConfigurationTLSCipherSuitesKey is the JSON-serialized effective cipher-suite list.
+	AgenticConfigurationTLSCipherSuitesKey = "tls-cipher-suites"
+	// AgenticConfigurationAdditionalCAConfigMapKey is the name of the additional CA ConfigMap.
+	AgenticConfigurationAdditionalCAConfigMapKey = "additional-ca-configmap"
 	// AgenticConfigurationCertReloadAnnotation is bumped to force ConfigMap RV change
 	// when client CA Secrets rotate so agentic-operator reloads trust material.
 	AgenticConfigurationCertReloadAnnotation = "ols.openshift.io/client-ca-reload"
