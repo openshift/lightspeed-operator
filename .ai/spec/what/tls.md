@@ -38,6 +38,15 @@ The operator manages TLS certificates for all inter-component communication and 
 21. When `openshift-mcp-server-tls` rotates, the watcher restarts the OpenShift MCP server deployment then the app-server with the same fail-closed refresh+touch+roll path, and also touches the `lightspeed-agentic-configuration` ConfigMap.
 22. When `lightspeed-rhokp-tls` rotates, the watcher restarts the RHOKP standalone deployment then the app-server with the same fail-closed refresh+touch+roll path, and also touches the `lightspeed-agentic-configuration` ConfigMap.
 
+### Agentic provider-egress handoff [PLANNED: new classic-operator ticket]
+23. The classic operator MUST reuse `spec.ols.tlsSecurityProfile` and `spec.ols.additionalCAConfigMapRef` for agentic sandbox provider egress. It MUST NOT add a TLS or CA surface to `AgenticOLSConfig`.
+24. The operator MUST publish the resolved profile type, minimum TLS version, and cipher-suite list as strings in the existing `lightspeed-agentic-configuration` ConfigMap under `tls-profile`, `tls-min-version`, and `tls-cipher-suites`. The cipher list is serialized as a JSON array.
+25. The operator MUST publish only the referenced additional CA ConfigMap name under `additional-ca-configmap`; certificate data MUST NOT be copied into the handoff ConfigMap.
+26. Existing operator-managed client CA Secret references remain `otel-ca-secret`, `mcp-ca-secret`, and `rhokp-ca-secret`. The operator owns Secret contents and publishes names only.
+27. Changes to resolved TLS values or referenced object names MUST update the handoff ConfigMap. Existing source watches and Secret refresh behavior remain unchanged; the agentic operator does not watch referenced Secrets or ConfigMaps.
+28. When `spec.ols.additionalCAConfigMapRef` is unset, the operator MUST omit `additional-ca-configmap`; the agentic operator then creates no additional-CA mount.
+29. When `spec.ols.tlsSecurityProfile` is unset, TLS for agentic provider egress MUST remain enabled. The operator MUST resolve the effective profile using the existing cluster API server fallback and operator default, then publish the resolved profile values. The agentic operator MUST pass those values through, and the sandbox MUST NOT select its own TLS profile defaults.
+
 ## Configuration Surface
 
 | Field path | Description |
@@ -57,4 +66,4 @@ The operator manages TLS certificates for all inter-component communication and 
 
 ## Planned Changes
 
-None.
+- [PLANNED: new classic-operator ticket] Publish the resolved provider-egress TLS values and additional CA ConfigMap reference through the existing agentic handoff.
