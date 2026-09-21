@@ -22,7 +22,7 @@
 | `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector deployment generation, update detection |
 | `internal/controller/otelcollector/assets.go` | Runtime ConfigMap, Service, NetworkPolicy, ServiceMonitor, ServiceAccount, Postgres DSN Secret generators | OTEL Collector resource generation, collector runtime YAML, HTTPS metrics |
 | `internal/controller/agenticintegration/reconciler.go` | `ReconcileAgenticIntegrationResources()` | Classic→agentic handoff ConfigMap at end of Phase 2 |
-| `internal/controller/agenticintegration/assets.go` | Thin PodSpec, handoff ConfigMap, `TouchAgenticConfiguration()` | Agentic handoff ConfigMap generation / cert-reload touch |
+| `internal/controller/agenticintegration/assets.go` | Thin PodSpec, handoff ConfigMap, `TouchAgenticConfiguration()` | Agentic handoff ConfigMap generation, including resolved provider-egress TLS values and CA references / cert-reload touch |
 | `internal/controller/ocpmcp/reconciler.go` | `ReconcileResources()`, `ReconcileDeployment()`, `Remove()`, `Restart()` | Standalone OpenShift MCP Phase 1 + Phase 2 + teardown + rolling restart |
 | `internal/controller/ocpmcp/deployment.go` | `GenerateDeployment()`, `UpdateDeployment()` | MCP Deployment generation and update detection |
 | `internal/controller/ocpmcp/assets.go` | ConfigMap (TOML), Service, NetworkPolicy, ServiceAccount, `GetConfigVolumeAndMount()`, `GetConfigPath()` | MCP resource generation |
