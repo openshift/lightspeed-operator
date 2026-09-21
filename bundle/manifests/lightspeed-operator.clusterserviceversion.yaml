@@ -841,6 +841,12 @@ spec:
                 - get
                 - list
             - apiGroups:
+                - agentic.openshift.io
+              resources:
+                - agenticolsconfigs
+              verbs:
+                - get
+            - apiGroups:
                 - apps
               resources:
                 - deployments
@@ -959,6 +965,7 @@ spec:
                 - rbac.authorization.k8s.io
               resourceNames:
                 - lightspeed-agentic-alerts-adapter-agenticruns
+                - lightspeed-agentic-alerts-adapter-agenticolsconfig
                 - lightspeed-app-server-sar-role-binding
                 - lightspeed-operator-ols-metrics-reader
               resources:
@@ -981,6 +988,7 @@ spec:
                 - rbac.authorization.k8s.io
               resourceNames:
                 - lightspeed-agentic-alerts-adapter-agenticruns
+                - lightspeed-agentic-alerts-adapter-agenticolsconfig
                 - lightspeed-app-server-sar-role
               resources:
                 - clusterroles
