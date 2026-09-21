@@ -47,7 +47,7 @@
   },
   {
     "name": "lightspeed-otel-collector",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector:main",
+    "image": "registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:819d7e65965210e39b0c69e3cdd7aee0922a0f4ba153ebe117398b6221e5f466",
     "revision": "8bc5f3bbc050e5912c113e485453e342ecea2d8c",
     "operator_arg": "otel-collector-image",
     "snapshot_component": "lightspeed-otel-collector",
