@@ -1,0 +1,15 @@
+# Binds agentic-operator-manager-role to the agentic controller SA (OLS-3188).
+# Synced from agentic-operator config/rbac/role_binding.yaml; subject retargeted
+# to the bundle SA name/namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: agentic-operator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: agentic-operator-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: lightspeed-agentic-operator-controller-manager
+    namespace: openshift-lightspeed
