@@ -156,6 +156,7 @@ const (
 	ErrGetAgenticMCPCASourceConfigMap            = "failed to get openshift-mcp-server CA ConfigMap for agentic MCP CA"
 	ErrAgenticMCPCANotReady                      = "agentic MCP CA certificate is not ready"
 	ErrMarshalAgenticSandboxPodSpec              = "failed to marshal agentic sandbox pod spec"
+	ErrMarshalAgenticTLSCipherSuites             = "failed to marshal agentic TLS cipher suites"
 	ErrCreateAgenticConfigurationConfigMap       = "failed to create agentic configuration configmap"
 	ErrGetAgenticConfigurationConfigMap          = "failed to get agentic configuration configmap"
 	ErrUpdateAgenticConfigurationConfigMap       = "failed to update agentic configuration configmap"

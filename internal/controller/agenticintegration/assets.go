@@ -18,6 +18,7 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
+	utiltls "github.com/openshift/lightspeed-operator/internal/tls"
 )
 
 // SandboxModeFromCR returns the configured sandbox mode, defaulting to bare-pod.
@@ -115,6 +116,14 @@ func GenerateAgenticConfigurationConfigMap(r reconciler.Reconciler, cr *olsv1alp
 
 	ns := r.GetNamespace()
 	otelHost := fmt.Sprintf("%s.%s.svc", utils.OtelCollectorServiceName, ns)
+	resolvedTLSProfile, tlsProfileErr := utiltls.ResolveTLSProfile(r, cr.Spec.OLSConfig.TLSSecurityProfile)
+	if tlsProfileErr != nil {
+		r.GetLogger().Error(tlsProfileErr, "failed to fetch TLS profile from APIServer, using defaults")
+	}
+	tlsCipherSuites, err := json.Marshal(resolvedTLSProfile.Ciphers)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", utils.ErrMarshalAgenticTLSCipherSuites, err)
+	}
 
 	data := map[string]string{
 		utils.AgenticConfigurationSandboxModeKey:           string(SandboxModeFromCR(cr)),
@@ -122,6 +131,12 @@ func GenerateAgenticConfigurationConfigMap(r reconciler.Reconciler, cr *olsv1alp
 		utils.AgenticConfigurationOtelCollectorEndpointKey: fmt.Sprintf("%s:%d", otelHost, utils.OtelCollectorGRPCPort),
 		utils.AgenticConfigurationOtelAdminEndpointKey:     fmt.Sprintf("https://%s:%d", otelHost, utils.OtelCollectorAdminPort),
 		utils.AgenticConfigurationOtelCASecretKey:          utils.AgenticOtelCASecretName,
+		utils.AgenticConfigurationTLSProfileKey:            resolvedTLSProfile.ProfileType,
+		utils.AgenticConfigurationTLSMinVersionKey:         resolvedTLSProfile.MinTLSVersion,
+		utils.AgenticConfigurationTLSCipherSuitesKey:       string(tlsCipherSuites),
+	}
+	if ref := cr.Spec.OLSConfig.AdditionalCAConfigMapRef; ref != nil && ref.Name != "" {
+		data[utils.AgenticConfigurationAdditionalCAConfigMapKey] = ref.Name
 	}
 	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		data[utils.AgenticConfigurationMCPEndpointKey] = utils.OpenShiftMCPServerServiceURL(ns)

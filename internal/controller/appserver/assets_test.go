@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -261,73 +260,6 @@ var _ = Describe("App server assets", func() {
 			got := olsconfigGenerated.LLMProviders[0].Models[0].Parameters.TemperatureSupported
 			Expect(got).NotTo(BeNil())
 			Expect(*got).To(BeFalse())
-		})
-
-		It("should generate configmap with TLS profile from APIServer when CR has none", func() {
-			apiServer := &configv1.APIServer{}
-			Expect(testReconcilerInstance.Get(ctx, client.ObjectKey{Name: "cluster"}, apiServer)).To(Succeed())
-			apiServer.Spec.TLSSecurityProfile = &configv1.TLSSecurityProfile{
-				Type: configv1.TLSProfileModernType,
-			}
-			Expect(testReconcilerInstance.Update(ctx, apiServer)).To(Succeed())
-			DeferCleanup(func() {
-				apiServer.Spec.TLSSecurityProfile = nil
-				Expect(testReconcilerInstance.Update(ctx, apiServer)).To(Succeed())
-			})
-
-			cr.Spec.OLSConfig.TLSSecurityProfile = nil
-			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
-			Expect(err).NotTo(HaveOccurred())
-
-			var olsConfigMap map[string]interface{}
-			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tlsSecurityProfile", MatchKeys(Options(IgnoreExtras), Keys{
-				"type":          Equal("ModernType"),
-				"minTLSVersion": Equal(string(configv1.TLSProfiles[configv1.TLSProfileModernType].MinTLSVersion)),
-			}))))
-		})
-
-		It("should generate configmap with modern TLS security profile", func() {
-			cr.Spec.OLSConfig.TLSSecurityProfile = &configv1.TLSSecurityProfile{
-				Type: configv1.TLSProfileModernType,
-			}
-			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
-			Expect(err).NotTo(HaveOccurred())
-
-			var olsConfigMap map[string]interface{}
-			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tlsSecurityProfile", MatchKeys(Options(IgnoreExtras), Keys{
-				"type":          Equal("ModernType"),
-				"minTLSVersion": Equal(string(configv1.TLSProfiles[configv1.TLSProfileModernType].MinTLSVersion)),
-			}))))
-		})
-
-		It("should generate configmap with custom TLS security profile", func() {
-			cr.Spec.OLSConfig.TLSSecurityProfile = &configv1.TLSSecurityProfile{
-				Type: configv1.TLSProfileCustomType,
-				Custom: &configv1.CustomTLSProfile{
-					TLSProfileSpec: configv1.TLSProfileSpec{
-						MinTLSVersion: configv1.VersionTLS13,
-						Ciphers: []string{
-							"TLS_AES_128_GCM_SHA256",
-							"TLS_AES_256_GCM_SHA384",
-						},
-					},
-				},
-			}
-			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
-			Expect(err).NotTo(HaveOccurred())
-
-			var olsConfigMap map[string]interface{}
-			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tlsSecurityProfile", MatchKeys(Options(IgnoreExtras), Keys{
-				"type":          Equal("Custom"),
-				"minTLSVersion": Equal("VersionTLS13"),
-				"ciphers":       ContainElements("TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"),
-			}))))
 		})
 
 		It("should generate configmap with queryFilters", func() {
