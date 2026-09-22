@@ -1,17 +1,19 @@
 #!/bin/bash
 # Helper tool to update the bundle artifacts
 # Pre-requisites: opm, make, yq, operator-sdk
-# Usage: ./hack/update_bundle.sh
+# Usage: ./hack/update_bundle.sh v1|v2 [-v bundle_version]
 
 set -euo pipefail
 
 TEMP_BUNDLE_CONTAINER_FILE=$(mktemp)
-cleanup() {
-  # remove temporary bundle container file
-  if [ -n "${TEMP_BUNDLE_CONTAINER_FILE}" ]; then
-    rm -f "${TEMP_BUNDLE_CONTAINER_FILE}"
-  fi
+DEPLOYMENT_PATCH_FILE="config/default/deployment-patch.yaml"
+DEPLOYMENT_PATCH_BACKUP=$(mktemp)
+cp "${DEPLOYMENT_PATCH_FILE}" "${DEPLOYMENT_PATCH_BACKUP}"
 
+cleanup() {
+  cp "${DEPLOYMENT_PATCH_BACKUP}" "${DEPLOYMENT_PATCH_FILE}"
+  rm -f "${TEMP_BUNDLE_CONTAINER_FILE}" "${TEMP_BUNDLE_CONTAINER_FILE}.related_images.json" \
+    "${DEPLOYMENT_PATCH_BACKUP}"
 }
 
 trap cleanup EXIT
@@ -19,18 +21,30 @@ trap cleanup EXIT
 SCRIPT_DIR=$(dirname "$0")
 
 usage() {
-  echo "Usage: $0 [-v bundle_version] [-h]"
-  echo "  -v bundle_version: The version of the bundle"
+  echo "Usage: $0 v1|v2 -i related_images_filename [-v bundle_version] [-c channel_name]"
+  echo "  v1|v2: Bundle variant (v1 is classic, v2 includes agentic components)"
+  echo "  -v bundle_version: The version of the bundle (defaults to 1.0.0 or 2.0.0)"
   echo "  -i related_images_filename: The JSON file containing the related images"
-
+  echo "  -c channel_name: The bundle channel (defaults to alpha)"
   echo "  -h: Show this help message"
 }
 
-BUNDLE_VERSION=""
+if [ "$#" -ge 1 ] && [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  usage
+  exit 0
+fi
+if [ "$#" -lt 1 ] || [[ "$1" != "v1" && "$1" != "v2" ]]; then
+  echo "a bundle variant (v1 or v2) is required"
+  usage
+  exit 1
+fi
+BUNDLE_VARIANT="$1"
+shift
+BUNDLE_VERSION="${BUNDLE_VERSION:-${BUNDLE_VARIANT/v/}.0.0}"
 RELATED_IMAGES_FILENAME=""
 CHANNEL_NAME="alpha"
 
-while getopts ":v:i:h" opt; do
+while getopts ":v:i:c:h" opt; do
   case "$opt" in
   "v")
     BUNDLE_VERSION=${OPTARG}
@@ -64,15 +78,15 @@ while getopts ":v:i:h" opt; do
   esac
 done
 
-if [ -z "${BUNDLE_VERSION}" ]; then
-  echo "bundle_version is required"
-  usage
+if [[ "${BUNDLE_VARIANT}" == "v1" && "${BUNDLE_VERSION}" != 1.* ]] ||
+   [[ "${BUNDLE_VARIANT}" == "v2" && "${BUNDLE_VERSION}" != 2.* ]]; then
+  echo "bundle version ${BUNDLE_VERSION} does not match ${BUNDLE_VARIANT}"
   exit 1
 fi
 
-# default flag for bundle generation
-: ${BUNDLE_GEN_FLAGS="--channels=${CHANNEL_NAME} --default-channel=${CHANNEL_NAME} -q --overwrite --version ${BUNDLE_VERSION}"}
-BUNDLE_GEN_FLAGS="${BUNDLE_GEN_FLAGS} --version ${BUNDLE_VERSION}"
+# Supplying BUNDLE_GEN_FLAGS replaces the defaults, but the selected version
+# must always be passed exactly once.
+BUNDLE_GEN_FLAGS="${BUNDLE_GEN_FLAGS:---channels=${CHANNEL_NAME} --default-channel=${CHANNEL_NAME} -q --overwrite} --version ${BUNDLE_VERSION}"
 
 # Tool check
 : ${YQ:=$(command -v yq)}
@@ -103,18 +117,20 @@ if [ -z "${KUSTOMIZE}" ]; then
   exit 1
 fi
 
-CSV_FILE="bundle/manifests/lightspeed-operator.clusterserviceversion.yaml"
-ANNOTATION_FILE="bundle/metadata/annotations.yaml"
+# Keep both generated variants available for inspection and image builds.
+BUNDLE_DIR="bundle-${BUNDLE_VARIANT}"
+CSV_FILE="${BUNDLE_DIR}/manifests/lightspeed-operator.clusterserviceversion.yaml"
+ANNOTATION_FILE="${BUNDLE_DIR}/metadata/annotations.yaml"
 
 BUNDLE_DOCKERFILE="bundle.Dockerfile"
 
-# related_images.json is the single source of truth for (component_name, image) pairs.
-# When -i is not provided, fall back to existing CSV so make bundle without -i still works.
-if [ -f "${RELATED_IMAGES_FILENAME}" ]; then
-  echo "using related images from file ${RELATED_IMAGES_FILENAME}"
-  RELATED_IMAGES=$(${JQ} '.' ${RELATED_IMAGES_FILENAME})
+# related_images.json is the single source of truth for (component_name, image)
+# pairs. It is required because the selector metadata is not stored in the CSV.
+if [ -n "${RELATED_IMAGES_FILENAME}" ] && [ -f "${RELATED_IMAGES_FILENAME}" ]; then
+  echo "using related images from file ${RELATED_IMAGES_FILENAME} for ${BUNDLE_VARIANT}"
+  RELATED_IMAGES=$(${JQ} --arg bundle "${BUNDLE_VARIANT}" '[.[] | select((has("bundles") | not) or (.bundles | index($bundle)))]' "${RELATED_IMAGES_FILENAME}")
 else
-  echo "error: provide -i related_images.json or run from a tree with an existing bundle CSV"
+  echo "error: provide -i related_images.json"
   exit 1
 fi
 
@@ -125,16 +141,18 @@ fi
 
 OPERATOR_IMAGE=$(${JQ} -r '.[] | select(.name == "lightspeed-operator") | .image' <<<"${RELATED_IMAGES}")
 echo "Updating bundle artifacts for image ${OPERATOR_IMAGE:-<from related_images>}"
-rm -rf ./bundle
+rm -rf "./${BUNDLE_DIR}"
 
-RELATED_IMAGES_FILE="${RELATED_IMAGES_FILENAME}" ./hack/generate_deployment_patch.sh
+FILTERED_RELATED_IMAGES_FILE="${TEMP_BUNDLE_CONTAINER_FILE}.related_images.json"
+printf '%s\n' "${RELATED_IMAGES}" > "${FILTERED_RELATED_IMAGES_FILE}"
+RELATED_IMAGES_FILE="${FILTERED_RELATED_IMAGES_FILE}" ./hack/generate_deployment_patch.sh
 
 ${OPERATOR_SDK} generate kustomize manifests -q
-${KUSTOMIZE} build config/manifests | ${OPERATOR_SDK} generate bundle ${BUNDLE_GEN_FLAGS}
+${KUSTOMIZE} build config/manifests | ${OPERATOR_SDK} generate bundle ${BUNDLE_GEN_FLAGS} --output-dir "${BUNDLE_DIR}"
+# createdAt changes on every generation and is not required in bundle metadata.
+${YQ} eval -i 'del(.metadata.annotations.createdAt)' "${CSV_FILE}"
 # replace the bundle.Dockerfile generated by operator-sdk with our version
 cp ./hack/${BUNDLE_DOCKERFILE} .
-${OPERATOR_SDK} bundle validate ./bundle
-
 # Substitute deployment args and container image from related_images.json (operator_arg / operator_target).
 # shellcheck source=image_args_lib.sh
 source "${SCRIPT_DIR}/image_args_lib.sh"
@@ -147,16 +165,24 @@ while IFS='|' read -r name placeholder target _; do
   else
     ${YQ} "(.spec.install.spec.deployments[].spec.template.spec.containers[].args[] |= sub(\"${placeholder}\", \"${IMG_SAFE}\"))" -i ${CSV_FILE}
   fi
-done < <(image_args::list_patch_entries "${RELATED_IMAGES_FILENAME}" "${JQ}")
+done < <(image_args::list_patch_entries "${FILTERED_RELATED_IMAGES_FILE}" "${JQ}")
 
 # Set spec.relatedImages from related_images.json (strip revision and snapshot metadata for OLM CSV).
 # The bundle image is only referenced in catalog files, not in the CSV.
-RELATED_IMAGES_CSV=$(${JQ} 'map(del(.revision, .snapshot_component, .snapshot_source, .konflux_prefix, .stable_prefix, .operator_arg, .operator_target)) | map(select(.name != "lightspeed-operator-bundle"))' <<<"${RELATED_IMAGES}")
+RELATED_IMAGES_CSV=$(${JQ} 'map(select(.snapshot_source != "bundle") | del(.revision, .snapshot_component, .snapshot_source, .konflux_prefix, .stable_prefix, .operator_arg, .operator_target, .bundles))' <<<"${RELATED_IMAGES}")
 # set related images to the CSV file
 ${YQ} eval -i '.spec.relatedImages='"${RELATED_IMAGES_CSV}" ${CSV_FILE}
 # add compatibility labels to the annotations file
-${YQ} eval -i '.annotations."com.redhat.openshift.versions"="v4.16-v4.21"' ${ANNOTATION_FILE}
+if [ "${BUNDLE_VARIANT}" = "v1" ]; then
+  OCP_VERSIONS="v4.16-v4.22"
+else
+  OCP_VERSIONS=">=v5.0"
+fi
+${YQ} eval -i '.annotations."com.redhat.openshift.versions"="'"${OCP_VERSIONS}"'"' ${ANNOTATION_FILE}
 ${YQ} eval -i '(.annotations."com.redhat.openshift.versions" | key) head_comment="OCP compatibility labels"' ${ANNOTATION_FILE}
 ${YQ} eval -i '.annotations."features.operators.openshift.io/fips-compliant"="true"' ${ANNOTATION_FILE}
+
+# Validate the final artifact, after image, related-image, and annotation updates.
+${OPERATOR_SDK} bundle validate "./${BUNDLE_DIR}"
 
 echo "Finished running $(basename "$0")"
