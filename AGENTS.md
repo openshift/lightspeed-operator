@@ -10,26 +10,39 @@ Kubernetes operator managing OpenShift Lightspeed (AI-powered Virtual Assistant)
 ## Version Management
 
 ### Version Update Process
-When updating the operator version for a release, you **MUST** update version numbers in **TWO** files:
 
-1. **`bundle.Dockerfile`** - Bundle container labels (lines 63 and 66)
-   ```dockerfile
-   LABEL release=X.Y.Z
-   LABEL version=X.Y.Z
-   ```
+Bundle generation is variant-aware. Select the bundle line and matching major
+version explicitly:
 
-2. **`bundle/manifests/lightspeed-operator.clusterserviceversion.yaml`** - CSV metadata (lines 58 and 715)
-   ```yaml
-   name: lightspeed-operator.vX.Y.Z
-   # ... line 715:
-   version: X.Y.Z
-   ```
+```bash
+# Classic OCP 4.x bundle
+make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.x.y
 
-**Important Notes:**
-- Both files MUST have matching versions
-- The CSV `name` field includes a `v` prefix (e.g., `lightspeed-operator.v1.0.8`)
-- The CSV `version` field does NOT have a prefix (e.g., `1.0.8`)
-- After version changes, regenerate the selected bundle using `make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.x.y` or `hack/update_bundle.sh v1 -v 1.x.y` (use `v2`/`2.x.y` for the agentic bundle)
+# Agentic OCP 5.0+ bundle
+make bundle BUNDLE_VARIANT=v2 BUNDLE_TAG=2.x.y
+```
+
+The generator writes variant-specific, buildable artifacts:
+
+```text
+v1: bundle-v1/ and bundle-v1.Dockerfile
+v2: bundle-v2/ and bundle-v2.Dockerfile
+```
+
+Do not hand-edit the generated CSV version or Dockerfile labels. `BUNDLE_TAG`
+sets the generated CSV name/version and the selected Dockerfile's `release`,
+`version`, and CPE labels. The CSV base templates under
+`config/manifests/bases/` are structural inputs, not release-version sources.
+
+The agentic source inputs are synchronized separately with:
+
+```bash
+make sync-agentic-crds
+```
+
+Run that sync before regenerating v2 when the upstream agentic CRD/RBAC
+contract changes. Normal v2 generation uses the already committed inputs and
+does not fetch another repository.
 
 ## Architecture Quick Reference
 

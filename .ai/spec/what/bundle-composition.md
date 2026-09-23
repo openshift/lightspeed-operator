@@ -18,8 +18,10 @@ the agentic resources described here.
 
 ### Bundle Structure
 
-1. Both bundles are built from the same source under `bundle/` via selector-driven
-   tooling (`hack/update_bundle.sh v1|v2`). The selector chooses the CSV template, the
+1. Both bundles are built from the same source via selector-driven tooling
+   (`hack/update_bundle.sh v1|v2`) but are written to independent generated directories:
+   `bundle-v1/` for the classic bundle and `bundle-v2/` for the full bundle. Generating
+   one variant MUST NOT overwrite the other. The selector chooses the CSV template, the
    image set from `related_images.json`, and the `com.redhat.openshift.versions`
    annotation. The v1 annotation covers `v4.16-v4.22` (current); it must be extended to
    include each new OCP 4.x minor as it ships — [PLANNED: OLS-2991] to `v4.16-v4.23`.
@@ -42,7 +44,7 @@ the agentic resources described here.
 
 4. CRD YAML for `agentic.openshift.io` types is generated in the `lightspeed-agentic-operator` repo (via `make manifests`).
 5. The agentic-operator repo remains the single source of truth for `agentic.openshift.io` API types. The lightspeed-operator repo does not define or modify these types.
-6. The lightspeed-operator repo has a `make` target that fetches CRD YAML from the `lightspeed-agentic-operator` repo via a git-based fetch at a pinned ref/tag, and copies the CRD files into `bundle/manifests/`.
+6. The lightspeed-operator repo has a `make` target that fetches CRD YAML from the `lightspeed-agentic-operator` repo via a git-based fetch at a pinned ref/tag, and writes the CRD files into `config/agentic/crds/`. The v2-only Kustomize assembly passes those files to operator-sdk, which emits them as owned CRDs in `bundle-v2/`.
 7. When the agentic CRDs change, the pinned ref is updated in the lightspeed-operator repo and the make target is re-run to sync.
 
 ### Image References
