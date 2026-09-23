@@ -295,13 +295,14 @@ func buildPostgresConnectionString(namespace, password string) (string, error) {
 func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 	loggingEnabled := utils.BoolDeref(cr.Spec.Audit.Logging, true)
 	tracingEndpoint := cr.Spec.Audit.TracingEndpoint
+	agenticCollectionEnabled := !cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled
 
 	config := map[string]interface{}{
 		"receivers": map[string]interface{}{
 			"otlp": map[string]interface{}{
 				"protocols": map[string]interface{}{
-					"grpc": otlpTLSEndpoint("0.0.0.0:4317"),
-					"http": otlpTLSEndpoint("0.0.0.0:4318"),
+					"grpc": otlpGRPCEndpoint("0.0.0.0:4317"),
+					"http": otlpHTTPEndpoint("0.0.0.0:4318"),
 				},
 			},
 		},
@@ -318,6 +319,9 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 	// does not return UNIMPLEMENTED) but have no backend use this exporter.
 	exporters := map[string]interface{}{
 		"nop": map[string]interface{}{},
+	}
+	if agenticCollectionEnabled {
+		exporters["agentic"] = agenticExporterConfig()
 	}
 	connectors := map[string]interface{}{}
 	pipelines := map[string]interface{}{}
@@ -354,6 +358,8 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 		}
 	}
 
+	traceExporters := []interface{}{"nop"}
+	traceProcessors := []interface{}(nil)
 	if tracingEndpoint != "" {
 		exporters["otlp/tracing"] = map[string]interface{}{
 			"endpoint": "${env:" + utils.OtelCollectorTracesBackendEndpointEnvVar + "}",
@@ -363,19 +369,21 @@ func buildCollectorConfigYAML(cr *olsv1alpha1.OLSConfig) ([]byte, error) {
 				"include_system_ca_certs_pool": true,
 			},
 		}
-		pipelines["traces"] = map[string]interface{}{
-			"receivers":  []interface{}{"otlp"},
-			"processors": []interface{}{"batch"},
-			"exporters":  []interface{}{"otlp/tracing"},
-		}
-	} else {
-		// Accept traces so the OTLP receiver does not return UNIMPLEMENTED when
-		// app-server (or others) export traces with no tracingEndpoint configured.
-		pipelines["traces"] = map[string]interface{}{
-			"receivers": []interface{}{"otlp"},
-			"exporters": []interface{}{"nop"},
-		}
+		traceExporters[0] = "otlp/tracing"
+		traceProcessors = []interface{}{"batch"}
 	}
+	if agenticCollectionEnabled {
+		traceExporters = append(traceExporters, "agentic")
+	}
+	tracePipeline := map[string]interface{}{
+		"receivers":  []interface{}{"otlp"},
+		"exporters":  traceExporters,
+		"processors": traceProcessors,
+	}
+	if traceProcessors == nil {
+		delete(tracePipeline, "processors")
+	}
+	pipelines["traces"] = tracePipeline
 
 	config["exporters"] = exporters
 	if len(connectors) > 0 {
@@ -420,6 +428,17 @@ func otlpTLSEndpoint(endpoint string) map[string]interface{} {
 		},
 	}
 }
+func otlpGRPCEndpoint(endpoint string) map[string]interface{} {
+	config := otlpTLSEndpoint(endpoint)
+	config["max_recv_msg_size_mib"] = utils.OtelCollectorGRPCMaxRecvMsgSizeMiB
+	return config
+}
+
+func otlpHTTPEndpoint(endpoint string) map[string]interface{} {
+	config := otlpTLSEndpoint(endpoint)
+	config["max_request_body_size"] = utils.OtelCollectorHTTPMaxRequestBodySize
+	return config
+}
 
 func postgresExporterConfig() map[string]interface{} {
 	return map[string]interface{}{
@@ -435,6 +454,13 @@ func postgresExporterConfig() map[string]interface{} {
 			"queue_size":    1000,
 			"storage":       "file_storage",
 		},
+	}
+}
+func agenticExporterConfig() map[string]interface{} {
+	return map[string]interface{}{
+		"actions_directory":     utils.OtelCollectorAgenticActionsPath,
+		"transcripts_directory": utils.OtelCollectorAgenticTranscriptsPath,
+		"max_backlog_bytes":     utils.OtelCollectorAgenticMaxBacklogBytes,
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("OTEL Collector deployment", func() {
@@ -23,6 +24,9 @@ var _ = Describe("OTEL Collector deployment", func() {
 		Expect(dep.Name).To(Equal(utils.OtelCollectorDeploymentName))
 		Expect(dep.Labels).To(Equal(utils.GenerateOtelCollectorSelectorLabels()))
 		Expect(dep.Annotations).To(HaveKey(utils.OtelCollectorConfigMapResourceVersionAnnotation))
+		Expect(dep.OwnerReferences).To(HaveLen(1))
+		Expect(dep.OwnerReferences[0].Name).To(Equal(testCR.Name))
+		Expect(dep.OwnerReferences[0].UID).To(Equal(testCR.UID))
 
 		spec := dep.Spec.Template.Spec
 		Expect(spec.ServiceAccountName).To(Equal(utils.OtelCollectorServiceAccountName))
@@ -30,6 +34,9 @@ var _ = Describe("OTEL Collector deployment", func() {
 		Expect(spec.InitContainers[0].Name).To(Equal(utils.PostgresWaitInitContainerName))
 
 		container := spec.Containers[0]
+		Expect(container.Resources.Requests.Cpu().String()).To(Equal("100m"))
+		Expect(container.Resources.Requests.Memory().String()).To(Equal("128Mi"))
+
 		Expect(container.Name).To(Equal(utils.OtelCollectorContainerName))
 		Expect(container.Image).To(Equal(testOtelCollectorImage))
 		Expect(container.Args).To(ConsistOf("--config=/etc/otelcol/config.yaml"))
@@ -63,6 +70,37 @@ var _ = Describe("OTEL Collector deployment", func() {
 			mountNames = append(mountNames, m.Name)
 		}
 		Expect(mountNames).To(ContainElement(utils.OtelCollectorServiceCAVolumeName))
+		agenticVolume, found := findVolume(spec.Volumes, utils.OtelCollectorAgenticDataVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(agenticVolume.EmptyDir).NotTo(BeNil())
+		Expect(agenticVolume.EmptyDir.SizeLimit.String()).To(Equal(utils.OtelCollectorAgenticDataSizeLimitDefault))
+
+		agenticMount, found := findVolumeMount(container.VolumeMounts, utils.OtelCollectorAgenticDataVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(agenticMount.MountPath).To(Equal(utils.OtelCollectorAgenticDataMountPath))
+		Expect(agenticMount.ReadOnly).To(BeFalse())
+		Expect(spec.Containers).To(HaveLen(1))
+
+		Expect(container.SecurityContext).NotTo(BeNil())
+		Expect(*container.SecurityContext.RunAsNonRoot).To(BeTrue())
+		Expect(*container.SecurityContext.AllowPrivilegeEscalation).To(BeFalse())
+		Expect(*container.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
+		Expect(container.SecurityContext.Capabilities.Drop).To(ContainElement(corev1.Capability("ALL")))
+		Expect(container.SecurityContext.SeccompProfile.Type).To(Equal(corev1.SeccompProfileTypeRuntimeDefault))
+	})
+	It("should omit the Agentic spool when transcripts are disabled", func() {
+		testCR.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled = true
+		ensureCollectorConfigMap(testCR)
+
+		dep, err := GenerateOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
+		Expect(err).NotTo(HaveOccurred())
+
+		spec := dep.Spec.Template.Spec
+		_, found := findVolume(spec.Volumes, utils.OtelCollectorAgenticDataVolumeName)
+		Expect(found).To(BeFalse())
+		_, found = findVolumeMount(spec.Containers[0].VolumeMounts, utils.OtelCollectorAgenticDataVolumeName)
+		Expect(found).To(BeFalse())
+		Expect(spec.Containers).To(HaveLen(1))
 	})
 
 	It("should keep postgres wiring when audit logging is disabled", func() {
@@ -100,3 +138,21 @@ var _ = Describe("OTEL Collector deployment", func() {
 	})
 
 })
+
+func findVolume(volumes []corev1.Volume, name string) (corev1.Volume, bool) {
+	for _, volume := range volumes {
+		if volume.Name == name {
+			return volume, true
+		}
+	}
+	return corev1.Volume{}, false
+}
+
+func findVolumeMount(volumeMounts []corev1.VolumeMount, name string) (corev1.VolumeMount, bool) {
+	for _, volumeMount := range volumeMounts {
+		if volumeMount.Name == name {
+			return volumeMount, true
+		}
+	}
+	return corev1.VolumeMount{}, false
+}
