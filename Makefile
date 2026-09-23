@@ -46,7 +46,8 @@ BASE_IMG ?= registry.redhat.io/ubi9/ubi-minimal
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
-BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
+BUNDLE_IMG ?= $(if $(filter v2,$(BUNDLE_VARIANT)),quay.io/openshift-lightspeed/lightspeed-agentic-operator-bundle:v$(BUNDLE_TAG),$(IMAGE_TAG_BASE)-bundle:v$(VERSION))
+BUNDLE_DOCKERFILE ?= bundle-$(BUNDLE_VARIANT).Dockerfile
 
 # BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
 BUNDLE_GEN_FLAGS ?= -q --overwrite $(BUNDLE_METADATA_OPTS)
@@ -406,7 +407,7 @@ parking:
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	$(CONTAINER_TOOL) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	$(CONTAINER_TOOL) build -f $(BUNDLE_DOCKERFILE) -t $(BUNDLE_IMG) .
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
