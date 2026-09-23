@@ -3,15 +3,6 @@
 # classic lightspeed-operator controller. Sourced from the agentic-operator repo
 # (config/manager/manager.yaml, config/rbac/service_account.yaml); keep in sync
 # via the CRD/RBAC sync target (OLS-3189). Do not hand-edit the rule/spec content.
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: lightspeed-agentic-operator-controller-manager
-  namespace: openshift-lightspeed
-  labels:
-    app.kubernetes.io/component: manager
-    app.kubernetes.io/part-of: lightspeed-operator
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -96,4 +87,3 @@ spec:
         - name: webhook-certs
           secret:
             secretName: agentic-operator-webhook-certs
-            optional: true

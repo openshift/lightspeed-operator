@@ -21,7 +21,7 @@ We can also use `make bundle` to update the bundle.
 - `BUNDLE_VARIANT=v1 BUNDLE_TAG=1.2.1 make bundle` generates a classic bundle with version `1.2.1` using `related_images.json`.
 - `BUNDLE_VARIANT=v2 BUNDLE_TAG=2.0.0 make bundle` generates the agentic bundle with version `2.0.0` using `related_images.json`.
 
-After building the bundle image from `bundle.Dockerfile`, the `.spec.relatedImages` field in `/manifests/lightspeed-operator.clusterserviceversion.yaml` is set to the variant-filtered images in `related_images.json`.
+After generating a selected variant, build its matching Dockerfile (`bundle-v1.Dockerfile` or `bundle-v2.Dockerfile`). Its `/manifests/lightspeed-operator.clusterserviceversion.yaml` has `.spec.relatedImages` set to the variant-filtered images in `related_images.json`.
 
 ## Image List Update
 

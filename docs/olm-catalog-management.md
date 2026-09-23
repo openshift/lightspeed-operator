@@ -49,13 +49,16 @@ lightspeed-catalog-4.18/
 
 ### OpenShift Version Mapping
 
-| OpenShift Version | Catalog Directory | Kubernetes Version |
-|-------------------|-------------------|-------------------|
-| 4.16 | `lightspeed-catalog-4.16/` | 1.29 |
-| 4.17 | `lightspeed-catalog-4.17/` | 1.30 |
-| 4.18 | `lightspeed-catalog-4.18/` | 1.31 |
-| 4.19 | `lightspeed-catalog-4.19/` | 1.32 |
-| 4.20 | `lightspeed-catalog-4.20/` | 1.33 |
+| OpenShift Version | Catalog Directory | Kubernetes Version | Bundle Variant |
+|-------------------|-------------------|--------------------|----------------|
+| 4.16 | `lightspeed-catalog-4.16/` | 1.29 | v1 |
+| 4.17 | `lightspeed-catalog-4.17/` | 1.30 | v1 |
+| 4.18 | `lightspeed-catalog-4.18/` | 1.31 | v1 |
+| 4.19 | `lightspeed-catalog-4.19/` | 1.32 | v1 |
+| 4.20 | `lightspeed-catalog-4.20/` | 1.33 | v1 |
+| 4.21 | `lightspeed-catalog-4.21/` | — | v1 |
+| 4.22 | `lightspeed-catalog-4.22/` | — | v1 |
+| 5.0 | `lightspeed-catalog-5.0/` | — | v2 only |
 
 **Why separate catalogs?**
 - Bundle metadata differs per OCP version (`com.redhat.openshift.versions` annotation)
@@ -69,16 +72,21 @@ lightspeed-catalog-4.18/
 **Add bundle to all catalogs:**
 
 ```bash
-# 1. Build and push bundle first
-make bundle BUNDLE_TAG=0.2.0
-make bundle-build BUNDLE_IMG=quay.io/org/bundle:v0.2.0
-make bundle-push BUNDLE_IMG=quay.io/org/bundle:v0.2.0
+# 1. Build and push the v1 bundle first
+make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.2.0
+make bundle-build BUNDLE_IMG=quay.io/org/bundle:v1.2.0
+make bundle-push BUNDLE_IMG=quay.io/org/bundle:v1.2.0
 
-# 2. Add to catalogs using our script
-./hack/bundle_to_catalog.sh quay.io/org/bundle:v0.2.0
+# 2. Add the v1 bundle to every 4.x catalog
+for v in 4.16 4.17 4.18 4.19 4.20 4.21 4.22; do
+  migrate=()
+  [ "$v" = 4.16 ] || migrate=(-m)
+  ./hack/bundle_to_catalog.sh -b <bundle-snapshot> -t v1 \
+    -c "lightspeed-catalog-${v}/index.yaml" "${migrate[@]}"
+done
 
-# 3. Build and push catalog images
-for v in 4.16 4.17 4.18 4.19 4.20; do
+# 3. Build and push every 4.x catalog image
+for v in 4.16 4.17 4.18 4.19 4.20 4.21 4.22; do
   make catalog-build VERSION=$v
   make catalog-push VERSION=$v
 done
@@ -86,8 +94,10 @@ done
 
 **Our script** (`hack/bundle_to_catalog.sh`):
 - Renders bundle to FBC format
-- Adds to all OCP-version catalogs
-- Updates channel entries
+- Adds the selected bundle variant to the target OCP-version catalog
+- Removes bundle files from the other major version so catalogs are partitioned
+- Updates package-level channel entries
+- Applies `>=1.0.0 <2.0.0` to the v2 channel head
 - Handles skip ranges
 
 **Validate catalogs:**
@@ -136,19 +146,34 @@ entries:
 
 ## Common Tasks
 
+### Version-partitioned catalogs
+
+Use `-t v1` for every 4.x catalog and `-t v2` for every 5.x catalog. The catalog generator removes bundle files from the other major version and writes the v2 channel head with:
+
+```yaml
+skipRange: ">=1.0.0 <2.0.0"
+```
+
+Both variants use the same package name and channel names; the graph is authored at the package/channel level and does not depend on an Application resource.
+
 ### Add New Bundle to All Catalogs
 
 ```bash
-# 1. Create and push bundle
-make bundle BUNDLE_TAG=0.3.0
-make bundle-build BUNDLE_IMG=quay.io/org/bundle:v0.3.0
-make bundle-push BUNDLE_IMG=quay.io/org/bundle:v0.3.0
+# 1. Create and push the v1 bundle
+make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.3.0
+make bundle-build BUNDLE_IMG=quay.io/org/bundle:v1.3.0
+make bundle-push BUNDLE_IMG=quay.io/org/bundle:v1.3.0
 
-# 2. Add to all catalogs
-./hack/bundle_to_catalog.sh quay.io/org/bundle:v0.3.0
+# 2. Add the v1 bundle to every 4.x catalog
+for v in 4.16 4.17 4.18 4.19 4.20 4.21 4.22; do
+  migrate=()
+  [ "$v" = 4.16 ] || migrate=(-m)
+  ./hack/bundle_to_catalog.sh -b <bundle-snapshot> -t v1 \
+    -c "lightspeed-catalog-${v}/index.yaml" "${migrate[@]}"
+done
 
-# 3. Build and push catalogs
-for v in 4.16 4.17 4.18 4.19 4.20; do
+# 3. Build and push every 4.x catalog image
+for v in 4.16 4.17 4.18 4.19 4.20 4.21 4.22; do
   make catalog-build VERSION=$v
   make catalog-push VERSION=$v
 done

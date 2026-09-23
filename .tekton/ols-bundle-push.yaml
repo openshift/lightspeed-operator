@@ -10,7 +10,7 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: |
       event == "push" &&
       target_branch == "main" &&
-      (".tekton/ols-bundle-push.yaml".pathChanged() || ".tekton/integration-tests/pipelines/***".pathChanged() || "bundle/***".pathChanged() || "bundle.Dockerfile".pathChanged() ||
+      (".tekton/ols-bundle-push.yaml".pathChanged() || ".tekton/integration-tests/pipelines/***".pathChanged() || "bundle-v1/***".pathChanged() || "bundle-v1.Dockerfile".pathChanged() ||
       "related_images.json".pathChanged())
   creationTimestamp:
   labels:
@@ -28,7 +28,7 @@ spec:
   - name: output-image
     value: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle:{{revision}}
   - name: dockerfile
-    value: bundle.Dockerfile
+    value: bundle-v1.Dockerfile
   - name: hermetic
     value: "true"
   - name: build-source-image

@@ -70,15 +70,20 @@ make test-e2e
 
 ### Bundle
 
+Select the release variant before validating it. Use `bundle-v1` for the
+classic OCP 4.x bundle or `bundle-v2` for the agentic OCP 5.0+ bundle.
+
 ```bash
+BUNDLE_DIR=bundle-v1 # Set to bundle-v2 for the agentic release bundle.
+
 # Basic validation (automatic with make bundle)
-operator-sdk bundle validate ./bundle
+operator-sdk bundle validate "./${BUNDLE_DIR}"
 
 # OpenShift-specific
-operator-sdk bundle validate ./bundle --select-optional name=operatorhub
+operator-sdk bundle validate "./${BUNDLE_DIR}" --select-optional name=operatorhub
 
 # Verbose
-operator-sdk bundle validate ./bundle -o text
+operator-sdk bundle validate "./${BUNDLE_DIR}" -o text
 ```
 
 ### Catalog
@@ -139,11 +144,13 @@ oc get deployments -n openshift-lightspeed -o yaml | grep image
 ## Scorecard Testing
 
 ```bash
+BUNDLE_DIR=bundle-v1 # Set to bundle-v2 for the agentic release bundle.
+
 # Run all OLM tests
-operator-sdk scorecard bundle/ --selector=suite=olm --wait-time=5m
+operator-sdk scorecard "${BUNDLE_DIR}" --selector=suite=olm --wait-time=5m
 
 # Run specific test
-operator-sdk scorecard bundle/ --selector=test=basic-check-spec
+operator-sdk scorecard "${BUNDLE_DIR}" --selector=test=basic-check-spec
 ```
 
 **Common tests:**
@@ -160,8 +167,9 @@ operator-sdk scorecard bundle/ --selector=test=basic-check-spec
 Red Hat certification (optional):
 
 ```bash
-# Check bundle
-preflight check operator bundle/ --docker-config=$HOME/.docker/config.json
+# Check bundle (set BUNDLE_DIR=bundle-v2 for the agentic release bundle)
+BUNDLE_DIR=bundle-v1
+preflight check operator "${BUNDLE_DIR}" --docker-config="$HOME/.docker/config.json"
 
 # Check image
 preflight check container quay.io/org/lightspeed-operator:v0.1.0
@@ -176,11 +184,12 @@ preflight check container quay.io/org/lightspeed-operator:v0.1.0
 ### Run Full Test Suite
 
 ```bash
-make test                                              # Unit tests
-make test-e2e                                          # E2E tests (set KUBECONFIG, LLM_TOKEN)
-operator-sdk bundle validate ./bundle                  # Bundle validation
-for d in lightspeed-catalog*; do opm validate $d; done # Catalog validation
-operator-sdk scorecard bundle/ --selector=suite=olm   # Scorecard
+make test                                                    # Unit tests
+make test-e2e                                                # E2E tests (set KUBECONFIG, LLM_TOKEN)
+BUNDLE_DIR=bundle-v1 # Set to bundle-v2 for the agentic release bundle.
+operator-sdk bundle validate "./${BUNDLE_DIR}"              # Bundle validation
+for d in lightspeed-catalog*; do opm validate "$d"; done    # Catalog validation
+operator-sdk scorecard "${BUNDLE_DIR}" --selector=suite=olm # Scorecard
 ```
 
 ### Troubleshooting
@@ -196,14 +205,16 @@ Common: Missing `LLM_TOKEN`, insufficient permissions, timeouts (increase `CONDI
 
 **Bundle validation fails:**
 ```bash
-operator-sdk bundle validate ./bundle -o text  # Verbose output
+BUNDLE_DIR=bundle-v1 # Set to bundle-v2 for the agentic release bundle.
+operator-sdk bundle validate "./${BUNDLE_DIR}" -o text  # Verbose output
 ```
 
 Common: Invalid CSV syntax, missing required fields, malformed RBAC
 
 **Scorecard fails:**
 ```bash
-operator-sdk scorecard bundle/ --selector=test=<failing-test> -o text
+BUNDLE_DIR=bundle-v1 # Set to bundle-v2 for the agentic release bundle.
+operator-sdk scorecard "${BUNDLE_DIR}" --selector=test=<failing-test> -o text
 ```
 
 Common: Missing descriptors, CRD validation not defined
