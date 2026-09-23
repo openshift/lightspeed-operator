@@ -124,6 +124,18 @@ generate-deployment-patch: jq ## Generate config/default/deployment-patch.yaml f
 manifests: generate-deployment-patch controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook $(CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases
 
+# Agentic CRD/RBAC sync (OLS-3189). Pin the exact upstream commit, not a
+# moving branch tip or an unmerged PR ref. Advance this pin deliberately.
+AGENTIC_OPERATOR_REPO ?= https://github.com/openshift/lightspeed-agentic-operator.git
+AGENTIC_OPERATOR_REF ?= refs/heads/main
+AGENTIC_OPERATOR_COMMIT ?= 92781751b0d7d49b33839d96633ea9d14d457536
+
+# Run this explicitly when updating the pinned agentic inputs. Bundle builds use
+# the reviewed, checked-in files so CI and disconnected builds need no GitHub access.
+.PHONY: sync-agentic-crds
+sync-agentic-crds: ## Sync agentic CRDs and RBAC from the pinned lightspeed-agentic-operator commit.
+	AGENTIC_OPERATOR_REPO=$(AGENTIC_OPERATOR_REPO) AGENTIC_OPERATOR_REF=$(AGENTIC_OPERATOR_REF) AGENTIC_OPERATOR_COMMIT=$(AGENTIC_OPERATOR_COMMIT) ./hack/sync_agentic_manifests.sh
+
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" $(CONTROLLER_GEN_PATHS)
@@ -136,8 +148,12 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet -tags=$(E2E_GO_TAGS) ./...
 
+.PHONY: test-agentic-sync
+test-agentic-sync: ## Test pinned agentic CRD/RBAC sync without network access.
+	bash ./hack/test_sync_agentic_manifests.sh
+
 .PHONY: test
-test: manifests generate fmt vet envtest test-crds ## Run local tests.
+test: test-agentic-sync manifests generate fmt vet envtest test-crds ## Run local tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./api/... ./internal/... -coverprofile cover.out -p 6 -timeout 10m
 
 # Use 4.18 release branch for CRDs in unit tests
