@@ -331,10 +331,30 @@ const (
 	OtelCollectorComponentLabel = "otel-collector"
 	// OtelCollectorFileStorageMountPath is the file_storage extension directory.
 	OtelCollectorFileStorageMountPath = "/var/lib/otelcol/file_storage"
-	// OtelSandboxServiceName is the OTLP service.name for agentic sandbox audit logs routed to Postgres.
+	// OtelCollectorDataCollectionVolumeName is the Collector-only emptyDir for native trace files.
+	OtelCollectorDataCollectionVolumeName = "data-collection"
+	// OtelCollectorDataCollectionMountPath is the writable root mounted for FileExporter output.
+	OtelCollectorDataCollectionMountPath = "/var/lib/lightspeed-data"
+	// OtelCollectorDataCollectionTraceFilePath is the native trace JSONL FileExporter path.
+	OtelCollectorDataCollectionTraceFilePath = OtelCollectorDataCollectionMountPath + "/otel/traces.jsonl"
+	// OtelCollectorDataCollectionSizeLimitDefault is the emptyDir limit for trace data collection.
+	OtelCollectorDataCollectionSizeLimitDefault = "500Mi"
+	// OtelCollectorDataCollectionMaxMegabytes is the FileExporter rotation size limit.
+	OtelCollectorDataCollectionMaxMegabytes = 10
+	// OtelCollectorDataCollectionMaxBackups is the number of rotated FileExporter backups.
+	OtelCollectorDataCollectionMaxBackups = 40
+	// OtelCollectorDataCollectionMaxDays is the FileExporter backup retention period.
+	OtelCollectorDataCollectionMaxDays = 1
+	// OtelCollectorGRPCMaxRecvMsgSizeMiB is the OTLP/gRPC request-size limit.
+	OtelCollectorGRPCMaxRecvMsgSizeMiB = 20
+	// OtelCollectorHTTPMaxRequestBodySize is the OTLP/HTTP request-size limit in bytes.
+	OtelCollectorHTTPMaxRequestBodySize = 20 * 1024 * 1024
+	// OtelSandboxServiceName is the OTLP service.name for the agentic sandbox producer.
 	OtelSandboxServiceName = "lightspeed-agentic-sandbox"
 	// OtelAppServerServiceName is the OTLP service.name for lightspeed-service traces.
 	OtelAppServerServiceName = "lightspeed-service"
+	// OtelAgenticOperatorServiceName is the OTLP service.name for operator-produced traces.
+	OtelAgenticOperatorServiceName = "lightspeed-agentic-operator"
 	// OtelCollectorServingCertTLSFile is the serving certificate path in collector YAML.
 	OtelCollectorServingCertTLSFile = "/var/run/secrets/serving-cert/tls.crt"
 	// OtelCollectorServingCertTLSKeyFile is the serving certificate key path in collector YAML.

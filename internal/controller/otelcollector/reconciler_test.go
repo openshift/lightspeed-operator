@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -303,6 +304,70 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			}, updated)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updated.Spec.Template.Annotations).To(HaveKey(utils.ForceReloadAnnotationKey))
+		})
+
+		It("should persist a changed data-collection volume sizeLimit without a ConfigMap change", func() {
+			deployment := &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelCollectorDeploymentName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, deployment)).To(Succeed())
+
+			configMap := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelCollectorConfigMapName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, configMap)).To(Succeed())
+			configMapResourceVersion := configMap.ResourceVersion
+			Expect(configMapResourceVersion).NotTo(BeEmpty())
+			Expect(deployment.Annotations[utils.OtelCollectorConfigMapResourceVersionAnnotation]).To(Equal(configMapResourceVersion))
+
+			findDataCollectionVolume := func(volumes []corev1.Volume) *corev1.Volume {
+				for i := range volumes {
+					if volumes[i].Name == utils.OtelCollectorDataCollectionVolumeName {
+						return &volumes[i]
+					}
+				}
+				return nil
+			}
+
+			currentVolume := findDataCollectionVolume(deployment.Spec.Template.Spec.Volumes)
+			Expect(currentVolume).NotTo(BeNil())
+			Expect(currentVolume.EmptyDir).NotTo(BeNil())
+			Expect(currentVolume.EmptyDir.SizeLimit).NotTo(BeNil())
+			Expect(currentVolume.EmptyDir.SizeLimit.String()).To(Equal("500Mi"))
+
+			oldForceReload := deployment.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]
+			desiredDeployment := deployment.DeepCopy()
+			desiredVolume := findDataCollectionVolume(desiredDeployment.Spec.Template.Spec.Volumes)
+			Expect(desiredVolume).NotTo(BeNil())
+			desiredSizeLimit := resource.MustParse("600Mi")
+			desiredVolume.EmptyDir.SizeLimit = &desiredSizeLimit
+
+			Expect(UpdateOtelCollectorDeployment(testReconcilerInstance, ctx, deployment, desiredDeployment)).To(Succeed())
+
+			updatedDeployment := &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelCollectorDeploymentName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, updatedDeployment)).To(Succeed())
+			updatedVolume := findDataCollectionVolume(updatedDeployment.Spec.Template.Spec.Volumes)
+			Expect(updatedVolume).NotTo(BeNil())
+			Expect(updatedVolume.EmptyDir).NotTo(BeNil())
+			Expect(updatedVolume.EmptyDir.SizeLimit).NotTo(BeNil())
+			Expect(updatedVolume.EmptyDir.SizeLimit.String()).To(Equal("600Mi"))
+
+			updatedConfigMap := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelCollectorConfigMapName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, updatedConfigMap)).To(Succeed())
+			Expect(updatedConfigMap.ResourceVersion).To(Equal(configMapResourceVersion))
+			Expect(updatedDeployment.Annotations[utils.OtelCollectorConfigMapResourceVersionAnnotation]).To(Equal(configMapResourceVersion))
+
+			forceReload := updatedDeployment.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]
+			Expect(forceReload).NotTo(BeEmpty())
+			Expect(forceReload).NotTo(Equal(oldForceReload))
 		})
 	})
 })

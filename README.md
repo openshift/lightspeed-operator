@@ -8,6 +8,7 @@ A Kubernetes operator for managing [Red Hat OpenShift Lightspeed](https://github
 
 - **[Contributing Guide](CONTRIBUTING.md)** - How to add or modify components
 - **[Architecture](ARCHITECTURE.md)** - Internal architecture and developer guide
+- **[Trace Data Collection](.ai/spec/what/data-collection.md)** - Transcripts opt-out, Collector FileExporter configuration, storage, and rotation
 - **[AGENTS.md](AGENTS.md)** - AI assistant guide: coding conventions, patterns, and available skills
 
 ## Getting Started

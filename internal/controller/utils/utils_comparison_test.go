@@ -8,6 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -78,16 +79,67 @@ var _ = Describe("Volume Comparison", func() {
 			Expect(PodVolumeEqual(volumes1, volumes2)).To(BeTrue())
 		})
 
-		It("should compare emptyDir volumes correctly", func() {
-			volumes := []corev1.Volume{
-				{
-					Name: "empty",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
+		Describe("EmptyDir volumes", func() {
+			emptyDirVolumes := func(source *corev1.EmptyDirVolumeSource) []corev1.Volume {
+				return []corev1.Volume{
+					{
+						Name: "empty",
+						VolumeSource: corev1.VolumeSource{
+							EmptyDir: source,
+						},
 					},
-				},
+				}
 			}
-			Expect(PodVolumeEqual(volumes, volumes)).To(BeTrue())
+
+			It("should distinguish an absent EmptyDir source from a present one", func() {
+				Expect(PodVolumeEqual(
+					[]corev1.Volume{{Name: "empty"}},
+					emptyDirVolumes(&corev1.EmptyDirVolumeSource{}),
+				)).To(BeFalse())
+			})
+
+			It("should compare identical sources correctly", func() {
+				Expect(PodVolumeEqual(
+					emptyDirVolumes(&corev1.EmptyDirVolumeSource{}),
+					emptyDirVolumes(&corev1.EmptyDirVolumeSource{}),
+				)).To(BeTrue())
+			})
+
+			It("should detect changed size limits", func() {
+				oldSizeLimit := resource.MustParse("500Mi")
+				newSizeLimit := resource.MustParse("600Mi")
+
+				Expect(PodVolumeEqual(
+					emptyDirVolumes(&corev1.EmptyDirVolumeSource{SizeLimit: &oldSizeLimit}),
+					emptyDirVolumes(&corev1.EmptyDirVolumeSource{SizeLimit: &newSizeLimit}),
+				)).To(BeFalse())
+			})
+
+			It("should distinguish a nil size limit from a set size limit", func() {
+				sizeLimit := resource.MustParse("500Mi")
+
+				Expect(PodVolumeEqual(
+					emptyDirVolumes(&corev1.EmptyDirVolumeSource{}),
+					emptyDirVolumes(&corev1.EmptyDirVolumeSource{SizeLimit: &sizeLimit}),
+				)).To(BeFalse())
+			})
+
+			It("should treat semantically equal size limits as equal", func() {
+				gibibyte := resource.MustParse("1Gi")
+				mebibytes := resource.MustParse("1024Mi")
+
+				Expect(PodVolumeEqual(
+					emptyDirVolumes(&corev1.EmptyDirVolumeSource{SizeLimit: &gibibyte}),
+					emptyDirVolumes(&corev1.EmptyDirVolumeSource{SizeLimit: &mebibytes}),
+				)).To(BeTrue())
+			})
+
+			It("should detect a changed medium", func() {
+				Expect(PodVolumeEqual(
+					emptyDirVolumes(&corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumDefault}),
+					emptyDirVolumes(&corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory}),
+				)).To(BeFalse())
+			})
 		})
 
 		It("should handle empty volume lists", func() {
