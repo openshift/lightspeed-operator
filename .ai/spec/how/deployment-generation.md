@@ -8,7 +8,7 @@
 | `internal/controller/postgres/deployment.go` | `GeneratePostgresDeployment()`, `UpdatePostgresDeployment()` | PostgreSQL deployment spec |
 | `internal/controller/console/deployment.go` | `GenerateConsoleUIDeployment()` | Console UI deployment spec |
 | `internal/controller/agenticconsole/deployment.go` | `GenerateAgenticConsoleUIDeployment()` | Agentic console plugin deployment spec |
-| `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector deployment spec; [PLANNED: OLS-3569] conditional Agentic exporter sidecar and spool mounts |
+| `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector Deployment; conditional FileExporter trace storage volume and mount |
 | `internal/controller/ocpmcp/deployment.go` | `GenerateDeployment()`, `UpdateDeployment()` | Standalone OpenShift MCP deployment spec |
 | `internal/controller/rhokp/deployment.go` | `GenerateDeployment()`, `UpdateDeployment()` | Standalone RHOKP deployment spec |
 | `internal/controller/alertsadapter/deployment.go` | `GenerateDeployment()` | Alerts adapter deployment spec |
@@ -18,12 +18,12 @@
 ### AppServer Deployment Construction
 ```
 GenerateOLSDeployment(r, cr)
-  1. Check dataCollectorEnabled (requires both user config AND telemetry pull secret)
+  1. Check the Classic app-server `dataCollectorEnabled` gate (user data collection settings and telemetry pull secret)
   2. Build LLM provider credential volumes + mounts (via ForEachExternalSecret, source "llm-provider-*")
   3. Build postgres secret volume + mount
   4. Build TLS volume + mount (user-provided KeyCertSecretRef OR service-ca generated OLSCertsSecretName)
   5. Build OLS config configmap volume + mount
-  6. Conditionally add data collector volumes (user-data emptyDir, exporter config CM)
+  6. Conditionally add Classic app-server data collector volumes (user-data emptyDir, exporter config CM)
   7. Add kube-root-ca.crt configmap volume + cert-bundle emptyDir volume
   8. Add user-provided CA volumes (additional-ca CM, proxy-ca CM via ForEachExternalConfigMap)
   9. Add RAG emptyDir volume (if spec.ols.rag configured)
@@ -50,16 +50,14 @@ GenerateOLSDeployment(r, cr)
   21. When introspection is enabled, mount MCP client CA Secret `lightspeed-agentic-mcp-ca` (no MCP sidecar; standalone operand).
 ```
 
-### OTEL Collector Deployment — Agentic Collection
 
-[PLANNED: OLS-3569] Collector runtime configuration and `GenerateOtelCollectorDeployment()` use the same Agentic collection gate:
+### Collector FileExporter Trace Storage
 
-1. [PLANNED: OLS-3569] Generate these resources only where the parent-defined Agentic v2 bundle is available. Within that scope, evaluate `!spec.ols.userDataCollection.transcriptsDisabled` AND usable `cloud.openshift.com` auth in `openshift-config/pull-secret`; do not use the Classic feedback-OR-transcripts expression.
-2. [PLANNED: OLS-3569] When enabled, append one shared `emptyDir` with `sizeLimit` set from an explicit Agentic spool deployment configuration value, mount it in the Collector at `/var/lib/lightspeed-data-collection`, and mount it in a separate `lightspeed-to-dataverse-exporter` sidecar at `/app-root/ols-user-data`. No authoritative numeric sizing convention is defined here. At capacity, follow Rules 33-34 in the parent `../../../../.ai/spec/what/agentic-data-collection.md`; do not add local eviction, overwrite, back-pressure, loss, or aggregation policy.
-3. [PLANNED: OLS-3569] Build the sidecar with `GetDataverseExporterImage()`, the existing telemetry credentials, `lightspeed-exporter-config`, `spec.olsDataCollector.logLevel`, and `spec.ols.deployment.dataCollector.resources`. As a sidecar, it inherits Collector pod scheduling from `spec.ols.deployment.otelCollector`.
-4. [PLANNED: OLS-3569] When enabled, include the trace-only Agentic product-collection pipeline in the Collector runtime ConfigMap. Preserve the existing OTLP receiver, logs/templog, admin, metrics, and optional trace-forwarding configuration.
-5. [PLANNED: OLS-3569] When disabled, omit the Agentic pipeline, sidecar, `emptyDir`, and both mounts. A gate transition changes the desired pod template and follows the normal Collector rollout path.
-6. [PLANNED: OLS-3569] Do not change the app-server exporter or add collection state to `lightspeed-agentic-configuration`. See `what/agentic-data-collection.md` for the operator contract and its parent-spec references.
+When `!spec.ols.userDataCollection.transcriptsDisabled`, the Collector Deployment includes `file/data_collection`, `routing/data_collection`, and `traces/data_collection`. The resource selector and exact exporter settings are defined in [`data-collection.md`](../what/data-collection.md); the file branch is unbatched, while configured backend forwarding is batched on its separate pipeline.
+
+The Deployment adds a `data-collection` `emptyDir` with `sizeLimit: 500Mi`, mounted at `/var/lib/lightspeed-data` in the Collector container. FileExporter writes `/var/lib/lightspeed-data/otel/traces.jsonl`. The Collector's `file_storage` queue remains on a separate volume.
+
+The selected Collector image must provide the stock contrib FileExporter v0.159.0. The existing `--otel-collector-image` override selects the Collector runtime image.
 
 ### Change Detection Pattern
 All deployments use the same pattern in their update functions:
@@ -81,8 +79,7 @@ Default resources by container:
 | Container | CPU Request | Memory Request | Ephemeral Storage Request |
 |---|---|---|---|
 | AppServer `lightspeed-service-api` | 500m | 1Gi | — |
-| Data collector | 50m | 64Mi | — |
-| Collector-side Agentic data exporter | [PLANNED: OLS-3569] 50m | [PLANNED: OLS-3569] 64Mi | — |
+| Classic data collector | 50m | 64Mi | — |
 | MCP server (standalone) | 50m | 64Mi | — |
 | RHOKP `rhokp` (standalone) | 2000m | 2Gi | — (75Gi EmptyDir `sizeLimit`, not an ephemeral-storage request) |
 
@@ -104,7 +101,7 @@ The existing Classic app-server collector gate is computed from two inputs:
 
 Both must be true. The service ID is `"ols"` unless the CR has `openstack.org/lightspeed-owner-id` label, in which case it's `"rhos-lightspeed"`.
 
-[PLANNED: OLS-3569] The Collector-side Agentic resources use the independent gate defined in `what/agentic-data-collection.md`; the Classic gate and handoff ConfigMap remain unchanged.
+The Collector trace-file branch uses the existing `spec.ols.userDataCollection.transcriptsDisabled` opt-out. See [`data-collection.md`](../what/data-collection.md).
 
 ### Pod Scheduling Configuration
 `utils.ApplyPodDeploymentConfig()` applies scheduling from `cr.Spec.OLSConfig.DeploymentConfig.APIContainer`:
@@ -123,7 +120,7 @@ Affinity and topology spread constraints are not exposed on `Config` (CRD size);
 | RHOKP resources | CR `spec.ols.deployment.rhokp.resources` | User-overridable CPU/memory/ephemeral storage |
 | Pod scheduling | CR `spec.ols.deployment.api` | Tolerations, nodeSelector |
 | Volume secrets | Kubernetes Secrets | LLM credentials, TLS certs, PostgreSQL password, MCP header values |
-| Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config; [PLANNED: OLS-3569] existing exporter config also mounted by the Collector-side Agentic exporter |
+| Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config, and the Classic data-collector ConfigMap (`lightspeed-exporter-config`); Collector runtime config includes the FileExporter trace branch. |
 | Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY from cluster |
 | RAG images | CR `spec.ols.rag[].image` | Container images for init containers |
 | RHOKP image | `--rhokp-image` flag | Standalone RHOKP Deployment container image; default from `related_images.json` (`rhokp`) |

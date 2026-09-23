@@ -1,11 +1,15 @@
 package otelcollector
 
 import (
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/yaml"
 )
 
 var _ = Describe("OTEL Collector deployment", func() {
@@ -17,12 +21,15 @@ var _ = Describe("OTEL Collector deployment", func() {
 		ensureCollectorConfigMap(testCR)
 	})
 
-	It("should generate the collector deployment with postgres env, admin port, and init container", func() {
+	It("should generate the collector deployment with Postgres wiring and writable trace collection storage", func() {
 		dep, err := GenerateOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(dep.Name).To(Equal(utils.OtelCollectorDeploymentName))
 		Expect(dep.Labels).To(Equal(utils.GenerateOtelCollectorSelectorLabels()))
 		Expect(dep.Annotations).To(HaveKey(utils.OtelCollectorConfigMapResourceVersionAnnotation))
+		Expect(dep.OwnerReferences).To(HaveLen(1))
+		Expect(dep.OwnerReferences[0].Name).To(Equal(testCR.Name))
+		Expect(dep.OwnerReferences[0].UID).To(Equal(testCR.UID))
 
 		spec := dep.Spec.Template.Spec
 		Expect(spec.ServiceAccountName).To(Equal(utils.OtelCollectorServiceAccountName))
@@ -30,6 +37,9 @@ var _ = Describe("OTEL Collector deployment", func() {
 		Expect(spec.InitContainers[0].Name).To(Equal(utils.PostgresWaitInitContainerName))
 
 		container := spec.Containers[0]
+		Expect(container.Resources.Requests.Cpu().String()).To(Equal("100m"))
+		Expect(container.Resources.Requests.Memory().String()).To(Equal("128Mi"))
+
 		Expect(container.Name).To(Equal(utils.OtelCollectorContainerName))
 		Expect(container.Image).To(Equal(testOtelCollectorImage))
 		Expect(container.Args).To(ConsistOf("--config=/etc/otelcol/config.yaml"))
@@ -63,6 +73,61 @@ var _ = Describe("OTEL Collector deployment", func() {
 			mountNames = append(mountNames, m.Name)
 		}
 		Expect(mountNames).To(ContainElement(utils.OtelCollectorServiceCAVolumeName))
+		generatedConfigMap, err := GenerateOtelCollectorConfigMap(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		var generatedConfig struct {
+			Exporters map[string]struct {
+				Path string `json:"path"`
+			} `json:"exporters"`
+		}
+		Expect(yaml.Unmarshal([]byte(generatedConfigMap.Data[utils.OtelCollectorConfigMapDataKey]), &generatedConfig)).To(Succeed())
+		fileExporter, found := generatedConfig.Exporters["file/data_collection"]
+		Expect(found).To(BeTrue())
+		Expect(fileExporter.Path).To(Equal("/var/lib/lightspeed-data/otel/traces.jsonl"))
+
+		fileStorageVolume, found := findVolume(spec.Volumes, otelCollectorFileStorageVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(fileStorageVolume.EmptyDir).NotTo(BeNil())
+
+		dataCollectionVolume, found := findVolume(spec.Volumes, "data-collection")
+		Expect(found).To(BeTrue())
+		Expect(dataCollectionVolume.EmptyDir).NotTo(BeNil())
+		Expect(dataCollectionVolume.EmptyDir.SizeLimit.String()).To(Equal("500Mi"))
+
+		dataCollectionMount, found := findVolumeMount(container.VolumeMounts, "data-collection")
+		Expect(found).To(BeTrue())
+		Expect(dataCollectionMount).To(Equal(corev1.VolumeMount{
+			Name:      "data-collection",
+			MountPath: "/var/lib/lightspeed-data",
+		}))
+		Expect(dataCollectionMount.ReadOnly).To(BeFalse())
+		fileRelativePath, err := filepath.Rel(dataCollectionMount.MountPath, fileExporter.Path)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(fileRelativePath).To(Equal(filepath.Join("otel", "traces.jsonl")))
+		Expect(spec.Containers).To(HaveLen(1))
+
+		Expect(container.SecurityContext).NotTo(BeNil())
+		Expect(*container.SecurityContext.RunAsNonRoot).To(BeTrue())
+		Expect(*container.SecurityContext.AllowPrivilegeEscalation).To(BeFalse())
+		Expect(*container.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
+		Expect(container.SecurityContext.Capabilities.Drop).To(ContainElement(corev1.Capability("ALL")))
+		Expect(container.SecurityContext.SeccompProfile.Type).To(Equal(corev1.SeccompProfileTypeRuntimeDefault))
+	})
+	It("should omit data collection storage when transcripts are disabled", func() {
+		testCR.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled = true
+		ensureCollectorConfigMap(testCR)
+
+		dep, err := GenerateOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
+		Expect(err).NotTo(HaveOccurred())
+
+		spec := dep.Spec.Template.Spec
+		_, found := findVolume(spec.Volumes, "data-collection")
+		Expect(found).To(BeFalse())
+		_, found = findVolumeMount(spec.Containers[0].VolumeMounts, "data-collection")
+		Expect(found).To(BeFalse())
+		_, found = findVolume(spec.Volumes, otelCollectorFileStorageVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(spec.Containers).To(HaveLen(1))
 	})
 
 	It("should keep postgres wiring when audit logging is disabled", func() {
@@ -85,6 +150,11 @@ var _ = Describe("OTEL Collector deployment", func() {
 			portNames = append(portNames, p.Name)
 		}
 		Expect(portNames).To(ConsistOf("otlp-grpc", "otlp-http", "admin", "metrics"))
+
+		_, found := findVolume(spec.Volumes, "data-collection")
+		Expect(found).To(BeTrue())
+		_, found = findVolumeMount(container.VolumeMounts, "data-collection")
+		Expect(found).To(BeTrue())
 	})
 
 	It("should set TRACES_BACKEND_ENDPOINT when tracingEndpoint is configured", func() {
@@ -100,3 +170,21 @@ var _ = Describe("OTEL Collector deployment", func() {
 	})
 
 })
+
+func findVolume(volumes []corev1.Volume, name string) (corev1.Volume, bool) {
+	for _, volume := range volumes {
+		if volume.Name == name {
+			return volume, true
+		}
+	}
+	return corev1.Volume{}, false
+}
+
+func findVolumeMount(volumeMounts []corev1.VolumeMount, name string) (corev1.VolumeMount, bool) {
+	for _, volumeMount := range volumeMounts {
+		if volumeMount.Name == name {
+			return volumeMount, true
+		}
+	}
+	return corev1.VolumeMount{}, false
+}
