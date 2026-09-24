@@ -247,6 +247,8 @@ type ModelConfig struct {
 }
 
 type OLSConfig struct {
+	// Guardrails configuration for untrusted model inputs and outputs.
+	Guardrails GuardrailsConfig `json:"guardrails,omitempty"`
 	// Default model for usage
 	DefaultModel string `json:"default_model,omitempty"`
 	// Default provider for usage
@@ -287,6 +289,18 @@ type OLSConfig struct {
 	SolrHybrid *SolrHybridSettings `json:"solr_hybrid,omitempty"`
 	// Enable in-process credential hot-reload for LLM provider secrets
 	CredentialHotReload bool `json:"credential_hot_reload,omitempty"`
+}
+
+// GuardrailsConfig configures safety checks applied to untrusted tool output.
+type GuardrailsConfig struct {
+	// Tool-result inspection configuration.
+	ToolResultInspection ToolResultInspectionConfig `json:"tool_result_inspection,omitempty"`
+}
+
+// ToolResultInspectionConfig configures tool-result inspection.
+type ToolResultInspectionConfig struct {
+	// Whether tool results are inspected before they are sent to the model.
+	Enabled bool `json:"enabled"`
 }
 
 type AuditYAMLConfig struct {

@@ -90,6 +90,9 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			olsConfigExpected := utils.AppSrvConfigFile{
 				OLSConfig: utils.OLSConfig{
+					Guardrails: utils.GuardrailsConfig{
+						ToolResultInspection: utils.ToolResultInspectionConfig{Enabled: true},
+					},
 					DefaultModel:    "testModel",
 					DefaultProvider: "testProvider",
 					MaxIterations:   5,
@@ -186,6 +189,37 @@ var _ = Describe("App server assets", func() {
 			Expect(reasoning["thinking_budget"].Raw).To(MatchJSON("5000"))
 			Expect(reasoning["effort"].Raw).To(MatchJSON(`"high"`))
 			Expect(reasoning["nested"].Raw).To(MatchJSON(`{"key":"value"}`))
+		})
+
+		It("should default tool-result inspection to enabled in service configuration", func() {
+			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var generated map[string]interface{}
+			Expect(yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &generated)).To(Succeed())
+			olsConfig := generated["ols_config"].(map[string]interface{})
+			guardrails := olsConfig["guardrails"].(map[string]interface{})
+			inspection := guardrails["tool_result_inspection"].(map[string]interface{})
+			Expect(inspection["enabled"]).To(BeTrue())
+			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
+		})
+
+		It("should preserve an explicit false tool-result inspection setting", func() {
+			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
+			cr.Spec.OLSConfig.Guardrails = &olsv1alpha1.GuardrailsConfig{
+				ToolResultInspection: &olsv1alpha1.ToolResultInspectionConfig{Enabled: utils.BoolPtr(false)},
+			}
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var generated map[string]interface{}
+			Expect(yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &generated)).To(Succeed())
+			olsConfig := generated["ols_config"].(map[string]interface{})
+			guardrails := olsConfig["guardrails"].(map[string]interface{})
+			inspection := guardrails["tool_result_inspection"].(map[string]interface{})
+			Expect(inspection["enabled"]).To(BeFalse())
+			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
 
 		It("should apply default tool_budget_ratio when parameters are not specified", func() {

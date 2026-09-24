@@ -16,6 +16,52 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
 
+var _ = Describe("ToolResultInspectionEnabled", func() {
+	It("defaults to enabled when guardrails are omitted", func() {
+		cr := &olsv1alpha1.OLSConfig{}
+		Expect(ToolResultInspectionEnabled(cr)).To(BeTrue())
+	})
+
+	It("defaults to enabled when the inspection setting is omitted", func() {
+		cr := &olsv1alpha1.OLSConfig{
+			Spec: olsv1alpha1.OLSConfigSpec{
+				OLSConfig: olsv1alpha1.OLSSpec{
+					Guardrails: &olsv1alpha1.GuardrailsConfig{},
+				},
+			},
+		}
+		Expect(ToolResultInspectionEnabled(cr)).To(BeTrue())
+	})
+
+	It("returns true when explicitly enabled", func() {
+		enabled := true
+		cr := &olsv1alpha1.OLSConfig{
+			Spec: olsv1alpha1.OLSConfigSpec{
+				OLSConfig: olsv1alpha1.OLSSpec{
+					Guardrails: &olsv1alpha1.GuardrailsConfig{
+						ToolResultInspection: &olsv1alpha1.ToolResultInspectionConfig{Enabled: &enabled},
+					},
+				},
+			},
+		}
+		Expect(ToolResultInspectionEnabled(cr)).To(BeTrue())
+	})
+
+	It("returns false when explicitly disabled", func() {
+		enabled := false
+		cr := &olsv1alpha1.OLSConfig{
+			Spec: olsv1alpha1.OLSConfigSpec{
+				OLSConfig: olsv1alpha1.OLSSpec{
+					Guardrails: &olsv1alpha1.GuardrailsConfig{
+						ToolResultInspection: &olsv1alpha1.ToolResultInspectionConfig{Enabled: &enabled},
+					},
+				},
+			},
+		}
+		Expect(ToolResultInspectionEnabled(cr)).To(BeFalse())
+	})
+})
+
 var _ = Describe("StatusHasCondition", func() {
 	var testStatus olsv1alpha1.OLSConfigStatus
 
