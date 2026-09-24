@@ -439,6 +439,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AlertsAdapterAgenticRunsRoleName = "lightspeed-agentic-alerts-adapter-agenticruns"
 	// AlertsAdapterAgenticRunsRoleBindingName binds the AgenticRun Role to the alerts adapter SA
 	AlertsAdapterAgenticRunsRoleBindingName = "lightspeed-agentic-alerts-adapter-agenticruns"
+	// AlertsAdapterAgenticOLSConfigClusterRoleName grants read access to the cluster-scoped AgenticOLSConfig.
+	AlertsAdapterAgenticOLSConfigClusterRoleName = "lightspeed-agentic-alerts-adapter-agenticolsconfig"
+	// AlertsAdapterAgenticOLSConfigClusterRoleBindingName binds the AgenticOLSConfig ClusterRole to the alerts adapter SA.
+	AlertsAdapterAgenticOLSConfigClusterRoleBindingName = "lightspeed-agentic-alerts-adapter-agenticolsconfig"
 	// AlertsAdapterAlertmanagerRoleBindingName is the RoleBinding in openshift-monitoring for Alertmanager read access
 	AlertsAdapterAlertmanagerRoleBindingName = "lightspeed-agentic-alerts-adapter-alertmanager"
 	// AlertsAdapterConfigMapName is the ConfigMap holding runtime adapter settings (poll interval, cooldown, tools)
