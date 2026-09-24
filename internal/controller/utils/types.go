@@ -206,6 +206,8 @@ type ModelConfig struct {
 }
 
 type OLSConfig struct {
+	// Whether tool results are inspected before they are sent to the model.
+	ToolOutputInspectionEnabled bool `json:"tool_output_inspection_enabled"`
 	// Default model for usage
 	DefaultModel string `json:"default_model,omitempty"`
 	// Default provider for usage

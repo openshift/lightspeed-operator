@@ -266,6 +266,8 @@ const (
 	AgenticConfigurationConfigMapName = "lightspeed-agentic-configuration"
 	// AgenticConfigurationSandboxModeKey is bare-pod or sandbox-claim.
 	AgenticConfigurationSandboxModeKey = "sandbox-mode"
+	// AgenticConfigurationToolOutputInspectionEnabledKey controls tool-result inspection in agentic sandboxes.
+	AgenticConfigurationToolOutputInspectionEnabledKey = "tool-output-inspection-enabled"
 	// AgenticConfigurationSandboxPodSpecKey is JSON-serialized thin corev1.PodSpec.
 	AgenticConfigurationSandboxPodSpecKey = "sandbox-pod-spec"
 	// AgenticConfigurationOtelCollectorEndpointKey is the OTLP gRPC endpoint (host:port).

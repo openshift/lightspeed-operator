@@ -83,6 +83,21 @@ var _ = Describe("Agentic integration assets", func() {
 		Expect(spec.Tolerations).To(HaveLen(1))
 	})
 
+	It("should default tool-result inspection to enabled in the handoff ConfigMap", func() {
+		cm, err := GenerateAgenticConfigurationConfigMap(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cm.Data[utils.AgenticConfigurationToolOutputInspectionEnabledKey]).To(Equal("true"))
+	})
+
+	It("should preserve an explicit false tool-result inspection setting in the handoff ConfigMap", func() {
+		testCR.Spec.OLSConfig.Guardrails = &olsv1alpha1.GuardrailsConfig{
+			ToolResultInspection: &olsv1alpha1.ToolResultInspectionConfig{Enabled: utils.BoolPtr(false)},
+		}
+		cm, err := GenerateAgenticConfigurationConfigMap(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cm.Data[utils.AgenticConfigurationToolOutputInspectionEnabledKey]).To(Equal("false"))
+	})
+
 	It("should generate the handoff ConfigMap without MCP keys when introspection is off", func() {
 		testCR.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(false)
 		testCR.Spec.OLSConfig.TLSSecurityProfile = &configv1.TLSSecurityProfile{Type: configv1.TLSProfileModernType}

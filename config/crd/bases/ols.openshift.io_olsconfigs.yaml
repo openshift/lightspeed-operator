@@ -1798,6 +1798,21 @@ spec:
                             type: array
                         type: object
                     type: object
+                  guardrails:
+                    description: Guardrails configuration for untrusted model inputs
+                      and outputs.
+                    properties:
+                      toolResultInspection:
+                        description: ToolResultInspection configures inspection of
+                          tool results before model use.
+                        properties:
+                          enabled:
+                            description: |-
+                              Enabled controls whether tool results are inspected before model use.
+                              Defaults to true when omitted.
+                            type: boolean
+                        type: object
+                    type: object
                   imagePullSecrets:
                     description: Pull secrets for BYOK RAG images from image registries
                       requiring authentication

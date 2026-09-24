@@ -218,6 +218,23 @@ type LLMSpec struct {
 	Providers []ProviderSpec `json:"providers"`
 }
 
+// GuardrailsConfig configures safety checks applied to untrusted tool output.
+type GuardrailsConfig struct {
+	// ToolResultInspection configures inspection of tool results before model use.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tool Result Inspection"
+	ToolResultInspection *ToolResultInspectionConfig `json:"toolResultInspection,omitempty"`
+}
+
+// ToolResultInspectionConfig configures tool-result inspection.
+type ToolResultInspectionConfig struct {
+	// Enabled controls whether tool results are inspected before model use.
+	// Defaults to true when omitted.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tool Result Inspection Enabled",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
 // OLSSpec defines the desired state of OLS deployment.
 //
 // OKP (Offline Knowledge Portal) / Solr hybrid RAG is operator-managed, not configured on this CR:
@@ -229,6 +246,11 @@ type LLMSpec struct {
 //   - Set byokRAGOnly to disable OKP: no RHOKP sidecar, no solr_hybrid section, and no built-in
 //     OCP documentation retrieval—only BYOK FAISS indexes from spec.rag are used.
 type OLSSpec struct {
+	// Guardrails configuration for untrusted model inputs and outputs.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Guardrails"
+	Guardrails *GuardrailsConfig `json:"guardrails,omitempty"`
+
 	// Conversation cache settings
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2,displayName="Conversation Cache"
 	ConversationCache ConversationCacheSpec `json:"conversationCache,omitempty"`
