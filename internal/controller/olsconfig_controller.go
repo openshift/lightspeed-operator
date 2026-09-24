@@ -745,6 +745,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// 4. Annotate external resources
 	if err := r.annotateExternalResources(ctx, olsconfig); err != nil {
 		r.Logger.Error(err, "Failed to annotate external resources")
+		r.markNotReadyFromExternalValidation(ctx, olsconfig, err)
 		return ctrl.Result{}, fmt.Errorf("failed to annotate external resources: %w", err)
 	}
 
@@ -1125,8 +1126,12 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					return r.shouldWatchSecret(e.ObjectNew)
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
-					// Ignore delete events - nothing to reconcile when resource is gone
-					return false
+					// Operator-namespace deletes (LLM credentials may lack the watcher
+					// annotation, e.g. credentialHotReload) plus system secrets elsewhere.
+					if e.Object.GetNamespace() == r.Options.Namespace {
+						return true
+					}
+					return r.shouldWatchSecret(e.Object)
 				},
 			})).
 		Watches(&corev1.ConfigMap{},
@@ -1142,8 +1147,10 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					return r.shouldWatchConfigMap(e.ObjectNew)
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
-					// Ignore delete events - nothing to reconcile when resource is gone
-					return false
+					if e.Object.GetNamespace() == r.Options.Namespace {
+						return true
+					}
+					return r.shouldWatchConfigMap(e.Object)
 				},
 			})).
 		Watches(&configv1.APIServer{},
