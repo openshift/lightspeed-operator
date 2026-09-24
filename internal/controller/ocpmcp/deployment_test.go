@@ -1,9 +1,6 @@
 package ocpmcp
 
 import (
-	"fmt"
-	"path"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -43,9 +40,6 @@ var _ = Describe("OpenShift MCP Server deployment", func() {
 		Expect(container.Command).To(Equal([]string{
 			"/openshift-mcp-server",
 			"--config", GetConfigPath(),
-			"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerHTTPSPort),
-			"--tls-cert=" + path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"),
-			"--tls-key=" + path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"),
 		}))
 		Expect(container.Ports).To(HaveLen(1))
 		Expect(container.Ports[0].Name).To(Equal("https"))
