@@ -717,10 +717,11 @@ spec:
                         type: string
                     type: object
                   defaultModel:
-                    description: Default model for usage
+                    description: Default model for usage. Must match a model name
+                      on the provider named by defaultProvider.
                     type: string
                   defaultProvider:
-                    description: Default provider for usage
+                    description: Default provider for usage. Must match spec.llm.providers[].name.
                     type: string
                   deployment:
                     description: OLS deployment settings
@@ -2287,6 +2288,13 @@ spec:
             - llm
             - ols
             type: object
+            x-kubernetes-validations:
+            - message: spec.ols.defaultProvider must match a provider name in spec.llm.providers
+              rule: self.llm.providers.exists(p, p.name == self.ols.defaultProvider)
+            - message: spec.ols.defaultModel must match a model listed on the default
+                provider
+              rule: self.llm.providers.exists(p, p.name == self.ols.defaultProvider
+                && p.models.exists(m, m.name == self.ols.defaultModel))
           status:
             description: OLSConfigStatus defines the observed state of OLS deployment.
             properties:

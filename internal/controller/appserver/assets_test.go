@@ -2265,6 +2265,22 @@ var _ = Describe("Helper function unit tests", func() {
 			Expect(err.Error()).To(ContainSubstring("failed to validate proxy CA certificate"))
 			Expect(err.Error()).To(ContainSubstring("nonexistent-proxy-ca"))
 		})
+
+		It("should return error when defaultProvider is not in spec.llm.providers", func() {
+			cr.Spec.OLSConfig.DefaultProvider = "missing"
+			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(utils.ErrValidateDefaultProviderAndModel))
+			Expect(err.Error()).To(ContainSubstring(`defaultProvider "missing"`))
+		})
+
+		It("should return error when defaultModel is not on the default provider", func() {
+			cr.Spec.OLSConfig.DefaultModel = "not-a-model"
+			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(utils.ErrValidateDefaultProviderAndModel))
+			Expect(err.Error()).To(ContainSubstring(`defaultModel "not-a-model"`))
+		})
 	})
 
 	Context("generateMCPServerConfigs", func() {

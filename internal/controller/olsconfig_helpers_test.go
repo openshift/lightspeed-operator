@@ -677,6 +677,10 @@ var _ = Describe("Helper Functions", func() {
 						Providers: []olsv1alpha1.ProviderSpec{
 							{
 								Name: "test-provider",
+								Type: "openai",
+								Models: []olsv1alpha1.ModelSpec{
+									{Name: "test-model"},
+								},
 								CredentialsSecretRef: corev1.LocalObjectReference{
 									Name: "test-llm-secret",
 								},
@@ -684,6 +688,8 @@ var _ = Describe("Helper Functions", func() {
 						},
 					},
 					OLSConfig: olsv1alpha1.OLSSpec{
+						DefaultProvider: "test-provider",
+						DefaultModel:    "test-model",
 						TLSConfig: &olsv1alpha1.TLSConfig{
 							KeyCertSecretRef: corev1.LocalObjectReference{
 								Name: "test-tls-secret",
@@ -760,6 +766,14 @@ var _ = Describe("Helper Functions", func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-mcp-secret", Namespace: testNamespace}, fetchedMCPSecret)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(fetchedMCPSecret.Annotations).To(HaveKeyWithValue(utils.WatcherAnnotationKey, utils.OLSConfigName))
+		})
+
+		It("should fail when defaultProvider is not in spec.llm.providers", func() {
+			testCR.Spec.OLSConfig.DefaultProvider = "missing"
+			err := reconciler.annotateExternalResources(ctx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(utils.ErrValidateDefaultProviderAndModel))
+			Expect(err.Error()).To(ContainSubstring(`defaultProvider "missing"`))
 		})
 
 		It("should fail when LLM credentials secret is missing", func() {

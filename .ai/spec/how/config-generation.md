@@ -211,7 +211,7 @@ PostgreSQL schemas isolate data from different components within the same databa
 | Config Section | Source | Notes |
 |---|---|---|
 | Provider credentials | CR `spec.llm.providers[].credentialsSecretRef` | File mount at `/etc/apikeys/<secretName>/` |
-| Default model/provider | CR `spec.ols.defaultModel`, `spec.ols.defaultProvider` | Required fields |
+| Default model/provider | CR `spec.ols.defaultModel`, `spec.ols.defaultProvider` | Required; must match `spec.llm.providers` (CEL + `ValidateDefaultProviderAndModel`) |
 | Log level | CR `spec.ols.logLevel` | Enum: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default: INFO |
 | PostgreSQL connection | `utils/constants.go` | Host built from service name + namespace + ".svc" |
 | TLS certs | Service-ca operator or user-provided secret | Path: `/etc/certs/lightspeed-tls/` |

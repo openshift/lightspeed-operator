@@ -67,6 +67,8 @@ type AgenticOLSSpec struct {
 }
 
 // OLSConfigSpec defines the desired state of OLSConfig
+// +kubebuilder:validation:XValidation:rule="self.llm.providers.exists(p, p.name == self.ols.defaultProvider)",message="spec.ols.defaultProvider must match a provider name in spec.llm.providers"
+// +kubebuilder:validation:XValidation:rule="self.llm.providers.exists(p, p.name == self.ols.defaultProvider && p.models.exists(m, m.name == self.ols.defaultModel))",message="spec.ols.defaultModel must match a model listed on the default provider"
 type OLSConfigSpec struct {
 	// +kubebuilder:validation:Required
 	// +required
@@ -239,12 +241,12 @@ type OLSSpec struct {
 	// +kubebuilder:default=INFO
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Log level"
 	LogLevel LogLevel `json:"logLevel,omitempty"`
-	// Default model for usage
+	// Default model for usage. Must match a model name on the provider named by defaultProvider.
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
 	DefaultModel string `json:"defaultModel"`
-	// Default provider for usage
+	// Default provider for usage. Must match spec.llm.providers[].name.
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
