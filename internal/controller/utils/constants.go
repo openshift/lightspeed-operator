@@ -339,6 +339,22 @@ const (
 	OtelCollectorComponentLabel = "otel-collector"
 	// OtelCollectorFileStorageMountPath is the file_storage extension directory.
 	OtelCollectorFileStorageMountPath = "/var/lib/otelcol/file_storage"
+	// OtelCollectorAgenticDataVolumeName is the pod volume for Agentic candidate files.
+	OtelCollectorAgenticDataVolumeName = "agentic-data"
+	// OtelCollectorAgenticDataMountPath is the Collector mount root for Agentic candidate files.
+	OtelCollectorAgenticDataMountPath = "/var/lib/lightspeed-data-collection"
+	// OtelCollectorAgenticActionsPath is the Action candidate directory inside the Agentic spool.
+	OtelCollectorAgenticActionsPath = OtelCollectorAgenticDataMountPath + "/actions"
+	// OtelCollectorAgenticTranscriptsPath is the Transcript candidate directory inside the Agentic spool.
+	OtelCollectorAgenticTranscriptsPath = OtelCollectorAgenticDataMountPath + "/transcripts"
+	// OtelCollectorAgenticDataSizeLimitDefault is the bounded Agentic inspection spool size.
+	OtelCollectorAgenticDataSizeLimitDefault = "500Mi"
+	// OtelCollectorAgenticMaxBacklogBytes is the per-stream unpublished-byte budget.
+	OtelCollectorAgenticMaxBacklogBytes = 4194304
+	// OtelCollectorGRPCMaxRecvMsgSizeMiB is the OTLP/gRPC request-size limit.
+	OtelCollectorGRPCMaxRecvMsgSizeMiB = 20
+	// OtelCollectorHTTPMaxRequestBodySize is the OTLP/HTTP request-size limit in bytes.
+	OtelCollectorHTTPMaxRequestBodySize = 20 * 1024 * 1024
 	// OtelSandboxServiceName is the OTLP service.name for agentic sandbox audit logs routed to Postgres.
 	OtelSandboxServiceName = "lightspeed-agentic-sandbox"
 	// OtelAppServerServiceName is the OTLP service.name for lightspeed-service traces.

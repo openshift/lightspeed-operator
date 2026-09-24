@@ -50,6 +50,17 @@ GenerateOLSDeployment(r, cr)
   21. When introspection is enabled, mount MCP client CA Secret `lightspeed-agentic-mcp-ca` (no MCP sidecar; standalone operand).
 ```
 
+
+### OLS-4250 Inspection Deployment
+
+Before the production Agentic topology is enabled, the OLS-4250 inspection
+slice adds only the Collector-side `agentic` trace exporter and a dedicated
+500Mi `emptyDir` mounted at `/var/lib/lightspeed-data-collection`. The volume
+is mounted in the Collector container only; the Dataverse exporter sidecar and
+its consumer/deletion behavior are intentionally deferred to OLS-4259. The
+slice reuses `spec.ols.userDataCollection.transcriptsDisabled` as its gate:
+`false` or absent enables the inspection spool, while `true` omits it.
+
 ### OTEL Collector Deployment — Agentic Collection
 
 [PLANNED: OLS-3569] Collector runtime configuration and `GenerateOtelCollectorDeployment()` use the same Agentic collection gate:

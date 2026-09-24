@@ -2,6 +2,19 @@
 
 [PLANNED: OLS-3569] This specification defines only the lightspeed-operator behavior for deploying and reconciling Agentic product data collection. All product-wide semantics and cross-repository ownership are defined by `../../../../.ai/spec/what/agentic-data-collection.md`; the accepted architecture is recorded in `../../../../.ai/spec/decisions/0042-agentic-data-collection-via-otel.md`.
 
+## Phase 1 Inspection Foundation (OLS-4250)
+
+The OLS-4250 inspection slice is intentionally narrower than the production
+topology below. When `spec.ols.userDataCollection.transcriptsDisabled` is
+`false` or absent, the operator configures the Collector's `agentic` trace
+exporter and mounts a dedicated 500Mi pod-local `emptyDir` at
+`/var/lib/lightspeed-data-collection` in the Collector container only. It does
+not deploy the Dataverse exporter sidecar, evaluate the production bundle or
+credential gates, or provide ready-file cleanup. The bounded volume therefore
+exists for inspection and may fill until the pod is replaced or OLS-4259 adds
+the production policy and consumer.
+
+
 ## Behavioral Rules
 
 ### Gate and Configuration Surface

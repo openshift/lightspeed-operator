@@ -41,12 +41,29 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(configYAML).NotTo(ContainSubstring("TRACES_BACKEND_ENDPOINT"))
 		Expect(configYAML).To(ContainSubstring("nop:"))
 		Expect(configYAML).To(ContainSubstring("- nop"))
+		Expect(configYAML).To(ContainSubstring("- agentic"))
+		Expect(configYAML).To(ContainSubstring("actions_directory: " + utils.OtelCollectorAgenticActionsPath))
+		Expect(configYAML).To(ContainSubstring("transcripts_directory: " + utils.OtelCollectorAgenticTranscriptsPath))
+		Expect(configYAML).To(ContainSubstring(fmt.Sprintf("max_backlog_bytes: %d", utils.OtelCollectorAgenticMaxBacklogBytes)))
+		Expect(configYAML).To(ContainSubstring(fmt.Sprintf("max_recv_msg_size_mib: %d", utils.OtelCollectorGRPCMaxRecvMsgSizeMiB)))
+		Expect(configYAML).To(ContainSubstring(fmt.Sprintf("max_request_body_size: %d", utils.OtelCollectorHTTPMaxRequestBodySize)))
 		Expect(configYAML).To(ContainSubstring(utils.OtelCollectorHTTPSMetricsExtension + ":"))
 		Expect(configYAML).To(ContainSubstring("upstream: " + utils.OtelCollectorMetricsUpstreamURL))
 		Expect(configYAML).To(ContainSubstring("host: 127.0.0.1"))
 		Expect(configYAML).To(ContainSubstring(fmt.Sprintf("port: %d", utils.OtelCollectorMetricsInternalPort)))
 		Expect(configYAML).To(ContainSubstring("without_type_suffix: true"))
 		Expect(configYAML).To(ContainSubstring("without_units: true"))
+	})
+	It("should omit Agentic collection when transcripts are disabled", func() {
+		testCR.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled = true
+		cm, err := GenerateOtelCollectorConfigMap(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+
+		configYAML := cm.Data[utils.OtelCollectorConfigMapDataKey]
+		Expect(configYAML).NotTo(ContainSubstring("actions_directory:"))
+		Expect(configYAML).NotTo(ContainSubstring("transcripts_directory:"))
+		Expect(configYAML).NotTo(ContainSubstring("max_backlog_bytes:"))
+		Expect(configYAML).NotTo(ContainSubstring("- agentic"))
 	})
 
 	It("should omit postgres pipelines when audit logging is disabled", func() {
@@ -63,7 +80,6 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(configYAML).To(ContainSubstring("file_storage"))
 		Expect(configYAML).To(ContainSubstring(utils.OtelCollectorHTTPSMetricsExtension + ":"))
 	})
-
 	It("should add trace export when tracingEndpoint is set", func() {
 		testCR.Spec.Audit.TracingEndpoint = "jaeger-collector:4317"
 		cm, err := GenerateOtelCollectorConfigMap(testReconcilerInstance, testCR)
@@ -74,6 +90,7 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(configYAML).To(ContainSubstring("${env:TRACES_BACKEND_ENDPOINT}"))
 		Expect(configYAML).To(ContainSubstring("ca_file: " + utils.OtelCollectorServiceCAFile))
 		Expect(configYAML).To(ContainSubstring("include_system_ca_certs_pool: true"))
+		Expect(configYAML).To(ContainSubstring("- agentic"))
 		Expect(configYAML).NotTo(ContainSubstring("routing/traces"))
 	})
 
