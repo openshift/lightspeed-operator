@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
@@ -190,7 +191,7 @@ type ModelParameters struct {
 	// the service default (true) applies.
 	TemperatureSupported *bool `json:"temperature_supported,omitempty"`
 	// Reasoning configuration for the model (provider-agnostic freeform config)
-	ReasoningConfig map[string]interface{} `json:"reasoning_config,omitempty"`
+	ReasoningConfig map[string]runtime.RawExtension `json:"reasoning_config,omitempty"`
 }
 
 // ModelSpec defines the desired state of in-memory cache.

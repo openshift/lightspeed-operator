@@ -71,6 +71,11 @@ spec:
           treats sandbox mode as bare-pod.
         displayName: Sandbox Mode
         path: agenticOLS.sandboxMode
+      - description: |-
+          TerminalTTL is the optional retention ceiling for terminal AgenticRuns, in whole days.
+          The agentic operator supplies the fallback when this field is absent.
+        displayName: Terminal TTL (days)
+        path: agenticOLS.terminalTTL
       - description: Audit log and trace export configuration for the OTEL Collector.
         displayName: Audit Settings
         path: audit
