@@ -445,18 +445,6 @@ func main() {
 				},
 			},
 		},
-		// AnnotatedSecretMapping maps secret names to their affected deployments.
-		// These are secrets that the operator manages and annotates with watchers.openshift.io/watch.
-		// When these secrets change, the watcher will restart the listed deployments.
-		// Key: secret name, Value: list of deployment names.
-		// Only list secrets here that need to restart specific deployments beyond the active backend.
-		AnnotatedSecretMapping: map[string][]string{},
-		// AnnotatedConfigMapMapping maps configmap names to their affected deployments.
-		// These are configmaps that the operator manages and annotates with watchers.openshift.io/watch.
-		// When these configmaps change, the watcher will restart the listed deployments.
-		// Key: configmap name, Value: list of deployment names.
-		// Only list configmaps here that need to restart specific deployments beyond the active backend.
-		AnnotatedConfigMapMapping: map[string][]string{},
 	}
 
 	if err = (&controller.OLSConfigReconciler{

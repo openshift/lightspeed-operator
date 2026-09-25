@@ -65,13 +65,13 @@ func createTestReconciler(objs ...client.Object) reconciler.Reconciler {
 				},
 			},
 		},
-		AnnotatedSecretMapping: map[string][]string{
-			"mapped-secret": {utils.PostgresDeploymentName},
-		},
-		AnnotatedConfigMapMapping: map[string][]string{
-			"mapped-cm": {utils.OLSAppServerDeploymentName},
-		},
 	}
+	watcherConfig.PublishAnnotatedSecrets(map[string][]string{
+		"mapped-secret": {utils.PostgresDeploymentName},
+	})
+	watcherConfig.PublishAnnotatedConfigMaps(map[string][]string{
+		"mapped-cm": {utils.OLSAppServerDeploymentName},
+	})
 	tr.SetWatcherConfig(watcherConfig)
 	return tr
 }
@@ -120,7 +120,7 @@ var _ = Describe("Watchers", func() {
 			Expect(func() { SecretWatcherFilter(r, ctx, sec, false) }).NotTo(Panic())
 		})
 
-		It("matches an annotated secret using AnnotatedSecretMapping when inCluster is false", func() {
+		It("matches an annotated secret using annotated mapping when inCluster is false", func() {
 			r := createTestReconciler()
 			sec := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -164,7 +164,7 @@ var _ = Describe("Watchers", func() {
 			Expect(func() { ConfigMapWatcherFilter(r, ctx, cm, false) }).NotTo(Panic())
 		})
 
-		It("matches an annotated configmap using AnnotatedConfigMapMapping when inCluster is false", func() {
+		It("matches an annotated configmap using annotated mapping when inCluster is false", func() {
 			r := createTestReconciler()
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -351,7 +351,9 @@ var _ = Describe("Watchers", func() {
 			}
 			r := createTestReconciler(cr, cm)
 			wc := r.GetWatcherConfig().(*utils.WatcherConfig)
-			wc.AnnotatedConfigMapMapping[utils.AlertsAdapterConfigMapName] = []string{utils.AlertsAdapterDeploymentName}
+			wc.PublishAnnotatedConfigMaps(map[string][]string{
+				utils.AlertsAdapterConfigMapName: {utils.AlertsAdapterDeploymentName},
+			})
 			h := &ConfigMapUpdateHandler{Reconciler: r}
 			h.Create(ctx, event.CreateEvent{Object: cm}, nil)
 
@@ -425,7 +427,9 @@ var _ = Describe("Watchers", func() {
 			}
 			r := createTestReconciler(cr, dep)
 			wc := r.GetWatcherConfig().(*utils.WatcherConfig)
-			wc.AnnotatedConfigMapMapping[utils.AlertsAdapterConfigMapName] = []string{utils.AlertsAdapterDeploymentName}
+			wc.PublishAnnotatedConfigMaps(map[string][]string{
+				utils.AlertsAdapterConfigMapName: {utils.AlertsAdapterDeploymentName},
+			})
 
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -444,4 +448,5 @@ var _ = Describe("Watchers", func() {
 			Expect(updated.Spec.Template.Annotations).To(HaveKey(utils.ForceReloadAnnotationKey))
 		})
 	})
+
 })
