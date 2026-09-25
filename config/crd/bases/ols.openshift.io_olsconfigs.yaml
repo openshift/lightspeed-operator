@@ -182,6 +182,13 @@ spec:
                       Default: bare-pod when absent. When agenticOLS is omitted entirely, the operator
                       treats sandbox mode as bare-pod.
                     type: string
+                  terminalTTL:
+                    description: |-
+                      TerminalTTL is the optional retention ceiling for terminal AgenticRuns, in whole days.
+                      The agentic operator supplies the fallback when this field is absent.
+                    format: int32
+                    minimum: 1
+                    type: integer
                 type: object
               audit:
                 description: Audit log and trace export configuration for the OTEL

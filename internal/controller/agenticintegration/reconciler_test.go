@@ -1,6 +1,8 @@
 package agenticintegration
 
 import (
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -51,6 +53,46 @@ var _ = Describe("Agentic integration reconciler", Ordered, func() {
 				Namespace: utils.OLSNamespaceDefault,
 			}, cm)
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		})
+	})
+
+	Context("terminal TTL handoff", func() {
+		It("creates, updates, and removes the optional day count", func() {
+			cm := &corev1.ConfigMap{}
+			key := types.NamespacedName{Name: utils.AgenticConfigurationConfigMapName, Namespace: utils.OLSNamespaceDefault}
+			err := k8sClient.Get(ctx, key, cm)
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, cm)).To(Succeed())
+			} else {
+				Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}
+			ensureHandoffCreatePrerequisites(false)
+
+			days := int32(30)
+			configured := testCR.DeepCopy()
+			configured.Spec.AgenticOLS = &olsv1alpha1.AgenticOLSSpec{TerminalTTL: &days}
+			Expect(ReconcileAgenticIntegrationResources(testReconcilerInstance, ctx, configured)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, cm)).To(Succeed())
+			Expect(cm.Data["terminal-ttl-days"]).To(Equal("30"))
+			parsed, err := strconv.ParseInt(cm.Data["terminal-ttl-days"], 10, 32)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(parsed).To(Equal(int64(30)))
+
+			updatedDays := int32(7)
+			configured.Spec.AgenticOLS.TerminalTTL = &updatedDays
+			Expect(ReconcileAgenticIntegrationResources(testReconcilerInstance, ctx, configured)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, cm)).To(Succeed())
+			Expect(cm.Data["terminal-ttl-days"]).To(Equal("7"))
+
+			configured.Spec.AgenticOLS.TerminalTTL = nil
+			Expect(ReconcileAgenticIntegrationResources(testReconcilerInstance, ctx, configured)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, cm)).To(Succeed())
+			Expect(cm.Data).NotTo(HaveKey("terminal-ttl-days"))
+
+			configured.Spec.AgenticOLS = nil
+			Expect(ReconcileAgenticIntegrationResources(testReconcilerInstance, ctx, configured)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, cm)).To(Succeed())
+			Expect(cm.Data).NotTo(HaveKey("terminal-ttl-days"))
 		})
 	})
 

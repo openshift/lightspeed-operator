@@ -60,7 +60,7 @@ Field path (relative to `spec.agenticOLS`) | JSON key | Go type | Required | Def
 ---|---|---|---|---|---|---
 `sandboxMode` | `sandboxMode` | `SandboxMode` | No | `bare-pod` | Enum: `bare-pod`, `sandbox-claim` | How the agentic operator provisions sandbox pods
 `agenticSandboxConfig` | `agenticSandboxConfig` | `Config` | No | — | — | Resources, tolerations, nodeSelector for the thin sandbox PodSpec. Replicas ignored.
-`terminalTTL` | `terminalTTL` | `*int32` | No | — | Minimum=1 | [PLANNED: OLS-4280] Cluster ceiling for terminal AgenticRun retention, in whole days. Omitted value is not defaulted in this CRD; the agentic operator supplies its own 14-day fallback.
+`terminalTTL` | `terminalTTL` | `*int32` | No | — | Minimum=1 | Cluster ceiling for terminal AgenticRun retention, in whole days. Omitted value is not defaulted in this CRD; the agentic operator supplies its own 14-day fallback.
 `instructions` | `instructions` | `*AgenticStepInstructions` | No | — | — | ~~[SUPERSEDED]~~ Removed by OLS-3491 redesign. Per-step instructions now live on the `Agent` CR in `agentic.openshift.io`. See design spec `docs/superpowers/specs/2026-09-01-configurable-instructions-design.md`.
 
 #### AgenticStepInstructions Fields ~~[SUPERSEDED by OLS-3491 redesign]~~
@@ -74,7 +74,7 @@ This section is removed. Per-step instructions now live on the `Agent` CR (`agen
 60. OpenAPI enum validation rejects values other than `bare-pod` and `sandbox-claim`.
 61. `agenticSandboxConfig` overrides default sandbox PodSpec scheduling/resources (requests-only defaults: 500m CPU / 128Mi memory). Replicas are ignored.
 62. Classic operator publishes handoff via appserver-owned client CA Secrets plus `agenticintegration` ConfigMap (`lightspeed-agentic-configuration`). See `agentic-sandbox-profile.md`.
-62a. [PLANNED: OLS-4280] When `spec.agenticOLS.terminalTTL` is set, validate it as a positive whole number (minimum 1) and publish its decimal value as `terminal-ttl-days` in the handoff ConfigMap. When absent, omit/remove that key; do not default it in OLSConfig. See the parent `ols/.ai/spec/what/terminal-run-ttl.md`.
+62a. When `spec.agenticOLS.terminalTTL` is set, validate it as a positive whole number (minimum 1) and publish its decimal value as `terminal-ttl-days` in the handoff ConfigMap. When absent, omit/remove that key; do not default it in OLSConfig. See the parent `ols/.ai/spec/what/terminal-run-ttl.md`.
 63–67. ~~[SUPERSEDED by OLS-3491 redesign]~~ Rules 63–67 removed. Per-step instructions now live on the `Agent` CR in `agentic.openshift.io`, not on `OLSConfig`. The classic operator no longer participates in instruction delivery. See design spec `docs/superpowers/specs/2026-09-01-configurable-instructions-design.md`.
 
 ### LLM Provider Configuration (spec.llm)
@@ -535,7 +535,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.toolsApprovalConfig` | `*ToolsApprovalConfig` | -- | No | -- | Tool approval config
 `spec.ols.toolsApprovalConfig.approvalType` | `ApprovalType` | `tool_annotations` | No | Enum: never/always/tool_annotations | Approval strategy
 `spec.ols.toolsApprovalConfig.approvalTimeout` | `int` | `600` | No | Min=1 | Approval timeout (seconds)
-`spec.agenticOLS.terminalTTL` | `*int32` | -- | No | Min=1 | [PLANNED: OLS-4280] Admin terminal-run ceiling in whole days; omission selects agentic-operator fallback via absent handoff key
+`spec.agenticOLS.terminalTTL` | `*int32` | -- | No | Min=1 | Admin terminal-run ceiling in whole days; omission selects agentic-operator fallback via absent handoff key
 `spec.olsDataCollector` | `OLSDataCollectorSpec` | -- | No | -- | Data collector settings
 `spec.olsDataCollector.logLevel` | `LogLevel` | `INFO` | No | Enum: DEBUG/INFO/WARNING/ERROR/CRITICAL | Data collector log level
 `spec.mcpServers` | `[]MCPServerConfig` | -- | No | MaxItems=20 | External MCP servers
@@ -579,12 +579,11 @@ Path | Type | Default | Required | Validation | Description
 
 ## Verification
 
-- [PLANNED: OLS-4280] Verify `terminalTTL` validation, absent-field semantics, and publication/removal of `terminal-ttl-days` in the handoff ConfigMap.
+- [OLS-4290] Tests cover `terminalTTL` validation, absent-field semantics, and publication/removal of `terminal-ttl-days` in the handoff ConfigMap.
 - [PLANNED: OLS-3928] Operator tests cover explicit values, the default value, generated Classic configuration, and the `tool-output-inspection-enabled` handoff key.
 
 ## Planned Changes
 
-- [PLANNED: OLS-4280] Add optional `spec.agenticOLS.terminalTTL` without a CRD default and publish it through the existing agentic handoff.
 - [OLS-3450] Added `spec.ols.credentialHotReload` boolean field. When enabled, the operator skips annotating LLM credential secrets (no restart on rotation) and writes `credential_hot_reload: true` into `olsconfig.yaml`. See design spec `docs/superpowers/specs/2026-09-01-credential-hot-reload-design.md`.
 -  Add `reasoningConfig` field (`map[string]interface{}`) to `ModelParametersSpec`. Freeform map passed through to the service as `reasoning_config` for provider-specific reasoning/thinking parameters. Includes release notes and user-facing documentation for valid keys per provider.
 - [DONE: OLS-3683 / OLS-3684] `spec.agenticOLS` (`sandboxMode`, `agenticSandboxConfig`), appserver-owned client CA Secrets, and handoff ConfigMap (`lightspeed-agentic-configuration`). See `agentic-sandbox-profile.md`.

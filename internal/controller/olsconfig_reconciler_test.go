@@ -12,7 +12,9 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -98,6 +100,44 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 			},
 		}
 		_ = k8sClient.Delete(ctx, testSecret)
+	})
+
+	Describe("terminalTTL admission validation", func() {
+		DescribeTable("accepts only positive whole days", func(days int32, accepted bool) {
+			cr.Spec.AgenticOLS = &olsv1alpha1.AgenticOLSSpec{TerminalTTL: &days}
+			err := k8sClient.Create(ctx, cr)
+			if accepted {
+				Expect(err).NotTo(HaveOccurred())
+				stored := &olsv1alpha1.OLSConfig{}
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, stored)).To(Succeed())
+				Expect(stored.Spec.AgenticOLS.TerminalTTL).NotTo(BeNil())
+				Expect(*stored.Spec.AgenticOLS.TerminalTTL).To(Equal(days))
+			} else {
+				Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected admission to reject %d days, got %v", days, err)
+			}
+		},
+			Entry("one day", int32(1), true),
+			Entry("multiple days", int32(30), true),
+			Entry("zero days", int32(0), false),
+			Entry("negative days", int32(-1), false),
+		)
+
+		It("allows omission without applying a CRD default", func() {
+			cr.Spec.AgenticOLS = &olsv1alpha1.AgenticOLSSpec{}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+			stored := &olsv1alpha1.OLSConfig{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, stored)).To(Succeed())
+			Expect(stored.Spec.AgenticOLS.TerminalTTL).To(BeNil())
+		})
+
+		It("rejects fractional days", func() {
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+			err := k8sClient.Patch(ctx, cr, client.RawPatch(types.MergePatchType,
+				[]byte(`{"spec":{"agenticOLS":{"terminalTTL":1.5}}}`)))
+			Expect(err).To(HaveOccurred())
+			Expect(apierrors.IsInvalid(err) || apierrors.IsBadRequest(err)).To(BeTrue(),
+				"expected admission to reject fractional days, got %v", err)
+		})
 	})
 
 	Describe("getAndValidateCR", func() {
@@ -469,12 +509,10 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				cr.Spec.LLMConfig.Providers[0].Models[0].Parameters = olsv1alpha1.ModelParametersSpec{
-					ReasoningConfig: map[string]interface{}{
-						"thinking_budget": float64(5000),
-						"effort":          "high",
-						"nested": map[string]interface{}{
-							"key": "value",
-						},
+					ReasoningConfig: map[string]runtime.RawExtension{
+						"thinking_budget": {Raw: []byte("5000")},
+						"effort":          {Raw: []byte(`"high"`)},
+						"nested":          {Raw: []byte(`{"key":"value"}`)},
 					},
 				}
 
@@ -492,21 +530,9 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 				// Verify the nested reasoningConfig values are preserved
 				config := retrievedCR.Spec.LLMConfig.Providers[0].Models[0].Parameters.ReasoningConfig
 				Expect(config).NotTo(BeNil())
-				// JSON unmarshaling converts numbers to either int64 or float64 depending on value
-				thinking := config["thinking_budget"]
-				Expect(thinking).NotTo(BeNil())
-				switch v := thinking.(type) {
-				case float64:
-					Expect(v).To(Equal(float64(5000)))
-				case int64:
-					Expect(v).To(Equal(int64(5000)))
-				default:
-					Fail("thinking_budget has unexpected type")
-				}
-				Expect(config["effort"]).To(Equal("high"))
-				Expect(config["nested"]).NotTo(BeNil())
-				nested := config["nested"].(map[string]interface{})
-				Expect(nested["key"]).To(Equal("value"))
+				Expect(config["thinking_budget"].Raw).To(MatchJSON("5000"))
+				Expect(config["effort"].Raw).To(MatchJSON(`"high"`))
+				Expect(config["nested"].Raw).To(MatchJSON(`{"key":"value"}`))
 			})
 		})
 	})

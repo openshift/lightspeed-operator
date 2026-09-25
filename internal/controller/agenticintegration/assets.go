@@ -138,6 +138,9 @@ func GenerateAgenticConfigurationConfigMap(r reconciler.Reconciler, cr *olsv1alp
 	if ref := cr.Spec.OLSConfig.AdditionalCAConfigMapRef; ref != nil && ref.Name != "" {
 		data[utils.AgenticConfigurationAdditionalCAConfigMapKey] = ref.Name
 	}
+	if cr.Spec.AgenticOLS != nil && cr.Spec.AgenticOLS.TerminalTTL != nil {
+		data[utils.AgenticConfigurationTerminalTTLDaysKey] = fmt.Sprintf("%d", *cr.Spec.AgenticOLS.TerminalTTL)
+	}
 	if utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true) {
 		data[utils.AgenticConfigurationMCPEndpointKey] = utils.OpenShiftMCPServerServiceURL(ns)
 		data[utils.AgenticConfigurationMCPCASecretKey] = utils.AgenticMCPCASecretName

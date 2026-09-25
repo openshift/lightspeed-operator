@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // AuditConfig configures audit log and trace export via the OTEL Collector.
@@ -64,6 +65,12 @@ type AgenticOLSSpec struct {
 	// Replicas are ignored and always treated as 1; sandbox pod count is managed by the agentic operator.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Agentic Sandbox Config"
 	AgenticSandboxConfig Config `json:"agenticSandboxConfig,omitempty"`
+	// TerminalTTL is the optional retention ceiling for terminal AgenticRuns, in whole days.
+	// The agentic operator supplies the fallback when this field is absent.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Terminal TTL (days)"
+	TerminalTTL *int32 `json:"terminalTTL,omitempty"`
 }
 
 // OLSConfigSpec defines the desired state of OLSConfig
@@ -548,7 +555,7 @@ type ModelParametersSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Reasoning Config"
-	ReasoningConfig map[string]interface{} `json:"reasoningConfig,omitempty"`
+	ReasoningConfig map[string]runtime.RawExtension `json:"reasoningConfig,omitempty"`
 }
 
 // ModelSpec defines the LLM model to use and its parameters.
