@@ -84,7 +84,7 @@ spec:
               secretName: $(params.clusterCredentialsSecretRef)
         steps:
           - name: get-snapshot-component
-            image: registry.redhat.io/openshift4/ose-cli:latest
+            image: registry.redhat.io/openshift4/ose-cli-rhel9@sha256:679f03aaf1ef6c32c8483f1bae9b9fe39dc2ce09c830c19335e47e255d56a257
             env:
               - name: SNAPSHOT
                 value: $(params.SNAPSHOT)
@@ -120,7 +120,7 @@ spec:
             volumeMounts:
               - name: cluster-credentials
                 mountPath: /credentials
-            image: registry.redhat.io/openshift4/ose-cli:latest
+            image: registry.redhat.io/openshift4/ose-cli-rhel9@sha256:679f03aaf1ef6c32c8483f1bae9b9fe39dc2ce09c830c19335e47e255d56a257
             script: |
               set -euo pipefail
               dnf -y install jq python3-pip git curl
@@ -170,7 +170,7 @@ spec:
                 value: "/var/run/openai/token"
               - name: COMMIT_SHA
                 value: "$(params.commit)"
-            image: registry.redhat.io/openshift4/ose-cli:latest
+            image: registry.redhat.io/openshift4/ose-cli-rhel9@sha256:679f03aaf1ef6c32c8483f1bae9b9fe39dc2ce09c830c19335e47e255d56a257
             script: |
               set -euo pipefail
               echo "---------------------------------------------"

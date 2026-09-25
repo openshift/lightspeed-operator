@@ -91,7 +91,7 @@ spec:
             volumeMounts:
               - name: cluster-credentials
                 mountPath: /credentials
-            image: registry.redhat.io/openshift4/ose-cli:latest
+            image: registry.redhat.io/openshift4/ose-cli-rhel9@sha256:679f03aaf1ef6c32c8483f1bae9b9fe39dc2ce09c830c19335e47e255d56a257
             script: |
               echo "---------------------------------------------"
               cat $KUBECONFIG
@@ -115,7 +115,7 @@ spec:
               echo "---------------------------------------------"
               oc get deployment lightspeed-operator-controller-manager -n "$(params.namespace)"
           - name: get-bundle-image
-            image: registry.redhat.io/openshift4/ose-cli:latest
+            image: registry.redhat.io/openshift4/ose-cli-rhel9@sha256:679f03aaf1ef6c32c8483f1bae9b9fe39dc2ce09c830c19335e47e255d56a257
             env:
               - name: SNAPSHOT
                 value: $(params.SNAPSHOT)
@@ -202,7 +202,7 @@ spec:
                 value: "$(params.commit)"
               - name: ARTIFACT_DIR
                 value: "/workspace"
-            image: registry.redhat.io/openshift4/ose-cli:latest
+            image: registry.redhat.io/openshift4/ose-cli-rhel9@sha256:679f03aaf1ef6c32c8483f1bae9b9fe39dc2ce09c830c19335e47e255d56a257
             script: |
               echo "---------------------------------------------"
               cat $KUBECONFIG
