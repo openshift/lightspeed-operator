@@ -102,10 +102,10 @@ spec:
             volumeMounts:
               - name: cluster-credentials
                 mountPath: /credentials
-            image: registry.redhat.io/openshift4/ose-cli:latest
+            image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
             script: |
               set -euo pipefail
-              dnf -y install jq python3-pip git curl
+              dnf -y install jq python3-pip git
               # yq is not shipped by the repositories enabled in ose-cli. Install the
               # pinned upstream static binary so it is also available to the fallback path.
               YQ_VERSION="v4.44.3"
@@ -124,7 +124,7 @@ spec:
               git checkout -q FETCH_HEAD
               ./.tekton/integration-tests/scripts/run-konflux-operator-install.sh bundle
           - name: get-snapshot-component
-            image: registry.redhat.io/openshift4/ose-cli:latest
+            image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
             env:
               - name: SNAPSHOT
                 value: $(params.SNAPSHOT)
@@ -274,9 +274,9 @@ spec:
                     fieldPath: metadata.labels['appstudio.openshift.io/component']
               - name: ARTIFACT_DIR
                 value: "/workspace"
-            image: registry.redhat.io/openshift4/ose-cli:latest
+            image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
             script: |
-              dnf -y install git make golang jq gpgme-devel curl
+              dnf -y install git make golang jq gpgme-devel
               # yq is not shipped by the repositories enabled in ose-cli. Use the
               # same pinned upstream static binary as the install-operator step.
               YQ_VERSION="v4.44.3"
