@@ -3,7 +3,6 @@ package ocpmcp
 import (
 	"context"
 	"fmt"
-	"path"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -62,8 +61,6 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 	tlsVolumeDefaultMode := utils.VolumeRestrictedMode
 	httpsPort := intstr.FromInt32(utils.OpenShiftMCPServerHTTPSPort)
 	configPath := GetConfigPath()
-	tlsCertPath := path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt")
-	tlsKeyPath := path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key")
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -101,9 +98,6 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 							Command: []string{
 								"/openshift-mcp-server",
 								"--config", configPath,
-								"--port", fmt.Sprintf("%d", utils.OpenShiftMCPServerHTTPSPort),
-								"--tls-cert=" + tlsCertPath,
-								"--tls-key=" + tlsKeyPath,
 							},
 							Ports: []corev1.ContainerPort{
 								{
