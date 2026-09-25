@@ -19,17 +19,22 @@ An OLM bundle packages an operator for distribution and installation. It contain
 ## Bundle Structure
 
 ```
-bundle/
-├── manifests/
-│   ├── lightspeed-operator.clusterserviceversion.yaml  # Main metadata and install strategy
-│   ├── ols.openshift.io_olsconfigs.yaml                # CRD definition
-│   └── *_rbac.authorization.k8s.io_*.yaml              # RBAC resources
-├── metadata/
-│   └── annotations.yaml                                # Bundle metadata (channels, OCP versions)
-└── tests/scorecard/
-    └── config.yaml                                     # Scorecard configuration
+bundle/                                                   # Legacy operator-sdk workspace; not a release build input
+bundle.Dockerfile                                         # Legacy operator-sdk workspace; preserved during generation
 
-bundle.Dockerfile                                        # Bundle image build
+bundle-v1/                                                # Generated classic OCP 4.x release bundle
+bundle-v1.Dockerfile                                      # Builds bundle-v1/
+
+bundle-v2/                                                # Generated agentic OCP 5.0+ bundle
+├── manifests/
+│   ├── lightspeed-operator.clusterserviceversion.yaml
+│   ├── ols.openshift.io_olsconfigs.yaml
+│   ├── agentic.openshift.io_*.yaml                       # v2 only
+│   └── *_rbac.authorization.k8s.io_*.yaml
+├── metadata/annotations.yaml
+└── tests/scorecard/
+    └── config.yaml
+bundle-v2.Dockerfile                                      # Builds bundle-v2/
 ```
 
 ### Important: Install Mode vs CRD Scope
@@ -72,33 +77,34 @@ All operand resources (deployments, services) are still created in `openshift-li
 
 ### Commands
 
-**Generate bundle:**
+**Generate and validate a selected bundle:**
 ```bash
-make bundle BUNDLE_TAG=0.1.0
+# Classic OCP 4.x bundle
+make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.1.4
+operator-sdk bundle validate ./bundle-v1
 
-# With custom images
-make bundle BUNDLE_TAG=0.1.0 RELATED_IMAGES_FILE=related_images.json
+# Agentic OCP 5.0+ bundle; uses committed agentic CRD/RBAC inputs
+make bundle BUNDLE_VARIANT=v2 BUNDLE_TAG=2.0.0
+operator-sdk bundle validate ./bundle-v2
 ```
 
 **What happens:**
-1. Generates manifests via `operator-sdk` and `kustomize`
-2. Updates image references from `related_images.json`
-3. Adds OpenShift compatibility annotations
-4. Generates bundle Dockerfile
-5. Validates bundle
+1. Selects the v1 or v2 CSV template and matching related images
+2. Generates manifests from the committed CRD/RBAC inputs via `operator-sdk` and `kustomize`
+3. Adds the selected OpenShift compatibility annotation
+4. Writes `bundle-v1/` or `bundle-v2/` and its matching Dockerfile
+5. Validates the generated bundle
 
-**Validate:**
-```bash
-operator-sdk bundle validate ./bundle
-
-# For OpenShift
-operator-sdk bundle validate ./bundle --select-optional name=operatorhub
-```
+Run `make sync-agentic-crds` separately before v2 generation only when
+refreshing the pinned agentic CRD/RBAC contract.
 
 **Build and push:**
 ```bash
-make bundle-build BUNDLE_IMG=quay.io/myorg/lightspeed-operator-bundle:v0.1.0
-make bundle-push BUNDLE_IMG=quay.io/myorg/lightspeed-operator-bundle:v0.1.0
+make bundle-build BUNDLE_VARIANT=v1 BUNDLE_IMG=quay.io/myorg/lightspeed-operator-bundle:v1.1.4
+make bundle-push BUNDLE_VARIANT=v1 BUNDLE_IMG=quay.io/myorg/lightspeed-operator-bundle:v1.1.4
+
+make bundle-build BUNDLE_VARIANT=v2 BUNDLE_IMG=quay.io/myorg/lightspeed-agentic-operator-bundle:v2.0.0
+make bundle-push BUNDLE_VARIANT=v2 BUNDLE_IMG=quay.io/myorg/lightspeed-agentic-operator-bundle:v2.0.0
 ```
 
 ### Implementation Files
@@ -106,7 +112,7 @@ make bundle-push BUNDLE_IMG=quay.io/myorg/lightspeed-operator-bundle:v0.1.0
 - Makefile: [`Makefile`](../Makefile) (lines 329-346)
 - Script: [`hack/update_bundle.sh`](../hack/update_bundle.sh)
 - Images: [`related_images.json`](../related_images.json)
-- Dockerfile: [`bundle.Dockerfile`](../bundle.Dockerfile)
+- Generated Dockerfiles: `bundle-v1.Dockerfile` and `bundle-v2.Dockerfile`
 
 ---
 
@@ -170,18 +176,18 @@ related_images.json → make manifests (deployment-patch.yaml) → hack/update_b
 
 ## Version Management
 
-**Bump version:**
+**Bump a selected bundle line:**
 ```bash
-# 1. Update version
-vim Makefile  # Update BUNDLE_TAG
+# Classic v1 release
+make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.2.0
 
-# 2. Generate bundle
-make bundle BUNDLE_TAG=0.2.0
+# Agentic v2 release
+make bundle BUNDLE_VARIANT=v2 BUNDLE_TAG=2.0.0
 
-# 3. Review and commit
-git diff bundle/
-git add bundle/ bundle.Dockerfile
-git commit -m "chore: bump bundle version to v0.2.0"
+# Review and commit the selected generated output
+git diff -- bundle-v2/ bundle-v2.Dockerfile
+git add bundle-v2/ bundle-v2.Dockerfile
+git commit -m "OLS-XXXX Release v2.0.0"
 ```
 
 **Semantic Versioning:**
@@ -190,10 +196,10 @@ git commit -m "chore: bump bundle version to v0.2.0"
 - **Patch (0.0.x)**: Bug fixes
 
 **Ensure version consistency across:**
-1. `Makefile` (`BUNDLE_TAG`)
-2. CSV metadata name (`lightspeed-operator.v0.2.0`)
-3. CSV spec `version` field
-4. Bundle Dockerfile labels
+1. selected `BUNDLE_VARIANT` and `BUNDLE_TAG`
+2. generated CSV metadata name (`lightspeed-operator.vX.Y.Z`)
+3. generated CSV spec `version` field (`X.Y.Z`)
+4. selected variant Dockerfile `release`, `version`, and CPE labels
 
 ---
 
@@ -205,11 +211,11 @@ git commit -m "chore: bump bundle version to v0.2.0"
 # Get image references from Konflux snapshot (pass -b for bundle snapshot when updating ols-bundle)
 ./hack/snapshot_to_image_list.sh -s <ols-snapshot-ref> -b <ols-bundle-snapshot-ref> -o related_images.json
 
-# Update bundle (uses version from related_images.json or current CSV)
-make bundle
+# Update the selected bundle
+make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.1.4
 
 # Verify operator image was updated
-grep "lightspeed-operator" bundle/manifests/*.clusterserviceversion.yaml
+grep "lightspeed-operator" bundle-v1/manifests/*.clusterserviceversion.yaml
 ```
 
 ### Add RBAC Permission
@@ -218,14 +224,18 @@ grep "lightspeed-operator" bundle/manifests/*.clusterserviceversion.yaml
 vim config/rbac/role.yaml  # Update RBAC
 make manifests && make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.0.0
 yq '.spec.install.spec.clusterPermissions[0].rules' \
-  bundle/manifests/lightspeed-operator.clusterserviceversion.yaml  # Verify
+  bundle-v1/manifests/lightspeed-operator.clusterserviceversion.yaml  # Verify
 ```
 
 ### Change OpenShift Version Support
 
 ```bash
-vim bundle/metadata/annotations.yaml  # Change: com.redhat.openshift.versions
-operator-sdk bundle validate ./bundle
+# Compatibility is selected by variant; do not edit generated annotations.
+make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.1.4
+operator-sdk bundle validate ./bundle-v1
+
+make bundle BUNDLE_VARIANT=v2 BUNDLE_TAG=2.0.0
+operator-sdk bundle validate ./bundle-v2
 ```
 
 ---
@@ -235,7 +245,7 @@ operator-sdk bundle validate ./bundle
 ### Bundle Validation Fails
 
 ```bash
-operator-sdk bundle validate ./bundle -o text  # Verbose output
+operator-sdk bundle validate ./bundle-v1 -o text  # Use bundle-v2 for v2
 ```
 
 **Common fixes:**

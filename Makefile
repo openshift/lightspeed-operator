@@ -44,9 +44,11 @@ BUNDLE_TAG ?= $(if $(filter v2,$(BUNDLE_VARIANT)),2.0.0,1.1.4)
 # You can use it as an arg.  (E.g make bundle BASE_IMG=registry.redhat.io/ubi9/ubi-minimal)
 BASE_IMG ?= registry.redhat.io/ubi9/ubi-minimal
 
-# BUNDLE_IMG defines the image:tag used for the bundle.
-# You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
-BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
+# BUNDLE_IMG defines the image:tag used for the selected bundle line.
+# Override it for local registries as needed.
+BUNDLE_V2_IMAGE_TAG_BASE ?= quay.io/openshift-lightspeed/lightspeed-agentic-operator-bundle
+BUNDLE_IMG ?= $(if $(filter v2,$(BUNDLE_VARIANT)),$(BUNDLE_V2_IMAGE_TAG_BASE):v$(VERSION),$(IMAGE_TAG_BASE)-bundle:v$(VERSION))
+BUNDLE_DOCKERFILE ?= bundle-$(BUNDLE_VARIANT).Dockerfile
 
 # BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
 BUNDLE_GEN_FLAGS ?= -q --overwrite $(BUNDLE_METADATA_OPTS)
@@ -123,6 +125,18 @@ generate-deployment-patch: jq ## Generate config/default/deployment-patch.yaml f
 .PHONY: manifests
 manifests: generate-deployment-patch controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook $(CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases
+
+# Agentic CRD/RBAC sync (OLS-3189). This must be an immutable, reviewed
+# agentic-operator commit so v2 bundle generation is reproducible. Synced files
+# must not be hand-edited.
+AGENTIC_OPERATOR_REPO ?= https://github.com/openshift/lightspeed-agentic-operator
+# The release tag is the human-readable source contract. Bundle generation uses
+# the already synchronized, committed inputs and therefore does not fetch it.
+AGENTIC_OPERATOR_REF ?= 2.0.0
+
+.PHONY: sync-agentic-crds
+sync-agentic-crds: ## Sync agentic CRDs and RBAC from lightspeed-agentic-operator at AGENTIC_OPERATOR_REF.
+	AGENTIC_OPERATOR_REPO=$(AGENTIC_OPERATOR_REPO) AGENTIC_OPERATOR_REF=$(AGENTIC_OPERATOR_REF) ./hack/sync_agentic_manifests.sh
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -397,7 +411,7 @@ endif
 ## to use image digests instead of version tag, set the USE_IMAGE_DIGESTS variable to true
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
-	OPERATOR_SDK=$(OPERATOR_SDK) YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh $(BUNDLE_VARIANT) -v $(BUNDLE_TAG) -i related_images.json
+	KUSTOMIZE=$(LOCALBIN)/kustomize OPERATOR_SDK=$(OPERATOR_SDK) YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh $(BUNDLE_VARIANT) -v $(BUNDLE_TAG) -i related_images.json
 
 parking:
 	$(OPERATOR_SDK) generate kustomize manifests -q
@@ -405,8 +419,8 @@ parking:
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
-bundle-build: ## Build the bundle image.
-	$(CONTAINER_TOOL) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+bundle-build: bundle ## Generate the selected bundle, then build its image.
+	$(CONTAINER_TOOL) build -f $(BUNDLE_DOCKERFILE) -t $(BUNDLE_IMG) .
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.

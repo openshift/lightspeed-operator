@@ -51,18 +51,21 @@ config/manifests/bases/lightspeed-operator-v2.clusterserviceversion.yaml
 `hack/update_bundle.sh` selects the requested template and generates:
 
 ```text
-bundle/manifests/lightspeed-operator.clusterserviceversion.yaml
-bundle/metadata/annotations.yaml
-bundle.Dockerfile
+v1: bundle-v1/manifests/lightspeed-operator.clusterserviceversion.yaml
+    bundle-v1/metadata/annotations.yaml
+    bundle-v1.Dockerfile
+v2: bundle-v2/manifests/lightspeed-operator.clusterserviceversion.yaml
+    bundle-v2/metadata/annotations.yaml
+    bundle-v2.Dockerfile
 ```
 
 Do not edit those generated files as the source of a release version. The
 operator-sdk generation step writes the selected `BUNDLE_TAG` into the output
 CSV.
 
-`hack/bundle.Dockerfile` is the Dockerfile template copied to
-`bundle.Dockerfile` during generation. Update the template only when the
-released bundle image labels must change.
+`hack/bundle.Dockerfile` is the Dockerfile template. Generation writes the
+selected version, CPE, bundle identity, and OCP compatibility labels to the
+variant Dockerfile; do not edit generated Dockerfile labels by hand.
 
 ## Step 1: Refresh `related_images.json` from stable images
 
@@ -123,17 +126,18 @@ Direct script use requires the selector and image list explicitly:
 ## Step 3: Validate the generated bundle
 
 ```bash
-operator-sdk bundle validate ./bundle
+operator-sdk bundle validate ./bundle-v1 # use bundle-v2 for v2
 ```
 
 Verify the selected output:
 
 ```bash
-CSV=bundle/manifests/lightspeed-operator.clusterserviceversion.yaml
+BUNDLE_DIR=bundle-v1 # use bundle-v2 for a v2 release
+CSV="${BUNDLE_DIR}/manifests/lightspeed-operator.clusterserviceversion.yaml"
 
 yq '.metadata.name' "$CSV"
 yq '.metadata.annotations."com.redhat.openshift.versions"' \
-  bundle/metadata/annotations.yaml
+  "${BUNDLE_DIR}/metadata/annotations.yaml"
 yq -r '.spec.relatedImages[].name' "$CSV" | sort
 ```
 
@@ -168,7 +172,8 @@ operator_target
 ## Step 4: Review and commit
 
 ```bash
-git diff -- related_images.json hack/bundle.Dockerfile bundle/
+git diff -- related_images.json hack/bundle.Dockerfile bundle-v1/ bundle-v2/ \
+  bundle-v1.Dockerfile bundle-v2.Dockerfile
 ```
 
 Confirm:
@@ -178,12 +183,13 @@ Confirm:
 - [ ] The generated CSV version has the required major version.
 - [ ] The generated OCP compatibility annotation matches the selected variant.
 - [ ] Related images and deployment arguments match the selected variant.
-- [ ] `operator-sdk bundle validate ./bundle` passes.
+- [ ] `operator-sdk bundle validate ./bundle-v1` or `./bundle-v2` passes for the selected variant.
 
 Commit only when requested:
 
 ```bash
-git add related_images.json hack/bundle.Dockerfile bundle/
+git add related_images.json hack/bundle.Dockerfile bundle-v1/ bundle-v2/ \
+  bundle-v1.Dockerfile bundle-v2.Dockerfile
 git commit -m "OLS-XXXX Release vX.Y.Z"
 ```
 

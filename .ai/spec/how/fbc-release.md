@@ -16,7 +16,7 @@ The v1 bundle (`1.x` line) is published to OCP 4.x FBC Applications. The v2 bund
 | Prod ReleasePlan | `ols-fbc-releaseplan-prod-v<major>-<minor>` | `ols-fbc-releaseplan-prod-v4-23` |
 | Staging ReleasePlan | `ols-fbc-releaseplan-staging-v<major>-<minor>` | `ols-fbc-releaseplan-staging-v4-23` |
 | Bundle Konflux Application (v1) | `ols-bundle` | — |
-| Bundle Konflux Application (v2) | `ols-bundle-v2` | — |
+| Bundle Konflux Application (v2) | `lightspeed-agentic-operator-bundle` | — |
 
 ## Files in `konflux-release-data`
 
@@ -61,7 +61,7 @@ For OCP 5.x (v2 bundle), analogous files are created in the same directory:
 
 OCP 5.0 is the first release using the v2 bundle and requires additional steps:
 
-1. **Create the v2 bundle Konflux Application** (`ols-bundle-v2`) and configure it to build the v2 bundle variant via `hack/update_bundle.sh v2`.
+1. **Create the v2 bundle Konflux Application** (`lightspeed-agentic-operator-bundle`) and configure it to build the v2 bundle variant via `hack/update_bundle.sh v2`. This name matches the v2 `related_images.json` snapshot component, Konflux image prefix, and released bundle image name.
 
 2. **Create the FBC Konflux Application** `ols-fbc-v5-0` in the `crt-nshift-lightspeed-tenant` namespace.
 

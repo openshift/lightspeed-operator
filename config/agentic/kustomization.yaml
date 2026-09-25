@@ -17,8 +17,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - manager.yaml
+  - service_account.yaml
   - role.yaml
   - role_binding.yaml
   - run_approver_role.yaml
   - run_approver_binding.yaml
+  - webhook_service.yaml
+  - webhook_manifests.yaml
+  - webhook_networkpolicy.yaml
   - crds

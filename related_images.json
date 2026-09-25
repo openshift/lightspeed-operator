@@ -90,16 +90,16 @@
   },
   {
     "name": "lightspeed-agentic-operator",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-operator@sha256:68bebe528ca08a17080e4d95add87be4d8f7ad633f8b4a3c04cc2eabe095a254",
-    "revision": "",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-rhel9-operator:d6ea9eeee6a5a0311eb085f306caccc4f1e09213",
+    "revision": "d6ea9eeee6a5a0311eb085f306caccc4f1e09213",
     "bundles": [
       "v2"
     ]
   },
   {
     "name": "lightspeed-agentic-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:b08ceeb59e29b55ceab15e87700ac6173ccf59d146dd616a3e2e7ed5ddc8927e",
-    "revision": "39bfcdcd8bc7963fe0caa0a6b99c1ad9c919a13d",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9:c227c2be6111656d92437d676f96aac4ca60b94c",
+    "revision": "c227c2be6111656d92437d676f96aac4ca60b94c",
     "operator_arg": "agentic-console-image",
     "snapshot_component": "lightspeed-agentic-console",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console",
@@ -122,8 +122,8 @@
   },
   {
     "name": "lightspeed-agentic-sandbox",
-    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox@sha256:7921997a9cc1e5cc1c72e293a235a43bf2177e8c40d1ad3505c1ef5954c9980c",
-    "revision": "",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9:654e31e10b1443f2ade3ba2796efeb766aeb8edd",
+    "revision": "654e31e10b1443f2ade3ba2796efeb766aeb8edd",
     "operator_arg": "agentic-sandbox-image",
     "snapshot_component": "lightspeed-agentic-sandbox",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox",
@@ -141,7 +141,18 @@
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle",
     "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle",
     "bundles": [
-      "v1",
+      "v1"
+    ]
+  },
+  {
+    "name": "lightspeed-agentic-operator-bundle",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-operator-bundle:main",
+    "revision": "",
+    "snapshot_component": "lightspeed-agentic-operator-bundle",
+    "snapshot_source": "bundle",
+    "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-operator-bundle",
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-operator-bundle",
+    "bundles": [
       "v2"
     ]
   }
