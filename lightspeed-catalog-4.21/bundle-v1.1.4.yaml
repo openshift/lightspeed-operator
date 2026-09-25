@@ -1,5 +1,5 @@
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:a2463bd97e130eb32ef1f3dea54f85463031270933d666af6e2b2b05fa5ca7b9
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:3825b1b9a385dfb4171e0936b66a7dd132f3fd59b6e31ccdf360f62f1ab35ad1
 name: lightspeed-operator.v1.1.4
 package: lightspeed-operator
 properties:
@@ -51,7 +51,7 @@ properties:
           ]
         capabilities: Seamless Upgrades
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2026-09-23T13:32:26Z"
+        createdAt: "2026-09-23T21:05:41Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -632,31 +632,49 @@ relatedImages:
   - name: lightspeed-to-dataverse-exporter
     image: registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
     operator_arg: dataverse-exporter-image
+    bundles:
+      - v1
+      - v2
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     operator_arg: postgres-image
+    bundles:
+      - v1
+      - v2
   - name: lightspeed-service-api
     image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:25765628e546bf3ac65ef644e3d33885b3dd52ae1cd1defd81eaf5015eca0020
     operator_arg: service-image
     snapshot_component: lightspeed-service
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service
     stable_prefix: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9
+    bundles:
+      - v1
+      - v2
   - name: lightspeed-console-plugin
     image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:8b6d70c701db95a0ec684b08b26adeb3805ddae417de0d5da16d388f205e0be1
     operator_arg: console-image
     snapshot_component: lightspeed-console
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
     stable_prefix: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9
+    bundles:
+      - v1
+      - v2
   - name: lightspeed-operator
     image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:b86f5462a4731624d11cf099fc099914598ed0e1345fc75f40eb910dc64e9495
     operator_target: image
     snapshot_component: lightspeed-operator
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator
     stable_prefix: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator
+    bundles:
+      - v1
+      - v2
   - name: openshift-mcp-server
     image: registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9@sha256:efa0d55626466c588932c0320bee73dd221b1979aafbbaf4b3ad4685aa9f317d
     operator_arg: openshift-mcp-server-image
     stable_prefix: registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9
+    bundles:
+      - v1
+      - v2
   - name: lightspeed-otel-collector
     image: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:ac662fbc0e62e089377aff51b6f253df96308ced2d4367b038519b14725997ba
     operator_arg: otel-collector-image
@@ -666,10 +684,44 @@ relatedImages:
   - name: rhokp
     image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
     operator_arg: rhokp-image
+    bundles:
+      - v1
+      - v2
+  - name: lightspeed-agentic-operator
+    image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-operator@sha256:68bebe528ca08a17080e4d95add87be4d8f7ad633f8b4a3c04cc2eabe095a254
+    bundles:
+      - v2
+  - name: lightspeed-agentic-console-plugin
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:b08ceeb59e29b55ceab15e87700ac6173ccf59d146dd616a3e2e7ed5ddc8927e
+    operator_arg: agentic-console-image
+    snapshot_component: lightspeed-agentic-console
+    konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console
+    stable_prefix: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9
+    bundles:
+      - v2
+  - name: lightspeed-agentic-alerts-adapter
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:10af58d31ab3add2e6ec1058ba5d10a87e2d5a4d77258b3f47a0ffc84eff3770
+    operator_arg: alerts-adapter-image
+    snapshot_component: lightspeed-agentic-alerts-adapter
+    konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter
+    stable_prefix: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9
+    bundles:
+      - v2
+  - name: lightspeed-agentic-sandbox
+    image: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox@sha256:7921997a9cc1e5cc1c72e293a235a43bf2177e8c40d1ad3505c1ef5954c9980c
+    operator_arg: agentic-sandbox-image
+    snapshot_component: lightspeed-agentic-sandbox
+    konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox
+    stable_prefix: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9
+    bundles:
+      - v2
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:a2463bd97e130eb32ef1f3dea54f85463031270933d666af6e2b2b05fa5ca7b9
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:3825b1b9a385dfb4171e0936b66a7dd132f3fd59b6e31ccdf360f62f1ab35ad1
     snapshot_component: ols-bundle
     snapshot_source: bundle
     konflux_prefix: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle
     stable_prefix: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle
+    bundles:
+      - v1
+      - v2
 schema: olm.bundle
