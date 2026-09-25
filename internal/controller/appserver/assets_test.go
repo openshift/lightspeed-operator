@@ -88,9 +88,10 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			olsConfigExpected := utils.AppSrvConfigFile{
 				OLSConfig: utils.OLSConfig{
-					DefaultModel:    "testModel",
-					DefaultProvider: "testProvider",
-					MaxIterations:   5,
+					ToolOutputInspectionEnabled: true,
+					DefaultModel:                "testModel",
+					DefaultProvider:             "testProvider",
+					MaxIterations:               5,
 					Logging: utils.LoggingConfig{
 						AppLogLevel:     string(olsv1alpha1.LogLevelInfo),
 						LibLogLevel:     string(olsv1alpha1.LogLevelInfo),
@@ -162,6 +163,33 @@ var _ = Describe("App server assets", func() {
 
 			Expect(olsconfigGenerated).To(Equal(olsConfigExpected))
 
+			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
+		})
+
+		It("should default tool-result inspection to enabled in service configuration", func() {
+			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var generated map[string]interface{}
+			Expect(yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &generated)).To(Succeed())
+			olsConfig := generated["ols_config"].(map[string]interface{})
+			Expect(olsConfig["tool_output_inspection_enabled"]).To(BeTrue())
+			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
+		})
+
+		It("should preserve an explicit false tool-result inspection setting", func() {
+			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
+			cr.Spec.OLSConfig.Guardrails = &olsv1alpha1.GuardrailsConfig{
+				ToolResultInspection: &olsv1alpha1.ToolResultInspectionConfig{Enabled: utils.BoolPtr(false)},
+			}
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var generated map[string]interface{}
+			Expect(yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &generated)).To(Succeed())
+			olsConfig := generated["ols_config"].(map[string]interface{})
+			Expect(olsConfig["tool_output_inspection_enabled"]).To(BeFalse())
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
 

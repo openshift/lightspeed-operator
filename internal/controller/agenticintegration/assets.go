@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -126,7 +127,9 @@ func GenerateAgenticConfigurationConfigMap(r reconciler.Reconciler, cr *olsv1alp
 	}
 
 	data := map[string]string{
-		utils.AgenticConfigurationSandboxModeKey:           string(SandboxModeFromCR(cr)),
+		utils.AgenticConfigurationSandboxModeKey:                 string(SandboxModeFromCR(cr)),
+		utils.AgenticConfigurationToolOutputInspectionEnabledKey: strconv.FormatBool(utils.ToolResultInspectionEnabled(cr)),
+
 		utils.AgenticConfigurationSandboxPodSpecKey:        string(podSpecJSON),
 		utils.AgenticConfigurationOtelCollectorEndpointKey: fmt.Sprintf("%s:%d", otelHost, utils.OtelCollectorGRPCPort),
 		utils.AgenticConfigurationOtelAdminEndpointKey:     fmt.Sprintf("https://%s:%d", otelHost, utils.OtelCollectorAdminPort),
