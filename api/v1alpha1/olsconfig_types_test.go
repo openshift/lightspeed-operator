@@ -19,6 +19,8 @@ package v1alpha1
 import (
 	"encoding/json"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestAuditConfig_JSONRoundTrip(t *testing.T) {
@@ -128,36 +130,30 @@ func TestOLSConfigSpec_AgenticOLS_Omitempty(t *testing.T) {
 }
 
 func TestModelParametersSpec_DeepCopy_ReasoningConfig(t *testing.T) {
-	// Test that ReasoningConfig is properly deep-copied and not aliased.
 	in := ModelParametersSpec{
 		TemperatureSupported: boolPtr(true),
-		ReasoningConfig: map[string]interface{}{
-			"budget_tokens": float64(5000),
-			"think_steps":   float64(10),
+		ReasoningConfig: map[string]runtime.RawExtension{
+			"budget_tokens": {Raw: []byte("5000")},
+			"think_steps":   {Raw: []byte("10")},
 		},
 	}
 
-	// Create a deep copy
 	out := in.DeepCopy()
-
-	// Verify the copy has the same initial values
-	if out.ReasoningConfig["budget_tokens"] != in.ReasoningConfig["budget_tokens"] {
-		t.Errorf("budget_tokens: got %v, want %v", out.ReasoningConfig["budget_tokens"], in.ReasoningConfig["budget_tokens"])
+	budget := out.ReasoningConfig["budget_tokens"]
+	if string(budget.Raw) != "5000" {
+		t.Errorf("budget_tokens: got %s, want 5000", budget.Raw)
 	}
-	if out.ReasoningConfig["think_steps"] != in.ReasoningConfig["think_steps"] {
-		t.Errorf("think_steps: got %v, want %v", out.ReasoningConfig["think_steps"], in.ReasoningConfig["think_steps"])
+	if string(out.ReasoningConfig["think_steps"].Raw) != "10" {
+		t.Errorf("think_steps: got %s, want 10", out.ReasoningConfig["think_steps"].Raw)
 	}
 
-	// Mutate the copy and verify the original is unchanged
-	out.ReasoningConfig["budget_tokens"] = float64(10000)
-	out.ReasoningConfig["new_field"] = "new_value"
-
-	// The original should still have the original value
-	if in.ReasoningConfig["budget_tokens"] != float64(5000) {
-		t.Errorf("original budget_tokens was mutated: got %v, want %v", in.ReasoningConfig["budget_tokens"], float64(5000))
+	budget.Raw[0] = '9'
+	out.ReasoningConfig["new_field"] = runtime.RawExtension{Raw: []byte(`"new"`)}
+	if string(in.ReasoningConfig["budget_tokens"].Raw) != "5000" {
+		t.Errorf("original budget_tokens was mutated: got %s, want 5000", in.ReasoningConfig["budget_tokens"].Raw)
 	}
 	if _, exists := in.ReasoningConfig["new_field"]; exists {
-		t.Errorf("original has new_field that was added to copy (aliased maps)")
+		t.Error("original has new_field that was added to copy (aliased maps)")
 	}
 }
 

@@ -30,6 +30,23 @@ var _ = Describe("Agentic integration assets", func() {
 		Expect(SandboxModeFromCR(testCR)).To(Equal(olsv1alpha1.SandboxModeSandboxClaim))
 	})
 
+	It("publishes terminal TTL only when configured", func() {
+		cm, err := GenerateAgenticConfigurationConfigMap(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cm.Data).NotTo(HaveKey("terminal-ttl-days"))
+
+		testCR.Spec.AgenticOLS = &olsv1alpha1.AgenticOLSSpec{}
+		cm, err = GenerateAgenticConfigurationConfigMap(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cm.Data).NotTo(HaveKey("terminal-ttl-days"))
+
+		days := int32(30)
+		testCR.Spec.AgenticOLS.TerminalTTL = &days
+		cm, err = GenerateAgenticConfigurationConfigMap(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cm.Data["terminal-ttl-days"]).To(Equal("30"))
+	})
+
 	It("should generate a PodSpec with image, default resources, and writable emptyDirs", func() {
 		spec := GenerateSandboxPodSpec(testReconcilerInstance, testCR)
 		Expect(spec.Containers).To(HaveLen(1))

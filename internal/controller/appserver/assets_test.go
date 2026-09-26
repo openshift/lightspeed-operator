@@ -17,6 +17,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
 
@@ -163,6 +164,27 @@ var _ = Describe("App server assets", func() {
 			Expect(olsconfigGenerated).To(Equal(olsConfigExpected))
 
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
+		})
+
+		It("should preserve reasoning config values in generated olsconfig.yaml", func() {
+			cr.Spec.LLMConfig.Providers[0].Models[0].Parameters.ReasoningConfig = map[string]runtime.RawExtension{
+				"thinking_budget": {Raw: []byte("5000")},
+				"effort":          {Raw: []byte(`"high"`)},
+				"nested":          {Raw: []byte(`{"key":"value"}`)},
+			}
+
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var generated utils.AppSrvConfigFile
+			Expect(yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &generated)).To(Succeed())
+			Expect(generated.LLMProviders).To(HaveLen(1))
+			Expect(generated.LLMProviders[0].Models).To(HaveLen(1))
+			reasoning := generated.LLMProviders[0].Models[0].Parameters.ReasoningConfig
+			Expect(reasoning).To(HaveLen(3))
+			Expect(reasoning["thinking_budget"].Raw).To(MatchJSON("5000"))
+			Expect(reasoning["effort"].Raw).To(MatchJSON(`"high"`))
+			Expect(reasoning["nested"].Raw).To(MatchJSON(`{"key":"value"}`))
 		})
 
 		It("should apply default tool_budget_ratio when parameters are not specified", func() {
