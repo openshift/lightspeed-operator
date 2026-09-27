@@ -1,6 +1,8 @@
 package ocpmcp
 
 import (
+	"fmt"
+	"path"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,6 +34,9 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(cm.Labels).To(Equal(labels))
 
 		toml := cm.Data[utils.OpenShiftMCPServerConfigFilename]
+		Expect(toml).To(ContainSubstring(fmt.Sprintf(`port = "%d"`, utils.OpenShiftMCPServerHTTPSPort)))
+		Expect(toml).To(ContainSubstring(fmt.Sprintf(`tls_cert = "%s"`, path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"))))
+		Expect(toml).To(ContainSubstring(fmt.Sprintf(`tls_key = "%s"`, path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"))))
 		Expect(toml).To(ContainSubstring("read_only = false"))
 		Expect(toml).To(ContainSubstring(`toolsets = ["core", "config", "helm", "observability/metrics", "kubevirt"]`))
 		Expect(toml).To(ContainSubstring(`experimental_enable_target_compatibility_tool_filters = true`))

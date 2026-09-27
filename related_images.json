@@ -60,9 +60,9 @@
   },
   {
     "name": "openshift-mcp-server",
-    "image": "registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9@sha256:efa0d55626466c588932c0320bee73dd221b1979aafbbaf4b3ad4685aa9f317d",
+    "image": "registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5",
     "operator_arg": "openshift-mcp-server-image",
-    "stable_prefix": "registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9",
+    "stable_prefix": "registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9",
     "revision": "",
     "bundles": [
       "v1",

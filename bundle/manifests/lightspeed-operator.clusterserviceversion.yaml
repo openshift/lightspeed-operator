@@ -1027,7 +1027,7 @@ spec:
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
                       - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:25765628e546bf3ac65ef644e3d33885b3dd52ae1cd1defd81eaf5015eca0020
                       - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:8b6d70c701db95a0ec684b08b26adeb3805ddae417de0d5da16d388f205e0be1
-                      - --openshift-mcp-server-image=registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9@sha256:efa0d55626466c588932c0320bee73dd221b1979aafbbaf4b3ad4685aa9f317d
+                      - --openshift-mcp-server-image=registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5
                       - --otel-collector-image=registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:ac662fbc0e62e089377aff51b6f253df96308ced2d4367b038519b14725997ba
                       - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
                     command:
@@ -1189,7 +1189,7 @@ spec:
     - name: lightspeed-operator
       image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:b86f5462a4731624d11cf099fc099914598ed0e1345fc75f40eb910dc64e9495
     - name: openshift-mcp-server
-      image: registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9@sha256:efa0d55626466c588932c0320bee73dd221b1979aafbbaf4b3ad4685aa9f317d
+      image: registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5
     - name: lightspeed-otel-collector
       image: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:ac662fbc0e62e089377aff51b6f253df96308ced2d4367b038519b14725997ba
     - name: rhokp
