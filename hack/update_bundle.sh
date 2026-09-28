@@ -117,8 +117,12 @@ if [ -z "${KUSTOMIZE}" ]; then
   exit 1
 fi
 
-# Keep both generated variants available for inspection and image builds.
-BUNDLE_DIR="bundle-${BUNDLE_VARIANT}"
+# The classic bundle image packages bundle/; keep the v2 output separate.
+if [ "${BUNDLE_VARIANT}" = "v1" ]; then
+  BUNDLE_DIR="bundle"
+else
+  BUNDLE_DIR="bundle-v2"
+fi
 CSV_FILE="${BUNDLE_DIR}/manifests/lightspeed-operator.clusterserviceversion.yaml"
 ANNOTATION_FILE="${BUNDLE_DIR}/metadata/annotations.yaml"
 
