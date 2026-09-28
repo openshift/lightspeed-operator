@@ -268,6 +268,8 @@ const (
 	AgenticConfigurationSandboxModeKey = "sandbox-mode"
 	// AgenticConfigurationSandboxPodSpecKey is JSON-serialized thin corev1.PodSpec.
 	AgenticConfigurationSandboxPodSpecKey = "sandbox-pod-spec"
+	// AgenticConfigurationTerminalTTLDaysKey is the optional terminal-run retention ceiling in days.
+	AgenticConfigurationTerminalTTLDaysKey = "terminal-ttl-days"
 	// AgenticConfigurationOtelCollectorEndpointKey is the OTLP gRPC endpoint (host:port).
 	AgenticConfigurationOtelCollectorEndpointKey = "otel-collector-endpoint"
 	// AgenticConfigurationOtelAdminEndpointKey is the HTTPS admin API base URL.

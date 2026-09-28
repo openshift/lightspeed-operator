@@ -18,7 +18,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
 2. `spec.agenticOLS.sandboxMode` is `bare-pod` or `sandbox-claim` (OpenAPI enum).
 3. `spec.agenticOLS.agenticSandboxConfig` uses shared `Config` for resources, tolerations, and nodeSelector. Replicas are ignored (sandbox count is managed by agentic-operator).
 4. Sandbox container image comes from classic operator `--agentic-sandbox-image` / `related_images.json` entry `lightspeed-agentic-sandbox`, not from the CR.
-4a. [PLANNED: OLS-4280] `spec.agenticOLS.terminalTTL` is optional, positive whole days (minimum 1) and has no OLSConfig default. When omitted, the agentic operator supplies its own 14-day fallback; the classic operator does not materialize it.
+4a. `spec.agenticOLS.terminalTTL` is optional, positive whole days (minimum 1) and has no OLSConfig default. When omitted, the agentic operator supplies its own 14-day fallback; the classic operator does not materialize it.
 7a. [PLANNED: OLS-3928] The handoff MUST conform to `openshift/ols/.ai/spec/what/tool-result-inspection.md`. `spec.ols.guardrails.toolResultInspection.enabled` is optional and defaults to `true`.
 7b. The classic operator MUST use one effective value for the Classic service and the agentic handoff.
 
@@ -38,7 +38,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
    - `tls-min-version` — resolved minimum TLS version for agentic provider egress
    - `tls-cipher-suites` — JSON-serialized resolved cipher-suite list for agentic provider egress
    - [PLANNED: OLS-3928] `tool-output-inspection-enabled` — effective `spec.ols.guardrails.toolResultInspection.enabled` value as `"true"` or `"false"`
-2a. [PLANNED: OLS-4280] Optional `terminal-ttl-days` key: decimal positive whole days from `spec.agenticOLS.terminalTTL`. Omit/remove this key on every reconcile when that field or `spec.agenticOLS` is absent; never publish the 14-day fallback. Updates do not change deadlines already recorded on terminal runs.
+2a. Optional `terminal-ttl-days` key: decimal positive whole days from `spec.agenticOLS.terminalTTL`. Omit/remove this key on every reconcile when that field or `spec.agenticOLS` is absent; never publish the 14-day fallback. Updates do not change deadlines already recorded on terminal runs.
 3. When `spec.ols.introspectionEnabled` is true (default), also set:
 
 - `mcp-endpoint` — OpenShift MCP HTTPS Service URL
@@ -107,7 +107,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
 | --- | --- |
 | `spec.agenticOLS.sandboxMode` | `bare-pod` (default) or `sandbox-claim` |
 | `spec.agenticOLS.agenticSandboxConfig` | Resources / tolerations / nodeSelector for thin PodSpec |
-| `spec.agenticOLS.terminalTTL` | [PLANNED: OLS-4280] Optional admin ceiling in positive whole days; published as `terminal-ttl-days` |
+| `spec.agenticOLS.terminalTTL` | Optional admin ceiling in positive whole days; published as `terminal-ttl-days` |
 | `spec.agenticOLS.instructions.*` | [PLANNED: OLS-3491] Optional cluster per-step system instructions → ConfigMap `instructions-*` keys |
 | `spec.ols.introspectionEnabled` | Gates MCP keys and MCP client CA Secret |
 | `spec.ols.additionalCAConfigMapRef` | Conditionally publishes the referenced ConfigMap name as `additional-ca-configmap` |
@@ -130,7 +130,6 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
 
 ## Planned Changes
 
-- [PLANNED: OLS-4280] Publish optional `terminal-ttl-days` through the existing ConfigMap; omit it when unset.
 - [PLANNED: OLS-3928] Publish `tool-output-inspection-enabled` from the cluster-wide tool-result inspection configuration.
 
 ## Cross-References
