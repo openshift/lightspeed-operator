@@ -134,10 +134,6 @@ RELATED_IMAGES=$(${JQ} --arg img "$BUNDLE_IMAGE" --arg rev "$BUNDLE_REVISION" '
 ' <${RELATED_IMAGES_FILE})
 # save the bundle image to the related images file
 ${JQ} <<<${RELATED_IMAGES} >"${RELATED_IMAGES_FILE}"
-# remove revision from each element
-RELATED_IMAGES=$(${JQ} <<<${RELATED_IMAGES} 'map(del(.revision))')
-echo "Catalog will use the following images: ${RELATED_IMAGES}"
-
 OPM_ARGS=""
 if [ -n "${MIGRATE}" ]; then
   OPM_ARGS="--migrate-level=bundle-object-to-csv-metadata"
@@ -145,6 +141,17 @@ fi
 ${OPM} render ${BUNDLE_IMAGE_ORIGIN} --output=yaml ${OPM_ARGS} >"${TEMP_BUNDLE_FILE}"
 BUNDLE_VERSION=$(${YQ} eval '.properties[]| select(.type=="olm.package")| select(.value.packageName=="lightspeed-operator") |.value.version' ${TEMP_BUNDLE_FILE})
 echo "Bundle version is ${BUNDLE_VERSION}"
+# related_images.json is shared by both variants and has internal build metadata;
+# catalog relatedImages must contain only the matching name and image pairs.
+case "${BUNDLE_VERSION}" in
+  1.*) BUNDLE_VARIANT=v1 ;;
+  2.*) BUNDLE_VARIANT=v2 ;;
+  *) echo "Unsupported bundle version: ${BUNDLE_VERSION}" >&2; exit 1 ;;
+esac
+RELATED_IMAGES=$(${JQ} --arg variant "${BUNDLE_VARIANT}" \
+  'map(select((.bundles // ["v1", "v2"]) | index($variant)) | {name, image})' \
+  <<<"${RELATED_IMAGES}") || exit 1
+echo "Catalog will use the following images: ${RELATED_IMAGES}"
 # restore bundle image to the bundle file
 ${YQ} eval -i '.image='"\"${BUNDLE_IMAGE}\"" "${TEMP_BUNDLE_FILE}"
 # restore bundle related images and the bundle itself to the bundle file
