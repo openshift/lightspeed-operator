@@ -1,5 +1,5 @@
 ---
-image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:a2463bd97e130eb32ef1f3dea54f85463031270933d666af6e2b2b05fa5ca7b9
+image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:c08a0f98b80afcda5bc84967885fbd60099c0361d90a2d3c64b37ff9a51629ed
 name: lightspeed-operator.v1.1.4
 package: lightspeed-operator
 properties:
@@ -51,7 +51,6 @@ properties:
           ]
         capabilities: Seamless Upgrades
         console.openshift.io/operator-monitoring-default: "true"
-        createdAt: "2026-09-23T13:32:26Z"
         features.operators.openshift.io/cnf: "false"
         features.operators.openshift.io/cni: "false"
         features.operators.openshift.io/csi: "false"
@@ -114,6 +113,11 @@ properties:
                   treats sandbox mode as bare-pod.
                 displayName: Sandbox Mode
                 path: agenticOLS.sandboxMode
+              - description: |-
+                  TerminalTTL is the optional retention ceiling for terminal AgenticRuns, in whole days.
+                  The agentic operator supplies the fallback when this field is absent.
+                displayName: Terminal TTL (days)
+                path: agenticOLS.terminalTTL
               - description: Audit log and trace export configuration for the OTEL Collector.
                 displayName: Audit Settings
                 path: audit
@@ -193,11 +197,10 @@ properties:
                 displayName: Reasoning Config
                 path: llm.providers[0].models[0].parameters.reasoningConfig
               - description: |-
-                  Whether the model accepts the temperature parameter. Leave unset for models
-                  that support it; set to false for models that reject it (e.g. claude-sonnet-5).
-                  When unset, the service default (true) applies.
-                displayName: Temperature Supported
-                path: llm.providers[0].models[0].parameters.temperatureSupported
+                  Optional sampling temperature. When unset, the service does not specify a temperature.
+                  Explicit zero is passed through. Must be non-negative and finite.
+                displayName: Temperature
+                path: llm.providers[0].models[0].parameters.temperature
               - description: Ratio of context window size allocated for tool token budget. Must be between 0.1 and 0.5. The default is 0.5.
                 displayName: Tool Budget Ratio
                 path: llm.providers[0].models[0].parameters.toolBudgetRatio
@@ -634,17 +637,17 @@ relatedImages:
   - name: lightspeed-postgresql
     image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
   - name: lightspeed-service-api
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:25765628e546bf3ac65ef644e3d33885b3dd52ae1cd1defd81eaf5015eca0020
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:a6a23039b1421772eae65d9d5b1edfda38d049dbb8dd70ab41648a2c33211c92
   - name: lightspeed-console-plugin
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:8b6d70c701db95a0ec684b08b26adeb3805ddae417de0d5da16d388f205e0be1
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:aeea4009205e2c87d233250d2ded80f1b477c8614da915b9510f78f8cab7d53f
   - name: lightspeed-operator
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:b86f5462a4731624d11cf099fc099914598ed0e1345fc75f40eb910dc64e9495
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:54634f39b7ae619a33525acddcaa2e771a83de6be94a5be04c73e94d2d3ac2c6
   - name: openshift-mcp-server
-    image: registry.redhat.io/openshift-mcp-tech-preview/openshift-mcp-server-rhel9@sha256:efa0d55626466c588932c0320bee73dd221b1979aafbbaf4b3ad4685aa9f317d
+    image: registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5
   - name: lightspeed-otel-collector
-    image: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:ac662fbc0e62e089377aff51b6f253df96308ced2d4367b038519b14725997ba
+    image: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:7a00822ba281c6c126665cdc1bf3e330603acffe056e19df911adb89bc220935
   - name: rhokp
     image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
   - name: lightspeed-operator-bundle
-    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:a2463bd97e130eb32ef1f3dea54f85463031270933d666af6e2b2b05fa5ca7b9
+    image: registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:c08a0f98b80afcda5bc84967885fbd60099c0361d90a2d3c64b37ff9a51629ed
 schema: olm.bundle
