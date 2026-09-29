@@ -76,7 +76,11 @@
     "operator_arg": "otel-collector-image",
     "snapshot_component": "lightspeed-otel-collector",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9"
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9",
+    "bundles": [
+      "v1",
+      "v2"
+    ]
   },
   {
     "name": "rhokp",
