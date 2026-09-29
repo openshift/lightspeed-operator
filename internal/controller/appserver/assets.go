@@ -125,7 +125,7 @@ func buildProviderConfigs(cr *olsv1alpha1.OLSConfig) ([]utils.ProviderConfig, er
 				Parameters: utils.ModelParameters{
 					MaxTokensForResponse: model.Parameters.MaxTokensForResponse,
 					ToolBudgetRatio:      toolBudgetRatio,
-					TemperatureSupported: model.Parameters.TemperatureSupported,
+					Temperature:          model.Parameters.Temperature,
 					ReasoningConfig:      model.Parameters.ReasoningConfig,
 				},
 				ContextWindowSize: model.ContextWindowSize,

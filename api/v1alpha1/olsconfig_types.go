@@ -543,11 +543,11 @@ type ModelParametersSpec struct {
 	// +kubebuilder:validation:Maximum=0.5
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tool Budget Ratio"
 	ToolBudgetRatio float64 `json:"toolBudgetRatio,omitempty"`
-	// Whether the model accepts the temperature parameter. Leave unset for models
-	// that support it; set to false for models that reject it (e.g. claude-sonnet-5).
-	// When unset, the service default (true) applies.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Temperature Supported"
-	TemperatureSupported *bool `json:"temperatureSupported,omitempty"`
+	// Optional sampling temperature. When unset, the service does not specify a temperature.
+	// Explicit zero is passed through. Must be non-negative and finite.
+	// +kubebuilder:validation:Minimum=0
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Temperature"
+	Temperature *float64 `json:"temperature,omitempty"`
 	// Reasoning configuration for the model (provider-agnostic freeform config).
 	// The service and provider API validate the contents.
 	// +kubebuilder:validation:Type=object

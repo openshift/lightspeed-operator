@@ -131,7 +131,7 @@ func TestOLSConfigSpec_AgenticOLS_Omitempty(t *testing.T) {
 
 func TestModelParametersSpec_DeepCopy_ReasoningConfig(t *testing.T) {
 	in := ModelParametersSpec{
-		TemperatureSupported: boolPtr(true),
+		Temperature: floatPtr(0),
 		ReasoningConfig: map[string]runtime.RawExtension{
 			"budget_tokens": {Raw: []byte("5000")},
 			"think_steps":   {Raw: []byte("10")},
@@ -139,6 +139,10 @@ func TestModelParametersSpec_DeepCopy_ReasoningConfig(t *testing.T) {
 	}
 
 	out := in.DeepCopy()
+	*out.Temperature = 0.7
+	if *in.Temperature != 0 {
+		t.Errorf("original temperature was mutated: got %v, want 0", *in.Temperature)
+	}
 	budget := out.ReasoningConfig["budget_tokens"]
 	if string(budget.Raw) != "5000" {
 		t.Errorf("budget_tokens: got %s, want 5000", budget.Raw)
@@ -160,7 +164,7 @@ func TestModelParametersSpec_DeepCopy_ReasoningConfig(t *testing.T) {
 func TestModelParametersSpec_DeepCopy_NilReasoningConfig(t *testing.T) {
 	// Test that nil ReasoningConfig is handled correctly
 	in := ModelParametersSpec{
-		TemperatureSupported: boolPtr(false),
+		Temperature: floatPtr(0.7),
 	}
 
 	out := in.DeepCopy()
@@ -171,5 +175,9 @@ func TestModelParametersSpec_DeepCopy_NilReasoningConfig(t *testing.T) {
 }
 
 func boolPtr(v bool) *bool {
+	return &v
+}
+
+func floatPtr(v float64) *float64 {
 	return &v
 }

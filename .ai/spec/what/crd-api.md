@@ -133,6 +133,7 @@ Field path (relative to parameters) | JSON key | Go type | Required | Default | 
 ---|---|---|---|---|---
 `maxTokensForResponse` | `maxTokensForResponse` | `int` | No | (unset; application default is 2048) | None
 `toolBudgetRatio` | `toolBudgetRatio` | `float64` | No | `0.25` | Minimum=0.1, Maximum=0.5
+`temperature` | `temperature` | `*float64` | No | (unset; service does not specify temperature) | Minimum=0; must be finite. Explicit zero is preserved. Replaces `temperatureSupported`, which the service rejects.
 `reasoningConfig` | `reasoningConfig` | `map[string]runtime.RawExtension` | No | (unset) | None. Freeform map of provider-specific reasoning/thinking parameters. Passed through to the service as `reasoning_config`. Valid keys vary by provider and model generation — see lightspeed-service `what/llm-providers.md` rule 13. When absent, no reasoning params are sent. When present with invalid keys, the provider API returns a clear 400 error.
 
 This Go type change does not alter the `reasoningConfig` JSON/YAML field or require changes to existing OLSConfig manifests.

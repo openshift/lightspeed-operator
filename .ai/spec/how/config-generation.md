@@ -32,6 +32,7 @@ llm_providers:
         parameters:
           max_tokens_for_response: <model.Parameters.MaxTokensForResponse>
           tool_budget_ratio: <default 0.25 if zero>
+          temperature: <model.Parameters.Temperature>  # omitted when unset; explicit 0 preserved
           reasoning_config: <model.Parameters.ReasoningConfig>  # [PLANNED: OLS-3442] omitted when nil
     # Azure-specific:
     azure_openai_config:

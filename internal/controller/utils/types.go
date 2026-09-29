@@ -187,9 +187,8 @@ type ModelParameters struct {
 	MaxTokensForResponse int `json:"max_tokens_for_response,omitempty"`
 	// Ratio of context window size allocated for tool token budget
 	ToolBudgetRatio float64 `json:"tool_budget_ratio"`
-	// Whether the model accepts the temperature parameter. Omitted when unset so
-	// the service default (true) applies.
-	TemperatureSupported *bool `json:"temperature_supported,omitempty"`
+	// Sampling temperature, omitted when unset so the service does not set one.
+	Temperature *float64 `json:"temperature,omitempty"`
 	// Reasoning configuration for the model (provider-agnostic freeform config)
 	ReasoningConfig map[string]runtime.RawExtension `json:"reasoning_config,omitempty"`
 }
