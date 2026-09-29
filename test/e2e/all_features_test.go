@@ -654,19 +654,24 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 			nil,
 			nil,
 		)
-		baseline := collectorAcceptedSpans(collectorClient)
+		baseline, err := collectorAcceptedSpans(collectorClient)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("Sending a classic chat request")
-		resp, body, err := TestHTTPSQueryEndpoint(env, secret, []byte(`{"query": "What is OpenShift?"}`))
+		conversationID := fmt.Sprintf("otel-e2e-%d", time.Now().UnixNano())
+		requestBody := []byte(fmt.Sprintf(`{"query": "What is OpenShift?", "conversation_id": %q}`, conversationID))
+		resp, body, err := TestHTTPSQueryEndpoint(env, secret, requestBody)
 		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(body).NotTo(BeEmpty())
 
 		By("Waiting for the collector to accept the chat trace")
-		Eventually(func() int64 {
-			return collectorAcceptedSpans(collectorClient)
-		}, "30s", "1s").Should(BeNumerically(">", baseline))
+		Eventually(func(g Gomega) {
+			accepted, err := collectorAcceptedSpans(collectorClient)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(accepted).To(BeNumerically(">", baseline))
+		}, "30s", "1s").Should(Succeed())
 	})
 
 	// Test 7: BYOK RAG Query
@@ -1100,11 +1105,16 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 	})
 })
 
-func collectorAcceptedSpans(client *HTTPSClient) int64 {
-	response, err := client.Get("/metrics")
-	Expect(err).NotTo(HaveOccurred())
+// collectorAcceptedSpans returns the OTLP receiver's accepted span count.
+func collectorAcceptedSpans(client *HTTPSClient) (int64, error) {
+	response, err := client.GetWithTimeout("/metrics", 5*time.Second)
+	if err != nil {
+		return 0, err
+	}
 	defer response.Body.Close()
-	Expect(response.StatusCode).To(Equal(http.StatusOK))
+	if response.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("collector metrics returned status %d", response.StatusCode)
+	}
 
 	var accepted int64
 	scanner := bufio.NewScanner(response.Body)
@@ -1119,9 +1129,13 @@ func collectorAcceptedSpans(client *HTTPSClient) int64 {
 			continue
 		}
 		value, err := strconv.ParseFloat(fields[len(fields)-1], 64)
-		Expect(err).NotTo(HaveOccurred())
+		if err != nil {
+			return 0, fmt.Errorf("invalid accepted span metric %q: %w", line, err)
+		}
 		accepted += int64(value)
 	}
-	Expect(scanner.Err()).NotTo(HaveOccurred())
-	return accepted
+	if err := scanner.Err(); err != nil {
+		return 0, fmt.Errorf("reading collector metrics: %w", err)
+	}
+	return accepted, nil
 }
