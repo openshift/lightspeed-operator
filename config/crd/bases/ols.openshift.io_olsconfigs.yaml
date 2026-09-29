@@ -302,12 +302,12 @@ spec:
                                       The service and provider API validate the contents.
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
-                                  temperatureSupported:
+                                  temperature:
                                     description: |-
-                                      Whether the model accepts the temperature parameter. Leave unset for models
-                                      that support it; set to false for models that reject it (e.g. claude-sonnet-5).
-                                      When unset, the service default (true) applies.
-                                    type: boolean
+                                      Optional sampling temperature. When unset, the service does not specify a temperature.
+                                      Explicit zero is passed through. Must be non-negative and finite.
+                                    minimum: 0
+                                    type: number
                                   toolBudgetRatio:
                                     default: 0.5
                                     description: Ratio of context window size allocated

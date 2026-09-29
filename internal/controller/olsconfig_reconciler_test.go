@@ -140,6 +140,34 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 		})
 	})
 
+	Describe("model temperature admission validation", func() {
+		DescribeTable("accepts non-negative temperatures", func(temperature float64, accepted bool) {
+			cr.Spec.LLMConfig.Providers[0].Models[0].Parameters.Temperature = &temperature
+			err := k8sClient.Create(ctx, cr)
+			if !accepted {
+				Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected admission to reject temperature %v, got %v", temperature, err)
+				return
+			}
+			Expect(err).NotTo(HaveOccurred())
+			stored := &olsv1alpha1.OLSConfig{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, stored)).To(Succeed())
+			got := stored.Spec.LLMConfig.Providers[0].Models[0].Parameters.Temperature
+			Expect(got).NotTo(BeNil())
+			Expect(*got).To(Equal(temperature))
+		},
+			Entry("negative temperature", -0.1, false),
+			Entry("explicit zero", 0.0, true),
+			Entry("positive temperature", 0.7, true),
+		)
+
+		It("leaves temperature unset when omitted", func() {
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+			stored := &olsv1alpha1.OLSConfig{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, stored)).To(Succeed())
+			Expect(stored.Spec.LLMConfig.Providers[0].Models[0].Parameters.Temperature).To(BeNil())
+		})
+	})
+
 	Describe("getAndValidateCR", func() {
 		Context("with valid CR name", func() {
 			It("should return CR when it exists", func() {
