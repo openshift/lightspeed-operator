@@ -380,18 +380,3 @@ spec:
           value: "quay.io/openshift-lightspeed/ols-service-artifacts"
         - name: artifact-credentials-secret
           value: ols-konflux-artifacts-bot
-    - name: deprovision-ephemeral-cluster
-      taskRef:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/openshift/konflux-tasks
-          - name: revision
-            value: main
-          - name: pathInRepo
-            value: tasks/deprovision-ephemeral-cluster/0.1/deprovision-ephemeral-cluster.yaml
-      params:
-        - name: testPlatformClusterClaimName
-          value: $(tasks.provision-ephemeral-cluster.results.testPlatformClusterClaimName)
-        - name: testPlatformClusterClaimNamespace
-          value: $(tasks.provision-ephemeral-cluster.results.testPlatformClusterClaimNamespace)

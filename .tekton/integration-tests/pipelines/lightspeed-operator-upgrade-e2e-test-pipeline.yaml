@@ -348,21 +348,6 @@ spec:
                 - name: pathInRepo
                   value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
   finally:
-    - name: deprovision-ephemeral-cluster
-      taskRef:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/openshift/konflux-tasks
-          - name: revision
-            value: main
-          - name: pathInRepo
-            value: tasks/deprovision-ephemeral-cluster/0.1/deprovision-ephemeral-cluster.yaml
-      params:
-        - name: testPlatformClusterClaimName
-          value: $(tasks.provision-ephemeral-cluster.results.testPlatformClusterClaimName)
-        - name: testPlatformClusterClaimNamespace
-          value: $(tasks.provision-ephemeral-cluster.results.testPlatformClusterClaimNamespace)
     - name: export-logs-for-retention
       taskRef:
         resolver: git
