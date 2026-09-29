@@ -155,8 +155,16 @@ for snapshot in "${!SNAPSHOT_REFS[@]}"; do
   BUNDLE_VERSIONS+=("${BUNDLE_VERSION}")
   # restore bundle image to the catalog file
   ${YQ} eval -i '.image='"\"${BUNDLE_IMAGE}\"" "${TEMP_BUNDLE_FILE}"
-  # restore bundle related images to the catalog file (exclude bundle image, already referenced by .image field)
-  RELATED_IMAGES_CATALOG=$(jq 'map(select(.name != "lightspeed-operator-bundle"))' <<<"${RELATED_IMAGES}")
+  # The bundle image is referenced by .image; only operand name/image pairs belong in relatedImages.
+  case "${BUNDLE_VERSION}" in
+    1.*) BUNDLE_VARIANT=v1 ;;
+    2.*) BUNDLE_VARIANT=v2 ;;
+    *) echo "Unsupported bundle version: ${BUNDLE_VERSION}" >&2; exit 1 ;;
+  esac
+  RELATED_IMAGES_CATALOG=$(jq --arg variant "${BUNDLE_VARIANT}" '
+    map(select(.name != "lightspeed-operator-bundle")
+      | select((.bundles // ["v1", "v2"]) | index($variant))
+      | {name, image})' <<<"${RELATED_IMAGES}") || exit 1
   ${YQ} eval -i '.relatedImages='"${RELATED_IMAGES_CATALOG}" "${TEMP_BUNDLE_FILE}"
 
   # Create version-specific bundle file
