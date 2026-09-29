@@ -352,30 +352,36 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		}
 	}
 
-	if r.Options.AgenticConsoleUIImage != "" {
+	if r.Options.AgenticConsoleUIImage != "" && utils.AgenticEnabled(r, ctx) {
 		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
 			Name: "agentic console UI resources",
 			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 				return agenticconsole.ReconcileAgenticConsoleUIResources(r, ctx, cr)
 			},
 		})
-	} else if wasComponentEnabled(olsconfig, utils.TypeAgenticConsolePluginReady) {
+	} else {
 		if err := agenticconsole.RemoveAgenticConsole(r, ctx); err != nil {
 			resourceFailures["agentic console UI cleanup"] = fmt.Errorf("%s: %w", utils.ErrRemoveAgenticConsoleUIResources, err)
 		}
 	}
 
 	_, alertsAdapterConfigMapEnabled := utils.AlertsAdapterConfigMapRef(olsconfig)
-	if r.Options.AlertsAdapterImage != "" && alertsAdapterConfigMapEnabled {
+	if r.Options.AlertsAdapterImage != "" && alertsAdapterConfigMapEnabled && utils.AgenticEnabled(r, ctx) {
 		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
 			Name: "alerts adapter resources",
 			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 				return alertsadapter.ReconcileAlertsAdapterResources(r, ctx, cr)
 			},
 		})
-	} else if wasComponentEnabled(olsconfig, utils.TypeAlertsAdapterReady) {
+	} else {
 		if err := alertsadapter.RemoveAlertsAdapter(r, ctx); err != nil {
 			resourceFailures["alerts adapter cleanup"] = fmt.Errorf("%s: %w", utils.ErrRemoveAlertsAdapterResources, err)
+		}
+	}
+
+	if !utils.AgenticEnabled(r, ctx) {
+		if err := agenticintegration.RemoveAgenticIntegration(r, ctx, olsconfig); err != nil {
+			resourceFailures["agentic handoff cleanup"] = err
 		}
 	}
 
@@ -521,7 +527,7 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		})
 	}
 
-	if r.Options.AgenticConsoleUIImage != "" {
+	if r.Options.AgenticConsoleUIImage != "" && utils.AgenticEnabled(r, ctx) {
 		deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
 			Name: "agentic console UI deployment",
 			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
@@ -531,17 +537,21 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 			Deployment:    utils.AgenticConsoleUIDeploymentName,
 		})
 	} else {
+		reason, message := "Disabled", "Agentic console plugin is disabled; image not provided"
+		if !utils.AgenticEnabled(r, ctx) {
+			reason, message = "UnsupportedOCPVersion", "Agentic console plugin requires OpenShift 5.0 or newer (unknown version is inactive)"
+		}
 		newStatus.Conditions = append(newStatus.Conditions, metav1.Condition{
 			Type:               utils.TypeAgenticConsolePluginReady,
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: olsconfig.Generation,
-			Reason:             "Disabled",
-			Message:            "Agentic console plugin is disabled; image not provided",
+			Reason:             reason,
+			Message:            message,
 			LastTransitionTime: metav1.Now(),
 		})
 	}
 
-	if r.Options.AlertsAdapterImage != "" {
+	if r.Options.AlertsAdapterImage != "" && utils.AgenticEnabled(r, ctx) {
 		if _, enabled := utils.AlertsAdapterConfigMapRef(olsconfig); enabled {
 			deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
 				Name: "alerts adapter deployment",
@@ -571,12 +581,16 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 			}
 		}
 	} else {
+		reason, message := "Disabled", "Alerts adapter is disabled; image not provided"
+		if !utils.AgenticEnabled(r, ctx) {
+			reason, message = "UnsupportedOCPVersion", "Alerts adapter requires OpenShift 5.0 or newer (unknown version is inactive)"
+		}
 		newStatus.Conditions = append(newStatus.Conditions, metav1.Condition{
 			Type:               utils.TypeAlertsAdapterReady,
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: olsconfig.Generation,
-			Reason:             "Disabled",
-			Message:            "Alerts adapter is disabled; image not provided",
+			Reason:             reason,
+			Message:            message,
 			LastTransitionTime: metav1.Now(),
 		})
 	}
@@ -670,11 +684,13 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 	// agenticintegration on OTEL±MCP Service + client CA Secret presence; updates
 	// to an existing ConfigMap are not gated.
 	var agenticIntegrationErr error
-	if err := agenticintegration.ReconcileAgenticIntegrationResources(r, ctx, olsconfig); err != nil {
-		agenticIntegrationErr = fmt.Errorf("failed to reconcile agentic integration handoff: %w", err)
-		r.Logger.Error(agenticIntegrationErr, "Failed to reconcile agentic integration handoff")
-		failedTasks["agentic integration handoff"] = agenticIntegrationErr
-		newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
+	if utils.AgenticEnabled(r, ctx) {
+		if err := agenticintegration.ReconcileAgenticIntegrationResources(r, ctx, olsconfig); err != nil {
+			agenticIntegrationErr = fmt.Errorf("failed to reconcile agentic integration handoff: %w", err)
+			r.Logger.Error(agenticIntegrationErr, "Failed to reconcile agentic integration handoff")
+			failedTasks["agentic integration handoff"] = agenticIntegrationErr
+			newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
+		}
 	}
 
 	// Update status once, regardless of outcome (with retry on conflict)
@@ -1104,6 +1120,12 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olsv1alpha1.OLSConfig{}).
+		Watches(&configv1.ClusterVersion{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
+			if obj.GetName() != "version" {
+				return nil
+			}
+			return []reconcile.Request{{NamespacedName: client.ObjectKey{Name: utils.OLSConfigName}}}
+		})).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.ClusterRole{}).

@@ -14,6 +14,21 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
+// RemoveAgenticIntegration removes only the handoff owned by this OLSConfig.
+// Do not delete an independently managed ConfigMap with the same name.
+func RemoveAgenticIntegration(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	cm := &corev1.ConfigMap{}
+	if err := r.Get(ctx, client.ObjectKey{Name: utils.AgenticConfigurationConfigMapName, Namespace: r.GetNamespace()}, cm); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	for _, owner := range cm.OwnerReferences {
+		if owner.UID == cr.UID {
+			return client.IgnoreNotFound(r.Delete(ctx, cm))
+		}
+	}
+	return nil
+}
+
 // ReconcileAgenticIntegrationResources reconciles the classic→agentic handoff ConfigMap.
 // Client CA Secrets are owned by appserver.
 //

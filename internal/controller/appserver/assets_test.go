@@ -2144,7 +2144,7 @@ func get7RequiredVolumes() []corev1.Volume {
 			Name: utils.AppOtelCollectorCACertVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  utils.AgenticOtelCASecretName,
+					SecretName:  utils.AppOtelCASecretName,
 					DefaultMode: &defaultVolumeMode,
 					Items: []corev1.KeyToPath{
 						{
@@ -2180,7 +2180,7 @@ func get7RequiredVolumes() []corev1.Volume {
 			Name: utils.AppRHOKPCACertVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  utils.AgenticRHOKPCASecretName,
+					SecretName:  utils.AppRHOKPCASecretName,
 					DefaultMode: &defaultVolumeMode,
 					Items: []corev1.KeyToPath{
 						{

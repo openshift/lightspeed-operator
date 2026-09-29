@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -476,6 +477,21 @@ func GetOpenshiftVersion(k8sClient client.Client, ctx context.Context) (string, 
 		return "", "", fmt.Errorf("failed to parse cluster version: %s", clusterVersion.Status.Desired.Version)
 	}
 	return openshift_versions[0], openshift_versions[1], nil
+}
+
+// AgenticEnabled reads the live ClusterVersion on each reconciliation. Unknown,
+// malformed or unreadable versions never authorize agentic operands.
+func AgenticEnabled(k8sClient client.Client, ctx context.Context) bool {
+	major, minor, err := GetOpenshiftVersion(k8sClient, ctx)
+	if err != nil {
+		return false
+	}
+	version, err := strconv.Atoi(major)
+	if err != nil {
+		return false
+	}
+	minorVersion, err := strconv.Atoi(minor)
+	return err == nil && minorVersion >= 0 && version >= 5
 }
 
 const rosaClusterResourceName = "cluster"

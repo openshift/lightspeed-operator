@@ -4,12 +4,17 @@ package agenticconsole
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/openshift/lightspeed-operator/internal/controller/reconciler"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 )
@@ -73,7 +78,26 @@ func activateAgenticConsoleUI(r reconciler.Reconciler, ctx context.Context, _ *o
 
 // RemoveAgenticConsole deactivates and deletes the agentic console plugin.
 func RemoveAgenticConsole(r reconciler.Reconciler, ctx context.Context) error {
-	return utils.RemoveConsolePlugin(r, ctx, utils.AgenticConsoleUIPluginName)
+	// The ConsolePlugin is cluster-scoped; owned namespaced resources are not
+	// removed by deleting it. Stop the Deployment first, then tear down the
+	// Service and its serving certificate along with the remaining operands.
+	var errs []error
+	if err := utils.RemoveConsolePlugin(r, ctx, utils.AgenticConsoleUIPluginName); err != nil {
+		errs = append(errs, err)
+	}
+	for _, obj := range []client.Object{
+		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: utils.AgenticConsoleUIDeploymentName, Namespace: r.GetNamespace()}},
+		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: utils.AgenticConsoleUIServiceName, Namespace: r.GetNamespace()}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: utils.AgenticConsoleUIServiceCertSecretName, Namespace: r.GetNamespace()}},
+		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: utils.AgenticConsoleUIConfigMapName, Namespace: r.GetNamespace()}},
+		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: utils.AgenticConsoleUIServiceAccountName, Namespace: r.GetNamespace()}},
+		&networkingv1.NetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: utils.AgenticConsoleUINetworkPolicyName, Namespace: r.GetNamespace()}},
+	} {
+		if err := r.Delete(ctx, obj); client.IgnoreNotFound(err) != nil {
+			errs = append(errs, fmt.Errorf("delete agentic console %T: %w", obj, err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func reconcileAgenticConsoleTLSSecret(r reconciler.Reconciler, ctx context.Context, _ *olsv1alpha1.OLSConfig) error {

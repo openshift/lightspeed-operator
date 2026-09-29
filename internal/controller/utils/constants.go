@@ -295,6 +295,12 @@ const (
 	// AgenticConfigurationCertReloadAnnotation is bumped to force ConfigMap RV change
 	// when client CA Secrets rotate so agentic-operator reloads trust material.
 	AgenticConfigurationCertReloadAnnotation = "ols.openshift.io/client-ca-reload"
+	// Classic app-server client CAs are separate from the agentic sandbox CAs;
+	// the Classic app server must retain its trust roots on OpenShift 4.x.
+	AppOtelCASecretName  = "lightspeed-otel-client-ca"  // #nosec G101
+	AppMCPCASecretName   = "lightspeed-mcp-client-ca"   // #nosec G101
+	AppRHOKPCASecretName = "lightspeed-rhokp-client-ca" // #nosec G101
+
 	// AgenticOtelCASecretName holds the public CA for verifying the OTEL Collector.
 	AgenticOtelCASecretName = "lightspeed-agentic-otel-ca" // #nosec G101
 	// AgenticOtelCASecretDataKey is the only data key in AgenticOtelCASecretName.
