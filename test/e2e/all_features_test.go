@@ -6,12 +6,14 @@
 package e2e
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -623,7 +625,51 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		Expect(body).NotTo(BeEmpty())
 	})
 
-	// Test 6: BYOK RAG Query
+	// Test 6: Classic chat OTEL Collector integration
+	It("should export classic chat traces to the OTEL Collector", FlakeAttempts(5), func() {
+		By("Getting the OTEL Collector serving certificate")
+		collectorCertSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.OtelCollectorCertsSecretName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		Expect(client.Get(collectorCertSecret)).To(Succeed())
+		collectorCertificate, ok := collectorCertSecret.Data["tls.crt"]
+		Expect(ok).To(BeTrue(), "OTEL Collector serving certificate is missing")
+
+		By("Reading the baseline accepted trace count")
+		collectorForwardHost, cleanup, err := client.ForwardPort(
+			utils.OtelCollectorServiceName,
+			OLSNameSpace,
+			utils.OtelCollectorMetricsPort,
+		)
+		Expect(err).NotTo(HaveOccurred())
+		defer cleanup()
+
+		collectorClient := NewHTTPSClient(
+			collectorForwardHost,
+			fmt.Sprintf("%s.%s.svc", utils.OtelCollectorServiceName, OLSNameSpace),
+			collectorCertificate,
+			nil,
+			nil,
+		)
+		baseline := collectorAcceptedSpans(collectorClient)
+
+		By("Sending a classic chat request")
+		resp, body, err := TestHTTPSQueryEndpoint(env, secret, []byte(`{"query": "What is OpenShift?"}`))
+		CheckEOFAndRestartPortForwarding(env, err)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Expect(body).NotTo(BeEmpty())
+
+		By("Waiting for the collector to accept the chat trace")
+		Eventually(func() int64 {
+			return collectorAcceptedSpans(collectorClient)
+		}, "30s", "1s").Should(BeNumerically(">", baseline))
+	})
+
+	// Test 7: BYOK RAG Query
 	It("should return BYOK content and respect byokRAGOnly mode", FlakeAttempts(5), func() {
 		By("Making a query that should hit BYOK RAG index")
 		reqBody := []byte(`{"query": "what CPU architectures are supported by assisted installer?"}`)
@@ -1053,3 +1099,29 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		Expect(foundVolumeMount).To(BeTrue(), "Additional CA volume should be mounted in container")
 	})
 })
+
+func collectorAcceptedSpans(client *HTTPSClient) int64 {
+	response, err := client.Get("/metrics")
+	Expect(err).NotTo(HaveOccurred())
+	defer response.Body.Close()
+	Expect(response.StatusCode).To(Equal(http.StatusOK))
+
+	var accepted int64
+	scanner := bufio.NewScanner(response.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "otelcol_receiver_accepted_spans") {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		value, err := strconv.ParseFloat(fields[len(fields)-1], 64)
+		Expect(err).NotTo(HaveOccurred())
+		accepted += int64(value)
+	}
+	Expect(scanner.Err()).NotTo(HaveOccurred())
+	return accepted
+}
