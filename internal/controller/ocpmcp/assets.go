@@ -32,7 +32,7 @@ port = "%d"
 tls_cert = "%s"
 tls_key = "%s"
 read_only = false
-toolsets = ["core", "config", "helm", "observability/metrics", "kubevirt"]
+toolsets = ["core", "config", "helm", "observability/metrics", "observability/traces", "kubevirt"]
 experimental_enable_target_compatibility_tool_filters = true
 
 [[denied_resources]]
