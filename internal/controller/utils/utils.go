@@ -201,6 +201,8 @@ func ConfigMapEqual(a, b *corev1.ConfigMap) bool {
 func DeploymentSpecEqual(a, b *appsv1.DeploymentSpec, compareInitContainers bool) bool {
 	if !apiequality.Semantic.DeepEqual(a.Template.Spec.NodeSelector, b.Template.Spec.NodeSelector) || // check node selector
 		!apiequality.Semantic.DeepEqual(a.Template.Spec.Tolerations, b.Template.Spec.Tolerations) || // check toleration
+		!apiequality.Semantic.DeepEqual(a.Template.Spec.Affinity, b.Template.Spec.Affinity) || // check affinity
+		!apiequality.Semantic.DeepEqual(a.Template.Spec.TopologySpreadConstraints, b.Template.Spec.TopologySpreadConstraints) || // check topology spread constraints
 		!apiequality.Semantic.DeepEqual(a.Strategy, b.Strategy) || // check strategy
 		!PodVolumeEqual(a.Template.Spec.Volumes, b.Template.Spec.Volumes) || // check volumes
 		*a.Replicas != *b.Replicas || // check replicas
