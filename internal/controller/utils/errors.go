@@ -2,6 +2,7 @@ package utils
 
 const (
 	ErrCheckLLMCredentials                 = "failed to validate LLM provider credential settings"
+	ErrValidateDefaultProviderAndModel     = "failed to validate default provider and model"
 	ErrCreateAdditionalCACM                = "failed to create additional CA configmap"
 	ErrCreateAPIConfigmap                  = "failed to create OLS configmap"
 	ErrCreateAPIDeployment                 = "failed to create OLS deployment"
