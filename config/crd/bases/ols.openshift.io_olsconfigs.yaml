@@ -2310,10 +2310,14 @@ spec:
             type: object
             x-kubernetes-validations:
             - message: defaultProvider must match a configured LLM provider
-              rule: self.llm.providers.exists(provider, provider.name == self.ols.defaultProvider)
+              rule: (self.llm.providers.size() == 0 && self.ols.defaultProvider ==
+                "" && self.ols.defaultModel == "") || self.llm.providers.exists(provider,
+                provider.name == self.ols.defaultProvider)
             - message: defaultModel must match a model on the default provider
-              rule: self.llm.providers.exists(provider, provider.name == self.ols.defaultProvider
-                && provider.models.exists(model, model.name == self.ols.defaultModel))
+              rule: (self.llm.providers.size() == 0 && self.ols.defaultProvider ==
+                "" && self.ols.defaultModel == "") || self.llm.providers.exists(provider,
+                provider.name == self.ols.defaultProvider && provider.models.exists(model,
+                model.name == self.ols.defaultModel))
           status:
             description: OLSConfigStatus defines the observed state of OLS deployment.
             properties:

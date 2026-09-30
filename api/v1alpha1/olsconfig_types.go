@@ -74,8 +74,8 @@ type AgenticOLSSpec struct {
 }
 
 // OLSConfigSpec defines the desired state of OLSConfig
-// +kubebuilder:validation:XValidation:message="defaultProvider must match a configured LLM provider",rule="self.llm.providers.exists(provider, provider.name == self.ols.defaultProvider)"
-// +kubebuilder:validation:XValidation:message="defaultModel must match a model on the default provider",rule="self.llm.providers.exists(provider, provider.name == self.ols.defaultProvider && provider.models.exists(model, model.name == self.ols.defaultModel))"
+// +kubebuilder:validation:XValidation:message="defaultProvider must match a configured LLM provider",rule="(self.llm.providers.size() == 0 && self.ols.defaultProvider == \"\" && self.ols.defaultModel == \"\") || self.llm.providers.exists(provider, provider.name == self.ols.defaultProvider)"
+// +kubebuilder:validation:XValidation:message="defaultModel must match a model on the default provider",rule="(self.llm.providers.size() == 0 && self.ols.defaultProvider == \"\" && self.ols.defaultModel == \"\") || self.llm.providers.exists(provider, provider.name == self.ols.defaultProvider && provider.models.exists(model, model.name == self.ols.defaultModel))"
 type OLSConfigSpec struct {
 	// +kubebuilder:validation:Required
 	// +required

@@ -2215,6 +2215,18 @@ var _ = Describe("Helper function unit tests", func() {
 			Entry("unknown model", "testProvider", "missing-model"),
 		)
 
+		It("should check all providers with the default provider name", func() {
+			cr.Spec.LLMConfig.Providers = append(cr.Spec.LLMConfig.Providers,
+				olsv1alpha1.ProviderSpec{
+					Name:   "testProvider",
+					Models: []olsv1alpha1.ModelSpec{{Name: "testModel"}},
+				},
+			)
+
+			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("should build OLS config without proxy", func() {
 			cr.Spec.OLSConfig.ProxyConfig = nil
 			config, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)

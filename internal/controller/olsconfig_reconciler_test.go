@@ -116,6 +116,14 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 		)
 	})
 
+	It("allows an empty provider configuration with empty defaults", func() {
+		cr.Spec.LLMConfig.Providers = nil
+		cr.Spec.OLSConfig.DefaultProvider = ""
+		cr.Spec.OLSConfig.DefaultModel = ""
+
+		Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+	})
+
 	Describe("terminalTTL admission validation", func() {
 		DescribeTable("accepts only positive whole days", func(days int32, accepted bool) {
 			cr.Spec.AgenticOLS = &olsv1alpha1.AgenticOLSSpec{TerminalTTL: &days}

@@ -255,20 +255,23 @@ func validateDefaultProviderAndModel(cr *olsv1alpha1.OLSConfig) error {
 		return nil
 	}
 
+	providerFound := false
 	for _, provider := range cr.Spec.LLMConfig.Providers {
 		if provider.Name != defaultProvider {
 			continue
 		}
+		providerFound = true
 
 		for _, model := range provider.Models {
 			if model.Name == defaultModel {
 				return nil
 			}
 		}
-
-		return fmt.Errorf("default model %q is not configured for provider %q", defaultModel, defaultProvider)
 	}
 
+	if providerFound {
+		return fmt.Errorf("default model %q is not configured for provider %q", defaultModel, defaultProvider)
+	}
 	return fmt.Errorf("default provider %q is not configured", defaultProvider)
 }
 
