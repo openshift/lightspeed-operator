@@ -43,6 +43,7 @@ func NewHTTPSClient(host, serverName string, caCertificate, clientCert, clientKe
 
 }
 
+// Get performs an HTTPS GET request.
 func (c *HTTPSClient) Get(queryUrl string, headers ...map[string]string) (*http.Response, error) {
 	return c.GetWithTimeout(queryUrl, 0, headers...)
 }
@@ -84,7 +85,13 @@ func (c *HTTPSClient) GetWithTimeout(queryUrl string, timeout time.Duration, hea
 	return resp, nil
 }
 
+// PostJson performs an HTTPS POST request with a JSON body.
 func (c *HTTPSClient) PostJson(queryUrl string, body []byte, headers ...map[string]string) (*http.Response, error) {
+	return c.PostJsonWithTimeout(queryUrl, body, 0, headers...)
+}
+
+// PostJsonWithTimeout performs an HTTPS POST request with a JSON body and timeout.
+func (c *HTTPSClient) PostJsonWithTimeout(queryUrl string, body []byte, timeout time.Duration, headers ...map[string]string) (*http.Response, error) {
 	var rt http.RoundTripper = &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs:    c.caCertPool,
@@ -114,7 +121,7 @@ func (c *HTTPSClient) PostJson(queryUrl string, body []byte, headers ...map[stri
 			req.Header.Set(key, value)
 		}
 	}
-	resp, err = (&http.Client{Transport: rt}).Do(req)
+	resp, err = (&http.Client{Transport: rt, Timeout: timeout}).Do(req)
 	if err != nil {
 		return nil, err
 	}

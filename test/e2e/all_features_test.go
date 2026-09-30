@@ -660,7 +660,7 @@ var _ = Describe("All Features Enabled", Ordered, Label("AllFeatures"), func() {
 		By("Sending a classic chat request")
 		conversationID := fmt.Sprintf("otel-e2e-%d", time.Now().UnixNano())
 		requestBody := []byte(fmt.Sprintf(`{"query": "What is OpenShift?", "conversation_id": %q}`, conversationID))
-		resp, body, err := TestHTTPSQueryEndpoint(env, secret, requestBody)
+		resp, body, err := TestHTTPSQueryEndpointWithTimeout(env, secret, requestBody, 30*time.Second)
 		CheckEOFAndRestartPortForwarding(env, err)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
