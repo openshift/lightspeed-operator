@@ -288,6 +288,7 @@ spec:
                                 type: integer
                               name:
                                 description: Model name
+                                maxLength: 253
                                 type: string
                               parameters:
                                 description: Model API parameters
@@ -328,6 +329,7 @@ spec:
                           type: array
                         name:
                           description: Provider name
+                          maxLength: 253
                           type: string
                         projectID:
                           description: Watsonx Project ID
@@ -735,9 +737,11 @@ spec:
                     type: boolean
                   defaultModel:
                     description: Default model for usage
+                    maxLength: 253
                     type: string
                   defaultProvider:
                     description: Default provider for usage
+                    maxLength: 253
                     type: string
                   deployment:
                     description: OLS deployment settings
@@ -2304,6 +2308,12 @@ spec:
             - llm
             - ols
             type: object
+            x-kubernetes-validations:
+            - message: defaultProvider must match a configured LLM provider
+              rule: self.llm.providers.exists(provider, provider.name == self.ols.defaultProvider)
+            - message: defaultModel must match a model on the default provider
+              rule: self.llm.providers.exists(provider, provider.name == self.ols.defaultProvider
+                && provider.models.exists(model, model.name == self.ols.defaultModel))
           status:
             description: OLSConfigStatus defines the observed state of OLS deployment.
             properties:

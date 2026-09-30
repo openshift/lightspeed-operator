@@ -102,6 +102,20 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 		_ = k8sClient.Delete(ctx, testSecret)
 	})
 
+	Describe("default provider and model admission validation", func() {
+		DescribeTable("rejects defaults that are not configured", func(defaultProvider, defaultModel string) {
+			cr.Spec.OLSConfig.DefaultProvider = defaultProvider
+			cr.Spec.OLSConfig.DefaultModel = defaultModel
+
+			err := k8sClient.Create(ctx, cr)
+			Expect(apierrors.IsInvalid(err)).To(BeTrue(),
+				"expected admission to reject provider=%q model=%q, got %v", defaultProvider, defaultModel, err)
+		},
+			Entry("unknown provider", "missing-provider", "test-model"),
+			Entry("unknown model", "test-provider", "missing-model"),
+		)
+	})
+
 	Describe("terminalTTL admission validation", func() {
 		DescribeTable("accepts only positive whole days", func(days int32, accepted bool) {
 			cr.Spec.AgenticOLS = &olsv1alpha1.AgenticOLSSpec{TerminalTTL: &days}

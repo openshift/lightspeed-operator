@@ -74,6 +74,8 @@ type AgenticOLSSpec struct {
 }
 
 // OLSConfigSpec defines the desired state of OLSConfig
+// +kubebuilder:validation:XValidation:message="defaultProvider must match a configured LLM provider",rule="self.llm.providers.exists(provider, provider.name == self.ols.defaultProvider)"
+// +kubebuilder:validation:XValidation:message="defaultModel must match a model on the default provider",rule="self.llm.providers.exists(provider, provider.name == self.ols.defaultProvider && provider.models.exists(model, model.name == self.ols.defaultModel))"
 type OLSConfigSpec struct {
 	// +kubebuilder:validation:Required
 	// +required
@@ -247,11 +249,13 @@ type OLSSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Log level"
 	LogLevel LogLevel `json:"logLevel,omitempty"`
 	// Default model for usage
+	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Model",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
 	DefaultModel string `json:"defaultModel"`
 	// Default provider for usage
+	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Provider",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
@@ -571,6 +575,7 @@ type ModelParametersSpec struct {
 // ModelSpec defines the LLM model to use and its parameters.
 type ModelSpec struct {
 	// Model name
+	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Name"
@@ -598,6 +603,7 @@ type ModelSpec struct {
 // +kubebuilder:validation:XValidation:message="googleVertexAnthropicConfig may only be set when type is google_vertex_anthropic",rule="self.type == \"google_vertex_anthropic\" || !has(self.googleVertexAnthropicConfig)"
 type ProviderSpec struct {
 	// Provider name
+	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Required
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,displayName="Name"

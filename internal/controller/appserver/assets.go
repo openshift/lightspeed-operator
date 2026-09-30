@@ -248,9 +248,37 @@ func buildToolFilteringConfig(cr *olsv1alpha1.OLSConfig, mcpServers []utils.MCPS
 	}
 }
 
+func validateDefaultProviderAndModel(cr *olsv1alpha1.OLSConfig) error {
+	defaultProvider := cr.Spec.OLSConfig.DefaultProvider
+	defaultModel := cr.Spec.OLSConfig.DefaultModel
+	if len(cr.Spec.LLMConfig.Providers) == 0 && defaultProvider == "" && defaultModel == "" {
+		return nil
+	}
+
+	for _, provider := range cr.Spec.LLMConfig.Providers {
+		if provider.Name != defaultProvider {
+			continue
+		}
+
+		for _, model := range provider.Models {
+			if model.Name == defaultModel {
+				return nil
+			}
+		}
+
+		return fmt.Errorf("default model %q is not configured for provider %q", defaultModel, defaultProvider)
+	}
+
+	return fmt.Errorf("default provider %q is not configured", defaultProvider)
+}
+
 // buildOLSConfig builds the main OLS configuration including conversation cache, TLS, proxy,
 // RAG indexes, logging, and user data collection settings.
 func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, dataCollectorEnabled bool) (utils.OLSConfig, error) {
+	if err := validateDefaultProviderAndModel(cr); err != nil {
+		return utils.OLSConfig{}, err
+	}
+
 	// Configure conversation cache using PostgreSQL
 	conversationCache := utils.ConversationCacheConfig{
 		Type:     string(utils.OLSDefaultCacheType),
