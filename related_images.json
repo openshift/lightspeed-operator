@@ -21,8 +21,8 @@
   },
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:ad108a0eb879276c75a1651e782f83cbd22b471b95e8abd493cc6b27d4aa0545",
-    "revision": "690939861bf7888209b1c9187614af3efd3a5a26",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:f87be94cc24789d46364e21efb9d1ee4b1220e3aaeeddd295ceb9678b09f6133",
+    "revision": "c11e81671b3e84d76e8ad824f2d1d5485590e654",
     "operator_arg": "service-image",
     "snapshot_component": "lightspeed-service",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service",

@@ -1039,7 +1039,7 @@ spec:
                       - --cert-dir=/etc/tls/private
                       - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:ad108a0eb879276c75a1651e782f83cbd22b471b95e8abd493cc6b27d4aa0545
+                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:f87be94cc24789d46364e21efb9d1ee4b1220e3aaeeddd295ceb9678b09f6133
                       - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:66ec578c29441906ae93c56af20bb7de3f960edcaef41d6022e97b9a22e27b33
                       - --openshift-mcp-server-image=registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5
                       - --otel-collector-image=registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:e6d1907774f4739ac33577fd06cbeb3da80cad7a5cdc9c58c4938d1010d0c152
@@ -1197,7 +1197,7 @@ spec:
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     - name: lightspeed-service-api
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:ad108a0eb879276c75a1651e782f83cbd22b471b95e8abd493cc6b27d4aa0545
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:f87be94cc24789d46364e21efb9d1ee4b1220e3aaeeddd295ceb9678b09f6133
     - name: lightspeed-console-plugin
       image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:66ec578c29441906ae93c56af20bb7de3f960edcaef41d6022e97b9a22e27b33
     - name: lightspeed-operator
