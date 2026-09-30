@@ -25,6 +25,7 @@ The operator deploys the OpenShift Lightspeed **chat** console plugin, which int
 
 ### Networking
 14. The network policy allows ingress only from the OpenShift Console pods (app=console in openshift-console namespace).
+14a. [PLANNED: OLS-4171] Deny plugin-pod-initiated egress, preserving this ingress rule. The static-file nginx pod does not proxy API requests; the ConsolePlugin proxy runs on the OpenShift Console side. See `security.md`.
 
 ## Configuration Surface
 
@@ -45,4 +46,6 @@ The operator deploys the OpenShift Lightspeed **chat** console plugin, which int
 
 ## Planned Changes
 
-None.
+| Ticket | Summary |
+|---|---|
+| OLS-4171 | Deny chat console-plugin pod-initiated egress while preserving Console ingress. |

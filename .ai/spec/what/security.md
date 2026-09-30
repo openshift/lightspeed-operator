@@ -16,27 +16,34 @@ The operator enforces security boundaries through RBAC, network policies, pod se
    - Backend/AppServer (`lightspeed-app-server`): allows Prometheus from `openshift-monitoring`, OpenShift Console pods from `openshift-console`, and ingress controllers (namespaces with `network.openshift.io/policy-group: ingress`), all on port 8443.
    - PostgreSQL (`lightspeed-postgres-server`): allows only backend pods (matched by `app.kubernetes.io/name: lightspeed-service-api` label) and OTel Collector pods (matched by the OTel Collector labels).
    - Console UI (`lightspeed-console-plugin`): allows only OpenShift Console pods from `openshift-console` namespace.
+   - Agentic console plugin (`lightspeed-agentic-console-plugin`): allows OpenShift Console pods from `openshift-console` namespace.
+   - Local alerts adapter (`lightspeed-agentic-alerts-adapter`): denies ingress.
    - OTEL Collector (`lightspeed-otel-collector`): allows all pods in the operator namespace (empty `PodSelector`) on OTLP gRPC `:4317` and `postgres_admin` HTTPS `:8080`; allows Prometheus from `openshift-monitoring` on HTTPS metrics `:8888` only.
    - Standalone OpenShift MCP (`openshift-mcp-server`) and RHOKP (`lightspeed-rhokp`): each allows any pod in the operator namespace and cluster Prometheus pods in `openshift-monitoring` on TCP `:8443` (OLS-3943). Both policies are removed with their feature-gated operands.
 6. For MCP and RHOKP monitoring ingress, a single NetworkPolicy peer combines the `openshift-monitoring` namespace selector (`kubernetes.io/metadata.name`) with Prometheus pod selectors (`app.kubernetes.io/name: prometheus` and `prometheus: k8s`); neither policy grants access to every pod in the monitoring namespace.
-7. Egress is unrestricted for all components. PolicyTypes includes only `Ingress`; egress rules are empty (`[]`), meaning no egress restrictions.
+7. For cross-namespace ingress that must target specific source pods, combine namespace and pod selectors in the same NetworkPolicy peer.
+8. Egress is currently unrestricted for all components. PolicyTypes includes only `Ingress`; egress rules are empty (`[]`), meaning no egress restrictions.
+9. [PLANNED: OLS-4171] The PostgreSQL, classic console-plugin, agentic console-plugin (where deployed), and RHOKP policies additionally select only their respective operand pods for egress isolation: include `Egress` in `policyTypes` with no allowed egress. Preserve PostgreSQL ingress only from the existing app-server and Collector pod selectors; do not expand it to the namespace. Preserve existing console and RHOKP client ingress. Reply traffic to allowed inbound connections is not a separate pod-initiated connection.
+10. [PLANNED: OLS-4171] The opt-in **local** alerts-adapter policy retains ingress denial and allows pod-initiated egress only to cluster DNS, local `alertmanager-main` in `openshift-monitoring` over HTTPS TCP 9094, and the local Kubernetes API for AgenticRun operations. The policy is reconciled only with the local adapter and removed when it is disabled. A Kubernetes API Service name is not a NetworkPolicy peer; do not assume a ClusterIP `ipBlock` alone works across network-plugin Service translation. Before enforcing egress isolation, validate DNS, API, AlertManager, and AgenticRun creation on a target cluster under the proposed policy; revise and retest if necessary. This test is an implementation prerequisite, not a prerequisite for the spec.
+11. The app-server (including its Dataverse exporter sidecar) retains **no OLS-managed egress restriction**: user-defined LLM providers, MCP servers, proxies, and external telemetry upload destinations vary. The standalone MCP server retains no OLS-managed egress restriction: in addition to Kubernetes API, Thanos, Alertmanager, and DNS, tools and custom Helm repositories may require unenumerated destinations. The Collector retains no OLS-managed egress restriction: administrator-selected tracing backends vary. These are deliberate non-coverage, not a guarantee of unrestricted connectivity or HPSTRAT-104 compliance. Agentic sandbox and hub-managed multicluster adapter exceptions are owned by their respective operators; see the parent spec.
+12. [PLANNED: OLS-4171] Continue using namespace-scoped standard `NetworkPolicy` for these operand rules, pending confirmation that it satisfies the operand portion of HPSTRAT-104; do not claim full compliance or add an `AdminNetworkPolicy` by assumption. Egress policy applies to the selected **pod**, including sidecars and init containers. Other additive namespace policies may expand allowed egress; administrator policies may impose stricter limits. No new CRD field is required. See the [parent contract](https://github.com/openshift/ols/pull/104).
 
 ### Pod Security
-8. All containers (main containers and sidecars) run with restricted security context: `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `runAsNonRoot: true`, `seccompProfile: RuntimeDefault`, `capabilities: {drop: [ALL]}`. This is enforced via `utils.RestrictedContainerSecurityContext()`.
-9. Writable paths (`/tmp`, llama-cache, user-data) use `emptyDir` volumes to provide write access on an otherwise read-only root filesystem.
+13. All containers (main containers and sidecars) run with restricted security context: `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `runAsNonRoot: true`, `seccompProfile: RuntimeDefault`, `capabilities: {drop: [ALL]}`. This is enforced via `utils.RestrictedContainerSecurityContext()`.
+14. Writable paths (`/tmp`, llama-cache, user-data) use `emptyDir` volumes to provide write access on an otherwise read-only root filesystem.
 
 ### Credential Management
-10. LLM provider credentials are validated during the annotation phase via `ValidateLLMCredentials()`. The operator verifies that each referenced secret exists and contains the expected key before proceeding with reconciliation.
-11. Standard providers must have a secret with the `apitoken` key (or the key specified by `credentialKey`). Azure OpenAI providers must have either `apitoken` or all three of `client_id`, `tenant_id`, `client_secret`.
-12. Custom TLS secrets are validated via `ValidateTLSSecret()` to ensure they contain `tls.crt` and `tls.key`.
-13. Provider credentials are mounted as read-only volume files at `/etc/apikeys/<secretName>/`, never exposed as environment variables.
-14. PostgreSQL passwords are generated randomly on first creation (via the postgres reconciler) and never updated on subsequent reconciliations.
-15. MCP server header secrets must contain a specific key `header` (constant `MCPSECRETDATAPATH`) and are mounted read-only at `/etc/mcp/headers/<secretName>/`.
+15. LLM provider credentials are validated during the annotation phase via `ValidateLLMCredentials()`. The operator verifies that each referenced secret exists and contains the expected key before proceeding with reconciliation.
+16. Standard providers must have a secret with the `apitoken` key (or the key specified by `credentialKey`). Azure OpenAI providers must have either `apitoken` or all three of `client_id`, `tenant_id`, `client_secret`.
+17. Custom TLS secrets are validated via `ValidateTLSSecret()` to ensure they contain `tls.crt` and `tls.key`.
+18. Provider credentials are mounted as read-only volume files at `/etc/apikeys/<secretName>/`, never exposed as environment variables.
+19. PostgreSQL passwords are generated randomly on first creation (via the postgres reconciler) and never updated on subsequent reconciliations.
+20. MCP server header secrets must contain a specific key `header` (constant `MCPSECRETDATAPATH`) and are mounted read-only at `/etc/mcp/headers/<secretName>/`.
 
 ### OpenShift MCP Server Security
-16. The shipped OpenShift MCP server is configured via a TOML config file (`read_only = false`, denied Secret/RBAC resources) so the LLM can use core write tools (e.g. `resources_create_or_update`) while secret data stays blocked at the server level. The standalone MCP Deployment (`ocpmcp`) does not pass `--read-only` on the command line; `read_only = false` in TOML overrides the RHEL image build default of `ReadOnly: true`.
-17. The denied resources are configured in the `openshift-mcp-server-config` ConfigMap as a TOML config with entries blocking `core/v1/secrets`, `rbac.authorization.k8s.io/v1/roles`, `rbac.authorization.k8s.io/v1/rolebindings`, `rbac.authorization.k8s.io/v1/clusterroles`, and `rbac.authorization.k8s.io/v1/clusterrolebindings`.
-18. User-defined MCP servers (via `spec.mcpServers`) are the user's responsibility to secure.
+21. The shipped OpenShift MCP server is configured via a TOML config file (`read_only = false`, denied Secret/RBAC resources) so the LLM can use core write tools (e.g. `resources_create_or_update`) while secret data stays blocked at the server level. The standalone MCP Deployment (`ocpmcp`) does not pass `--read-only` on the command line; `read_only = false` in TOML overrides the RHEL image build default of `ReadOnly: true`.
+22. The denied resources are configured in the `openshift-mcp-server-config` ConfigMap as a TOML config with entries blocking `core/v1/secrets`, `rbac.authorization.k8s.io/v1/roles`, `rbac.authorization.k8s.io/v1/rolebindings`, `rbac.authorization.k8s.io/v1/clusterroles`, and `rbac.authorization.k8s.io/v1/clusterrolebindings`.
+23. User-defined MCP servers (via `spec.mcpServers`) are the user's responsibility to secure.
 
 ## Configuration Surface
 
@@ -61,4 +68,6 @@ Security behavior is not directly user-configurable beyond the TLS and network-r
 
 ## Planned Changes
 
-None.
+| Ticket | Summary |
+|---|---|
+| OLS-4171 | Isolate egress for PostgreSQL, both console plugins, RHOKP, and the local alerts adapter after target-cluster validation; record deliberate exceptions and the standard NetworkPolicy acceptance dependency. |

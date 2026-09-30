@@ -26,6 +26,7 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 
 ### Phase 1 Resources
 3. NetworkPolicy `lightspeed-rhokp` — allows TCP `:8443` ingress from any pod in the operator namespace (including app-server and sandbox clients) and from cluster Prometheus pods in `openshift-monitoring`. The Prometheus peer requires both the namespace label `kubernetes.io/metadata.name: openshift-monitoring` and pod labels `app.kubernetes.io/name: prometheus` and `prometheus: k8s` (OLS-3943); it does not allow every pod in the monitoring namespace. The policy remains ingress-only and is removed when `byokRAGOnly` disables RHOKP. Client trust is provided by the appserver-owned Secret `lightspeed-agentic-rhokp-ca`, not an inject-cabundle ConfigMap — see rule 16 and `agentic-sandbox-profile.md`.
+3a. [PLANNED: OLS-4171] Deny RHOKP pod-initiated egress by selecting only RHOKP pods for `Egress` isolation with no egress allow rules; preserve the existing ingress sources. Its search corpus is image-baked, and inbound client/scrape replies do not require separately permitted initiated egress. Remove the policy with RHOKP when `byokRAGOnly` is true. See `security.md`.
 
 ### Phase 2 Resources
 5. Service `lightspeed-rhokp` — ClusterIP, port `https` `:8443`, serving-cert annotation → Secret `lightspeed-rhokp-tls`.
@@ -77,4 +78,6 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 
 ## Planned Changes
 
-None.
+| Ticket | Summary |
+|---|---|
+| OLS-4171 | Deny RHOKP pod-initiated egress while preserving existing ingress and feature-gated cleanup. |

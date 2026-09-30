@@ -34,6 +34,7 @@ The operator deploys a single-replica PostgreSQL server that provides persistent
 ### Networking
 18. The PostgreSQL service exposes the standard PostgreSQL port.
 19. The network policy allows ingress only from pods matching the application server labels and the OTel Collector labels on the PostgreSQL port.
+19a. [PLANNED: OLS-4171] Select only PostgreSQL pods for `Egress` isolation with no allowed egress; do not change or broaden these ingress selectors to the namespace. Operator reconciliation API calls are not initiated by the database pod. See `security.md`.
 
 ## Configuration Surface
 
@@ -54,6 +55,12 @@ The operator deploys a single-replica PostgreSQL server that provides persistent
 1. Replicas are always 1 regardless of configuration.
 2. Password secrets are write-once; the operator never updates them after creation.
 3. SSL is always enabled with certificates from the service-ca operator.
+
+## Planned Changes
+
+| Ticket | Summary |
+|---|---|
+| OLS-4171 | Deny PostgreSQL pod-initiated egress while preserving app-server and Collector ingress selectors. |
 
 ## Cross-References
 
