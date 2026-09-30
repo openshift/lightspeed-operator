@@ -67,14 +67,37 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 			expectOwnedByOLSConfig(sa)
 		})
 
-		It("should create the MCP NetworkPolicy", func() {
+		It("should create the MCP NetworkPolicy with narrow Prometheus ingress", func() {
 			np := &networkingv1.NetworkPolicy{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.OpenShiftMCPServerNetworkPolicyName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, np)
-			Expect(err).NotTo(HaveOccurred())
+			key := types.NamespacedName{Name: utils.OpenShiftMCPServerNetworkPolicyName, Namespace: utils.OLSNamespaceDefault}
+			Expect(k8sClient.Get(ctx, key, np)).To(Succeed())
 			expectOwnedByOLSConfig(np)
+			Expect(np.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
+			Expect(np.Spec.Ingress).To(HaveLen(1))
+			Expect(np.Spec.Ingress[0].From).To(ConsistOf(
+				networkingv1.NetworkPolicyPeer{PodSelector: &metav1.LabelSelector{}},
+				networkingv1.NetworkPolicyPeer{
+					PodSelector: &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Key: "app.kubernetes.io/name", Operator: metav1.LabelSelectorOpIn, Values: []string{"prometheus"}},
+						{Key: "prometheus", Operator: metav1.LabelSelectorOpIn, Values: []string{"k8s"}},
+					}},
+					NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+						"kubernetes.io/metadata.name": "openshift-monitoring",
+					}},
+				},
+			))
+		})
+
+		It("should restore MCP Prometheus ingress on reconciliation", func() {
+			key := types.NamespacedName{Name: utils.OpenShiftMCPServerNetworkPolicyName, Namespace: utils.OLSNamespaceDefault}
+			np := &networkingv1.NetworkPolicy{}
+			Expect(k8sClient.Get(ctx, key, np)).To(Succeed())
+			np.Spec.Ingress[0].From = []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{}}}
+			Expect(k8sClient.Update(ctx, np)).To(Succeed())
+
+			Expect(ReconcileResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, np)).To(Succeed())
+			Expect(np.Spec.Ingress[0].From).To(HaveLen(2))
 		})
 
 		It("should skip ConfigMap update when data is unchanged", func() {

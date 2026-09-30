@@ -64,18 +64,29 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(svc.Spec.Ports[0].TargetPort).To(Equal(intstr.FromString("https")))
 	})
 
-	It("should generate the NetworkPolicy for in-namespace HTTPS ingress", func() {
+	It("should allow in-namespace clients and cluster Prometheus on HTTPS without isolating egress", func() {
 		np, err := GenerateNetworkPolicy(testReconcilerInstance, testCR)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(np.Name).To(Equal(utils.OpenShiftMCPServerNetworkPolicyName))
 		Expect(np.Labels).To(Equal(labels))
 		Expect(np.Spec.PodSelector.MatchLabels).To(Equal(labels))
+		Expect(np.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
+		Expect(np.Spec.Egress).To(BeEmpty())
 
 		tcp := corev1.ProtocolTCP
 		httpsPort := intstr.FromInt32(utils.OpenShiftMCPServerHTTPSPort)
 		Expect(np.Spec.Ingress).To(ConsistOf(networkingv1.NetworkPolicyIngressRule{
 			From: []networkingv1.NetworkPolicyPeer{
 				{PodSelector: &metav1.LabelSelector{}},
+				{
+					PodSelector: &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Key: "app.kubernetes.io/name", Operator: metav1.LabelSelectorOpIn, Values: []string{"prometheus"}},
+						{Key: "prometheus", Operator: metav1.LabelSelectorOpIn, Values: []string{"k8s"}},
+					}},
+					NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+						"kubernetes.io/metadata.name": "openshift-monitoring",
+					}},
+				},
 			},
 			Ports: []networkingv1.NetworkPolicyPort{
 				{Protocol: &tcp, Port: &httpsPort},

@@ -126,8 +126,8 @@ func GenerateService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev
 	return &service, nil
 }
 
-// GenerateNetworkPolicy allows ingress to the MCP pods from any pod in the
-// operator namespace on HTTPS :8443 (app-server and future sandbox consumers).
+// GenerateNetworkPolicy allows HTTPS ingress to MCP pods from clients in the
+// operator namespace and cluster Prometheus pods in openshift-monitoring.
 func GenerateNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
 	tcp := corev1.ProtocolTCP
 	httpsPort := intstr.FromInt32(utils.OpenShiftMCPServerHTTPSPort)
@@ -146,6 +146,19 @@ func GenerateNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 					From: []networkingv1.NetworkPolicyPeer{
 						{
 							PodSelector: &metav1.LabelSelector{},
+						},
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{Key: "app.kubernetes.io/name", Operator: metav1.LabelSelectorOpIn, Values: []string{"prometheus"}},
+									{Key: "prometheus", Operator: metav1.LabelSelectorOpIn, Values: []string{"k8s"}},
+								},
+							},
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": utils.ClientCACmNamespace,
+								},
+							},
 						},
 					},
 					Ports: []networkingv1.NetworkPolicyPort{
