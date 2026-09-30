@@ -24,7 +24,7 @@ const (
 	// LLMDefaultType is the default LLM type
 	LLMDefaultType = "openai"
 	// OpenAIDefaultModel is the default model to use
-	OpenAIDefaultModel = "gpt-4o-mini"
+	OpenAIDefaultModel = "gpt-6-luna"
 	// OpenAIAlternativeModel is the alternative model to test model change
 	OpenAIAlternativeModel = "gpt-4-1106-preview"
 	// LLMModelEnvVar is the environment variable containing the LLM model

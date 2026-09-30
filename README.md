@@ -109,7 +109,7 @@ spec:
       credentialsSecretRef:
         name: openai-api-keys
       models:
-      - name: gpt-3.5-turbo
+      - name: gpt-6-luna
       name: openai
       url: https://api.openai.com/v1
     - type: watsonx
@@ -123,7 +123,7 @@ spec:
       credentialsSecretRef:
         name: azure-openai-api-keys
       models:
-      - name: gpt-3.5-turbo
+      - name: gpt-6-luna
       name: my_azure_openai
       url: "https://myendpoint.openai.azure.com/"
   ols:
@@ -132,7 +132,7 @@ spec:
         sharedBuffers: 256MB
         maxConnections: 2000
       type: postgres
-    defaultModel: gpt-3.5-turbo
+    defaultModel: gpt-6-luna
     defaultProvider: openai
     logLevel: INFO
     deployment:
