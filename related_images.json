@@ -21,8 +21,8 @@
   },
   {
     "name": "lightspeed-service-api",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:a6a23039b1421772eae65d9d5b1edfda38d049dbb8dd70ab41648a2c33211c92",
-    "revision": "532ea63c0166d1a69adbaf8abe0a246de60d9a07",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:e4b4b28d123e6a574f652d7fdff60ab4c1cf752496cee427f96cc9c99ad52d5d",
+    "revision": "2bfdf9ec2f782063e31954cf98ffb7b22bdd0a5b",
     "operator_arg": "service-image",
     "snapshot_component": "lightspeed-service",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service",
@@ -34,8 +34,8 @@
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:aeea4009205e2c87d233250d2ded80f1b477c8614da915b9510f78f8cab7d53f",
-    "revision": "0891170f40399c2608167b54d63bb1a605d14f17",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:ef62c46af62008f0ce2fe0d7ea95ffcc7c620b79b25c5b0d99fedd38ae8d78b3",
+    "revision": "d845b0038849f8475ee4c49e1bd737d82fe70956",
     "operator_arg": "console-image",
     "snapshot_component": "lightspeed-console",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console",
@@ -47,8 +47,8 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:54634f39b7ae619a33525acddcaa2e771a83de6be94a5be04c73e94d2d3ac2c6",
-    "revision": "fc731c6f14ab057896fefc234ea962809797795b",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:7a12eb21598714208b52257c3965e0d933feb34975a318e76351b9bc61d5a918",
+    "revision": "f02f7536a150caad21ab1c75b9b847bfce15c14c",
     "operator_target": "image",
     "snapshot_component": "lightspeed-operator",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator",
@@ -102,8 +102,8 @@
   },
   {
     "name": "lightspeed-agentic-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:dd71f58bec36bdd09022bc1a9ec17a08091f0e42bc34548d1d3d4bc0dcca7810",
-    "revision": "3c2730753791fa8baf712ebefe1825f036e9f86b",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:d8c4804fcb5baf061bd4465c91c5c007ed2434a3dc64bf0f64d1f37910365a92",
+    "revision": "88090cd8ad241a1f8dd88b6fae9771997d394c0b",
     "operator_arg": "agentic-console-image",
     "snapshot_component": "lightspeed-agentic-console",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console",
