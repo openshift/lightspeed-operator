@@ -247,7 +247,7 @@ E2E tests live in `test/e2e/` and run against a real OpenShift cluster with the 
 | `KUBECONFIG` | Yes | Path to cluster kubeconfig |
 | `LLM_TOKEN` | Yes | API token for LLM provider |
 | `LLM_PROVIDER` | No | Provider name (default: `openai`) |
-| `LLM_MODEL` | No | Model name (default: `gpt-4o-mini`) |
+| `LLM_MODEL` | No | Model name (default: `gpt-6-luna`) |
 | `BUNDLE_IMAGE` | For upgrade | Operator bundle image for upgrade test |
 | `CONDITION_TIMEOUT` | No | Custom timeout in seconds for condition checks |
 | `ARTIFACT_DIR` | No | Directory for must-gather diagnostics output |
