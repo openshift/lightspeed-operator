@@ -546,11 +546,9 @@ func ReconcileTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 		return fmt.Errorf("%s -%s - wait err %w; last error: %w", utils.ErrGetTLSSecret, utils.OLSCertsSecretName, err, lastErr)
 	}
 
-	err = r.Update(ctx, foundSecret)
-	if err != nil {
-		return fmt.Errorf("failed to update secret:%s. error: %w", foundSecret.Name, err)
-	}
-	r.GetLogger().Info("OLS app TLS secret reconciled", "secret", foundSecret.Name)
+	// The TLS Secret is externally managed; this reconciler only validates its contents.
+	// Updating the fetched object would write unchanged data and trigger another reconcile.
+	r.GetLogger().Info("OLS app TLS secret validated, reconciliation skipped", "secret", foundSecret.Name)
 	return nil
 }
 

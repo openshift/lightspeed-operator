@@ -623,6 +623,18 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(secretDeletionErr).NotTo(HaveOccurred())
 		})
 
+		It("should not update an unchanged TLS secret", func() {
+			secretKey := types.NamespacedName{Name: tlsSecret.Name, Namespace: tlsSecret.Namespace}
+			before := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, secretKey, before)).To(Succeed())
+
+			Expect(ReconcileTLSSecret(testReconcilerInstance, ctx, cr)).To(Succeed())
+
+			after := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, secretKey, after)).To(Succeed())
+			Expect(after.ResourceVersion).To(Equal(before.ResourceVersion))
+		})
+
 		It("should return error when the TLS secret is not found", func() {
 			By("reconcile TLS secret")
 			err := ReconcileTLSSecret(testReconcilerInstance, ctx, cr)
