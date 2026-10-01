@@ -3,7 +3,6 @@ package rhokp
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -21,6 +20,7 @@ import (
 func ReconcileResources(r reconciler.Reconciler, ctx context.Context, olsconfig *olsv1alpha1.OLSConfig) error {
 	return utils.RunReconcileTasks(r, ctx, olsconfig, "reconcileRHOKPResources", []utils.ReconcileTask{
 		{Name: "reconcile RHOKP NetworkPolicy", Task: reconcileNetworkPolicy},
+		{Name: "reconcile RHOKP egress NetworkPolicy", Task: reconcileEgressNetworkPolicy},
 	}, true)
 }
 
@@ -40,6 +40,7 @@ func Remove(r reconciler.Reconciler, ctx context.Context) error {
 		{Name: "delete RHOKP deployment", Task: deleteDeployment},
 		{Name: "delete RHOKP service", Task: deleteService},
 		{Name: "delete RHOKP network policy", Task: deleteNetworkPolicy},
+		{Name: "delete RHOKP egress network policy", Task: deleteEgressNetworkPolicy},
 		{Name: "delete RHOKP TLS secret", Task: deleteTLSSecret},
 		{Name: "delete RHOKP ServiceMonitor", Task: deleteServiceMonitor},
 	})
@@ -51,30 +52,15 @@ func reconcileNetworkPolicy(r reconciler.Reconciler, ctx context.Context, cr *ol
 		return fmt.Errorf("%s: %w", utils.ErrGenerateRHOKPNetworkPolicy, err)
 	}
 
-	foundNP := &networkingv1.NetworkPolicy{}
-	err = r.Get(ctx, client.ObjectKey{Name: utils.RHOKPNetworkPolicyName, Namespace: r.GetNamespace()}, foundNP)
-	if err != nil && errors.IsNotFound(err) {
-		r.GetLogger().Info("creating RHOKP network policy", "networkpolicy", np.Name)
-		if err := r.Create(ctx, np); err != nil {
-			return fmt.Errorf("%s: %w", utils.ErrCreateRHOKPNetworkPolicy, err)
-		}
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetRHOKPNetworkPolicy, err)
-	}
+	return utils.ReconcileNetworkPolicy(r, ctx, np)
+}
 
-	if utils.NetworkPolicyEqual(np, foundNP) && reflect.DeepEqual(foundNP.Labels, np.Labels) {
-		r.GetLogger().Info("RHOKP network policy unchanged, reconciliation skipped", "networkpolicy", np.Name)
-		return nil
+func reconcileEgressNetworkPolicy(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	ingress, err := GenerateNetworkPolicy(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGenerateRHOKPNetworkPolicy, err)
 	}
-
-	foundNP.Labels = np.Labels
-	foundNP.Spec = np.Spec
-	if err := r.Update(ctx, foundNP); err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdateRHOKPNetworkPolicy, err)
-	}
-	r.GetLogger().Info("RHOKP network policy reconciled", "networkpolicy", np.Name)
-	return nil
+	return utils.ReconcileNetworkPolicy(r, ctx, utils.GenerateDenyEgressNetworkPolicy(ingress))
 }
 
 func reconcileService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
@@ -125,6 +111,10 @@ func deleteService(r reconciler.Reconciler, ctx context.Context) error {
 
 func deleteNetworkPolicy(r reconciler.Reconciler, ctx context.Context) error {
 	return deleteNamespacedObject(r, ctx, &networkingv1.NetworkPolicy{}, utils.RHOKPNetworkPolicyName)
+}
+
+func deleteEgressNetworkPolicy(r reconciler.Reconciler, ctx context.Context) error {
+	return deleteNamespacedObject(r, ctx, &networkingv1.NetworkPolicy{}, utils.RHOKPNetworkPolicyName+"-egress")
 }
 
 func deleteTLSSecret(r reconciler.Reconciler, ctx context.Context) error {

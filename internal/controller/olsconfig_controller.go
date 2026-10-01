@@ -749,7 +749,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if olsconfig.Spec.OLSConfig.CredentialHotReload != nil && *olsconfig.Spec.OLSConfig.CredentialHotReload {
-		r.Logger.V(1).Info("credentialHotReload is enabled — LLM credential secret rotations will not "+
+		r.Logger.V(1).Info("credentialHotReload is enabled — LLM credential secret rotations will not " +
 			"trigger app-server restarts")
 	}
 

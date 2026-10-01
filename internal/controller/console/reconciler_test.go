@@ -81,6 +81,10 @@ var _ = Describe("Console UI reconciliator", Ordered, func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, &appsv1.Deployment{})).To(Succeed())
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIPluginName}, &consolev1.ConsolePlugin{})).To(Succeed())
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUINetworkPolicyName, Namespace: utils.OLSNamespaceDefault}, &networkingv1.NetworkPolicy{})).To(Succeed())
+			egress := &networkingv1.NetworkPolicy{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUINetworkPolicyName + "-egress", Namespace: utils.OLSNamespaceDefault}, egress)).To(Succeed())
+			Expect(egress.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeEgress}))
+			Expect(egress.Spec.Egress).To(BeEmpty())
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.ConsoleUIServiceAccountName, Namespace: utils.OLSNamespaceDefault}, &corev1.ServiceAccount{})).To(Succeed())
 		})
 

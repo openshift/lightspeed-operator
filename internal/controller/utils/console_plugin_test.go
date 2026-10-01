@@ -89,6 +89,50 @@ var _ = Describe("Console plugin shared utilities", func() {
 		})
 	})
 
+	Describe("GenerateDenyEgressNetworkPolicy", func() {
+		It("selects only the original operand and denies outbound connections without changing ingress", func() {
+			ingress, err := GenerateConsolePluginNetworkPolicy(
+				testReconciler, testCr, testConsolePluginName, testConsolePluginLabels, ConsoleUIHTTPSPort,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			egress := GenerateDenyEgressNetworkPolicy(ingress)
+			Expect(egress.Name).To(Equal(testConsolePluginName + "-egress"))
+			Expect(egress.Namespace).To(Equal(ingress.Namespace))
+			Expect(egress.OwnerReferences).To(Equal(ingress.OwnerReferences))
+			Expect(egress.Spec.PodSelector).To(Equal(ingress.Spec.PodSelector))
+			Expect(egress.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeEgress}))
+			Expect(egress.Spec.Ingress).To(BeEmpty())
+			Expect(egress.Spec.Egress).To(BeEmpty())
+			Expect(ingress.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
+			Expect(ingress.Spec.Ingress).To(HaveLen(1))
+		})
+	})
+
+	Describe("ReconcileNetworkPolicy", func() {
+		It("creates a missing NetworkPolicy", func() {
+			desired := &networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testConsolePluginName + "-egress",
+					Namespace: OLSNamespaceDefault,
+					Labels:    testConsolePluginLabels,
+				},
+				Spec: networkingv1.NetworkPolicySpec{
+					PodSelector: metav1.LabelSelector{MatchLabels: testConsolePluginLabels},
+					PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeEgress},
+				},
+			}
+
+			Expect(ReconcileNetworkPolicy(testReconciler, ctx, desired)).To(Succeed())
+			found := &networkingv1.NetworkPolicy{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)).To(Succeed())
+			Expect(NetworkPolicyEqual(desired, found)).To(BeTrue())
+
+			DeferCleanup(func() {
+				Expect(k8sClient.Delete(ctx, found)).To(Succeed())
+			})
+		})
+	})
+
 	Describe("GenerateConsolePluginDeployment", func() {
 		It("builds an nginx console plugin deployment from options", func() {
 			resources := DefaultConsolePluginResourceRequirements()

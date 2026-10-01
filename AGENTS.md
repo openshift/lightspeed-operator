@@ -118,6 +118,7 @@ make test-e2e   # E2E tests (requires cluster)
 - `internal/controller/utils/` - Shared utilities, constants
   - `constants.go` - Includes `OLSConfigFinalizer` constant
   - `console_plugin_reconciler.go` - Shared ConsolePlugin reconcile helpers (used by `console/` and `agenticconsole/`)
+  - `utils.go` - Shared NetworkPolicy generation and reconciliation helpers, among other general utilities
 
 ### Tests
 - `*_test.go` - Unit tests (co-located)

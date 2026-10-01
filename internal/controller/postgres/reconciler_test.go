@@ -151,6 +151,17 @@ var _ = Describe("Postgres server reconciliator", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should reconcile a separate egress-only policy for Postgres pods", func() {
+			np := &networkingv1.NetworkPolicy{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name: utils.PostgresNetworkPolicyName + "-egress", Namespace: utils.OLSNamespaceDefault,
+			}, np)).To(Succeed())
+			Expect(np.Spec.PodSelector.MatchLabels).To(Equal(utils.GeneratePostgresSelectorLabels()))
+			Expect(np.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeEgress}))
+			Expect(np.Spec.Egress).To(BeEmpty())
+			Expect(np.Spec.Ingress).To(BeEmpty())
+		})
+
 		It("should create a postgres service account", func() {
 			By("Get the postgres service account")
 			serviceAccount := &corev1.ServiceAccount{}

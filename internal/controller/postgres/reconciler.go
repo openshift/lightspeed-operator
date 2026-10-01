@@ -22,7 +22,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -53,6 +52,10 @@ func ReconcilePostgresResources(r reconciler.Reconciler, ctx context.Context, ol
 		{
 			Name: "generate Postgres Network Policy",
 			Task: reconcilePostgresNetworkPolicy,
+		},
+		{
+			Name: "generate Postgres egress Network Policy",
+			Task: reconcilePostgresEgressNetworkPolicy,
 		},
 		{
 			Name: "reconcile Postgres Service Account",
@@ -287,28 +290,15 @@ func reconcilePostgresNetworkPolicy(r reconciler.Reconciler, ctx context.Context
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGeneratePostgresNetworkPolicy, err)
 	}
-	foundNetworkPolicy := &networkingv1.NetworkPolicy{}
-	err = r.Get(ctx, client.ObjectKey{Name: utils.PostgresNetworkPolicyName, Namespace: r.GetNamespace()}, foundNetworkPolicy)
-	if err != nil && errors.IsNotFound(err) {
-		err = r.Create(ctx, networkPolicy)
-		if err != nil {
-			return fmt.Errorf("%s: %w", utils.ErrCreatePostgresNetworkPolicy, err)
-		}
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetPostgresNetworkPolicy, err)
-	}
-	if utils.NetworkPolicyEqual(foundNetworkPolicy, networkPolicy) {
-		r.GetLogger().Info("OLS postgres network policy unchanged, reconciliation skipped", "network policy", networkPolicy.Name)
-		return nil
-	}
-	foundNetworkPolicy.Spec = networkPolicy.Spec
-	err = r.Update(ctx, foundNetworkPolicy)
+	return utils.ReconcileNetworkPolicy(r, ctx, networkPolicy)
+}
+
+func reconcilePostgresEgressNetworkPolicy(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	ingress, err := GeneratePostgresNetworkPolicy(r, cr)
 	if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrUpdatePostgresNetworkPolicy, err)
+		return fmt.Errorf("%s: %w", utils.ErrGeneratePostgresNetworkPolicy, err)
 	}
-	r.GetLogger().Info("OLS postgres network policy reconciled", "network policy", networkPolicy.Name)
-	return nil
+	return utils.ReconcileNetworkPolicy(r, ctx, utils.GenerateDenyEgressNetworkPolicy(ingress))
 }
 
 func reconcilePostgresServiceAccount(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {

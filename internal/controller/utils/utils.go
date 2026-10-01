@@ -965,6 +965,48 @@ func GenerateConsolePluginNginxConfigMap(
 	return cm, nil
 }
 
+// GenerateDenyEgressNetworkPolicy creates a separate, egress-only policy for
+// the pods selected by an existing ingress policy. The original policy is unchanged.
+func GenerateDenyEgressNetworkPolicy(ingress *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
+	egress := ingress.DeepCopy()
+	egress.Name += "-egress"
+	egress.Spec.Ingress = nil
+	egress.Spec.Egress = nil
+	egress.Spec.PolicyTypes = []networkingv1.PolicyType{networkingv1.PolicyTypeEgress}
+	return egress
+}
+
+// ReconcileNetworkPolicy creates or updates a NetworkPolicy to match the desired object.
+func ReconcileNetworkPolicy(r reconciler.Reconciler, ctx context.Context, desired *networkingv1.NetworkPolicy) error {
+	found := &networkingv1.NetworkPolicy{}
+	key := client.ObjectKeyFromObject(desired)
+	err := r.Get(ctx, key, found)
+	if err != nil && apierrors.IsNotFound(err) {
+		r.GetLogger().Info("creating NetworkPolicy", "networkpolicy", desired.Name)
+		if err := r.Create(ctx, desired); err != nil {
+			return fmt.Errorf("%s: %w", ErrCreateNetworkPolicy, err)
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", ErrGetNetworkPolicy, err)
+	}
+
+	if NetworkPolicyEqual(desired, found) && apiequality.Semantic.DeepEqual(desired.OwnerReferences, found.OwnerReferences) {
+		r.GetLogger().Info("NetworkPolicy unchanged, reconciliation skipped", "networkpolicy", desired.Name)
+		return nil
+	}
+
+	found.Spec = desired.Spec
+	found.Labels = desired.Labels
+	found.OwnerReferences = desired.OwnerReferences
+	if err := r.Update(ctx, found); err != nil {
+		return fmt.Errorf("%s: %w", ErrUpdateNetworkPolicy, err)
+	}
+	r.GetLogger().Info("NetworkPolicy reconciled", "networkpolicy", desired.Name)
+	return nil
+}
+
 // GenerateConsolePluginNetworkPolicy generates a network policy allowing ingress from OpenShift Console pods.
 func GenerateConsolePluginNetworkPolicy(
 	r reconciler.Reconciler,
