@@ -117,7 +117,7 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 	})
 
 	It("allows an empty provider configuration with empty defaults", func() {
-		cr.Spec.LLMConfig.Providers = nil
+		cr.Spec.LLMConfig.Providers = []olsv1alpha1.ProviderSpec{}
 		cr.Spec.OLSConfig.DefaultProvider = ""
 		cr.Spec.OLSConfig.DefaultModel = ""
 
