@@ -58,6 +58,10 @@ func (r *OLSConfigReconciler) GetAlertsAdapterImage() string {
 	return r.Options.AlertsAdapterImage
 }
 
+func (r *OLSConfigReconciler) GetAgenticSkillsImage() string {
+	return r.Options.AgenticSkillsImage
+}
+
 func (r *OLSConfigReconciler) GetAgenticSandboxImage() string {
 	return r.Options.AgenticSandboxImage
 }
