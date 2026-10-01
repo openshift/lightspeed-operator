@@ -613,7 +613,7 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 		}
 
 		secret := &corev1.Secret{}
-		err := r.Get(ctx, client.ObjectKey{Name: provider.CredentialsSecretRef.Name, Namespace: r.GetNamespace()}, secret)
+		err := r.GetAPIReader().Get(ctx, client.ObjectKey{Name: provider.CredentialsSecretRef.Name, Namespace: r.GetNamespace()}, secret)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return fmt.Errorf("LLM provider %s credential secret %s not found", provider.Name, provider.CredentialsSecretRef.Name)
@@ -687,7 +687,7 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 func ValidateTLSSecret(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 	secretName := cr.Spec.OLSConfig.TLSConfig.KeyCertSecretRef.Name
 	secret := &corev1.Secret{}
-	err := r.Get(ctx, client.ObjectKey{Name: secretName, Namespace: r.GetNamespace()}, secret)
+	err := r.GetAPIReader().Get(ctx, client.ObjectKey{Name: secretName, Namespace: r.GetNamespace()}, secret)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return fmt.Errorf("TLS secret %s not found", secretName)

@@ -12,6 +12,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,6 +28,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 	var cr *olsv1alpha1.OLSConfig
 	var err error
 	var client *Client
+	var originalDefaultModel string
 
 	BeforeAll(func() {
 		client, err = GetClient(nil)
@@ -42,6 +45,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		By("Creating a OLSConfig CR")
 		cr, err = generateOLSConfig()
 		Expect(err).NotTo(HaveOccurred())
+		originalDefaultModel = cr.Spec.OLSConfig.DefaultModel
 		err = client.Create(cr)
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -522,6 +526,111 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			}
 			return deployment.Generation > generationAfterRestore
 		}, 60*time.Second, 5*time.Second).Should(BeTrue())
+	})
+
+	It("should mark OLSConfig NotReady when a referenced credential secret is deleted and Ready again after recreate", func() {
+		const credentialSecretName = LLMTokenFirstSecretName
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AppServerDeploymentName,
+				Namespace: OLSNameSpace,
+			},
+		}
+
+		By("capturing the app-server deployment generation")
+		err := client.Get(deployment)
+		Expect(err).NotTo(HaveOccurred())
+		generationBeforeUpdate := deployment.Generation
+
+		By("pointing the CR at the first LLM credential secret")
+		err = client.Update(cr, func(obj ctrlclient.Object) error {
+			olsConfig := obj.(*olsv1alpha1.OLSConfig)
+			olsConfig.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = credentialSecretName
+			olsConfig.Spec.OLSConfig.DefaultModel = originalDefaultModel
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("waiting for the app-server deployment rollout")
+		err = client.WaitForDeploymentNextGeneration(deployment, generationBeforeUpdate)
+		Expect(err).NotTo(HaveOccurred())
+		err = client.WaitForDeploymentRollout(deployment)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("waiting for OLSConfig to be Ready")
+		err = client.WaitForOLSConfigOverallStatus(OLSCRName, olsv1alpha1.OverallStatusReady)
+		Expect(err).NotTo(HaveOccurred())
+
+		olsConfig := &olsv1alpha1.OLSConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: OLSCRName},
+		}
+		err = client.Get(olsConfig)
+		Expect(err).NotTo(HaveOccurred())
+		apiReadyBefore := apimeta.FindStatusCondition(olsConfig.Status.Conditions, "ApiReady")
+		Expect(apiReadyBefore).NotTo(BeNil())
+		Expect(apiReadyBefore.Status).To(Equal(metav1.ConditionTrue))
+
+		credentialSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      credentialSecretName,
+				Namespace: OLSNameSpace,
+			},
+		}
+		err = client.Get(credentialSecret)
+		Expect(err).NotTo(HaveOccurred())
+		savedSecretData := make(map[string][]byte, len(credentialSecret.Data))
+		for key, value := range credentialSecret.Data {
+			savedSecretData[key] = append([]byte(nil), value...)
+		}
+		DeferCleanup(func() {
+			currentSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      credentialSecretName,
+					Namespace: OLSNameSpace,
+				},
+			}
+			if err := client.Get(currentSecret); err == nil {
+				return
+			} else if !k8serrors.IsNotFound(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+			Expect(client.Create(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      credentialSecretName,
+					Namespace: OLSNameSpace,
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: savedSecretData,
+			})).To(Succeed())
+		})
+
+		By("deleting the referenced credential secret")
+		err = client.Delete(credentialSecret)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("waiting for OLSConfig to become NotReady")
+		err = client.WaitForOLSConfigOverallStatus(OLSCRName, olsv1alpha1.OverallStatusNotReady)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = client.Get(olsConfig)
+		Expect(err).NotTo(HaveOccurred())
+		reconcileCond := apimeta.FindStatusCondition(olsConfig.Status.Conditions, "ResourceReconciliation")
+		Expect(reconcileCond).NotTo(BeNil())
+		Expect(reconcileCond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(reconcileCond.Reason).To(Equal("Failed"))
+		apiReadyAfter := apimeta.FindStatusCondition(olsConfig.Status.Conditions, "ApiReady")
+		Expect(apiReadyAfter).NotTo(BeNil())
+		Expect(apiReadyAfter.Status).To(Equal(metav1.ConditionTrue))
+
+		By("recreating the credential secret")
+		secret, err := generateLLMTokenSecret(credentialSecretName)
+		Expect(err).NotTo(HaveOccurred())
+		err = client.Create(secret)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("waiting for OLSConfig to return to Ready")
+		err = client.WaitForOLSConfigOverallStatus(OLSCRName, olsv1alpha1.OverallStatusReady)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 })

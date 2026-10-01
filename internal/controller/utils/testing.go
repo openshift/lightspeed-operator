@@ -106,6 +106,10 @@ func (r *TestReconciler) GetWatcherConfig() interface{} {
 	return r.watcherConfig
 }
 
+func (r *TestReconciler) GetAPIReader() client.Reader {
+	return r.Client
+}
+
 func (r *TestReconciler) SetWatcherConfig(config interface{}) {
 	r.watcherConfig = config
 }

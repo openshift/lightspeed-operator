@@ -25,7 +25,7 @@ The operator manages two categories of Kubernetes resources: owned resources (cr
 11. The operator annotates each user-provided external resource with `ols.openshift.io/watcher: cluster` to mark it for watching.
 11a. **Credential hot-reload exception (OLS-3450):** When `spec.ols.credentialHotReload` is `true`, LLM credential secrets (those with source prefix `llm-provider-*`) are excluded from annotation. Instead, `removeSecretAnnotationIfNeeded()` removes the watcher annotation if it was previously set. This prevents the watcher predicate from matching these secrets, so `SecretUpdateHandler` never fires for them. Non-LLM secrets (TLS, MCP headers) are always annotated regardless of the flag.
 12. On each reconciliation, the operator clears the `AnnotatedSecretMapping` and `AnnotatedConfigMapMapping` in `WatcherConfig` and repopulates them from the current CR spec via `ForEachExternalSecret()` and `ForEachExternalConfigMap()`, then annotates any resources that lack the annotation.
-13. The watcher predicate on Update events checks for two conditions: (a) the resource has the `ols.openshift.io/watcher` annotation, or (b) the resource is a configured system resource. Create events are allowed for all resources in the operator namespace (to handle recreated resources that have not been annotated yet). Create events also verify the resource is referenced in the CR before acting. Delete events are always ignored.
+13. The watcher predicate on Update events checks for two conditions: (a) the resource has the `ols.openshift.io/watcher` annotation, or (b) the resource is a configured system resource. Create events are allowed for all resources in the operator namespace (to handle recreated resources that have not been annotated yet). Create events also verify the resource is referenced in the CR before acting. Delete events are allowed for resources in the operator namespace and for configured system resources in other namespaces. The Delete handler enqueues OLSConfig when the object is referenced on the CR or is a configured system resource. Objects owned by OLSConfig are skipped (handled via `Owns()`).
 
 ### Change Detection and Restart
 
@@ -39,6 +39,7 @@ The operator manages two categories of Kubernetes resources: owned resources (cr
 
 19. Before annotating resources, the operator validates LLM provider credential secrets via `ValidateLLMCredentials()` (secret must exist and contain expected key) and custom TLS secrets via `ValidateTLSSecret()` (must contain `tls.crt` and `tls.key`).
 20. Missing secrets for user-provided resources during annotation are not treated as errors. If a secret does not exist, `annotateSecretIfNeeded()` returns nil, and the resource will be picked up on the next reconciliation when it appears.
+21. If `ValidateLLMCredentials()` or `ValidateTLSSecret()` fails, the operator sets `OverallStatus=NotReady` and a `ResourceReconciliation` Failed condition (preserving existing component conditions), then returns an error so controller-runtime retries with backoff.
 
 ## Configuration Surface
 
@@ -56,7 +57,7 @@ Resource lifecycle behavior is not directly user-configurable. External resource
 ## Constraints
 
 1. The operator can only watch resources in its own namespace and in fixed external namespaces (`openshift-config` for the pull secret, `openshift-monitoring` for the client CA).
-2. Delete events on external resources do not trigger restarts or reconciliation. The operator detects the absence during the next reconciliation triggered by other events.
+2. Delete events on watched external resources enqueue OLSConfig reconciliation so missing credentials, TLS secrets, or CA/config ConfigMaps are detected without waiting for an unrelated event.
 3. System resources are always watched regardless of CR configuration. They are defined in `WatcherConfig.Secrets.SystemResources` and `WatcherConfig.ConfigMaps.SystemResources`.
 4. Owned resources with an OwnerReference are skipped by the external resource Create handler to avoid redundant processing; they are handled via the `Owns()` relationship.
 5. Owned resources are not deleted individually during normal operation. They are only explicitly deleted during finalizer cleanup on CR deletion.

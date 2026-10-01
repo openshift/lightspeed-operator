@@ -88,4 +88,7 @@ type Reconciler interface {
 
 	// GetWatcherConfig returns the watcher configuration for external resource monitoring
 	GetWatcherConfig() interface{}
+
+	// GetAPIReader returns a direct API reader (not the informer cache) for validation lookups.
+	GetAPIReader() client.Reader
 }

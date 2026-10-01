@@ -56,7 +56,7 @@ Both phases use a slice of `ReconcileSteps` structs, each containing a Name, rec
 ### Resource Ownership
 Two ownership models:
 1. **Owned resources**: Controller-runtime Owns() declarations. Owner references set on creation. Changes trigger reconciliation automatically.
-2. **External resources**: Watches() with custom predicates. Annotation-based filtering. Secret/ConfigMap handlers compare data and trigger deployment restarts.
+2. **External resources**: Watches() with custom predicates. Annotation-based filtering. Secret/ConfigMap handlers compare data and trigger deployment restarts on update. Deletes of referenced external resources or configured system resources enqueue OLSConfig reconcile so credentials/CA can be re-validated.
 
 ### Finalizer Cleanup
 The `finalizeOLSConfig()` method removes Console UI, deletes alerts adapter operand resources via `alertsadapter.RemoveAlertsAdapter()` (deployment, namespaced RBAC, SA, NetworkPolicy, cross-namespace monitoring RoleBinding; AgenticRun ClusterRole/ClusterRoleBinding when permitted—may remain on managed OpenShift if admission webhook blocks delete), then uses `listOwnedResources()` which queries every resource type by owner reference UID (not labels). This is more reliable than label-based cleanup. The wait loop polls with a fixed interval and timeout, using `wait.PollUntilContextTimeout`.
@@ -90,7 +90,7 @@ The `finalizeOLSConfig()` method removes Console UI, deletes alerts adapter oper
 ## Implementation Notes
 
 - `SetupWithManager()` registers Owns() for 12 resource types and Watches() for Secrets and ConfigMaps with custom predicates.
-- Secret watch predicates: Create events allowed for all secrets in operator namespace (handles recreated secrets); Update events filtered by watcher annotation; Delete events ignored.
+- Secret watch predicates: Create events allowed for all secrets in operator namespace (handles recreated secrets); Update events filtered by watcher annotation or system-resource rules; Delete events allowed for operator-namespace secrets and configured system secrets elsewhere—the Delete handler enqueues OLSConfig when the secret is referenced on the CR or is a configured system resource (owned secrets are skipped).
 - ConfigMap watch predicates: Same pattern as secrets.
 - The `LOCAL_DEV_MODE` environment variable skips operator ServiceMonitor creation and app-server metrics reader secret reconciliation when running locally (`make run`).
 - Phase 1 failures update status with `ResourceReconciliation` condition type (not the component-specific types used in Phase 2).

@@ -53,6 +53,48 @@ func isConfigMapReferencedInCR(cr *olsv1alpha1.OLSConfig, cmName string) bool {
 	return found
 }
 
+func ownedByOLSConfig(obj client.Object) bool {
+	for _, owner := range obj.GetOwnerReferences() {
+		if owner.Kind == utils.OLSConfigKind && owner.APIVersion == utils.OLSConfigAPIVersion {
+			return true
+		}
+	}
+	return false
+}
+
+func isSystemSecret(r reconciler.Reconciler, obj client.Object) bool {
+	watcherConfig, _ := r.GetWatcherConfig().(*utils.WatcherConfig)
+	if watcherConfig == nil {
+		return false
+	}
+	for _, systemSecret := range watcherConfig.Secrets.SystemResources {
+		if obj.GetNamespace() == systemSecret.Namespace && obj.GetName() == systemSecret.Name {
+			return watcherConfig.IsSystemSecretWatchEnabled(systemSecret)
+		}
+	}
+	return false
+}
+
+func isSystemConfigMap(r reconciler.Reconciler, obj client.Object) bool {
+	watcherConfig, _ := r.GetWatcherConfig().(*utils.WatcherConfig)
+	if watcherConfig == nil {
+		return false
+	}
+	for _, systemCM := range watcherConfig.ConfigMaps.SystemResources {
+		if obj.GetNamespace() == systemCM.Namespace && obj.GetName() == systemCM.Name {
+			return true
+		}
+	}
+	return false
+}
+
+func enqueueOLSConfig(q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if q == nil {
+		return
+	}
+	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{Name: utils.OLSConfigName}})
+}
+
 // SecretUpdateHandler handles update events for Secrets and triggers deployment restarts when data changes.
 type SecretUpdateHandler struct {
 	Reconciler reconciler.Reconciler
@@ -70,11 +112,8 @@ func (h *SecretUpdateHandler) Create(ctx context.Context, evt event.CreateEvent,
 	}
 
 	// Skip operator-owned secrets - they're managed via Owns() relationship
-	// Check if owned by OLSConfig CR
-	for _, owner := range secret.GetOwnerReferences() {
-		if owner.Kind == utils.OLSConfigKind && owner.APIVersion == utils.OLSConfigAPIVersion {
-			return
-		}
+	if ownedByOLSConfig(secret) {
+		return
 	}
 
 	// Fetch the OLSConfig CR to check if this secret should be watched
@@ -128,9 +167,25 @@ func (h *SecretUpdateHandler) Update(ctx context.Context, evt event.UpdateEvent,
 	SecretWatcherFilter(h.Reconciler, ctx, newSecret)
 }
 
-// Delete implements handler.EventHandler - we don't care about deletes
+// Delete implements handler.EventHandler. External/system secret deletes enqueue
+// OLSConfig so an event-driven controller can re-validate credentials and update status.
+// Owned secrets are skipped; Owns() already requeues those.
 func (h *SecretUpdateHandler) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	// No-op: secret deletes are handled by reconciliation
+	obj := evt.Object
+	if obj == nil || ownedByOLSConfig(obj) {
+		return
+	}
+	if isSystemSecret(h.Reconciler, obj) {
+		enqueueOLSConfig(q)
+		return
+	}
+	cr := &olsv1alpha1.OLSConfig{}
+	if err := h.Reconciler.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, cr); err != nil {
+		return
+	}
+	if isSecretReferencedInCR(cr, obj.GetName()) {
+		enqueueOLSConfig(q)
+	}
 }
 
 // Generic implements handler.EventHandler - we don't use generic events
@@ -155,11 +210,8 @@ func (h *ConfigMapUpdateHandler) Create(ctx context.Context, evt event.CreateEve
 	}
 
 	// Skip operator-owned configmaps - they're managed via Owns() relationship
-	// Check if owned by OLSConfig CR
-	for _, owner := range cm.GetOwnerReferences() {
-		if owner.Kind == utils.OLSConfigKind && owner.APIVersion == utils.OLSConfigAPIVersion {
-			return
-		}
+	if ownedByOLSConfig(cm) {
+		return
 	}
 
 	// Fetch the OLSConfig CR to check if this configmap should be watched
@@ -214,9 +266,25 @@ func (h *ConfigMapUpdateHandler) Update(ctx context.Context, evt event.UpdateEve
 	ConfigMapWatcherFilter(h.Reconciler, ctx, newCM)
 }
 
-// Delete implements handler.EventHandler - we don't care about deletes
+// Delete implements handler.EventHandler. External/system configmap deletes enqueue
+// OLSConfig so an event-driven controller notices missing CA / alerts-adapter config.
+// Owned configmaps are skipped; Owns() already requeues those.
 func (h *ConfigMapUpdateHandler) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	// No-op: configmap deletes are handled by reconciliation
+	obj := evt.Object
+	if obj == nil || ownedByOLSConfig(obj) {
+		return
+	}
+	if isSystemConfigMap(h.Reconciler, obj) {
+		enqueueOLSConfig(q)
+		return
+	}
+	cr := &olsv1alpha1.OLSConfig{}
+	if err := h.Reconciler.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, cr); err != nil {
+		return
+	}
+	if isConfigMapReferencedInCR(cr, obj.GetName()) {
+		enqueueOLSConfig(q)
+	}
 }
 
 // Generic implements handler.EventHandler - we don't use generic events
