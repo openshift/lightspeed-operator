@@ -259,6 +259,15 @@ func validateDefaultProviderAndModel(cr *olsv1alpha1.OLSConfig) error {
 	modelFound := false
 	providerNames := make(map[string]struct{}, len(cr.Spec.LLMConfig.Providers))
 	for _, provider := range cr.Spec.LLMConfig.Providers {
+		if provider.Name == "" {
+			return fmt.Errorf("LLM provider name must not be empty")
+		}
+		for _, model := range provider.Models {
+			if model.Name == "" {
+				return fmt.Errorf("model name must not be empty for provider %q", provider.Name)
+			}
+		}
+
 		if _, exists := providerNames[provider.Name]; exists {
 			return fmt.Errorf("duplicate LLM provider name %q", provider.Name)
 		}

@@ -577,6 +577,7 @@ type ModelParametersSpec struct {
 // ModelSpec defines the LLM model to use and its parameters.
 type ModelSpec struct {
 	// Model name
+	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Required
 	// +required
@@ -605,6 +606,7 @@ type ModelSpec struct {
 // +kubebuilder:validation:XValidation:message="googleVertexAnthropicConfig may only be set when type is google_vertex_anthropic",rule="self.type == \"google_vertex_anthropic\" || !has(self.googleVertexAnthropicConfig)"
 type ProviderSpec struct {
 	// Provider name
+	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Required
 	// +required

@@ -2224,6 +2224,16 @@ var _ = Describe("Helper function unit tests", func() {
 			Expect(err).To(MatchError(`duplicate LLM provider name "testProvider"`))
 		})
 
+		It("should reject empty provider and model names", func() {
+			cr.Spec.LLMConfig.Providers[0].Name = ""
+			cr.Spec.LLMConfig.Providers[0].Models[0].Name = ""
+			cr.Spec.OLSConfig.DefaultProvider = ""
+			cr.Spec.OLSConfig.DefaultModel = ""
+
+			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).To(HaveOccurred())
+		})
+
 		It("should build OLS config without proxy", func() {
 			cr.Spec.OLSConfig.ProxyConfig = nil
 			config, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)

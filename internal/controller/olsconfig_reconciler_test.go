@@ -131,6 +131,16 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected duplicate provider names to be rejected, got %v", err)
 	})
 
+	It("rejects empty provider and model names", func() {
+		cr.Spec.LLMConfig.Providers[0].Name = ""
+		cr.Spec.LLMConfig.Providers[0].Models[0].Name = ""
+		cr.Spec.OLSConfig.DefaultProvider = ""
+		cr.Spec.OLSConfig.DefaultModel = ""
+
+		err := k8sClient.Create(ctx, cr)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected empty provider and model names to be rejected, got %v", err)
+	})
+
 	Describe("terminalTTL admission validation", func() {
 		DescribeTable("accepts only positive whole days", func(days int32, accepted bool) {
 			cr.Spec.AgenticOLS = &olsv1alpha1.AgenticOLSSpec{TerminalTTL: &days}
