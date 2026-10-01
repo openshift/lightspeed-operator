@@ -25,7 +25,7 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 2. When true, Phase 1 calls `rhokp.Remove()`; Phase 2 skips deployment reconciliation. The status condition `RHOKPReady=False, Reason=Disabled` is emitted to signal that RHOKP is intentionally off.
 
 ### Phase 1 Resources
-3. NetworkPolicy `lightspeed-rhokp` — ingress from any pod in the operator namespace on TCP `:8443`. (Client trust is provided by the appserver-owned Secret `lightspeed-agentic-rhokp-ca`, not an inject-cabundle ConfigMap — see rule 16 and `agentic-sandbox-profile.md`.)
+3. NetworkPolicy `lightspeed-rhokp` — allows TCP `:8443` ingress from any pod in the operator namespace (including app-server and sandbox clients) and from cluster Prometheus pods in `openshift-monitoring`. The Prometheus peer requires both the namespace label `kubernetes.io/metadata.name: openshift-monitoring` and pod labels `app.kubernetes.io/name: prometheus` and `prometheus: k8s` (OLS-3943); it does not allow every pod in the monitoring namespace. The policy remains ingress-only and is removed when `byokRAGOnly` disables RHOKP. Client trust is provided by the appserver-owned Secret `lightspeed-agentic-rhokp-ca`, not an inject-cabundle ConfigMap — see rule 16 and `agentic-sandbox-profile.md`.
 
 ### Phase 2 Resources
 5. Service `lightspeed-rhokp` — ClusterIP, port `https` `:8443`, serving-cert annotation → Secret `lightspeed-rhokp-tls`.
@@ -47,7 +47,7 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 17. Client CA Secrets for RHOKP are refreshed via the table-driven `RefreshClientCASecrets` in `RestartAppServer`. No hash annotation is stored on the app-server Deployment.
 
 ### Monitoring
-18. ServiceMonitor `lightspeed-rhokp-monitor` (OLS-3727) — scrapes RHOKP Solr metrics via HTTPS on port 8443, path `/solr/admin/metrics` (Solr built-in Prometheus metrics reporter). Server TLS only (service-ca CA bundle + `serverName`), 30s interval. Reconciled in Phase 2 via `utils.ReconcileServiceMonitor()`. Skipped if Prometheus Operator CRDs are not installed.
+18. ServiceMonitor `lightspeed-rhokp-monitor` (OLS-3727) — scrapes RHOKP Solr metrics via HTTPS on port 8443, path `/solr/admin/metrics` (Solr built-in Prometheus metrics reporter). Server TLS only (service-ca CA bundle + `serverName`), 30s interval. Reconciled in Phase 2 via `utils.ReconcileServiceMonitor()`. Skipped if Prometheus Operator CRDs are not installed. The NetworkPolicy ingress in rule 3 admits the cluster Prometheus scrape (OLS-3943); the ServiceMonitor alone does not grant network access.
 
 ### Agentic Handoff
 19. When OKP is enabled, the inter-operator handoff ConfigMap (`lightspeed-agentic-configuration`) includes `rhokp-endpoint` and `rhokp-ca-secret` keys. When `byokRAGOnly` is true, both are absent.

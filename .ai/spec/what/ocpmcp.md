@@ -27,7 +27,7 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 ### Phase 1 Resources
 3. ConfigMap `openshift-mcp-server-config` — TOML runtime config (pinned toolsets, denied Secret/RBAC resources, metrics endpoints).
 4. ServiceAccount `openshift-mcp-server` — no RBAC bindings; callers pass their own token (app-server uses `Authorization: ols`).
-5. NetworkPolicy `openshift-mcp-server` — ingress from any pod in the operator namespace on TCP `:8443`.
+5. NetworkPolicy `openshift-mcp-server` — allows TCP `:8443` ingress from any pod in the operator namespace and from cluster Prometheus pods in `openshift-monitoring`. The Prometheus peer requires both the namespace label `kubernetes.io/metadata.name: openshift-monitoring` and pod labels `app.kubernetes.io/name: prometheus` and `prometheus: k8s` (OLS-3943); it does not allow every pod in the monitoring namespace. The policy remains ingress-only and is removed when introspection is disabled.
 
 ### Phase 2 Resources
 6. Service `openshift-mcp-server` — ClusterIP, port `https` `:8443`, serving-cert annotation → Secret `openshift-mcp-server-tls`.
@@ -51,7 +51,7 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 18. User-defined MCP servers (`spec.mcpServers`) are out of scope for this operand.
 
 ### Monitoring
-19. ServiceMonitor `openshift-mcp-server-monitor` (OLS-3728) — scrapes MCP server metrics via HTTPS on port 8443, path `/metrics` (Go promhttp). Server TLS only (service-ca CA bundle + `serverName`; no client certs / Bearer token), 30s interval. Reconciled in Phase 2 via `utils.ReconcileServiceMonitor()`. Skipped if Prometheus Operator CRDs are not installed.
+19. ServiceMonitor `openshift-mcp-server-monitor` (OLS-3728) — scrapes MCP server metrics via HTTPS on port 8443, path `/metrics` (Go promhttp). Server TLS only (service-ca CA bundle + `serverName`; no client certs / Bearer token), 30s interval. Reconciled in Phase 2 via `utils.ReconcileServiceMonitor()`. Skipped if Prometheus Operator CRDs are not installed. The NetworkPolicy ingress in rule 5 admits the cluster Prometheus scrape (OLS-3943); the ServiceMonitor alone does not grant network access.
 
 ### Finalizer
 20. On CR deletion, `ocpmcp.Remove()` deletes Deployment, Service, NetworkPolicy, ConfigMap, ServiceAccount, TLS Secret (`openshift-mcp-server-tls`), and ServiceMonitor (`openshift-mcp-server-monitor`) before owned-resource sweep.
