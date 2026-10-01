@@ -31,6 +31,8 @@ spec:
     - linux/x86_64
   - name: dockerfile
     value: lightspeed-catalog-4.21.Dockerfile
+  - name: prefetch-input
+    value: '{"type": "gomod", "path": "."}'
   pipelineSpec:
     description: |
       This pipeline is ideal for building and verifying [file-based catalogs](https://konflux-ci.dev/docs/end-to-end/building-olm/#building-the-file-based-catalog).
