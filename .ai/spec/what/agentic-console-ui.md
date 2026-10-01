@@ -27,6 +27,7 @@ Implementation package: `internal/controller/agenticconsole/`. Shared ConsolePlu
 
 ### Networking
 14. NetworkPolicy `lightspeed-agentic-console-plugin` allows ingress only from OpenShift Console pods (`app=console` in `openshift-console` namespace).
+14a. [PLANNED: OLS-4171] Deny plugin-pod-initiated egress while preserving Console ingress. Cluster API and retained-log requests flow through the OpenShift Console and Kubernetes Service proxy, not from the plugin nginx pod. This applies only where the agentic console plugin is deployed. See `security.md`.
 
 ### Status
 15. Deployment health is reported via condition type `AgenticConsolePluginReady`.
@@ -77,3 +78,4 @@ Resource names match the prior `lightspeed-agentic-operator` deployment for upgr
 |---|---|
 | OLS-3236 | Remove duplicate agentic console deployment from agentic-operator CSV; productize `lightspeed-agentic-console-plugin` image to SHA-pinned `registry.redhat.io` |
 | OLS-3899 | Agentic console plugin ships only in the v2 bundle (OCP ≥ 5.0); absent from the v1 classic bundle on OCP 4.x. See decision 0037. |
+| OLS-4171 | Deny agentic console-plugin pod-initiated egress while preserving Console ingress. |
