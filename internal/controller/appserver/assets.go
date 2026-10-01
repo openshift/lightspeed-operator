@@ -296,6 +296,11 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 
 	// Assemble the main OLS configuration
 	olsConfig := utils.OLSConfig{
+		Guardrails: utils.GuardrailsConfig{
+			ToolResultInspection: utils.ToolResultInspectionConfig{
+				Enabled: utils.ToolResultInspectionEnabled(cr),
+			},
+		},
 		DefaultModel:    cr.Spec.OLSConfig.DefaultModel,
 		DefaultProvider: cr.Spec.OLSConfig.DefaultProvider,
 		MaxIterations:   cr.Spec.OLSConfig.MaxIterations,
