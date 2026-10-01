@@ -106,6 +106,10 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 									Value: utils.AlertsAdapterAlertmanagerURL,
 								},
 								corev1.EnvVar{
+									Name:  utils.AgenticSkillsImageEnvVar,
+									Value: r.GetAgenticSkillsImage(),
+								},
+								corev1.EnvVar{
 									Name: "POD_NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{

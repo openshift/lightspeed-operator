@@ -103,6 +103,7 @@ var (
 		"console-plugin":             utils.ConsoleUIImageDefault,
 		"agentic-console-plugin":     utils.AgenticConsoleUIImageDefault,
 		"alerts-adapter":             utils.AlertsAdapterImageDefault,
+		"agentic-skills":             utils.AgenticSkillsImageDefault,
 		"agentic-sandbox":            utils.AgenticSandboxImageDefault,
 		"otel-collector":             utils.OtelCollectorImageDefault,
 		"openshift-mcp-server-image": utils.OpenShiftMCPServerImageDefault,
@@ -186,6 +187,7 @@ func main() {
 	var consoleImage string
 	var agenticConsoleImage string
 	var alertsAdapterImage string
+	var agenticSkillsImage string
 	var agenticSandboxImage string
 	var otelCollectorImage string
 	var namespace string
@@ -207,6 +209,7 @@ func main() {
 	flag.StringVar(&consoleImage, "console-image", utils.ConsoleUIImageDefault, "The image of the console-plugin container.")
 	flag.StringVar(&agenticConsoleImage, "agentic-console-image", utils.AgenticConsoleUIImageDefault, "The image of the agentic console-plugin container.")
 	flag.StringVar(&alertsAdapterImage, "alerts-adapter-image", utils.AlertsAdapterImageDefault, "The image of the agentic alerts adapter container.")
+	flag.StringVar(&agenticSkillsImage, "agentic-skills-image", utils.AgenticSkillsImageDefault, "The default OCI image for AgenticRun skills created by operands.")
 	flag.StringVar(&agenticSandboxImage, "agentic-sandbox-image", utils.AgenticSandboxImageDefault, "The image of the agentic sandbox container.")
 	flag.StringVar(&otelCollectorImage, "otel-collector-image", utils.OtelCollectorImageDefault, "The image of the OTEL Collector container.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace where the operator is deployed.")
@@ -227,6 +230,7 @@ func main() {
 	}
 
 	imagesMap := overrideImages(serviceImage, consoleImage, agenticConsoleImage, alertsAdapterImage, agenticSandboxImage, otelCollectorImage, postgresImage, openshiftMCPServerImage, dataverseExporterImage, rhokpImage)
+	imagesMap["agentic-skills"] = agenticSkillsImage
 	setupLog.Info("Images setting loaded", "images", listImages())
 
 	setupLog.Info("Starting the operator", "metricsAddr", metricsAddr, "probeAddr", probeAddr, "certDir", certDir, "certName", certName, "keyName", keyName, "namespace", namespace)
@@ -456,6 +460,7 @@ func main() {
 			ConsoleUIImage:                 imagesMap["console-plugin"],
 			AgenticConsoleUIImage:          imagesMap["agentic-console-plugin"],
 			AlertsAdapterImage:             imagesMap["alerts-adapter"],
+			AgenticSkillsImage:             imagesMap["agentic-skills"],
 			AgenticSandboxImage:            imagesMap["agentic-sandbox"],
 			OtelCollectorImage:             imagesMap["otel-collector"],
 			LightspeedServiceImage:         imagesMap["lightspeed-service"],
