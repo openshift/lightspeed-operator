@@ -575,6 +575,9 @@ spec:
                         rule: self.type == "google_vertex_anthropic" || !has(self.googleVertexAnthropicConfig)
                     maxItems: 10
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                 required:
                 - providers
                 type: object

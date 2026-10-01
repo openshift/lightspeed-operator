@@ -256,7 +256,14 @@ func validateDefaultProviderAndModel(cr *olsv1alpha1.OLSConfig) error {
 	}
 
 	providerFound := false
+	modelFound := false
+	providerNames := make(map[string]struct{}, len(cr.Spec.LLMConfig.Providers))
 	for _, provider := range cr.Spec.LLMConfig.Providers {
+		if _, exists := providerNames[provider.Name]; exists {
+			return fmt.Errorf("duplicate LLM provider name %q", provider.Name)
+		}
+		providerNames[provider.Name] = struct{}{}
+
 		if provider.Name != defaultProvider {
 			continue
 		}
@@ -264,11 +271,14 @@ func validateDefaultProviderAndModel(cr *olsv1alpha1.OLSConfig) error {
 
 		for _, model := range provider.Models {
 			if model.Name == defaultModel {
-				return nil
+				modelFound = true
 			}
 		}
 	}
 
+	if modelFound {
+		return nil
+	}
 	if providerFound {
 		return fmt.Errorf("default model %q is not configured for provider %q", defaultModel, defaultProvider)
 	}

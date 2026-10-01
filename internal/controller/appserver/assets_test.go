@@ -2215,16 +2215,13 @@ var _ = Describe("Helper function unit tests", func() {
 			Entry("unknown model", "testProvider", "missing-model"),
 		)
 
-		It("should check all providers with the default provider name", func() {
+		It("should reject duplicate provider names", func() {
 			cr.Spec.LLMConfig.Providers = append(cr.Spec.LLMConfig.Providers,
-				olsv1alpha1.ProviderSpec{
-					Name:   "testProvider",
-					Models: []olsv1alpha1.ModelSpec{{Name: "testModel"}},
-				},
+				olsv1alpha1.ProviderSpec{Name: "testProvider"},
 			)
 
 			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(MatchError(`duplicate LLM provider name "testProvider"`))
 		})
 
 		It("should build OLS config without proxy", func() {

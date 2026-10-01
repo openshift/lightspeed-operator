@@ -124,6 +124,13 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 		Expect(k8sClient.Create(ctx, cr)).To(Succeed())
 	})
 
+	It("rejects duplicate provider names", func() {
+		cr.Spec.LLMConfig.Providers = append(cr.Spec.LLMConfig.Providers, cr.Spec.LLMConfig.Providers[0])
+
+		err := k8sClient.Create(ctx, cr)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected duplicate provider names to be rejected, got %v", err)
+	})
+
 	Describe("terminalTTL admission validation", func() {
 		DescribeTable("accepts only positive whole days", func(days int32, accepted bool) {
 			cr.Spec.AgenticOLS = &olsv1alpha1.AgenticOLSSpec{TerminalTTL: &days}

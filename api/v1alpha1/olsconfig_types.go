@@ -222,6 +222,8 @@ const (
 type LLMSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MaxItems=10
+	// +listType=map
+	// +listMapKey=name
 	// +required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Providers"
 	Providers []ProviderSpec `json:"providers"`
