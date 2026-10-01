@@ -155,16 +155,10 @@ for snapshot in "${!SNAPSHOT_REFS[@]}"; do
   BUNDLE_VERSIONS+=("${BUNDLE_VERSION}")
   # restore bundle image to the catalog file
   ${YQ} eval -i '.image='"\"${BUNDLE_IMAGE}\"" "${TEMP_BUNDLE_FILE}"
-  # The bundle image is referenced by .image; only operand name/image pairs belong in relatedImages.
-  case "${BUNDLE_VERSION}" in
-    1.*) BUNDLE_VARIANT=v1 ;;
-    2.*) BUNDLE_VARIANT=v2 ;;
-    *) echo "Unsupported bundle version: ${BUNDLE_VERSION}" >&2; exit 1 ;;
-  esac
-  RELATED_IMAGES_CATALOG=$(jq --arg variant "${BUNDLE_VARIANT}" '
-    map(select(.name != "lightspeed-operator-bundle")
-      | select((.bundles // ["v1", "v2"]) | index($variant))
-      | {name, image})' <<<"${RELATED_IMAGES}") || exit 1
+  # Keep only rendered bundle operands and the bundle image itself for mirroring.
+  BUNDLE_NAMES=$(${YQ} eval -o=json '[.relatedImages[].name] + ["lightspeed-operator-bundle"]' "${TEMP_BUNDLE_FILE}")
+  RELATED_IMAGES_CATALOG=$(jq --argjson names "${BUNDLE_NAMES}" '
+    map(select(.name as $name | $names | index($name) != null) | {name, image})' <<<"${RELATED_IMAGES}") || exit 1
   ${YQ} eval -i '.relatedImages='"${RELATED_IMAGES_CATALOG}" "${TEMP_BUNDLE_FILE}"
 
   # Create version-specific bundle file
