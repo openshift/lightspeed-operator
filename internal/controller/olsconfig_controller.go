@@ -50,6 +50,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -104,6 +105,8 @@ type OLSConfigReconciler struct {
 	Options       utils.OLSConfigReconcilerOptions
 	WatcherConfig *utils.WatcherConfig
 }
+
+const finalizerCleanupTimeout = 3 * time.Minute
 
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/status,verbs=get;update;patch
@@ -213,6 +216,10 @@ func (r *OLSConfigReconciler) handleFinalizer(ctx context.Context, req ctrl.Requ
 
 			// Run finalizer cleanup logic
 			if err := r.finalizeOLSConfig(ctx, olsconfig); err != nil {
+				if errors.Is(err, alertsadapter.ErrAlertsAdapterCleanupPending) {
+					r.Logger.Info("Alerts adapter pods remain; retaining egress policy and retrying finalization")
+					return &ctrl.Result{RequeueAfter: time.Second}, nil
+				}
 				r.Logger.Error(err, "Failed to finalize OLSConfig CR")
 				return &ctrl.Result{}, fmt.Errorf("failed to finalize OLSConfig CR: %w", err)
 			}
@@ -395,6 +402,8 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 	}
 
 	if len(resourceFailures) > 0 {
+		alertsAdapterCleanupPending := errors.Is(resourceFailures["alerts adapter cleanup"], alertsadapter.ErrAlertsAdapterCleanupPending)
+
 		// Update status to show resource reconciliation failures
 		failureStatus := olsv1alpha1.OLSConfigStatus{
 			Conditions:     []metav1.Condition{},
@@ -414,6 +423,16 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 			}
 			failureStatus.Conditions = append(failureStatus.Conditions, condition)
 		}
+		if alertsAdapterCleanupPending {
+			failureStatus.Conditions = append(failureStatus.Conditions, metav1.Condition{
+				Type:               utils.TypeAlertsAdapterReady,
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: olsconfig.Generation,
+				Reason:             "CleanupPending",
+				Message:            "Waiting for alerts adapter pods to terminate before deleting the egress NetworkPolicy",
+				LastTransitionTime: metav1.Now(),
+			})
+		}
 
 		// Update status before returning error
 		updateErr := r.UpdateStatusCondition(ctx, olsconfig, failureStatus)
@@ -427,6 +446,9 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 		}
 
 		reconcileErr := fmt.Errorf("failed to reconcile resources: %v", taskNames)
+		if alertsAdapterCleanupPending {
+			reconcileErr = errors.Join(reconcileErr, alertsadapter.ErrAlertsAdapterCleanupPending)
+		}
 		if updateErr != nil {
 			// Combine both errors if status update also failed
 			return fmt.Errorf("%w (status update also failed: %v)", reconcileErr, updateErr)
@@ -755,6 +777,10 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// 5. Phase 1: Reconcile independent resources
 	if err := r.reconcileIndependentResources(ctx, olsconfig); err != nil {
+		if errors.Is(err, alertsadapter.ErrAlertsAdapterCleanupPending) {
+			r.Logger.Info("Alerts adapter pods remain; retaining egress policy and retrying cleanup")
+			return ctrl.Result{RequeueAfter: time.Second}, nil
+		}
 		if isRESTMappingError(err) {
 			// After CRD installation, the API server's discovery cache may not yet
 			// contain the OLSConfig kind. Returning a nil error with RequeueAfter
@@ -796,8 +822,15 @@ func (r *OLSConfigReconciler) finalizeOLSConfig(ctx context.Context, cr *olsv1al
 
 	r.Logger.V(1).Info("Removing alerts adapter operand during finalization")
 	if err := alertsadapter.RemoveAlertsAdapter(r, ctx); err != nil {
-		r.Logger.Error(err, "Failed to remove alerts adapter during finalization")
-		r.Logger.V(1).Info("Proceeding with finalization despite alerts adapter removal error")
+		if errors.Is(err, alertsadapter.ErrAlertsAdapterCleanupPending) {
+			if cr.DeletionTimestamp != nil && time.Since(cr.DeletionTimestamp.Time) < finalizerCleanupTimeout {
+				return fmt.Errorf("alerts adapter cleanup pending: %w", err)
+			}
+			r.Logger.Error(err, "Alerts adapter cleanup timed out during finalization; proceeding")
+		} else {
+			r.Logger.Error(err, "Failed to remove alerts adapter during finalization")
+			r.Logger.V(1).Info("Proceeding with finalization despite alerts adapter removal error")
+		}
 	}
 
 	r.Logger.V(1).Info("Removing openshift-mcp-server operand during finalization")
@@ -1050,7 +1083,7 @@ func (r *OLSConfigReconciler) deleteOwnedResources(ctx context.Context, resource
 // Uses listOwnedResources to dynamically check what still exists via owner references.
 // Waits for all resource types for complete cleanup and to prevent race conditions.
 func (r *OLSConfigReconciler) waitForOwnedResourcesDeletion(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	timeout := 3 * time.Minute
+	timeout := finalizerCleanupTimeout
 	interval := 5 * time.Second
 	firstCheck := true
 

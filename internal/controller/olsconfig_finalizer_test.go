@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -165,6 +166,77 @@ var _ = Describe("OLSConfig Finalizer", Ordered, Serial, func() {
 	})
 
 	Context("Finalizer handles deletion", func() {
+		It("should retain the adapter egress policy until its pods are gone", func() {
+			controllerutil.AddFinalizer(cr, utils.OLSConfigFinalizer)
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			labels := utils.GenerateAlertsAdapterSelectorLabels()
+			np := &networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: utils.AlertsAdapterEgressNetworkPolicyName, Namespace: namespace},
+				Spec: networkingv1.NetworkPolicySpec{
+					PodSelector: metav1.LabelSelector{MatchLabels: labels},
+					PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeEgress},
+				},
+			}
+			Expect(k8sClient.Create(ctx, np)).To(Succeed())
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "alerts-adapter-finalizing", Namespace: namespace, Labels: labels},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "adapter", Image: "test"}}},
+			}
+			Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+
+			Expect(k8sClient.Delete(ctx, cr)).To(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, cr)).To(Succeed())
+			req := reconcile.Request{NamespacedName: types.NamespacedName{Name: cr.Name}}
+			result, err := reconciler.handleFinalizer(ctx, req, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).NotTo(BeNil())
+			Expect(result.RequeueAfter).To(Equal(time.Second))
+			Expect(controllerutil.ContainsFinalizer(cr, utils.OLSConfigFinalizer)).To(BeTrue())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: np.Name, Namespace: namespace}, &networkingv1.NetworkPolicy{})).To(Succeed())
+
+			Expect(k8sClient.Delete(ctx, pod)).To(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, cr)).To(Succeed())
+			result, err = reconciler.handleFinalizer(ctx, req, cr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).NotTo(BeNil())
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, cr)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("should continue finalization after adapter cleanup times out", func() {
+			controllerutil.AddFinalizer(cr, utils.OLSConfigFinalizer)
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, cr)).To(Succeed())
+
+			labels := utils.GenerateAlertsAdapterSelectorLabels()
+			np := &networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: utils.AlertsAdapterEgressNetworkPolicyName, Namespace: namespace},
+				Spec: networkingv1.NetworkPolicySpec{
+					PodSelector: metav1.LabelSelector{MatchLabels: labels},
+					PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeEgress},
+				},
+			}
+			Expect(controllerutil.SetControllerReference(cr, np, k8sClient.Scheme())).To(Succeed())
+			Expect(k8sClient.Create(ctx, np)).To(Succeed())
+
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "alerts-adapter-finalization-timeout", Namespace: namespace, Labels: labels},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "adapter", Image: "test"}}},
+			}
+			Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+			DeferCleanup(func() {
+				_ = k8sClient.Delete(ctx, pod)
+			})
+
+			cr.DeletionTimestamp = &metav1.Time{Time: time.Now().Add(-4 * time.Minute)}
+			Expect(reconciler.finalizeOLSConfig(ctx, cr)).To(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: np.Name, Namespace: namespace}, &networkingv1.NetworkPolicy{})).To(Satisfy(apierrors.IsNotFound))
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: namespace}, &corev1.Pod{})).To(Succeed())
+
+			Expect(k8sClient.Delete(ctx, pod)).To(Succeed())
+		})
+
 		It("should remove finalizer when CR is deleted", func() {
 			// Create CR with finalizer
 			controllerutil.AddFinalizer(cr, utils.OLSConfigFinalizer)
