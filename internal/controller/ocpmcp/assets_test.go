@@ -46,7 +46,7 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(toml).To(ContainSubstring("[[denied_resources]]"))
 		Expect(toml).To(ContainSubstring(`[toolset_configs."observability/metrics"]`))
 		Expect(toml).To(ContainSubstring(`prometheus_url = "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091"`))
-		Expect(toml).To(ContainSubstring(`alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9095"`))
+		Expect(toml).To(ContainSubstring(`alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094"`))
 		Expect(toml).To(ContainSubstring(`guardrails = "!tsdb"`))
 		Expect(strings.Count(toml, "[[denied_resources]]")).To(Equal(2))
 	})
