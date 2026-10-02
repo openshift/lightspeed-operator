@@ -75,6 +75,59 @@ func GenerateAgenticRunsRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 	return &rb, nil
 }
 
+// GenerateAgenticOLSConfigClusterRole generates the ClusterRole granting read
+// access to the cluster-scoped AgenticOLSConfig.
+func GenerateAgenticOLSConfigClusterRole(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRole, error) {
+	role := rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   utils.AlertsAdapterAgenticOLSConfigClusterRoleName,
+			Labels: utils.GenerateAlertsAdapterSelectorLabels(),
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"agentic.openshift.io"},
+				Resources: []string{"agenticolsconfigs"},
+				Verbs:     []string{"get"},
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &role, r.GetScheme()); err != nil {
+		return nil, err
+	}
+
+	return &role, nil
+}
+
+// GenerateAgenticOLSConfigClusterRoleBinding binds the AgenticOLSConfig
+// ClusterRole to the alerts adapter ServiceAccount.
+func GenerateAgenticOLSConfigClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRoleBinding, error) {
+	rb := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   utils.AlertsAdapterAgenticOLSConfigClusterRoleBindingName,
+			Labels: utils.GenerateAlertsAdapterSelectorLabels(),
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      utils.AlertsAdapterServiceAccountName,
+				Namespace: r.GetNamespace(),
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     utils.AlertsAdapterAgenticOLSConfigClusterRoleName,
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &rb, r.GetScheme()); err != nil {
+		return nil, err
+	}
+
+	return &rb, nil
+}
+
 // GenerateAlertmanagerRoleBinding grants the adapter view access to Alertmanager in openshift-monitoring.
 func GenerateAlertmanagerRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.RoleBinding, error) {
 	rb := rbacv1.RoleBinding{
