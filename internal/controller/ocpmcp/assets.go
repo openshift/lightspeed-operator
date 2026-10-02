@@ -46,7 +46,7 @@ version = "v1"
 
 [toolset_configs."observability/metrics"]
 prometheus_url = "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091"
-alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9095"
+alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094"
 # Query-safety PromQL checks (not RBAC). "!tsdb" disables TSDB-dependent guardrails that
 # OpenShift Thanos Querier often lacks (/api/v1/status/tsdb); other guardrails stay on.
 # Auth still uses the caller's bearer token forwarded to Thanos/Alertmanager.
