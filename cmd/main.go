@@ -448,8 +448,9 @@ func main() {
 	}
 
 	if err = (&controller.OLSConfigReconciler{
-		Client: mgr.GetClient(),
-		Logger: ctrl.Log.WithName("controller").WithName("OLSConfig"),
+		Client:    mgr.GetClient(),
+		APIReader: mgr.GetAPIReader(),
+		Logger:    ctrl.Log.WithName("controller").WithName("OLSConfig"),
 		Options: utils.OLSConfigReconcilerOptions{
 			OpenShiftMajor:                 major,
 			OpenshiftMinor:                 minor,

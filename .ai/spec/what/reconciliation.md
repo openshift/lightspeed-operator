@@ -5,14 +5,14 @@ The operator reconciles the OLSConfig CR into Kubernetes resources through a two
 ## Behavioral Rules
 
 ### Reconciliation Trigger
-1. Reconciliation is triggered by changes to the OLSConfig CR, any owned resource, or annotated external resources. No periodic reconciliation.
+1. Reconciliation is triggered by changes to the OLSConfig CR, any owned resource, or annotated external resources (including deletes of referenced external Secrets/ConfigMaps). No periodic reconciliation.
 2. The controller handles error retries via controller-runtime exponential backoff. No custom retry logic.
 
 ### Reconciliation Order
 3. Step 1: Fetch and validate CR (ignore if name != "cluster", return silently if not found)
 4. Step 2: Handle finalizer (add if missing, run cleanup if CR being deleted)
 5. Step 3: Reconcile operator-level resources (ServiceMonitor, NetworkPolicy)
-6. Step 4: Annotate external resources for watching (validate LLM credentials and TLS secrets first)
+6. Step 4: Annotate external resources for watching (validate LLM credentials and TLS secrets first). Validation failure updates status to NotReady with a ResourceReconciliation Failed condition and returns an error for backoff.
 7. Step 5 (Phase 1): Reconcile independent resources -- ConfigMaps, Secrets, ServiceAccounts, Roles, NetworkPolicies for all components. Uses continue-on-error: reconcile as many as possible, report all failures.
 8. Step 6 (Phase 2): Reconcile deployments and dependent resources -- Deployments, Services, TLS certificates, ServiceMonitors, PrometheusRules. After reconciliation, check deployment health and update CR status.
 

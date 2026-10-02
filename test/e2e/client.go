@@ -226,7 +226,7 @@ func (c *Client) List(o client.ObjectList, opts ...client.ListOption) (err error
 }
 
 func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
-	return c.WaitForDeploymentCondition(dep, func(dep *appsv1.Deployment) (bool, error) {
+	err := c.WaitForDeploymentCondition(dep, func(dep *appsv1.Deployment) (bool, error) {
 		if dep.Generation > dep.Status.ObservedGeneration {
 			return false, fmt.Errorf("current generation %d, observed generation %d",
 				dep.Generation, dep.Status.ObservedGeneration)
@@ -242,6 +242,18 @@ func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
 		}
 		return true, nil
 	})
+	if err == nil {
+		return nil
+	}
+
+	readiness, readinessErr := c.getUnavailablePodReadiness(dep)
+	if readinessErr != nil {
+		return fmt.Errorf("%w; failed to inspect pod readiness: %v", err, readinessErr)
+	}
+	if readiness != "" {
+		return fmt.Errorf("%w; %s", err, readiness)
+	}
+	return err
 }
 
 func (c *Client) WaitForDeploymentNextGeneration(dep *appsv1.Deployment, oldGen int64) error {
@@ -256,6 +268,37 @@ func (c *Client) WaitForDeploymentNextGeneration(dep *appsv1.Deployment, oldGen 
 
 func (c *Client) isPodTerminating(pod *corev1.Pod) bool {
 	return pod.DeletionTimestamp != nil
+}
+
+func (c *Client) getUnavailablePodReadiness(dep *appsv1.Deployment) (string, error) {
+	if err := c.Get(dep); err != nil {
+		return "", fmt.Errorf("failed to get deployment %s/%s: %w", dep.GetNamespace(), dep.GetName(), err)
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(dep.Spec.Selector)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse deployment selector: %w", err)
+	}
+
+	pods := &corev1.PodList{}
+	if err := c.List(pods, client.InNamespace(dep.GetNamespace()), client.MatchingLabelsSelector{
+		Selector: selector,
+	}); err != nil {
+		return "", fmt.Errorf("failed to list pods for deployment %s/%s: %w", dep.GetNamespace(), dep.GetName(), err)
+	}
+
+	for _, pod := range pods.Items {
+		if c.isPodTerminating(&pod) {
+			continue
+		}
+		for _, condition := range pod.Status.Conditions {
+			if condition.Type == corev1.PodReady && condition.Status != corev1.ConditionTrue {
+				return fmt.Sprintf("pod %s is not ready: reason=%q message=%q", pod.Name, condition.Reason, condition.Message), nil
+			}
+		}
+	}
+
+	return "", nil
 }
 
 func (c *Client) WaitForDeploymentCondition(dep *appsv1.Deployment, condition func(*appsv1.Deployment) (bool, error)) error {
@@ -452,6 +495,31 @@ func (c *Client) WaitForSecretCreated(secret *corev1.Secret) error {
 		return fmt.Errorf("WaitForSecretCreated - waiting for the Secret %s/%s to be created: %w ; last error: %w", secret.GetNamespace(), secret.GetName(), err, lastErr)
 	}
 
+	return nil
+}
+
+func (c *Client) WaitForOLSConfigOverallStatus(name string, status olsv1alpha1.OverallStatus) error {
+	olsConfig := &olsv1alpha1.OLSConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	var lastErr error
+	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, c.conditionCheckTimeout, true, func(ctx context.Context) (bool, error) {
+		err := c.Get(olsConfig)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to get OLSConfig: %w", err)
+			return false, nil
+		}
+		if olsConfig.Status.OverallStatus != status {
+			lastErr = fmt.Errorf("overallStatus is %q, want %q", olsConfig.Status.OverallStatus, status)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("WaitForOLSConfigOverallStatus - waiting for OLSConfig %s overallStatus %q: %w ; last error: %w", name, status, err, lastErr)
+	}
 	return nil
 }
 
