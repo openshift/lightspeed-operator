@@ -120,13 +120,15 @@ var _ = Describe("manager-role YAML", func() {
 
 		It("only grants access to managed resource names", func() {
 			allowedClusterRoles := map[string]bool{
-				"lightspeed-app-server-sar-role":                true,
-				"lightspeed-agentic-alerts-adapter-agenticruns": true,
+				"lightspeed-app-server-sar-role":                     true,
+				"lightspeed-agentic-alerts-adapter-agenticolsconfig": true,
+				"lightspeed-agentic-alerts-adapter-agenticruns":      true,
 			}
 			allowedCRBs := map[string]bool{
-				"lightspeed-app-server-sar-role-binding":        true,
-				"lightspeed-agentic-alerts-adapter-agenticruns": true,
-				"lightspeed-operator-ols-metrics-reader":        true,
+				"lightspeed-app-server-sar-role-binding":             true,
+				"lightspeed-agentic-alerts-adapter-agenticolsconfig": true,
+				"lightspeed-agentic-alerts-adapter-agenticruns":      true,
+				"lightspeed-operator-ols-metrics-reader":             true,
 			}
 			allowedRoleBindings := map[string]bool{
 				"lightspeed-agentic-alerts-adapter-alertmanager": true,

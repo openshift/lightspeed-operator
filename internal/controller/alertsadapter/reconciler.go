@@ -34,6 +34,8 @@ func ReconcileAlertsAdapterResources(r reconciler.Reconciler, ctx context.Contex
 		{Name: "reconcile alerts adapter ServiceAccount", Task: reconcileServiceAccount},
 		{Name: "reconcile alerts adapter agenticruns Role", Task: reconcileAgenticRunsRole},
 		{Name: "reconcile alerts adapter agenticruns RoleBinding", Task: reconcileAgenticRunsRoleBinding},
+		{Name: "reconcile alerts adapter agenticolsconfig ClusterRole", Task: reconcileAgenticOLSConfigClusterRole},
+		{Name: "reconcile alerts adapter agenticolsconfig ClusterRoleBinding", Task: reconcileAgenticOLSConfigClusterRoleBinding},
 		{Name: "reconcile alerts adapter Alertmanager RoleBinding", Task: reconcileAlertmanagerRoleBinding},
 		{Name: "reconcile alerts adapter NetworkPolicy", Task: reconcileNetworkPolicy},
 	}
@@ -83,6 +85,8 @@ func RemoveAlertsAdapter(r reconciler.Reconciler, ctx context.Context) error {
 		{Name: "delete alerts adapter Alertmanager RoleBinding", Task: deleteAlertmanagerRoleBinding},
 		{Name: "delete alerts adapter agenticruns Role", Task: deleteAgenticRunsRole},
 		{Name: "delete alerts adapter agenticruns RoleBinding", Task: deleteAgenticRunsRoleBinding},
+		{Name: "delete alerts adapter agenticolsconfig ClusterRole", Task: deleteAgenticOLSConfigClusterRole},
+		{Name: "delete alerts adapter agenticolsconfig ClusterRoleBinding", Task: deleteAgenticOLSConfigClusterRoleBinding},
 	}
 
 	var errs []error
@@ -163,6 +167,50 @@ func reconcileAgenticRunsRoleBinding(r reconciler.Reconciler, ctx context.Contex
 	}
 
 	r.GetLogger().Info("alerts adapter agenticruns role binding reconciled", "RoleBinding", rb.Name)
+	return nil
+}
+
+func reconcileAgenticOLSConfigClusterRole(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	role, err := GenerateAgenticOLSConfigClusterRole(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGenerateAlertsAdapterAgenticOLSConfigClusterRole, err)
+	}
+
+	foundRole := &rbacv1.ClusterRole{}
+	err = r.Get(ctx, client.ObjectKey{Name: role.Name}, foundRole)
+	if err != nil && apierrors.IsNotFound(err) {
+		r.GetLogger().Info("creating alerts adapter agenticolsconfig cluster role", "ClusterRole", role.Name)
+		if err := r.Create(ctx, role); err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrCreateAlertsAdapterAgenticOLSConfigClusterRole, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterAgenticOLSConfigClusterRole, err)
+	}
+
+	r.GetLogger().Info("alerts adapter agenticolsconfig cluster role reconciled", "ClusterRole", role.Name)
+	return nil
+}
+
+func reconcileAgenticOLSConfigClusterRoleBinding(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	rb, err := GenerateAgenticOLSConfigClusterRoleBinding(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGenerateAlertsAdapterAgenticOLSConfigClusterRoleBinding, err)
+	}
+
+	foundRB := &rbacv1.ClusterRoleBinding{}
+	err = r.Get(ctx, client.ObjectKey{Name: rb.Name}, foundRB)
+	if err != nil && apierrors.IsNotFound(err) {
+		r.GetLogger().Info("creating alerts adapter agenticolsconfig cluster role binding", "ClusterRoleBinding", rb.Name)
+		if err := r.Create(ctx, rb); err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrCreateAlertsAdapterAgenticOLSConfigClusterRoleBinding, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterAgenticOLSConfigClusterRoleBinding, err)
+	}
+
+	r.GetLogger().Info("alerts adapter agenticolsconfig cluster role binding reconciled", "ClusterRoleBinding", rb.Name)
 	return nil
 }
 
@@ -431,6 +479,50 @@ func deleteAgenticRunsRole(r reconciler.Reconciler, ctx context.Context) error {
 	}
 
 	r.GetLogger().Info("alerts adapter agenticruns Role deleted")
+	return nil
+}
+
+func deleteAgenticOLSConfigClusterRoleBinding(r reconciler.Reconciler, ctx context.Context) error {
+	rb := &rbacv1.ClusterRoleBinding{}
+	err := r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterAgenticOLSConfigClusterRoleBindingName}, rb)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.GetLogger().Info("alerts adapter agenticolsconfig ClusterRoleBinding not found, skip deletion")
+			return nil
+		}
+		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterAgenticOLSConfigClusterRoleBinding, err)
+	}
+
+	if err := r.Delete(ctx, rb); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to delete alerts adapter agenticolsconfig ClusterRoleBinding: %w", err)
+	}
+
+	r.GetLogger().Info("alerts adapter agenticolsconfig ClusterRoleBinding deleted")
+	return nil
+}
+
+func deleteAgenticOLSConfigClusterRole(r reconciler.Reconciler, ctx context.Context) error {
+	role := &rbacv1.ClusterRole{}
+	err := r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterAgenticOLSConfigClusterRoleName}, role)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.GetLogger().Info("alerts adapter agenticolsconfig ClusterRole not found, skip deletion")
+			return nil
+		}
+		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterAgenticOLSConfigClusterRole, err)
+	}
+
+	if err := r.Delete(ctx, role); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to delete alerts adapter agenticolsconfig ClusterRole: %w", err)
+	}
+
+	r.GetLogger().Info("alerts adapter agenticolsconfig ClusterRole deleted")
 	return nil
 }
 
