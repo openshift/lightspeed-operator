@@ -56,6 +56,7 @@ lightspeed-catalog-4.18/
 | 4.18 | `lightspeed-catalog-4.18/` | 1.31 |
 | 4.19 | `lightspeed-catalog-4.19/` | 1.32 |
 | 4.20 | `lightspeed-catalog-4.20/` | 1.33 |
+| 5.0 | `lightspeed-catalog-5.0/` | See OCP release notes |
 
 **Why separate catalogs?**
 - Bundle metadata differs per OCP version (`com.redhat.openshift.versions` annotation)
@@ -63,6 +64,23 @@ lightspeed-catalog-4.18/
 - Version-specific features and APIs
 
 ---
+
+## OCP 5.0 catalog bootstrap
+
+The existing `ols-bundle` Konflux Application publishes **one bundle image** used by
+both 4.x and 5.0 catalogs. The `ols-bundle-stable-automation-releaseplan`
+final pipeline updates the 4.x catalogs as before. It updates
+`lightspeed-catalog-5.0/` only if the newly rendered 4.22 bundle contains
+an `agentic.openshift.io` GVK. Classic-only bundle releases therefore cannot
+populate the 5.0 index. The OCP 5 FBC application is `ols-fbc-v5-0` with
+component `fbc-v5-0`.
+
+The 5.0 directory starts empty. Do not build or publish its image until the
+single full bundle has been released and the automated catalog-update PR
+has populated the index and bundle file. Verify `opm validate
+lightspeed-catalog-5.0` and the new bundle's OCP compatibility annotation
+before merging that PR. The OCP 5 registry base image in the Dockerfile must
+also be confirmed before publication.
 
 ## Catalog Generation Workflow
 
