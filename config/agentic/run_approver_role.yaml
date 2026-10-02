@@ -1,6 +1,6 @@
 # ClusterRole for human agentic run approvers (cluster-admins) (OLS-3188).
 # Grants read + patch on AgenticRunApprovals (approve/deny) and read on
-# AgenticRuns (context). Shipped as a static v2 bundle manifest. Synced from
+# AgenticRuns (context). Shipped as a static bundle manifest. Synced from
 # agentic-operator config/rbac/run_approver_role.yaml; do not hand-edit.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
