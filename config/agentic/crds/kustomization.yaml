@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - agentic.openshift.io_agenticolsconfigs.yaml
+  - agentic.openshift.io_agenticrunapprovals.yaml
+  - agentic.openshift.io_agenticruns.yaml
+  - agentic.openshift.io_agents.yaml
+  - agentic.openshift.io_analysisresults.yaml
+  - agentic.openshift.io_approvalpolicies.yaml
+  - agentic.openshift.io_escalationresults.yaml
+  - agentic.openshift.io_executionresults.yaml
+  - agentic.openshift.io_llmproviders.yaml
+  - agentic.openshift.io_verificationresults.yaml

@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: agentic-run-approver
+rules:
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - agenticrunapprovals
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - agentic.openshift.io
+  resources:
+  - agenticruns
+  verbs:
+  - get
+  - list
+  - watch

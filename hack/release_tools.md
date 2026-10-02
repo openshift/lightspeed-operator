@@ -11,17 +11,15 @@ When we update the bundle?
 1. change in the CRD (change in api/v1alpha1/olsconfig_types.go)
 2. change in any resources (deployment, role, service, etc.) in config/ directory
 
-`update_bundle.sh` updates the bundle. It requires a bundle variant (`v1` or `v2`) before its options; the bundle version passed with `-v` must use the variant's major version. For example, this command updates the classic bundle with version `1.2.1`.
-`./hack/update_bundle.sh v1 -v 1.2.1`
+`update_bundle.sh` generates the one full bundle under `bundle/`. Pass a bundle
+version and the required image list file; all images belong to the same bundle:
+`./hack/update_bundle.sh -v 1.2.1 -i related_images.json`
 
-Pass the required image list JSON file with `-i` to update the variant-filtered `.spec.relatedImages` field in the bundle:
-`./hack/update_bundle.sh v1 -v 1.2.1 -i related_images.json`
-
-We can also use `make bundle` to update the bundle.
-- `BUNDLE_VARIANT=v1 BUNDLE_TAG=1.2.1 make bundle` generates a classic bundle with version `1.2.1` using `related_images.json`.
-- `BUNDLE_VARIANT=v2 BUNDLE_TAG=2.0.0 make bundle` generates the agentic bundle with version `2.0.0` using `related_images.json`.
-
-After building the bundle image from `bundle.Dockerfile`, the `.spec.relatedImages` field in `/manifests/lightspeed-operator.clusterserviceversion.yaml` is set to the variant-filtered images in `related_images.json`.
+Alternatively, run `make bundle BUNDLE_TAG=1.2.1` to generate and validate the
+same artifact. `bundle.Dockerfile` is the sole published bundle image build
+input. The CSV `.spec.relatedImages` contains all operand/controller images
+from `related_images.json` (excluding the bundle image itself). The runtime
+version gates, not bundle selection, control agentic operations on OCP 4.x.
 
 ## Image List Update
 
