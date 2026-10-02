@@ -248,9 +248,65 @@ func buildToolFilteringConfig(cr *olsv1alpha1.OLSConfig, mcpServers []utils.MCPS
 	}
 }
 
+func validateDefaultProviderAndModel(cr *olsv1alpha1.OLSConfig) error {
+	defaultProvider := cr.Spec.OLSConfig.DefaultProvider
+	defaultModel := cr.Spec.OLSConfig.DefaultModel
+	if len(cr.Spec.LLMConfig.Providers) == 0 && defaultProvider == "" && defaultModel == "" {
+		return nil
+	}
+
+	providerFound := false
+	modelFound := false
+	providerNames := make(map[string]struct{}, len(cr.Spec.LLMConfig.Providers))
+	for _, provider := range cr.Spec.LLMConfig.Providers {
+		if provider.Name == "" {
+			return fmt.Errorf("LLM provider name must not be empty")
+		}
+		if len([]rune(provider.Name)) > 253 {
+			return fmt.Errorf("LLM provider name must not exceed 253 characters")
+		}
+		for _, model := range provider.Models {
+			if model.Name == "" {
+				return fmt.Errorf("model name must not be empty for provider %q", provider.Name)
+			}
+			if len([]rune(model.Name)) > 253 {
+				return fmt.Errorf("model name must not exceed 253 characters for provider %q", provider.Name)
+			}
+		}
+
+		if _, exists := providerNames[provider.Name]; exists {
+			return fmt.Errorf("duplicate LLM provider name %q", provider.Name)
+		}
+		providerNames[provider.Name] = struct{}{}
+
+		if provider.Name != defaultProvider {
+			continue
+		}
+		providerFound = true
+
+		for _, model := range provider.Models {
+			if model.Name == defaultModel {
+				modelFound = true
+			}
+		}
+	}
+
+	if modelFound {
+		return nil
+	}
+	if providerFound {
+		return fmt.Errorf("default model %q is not configured for provider %q", defaultModel, defaultProvider)
+	}
+	return fmt.Errorf("default provider %q is not configured", defaultProvider)
+}
+
 // buildOLSConfig builds the main OLS configuration including conversation cache, TLS, proxy,
 // RAG indexes, logging, and user data collection settings.
 func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, dataCollectorEnabled bool) (utils.OLSConfig, error) {
+	if err := validateDefaultProviderAndModel(cr); err != nil {
+		return utils.OLSConfig{}, err
+	}
+
 	// Configure conversation cache using PostgreSQL
 	conversationCache := utils.ConversationCacheConfig{
 		Type:     string(utils.OLSDefaultCacheType),

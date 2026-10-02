@@ -151,6 +151,7 @@ func GetNoCacheCR() *olsv1alpha1.OLSConfig {
 func WithAzureOpenAIProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	cr.Spec.LLMConfig.Providers[0].Name = "openai"
 	cr.Spec.LLMConfig.Providers[0].Type = "azure_openai"
+	cr.Spec.OLSConfig.DefaultProvider = "openai"
 	cr.Spec.LLMConfig.Providers[0].AzureDeploymentName = "testDeployment"
 	cr.Spec.LLMConfig.Providers[0].APIVersion = "2021-09-01"
 	return cr
@@ -162,6 +163,7 @@ func WithAzureOpenAIProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 func WithGoogleVertexProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	cr.Spec.LLMConfig.Providers[0].Name = "google_vertex"
 	cr.Spec.LLMConfig.Providers[0].Type = "google_vertex"
+	cr.Spec.OLSConfig.DefaultProvider = "google_vertex"
 	cr.Spec.LLMConfig.Providers[0].GoogleVertexConfig = &olsv1alpha1.VertexConfig{
 		ProjectID: "testProjectID",
 		Location:  "testLocation",
@@ -175,6 +177,7 @@ func WithGoogleVertexProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig 
 func WithGoogleVertexAnthropicProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	cr.Spec.LLMConfig.Providers[0].Name = "google_vertex_anthropic"
 	cr.Spec.LLMConfig.Providers[0].Type = "google_vertex_anthropic"
+	cr.Spec.OLSConfig.DefaultProvider = "google_vertex_anthropic"
 	cr.Spec.LLMConfig.Providers[0].GoogleVertexAnthropicConfig = &olsv1alpha1.VertexConfig{
 		ProjectID: "testProjectID",
 		Location:  "testLocation",
@@ -189,12 +192,14 @@ func WithGoogleVertexAnthropicProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.O
 func WithBedrockProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	cr.Spec.LLMConfig.Providers[0].Name = "bedrock"
 	cr.Spec.LLMConfig.Providers[0].Type = BedrockType
+	cr.Spec.OLSConfig.DefaultProvider = "bedrock"
 	cr.Spec.LLMConfig.Providers[0].URL = "https://bedrock-mantle.us-east-1.api.aws"
 	cr.Spec.LLMConfig.Providers[0].Models = []olsv1alpha1.ModelSpec{
 		{
 			Name: "anthropic.claude-opus-4-7",
 		},
 	}
+	cr.Spec.OLSConfig.DefaultModel = "anthropic.claude-opus-4-7"
 	return cr
 }
 

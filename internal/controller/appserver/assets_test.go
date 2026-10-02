@@ -2238,6 +2238,49 @@ var _ = Describe("Helper function unit tests", func() {
 	})
 
 	Context("buildOLSConfig", func() {
+		DescribeTable("should reject defaults that are not configured", func(defaultProvider, defaultModel string) {
+			cr.Spec.OLSConfig.DefaultProvider = defaultProvider
+			cr.Spec.OLSConfig.DefaultModel = defaultModel
+
+			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).To(HaveOccurred())
+		},
+			Entry("unknown provider", "missing-provider", "testModel"),
+			Entry("unknown model", "testProvider", "missing-model"),
+		)
+
+		It("should reject duplicate provider names", func() {
+			cr.Spec.LLMConfig.Providers = append(cr.Spec.LLMConfig.Providers,
+				olsv1alpha1.ProviderSpec{Name: "testProvider"},
+			)
+
+			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).To(MatchError(`duplicate LLM provider name "testProvider"`))
+		})
+
+		It("should reject empty provider and model names", func() {
+			cr.Spec.LLMConfig.Providers[0].Name = ""
+			cr.Spec.LLMConfig.Providers[0].Models[0].Name = ""
+			cr.Spec.OLSConfig.DefaultProvider = ""
+			cr.Spec.OLSConfig.DefaultModel = ""
+
+			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should reject provider and model names longer than 253 characters", func() {
+			cr.Spec.LLMConfig.Providers[0].Name = strings.Repeat("p", 254)
+			cr.Spec.OLSConfig.DefaultProvider = cr.Spec.LLMConfig.Providers[0].Name
+			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).To(MatchError("LLM provider name must not exceed 253 characters"))
+
+			cr = utils.GetDefaultOLSConfigCR()
+			cr.Spec.LLMConfig.Providers[0].Models[0].Name = strings.Repeat("m", 254)
+			cr.Spec.OLSConfig.DefaultModel = cr.Spec.LLMConfig.Providers[0].Models[0].Name
+			_, err = buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).To(MatchError("model name must not exceed 253 characters for provider \"testProvider\""))
+		})
+
 		It("should build OLS config without proxy", func() {
 			cr.Spec.OLSConfig.ProxyConfig = nil
 			config, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
@@ -2524,4 +2567,5 @@ func serviceAuditYAMLMatcher(logging string) OmegaMatcher {
 func setFirstLLMProviderNameAndType(cr *olsv1alpha1.OLSConfig, name, providerType string) {
 	cr.Spec.LLMConfig.Providers[0].Name = name
 	cr.Spec.LLMConfig.Providers[0].Type = providerType
+	cr.Spec.OLSConfig.DefaultProvider = name
 }

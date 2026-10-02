@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -102,6 +103,53 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 			},
 		}
 		_ = k8sClient.Delete(ctx, testSecret)
+	})
+
+	Describe("default provider and model admission validation", func() {
+		DescribeTable("rejects defaults that are not configured", func(defaultProvider, defaultModel string) {
+			cr.Spec.OLSConfig.DefaultProvider = defaultProvider
+			cr.Spec.OLSConfig.DefaultModel = defaultModel
+
+			err := k8sClient.Create(ctx, cr)
+			Expect(apierrors.IsInvalid(err)).To(BeTrue(),
+				"expected admission to reject provider=%q model=%q, got %v", defaultProvider, defaultModel, err)
+		},
+			Entry("unknown provider", "missing-provider", "test-model"),
+			Entry("unknown model", "test-provider", "missing-model"),
+		)
+	})
+
+	It("allows an empty provider configuration with empty defaults", func() {
+		cr.Spec.LLMConfig.Providers = []olsv1alpha1.ProviderSpec{}
+		cr.Spec.OLSConfig.DefaultProvider = ""
+		cr.Spec.OLSConfig.DefaultModel = ""
+
+		Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+	})
+
+	It("rejects duplicate provider names", func() {
+		cr.Spec.LLMConfig.Providers = append(cr.Spec.LLMConfig.Providers, cr.Spec.LLMConfig.Providers[0])
+
+		err := k8sClient.Create(ctx, cr)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected duplicate provider names to be rejected, got %v", err)
+	})
+
+	It("rejects empty provider and model names", func() {
+		cr.Spec.LLMConfig.Providers[0].Name = ""
+		cr.Spec.LLMConfig.Providers[0].Models[0].Name = ""
+		cr.Spec.OLSConfig.DefaultProvider = ""
+		cr.Spec.OLSConfig.DefaultModel = ""
+
+		err := k8sClient.Create(ctx, cr)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected empty provider and model names to be rejected, got %v", err)
+	})
+
+	It("rejects provider and model names longer than 253 characters", func() {
+		cr.Spec.LLMConfig.Providers[0].Name = strings.Repeat("p", 254)
+		cr.Spec.LLMConfig.Providers[0].Models[0].Name = strings.Repeat("m", 254)
+
+		err := k8sClient.Create(ctx, cr)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected long provider and model names to be rejected, got %v", err)
 	})
 
 	Describe("terminalTTL admission validation", func() {
