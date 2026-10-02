@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -23,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
+	"github.com/openshift/lightspeed-operator/internal/controller/alertsadapter"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
@@ -368,6 +371,54 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 			// May succeed or fail depending on test environment setup
 			// The important part is it doesn't panic
 			_ = err
+		})
+
+		It("preserves adapter cleanup state while pods are still terminating", func() {
+			cr.Status.Conditions = []metav1.Condition{{
+				Type:               utils.TypeAlertsAdapterReady,
+				Status:             metav1.ConditionTrue,
+				Reason:             "Ready",
+				ObservedGeneration: cr.Generation,
+				LastTransitionTime: metav1.Now(),
+			}}
+			Expect(k8sClient.Status().Update(ctx, cr)).To(Succeed())
+
+			labels := utils.GenerateAlertsAdapterSelectorLabels()
+			np := &networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.AlertsAdapterEgressNetworkPolicyName,
+					Namespace: namespace,
+				},
+				Spec: networkingv1.NetworkPolicySpec{
+					PodSelector: metav1.LabelSelector{MatchLabels: labels},
+					PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeEgress},
+				},
+			}
+			Expect(k8sClient.Create(ctx, np)).To(Succeed())
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "alerts-adapter-cleanup", Namespace: namespace, Labels: labels},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "adapter", Image: "test"}}},
+			}
+			Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+
+			err := reconciler.reconcileIndependentResources(ctx, cr)
+			Expect(errors.Is(err, alertsadapter.ErrAlertsAdapterCleanupPending)).To(BeTrue())
+
+			updatedCR := &olsv1alpha1.OLSConfig{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, updatedCR)).To(Succeed())
+			var adapterCondition *metav1.Condition
+			for i := range updatedCR.Status.Conditions {
+				if updatedCR.Status.Conditions[i].Type == utils.TypeAlertsAdapterReady {
+					adapterCondition = &updatedCR.Status.Conditions[i]
+					break
+				}
+			}
+			Expect(adapterCondition).NotTo(BeNil())
+			Expect(adapterCondition.Reason).To(Equal("CleanupPending"))
+			Expect(wasComponentEnabled(updatedCR, utils.TypeAlertsAdapterReady)).To(BeTrue())
+
+			Expect(k8sClient.Delete(ctx, pod)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, np)).To(Succeed())
 		})
 	})
 

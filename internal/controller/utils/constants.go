@@ -437,8 +437,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AlertsAdapterServiceAccountName = "lightspeed-agentic-alerts-adapter"
 	// AlertsAdapterContainerName is the name of the alerts adapter container
 	AlertsAdapterContainerName = "adapter"
-	// AlertsAdapterNetworkPolicyName is the name of the network policy for the alerts adapter
+	// AlertsAdapterNetworkPolicyName is the name of the ingress network policy for the alerts adapter
 	AlertsAdapterNetworkPolicyName = "lightspeed-agentic-alerts-adapter"
+	// AlertsAdapterEgressNetworkPolicyName is the name of the egress network policy for the alerts adapter
+	AlertsAdapterEgressNetworkPolicyName = "lightspeed-agentic-alerts-adapter-egress"
 	// AlertsAdapterAgenticRunsRoleName is the namespaced role granting AgenticRun create/list/get
 	AlertsAdapterAgenticRunsRoleName = "lightspeed-agentic-alerts-adapter-agenticruns"
 	// AlertsAdapterAgenticRunsRoleBindingName binds the AgenticRun Role to the alerts adapter SA

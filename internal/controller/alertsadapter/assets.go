@@ -9,6 +9,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -129,6 +130,70 @@ func GenerateNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 	}
 
 	return &np, nil
+}
+
+// GenerateEgressNetworkPolicy generates the egress policy for the alerts adapter.
+func GenerateEgressNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
+	protocolTCP := corev1.ProtocolTCP
+	protocolUDP := corev1.ProtocolUDP
+	apiPort := intstr.FromInt32(6443)
+	alertmanagerPort := intstr.FromInt32(9095)
+	dnsPodPort := intstr.FromInt32(5353)
+
+	egressPolicy := networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.AlertsAdapterEgressNetworkPolicyName,
+			Namespace: r.GetNamespace(),
+			Labels:    utils.GenerateAlertsAdapterSelectorLabels(),
+		},
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: utils.GenerateAlertsAdapterSelectorLabels(),
+			},
+			PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeEgress},
+			Egress: []networkingv1.NetworkPolicyEgressRule{
+				{
+					// The API Service maps port 443 to API server endpoint port 6443.
+					// With no destination peer, only the selected pods and TCP/6443 are allowed.
+					Ports: []networkingv1.NetworkPolicyPort{{Protocol: &protocolTCP, Port: &apiPort}},
+				},
+				{
+					To: []networkingv1.NetworkPolicyPeer{{
+						NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+							"kubernetes.io/metadata.name": utils.OpenShiftMonitoringNamespace,
+						}},
+						PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+							"app.kubernetes.io/name":     "alertmanager",
+							"app.kubernetes.io/instance": "main",
+							"app.kubernetes.io/part-of":  "openshift-monitoring",
+						}},
+					}},
+					Ports: []networkingv1.NetworkPolicyPort{{Protocol: &protocolTCP, Port: &alertmanagerPort}},
+				},
+				{
+					// The DNS Service exposes port 53 but forwards queries to DNS pods on port 5353.
+					To: []networkingv1.NetworkPolicyPeer{{
+						NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+							"kubernetes.io/metadata.name": "openshift-dns",
+						}},
+						PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+							"dns.operator.openshift.io/daemonset-dns": "default",
+						}},
+					}},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{Protocol: &protocolUDP, Port: &dnsPodPort},
+						{Protocol: &protocolTCP, Port: &dnsPodPort},
+					},
+				},
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &egressPolicy, r.GetScheme()); err != nil {
+		return nil, err
+	}
+
+	return &egressPolicy, nil
 }
 
 // getUserConfigMap loads the referenced ConfigMap when alerts adapter is enabled.
