@@ -75,6 +75,17 @@ var _ = Describe("RHOKP reconciler", Ordered, func() {
 			}))
 		})
 
+		It("should create a separate egress-only policy selecting RHOKP pods", func() {
+			np := &networkingv1.NetworkPolicy{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name: utils.RHOKPNetworkPolicyName + "-egress", Namespace: utils.OLSNamespaceDefault,
+			}, np)).To(Succeed())
+			Expect(np.Spec.PodSelector.MatchLabels).To(Equal(selectorLabels()))
+			Expect(np.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeEgress}))
+			Expect(np.Spec.Egress).To(BeEmpty())
+			Expect(np.Spec.Ingress).To(BeEmpty())
+		})
+
 		It("should restore RHOKP Prometheus ingress on reconciliation", func() {
 			key := types.NamespacedName{Name: utils.RHOKPNetworkPolicyName, Namespace: utils.OLSNamespaceDefault}
 			np := &networkingv1.NetworkPolicy{}
@@ -280,6 +291,10 @@ var _ = Describe("RHOKP reconciler", Ordered, func() {
 				Namespace: utils.OLSNamespaceDefault,
 			}, np)
 			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "network policy should be deleted")
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name: utils.RHOKPNetworkPolicyName + "-egress", Namespace: utils.OLSNamespaceDefault,
+			}, np)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "egress policy should be deleted")
 
 			tlsSecret := &corev1.Secret{}
 			err = k8sClient.Get(ctx, types.NamespacedName{

@@ -19,6 +19,7 @@ func ReconcileAgenticConsoleUIResources(r reconciler.Reconciler, ctx context.Con
 	return utils.RunReconcileTasks(r, ctx, olsconfig, "reconcileAgenticConsoleUIResources", []utils.ReconcileTask{
 		{Name: "reconcile Agentic Console Plugin ConfigMap", Task: reconcileAgenticConsoleUIConfigMap},
 		{Name: "reconcile Agentic Console Plugin NetworkPolicy", Task: reconcileAgenticConsoleNetworkPolicy},
+		{Name: "reconcile Agentic Console Plugin egress NetworkPolicy", Task: reconcileAgenticConsoleEgressNetworkPolicy},
 		{Name: "reconcile Agentic Console Plugin Service Account", Task: reconcileAgenticConsoleUIServiceAccount},
 	}, true)
 }
@@ -85,7 +86,15 @@ func reconcileAgenticConsoleNetworkPolicy(r reconciler.Reconciler, ctx context.C
 	if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGenerateConsolePluginNetworkPolicy, err)
 	}
-	return utils.ReconcileConsolePluginNetworkPolicy(r, ctx, np)
+	return utils.ReconcileNetworkPolicy(r, ctx, np)
+}
+
+func reconcileAgenticConsoleEgressNetworkPolicy(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	ingress, err := GenerateAgenticConsoleUINetworkPolicy(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGenerateConsolePluginNetworkPolicy, err)
+	}
+	return utils.ReconcileNetworkPolicy(r, ctx, utils.GenerateDenyEgressNetworkPolicy(ingress))
 }
 
 func reconcileAgenticConsoleUIServiceAccount(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {

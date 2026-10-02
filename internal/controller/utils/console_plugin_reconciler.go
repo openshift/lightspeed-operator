@@ -11,7 +11,6 @@ import (
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -281,32 +280,6 @@ func WaitForConsolePluginTLSSecret(r reconciler.Reconciler, ctx context.Context,
 		return fmt.Errorf("failed to get TLS key and cert - wait err %w; last error: %w", err, lastErr)
 	}
 	r.GetLogger().Info("Console Plugin tls secret reconciled", "secret", secretName)
-	return nil
-}
-
-// ReconcileConsolePluginNetworkPolicy creates or updates a console plugin NetworkPolicy.
-func ReconcileConsolePluginNetworkPolicy(r reconciler.Reconciler, ctx context.Context, desired *networkingv1.NetworkPolicy) error {
-	foundNp := &networkingv1.NetworkPolicy{}
-	err := r.Get(ctx, client.ObjectKey{Name: desired.Name, Namespace: r.GetNamespace()}, foundNp)
-	if err != nil && errors.IsNotFound(err) {
-		r.GetLogger().Info("creating Console Plugin NetworkPolicy", "networkpolicy", desired.Name)
-		if err = r.Create(ctx, desired); err != nil {
-			return fmt.Errorf("%s: %w", ErrCreateConsolePluginNetworkPolicy, err)
-		}
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGetConsolePluginNetworkPolicy, err)
-	}
-	if NetworkPolicyEqual(desired, foundNp) {
-		r.GetLogger().Info("Console Plugin NetworkPolicy unchanged, reconciliation skipped", "networkpolicy", desired.Name)
-		return nil
-	}
-	foundNp.Spec = desired.Spec
-	if err = r.Update(ctx, foundNp); err != nil {
-		return fmt.Errorf("%s: %w", ErrUpdateConsolePluginNetworkPolicy, err)
-	}
-	r.GetLogger().Info("Console Plugin NetworkPolicy reconciled", "networkpolicy", desired.Name)
 	return nil
 }
 

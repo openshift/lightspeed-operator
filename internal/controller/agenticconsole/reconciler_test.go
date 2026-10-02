@@ -57,6 +57,10 @@ var _ = Describe("Agentic Console UI reconciler", Ordered, func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.AgenticConsoleUIDeploymentName, Namespace: utils.OLSNamespaceDefault}, &appsv1.Deployment{})).To(Succeed())
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.AgenticConsoleUIPluginName}, &consolev1.ConsolePlugin{})).To(Succeed())
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.AgenticConsoleUINetworkPolicyName, Namespace: utils.OLSNamespaceDefault}, &networkingv1.NetworkPolicy{})).To(Succeed())
+			egress := &networkingv1.NetworkPolicy{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.AgenticConsoleUINetworkPolicyName + "-egress", Namespace: utils.OLSNamespaceDefault}, egress)).To(Succeed())
+			Expect(egress.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeEgress}))
+			Expect(egress.Spec.Egress).To(BeEmpty())
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.AgenticConsoleUIServiceAccountName, Namespace: utils.OLSNamespaceDefault}, &corev1.ServiceAccount{})).To(Succeed())
 		})
 
