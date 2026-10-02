@@ -331,7 +331,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		Name: utils.AppOtelCollectorCACertVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName:  utils.AgenticOtelCASecretName,
+				SecretName:  utils.AppOtelCASecretName,
 				DefaultMode: &volumeDefaultMode,
 				Items: []corev1.KeyToPath{
 					{
@@ -348,7 +348,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Name: utils.AppOpenShiftMCPServerCACertVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  utils.AgenticMCPCASecretName,
+					SecretName:  utils.AppMCPCASecretName,
 					DefaultMode: &volumeDefaultMode,
 					Items: []corev1.KeyToPath{
 						{
@@ -366,7 +366,7 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			Name: utils.AppRHOKPCACertVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  utils.AgenticRHOKPCASecretName,
+					SecretName:  utils.AppRHOKPCASecretName,
 					DefaultMode: &volumeDefaultMode,
 					Items: []corev1.KeyToPath{
 						{
