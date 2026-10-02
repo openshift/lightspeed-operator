@@ -388,9 +388,10 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 			opts.AgenticConsoleUIImage = ""
 			opts.AlertsAdapterImage = ""
 			emptyImageReconciler = &OLSConfigReconciler{
-				Client:  k8sClient,
-				Options: opts,
-				Logger:  logf.Log.WithName("test.reconciler.empty-images"),
+				Client:    k8sClient,
+				APIReader: k8sClient,
+				Options:   opts,
+				Logger:    logf.Log.WithName("test.reconciler.empty-images"),
 			}
 
 			err := k8sClient.Create(ctx, cr)
@@ -501,9 +502,10 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 				opts.AgenticConsoleUIImage = ""
 				opts.AlertsAdapterImage = "alerts-adapter:latest"
 				imageNoRefReconciler = &OLSConfigReconciler{
-					Client:  k8sClient,
-					Options: opts,
-					Logger:  logf.Log.WithName("test.reconciler.image-no-ref"),
+					Client:    k8sClient,
+					APIReader: k8sClient,
+					Options:   opts,
+					Logger:    logf.Log.WithName("test.reconciler.image-no-ref"),
 				}
 			})
 

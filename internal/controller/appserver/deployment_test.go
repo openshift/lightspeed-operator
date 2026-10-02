@@ -151,7 +151,7 @@ var _ = Describe("App server deployment generation", func() {
 				Name: utils.AppOpenShiftMCPServerCACertVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName:  utils.AgenticMCPCASecretName,
+						SecretName:  utils.AppMCPCASecretName,
 						DefaultMode: &defaultVolumeMode,
 						Items: []corev1.KeyToPath{
 							{Key: utils.AgenticMCPCASecretDataKey, Path: utils.AppOpenShiftMCPServerCACertFile},
@@ -440,7 +440,7 @@ var _ = Describe("App server deployment generation", func() {
 					Name: utils.AppOtelCollectorCACertVolumeName,
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName:  utils.AgenticOtelCASecretName,
+							SecretName:  utils.AppOtelCASecretName,
 							DefaultMode: &defaultVolumeMode,
 							Items: []corev1.KeyToPath{
 								{Key: utils.AgenticOtelCASecretDataKey, Path: utils.AppOtelCollectorCACertFile},
