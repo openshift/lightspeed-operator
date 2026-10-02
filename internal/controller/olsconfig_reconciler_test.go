@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"os"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -139,6 +140,14 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 
 		err := k8sClient.Create(ctx, cr)
 		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected empty provider and model names to be rejected, got %v", err)
+	})
+
+	It("rejects provider and model names longer than 253 characters", func() {
+		cr.Spec.LLMConfig.Providers[0].Name = strings.Repeat("p", 254)
+		cr.Spec.LLMConfig.Providers[0].Models[0].Name = strings.Repeat("m", 254)
+
+		err := k8sClient.Create(ctx, cr)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected long provider and model names to be rejected, got %v", err)
 	})
 
 	Describe("terminalTTL admission validation", func() {

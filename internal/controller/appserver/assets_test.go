@@ -2234,6 +2234,19 @@ var _ = Describe("Helper function unit tests", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
+		It("should reject provider and model names longer than 253 characters", func() {
+			cr.Spec.LLMConfig.Providers[0].Name = strings.Repeat("p", 254)
+			cr.Spec.OLSConfig.DefaultProvider = cr.Spec.LLMConfig.Providers[0].Name
+			_, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).To(MatchError("LLM provider name must not exceed 253 characters"))
+
+			cr = utils.GetDefaultOLSConfigCR()
+			cr.Spec.LLMConfig.Providers[0].Models[0].Name = strings.Repeat("m", 254)
+			cr.Spec.OLSConfig.DefaultModel = cr.Spec.LLMConfig.Providers[0].Models[0].Name
+			_, err = buildOLSConfig(testReconcilerInstance, ctx, cr, false)
+			Expect(err).To(MatchError("model name must not exceed 253 characters for provider \"testProvider\""))
+		})
+
 		It("should build OLS config without proxy", func() {
 			cr.Spec.OLSConfig.ProxyConfig = nil
 			config, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)

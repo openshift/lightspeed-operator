@@ -262,9 +262,15 @@ func validateDefaultProviderAndModel(cr *olsv1alpha1.OLSConfig) error {
 		if provider.Name == "" {
 			return fmt.Errorf("LLM provider name must not be empty")
 		}
+		if len([]rune(provider.Name)) > 253 {
+			return fmt.Errorf("LLM provider name must not exceed 253 characters")
+		}
 		for _, model := range provider.Models {
 			if model.Name == "" {
 				return fmt.Errorf("model name must not be empty for provider %q", provider.Name)
+			}
+			if len([]rune(model.Name)) > 253 {
+				return fmt.Errorf("model name must not exceed 253 characters for provider %q", provider.Name)
 			}
 		}
 
