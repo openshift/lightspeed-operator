@@ -38,6 +38,7 @@ func getOtelCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequir
 func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	revisionHistoryLimit := int32(1)
 	runAsNonRoot := true
+	dataCollectionEnabled := !cr.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled
 
 	configMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OtelCollectorConfigMapName)
 	if err != nil {
@@ -83,6 +84,17 @@ func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Contex
 			},
 		},
 	}
+	if dataCollectionEnabled {
+		dataCollectionSizeLimit := resource.MustParse(utils.OtelCollectorDataCollectionSizeLimitDefault)
+		volumes = append(volumes, corev1.Volume{
+			Name: utils.OtelCollectorDataCollectionVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					SizeLimit: &dataCollectionSizeLimit,
+				},
+			},
+		})
+	}
 
 	volumeMounts := []corev1.VolumeMount{
 		{
@@ -104,6 +116,13 @@ func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Contex
 			MountPath: utils.OtelCollectorServiceCAMountPath,
 			ReadOnly:  true,
 		},
+	}
+	if dataCollectionEnabled {
+		// Keep FileExporter data separate from the file_storage exporter queue.
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      utils.OtelCollectorDataCollectionVolumeName,
+			MountPath: utils.OtelCollectorDataCollectionMountPath,
+		})
 	}
 
 	ports := []corev1.ContainerPort{

@@ -32,28 +32,26 @@ The operator configures monitoring, health probes, and status reporting for all 
 19. The operator's TLS profile for metrics follows the OLSConfig CR's `spec.ols.tlsSecurityProfile` or falls back to the cluster API server's profile.
 
 ### Data Collection
-20. The data collector sidecar (`lightspeed-to-dataverse-exporter`) exports feedback and transcript data to the Red Hat data pipeline at `https://console.redhat.com/api/ingress/v1/upload`. It runs in `openshift` mode to use the cluster ID as identity.
-21. Data collection is enabled only when both conditions are met: (a) user data collection is not fully disabled (at least one of `spec.ols.userDataCollection.feedbackDisabled` or `spec.ols.userDataCollection.transcriptsDisabled` is false), AND (b) the telemetry pull secret (`openshift-config/pull-secret`) contains valid `cloud.openshift.com` credentials in its `.dockerconfigjson` data.
-22. The service ID for data collection is `ols` by default, or `rhos-lightspeed` if the OLSConfig CR has the `openstack.org/lightspeed-owner-id` label.
-23. The exporter config is generated as a ConfigMap (`lightspeed-exporter-config`) with a fixed 300-second collection interval.
-24. [PLANNED: OLS-3569] Agentic collection adds a separately gated exporter instance to the Collector Deployment without changing this app-server exporter. See `agentic-data-collection.md` and its parent-spec reference.
+20. The Classic app-server data collector sidecar (`lightspeed-to-dataverse-exporter`) exports feedback and transcript data to the Red Hat data pipeline at `https://console.redhat.com/api/ingress/v1/upload`. It runs in `openshift` mode to use the cluster ID as identity.
+21. Classic data collection is enabled only when user data collection is not fully disabled and the `openshift-config/pull-secret` contains valid `cloud.openshift.com` credentials in its `.dockerconfigjson`.
+22. The service ID for the Classic exporter is `ols` by default, or `rhos-lightspeed` if the OLSConfig CR has the `openstack.org/lightspeed-owner-id` label.
+23. The Classic exporter config is generated as a ConfigMap (`lightspeed-exporter-config`) with a fixed 300-second collection interval.
+24. The Collector trace-file branch uses the existing `spec.ols.userDataCollection.transcriptsDisabled` opt-out and selects native OTLP traces from `lightspeed-agentic-operator` or `lightspeed-agentic-sandbox`. See [`data-collection.md`](data-collection.md) for its FileExporter settings and retention behavior.
+25. The trace-file branch is unbatched; configured backend trace forwarding batches on its separate pipeline. OTLP logs and their PostgreSQL handling remain separate.
 
 ## Configuration Surface
 
 | Field path | Description |
 |---|---|
 | `spec.ols.logLevel` | Log level for backend service (app, lib, uvicorn levels all set to this value) |
-| `spec.olsDataCollector.logLevel` | Log level for the Classic app-server data collector sidecar and the Collector-side Agentic exporter (defaults to `info`; see `agentic-data-collection.md` Rule 3) |
+| `spec.olsDataCollector.logLevel` | Log level for the Classic app-server data collector sidecar (defaults to `info`) |
 | `spec.ols.userDataCollection.feedbackDisabled` | Disable feedback collection |
-| `spec.ols.userDataCollection.transcriptsDisabled` | Disable Classic transcript collection; when true, also disables the independently gated Agentic collection pipeline, exporter, and spool (see `agentic-data-collection.md` Rules 1-2) |
+| `spec.ols.userDataCollection.transcriptsDisabled` | Disable Classic transcript collection and control the Collector trace-file branch (see [`data-collection.md`](data-collection.md)) |
 
 ## Constraints
 
 1. ServiceMonitor and PrometheusRule are only created when Prometheus Operator CRDs are detected at operator startup. There is no runtime re-check.
-2. Data collection requires the telemetry pull secret with `cloud.openshift.com` auth; removing the secret or the auth entry disables collection.
+2. The Classic app-server exporter requires the telemetry pull secret with `cloud.openshift.com` auth; removing the secret or auth entry disables that exporter.
 3. Diagnostics are cleared from status when the corresponding deployment becomes healthy (the entire `diagnosticInfo` array is rebuilt from scratch on each status update).
 4. Health probe parameters are internal constants and cannot be customized via the CR.
 
-## Planned Changes
-
-- [PLANNED: OLS-3569] Add the conditional Collector-side Agentic exporter without changing the app-server exporter. See `agentic-data-collection.md`.
