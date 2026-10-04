@@ -64,8 +64,8 @@ require (
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/klauspost/compress v1.20.0 // indirect
-	github.com/klauspost/pgzip v1.2.6 // indirect
+	github.com/klauspost/compress v1.20.1 // indirect
+	github.com/klauspost/pgzip v1.2.7 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mattn/go-runewidth v0.0.30 // indirect
 	github.com/mattn/go-sqlite3 v1.14.52 // indirect
