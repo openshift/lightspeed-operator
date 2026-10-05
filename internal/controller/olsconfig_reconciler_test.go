@@ -437,6 +437,22 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 	Describe("agentic component gating", func() {
 		var emptyImageReconciler *OLSConfigReconciler
 
+		seedServiceCATLSSecrets := func() {
+			for _, name := range []string{
+				utils.ConsoleUIServiceCertSecretName,
+				utils.OtelCollectorCertsSecretName,
+				utils.OpenShiftMCPServerCertsSecretName,
+				utils.RHOKPCertsSecretName,
+			} {
+				secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}, Data: map[string][]byte{
+					"tls.crt": []byte("test-cert"),
+					"tls.key": []byte("test-key"),
+				}}
+				Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+				DeferCleanup(func() { _ = k8sClient.Delete(ctx, secret) })
+			}
+		}
+
 		BeforeEach(func() {
 			opts := getDefaultReconcilerOptions(namespace)
 			opts.AgenticConsoleUIImage = ""
@@ -524,6 +540,10 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 		})
 
 		Context("Phase 2 gating: disabled components should not create deployments and should set Disabled status", func() {
+			BeforeEach(func() {
+				seedServiceCATLSSecrets()
+			})
+
 			It("preserves Agentic conditions and avoids UnsupportedOCPVersion when the gate is Unknown", func() {
 				cr.Status.Conditions = []metav1.Condition{
 					{Type: utils.TypeAgenticConsolePluginReady, Status: metav1.ConditionFalse, Reason: "Progressing", Message: "existing console status", LastTransitionTime: metav1.Now()},
@@ -604,6 +624,7 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 			var imageNoRefReconciler *OLSConfigReconciler
 
 			BeforeEach(func() {
+				seedServiceCATLSSecrets()
 				opts := getDefaultReconcilerOptions(namespace)
 				opts.AgenticConsoleUIImage = ""
 				opts.AlertsAdapterImage = "alerts-adapter:latest"
