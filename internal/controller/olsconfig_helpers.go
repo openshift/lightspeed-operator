@@ -67,10 +67,16 @@ func (r *OLSConfigReconciler) GetOtelCollectorImage() string {
 }
 
 func (r *OLSConfigReconciler) GetOpenShiftMajor() string {
+	if version := r.activeVersion.Load(); version != nil {
+		return version.Major
+	}
 	return r.Options.OpenShiftMajor
 }
 
 func (r *OLSConfigReconciler) GetOpenshiftMinor() string {
+	if version := r.activeVersion.Load(); version != nil {
+		return version.Minor
+	}
 	return r.Options.OpenshiftMinor
 }
 

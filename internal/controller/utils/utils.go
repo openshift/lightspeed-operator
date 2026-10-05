@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -476,6 +477,88 @@ func GetOpenshiftVersion(k8sClient client.Client, ctx context.Context) (string, 
 		return "", "", fmt.Errorf("failed to parse cluster version: %s", clusterVersion.Status.Desired.Version)
 	}
 	return openshift_versions[0], openshift_versions[1], nil
+}
+
+// AgenticGateState describes whether the completed ClusterVersion permits
+// Agentic reconciliation. Unknown means the Version CR could not establish a
+// completed version and must not be treated as Disabled.
+type AgenticGateState string
+
+const (
+	AgenticGateUnknown  AgenticGateState = "Unknown"
+	AgenticGateDisabled AgenticGateState = "Disabled"
+	AgenticGateEnabled  AgenticGateState = "Enabled"
+)
+
+// AgenticVersion is a snapshot of the ClusterVersion used for one reconcile.
+type AgenticVersion struct {
+	State        AgenticGateState
+	Major, Minor string
+}
+
+type agenticVersionContextKey struct{}
+
+// WithAgenticVersion keeps all gating decisions within one OLSConfig reconcile
+// consistent, even when ClusterVersion changes during that reconciliation.
+func WithAgenticVersion(ctx context.Context, version AgenticVersion) context.Context {
+	return context.WithValue(ctx, agenticVersionContextKey{}, version)
+}
+
+// ReadAgenticVersion requires a matching completed release. Desired.Version
+// alone advances at the START of an upgrade, while nodes may still be on 4.x.
+// Read errors fail closed but are returned so the controller can retry.
+func ReadAgenticVersion(k8sClient client.Client, ctx context.Context) (AgenticVersion, error) {
+	reader := client.Reader(k8sClient)
+	if direct, ok := k8sClient.(interface{ GetAPIReader() client.Reader }); ok {
+		reader = direct.GetAPIReader()
+		if reader == nil {
+			return AgenticVersion{State: AgenticGateUnknown}, fmt.Errorf("direct ClusterVersion reader is unavailable")
+		}
+	}
+	cv := &configv1.ClusterVersion{}
+	if err := reader.Get(ctx, client.ObjectKey{Name: "version"}, cv); err != nil {
+		return AgenticVersion{State: AgenticGateUnknown}, fmt.Errorf("read ClusterVersion/version: %w", err)
+	}
+	if len(cv.Status.History) == 0 || cv.Status.History[0].State != configv1.CompletedUpdate {
+		return AgenticVersion{State: AgenticGateUnknown}, nil
+	}
+	completed := cv.Status.History[0].Version
+	if completed == "" || completed != cv.Status.Desired.Version {
+		return AgenticVersion{State: AgenticGateUnknown}, nil
+	}
+	parts := strings.Split(completed, ".")
+	if len(parts) < 2 {
+		return AgenticVersion{State: AgenticGateUnknown}, nil
+	}
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return AgenticVersion{State: AgenticGateUnknown}, nil
+	}
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil || minor < 0 {
+		return AgenticVersion{State: AgenticGateUnknown}, nil
+	}
+	state := AgenticGateDisabled
+	if major >= 5 {
+		state = AgenticGateEnabled
+	}
+	return AgenticVersion{State: state, Major: parts[0], Minor: parts[1]}, nil
+}
+
+// AgenticGate returns the reconcile snapshot when available, otherwise reads
+// the current Version CR. Read and parse failures remain Unknown.
+func AgenticGate(k8sClient client.Client, ctx context.Context) AgenticGateState {
+	if version, ok := ctx.Value(agenticVersionContextKey{}).(AgenticVersion); ok {
+		if version.State == AgenticGateEnabled || version.State == AgenticGateDisabled {
+			return version.State
+		}
+		return AgenticGateUnknown
+	}
+	version, _ := ReadAgenticVersion(k8sClient, ctx)
+	if version.State == AgenticGateEnabled || version.State == AgenticGateDisabled {
+		return version.State
+	}
+	return AgenticGateUnknown
 }
 
 const rosaClusterResourceName = "cluster"

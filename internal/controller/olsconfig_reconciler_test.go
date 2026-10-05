@@ -49,6 +49,9 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 	})
 
 	BeforeEach(func() {
+		ctx = utils.WithAgenticVersion(context.Background(), utils.AgenticVersion{
+			State: utils.AgenticGateEnabled, Major: "5", Minor: "0",
+		})
 		reconciler = &OLSConfigReconciler{
 			Client:  k8sClient,
 			Options: getDefaultReconcilerOptions(namespace),
@@ -439,13 +442,45 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 			opts.AgenticConsoleUIImage = ""
 			opts.AlertsAdapterImage = ""
 			emptyImageReconciler = &OLSConfigReconciler{
-				Client:  k8sClient,
-				Options: opts,
-				Logger:  logf.Log.WithName("test.reconciler.empty-images"),
+				Client:    k8sClient,
+				APIReader: k8sClient,
+				Options:   opts,
+				Logger:    logf.Log.WithName("test.reconciler.empty-images"),
 			}
 
 			err := k8sClient.Create(ctx, cr)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		Context("when the Version CR is unknown (Phase 1 - resources)", func() {
+			It("preserves existing Agentic operands instead of cleaning them up", func() {
+				seedSA := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+					Name: utils.AgenticConsoleUIServiceAccountName, Namespace: namespace,
+				}}
+				Expect(k8sClient.Create(ctx, seedSA)).To(Succeed())
+				DeferCleanup(func() { _ = k8sClient.Delete(ctx, seedSA) })
+				cr.Status.Conditions = []metav1.Condition{{
+					Type: utils.TypeAgenticConsolePluginReady, Status: metav1.ConditionTrue,
+					Reason: "Available", Message: "Ready", LastTransitionTime: metav1.Now(),
+				}}
+				Expect(k8sClient.Status().Update(ctx, cr)).To(Succeed())
+
+				unknownCtx := utils.WithAgenticVersion(ctx, utils.AgenticVersion{State: utils.AgenticGateUnknown})
+				_ = emptyImageReconciler.reconcileIndependentResources(unknownCtx, cr)
+
+				remaining := &corev1.ServiceAccount{}
+				Expect(k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.AgenticConsoleUIServiceAccountName, Namespace: namespace,
+				}, remaining)).To(Succeed())
+
+				// A known unsupported OCP 4.x version must also leave a pre-existing
+				// Agentic operand untouched; it only prevents introducing new ones.
+				disabledCtx := utils.WithAgenticVersion(ctx, utils.AgenticVersion{State: utils.AgenticGateDisabled, Major: "4", Minor: "23"})
+				_ = emptyImageReconciler.reconcileIndependentResources(disabledCtx, cr)
+				Expect(k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.AgenticConsoleUIServiceAccountName, Namespace: namespace,
+				}, remaining)).To(Succeed())
+			})
 		})
 
 		Context("when AgenticConsoleUIImage is empty (Phase 1 - resources)", func() {
@@ -489,6 +524,27 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 		})
 
 		Context("Phase 2 gating: disabled components should not create deployments and should set Disabled status", func() {
+			It("preserves Agentic conditions and avoids UnsupportedOCPVersion when the gate is Unknown", func() {
+				cr.Status.Conditions = []metav1.Condition{
+					{Type: utils.TypeAgenticConsolePluginReady, Status: metav1.ConditionFalse, Reason: "Progressing", Message: "existing console status", LastTransitionTime: metav1.Now()},
+					{Type: utils.TypeAlertsAdapterReady, Status: metav1.ConditionTrue, Reason: "Available", Message: "existing adapter status", LastTransitionTime: metav1.Now()},
+				}
+				Expect(k8sClient.Status().Update(ctx, cr)).To(Succeed())
+
+				unknownCtx := utils.WithAgenticVersion(ctx, utils.AgenticVersion{State: utils.AgenticGateUnknown})
+				_, _ = emptyImageReconciler.reconcileDeploymentsAndStatus(unknownCtx, cr)
+
+				updatedCR := &olsv1alpha1.OLSConfig{}
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, updatedCR)).To(Succeed())
+				conditions := map[string]metav1.Condition{}
+				for _, condition := range updatedCR.Status.Conditions {
+					conditions[condition.Type] = condition
+					Expect(condition.Reason).NotTo(Equal("UnsupportedOCPVersion"))
+				}
+				Expect(conditions[utils.TypeAgenticConsolePluginReady].Reason).To(Equal("Progressing"))
+				Expect(conditions[utils.TypeAlertsAdapterReady].Reason).To(Equal("Available"))
+			})
+
 			It("should not create agentic console or alerts adapter Deployments and should set Disabled conditions", func() {
 				_, _ = emptyImageReconciler.reconcileDeploymentsAndStatus(ctx, cr)
 
@@ -552,9 +608,10 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 				opts.AgenticConsoleUIImage = ""
 				opts.AlertsAdapterImage = "alerts-adapter:latest"
 				imageNoRefReconciler = &OLSConfigReconciler{
-					Client:  k8sClient,
-					Options: opts,
-					Logger:  logf.Log.WithName("test.reconciler.image-no-ref"),
+					Client:    k8sClient,
+					APIReader: k8sClient,
+					Options:   opts,
+					Logger:    logf.Log.WithName("test.reconciler.image-no-ref"),
 				}
 			})
 

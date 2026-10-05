@@ -1119,7 +1119,7 @@ func getQueryFilters(cr *olsv1alpha1.OLSConfig) []utils.QueryFilters {
 type clientCAConfig struct {
 	SecretName  string
 	DataKey     string
-	Enabled     func(*olsv1alpha1.OLSConfig) bool
+	Enabled     func(reconciler.Reconciler, context.Context, *olsv1alpha1.OLSConfig) bool
 	ErrSource   string
 	ErrOwnerRef string
 	ErrCreate   string
@@ -1131,9 +1131,9 @@ type clientCAConfig struct {
 // clientCASecrets enumerates all client CA Secrets managed by the app-server.
 var clientCASecrets = []clientCAConfig{
 	{
-		SecretName:  utils.AgenticOtelCASecretName,
+		SecretName:  utils.AppOtelCASecretName,
 		DataKey:     utils.AgenticOtelCASecretDataKey,
-		Enabled:     func(_ *olsv1alpha1.OLSConfig) bool { return true },
+		Enabled:     func(_ reconciler.Reconciler, _ context.Context, _ *olsv1alpha1.OLSConfig) bool { return true },
 		ErrSource:   utils.ErrGetAgenticOtelCASourceConfigMap,
 		ErrOwnerRef: utils.ErrSetAgenticOtelCASecretOwnerRef,
 		ErrCreate:   utils.ErrCreateAgenticOtelCASecret,
@@ -1142,9 +1142,9 @@ var clientCASecrets = []clientCAConfig{
 		ErrDelete:   utils.ErrDeleteAgenticOtelCASecret,
 	},
 	{
-		SecretName: utils.AgenticMCPCASecretName,
+		SecretName: utils.AppMCPCASecretName,
 		DataKey:    utils.AgenticMCPCASecretDataKey,
-		Enabled: func(cr *olsv1alpha1.OLSConfig) bool {
+		Enabled: func(_ reconciler.Reconciler, _ context.Context, cr *olsv1alpha1.OLSConfig) bool {
 			return utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true)
 		},
 		ErrSource:   utils.ErrAgenticMCPCANotReady,
@@ -1155,9 +1155,50 @@ var clientCASecrets = []clientCAConfig{
 		ErrDelete:   utils.ErrDeleteAgenticMCPCASecret,
 	},
 	{
-		SecretName:  utils.AgenticRHOKPCASecretName,
-		DataKey:     utils.AgenticRHOKPCASecretDataKey,
-		Enabled:     func(cr *olsv1alpha1.OLSConfig) bool { return !cr.Spec.OLSConfig.ByokRAGOnly },
+		SecretName: utils.AppRHOKPCASecretName,
+		DataKey:    utils.AgenticRHOKPCASecretDataKey,
+		Enabled: func(_ reconciler.Reconciler, _ context.Context, cr *olsv1alpha1.OLSConfig) bool {
+			return !cr.Spec.OLSConfig.ByokRAGOnly
+		},
+		ErrSource:   utils.ErrGetAgenticRHOKPCASourceConfigMap,
+		ErrOwnerRef: utils.ErrSetAgenticRHOKPCASecretOwnerRef,
+		ErrCreate:   utils.ErrCreateAgenticRHOKPCASecret,
+		ErrGet:      utils.ErrGetAgenticRHOKPCASecret,
+		ErrUpdate:   utils.ErrUpdateAgenticRHOKPCASecret,
+		ErrDelete:   utils.ErrDeleteAgenticRHOKPCASecret,
+	},
+	{
+		SecretName: utils.AgenticOtelCASecretName,
+		DataKey:    utils.AgenticOtelCASecretDataKey,
+		Enabled: func(r reconciler.Reconciler, ctx context.Context, _ *olsv1alpha1.OLSConfig) bool {
+			return utils.AgenticGate(r, ctx) == utils.AgenticGateEnabled
+		},
+		ErrSource:   utils.ErrGetAgenticOtelCASourceConfigMap,
+		ErrOwnerRef: utils.ErrSetAgenticOtelCASecretOwnerRef,
+		ErrCreate:   utils.ErrCreateAgenticOtelCASecret,
+		ErrGet:      utils.ErrGetAgenticOtelCASecret,
+		ErrUpdate:   utils.ErrUpdateAgenticOtelCASecret,
+		ErrDelete:   utils.ErrDeleteAgenticOtelCASecret,
+	},
+	{
+		SecretName: utils.AgenticMCPCASecretName,
+		DataKey:    utils.AgenticMCPCASecretDataKey,
+		Enabled: func(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) bool {
+			return utils.AgenticGate(r, ctx) == utils.AgenticGateEnabled && utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true)
+		},
+		ErrSource:   utils.ErrAgenticMCPCANotReady,
+		ErrOwnerRef: utils.ErrSetAgenticMCPCASecretOwnerRef,
+		ErrCreate:   utils.ErrCreateAgenticMCPCASecret,
+		ErrGet:      utils.ErrGetAgenticMCPCASecret,
+		ErrUpdate:   utils.ErrUpdateAgenticMCPCASecret,
+		ErrDelete:   utils.ErrDeleteAgenticMCPCASecret,
+	},
+	{
+		SecretName: utils.AgenticRHOKPCASecretName,
+		DataKey:    utils.AgenticRHOKPCASecretDataKey,
+		Enabled: func(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) bool {
+			return utils.AgenticGate(r, ctx) == utils.AgenticGateEnabled && !cr.Spec.OLSConfig.ByokRAGOnly
+		},
 		ErrSource:   utils.ErrGetAgenticRHOKPCASourceConfigMap,
 		ErrOwnerRef: utils.ErrSetAgenticRHOKPCASecretOwnerRef,
 		ErrCreate:   utils.ErrCreateAgenticRHOKPCASecret,
@@ -1168,7 +1209,7 @@ var clientCASecrets = []clientCAConfig{
 }
 
 func generateClientCA(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig, cfg clientCAConfig) (*corev1.Secret, error) {
-	if !cfg.Enabled(cr) {
+	if !cfg.Enabled(r, ctx, cr) {
 		return nil, nil
 	}
 
@@ -1218,7 +1259,15 @@ func deleteClientCA(r reconciler.Reconciler, ctx context.Context, cfg clientCACo
 // RefreshClientCASecrets updates all client CA Secrets from the cluster service-ca ConfigMap.
 // When a component is disabled, the corresponding Secret is deleted.
 func RefreshClientCASecrets(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	gate := utils.AgenticGate(r, ctx)
 	for _, cfg := range clientCASecrets {
+		isAgenticSecret := cfg.SecretName == utils.AgenticOtelCASecretName ||
+			cfg.SecretName == utils.AgenticMCPCASecretName || cfg.SecretName == utils.AgenticRHOKPCASecretName
+		if isAgenticSecret && gate != utils.AgenticGateEnabled {
+			// Disabled and Unknown both preserve existing secrets and avoid all
+			// reads/writes/deletes. Only an Enabled gate may reconcile Agentic CAs.
+			continue
+		}
 		secret, err := generateClientCA(r, ctx, cr, cfg)
 		if err != nil {
 			return err

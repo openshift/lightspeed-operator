@@ -85,6 +85,12 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 
 	ctx = context.Background()
+	// Agentic integration is active only on OCP 5.0+.
+	version := &configv1.ClusterVersion{ObjectMeta: metav1.ObjectMeta{Name: "version"}}
+	Expect(k8sClient.Create(ctx, version)).To(Succeed())
+	version.Status.Desired.Version = "5.0.0"
+	version.Status.History = []configv1.UpdateHistory{{Version: "5.0.0", State: configv1.CompletedUpdate, StartedTime: metav1.Now()}}
+	Expect(k8sClient.Status().Update(ctx, version)).To(Succeed())
 
 	err = k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: utils.OLSNamespaceDefault}})
 	Expect(err).NotTo(HaveOccurred())

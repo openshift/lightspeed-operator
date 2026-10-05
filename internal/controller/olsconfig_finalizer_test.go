@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
@@ -22,6 +23,16 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
+
+type unavailableClientReader struct{}
+
+func (unavailableClientReader) Get(context.Context, client.ObjectKey, client.Object, ...client.GetOption) error {
+	return errors.New("Version CR is unavailable")
+}
+
+func (unavailableClientReader) List(context.Context, client.ObjectList, ...client.ListOption) error {
+	return errors.New("API reader is unavailable")
+}
 
 var _ = Describe("OLSConfig Finalizer", Ordered, Serial, func() {
 	var (
@@ -166,6 +177,22 @@ var _ = Describe("OLSConfig Finalizer", Ordered, Serial, func() {
 	})
 
 	Context("Finalizer handles deletion", func() {
+		It("should run deletion cleanup without requiring a readable Version CR", func() {
+			controllerutil.AddFinalizer(cr, utils.OLSConfigFinalizer)
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cr)).To(Succeed())
+
+			reconciler.APIReader = unavailableClientReader{}
+			DeferCleanup(func() { reconciler.APIReader = nil })
+			req := reconcile.Request{NamespacedName: types.NamespacedName{Name: cr.Name}}
+			_, err := reconciler.Reconcile(ctx, req)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, cr)
+				return apierrors.IsNotFound(err)
+			}, "10s", "100ms").Should(BeTrue())
+		})
+
 		It("should retain the adapter egress policy until its pods are gone", func() {
 			controllerutil.AddFinalizer(cr, utils.OLSConfigFinalizer)
 			Expect(k8sClient.Create(ctx, cr)).To(Succeed())

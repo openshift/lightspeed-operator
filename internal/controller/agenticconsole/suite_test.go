@@ -98,6 +98,7 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient.Create(ctx, clusterVersion)).To(Succeed())
 	clusterVersion.Status = configv1.ClusterVersionStatus{
 		Desired: configv1.Release{Version: "123.456.789"},
+		History: []configv1.UpdateHistory{{Version: "123.456.789", State: configv1.CompletedUpdate, StartedTime: metav1.Now()}},
 	}
 	Expect(k8sClient.Status().Update(ctx, clusterVersion)).To(Succeed())
 
