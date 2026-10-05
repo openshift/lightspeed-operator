@@ -209,6 +209,7 @@ const (
 	ErrGetAlertsAdapterAgenticRunsRoleBinding                  = "failed to get alerts adapter agenticruns role binding"
 	ErrGetAlertsAdapterAgenticOLSConfigClusterRole             = "failed to get alerts adapter agenticolsconfig cluster role"
 	ErrGetAlertsAdapterAgenticOLSConfigClusterRoleBinding      = "failed to get alerts adapter agenticolsconfig cluster role binding"
+	ErrUpdateAlertsAdapterAgenticOLSConfigClusterRole          = "failed to update alerts adapter agenticolsconfig cluster role"
 	ErrGetAlertsAdapterAlertmanagerRoleBinding                 = "failed to get alerts adapter alertmanager role binding"
 	ErrGetAlertsAdapterConfigMap                               = "failed to get alerts adapter configmap"
 	ErrGetAlertsAdapterConfigRole                              = "failed to get alerts adapter config role"

@@ -44,9 +44,10 @@ var _ = Describe("Alerts adapter assets", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(role.Name).To(Equal(utils.AlertsAdapterAgenticOLSConfigClusterRoleName))
 		Expect(role.Rules).To(ContainElement(rbacv1.PolicyRule{
-			APIGroups: []string{"agentic.openshift.io"},
-			Resources: []string{"agenticolsconfigs"},
-			Verbs:     []string{"get"},
+			APIGroups:     []string{"agentic.openshift.io"},
+			Resources:     []string{"agenticolsconfigs"},
+			ResourceNames: []string{"cluster"},
+			Verbs:         []string{"get"},
 		}))
 	})
 

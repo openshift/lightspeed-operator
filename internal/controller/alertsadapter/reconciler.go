@@ -12,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -186,6 +187,13 @@ func reconcileAgenticOLSConfigClusterRole(r reconciler.Reconciler, ctx context.C
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterAgenticOLSConfigClusterRole, err)
+	}
+
+	if !apiequality.Semantic.DeepEqual(foundRole.Rules, role.Rules) {
+		foundRole.Rules = role.Rules
+		if err := r.Update(ctx, foundRole); err != nil {
+			return fmt.Errorf("%s: %w", utils.ErrUpdateAlertsAdapterAgenticOLSConfigClusterRole, err)
+		}
 	}
 
 	r.GetLogger().Info("alerts adapter agenticolsconfig cluster role reconciled", "ClusterRole", role.Name)

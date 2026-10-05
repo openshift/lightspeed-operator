@@ -85,9 +85,10 @@ func GenerateAgenticOLSConfigClusterRole(r reconciler.Reconciler, cr *olsv1alpha
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{"agentic.openshift.io"},
-				Resources: []string{"agenticolsconfigs"},
-				Verbs:     []string{"get"},
+				APIGroups:     []string{"agentic.openshift.io"},
+				Resources:     []string{"agenticolsconfigs"},
+				ResourceNames: []string{"cluster"},
+				Verbs:         []string{"get"},
 			},
 		},
 	}
