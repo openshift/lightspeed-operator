@@ -399,6 +399,19 @@ spec:
             path: ols.deployment.rhokp.replicas
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:podCount
+          - description: Guardrails configuration for untrusted model inputs and outputs.
+            displayName: Guardrails
+            path: ols.guardrails
+          - description: ToolResultInspection configures inspection of tool results before model use.
+            displayName: Tool Result Inspection
+            path: ols.guardrails.toolResultInspection
+          - description: |-
+              Enabled controls whether tool results are inspected before model use.
+              Defaults to true when omitted.
+            displayName: Tool Result Inspection Enabled
+            path: ols.guardrails.toolResultInspection.enabled
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: Pull secrets for BYOK RAG images from image registries requiring authentication
             displayName: Image Pull Secrets
             path: ols.imagePullSecrets
@@ -835,17 +848,17 @@ spec:
             - apiGroups:
                 - agentic.openshift.io
               resources:
+                - agenticolsconfigs
+              verbs:
+                - get
+            - apiGroups:
+                - agentic.openshift.io
+              resources:
                 - agenticruns
               verbs:
                 - create
                 - get
                 - list
-            - apiGroups:
-                - agentic.openshift.io
-              resources:
-                - agenticolsconfigs
-              verbs:
-                - get
             - apiGroups:
                 - apps
               resources:
@@ -964,8 +977,8 @@ spec:
             - apiGroups:
                 - rbac.authorization.k8s.io
               resourceNames:
-                - lightspeed-agentic-alerts-adapter-agenticruns
                 - lightspeed-agentic-alerts-adapter-agenticolsconfig
+                - lightspeed-agentic-alerts-adapter-agenticruns
                 - lightspeed-app-server-sar-role-binding
                 - lightspeed-operator-ols-metrics-reader
               resources:
@@ -987,8 +1000,8 @@ spec:
             - apiGroups:
                 - rbac.authorization.k8s.io
               resourceNames:
-                - lightspeed-agentic-alerts-adapter-agenticruns
                 - lightspeed-agentic-alerts-adapter-agenticolsconfig
+                - lightspeed-agentic-alerts-adapter-agenticruns
                 - lightspeed-app-server-sar-role
               resources:
                 - clusterroles
@@ -1047,10 +1060,10 @@ spec:
                       - --cert-dir=/etc/tls/private
                       - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:f87be94cc24789d46364e21efb9d1ee4b1220e3aaeeddd295ceb9678b09f6133
-                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:66ec578c29441906ae93c56af20bb7de3f960edcaef41d6022e97b9a22e27b33
+                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:390c3d1196eccaf76e61c592768c369abf6f66fd33bd615f9252661c5f0558ff
+                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:dfc3fc81b91fb4b6ee45b39f337adeff946f84601da79d30177f004d29495441
                       - --openshift-mcp-server-image=registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5
-                      - --otel-collector-image=registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:e6d1907774f4739ac33577fd06cbeb3da80cad7a5cdc9c58c4938d1010d0c152
+                      - --otel-collector-image=registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:238c713a6bd90d26a8b46124efd077b4e3519e78306eff886d542a665793bbad
                       - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
                     command:
                       - /manager
@@ -1059,7 +1072,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:f171246f508696715086ce6d66c8ace9332bed1f5e602c1090231ccf5882e553
+                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:7682bfd6ef10b1056ff822613891ddc5852015b513610e35dae05197f5de5415
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1205,14 +1218,14 @@ spec:
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     - name: lightspeed-service-api
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:f87be94cc24789d46364e21efb9d1ee4b1220e3aaeeddd295ceb9678b09f6133
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:390c3d1196eccaf76e61c592768c369abf6f66fd33bd615f9252661c5f0558ff
     - name: lightspeed-console-plugin
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:66ec578c29441906ae93c56af20bb7de3f960edcaef41d6022e97b9a22e27b33
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:dfc3fc81b91fb4b6ee45b39f337adeff946f84601da79d30177f004d29495441
     - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:f171246f508696715086ce6d66c8ace9332bed1f5e602c1090231ccf5882e553
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:7682bfd6ef10b1056ff822613891ddc5852015b513610e35dae05197f5de5415
     - name: openshift-mcp-server
       image: registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5
     - name: lightspeed-otel-collector
-      image: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:e6d1907774f4739ac33577fd06cbeb3da80cad7a5cdc9c58c4938d1010d0c152
+      image: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:238c713a6bd90d26a8b46124efd077b4e3519e78306eff886d542a665793bbad
     - name: rhokp
       image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
