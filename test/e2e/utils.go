@@ -233,8 +233,18 @@ func TestOLSServiceActivation(env *OLSTestEnvironment) (*corev1.Secret, error) {
 	return secret, nil
 }
 
-// TestHTTPSQueryEndpoint tests HTTPS POST on /v1/query endpoint
+// TestHTTPSQueryEndpoint tests HTTPS POST on /v1/query endpoint.
 func TestHTTPSQueryEndpoint(env *OLSTestEnvironment, secret *corev1.Secret, requestBody []byte) (*http.Response, []byte, error) {
+	return testHTTPSQueryEndpointWithTimeout(env, secret, requestBody, 0)
+}
+
+// TestHTTPSQueryEndpointWithTimeout tests /v1/query with a request timeout.
+func TestHTTPSQueryEndpointWithTimeout(env *OLSTestEnvironment, secret *corev1.Secret, requestBody []byte, timeout time.Duration) (*http.Response, []byte, error) {
+	return testHTTPSQueryEndpointWithTimeout(env, secret, requestBody, timeout)
+}
+
+// testHTTPSQueryEndpointWithTimeout sends a query with a bounded request lifetime.
+func testHTTPSQueryEndpointWithTimeout(env *OLSTestEnvironment, secret *corev1.Secret, requestBody []byte, timeout time.Duration) (*http.Response, []byte, error) {
 	certificate, ok := secret.Data["tls.crt"]
 	if !ok {
 		return nil, nil, fmt.Errorf("tls.crt not found in secret")
@@ -243,7 +253,7 @@ func TestHTTPSQueryEndpoint(env *OLSTestEnvironment, secret *corev1.Secret, requ
 	httpsClient := NewHTTPSClient(env.ForwardHost, InClusterHost, certificate, nil, nil)
 	authHeader := map[string]string{"Authorization": "Bearer " + env.SAToken}
 
-	resp, err := httpsClient.PostJson("/v1/query", requestBody, authHeader)
+	resp, err := httpsClient.PostJsonWithTimeout("/v1/query", requestBody, timeout, authHeader)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to make HTTPS request: %w", err)
 	}
