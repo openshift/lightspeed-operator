@@ -170,6 +170,9 @@ func GenerateAgenticConfigurationConfigMap(r reconciler.Reconciler, cr *olsv1alp
 // TouchAgenticConfiguration bumps an annotation on the handoff ConfigMap so its
 // resourceVersion changes and agentic-operator can reload client CA material.
 func TouchAgenticConfiguration(r reconciler.Reconciler, ctx context.Context) error {
+	if utils.AgenticGate(r, ctx) != utils.AgenticGateEnabled {
+		return nil
+	}
 	cm := &corev1.ConfigMap{}
 	err := r.Get(ctx, client.ObjectKey{Name: utils.AgenticConfigurationConfigMapName, Namespace: r.GetNamespace()}, cm)
 	if err != nil {
