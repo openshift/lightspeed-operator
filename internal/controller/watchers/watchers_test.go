@@ -72,7 +72,7 @@ func createTestReconciler(objs ...client.Object) reconciler.Reconciler {
 				{
 					Namespace:           utils.TelemetryPullSecretNamespace,
 					Name:                utils.TelemetryPullSecretName,
-					AffectedDeployments: []string{utils.ConsoleUIDeploymentName},
+					AffectedDeployments: []string{utils.OLSAppServerDeploymentName, utils.OtelCollectorDeploymentName},
 					Description:         "test telemetry",
 				},
 			},
@@ -86,6 +86,35 @@ func createTestReconciler(objs ...client.Object) reconciler.Reconciler {
 	})
 	tr.SetWatcherConfig(watcherConfig)
 	return tr
+}
+
+func newTestDeployment(name string) *appsv1.Deployment {
+	labels := map[string]string{"app": name}
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: utils.OLSNamespaceDefault},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{MatchLabels: labels},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "test", Image: "img"}}},
+			},
+		},
+	}
+}
+
+func createTelemetryTestReconciler(cr *olsv1alpha1.OLSConfig, extra ...client.Object) reconciler.Reconciler {
+	cr.Spec.OLSConfig.ByokRAGOnly = true
+	objects := []client.Object{
+		cr,
+		newTestDeployment(utils.OLSAppServerDeploymentName),
+		newTestDeployment(utils.OtelCollectorDeploymentName),
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: utils.OLSCAConfigMap, Namespace: utils.OLSNamespaceDefault},
+			Data:       map[string]string{utils.AppOtelCollectorCACertFile: "test-service-ca"},
+		},
+	}
+	objects = append(objects, extra...)
+	return createTestReconciler(objects...)
 }
 
 var _ = Describe("Watchers", func() {
@@ -238,6 +267,33 @@ var _ = Describe("Watchers", func() {
 			h.Create(ctx, event.CreateEvent{Object: sec}, nil)
 		})
 
+		It("requeues and refreshes deployments for telemetry pull-secret creation without annotating it", func() {
+			cr := utils.GetDefaultOLSConfigCR()
+			cr.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = utils.TelemetryPullSecretName
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: utils.TelemetryPullSecretNamespace,
+					Name:      utils.TelemetryPullSecretName,
+				},
+				Data: map[string][]byte{".dockerconfigjson": []byte("{}")},
+			}
+			r := createTelemetryTestReconciler(cr, secret)
+			h := &SecretUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+
+			h.Create(ctx, event.CreateEvent{Object: secret}, q)
+
+			Expect(q.items).To(Equal([]reconcile.Request{{NamespacedName: types.NamespacedName{Name: utils.OLSConfigName}}}))
+			stored := &corev1.Secret{}
+			Expect(r.Get(ctx, client.ObjectKeyFromObject(secret), stored)).To(Succeed())
+			Expect(stored.Annotations).NotTo(HaveKey(utils.WatcherAnnotationKey))
+			for _, name := range []string{utils.OLSAppServerDeploymentName, utils.OtelCollectorDeploymentName} {
+				dep := &appsv1.Deployment{}
+				Expect(r.Get(ctx, types.NamespacedName{Name: name, Namespace: utils.OLSNamespaceDefault}, dep)).To(Succeed())
+				Expect(dep.Spec.Template.Annotations).To(HaveKey(utils.ForceReloadAnnotationKey))
+			}
+		})
+
 		It("Update runs when secret data changes (may log deployment get errors)", func() {
 			cr := utils.GetDefaultOLSConfigCR()
 			r := createTestReconciler(cr)
@@ -251,6 +307,55 @@ var _ = Describe("Watchers", func() {
 			newS.Data["k"] = []byte("new")
 			utils.AnnotateSecretWatcher(newS)
 			h.Update(ctx, event.UpdateEvent{ObjectOld: oldS, ObjectNew: newS}, nil)
+		})
+
+		It("requeues and rolls affected deployments when telemetry pull-secret data changes", func() {
+			r := createTelemetryTestReconciler(utils.GetDefaultOLSConfigCR())
+			h := &SecretUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+			oldSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: utils.TelemetryPullSecretNamespace,
+					Name:      utils.TelemetryPullSecretName,
+				},
+				Data: map[string][]byte{".dockerconfigjson": []byte("old")},
+			}
+			newSecret := oldSecret.DeepCopy()
+			newSecret.Data[".dockerconfigjson"] = []byte("new")
+
+			h.Update(ctx, event.UpdateEvent{ObjectOld: oldSecret, ObjectNew: newSecret}, q)
+
+			Expect(q.items).To(Equal([]reconcile.Request{{NamespacedName: types.NamespacedName{Name: utils.OLSConfigName}}}))
+			for _, name := range []string{utils.OLSAppServerDeploymentName, utils.OtelCollectorDeploymentName} {
+				dep := &appsv1.Deployment{}
+				Expect(r.Get(ctx, types.NamespacedName{Name: name, Namespace: utils.OLSNamespaceDefault}, dep)).To(Succeed())
+				Expect(dep.Spec.Template.Annotations).To(HaveKey(utils.ForceReloadAnnotationKey))
+			}
+		})
+
+		It("requeues unchanged telemetry secret updates without rolling deployments", func() {
+			r := createTelemetryTestReconciler(utils.GetDefaultOLSConfigCR())
+			h := &SecretUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+			oldSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:       utils.TelemetryPullSecretNamespace,
+					Name:            utils.TelemetryPullSecretName,
+					ResourceVersion: "1",
+				},
+				Data: map[string][]byte{".dockerconfigjson": []byte("same")},
+			}
+			newSecret := oldSecret.DeepCopy()
+			newSecret.ResourceVersion = "2"
+
+			h.Update(ctx, event.UpdateEvent{ObjectOld: oldSecret, ObjectNew: newSecret}, q)
+
+			Expect(q.items).To(Equal([]reconcile.Request{{NamespacedName: types.NamespacedName{Name: utils.OLSConfigName}}}))
+			for _, name := range []string{utils.OLSAppServerDeploymentName, utils.OtelCollectorDeploymentName} {
+				dep := &appsv1.Deployment{}
+				Expect(r.Get(ctx, types.NamespacedName{Name: name, Namespace: utils.OLSNamespaceDefault}, dep)).To(Succeed())
+				Expect(dep.Spec.Template.Annotations).NotTo(HaveKey(utils.ForceReloadAnnotationKey))
+			}
 		})
 
 		It("Generic is a no-op", func() {
@@ -305,7 +410,7 @@ var _ = Describe("Watchers", func() {
 			Expect(q.items).To(BeEmpty())
 		})
 
-		It("Delete enqueues OLSConfig for a configured system secret", func() {
+		It("Delete enqueues OLSConfig for the telemetry pull secret", func() {
 			r := createTestReconciler()
 			h := &SecretUpdateHandler{Reconciler: r}
 			q := &recordingQueue{}
@@ -315,6 +420,35 @@ var _ = Describe("Watchers", func() {
 			}}
 			h.Delete(ctx, event.DeleteEvent{Object: sec}, q)
 			Expect(q.items).To(Equal([]reconcile.Request{{NamespacedName: types.NamespacedName{Name: utils.OLSConfigName}}}))
+		})
+
+		It("ignores unrelated external secret create, update, and delete events", func() {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "external", Name: "unrelated"},
+			}
+			r := createTelemetryTestReconciler(utils.GetDefaultOLSConfigCR(), secret)
+			h := &SecretUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+
+			h.Create(ctx, event.CreateEvent{Object: secret}, q)
+			stored := &corev1.Secret{}
+			Expect(r.Get(ctx, client.ObjectKeyFromObject(secret), stored)).To(Succeed())
+			Expect(stored.Annotations).NotTo(HaveKey(utils.WatcherAnnotationKey))
+
+			oldSecret := secret.DeepCopy()
+			oldSecret.Data = map[string][]byte{"key": []byte("old")}
+			newSecret := oldSecret.DeepCopy()
+			newSecret.Data["key"] = []byte("new")
+			h.Update(ctx, event.UpdateEvent{ObjectOld: oldSecret, ObjectNew: newSecret}, q)
+			h.Delete(ctx, event.DeleteEvent{Object: secret}, q)
+
+			Expect(q.items).To(BeEmpty())
+			for _, name := range []string{utils.OLSAppServerDeploymentName, utils.OtelCollectorDeploymentName} {
+				dep := &appsv1.Deployment{}
+				Expect(r.Get(ctx, types.NamespacedName{Name: name, Namespace: utils.OLSNamespaceDefault}, dep)).To(Succeed())
+				Expect(dep.Spec.Template.Annotations).NotTo(HaveKey(utils.ForceReloadAnnotationKey))
+			}
+
 		})
 	})
 

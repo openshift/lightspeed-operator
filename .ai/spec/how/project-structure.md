@@ -18,9 +18,10 @@
 | `internal/controller/postgres/reconciler.go` | `ReconcilePostgresResources()`, `ReconcilePostgresDeployment()` | PostgreSQL Phase 1 + Phase 2 |
 | `internal/controller/postgres/deployment.go` | `GeneratePostgresDeployment()` | PostgreSQL deployment generation |
 | `internal/controller/postgres/assets.go` | `GeneratePostgresConfigMap()`, `GeneratePostgresBootstrapSecret()`, `GeneratePostgresSecret()` | PostgreSQL config, bootstrap script, credentials |
-| `internal/controller/otelcollector/reconciler.go` | `ReconcileOtelCollectorResources()`, `ReconcileOtelCollectorDeployment()`, `RestartOtelCollector()` | OTEL Collector Phase 1 + Phase 2 + rolling restart |
-| `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector deployment generation, update detection |
-| `internal/controller/otelcollector/assets.go` | Runtime ConfigMap, Service, NetworkPolicy, ServiceMonitor, ServiceAccount, Postgres DSN Secret generators | OTEL Collector resource generation, collector runtime YAML, HTTPS metrics |
+| `internal/controller/otelcollector/reconciler.go` | `ReconcileOtelCollectorResources()`, `ReconcileOtelCollectorDeployment()`, `RestartOtelCollector()` | OTEL Collector Phase 1 + Phase 2 + rolling restart, including gated Dataverse exporter resources |
+| `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector deployment generation, conditional Dataverse sidecar, update detection |
+| `internal/controller/otelcollector/assets.go` | Runtime ConfigMap, Service, NetworkPolicy, ServiceMonitor, ServiceAccount, Postgres DSN Secret generators | Collector runtime YAML and base resource generation |
+| `internal/controller/otelcollector/dataverse_exporter.go` | `GenerateOtelDataverseExporterConfigMap()`, `GenerateOtelDataverseExporterClusterRole()`, `GenerateOtelDataverseExporterClusterRoleBinding()`, `GenerateOtelDataverseExporterPullSecretClusterRole()`, `GenerateOtelDataverseExporterPullSecretRoleBinding()`, `dataverseExporterEnabled()` | OTel Dataverse exporter ConfigMap and two-ClusterRole RBAC generation; transcript/nonempty-auth-token gate |
 | `internal/controller/agenticintegration/reconciler.go` | `ReconcileAgenticIntegrationResources()` | Classic→agentic handoff ConfigMap at end of Phase 2 |
 | `internal/controller/agenticintegration/assets.go` | Thin PodSpec, handoff ConfigMap, `TouchAgenticConfiguration()` | Agentic handoff ConfigMap generation, including resolved provider-egress TLS values and CA references / cert-reload touch |
 | `internal/controller/ocpmcp/reconciler.go` | `ReconcileResources()`, `ReconcileDeployment()`, `Remove()`, `Restart()` | Standalone OpenShift MCP Phase 1 + Phase 2 + teardown + rolling restart |
@@ -130,14 +131,14 @@ Default images are stored in a `defaultImages` map in `cmd/main.go` keyed by log
 ### WatcherConfig
 Declarative configuration for external resource watching. Built in `cmd/main.go` and passed via `OLSConfigReconcilerOptions.WatcherConfig`. Contains:
 - `Secrets.SystemResources`: Fixed list of system secrets with affected deployment names:
-  - Telemetry pull secret → app server (`lightspeed-app-server`)
+  - Telemetry pull secret → app server (`lightspeed-app-server`) and OTel Collector (`lightspeed-otel-collector`); data changes refresh enabled exporters and enqueue reconciliation for the OTel gate
   - `lightspeed-console-plugin-cert` → chat console deployment
   - `lightspeed-agentic-console-plugin-cert` → agentic console deployment (`AgenticConsoleUIDeploymentName`)
   - Postgres TLS cert → postgres + app server
   - `lightspeed-otel-collector-cert` → OTEL Collector + app server + agentic ConfigMap; `RestartAppServer` refreshes client CA Secrets and touches the handoff ConfigMap
   - `openshift-mcp-server-tls` → OpenShift MCP server + app server + agentic ConfigMap; static SystemResources entry, gated by `OpenShiftMCPServerTLSWatchEnabled` when `spec.ols.introspectionEnabled` is true; same app-server refresh+touch path
   - `lightspeed-rhokp-tls` → RHOKP + app server + agentic ConfigMap; gated by `RHOKPTLSWatchEnabled` when `!byokRAGOnly`; same refresh+touch path
-- `ConfigMaps.SystemResources`: Fixed list of system configmaps (kube-root-ca.crt, service-ca bundle)
+- `ConfigMaps.SystemResources`: Fixed list of system configmaps (`kube-root-ca.crt`, service-ca bundle); `kube-root-ca.crt` is projected only into the OTel Dataverse exporter for in-cluster API auth.
 - `AnnotatedSecretMapping`: Dynamic map populated from CR spec at runtime (maps secret name to deployment names)
 - `AnnotatedConfigMapMapping`: Dynamic map populated from CR spec at runtime (maps configmap name to deployment names)
 All deployment names in `AffectedDeployments` are explicit (e.g. `lightspeed-app-server`, `lightspeed-rhokp`).
@@ -166,16 +167,18 @@ The OLSConfig CR uses finalizer `ols.openshift.io/finalizer` (defined in `utils.
 2. Remove agentic console UI (deactivate plugin, delete ConsolePlugin CR)
 3. Remove alerts adapter operand resources (`alertsadapter.RemoveAlertsAdapter()`: deployment, namespaced RBAC, SA, NetworkPolicy, monitoring RoleBinding; AgenticRun ClusterRole/ClusterRoleBinding when the platform permits delete)
 4. Remove OpenShift MCP server operand (`ocpmcp.Remove()`: Deployment, Service, NetworkPolicy, ConfigMaps, ServiceAccount, TLS Secret)
-5. List all owned resources via owner references
-6. Explicitly delete owned resources
+5. Inventory owned resources in the operator namespace via owner-reference UID
+6. Explicitly delete that inventory
 7. Wait up to 3 minutes for deletion (poll every 5 seconds)
 8. Remove finalizer (proceeds even if cleanup times out)
+
+The OTel exporter’s two ClusterRoles, ClusterRoleBinding, and `openshift-config` RoleBinding are outside this inventory. On CR deletion, they rely on asynchronous OLSConfig owner-reference garbage collection, with no guarantee that they disappear before finalizer removal or OLSConfig recreation. Normal gate-off reconciliation explicitly deletes all five exporter resources, including those RBAC objects.
 
 ## Integration Points
 
 | Component | External Dependency | Mechanism |
 |---|---|---|
-| Manager cache | `openshift-config` namespace | Multi-namespace cache config for telemetry pull secret |
+| Manager cache | `openshift-config` namespace | Multi-namespace cache for the telemetry pull secret and only the named OTel pull-secret RoleBinding (`lightspeed-otel-dataverse-exporter-pull-secret`) |
 | Console image selection | OpenShift version | API call to `clusterversions.config.openshift.io` |
 | Metrics TLS | `openshift-monitoring/metrics-client-ca` | ConfigMap read at startup |
 | TLS profile | OLSConfig CR or API server | CR field or `apiservers.config.openshift.io` |
@@ -272,5 +275,5 @@ Skipping metrics reader secret reconciliation avoids a local reconcile loop: cre
 - The `cmd/check-isa-level/` package is a build-time utility for AMD64 ISA level checking.
 - All generated files (deepcopy, CRD YAML) should be regenerated after API type changes using `make generate manifests`.
 - The OLSConfig CRD is cluster-scoped and validated to require `.metadata.name == "cluster"`.
-- `SetupWithManager()` registers `Owns()` watches for: Deployment, ServiceAccount, ClusterRole, ClusterRoleBinding, Service, ConfigMap, Secret, PersistentVolumeClaim, ConsolePlugin, ServiceMonitor, PrometheusRule, ImageStream.
+- `SetupWithManager()` registers `Owns()` watches for 13 resource types: Deployment, ServiceAccount, ClusterRole, ClusterRoleBinding, RoleBinding, Service, ConfigMap, Secret, PersistentVolumeClaim, ConsolePlugin, ServiceMonitor, PrometheusRule, ImageStream.
 - Controller-runtime handles retry with exponential backoff; the operator does not use periodic reconciliation.

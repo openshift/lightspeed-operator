@@ -93,6 +93,8 @@ var _ = BeforeSuite(func() {
 
 	err = k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: utils.OLSNamespaceDefault}})
 	Expect(err).NotTo(HaveOccurred())
+	configNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: utils.TelemetryPullSecretNamespace}}
+	Expect(k8sClient.Create(ctx, configNamespace)).To(Succeed())
 
 	tr := utils.NewTestReconciler(
 		k8sClient,
@@ -101,6 +103,7 @@ var _ = BeforeSuite(func() {
 		utils.OLSNamespaceDefault,
 	)
 	tr.OtelCollectorImage = testOtelCollectorImage
+	tr.DataverseExporter = "quay.io/test/dataverse-exporter:test"
 	testReconcilerInstance = tr
 
 	cr = &olsv1alpha1.OLSConfig{}
@@ -159,6 +162,59 @@ func ensureCollectorConfigMap(testCR *olsv1alpha1.OLSConfig) {
 			return
 		}
 		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
+func ensureOtelDataverseExporterConfigMap(testCR *olsv1alpha1.OLSConfig) {
+	cm, err := GenerateOtelDataverseExporterConfigMap(testReconcilerInstance, testCR)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = k8sClient.Create(ctx, cm)
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			existing := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cm.Name, Namespace: cm.Namespace}, existing)).To(Succeed())
+			existing.Data = cm.Data
+			existing.Labels = cm.Labels
+			existing.OwnerReferences = cm.OwnerReferences
+			Expect(k8sClient.Update(ctx, existing)).To(Succeed())
+			return
+		}
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
+const (
+	telemetryPullSecretWithAuthForTest = `{"auths":{"cloud.openshift.com":{"auth":"testkey"}}}`
+	telemetryPullSecretWithoutAuthTest = `{"auths":{"registry.example.com":{"auth":"testkey"}}}`
+)
+
+func setTelemetryPullSecretForTest(configJSON string, secretType corev1.SecretType) {
+	key := types.NamespacedName{Name: utils.TelemetryPullSecretName, Namespace: utils.TelemetryPullSecretNamespace}
+	secret := &corev1.Secret{}
+	err := k8sClient.Get(ctx, key, secret)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+			return
+		}
+		secret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace}}
+	}
+	if secret.ResourceVersion != "" && secret.Type != secretType {
+		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, secret))).To(Succeed())
+		Eventually(func() bool {
+			existing := &corev1.Secret{}
+			return errors.IsNotFound(k8sClient.Get(ctx, key, existing))
+		}).Should(BeTrue())
+		secret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace}}
+	}
+
+	secret.Type = secretType
+	secret.Data = map[string][]byte{corev1.DockerConfigJsonKey: []byte(configJSON)}
+	if secret.ResourceVersion == "" {
+		Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+	} else {
+		Expect(k8sClient.Update(ctx, secret)).To(Succeed())
 	}
 }
 
