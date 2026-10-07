@@ -371,6 +371,20 @@ spec:
         path: ols.deployment.rhokp.replicas
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: Guardrails configuration for untrusted model inputs and outputs.
+        displayName: Guardrails
+        path: ols.guardrails
+      - description: ToolResultInspection configures inspection of tool results before
+          model use.
+        displayName: Tool Result Inspection
+        path: ols.guardrails.toolResultInspection
+      - description: |-
+          Enabled controls whether tool results are inspected before model use.
+          Defaults to true when omitted.
+        displayName: Tool Result Inspection Enabled
+        path: ols.guardrails.toolResultInspection.enabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Pull secrets for BYOK RAG images from image registries requiring
           authentication
         displayName: Image Pull Secrets
