@@ -178,6 +178,7 @@ rules:
   - lightspeed-agentic-alerts-adapter-agenticruns
   - lightspeed-app-server-sar-role-binding
   - lightspeed-operator-ols-metrics-reader
+  - lightspeed-otel-dataverse-exporter-binding
   resources:
   - clusterrolebindings
   verbs:
@@ -200,6 +201,8 @@ rules:
   - lightspeed-agentic-alerts-adapter-agenticolsconfig
   - lightspeed-agentic-alerts-adapter-agenticruns
   - lightspeed-app-server-sar-role
+  - lightspeed-otel-dataverse-exporter
+  - lightspeed-otel-dataverse-exporter-pull-secret
   resources:
   - clusterroles
   verbs:
@@ -210,6 +213,7 @@ rules:
   - rbac.authorization.k8s.io
   resourceNames:
   - lightspeed-agentic-alerts-adapter-alertmanager
+  - lightspeed-otel-dataverse-exporter-pull-secret
   resources:
   - rolebindings
   verbs:

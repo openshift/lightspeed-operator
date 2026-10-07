@@ -9,10 +9,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 )
 
 func expectOwnedByOLSConfig(obj metav1.Object) {
@@ -33,11 +35,53 @@ func expectOwnedByOLSConfig(obj metav1.Object) {
 	Expect(ownerRef.Name).To(Equal(olsConfig.Name))
 }
 
+func expectOtelDataverseExporterResourcesAbsent() {
+	Expect(apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{
+		Name:      utils.OtelDataverseExporterConfigMapName,
+		Namespace: utils.OLSNamespaceDefault,
+	}, &corev1.ConfigMap{}))).To(BeTrue())
+	Expect(apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{
+		Name: utils.OtelDataverseExporterClusterRoleName,
+	}, &rbacv1.ClusterRole{}))).To(BeTrue())
+	Expect(apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{
+		Name: utils.OtelDataverseExporterClusterRoleBindingName,
+	}, &rbacv1.ClusterRoleBinding{}))).To(BeTrue())
+	Expect(apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{
+		Name: utils.OtelDataverseExporterPullSecretClusterRoleName,
+	}, &rbacv1.ClusterRole{}))).To(BeTrue())
+	Expect(apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{
+		Name:      utils.OtelDataverseExporterPullSecretRoleBindingName,
+		Namespace: utils.TelemetryPullSecretNamespace,
+	}, &rbacv1.RoleBinding{}))).To(BeTrue())
+}
+
+func expectOtelDataverseExporterResourcesPresent() {
+	Expect(k8sClient.Get(ctx, types.NamespacedName{
+		Name:      utils.OtelDataverseExporterConfigMapName,
+		Namespace: utils.OLSNamespaceDefault,
+	}, &corev1.ConfigMap{})).To(Succeed())
+	Expect(k8sClient.Get(ctx, types.NamespacedName{
+		Name: utils.OtelDataverseExporterClusterRoleName,
+	}, &rbacv1.ClusterRole{})).To(Succeed())
+	Expect(k8sClient.Get(ctx, types.NamespacedName{
+		Name: utils.OtelDataverseExporterClusterRoleBindingName,
+	}, &rbacv1.ClusterRoleBinding{})).To(Succeed())
+	Expect(k8sClient.Get(ctx, types.NamespacedName{
+		Name: utils.OtelDataverseExporterPullSecretClusterRoleName,
+	}, &rbacv1.ClusterRole{})).To(Succeed())
+	Expect(k8sClient.Get(ctx, types.NamespacedName{
+		Name:      utils.OtelDataverseExporterPullSecretRoleBindingName,
+		Namespace: utils.TelemetryPullSecretNamespace,
+	}, &rbacv1.RoleBinding{})).To(Succeed())
+}
+
 var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 	var testCR *olsv1alpha1.OLSConfig
 
 	BeforeAll(func() {
 		testCR = cr.DeepCopy()
+		testCR.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled = false
+		setTelemetryPullSecretForTest(telemetryPullSecretWithAuthForTest, corev1.SecretTypeDockerConfigJson)
 		ensurePostgresSecret()
 	})
 
@@ -56,6 +100,60 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(cm)
 			Expect(cm.Data[utils.OtelCollectorConfigMapDataKey]).To(ContainSubstring("routing/logs"))
+		})
+
+		It("should create the OTEL exporter ConfigMap and least-privilege OpenShift auth RBAC", func() {
+			cm := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelDataverseExporterConfigMapName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, cm)).To(Succeed())
+			expectOwnedByOLSConfig(cm)
+			Expect(cm.Data[utils.OtelDataverseExporterConfigMapDataKey]).To(ContainSubstring("data_mode: otel"))
+			Expect(cm.Data[utils.OtelDataverseExporterConfigMapDataKey]).NotTo(ContainSubstring("cloud.openshift.com"))
+
+			clusterRole := &rbacv1.ClusterRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.OtelDataverseExporterClusterRoleName}, clusterRole)).To(Succeed())
+			expectOwnedByOLSConfig(clusterRole)
+			Expect(clusterRole.Rules).To(ConsistOf(rbacv1.PolicyRule{
+				APIGroups:     []string{"config.openshift.io"},
+				Resources:     []string{"clusterversions"},
+				ResourceNames: []string{"version"},
+				Verbs:         []string{"get"},
+			}))
+
+			clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.OtelDataverseExporterClusterRoleBindingName}, clusterRoleBinding)).To(Succeed())
+			expectOwnedByOLSConfig(clusterRoleBinding)
+			Expect(clusterRoleBinding.RoleRef.Name).To(Equal(utils.OtelDataverseExporterClusterRoleName))
+			Expect(clusterRoleBinding.Subjects).To(ConsistOf(rbacv1.Subject{
+				Kind:      "ServiceAccount",
+				Name:      utils.OtelCollectorServiceAccountName,
+				Namespace: utils.OLSNamespaceDefault,
+			}))
+
+			pullSecretClusterRole := &rbacv1.ClusterRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.OtelDataverseExporterPullSecretClusterRoleName}, pullSecretClusterRole)).To(Succeed())
+			expectOwnedByOLSConfig(pullSecretClusterRole)
+			Expect(pullSecretClusterRole.Rules).To(ConsistOf(rbacv1.PolicyRule{
+				APIGroups:     []string{""},
+				Resources:     []string{"secrets"},
+				ResourceNames: []string{utils.TelemetryPullSecretName},
+				Verbs:         []string{"get"},
+			}))
+
+			pullSecretRoleBinding := &rbacv1.RoleBinding{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelDataverseExporterPullSecretRoleBindingName,
+				Namespace: utils.TelemetryPullSecretNamespace,
+			}, pullSecretRoleBinding)).To(Succeed())
+			expectOwnedByOLSConfig(pullSecretRoleBinding)
+			Expect(pullSecretRoleBinding.RoleRef.Name).To(Equal(utils.OtelDataverseExporterPullSecretClusterRoleName))
+			Expect(pullSecretRoleBinding.Subjects).To(ConsistOf(rbacv1.Subject{
+				Kind:      "ServiceAccount",
+				Name:      utils.OtelCollectorServiceAccountName,
+				Namespace: utils.OLSNamespaceDefault,
+			}))
 		})
 
 		It("should create the collector ServiceAccount", func() {
@@ -128,6 +226,140 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.ResourceVersion).To(Equal(oldRV))
 		})
+		It("should update exporter config and RBAC drift", func() {
+			cm := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelDataverseExporterConfigMapName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, cm)).To(Succeed())
+			cm.Data[utils.OtelDataverseExporterConfigMapDataKey] = "data_mode: json"
+			Expect(k8sClient.Update(ctx, cm)).To(Succeed())
+
+			clusterRole := &rbacv1.ClusterRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.OtelDataverseExporterClusterRoleName}, clusterRole)).To(Succeed())
+			clusterRole.Rules = nil
+			clusterRole.AggregationRule = &rbacv1.AggregationRule{
+				ClusterRoleSelectors: []metav1.LabelSelector{
+					{MatchLabels: map[string]string{"example.com/unexpected": "true"}},
+				},
+			}
+			Expect(k8sClient.Update(ctx, clusterRole)).To(Succeed())
+
+			clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.OtelDataverseExporterClusterRoleBindingName}, clusterRoleBinding)).To(Succeed())
+			clusterRoleBinding.Subjects = []rbacv1.Subject{{Kind: "User", Name: "unexpected"}}
+			Expect(k8sClient.Update(ctx, clusterRoleBinding)).To(Succeed())
+
+			pullSecretClusterRole := &rbacv1.ClusterRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.OtelDataverseExporterPullSecretClusterRoleName}, pullSecretClusterRole)).To(Succeed())
+			pullSecretClusterRole.Rules = nil
+			pullSecretClusterRole.AggregationRule = &rbacv1.AggregationRule{
+				ClusterRoleSelectors: []metav1.LabelSelector{
+					{MatchLabels: map[string]string{"example.com/unexpected": "true"}},
+				},
+			}
+			Expect(k8sClient.Update(ctx, pullSecretClusterRole)).To(Succeed())
+
+			pullSecretRoleBinding := &rbacv1.RoleBinding{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelDataverseExporterPullSecretRoleBindingName,
+				Namespace: utils.TelemetryPullSecretNamespace,
+			}, pullSecretRoleBinding)).To(Succeed())
+			pullSecretRoleBinding.Subjects = []rbacv1.Subject{{Kind: "User", Name: "unexpected"}}
+			Expect(k8sClient.Update(ctx, pullSecretRoleBinding)).To(Succeed())
+
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+
+			desiredCM, err := GenerateOtelDataverseExporterConfigMap(testReconcilerInstance, testCR)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelDataverseExporterConfigMapName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, cm)).To(Succeed())
+			Expect(cm.Data).To(Equal(desiredCM.Data))
+
+			desiredClusterRole, err := GenerateOtelDataverseExporterClusterRole(testReconcilerInstance, testCR)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.OtelDataverseExporterClusterRoleName}, clusterRole)).To(Succeed())
+			Expect(clusterRole.Rules).To(Equal(desiredClusterRole.Rules))
+			Expect(clusterRole.AggregationRule).To(BeNil())
+
+			desiredClusterRoleBinding, err := GenerateOtelDataverseExporterClusterRoleBinding(testReconcilerInstance, testCR)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.OtelDataverseExporterClusterRoleBindingName}, clusterRoleBinding)).To(Succeed())
+			Expect(clusterRoleBinding.Subjects).To(Equal(desiredClusterRoleBinding.Subjects))
+
+			desiredPullSecretClusterRole, err := GenerateOtelDataverseExporterPullSecretClusterRole(testReconcilerInstance, testCR)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: utils.OtelDataverseExporterPullSecretClusterRoleName}, pullSecretClusterRole)).To(Succeed())
+			Expect(pullSecretClusterRole.Rules).To(Equal(desiredPullSecretClusterRole.Rules))
+			Expect(pullSecretClusterRole.AggregationRule).To(BeNil())
+
+			desiredPullSecretRoleBinding, err := GenerateOtelDataverseExporterPullSecretRoleBinding(testReconcilerInstance, testCR)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelDataverseExporterPullSecretRoleBindingName,
+				Namespace: utils.TelemetryPullSecretNamespace,
+			}, pullSecretRoleBinding)).To(Succeed())
+			Expect(pullSecretRoleBinding.Subjects).To(Equal(desiredPullSecretRoleBinding.Subjects))
+		})
+
+		It("should remove and recreate all exporter resources when transcripts are disabled", func() {
+			disabledCR := testCR.DeepCopy()
+			disabledCR.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled = true
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, disabledCR)).To(Succeed())
+			expectOtelDataverseExporterResourcesAbsent()
+
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			expectOtelDataverseExporterResourcesPresent()
+		})
+
+		It("should remove exporter resources when valid telemetry auth is absent or empty", func() {
+			setTelemetryPullSecretForTest(telemetryPullSecretWithoutAuthTest, corev1.SecretTypeDockerConfigJson)
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			expectOtelDataverseExporterResourcesAbsent()
+
+			setTelemetryPullSecretForTest(`{"auths":{"cloud.openshift.com":{"auth":"  "}}}`, corev1.SecretTypeDockerConfigJson)
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			expectOtelDataverseExporterResourcesAbsent()
+
+			cm := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelCollectorConfigMapName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, cm)).To(Succeed())
+			Expect(cm.Data[utils.OtelCollectorConfigMapDataKey]).To(ContainSubstring("file/data_collection"))
+
+			setTelemetryPullSecretForTest(telemetryPullSecretWithAuthForTest, corev1.SecretTypeDockerConfigJson)
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			expectOtelDataverseExporterResourcesPresent()
+		})
+
+		It("should preserve exporter resources while reporting malformed or missing telemetry auth", func() {
+			DeferCleanup(func() {
+				setTelemetryPullSecretForTest(telemetryPullSecretWithAuthForTest, corev1.SecretTypeDockerConfigJson)
+			})
+
+			setTelemetryPullSecretForTest("not-json", corev1.SecretTypeOpaque)
+			err := ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to decode telemetry pull secret"))
+			expectOtelDataverseExporterResourcesPresent()
+
+			secret := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.TelemetryPullSecretName,
+				Namespace: utils.TelemetryPullSecretNamespace,
+			}, secret)).To(Succeed())
+			secret.Data = map[string][]byte{}
+			Expect(k8sClient.Update(ctx, secret)).To(Succeed())
+
+			err = ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("does not contain " + corev1.DockerConfigJsonKey))
+			expectOtelDataverseExporterResourcesPresent()
+		})
+
 	})
 
 	Context("Phase 2 deployment", func() {
@@ -284,6 +516,232 @@ var _ = Describe("OTEL Collector reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dep.Annotations[utils.OtelCollectorConfigMapResourceVersionAnnotation]).NotTo(Equal(oldCMVersion))
 			Expect(dep.Spec.Template.Annotations).To(HaveKey(utils.ForceReloadAnnotationKey))
+		})
+
+		It("should trigger a rolling restart when the exporter ConfigMap changes", func() {
+			dep := &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelCollectorDeploymentName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, dep)).To(Succeed())
+			oldExporterConfigMapVersion := dep.Annotations[utils.OtelDataverseExporterConfigMapResourceVersionAnnotation]
+			Expect(oldExporterConfigMapVersion).NotTo(BeEmpty())
+			oldForceReload := dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]
+
+			cm := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelDataverseExporterConfigMapName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, cm)).To(Succeed())
+			cm.Data[utils.OtelDataverseExporterConfigMapDataKey] += "\n# config refresh"
+			Expect(k8sClient.Update(ctx, cm)).To(Succeed())
+
+			Expect(ReconcileOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.OtelCollectorDeploymentName,
+				Namespace: utils.OLSNamespaceDefault,
+			}, dep)).To(Succeed())
+			Expect(dep.Annotations[utils.OtelDataverseExporterConfigMapResourceVersionAnnotation]).NotTo(Equal(oldExporterConfigMapVersion))
+			Expect(dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]).NotTo(Equal(oldForceReload))
+
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			Expect(ReconcileOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)).To(Succeed())
+		})
+
+		It("should reconcile telemetry auth and transcript collection against an existing Deployment", func() {
+			deploymentKey := types.NamespacedName{
+				Name:      utils.OtelCollectorDeploymentName,
+				Namespace: utils.OLSNamespaceDefault,
+			}
+			getDeployment := func() *appsv1.Deployment {
+				deployment := &appsv1.Deployment{}
+				Expect(k8sClient.Get(ctx, deploymentKey, deployment)).To(Succeed())
+				return deployment
+			}
+
+			existingDeployment := getDeployment()
+			Expect(existingDeployment.UID).NotTo(BeEmpty())
+			existingDeploymentUID := existingDeployment.UID
+
+			readTraceExporterPath := func() (string, bool) {
+				configMap := &corev1.ConfigMap{}
+				Expect(k8sClient.Get(ctx, types.NamespacedName{
+					Name:      utils.OtelCollectorConfigMapName,
+					Namespace: utils.OLSNamespaceDefault,
+				}, configMap)).To(Succeed())
+
+				var collectorConfig struct {
+					Exporters map[string]struct {
+						Path string `json:"path"`
+					} `json:"exporters"`
+				}
+				Expect(yaml.Unmarshal([]byte(configMap.Data[utils.OtelCollectorConfigMapDataKey]), &collectorConfig)).To(Succeed())
+				traceExporter, found := collectorConfig.Exporters["file/data_collection"]
+				return traceExporter.Path, found
+			}
+
+			expectExporterResourcesPresent := func() {
+				expectOtelDataverseExporterResourcesPresent()
+
+				configMap := &corev1.ConfigMap{}
+				Expect(k8sClient.Get(ctx, types.NamespacedName{
+					Name:      utils.OtelDataverseExporterConfigMapName,
+					Namespace: utils.OLSNamespaceDefault,
+				}, configMap)).To(Succeed())
+				var exporterConfig struct {
+					LedgerFile string `json:"ledger_file"`
+				}
+				Expect(yaml.Unmarshal([]byte(configMap.Data[utils.OtelDataverseExporterConfigMapDataKey]), &exporterConfig)).To(Succeed())
+				Expect(exporterConfig.LedgerFile).To(Equal(utils.OtelDataverseExporterLedgerFilePath))
+			}
+
+			expectExporterDeploymentPresent := func(deployment *appsv1.Deployment) {
+				podSpec := deployment.Spec.Template.Spec
+				Expect(podSpec.Containers).To(HaveLen(2))
+				Expect(podSpec.Containers[0].Name).To(Equal(utils.OtelCollectorContainerName))
+				exporter := podSpec.Containers[1]
+				Expect(exporter.Name).To(Equal(utils.DataverseExporterContainerName))
+
+				configVolume, found := findVolume(podSpec.Volumes, utils.OtelDataverseExporterConfigVolumeName)
+				Expect(found).To(BeTrue())
+				Expect(configVolume.ConfigMap).NotTo(BeNil())
+				stateVolume, found := findVolume(podSpec.Volumes, utils.OtelDataverseExporterStateVolumeName)
+				Expect(found).To(BeTrue())
+				Expect(stateVolume.EmptyDir).NotTo(BeNil())
+				authVolume, found := findVolume(podSpec.Volumes, utils.OtelDataverseExporterAuthVolumeName)
+				Expect(found).To(BeTrue())
+				Expect(authVolume.Projected).NotTo(BeNil())
+
+				configMount, found := findVolumeMount(exporter.VolumeMounts, utils.OtelDataverseExporterConfigVolumeName)
+				Expect(found).To(BeTrue())
+				Expect(configMount.MountPath).To(Equal(utils.OtelDataverseExporterConfigMountPath))
+				Expect(configMount.ReadOnly).To(BeTrue())
+				sourceMount, found := findVolumeMount(exporter.VolumeMounts, utils.OtelCollectorDataCollectionVolumeName)
+				Expect(found).To(BeTrue())
+				Expect(sourceMount.MountPath).To(Equal(utils.OtelDataverseExporterDataMountPath))
+				Expect(sourceMount.ReadOnly).To(BeTrue())
+				stateMount, found := findVolumeMount(exporter.VolumeMounts, utils.OtelDataverseExporterStateVolumeName)
+				Expect(found).To(BeTrue())
+				Expect(stateMount.MountPath).To(Equal(utils.OtelDataverseExporterStateMountPath))
+				Expect(stateMount.ReadOnly).To(BeFalse())
+				authMount, found := findVolumeMount(exporter.VolumeMounts, utils.OtelDataverseExporterAuthVolumeName)
+				Expect(found).To(BeTrue())
+				Expect(authMount.MountPath).To(Equal(utils.OtelDataverseExporterAuthMountPath))
+				Expect(authMount.ReadOnly).To(BeTrue())
+			}
+
+			expectExporterDeploymentAbsent := func(deployment *appsv1.Deployment) {
+				podSpec := deployment.Spec.Template.Spec
+				Expect(podSpec.Containers).To(HaveLen(1))
+				Expect(podSpec.Containers[0].Name).To(Equal(utils.OtelCollectorContainerName))
+				for _, name := range []string{
+					utils.OtelDataverseExporterConfigVolumeName,
+					utils.OtelDataverseExporterStateVolumeName,
+					utils.OtelDataverseExporterAuthVolumeName,
+				} {
+					_, found := findVolume(podSpec.Volumes, name)
+					Expect(found).To(BeFalse())
+					_, found = findVolumeMount(podSpec.Containers[0].VolumeMounts, name)
+					Expect(found).To(BeFalse())
+				}
+			}
+
+			expectSourceVolumePresent := func(deployment *appsv1.Deployment) {
+				podSpec := deployment.Spec.Template.Spec
+				sourceVolume, found := findVolume(podSpec.Volumes, utils.OtelCollectorDataCollectionVolumeName)
+				Expect(found).To(BeTrue())
+				Expect(sourceVolume.EmptyDir).NotTo(BeNil())
+				Expect(sourceVolume.EmptyDir.SizeLimit).NotTo(BeNil())
+				Expect(sourceVolume.EmptyDir.SizeLimit.String()).To(Equal(utils.OtelCollectorDataCollectionSizeLimitDefault))
+
+				sourceMount, found := findVolumeMount(podSpec.Containers[0].VolumeMounts, utils.OtelCollectorDataCollectionVolumeName)
+				Expect(found).To(BeTrue())
+				Expect(sourceMount.MountPath).To(Equal(utils.OtelCollectorDataCollectionMountPath))
+				Expect(sourceMount.ReadOnly).To(BeFalse())
+			}
+
+			expectSourceVolumeAbsent := func(deployment *appsv1.Deployment) {
+				podSpec := deployment.Spec.Template.Spec
+				_, found := findVolume(podSpec.Volumes, utils.OtelCollectorDataCollectionVolumeName)
+				Expect(found).To(BeFalse())
+				_, found = findVolumeMount(podSpec.Containers[0].VolumeMounts, utils.OtelCollectorDataCollectionVolumeName)
+				Expect(found).To(BeFalse())
+			}
+
+			expectDeploymentRollout := func(previous *appsv1.Deployment) *appsv1.Deployment {
+				updated := getDeployment()
+				Expect(updated.UID).To(Equal(existingDeploymentUID))
+				Expect(updated.ResourceVersion).NotTo(Equal(previous.ResourceVersion))
+				Expect(updated.Spec.Template).NotTo(Equal(previous.Spec.Template))
+				reload := updated.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]
+				Expect(reload).NotTo(BeEmpty())
+				Expect(reload).NotTo(Equal(previous.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]))
+				return updated
+			}
+
+			setTelemetryPullSecretForTest(telemetryPullSecretWithAuthForTest, corev1.SecretTypeDockerConfigJson)
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			expectExporterResourcesPresent()
+			sourcePath, sourceConfigured := readTraceExporterPath()
+			Expect(sourceConfigured).To(BeTrue())
+			Expect(sourcePath).To(Equal(utils.OtelCollectorDataCollectionTraceFilePath))
+			Expect(ReconcileOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			deployment := getDeployment()
+			Expect(deployment.UID).To(Equal(existingDeploymentUID))
+			expectExporterDeploymentPresent(deployment)
+			expectSourceVolumePresent(deployment)
+
+			deploymentBeforeSecretLoss := getDeployment()
+			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
+			Expect(apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      utils.TelemetryPullSecretName,
+				Namespace: utils.TelemetryPullSecretNamespace,
+			}, &corev1.Secret{}))).To(BeTrue())
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			expectOtelDataverseExporterResourcesAbsent()
+			sourcePathAfterSecretLoss, sourceConfiguredAfterSecretLoss := readTraceExporterPath()
+			Expect(sourceConfiguredAfterSecretLoss).To(BeTrue())
+			Expect(sourcePathAfterSecretLoss).To(Equal(sourcePath))
+			Expect(ReconcileOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			deployment = expectDeploymentRollout(deploymentBeforeSecretLoss)
+			expectExporterDeploymentAbsent(deployment)
+			expectSourceVolumePresent(deployment)
+
+			deploymentBeforeAuthRestore := getDeployment()
+			setTelemetryPullSecretForTest(telemetryPullSecretWithAuthForTest, corev1.SecretTypeDockerConfigJson)
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			expectExporterResourcesPresent()
+			sourcePathAfterAuthRestore, sourceConfiguredAfterAuthRestore := readTraceExporterPath()
+			Expect(sourceConfiguredAfterAuthRestore).To(BeTrue())
+			Expect(sourcePathAfterAuthRestore).To(Equal(sourcePath))
+			Expect(ReconcileOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			deployment = expectDeploymentRollout(deploymentBeforeAuthRestore)
+			expectExporterDeploymentPresent(deployment)
+			expectSourceVolumePresent(deployment)
+
+			transcriptsDisabledCR := testCR.DeepCopy()
+			transcriptsDisabledCR.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled = true
+			deploymentBeforeTranscriptOptOut := getDeployment()
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, transcriptsDisabledCR)).To(Succeed())
+			expectOtelDataverseExporterResourcesAbsent()
+			_, sourceConfiguredAfterTranscriptOptOut := readTraceExporterPath()
+			Expect(sourceConfiguredAfterTranscriptOptOut).To(BeFalse())
+			Expect(ReconcileOtelCollectorDeployment(testReconcilerInstance, ctx, transcriptsDisabledCR)).To(Succeed())
+			deployment = expectDeploymentRollout(deploymentBeforeTranscriptOptOut)
+			expectExporterDeploymentAbsent(deployment)
+			expectSourceVolumeAbsent(deployment)
+
+			deploymentBeforeRestore := getDeployment()
+			setTelemetryPullSecretForTest(telemetryPullSecretWithAuthForTest, corev1.SecretTypeDockerConfigJson)
+			Expect(ReconcileOtelCollectorResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			expectExporterResourcesPresent()
+			sourcePathAfterRestore, sourceConfiguredAfterRestore := readTraceExporterPath()
+			Expect(sourceConfiguredAfterRestore).To(BeTrue())
+			Expect(sourcePathAfterRestore).To(Equal(sourcePath))
+			Expect(ReconcileOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			deployment = expectDeploymentRollout(deploymentBeforeRestore)
+			expectExporterDeploymentPresent(deployment)
+			expectSourceVolumePresent(deployment)
 		})
 
 		It("should restart via RestartOtelCollector", func() {

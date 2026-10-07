@@ -8,6 +8,7 @@ import (
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
@@ -22,15 +23,36 @@ type collectorExporterTLSForTest struct {
 	IncludeSystemCACertsPool bool   `json:"include_system_ca_certs_pool"`
 }
 
+type collectorExporterRotationForTest struct {
+	MaxMegabytes int `json:"max_megabytes"`
+	MaxBackups   int `json:"max_backups"`
+	MaxDays      int `json:"max_days"`
+}
+
 type collectorExporterForTest struct {
-	Endpoint         string                      `json:"endpoint"`
-	ConnectionString string                      `json:"connection_string"`
-	Schema           string                      `json:"schema"`
-	LogsTable        string                      `json:"logs_table"`
-	Path             string                      `json:"path"`
-	Format           string                      `json:"format"`
-	CreateDirectory  bool                        `json:"create_directory"`
-	TLS              collectorExporterTLSForTest `json:"tls"`
+	Endpoint         string                           `json:"endpoint"`
+	ConnectionString string                           `json:"connection_string"`
+	Schema           string                           `json:"schema"`
+	LogsTable        string                           `json:"logs_table"`
+	Path             string                           `json:"path"`
+	Format           string                           `json:"format"`
+	CreateDirectory  bool                             `json:"create_directory"`
+	Rotation         collectorExporterRotationForTest `json:"rotation"`
+	TLS              collectorExporterTLSForTest      `json:"tls"`
+}
+
+type otelDataverseExporterConfigForTest struct {
+	DataMode           string `json:"data_mode"`
+	DataDir            string `json:"data_dir"`
+	OtelActiveFile     string `json:"otel_active_file"`
+	LedgerFile         string `json:"ledger_file"`
+	ArchivePathPrefix  string `json:"archive_path_prefix"`
+	CollectionInterval int    `json:"collection_interval"`
+	CleanupAfterSend   *bool  `json:"cleanup_after_send"`
+	ServiceID          string `json:"service_id"`
+	IngressServerURL   string `json:"ingress_server_url"`
+	IngressAuthToken   string `json:"ingress_server_auth_token"`
+	ClusterID          string `json:"cluster_id"`
 }
 
 type collectorRoutingRuleForTest struct {
@@ -103,6 +125,10 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(fileExporter.Path).To(Equal("/var/lib/lightspeed-data/otel/traces.jsonl"))
 		Expect(fileExporter.Format).To(Equal("json"))
 		Expect(fileExporter.CreateDirectory).To(BeTrue())
+
+		Expect(fileExporter.Rotation.MaxMegabytes).To(Equal(10))
+		Expect(fileExporter.Rotation.MaxBackups).To(Equal(40))
+		Expect(fileExporter.Rotation.MaxDays).To(Equal(1))
 
 		dataCollectionRoute := decoded.Connectors["routing/data_collection"]
 		Expect(dataCollectionRoute.DefaultPipelines).To(BeEmpty())
@@ -398,6 +424,89 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(dsn).To(ContainSubstring("sslmode=" + utils.PostgresDefaultSSLMode))
 		Expect(dsn).To(ContainSubstring(utils.PostgresServiceName))
 	})
+	It("should generate a separate OTEL-mode Dataverse exporter config", func() {
+		cm, err := GenerateOtelDataverseExporterConfigMap(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cm.Name).To(Equal("lightspeed-otel-dataverse-exporter-config"))
+		Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
+		Expect(cm.Data).To(HaveKey("config.yaml"))
+
+		var config otelDataverseExporterConfigForTest
+		Expect(yaml.Unmarshal([]byte(cm.Data["config.yaml"]), &config)).To(Succeed())
+		cleanupAfterSend := false
+		Expect(config).To(Equal(otelDataverseExporterConfigForTest{
+			DataMode:           "otel",
+			DataDir:            "/input",
+			OtelActiveFile:     "traces.jsonl",
+			LedgerFile:         "/state/ledger.json",
+			ArchivePathPrefix:  "v1/",
+			CollectionInterval: 300,
+			CleanupAfterSend:   &cleanupAfterSend,
+			ServiceID:          "ols",
+			IngressServerURL:   "https://console.redhat.com/api/ingress/v1/upload",
+		}))
+		Expect(cm.Data["config.yaml"]).NotTo(ContainSubstring("ingress_server_auth_token"))
+		Expect(cm.Data["config.yaml"]).NotTo(ContainSubstring("cluster_id"))
+
+		testCR.Labels = map[string]string{utils.RHOSOLightspeedOwnerIDLabel: "rhoso"}
+		cm, err = GenerateOtelDataverseExporterConfigMap(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(yaml.Unmarshal([]byte(cm.Data["config.yaml"]), &config)).To(Succeed())
+		Expect(config.ServiceID).To(Equal("rhos-lightspeed"))
+	})
+
+	It("should generate least-privilege OpenShift auth RBAC", func() {
+		clusterRole, err := GenerateOtelDataverseExporterClusterRole(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(clusterRole.Name).To(Equal(utils.OtelDataverseExporterClusterRoleName))
+		Expect(clusterRole.Rules).To(ConsistOf(rbacv1.PolicyRule{
+			APIGroups:     []string{"config.openshift.io"},
+			Resources:     []string{"clusterversions"},
+			ResourceNames: []string{"version"},
+			Verbs:         []string{"get"},
+		}))
+
+		clusterRoleBinding, err := GenerateOtelDataverseExporterClusterRoleBinding(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(clusterRoleBinding.Name).To(Equal(utils.OtelDataverseExporterClusterRoleBindingName))
+		Expect(clusterRoleBinding.RoleRef).To(Equal(rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     utils.OtelDataverseExporterClusterRoleName,
+		}))
+		Expect(clusterRoleBinding.Subjects).To(ConsistOf(rbacv1.Subject{
+			Kind:      "ServiceAccount",
+			Name:      utils.OtelCollectorServiceAccountName,
+			Namespace: utils.OLSNamespaceDefault,
+		}))
+
+		pullSecretClusterRole, err := GenerateOtelDataverseExporterPullSecretClusterRole(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pullSecretClusterRole.Name).To(Equal(utils.OtelDataverseExporterPullSecretClusterRoleName))
+		Expect(pullSecretClusterRole.Rules).To(ConsistOf(rbacv1.PolicyRule{
+			APIGroups:     []string{""},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{utils.TelemetryPullSecretName},
+			Verbs:         []string{"get"},
+		}))
+
+		pullSecretRoleBinding, err := GenerateOtelDataverseExporterPullSecretRoleBinding(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pullSecretRoleBinding.Name).To(Equal(utils.OtelDataverseExporterPullSecretRoleBindingName))
+		Expect(pullSecretRoleBinding.Name).To(Equal(pullSecretClusterRole.Name))
+		Expect(pullSecretRoleBinding.Namespace).To(Equal(utils.TelemetryPullSecretNamespace))
+		Expect(pullSecretRoleBinding.RoleRef).To(Equal(rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     utils.OtelDataverseExporterPullSecretClusterRoleName,
+		}))
+		Expect(pullSecretRoleBinding.Subjects).To(ConsistOf(rbacv1.Subject{
+			Kind:      "ServiceAccount",
+			Name:      utils.OtelCollectorServiceAccountName,
+			Namespace: utils.OLSNamespaceDefault,
+		}))
+	})
+
 })
 
 func protocolTCP() *corev1.Protocol {

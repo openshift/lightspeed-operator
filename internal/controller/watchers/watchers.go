@@ -75,6 +75,11 @@ func isSystemSecret(r reconciler.Reconciler, obj client.Object) bool {
 	return false
 }
 
+func isTelemetryPullSecret(obj client.Object) bool {
+	return obj.GetNamespace() == utils.TelemetryPullSecretNamespace &&
+		obj.GetName() == utils.TelemetryPullSecretName
+}
+
 func isSystemConfigMap(r reconciler.Reconciler, obj client.Object) bool {
 	watcherConfig, _ := r.GetWatcherConfig().(*utils.WatcherConfig)
 	if watcherConfig == nil {
@@ -95,15 +100,15 @@ func enqueueOLSConfig(q workqueue.TypedRateLimitingInterface[reconcile.Request])
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{Name: utils.OLSConfigName}})
 }
 
-// SecretUpdateHandler handles update events for Secrets and triggers deployment restarts when data changes.
+// SecretUpdateHandler processes watched Secret lifecycle events. Data changes restart
+// affected deployments, while telemetry events also re-evaluate the exporter auth gate.
 type SecretUpdateHandler struct {
 	Reconciler reconciler.Reconciler
 }
 
-// Create implements handler.EventHandler - handle creation of watched secrets
-// This handles the case where a watched secret is created or recreated.
-// Instead of triggering full reconciliation, we check if the secret is referenced in the CR,
-// annotate it if needed, and directly trigger deployment restarts.
+// Create handles created/recreated watched Secrets. System secrets bypass CR
+// reference checks and annotation; telemetry changes requeue the auth gate and
+// refresh affected deployments.
 func (h *SecretUpdateHandler) Create(ctx context.Context, evt event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	obj := evt.Object
 	secret, ok := obj.(*v1.Secret)
@@ -113,6 +118,17 @@ func (h *SecretUpdateHandler) Create(ctx context.Context, evt event.CreateEvent,
 
 	// Skip operator-owned secrets - they're managed via Owns() relationship
 	if ownedByOLSConfig(secret) {
+		return
+	}
+
+	// Handle system secrets before CR-reference checks: external system secrets
+	// must never be annotated as user-provided resources.
+	if isTelemetryPullSecret(secret) {
+		enqueueOLSConfig(q)
+		SecretWatcherFilter(h.Reconciler, ctx, secret)
+		return
+	}
+	if isSystemSecret(h.Reconciler, secret) {
 		return
 	}
 
@@ -148,13 +164,18 @@ func (h *SecretUpdateHandler) Create(ctx context.Context, evt event.CreateEvent,
 	SecretWatcherFilter(h.Reconciler, ctx, obj)
 }
 
-// Update implements handler.EventHandler - this is where we check if secret data changed
+// Update requeues auth-gating reconciliation for telemetry Secret updates, but
+// only data changes trigger deployment restarts.
 func (h *SecretUpdateHandler) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	oldSecret, oldOk := evt.ObjectOld.(*v1.Secret)
 	newSecret, newOk := evt.ObjectNew.(*v1.Secret)
 
 	if !oldOk || !newOk {
 		return
+	}
+
+	if isTelemetryPullSecret(newSecret) {
+		enqueueOLSConfig(q)
 	}
 
 	// Check if the data actually changed (not just metadata/annotations)
@@ -175,6 +196,11 @@ func (h *SecretUpdateHandler) Delete(ctx context.Context, evt event.DeleteEvent,
 	if obj == nil || ownedByOLSConfig(obj) {
 		return
 	}
+	if isTelemetryPullSecret(obj) {
+		enqueueOLSConfig(q)
+		return
+	}
+
 	if isSystemSecret(h.Reconciler, obj) {
 		enqueueOLSConfig(q)
 		return

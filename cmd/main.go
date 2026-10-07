@@ -329,6 +329,9 @@ func main() {
 					Namespaces: map[string]cache.Config{
 						namespace:                          {},
 						utils.OpenShiftMonitoringNamespace: {},
+						utils.TelemetryPullSecretNamespace: {
+							FieldSelector: fields.SelectorFromSet(fields.Set{"metadata.name": utils.OtelDataverseExporterPullSecretRoleBindingName}),
+						},
 					},
 				},
 			},
@@ -383,7 +386,7 @@ func main() {
 					Name:                utils.TelemetryPullSecretName,
 					Namespace:           utils.TelemetryPullSecretNamespace,
 					Description:         "OpenShift telemetry pull secret",
-					AffectedDeployments: []string{utils.OLSAppServerDeploymentName},
+					AffectedDeployments: []string{utils.OLSAppServerDeploymentName, utils.OtelCollectorDeploymentName},
 				},
 				{
 					Name:                utils.ConsoleUIServiceCertSecretName,

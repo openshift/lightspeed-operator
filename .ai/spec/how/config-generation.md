@@ -232,5 +232,6 @@ PostgreSQL schemas isolate data from different components within the same databa
 - Config YAML is built programmatically using Go structs and marshaled with `yaml.Marshal()`, not templates.
 - The fake provider config is hardcoded with test response values (`"This is a preconfigured fake response."`).
 - PostgreSQL uses `POSTGRESQL_ADMIN_PASSWORD` env var for the admin password (mapped from the generated secret in the deployment spec, not shown in config files).
-- Exporter config for data collector uses a separate ConfigMap (`utils.ExporterConfigCmName`) with collection interval of 300 seconds, cleanup after send, and ingress URL to `console.redhat.com`.
+- The existing app-server exporter config uses its separate ConfigMap (`utils.ExporterConfigCmName` / `lightspeed-exporter-config`) with a 300-second collection interval, cleanup after send, and the ingress URL to `console.redhat.com`. It is not reused for Collector trace ingestion.
+- The OTel Dataverse sidecar has a separate generated ConfigMap with `data_mode: otel`, `data_dir: /input`, active file `traces.jsonl`, ledger `/state/ledger.json`, archive prefix `v1/`, a 300-second collection interval, `cleanup_after_send: false`, the same service-ID selection and ingress URL, and no credentials. It runs with `--mode openshift`; see `what/data-collection.md`.
 - The `OLSSystemPromptFileName` is stored as a separate key in the OLS config ConfigMap when `querySystemPrompt` is set.

@@ -29,7 +29,7 @@ Reconcile(ctx, req)
   |   |-- alertsadapter.ReconcileAlertsAdapterResources()
   |   |   (opt-in via configMapRef; RemoveAlertsAdapter() when disabled; no ConfigMap validation;
   |   |    mount at /etc/alerts-adapter when CM exists)
-  |   |-- otelcollector.ReconcileOtelCollectorResources()
+  |   |-- otelcollector.ReconcileOtelCollectorResources()     # runtime resources; gate-managed exporter ConfigMap, two ClusterRoles, existing ClusterRoleBinding, and openshift-config RoleBinding; transcript/token gate treats NotFound as off and malformed/missing .dockerconfigjson or other API read errors as Phase 1 failures
   |   +-- appserver.ReconcileAppServerResources()
   -> reconcileDeploymentsAndStatus()        # Phase 2: deployments + status update (order below matches code)
       |-- console.ReconcileConsoleUIDeploymentAndPlugin()   # ConsolePluginReady
@@ -37,7 +37,7 @@ Reconcile(ctx, req)
       |-- ocpmcp.ReconcileDeployment()                      # MCPServerReady / NotConfigured
       |-- rhokp.ReconcileDeployment()                       # RHOKPReady / NotConfigured
       |-- appserver.ReconcileAppServerDeployment()          # ApiReady (MCP/RHOKP Services already reconciled)
-      |-- otelcollector.ReconcileOtelCollectorDeployment()  # OtelCollectorReady
+      |-- otelcollector.ReconcileOtelCollectorDeployment()  # gated Dataverse sidecar; tracks its separate ConfigMap
       |-- agenticconsole.ReconcileAgenticConsoleUIDeploymentAndPlugin() # AgenticConsolePluginReady
       |-- alertsadapter.ReconcileAlertsAdapterDeployment()  # when configMapRef set
       |   (each deployment step above: checkDeploymentStatus → conditions)
@@ -56,10 +56,10 @@ Both phases use a slice of `ReconcileSteps` structs, each containing a Name, rec
 ### Resource Ownership
 Two ownership models:
 1. **Owned resources**: Controller-runtime Owns() declarations. Owner references set on creation. Changes trigger reconciliation automatically.
-2. **External resources**: Watches() with custom predicates. Annotation-based filtering. Secret/ConfigMap handlers compare data and trigger deployment restarts on update. Deletes of referenced external resources or configured system resources enqueue OLSConfig reconcile so credentials/CA can be re-validated.
+2. **External resources**: Watches() with custom predicates. Annotation-based filtering. Secret/ConfigMap handlers compare data and trigger affected deployment restarts on update. Telemetry pull-secret create/update/delete events also enqueue OLSConfig reconciliation so the OTel Dataverse gate and sidecar-only resources are reevaluated. With transcripts enabled, a NotFound pull-secret object is gate-off, as is valid JSON with absent/empty telemetry auth; a missing `.dockerconfigjson` key, malformed JSON, or other API read errors are reconciliation errors, not disabled auth.
 
 ### Finalizer Cleanup
-The `finalizeOLSConfig()` method removes Console UI, deletes alerts adapter operand resources via `alertsadapter.RemoveAlertsAdapter()` (deployment, namespaced RBAC, SA, NetworkPolicy, cross-namespace monitoring RoleBinding; AgenticRun ClusterRole/ClusterRoleBinding when permitted—may remain on managed OpenShift if admission webhook blocks delete), then uses `listOwnedResources()` which queries every resource type by owner reference UID (not labels). This is more reliable than label-based cleanup. The wait loop polls with a fixed interval and timeout, using `wait.PollUntilContextTimeout`.
+`finalizeOLSConfig()` removes Console UI and deletes alerts adapter operand resources via `alertsadapter.RemoveAlertsAdapter()` (deployment, namespaced RBAC, SA, NetworkPolicy, cross-namespace monitoring RoleBinding; AgenticRun ClusterRole/ClusterRoleBinding when permitted—may remain on managed OpenShift if admission webhook blocks delete). It then uses `listOwnedResources()` only to inventory owned objects in the operator namespace by OwnerReference UID (not labels), explicitly deletes that inventory, and waits for the deletions with `wait.PollUntilContextTimeout`. The wait is bounded; if it times out, finalization continues without guaranteeing all listed objects have disappeared before finalizer removal. This inventory includes the OTel Dataverse exporter ConfigMap but not its two ClusterRoles, ClusterRoleBinding, or `openshift-config` RoleBinding. Those RBAC objects carry OLSConfig owner references and rely on asynchronous Kubernetes garbage collection on CR deletion; the finalizer does not explicitly delete or wait for them and does not guarantee they are gone before OLSConfig recreation.
 
 ### Status Update Mechanics
 `UpdateStatusCondition()` uses `retry.RetryOnConflict` with `client.MergeFrom` patch. It preserves `LastTransitionTime` for conditions whose status hasn't changed. It re-fetches the CR before each update attempt to get the latest ResourceVersion.
@@ -89,8 +89,8 @@ The `finalizeOLSConfig()` method removes Console UI, deletes alerts adapter oper
 
 ## Implementation Notes
 
-- `SetupWithManager()` registers Owns() for 12 resource types and Watches() for Secrets and ConfigMaps with custom predicates.
-- Secret watch predicates: Create events allowed for all secrets in operator namespace (handles recreated secrets); Update events filtered by watcher annotation or system-resource rules; Delete events allowed for operator-namespace secrets and configured system secrets elsewhere—the Delete handler enqueues OLSConfig when the secret is referenced on the CR or is a configured system resource (owned secrets are skipped).
+- `SetupWithManager()` registers `Owns()` watches for 13 resource types, including RoleBinding, and Watches() for Secrets and ConfigMaps with custom predicates.
+- Secret watch predicates: operator-namespace create events are allowed; the configured `openshift-config/pull-secret` also accepts create/recreation events. Update events are filtered by watcher annotation or system-resource rules; pull-secret data updates refresh affected exporter Deployments and enqueue OLSConfig reconciliation. Delete events are allowed for operator-namespace secrets and configured system secrets elsewhere, and enqueue reconciliation for the pull secret.
 - ConfigMap watch predicates: Same pattern as secrets.
 - The `LOCAL_DEV_MODE` environment variable skips operator ServiceMonitor creation and app-server metrics reader secret reconciliation when running locally (`make run`).
 - Phase 1 failures update status with `ResourceReconciliation` condition type (not the component-specific types used in Phase 2).
