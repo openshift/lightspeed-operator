@@ -2,6 +2,7 @@ package otelcollector
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -9,7 +10,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -22,6 +25,7 @@ func ReconcileOtelCollectorResources(r reconciler.Reconciler, ctx context.Contex
 	return utils.RunReconcileTasks(r, ctx, olsconfig, "reconcileOtelCollectorResources", []utils.ReconcileTask{
 		{Name: "reconcile OTEL Collector ConfigMap", Task: reconcileOtelCollectorConfigMap},
 		{Name: "reconcile OTEL Collector ServiceAccount", Task: reconcileOtelCollectorServiceAccount},
+		{Name: "reconcile OTEL Dataverse exporter resources", Task: reconcileOtelDataverseExporterResources},
 		{Name: "reconcile OTEL Collector Postgres Secret", Task: reconcileOtelCollectorPostgresSecret},
 		{Name: "reconcile OTEL Collector NetworkPolicy", Task: reconcileOtelCollectorNetworkPolicy},
 		{Name: "remove legacy OTEL Collector client ConfigMap", Task: removeLegacyClientConfigMap},
@@ -68,6 +72,244 @@ func reconcileOtelCollectorConfigMap(r reconciler.Reconciler, ctx context.Contex
 		return fmt.Errorf("%s: %w", utils.ErrUpdateOtelCollectorConfigMap, err)
 	}
 	r.GetLogger().Info("OTEL Collector configmap reconciled", "configmap", cm.Name)
+	return nil
+}
+
+func reconcileOtelDataverseExporterResources(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	enabled, err := dataverseExporterEnabled(r, ctx, cr)
+	if err != nil {
+		return fmt.Errorf("failed to determine OTEL Dataverse exporter enablement: %w", err)
+	}
+	if !enabled {
+		return removeOtelDataverseExporterResources(r, ctx)
+	}
+
+	if err := reconcileOtelDataverseExporterConfigMap(r, ctx, cr); err != nil {
+		return err
+	}
+	if err := reconcileOtelDataverseExporterClusterRole(r, ctx, cr); err != nil {
+		return err
+	}
+	if err := reconcileOtelDataverseExporterClusterRoleBinding(r, ctx, cr); err != nil {
+		return err
+	}
+	if err := reconcileOtelDataverseExporterPullSecretClusterRole(r, ctx, cr); err != nil {
+		return err
+	}
+	return reconcileOtelDataverseExporterPullSecretRoleBinding(r, ctx, cr)
+}
+
+func reconcileOtelDataverseExporterConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	desired, err := GenerateOtelDataverseExporterConfigMap(r, cr)
+	if err != nil {
+		return fmt.Errorf("failed to generate OTEL Dataverse exporter ConfigMap: %w", err)
+	}
+
+	existing := &corev1.ConfigMap{}
+	key := client.ObjectKey{Name: desired.Name, Namespace: desired.Namespace}
+	if err := r.Get(ctx, key, existing); err != nil {
+		if errors.IsNotFound(err) {
+			if err := r.Create(ctx, desired); err != nil {
+				return fmt.Errorf("failed to create OTEL Dataverse exporter ConfigMap: %w", err)
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to get OTEL Dataverse exporter ConfigMap: %w", err)
+	}
+
+	if reflect.DeepEqual(existing.Data, desired.Data) &&
+		reflect.DeepEqual(existing.BinaryData, desired.BinaryData) &&
+		reflect.DeepEqual(existing.Labels, desired.Labels) &&
+		reflect.DeepEqual(existing.OwnerReferences, desired.OwnerReferences) {
+		return nil
+	}
+
+	existing.Data = desired.Data
+	existing.BinaryData = desired.BinaryData
+	existing.Labels = desired.Labels
+	existing.OwnerReferences = desired.OwnerReferences
+	if err := r.Update(ctx, existing); err != nil {
+		return fmt.Errorf("failed to update OTEL Dataverse exporter ConfigMap: %w", err)
+	}
+	return nil
+}
+
+func reconcileOtelDataverseExporterClusterRole(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	desired, err := GenerateOtelDataverseExporterClusterRole(r, cr)
+	if err != nil {
+		return fmt.Errorf("failed to generate OTEL Dataverse exporter ClusterRole: %w", err)
+	}
+
+	existing := &rbacv1.ClusterRole{}
+	if err := r.Get(ctx, client.ObjectKey{Name: desired.Name}, existing); err != nil {
+		if errors.IsNotFound(err) {
+			if err := r.Create(ctx, desired); err != nil {
+				return fmt.Errorf("failed to create OTEL Dataverse exporter ClusterRole: %w", err)
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to get OTEL Dataverse exporter ClusterRole: %w", err)
+	}
+
+	if reflect.DeepEqual(existing.Rules, desired.Rules) &&
+		reflect.DeepEqual(existing.AggregationRule, desired.AggregationRule) &&
+		reflect.DeepEqual(existing.Labels, desired.Labels) &&
+		reflect.DeepEqual(existing.OwnerReferences, desired.OwnerReferences) {
+		return nil
+	}
+
+	existing.Rules = desired.Rules
+	existing.AggregationRule = desired.AggregationRule
+	existing.Labels = desired.Labels
+	existing.OwnerReferences = desired.OwnerReferences
+	if err := r.Update(ctx, existing); err != nil {
+		return fmt.Errorf("failed to update OTEL Dataverse exporter ClusterRole: %w", err)
+	}
+	return nil
+}
+
+func reconcileOtelDataverseExporterClusterRoleBinding(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	desired, err := GenerateOtelDataverseExporterClusterRoleBinding(r, cr)
+	if err != nil {
+		return fmt.Errorf("failed to generate OTEL Dataverse exporter ClusterRoleBinding: %w", err)
+	}
+
+	existing := &rbacv1.ClusterRoleBinding{}
+	if err := r.Get(ctx, client.ObjectKey{Name: desired.Name}, existing); err != nil {
+		if errors.IsNotFound(err) {
+			if err := r.Create(ctx, desired); err != nil {
+				return fmt.Errorf("failed to create OTEL Dataverse exporter ClusterRoleBinding: %w", err)
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to get OTEL Dataverse exporter ClusterRoleBinding: %w", err)
+	}
+
+	if existing.RoleRef != desired.RoleRef {
+		if err := r.Delete(ctx, existing); err != nil && !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to replace OTEL Dataverse exporter ClusterRoleBinding: %w", err)
+		}
+		if err := r.Create(ctx, desired); err != nil {
+			return fmt.Errorf("failed to recreate OTEL Dataverse exporter ClusterRoleBinding: %w", err)
+		}
+		return nil
+	}
+
+	if reflect.DeepEqual(existing.Subjects, desired.Subjects) &&
+		reflect.DeepEqual(existing.Labels, desired.Labels) &&
+		reflect.DeepEqual(existing.OwnerReferences, desired.OwnerReferences) {
+		return nil
+	}
+
+	existing.Subjects = desired.Subjects
+	existing.Labels = desired.Labels
+	existing.OwnerReferences = desired.OwnerReferences
+	if err := r.Update(ctx, existing); err != nil {
+		return fmt.Errorf("failed to update OTEL Dataverse exporter ClusterRoleBinding: %w", err)
+	}
+	return nil
+}
+
+func reconcileOtelDataverseExporterPullSecretClusterRole(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	desired, err := GenerateOtelDataverseExporterPullSecretClusterRole(r, cr)
+	if err != nil {
+		return fmt.Errorf("failed to generate OTEL Dataverse exporter pull-secret ClusterRole: %w", err)
+	}
+
+	existing := &rbacv1.ClusterRole{}
+	if err := r.Get(ctx, client.ObjectKey{Name: desired.Name}, existing); err != nil {
+		if errors.IsNotFound(err) {
+			if err := r.Create(ctx, desired); err != nil {
+				return fmt.Errorf("failed to create OTEL Dataverse exporter pull-secret ClusterRole: %w", err)
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to get OTEL Dataverse exporter pull-secret ClusterRole: %w", err)
+	}
+
+	if reflect.DeepEqual(existing.Rules, desired.Rules) &&
+		reflect.DeepEqual(existing.AggregationRule, desired.AggregationRule) &&
+		reflect.DeepEqual(existing.Labels, desired.Labels) &&
+		reflect.DeepEqual(existing.OwnerReferences, desired.OwnerReferences) {
+		return nil
+	}
+
+	existing.Rules = desired.Rules
+	existing.AggregationRule = desired.AggregationRule
+	existing.Labels = desired.Labels
+	existing.OwnerReferences = desired.OwnerReferences
+	if err := r.Update(ctx, existing); err != nil {
+		return fmt.Errorf("failed to update OTEL Dataverse exporter pull-secret ClusterRole: %w", err)
+	}
+	return nil
+}
+
+func reconcileOtelDataverseExporterPullSecretRoleBinding(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	desired, err := GenerateOtelDataverseExporterPullSecretRoleBinding(r, cr)
+	if err != nil {
+		return fmt.Errorf("failed to generate OTEL Dataverse exporter pull-secret RoleBinding: %w", err)
+	}
+
+	existing := &rbacv1.RoleBinding{}
+	key := client.ObjectKey{Name: desired.Name, Namespace: desired.Namespace}
+	if err := r.Get(ctx, key, existing); err != nil {
+		if errors.IsNotFound(err) {
+			if err := r.Create(ctx, desired); err != nil {
+				return fmt.Errorf("failed to create OTEL Dataverse exporter pull-secret RoleBinding: %w", err)
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to get OTEL Dataverse exporter pull-secret RoleBinding: %w", err)
+	}
+
+	if existing.RoleRef != desired.RoleRef {
+		if err := r.Delete(ctx, existing); err != nil && !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to replace OTEL Dataverse exporter pull-secret RoleBinding: %w", err)
+		}
+		if err := r.Create(ctx, desired); err != nil {
+			return fmt.Errorf("failed to recreate OTEL Dataverse exporter pull-secret RoleBinding: %w", err)
+		}
+		return nil
+	}
+
+	if reflect.DeepEqual(existing.Subjects, desired.Subjects) &&
+		reflect.DeepEqual(existing.Labels, desired.Labels) &&
+		reflect.DeepEqual(existing.OwnerReferences, desired.OwnerReferences) {
+		return nil
+	}
+
+	existing.Subjects = desired.Subjects
+	existing.Labels = desired.Labels
+	existing.OwnerReferences = desired.OwnerReferences
+	if err := r.Update(ctx, existing); err != nil {
+		return fmt.Errorf("failed to update OTEL Dataverse exporter pull-secret RoleBinding: %w", err)
+	}
+	return nil
+}
+
+func removeOtelDataverseExporterResources(r reconciler.Reconciler, ctx context.Context) error {
+	var errs []error
+	objects := []client.Object{
+		&rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.OtelDataverseExporterPullSecretRoleBindingName,
+			Namespace: utils.TelemetryPullSecretNamespace,
+		}},
+		&rbacv1.ClusterRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: utils.OtelDataverseExporterClusterRoleBindingName}},
+		&rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: utils.OtelDataverseExporterPullSecretClusterRoleName}},
+		&rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: utils.OtelDataverseExporterClusterRoleName}},
+		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.OtelDataverseExporterConfigMapName,
+			Namespace: r.GetNamespace(),
+		}},
+	}
+	for _, obj := range objects {
+		if err := r.Delete(ctx, obj); err != nil && !errors.IsNotFound(err) {
+			errs = append(errs, fmt.Errorf("failed to delete OTEL Dataverse exporter resource %T %s: %w", obj, obj.GetName(), err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to remove OTEL Dataverse exporter resources: %w", stderrors.Join(errs...))
+	}
 	return nil
 }
 

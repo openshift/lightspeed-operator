@@ -8,7 +8,7 @@
 | `internal/controller/postgres/deployment.go` | `GeneratePostgresDeployment()`, `UpdatePostgresDeployment()` | PostgreSQL deployment spec |
 | `internal/controller/console/deployment.go` | `GenerateConsoleUIDeployment()` | Console UI deployment spec |
 | `internal/controller/agenticconsole/deployment.go` | `GenerateAgenticConsoleUIDeployment()` | Agentic console plugin deployment spec |
-| `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector Deployment; conditional FileExporter trace storage volume and mount |
+| `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector Deployment; conditional FileExporter storage and transcript-plus-credential-gated Dataverse sidecar |
 | `internal/controller/ocpmcp/deployment.go` | `GenerateDeployment()`, `UpdateDeployment()` | Standalone OpenShift MCP deployment spec |
 | `internal/controller/rhokp/deployment.go` | `GenerateDeployment()`, `UpdateDeployment()` | Standalone RHOKP deployment spec |
 | `internal/controller/alertsadapter/deployment.go` | `GenerateDeployment()` | Alerts adapter deployment spec |
@@ -18,7 +18,7 @@
 ### AppServer Deployment Construction
 ```
 GenerateOLSDeployment(r, cr)
-  1. Check the app-server Dataverse exporter gate (`dataCollectorEnabled`), which depends on user data-collection settings and telemetry pull-secret auth-entry presence
+  1. Check the unchanged app-server Dataverse exporter gate (`dataCollectorEnabled`): at least one of feedback/transcripts enabled, plus telemetry pull-secret auth-entry presence
   2. Build LLM provider credential volumes + mounts (via ForEachExternalSecret, source "llm-provider-*")
   3. Build postgres secret volume + mount
   4. Build TLS volume + mount (user-provided KeyCertSecretRef OR service-ca generated OLSCertsSecretName)
@@ -51,13 +51,17 @@ GenerateOLSDeployment(r, cr)
 ```
 
 
-### Collector FileExporter Trace Storage
+### Collector Trace Storage and Dataverse Sidecar
 
-When `!spec.ols.userDataCollection.transcriptsDisabled`, the Collector Deployment includes `file/data_collection`, `routing/data_collection`, and `traces/data_collection`. The resource selector and exact exporter settings are defined in [`data-collection.md`](../what/data-collection.md); the file branch is unbatched, while configured backend forwarding is batched on its separate pipeline.
+When `!spec.ols.userDataCollection.transcriptsDisabled`, the Collector runtime ConfigMap includes `file/data_collection`, `routing/data_collection`, and `traces/data_collection`. The exact service-name selector and FileExporter settings are defined in [`data-collection.md`](../what/data-collection.md); the file branch is unbatched, while configured backend forwarding is batched on its separate pipeline. This branch is independent of telemetry credentials.
 
-The Deployment adds a `data-collection` `emptyDir` with `sizeLimit: 500Mi`, mounted at `/var/lib/lightspeed-data` in the Collector container. FileExporter writes `/var/lib/lightspeed-data/otel/traces.jsonl`. The Collector's `file_storage` queue remains on a separate volume.
+The `data-collection` source `emptyDir` has `sizeLimit: 500Mi` and is mounted at `/var/lib/lightspeed-data/otel` in the Collector container. FileExporter writes `/var/lib/lightspeed-data/otel/traces.jsonl` with the specified 10MiB, 40-backup, one-day rotation/retention settings. The Collector's `file_storage` queue remains on a separate volume.
 
-The selected Collector image must provide the stock contrib FileExporter v0.159.0. The existing `--otel-collector-image` override selects the Collector runtime image.
+The OTel Dataverse sidecar is present only when transcripts are enabled **and** a successfully read, well-formed `openshift-config/pull-secret` has a nonempty (after trimming whitespace) `.dockerconfigjson.auths["cloud.openshift.com"].auth` token. Its separate ConfigMap sets `data_mode: otel`, `data_dir: /input`, `otel_active_file: traces.jsonl`, `ledger_file: /state/ledger.json`, `archive_path_prefix: v1/`, `collection_interval: 300` seconds, and `cleanup_after_send: false`; it uses the same service-ID rule and ingress URL as the app-server exporter. `--mode openshift` selects API-based authentication, while `data_mode: otel` selects ingestion. The ConfigMap has no credentials. When credential checking runs, a NotFound pull-secret object is treated as gate-off; valid JSON with absent/empty telemetry auth is also gate-off. A missing `.dockerconfigjson` key on an existing Secret, malformed JSON, or API read errors other than NotFound are reconciliation failures, not disabled credentials, and do not clean up exporter resources. Neither gate-off case disables transcript routing or FileExporter storage.
+
+The source `emptyDir` is mounted read/write in the Collector at `/var/lib/lightspeed-data/otel` and read-only in the exporter at `/input`. A separate writable `emptyDir` is mounted at `/state` for the ledger. The Collector Pod keeps `automountServiceAccountToken: false`; the projected token, `kube-root-ca.crt` CA, and namespace are mounted at the default in-cluster auth path in the exporter container only. The exporter receives cluster proxy environment variables and the restricted container security context. No new listener, Service port, or ingress NetworkPolicy rule is added.
+
+The selected Collector image must provide the stock contrib FileExporter v0.159.0; the existing `--otel-collector-image` override selects it. The Dataverse sidecar reuses `r.GetDataverseExporterImage()` and the existing `--dataverse-exporter-image` override. It requires an exporter image with PR #147's OTel ingestion support. The current released default pin lacks that support, so the existing override can select a compatible test image for this rollout. Before merging or releasing the follow-up, update the released default pin to a compatible released exporter; do not pin a temporary CI image.
 
 ### Change Detection Pattern
 All deployments use the same pattern in their update functions:
@@ -69,6 +73,7 @@ All deployments use the same pattern in their update functions:
    - This triggers a rolling restart by changing the pod template
 
 **AppServer tracks:** OLS config CM version, MCP server config CM version, proxy CA cert hash, MCP client CA Secret content hash (when introspection is enabled)
+**Otelcollector tracks:** Collector runtime ConfigMap and dedicated OTel exporter ConfigMap contents/resource versions. An exporter ConfigMap change rolls the Collector Deployment. Source and ledger `emptyDir` data are pod-local and are lost on Pod replacement.
 
 ## Key Abstractions
 
@@ -80,6 +85,7 @@ Default resources by container:
 |---|---|---|---|
 | AppServer `lightspeed-service-api` | 500m | 1Gi | — |
 | App-server Dataverse exporter | 50m | 64Mi | — |
+| OTel Dataverse exporter | 50m | 64Mi | — |
 | MCP server (standalone) | 50m | 64Mi | — |
 | RHOKP `rhokp` (standalone) | 2000m | 2Gi | — (75Gi EmptyDir `sizeLimit`, not an ephemeral-storage request) |
 
@@ -94,14 +100,17 @@ Volumes and mounts are built as slices and conditionally appended using inline a
 ### ImageStream Triggers (AppServer only)
 RAG images use OpenShift ImageStreams for automatic updates. The deployment is annotated with `image.openshift.io/triggers` JSON that maps ImageStreamTag changes to init container image fields. This allows RAG content updates without operator intervention.
 
-### App-Server Dataverse Exporter Enablement
-The app-server Dataverse exporter gate is computed from two inputs:
-1. User data collection config: `!FeedbackDisabled || !TranscriptsDisabled`
-2. Telemetry pull secret: `openshift-config/pull-secret` has `.auths."cloud.openshift.com"` entry in `.dockerconfigjson`
+### Dataverse Exporter Gates
 
-Both must be true. The service ID is `"ols"` unless the CR has `openstack.org/lightspeed-owner-id` label, in which case it's `"rhos-lightspeed"`.
+The existing app-server Dataverse exporter gate is:
+1. At least one path is enabled: `!spec.ols.userDataCollection.feedbackDisabled || !spec.ols.userDataCollection.transcriptsDisabled`.
+2. `openshift-config/pull-secret` contains a `cloud.openshift.com` auth entry in `.dockerconfigjson` (the existing app-server presence check).
 
-The Collector trace-file branch uses the existing `spec.ols.userDataCollection.transcriptsDisabled` opt-out. See [`data-collection.md`](../what/data-collection.md).
+Both conditions must hold. The OTel Dataverse sidecar has a separate gate:
+1. Transcripts are enabled: `!spec.ols.userDataCollection.transcriptsDisabled`.
+2. When transcripts are enabled, the telemetry pull secret is checked: NotFound or valid JSON with absent/empty `.auth` is gate-off; a present, successfully read pull secret with valid JSON and a nonempty (after trimming whitespace) `.dockerconfigjson.auths["cloud.openshift.com"].auth` token satisfies the credential condition. A missing `.dockerconfigjson` key on an existing Secret, malformed JSON, or API read errors other than NotFound fail reconciliation instead of being treated as disabled credentials.
+
+The Collector trace-file branch depends only on the transcript condition and does not require telemetry credentials. Both exporters use service ID `"ols"` unless the CR has `openstack.org/lightspeed-owner-id`, in which case they use `"rhos-lightspeed"`. The app-server keeps `lightspeed-exporter-config`; the Collector uses its separate exporter ConfigMap.
 
 ### Pod Scheduling Configuration
 `utils.ApplyPodDeploymentConfig()` applies scheduling from `cr.Spec.OLSConfig.DeploymentConfig.APIContainer`:
@@ -119,11 +128,13 @@ Affinity and topology spread constraints are not exposed on `Config` (CRD size);
 | Container resources | CR `spec.ols.deployment.api.resources` | User-overridable CPU/memory |
 | RHOKP resources | CR `spec.ols.deployment.rhokp.resources` | User-overridable CPU/memory/ephemeral storage |
 | Pod scheduling | CR `spec.ols.deployment.api` | Tolerations, nodeSelector |
+| Projected in-cluster auth | OTel Collector ServiceAccount, `kube-root-ca.crt`, namespace | Token, CA, and namespace mounted at the default in-cluster auth path in the OTel exporter container only |
 | Volume secrets | Kubernetes Secrets | LLM credentials, TLS certs, PostgreSQL password, MCP header values |
-| Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config, and the app-server Dataverse exporter ConfigMap (`lightspeed-exporter-config`); Collector runtime config includes the FileExporter trace branch. |
-| Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY from cluster |
+| Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config, app-server Dataverse exporter ConfigMap (`lightspeed-exporter-config`), and separate OTel Dataverse exporter ConfigMap; Collector runtime config includes the FileExporter trace branch. |
+| Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY; provided to Collector and OTel Dataverse exporter |
 | RAG images | CR `spec.ols.rag[].image` | Container images for init containers |
 | RHOKP image | `--rhokp-image` flag | Standalone RHOKP Deployment container image; default from `related_images.json` (`rhokp`) |
+| Dataverse exporter image | `GetDataverseExporterImage()` / `--dataverse-exporter-image` | Existing image getter and override used by both exporters; OTel mode requires PR #147 support |
 
 ## Agentic Controller Deployment (OLM-managed)
 
