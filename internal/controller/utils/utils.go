@@ -172,7 +172,7 @@ func PodVolumeEqual(a, b []corev1.Volume) bool {
 				continue
 			}
 			if aVolume.EmptyDir != nil && bVolume.EmptyDir != nil {
-				if aVolume.EmptyDir.Medium != bVolume.EmptyDir.Medium {
+				if !apiequality.Semantic.DeepEqual(aVolume.EmptyDir, bVolume.EmptyDir) {
 					return false
 				}
 				continue
