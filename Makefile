@@ -115,6 +115,8 @@ CONTROLLER_GEN_PATHS = paths=./api/... paths=./internal/... paths=./cmd/...
 # test/e2e pulls containers/storage (optional btrfs graph driver) and containers/image.
 # containers_image_openpgp avoids gpgme CGO so e2e builds on minimal images without gpgme-devel.
 E2E_GO_TAGS := exclude_graphdriver_btrfs,containers_image_openpgp
+# Optional focused-run flags, e.g. E2E_TEST_ARGS="-ginkgo.focus=Controlled".
+E2E_TEST_ARGS ?=
 
 .PHONY: generate-deployment-patch
 generate-deployment-patch: jq ## Generate config/default/deployment-patch.yaml from related_images.json.
@@ -189,7 +191,7 @@ endif
 ifndef LLM_TOKEN
 	$(error LLM_TOKEN  environment variable is not set)
 endif
-	go test -tags=$(E2E_GO_TAGS) ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade && !AllFeatures" --ginkgo.timeout=2h
+	go test -tags=$(E2E_GO_TAGS) ./test/e2e -timeout=120m -ginkgo.v -test.v -ginkgo.show-node-events --ginkgo.label-filter="!Rapidast && !Upgrade && !AllFeatures" --ginkgo.timeout=2h $(E2E_TEST_ARGS)
 
 .PHONY: test-upgrade
 test-upgrade: ## Run upgrade tests with an Openshift cluster. Requires KUBECONFIG, LLM_TOKEN and BUNDLE_IMAGE environment variables.

@@ -4,6 +4,8 @@ package ocpmcp
 import (
 	"fmt"
 	"path"
+	"slices"
+	"strconv"
 	"strings"
 
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -18,12 +20,14 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-// configTOML is the openshift-mcp-server runtime config.
+var baseToolsets = [...]string{"core", "config", "helm", "observability/metrics", "kubevirt"}
+
+// configTOML is the openshift-mcp-server runtime config template.
 // Denied resources keep Secret (and RBAC) data out of the LLM path; toolsets are pinned
 // so upstream default changes do not affect OLS. Observability metrics uses in-cluster Thanos/Alertmanager.
 // read_only = false is required: openshift-mcp-server-rhel9 sets ReadOnly=true in build-time defaults;
 // omitting this leaves only readOnlyHint tools (no resources_create_or_update, etc.).
-var configTOML = fmt.Sprintf(`# Denied resources prevent the MCP server from accessing these Kubernetes resource types.
+const configTOML = `# Denied resources prevent the MCP server from accessing these Kubernetes resource types.
 # This ensures secret data never reaches the LLM through the shipped MCP server.
 # User-brought MCP servers (spec.mcpServers) are the user's responsibility to secure.
 # Toolsets are pinned explicitly so upstream default changes do not affect OLS.
@@ -32,7 +36,7 @@ port = "%d"
 tls_cert = "%s"
 tls_key = "%s"
 read_only = false
-toolsets = ["core", "config", "helm", "observability/metrics", "kubevirt"]
+toolsets = [%s]
 experimental_enable_target_compatibility_tool_filters = true
 
 [[denied_resources]]
@@ -51,11 +55,7 @@ alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.l
 # OpenShift Thanos Querier often lacks (/api/v1/status/tsdb); other guardrails stay on.
 # Auth still uses the caller's bearer token forwarded to Thanos/Alertmanager.
 guardrails = "!tsdb"
-`,
-	utils.OpenShiftMCPServerHTTPSPort,
-	path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"),
-	path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"),
-)
+`
 
 func selectorLabels() map[string]string {
 	return map[string]string{
@@ -78,7 +78,20 @@ func GenerateServiceAccount(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) 
 }
 
 // GenerateConfigMap generates the TOML ConfigMap for openshift-mcp-server.
-func GenerateConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+func GenerateConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig, netObservEnabled bool) (*corev1.ConfigMap, error) {
+	toolsets := slices.Clone(baseToolsets[:])
+	if netObservEnabled {
+		toolsets = append(toolsets, "netobserv")
+	}
+	for i, toolset := range toolsets {
+		toolsets[i] = strconv.Quote(toolset)
+	}
+	config := fmt.Sprintf(configTOML,
+		utils.OpenShiftMCPServerHTTPSPort,
+		path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"),
+		path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"),
+		strings.Join(toolsets, ", "),
+	)
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OpenShiftMCPServerConfigCmName,
@@ -86,7 +99,7 @@ func GenerateConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*cor
 			Labels:    selectorLabels(),
 		},
 		Data: map[string]string{
-			utils.OpenShiftMCPServerConfigFilename: configTOML,
+			utils.OpenShiftMCPServerConfigFilename: config,
 		},
 	}
 	if err := controllerutil.SetControllerReference(cr, cm, r.GetScheme()); err != nil {

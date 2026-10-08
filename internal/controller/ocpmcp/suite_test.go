@@ -129,7 +129,7 @@ func ensureMCPTLSSecret() {
 }
 
 func ensureMCPConfigMap(testCR *olsv1alpha1.OLSConfig) {
-	cm, err := GenerateConfigMap(testReconcilerInstance, testCR)
+	cm, err := GenerateConfigMap(testReconcilerInstance, testCR, false)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = k8sClient.Create(ctx, cm)

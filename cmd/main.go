@@ -68,6 +68,7 @@ import (
 	openshiftv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -88,6 +89,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/lightspeed-operator/internal/controller"
+	"github.com/openshift/lightspeed-operator/internal/controller/ocpmcp"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	utiltls "github.com/openshift/lightspeed-operator/internal/tls"
 	//+kubebuilder:scaffold:imports
@@ -113,6 +115,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(consolev1.AddToScheme(scheme))
 	utilruntime.Must(imagev1.AddToScheme(scheme))
 	utilruntime.Must(openshiftv1.AddToScheme(scheme))
@@ -313,6 +316,10 @@ func main() {
 				namespace: {},
 			},
 			ByObject: map[client.Object]cache.ByObject{
+				// Named list/watch requests match the resourceNames-restricted RBAC.
+				&apiextensionsv1.CustomResourceDefinition{}: {
+					Field: fields.OneTermEqualSelector("metadata.name", ocpmcp.FlowCollectorCRDName),
+				},
 				&corev1.Secret{}: {
 					Namespaces: map[string]cache.Config{
 						namespace: {},

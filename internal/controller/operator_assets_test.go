@@ -245,9 +245,10 @@ var _ = Describe("Main Reconcile Loop", func() {
 
 		// Setup reconciler
 		reconciler = &OLSConfigReconciler{
-			Client:  k8sClient,
-			Options: getDefaultReconcilerOptions(testNamespace),
-			Logger:  logf.Log.WithName("test.reconciler"),
+			Client:          k8sClient,
+			DiscoveryClient: controllerDiscoveryStub{},
+			Options:         getDefaultReconcilerOptions(testNamespace),
+			Logger:          logf.Log.WithName("test.reconciler"),
 		}
 
 		// Create the operator deployment (required for ReconcileServiceMonitorForOperator)
