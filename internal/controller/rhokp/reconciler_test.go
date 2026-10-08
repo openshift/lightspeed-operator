@@ -169,6 +169,41 @@ var _ = Describe("RHOKP reconciler", Ordered, func() {
 			Expect(*ep.TLSConfig.ServerName).To(Equal(expectedServerName))
 		})
 
+		It("should probe Solr for startup and liveness, and both Solr and Apache for readiness", func() {
+			dep := &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name: utils.RHOKPDeploymentName, Namespace: utils.OLSNamespaceDefault,
+			}, dep)).To(Succeed())
+
+			container := dep.Spec.Template.Spec.Containers[0]
+			for _, probe := range []*corev1.Probe{container.StartupProbe, container.LivenessProbe} {
+				Expect(probe).NotTo(BeNil())
+				Expect(probe.HTTPGet).To(BeNil())
+				Expect(probe.Exec).NotTo(BeNil())
+				Expect(probe.Exec.Command).To(Equal([]string{
+					"/usr/bin/curl", "--fail", "--silent", "--show-error",
+					"--max-time", "3", "--output", "/dev/null",
+					"http://127.0.0.1:8983/solr/portal-rag/admin/ping",
+				}))
+				Expect(probe.TimeoutSeconds).To(Equal(int32(5)))
+			}
+
+			readiness := container.ReadinessProbe
+			Expect(readiness).NotTo(BeNil())
+			Expect(readiness.HTTPGet).To(BeNil())
+			Expect(readiness.Exec).NotTo(BeNil())
+			Expect(readiness.Exec.Command).To(Equal([]string{
+				"/bin/sh", "-ec",
+				"/usr/bin/curl --fail --silent --show-error --max-time 3 --output /dev/null " +
+					"http://127.0.0.1:8983/solr/portal-rag/admin/ping && " +
+					"apache_status=$(/usr/bin/curl --fail --silent --show-error --insecure --max-time 3 " +
+					"--output /dev/null --write-out '%{http_code}' " +
+					"'https://127.0.0.1:8443/solr/portal-rag/select?q=%2A%3A%2A&rows=0') && " +
+					"test \"$apache_status\" = 200",
+			}))
+			Expect(readiness.TimeoutSeconds).To(Equal(int32(7)))
+		})
+
 		It("should mount TLS as localhost.crt/localhost.key for Apache httpd", func() {
 			dep := &appsv1.Deployment{}
 			err := k8sClient.Get(ctx, types.NamespacedName{

@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -42,8 +41,39 @@ func getSecretResourceVersion(r reconciler.Reconciler, ctx context.Context, secr
 	return secret.ResourceVersion, nil
 }
 
+// Probe Solr's admin ping on loopback: the RHOKP Apache proxy intentionally
+// does not expose admin endpoints (RHOKP-1848).
+func rhokpSolrProbeURL() string {
+	return fmt.Sprintf("http://127.0.0.1:%d%s", utils.RHOOKPSolrLocalPort, utils.RHOOKPReadinessHTTPPath)
+}
+
+func rhokpSolrProbeHandler() corev1.ProbeHandler {
+	return corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{Command: []string{
+			"/usr/bin/curl", "--fail", "--silent", "--show-error",
+			"--max-time", "3", "--output", "/dev/null", rhokpSolrProbeURL(),
+		}},
+	}
+}
+
+// Readiness also checks the client-facing Apache proxy. Do not restart the
+// large Solr container for a transient Apache failure (liveness is Solr-only).
+func rhokpReadinessProbeHandler() corev1.ProbeHandler {
+	// The serving certificate is issued for the Service DNS name, not loopback.
+	// --insecure is limited to this in-container Apache check; clients still verify TLS.
+	command := fmt.Sprintf(
+		"/usr/bin/curl --fail --silent --show-error --max-time 3 --output /dev/null %s && "+
+			"apache_status=$(/usr/bin/curl --fail --silent --show-error --insecure --max-time 3 --output /dev/null --write-out '%%{http_code}' 'https://127.0.0.1:%d%s') && "+
+			"test \"$apache_status\" = 200",
+		rhokpSolrProbeURL(), utils.RHOOKPImageHTTPSPort, utils.RHOOKPClientProbeHTTPPath,
+	)
+	return corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{Command: []string{"/bin/sh", "-ec", command}},
+	}
+}
+
 // GenerateDeployment generates the standalone RHOKP Deployment with service-ca TLS
-// mounted for Apache httpd, an EmptyDir for Solr data, and HTTPS probes.
+// mounted for Apache httpd, an EmptyDir for Solr data, and Solr/Apache probes.
 func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	revisionHistoryLimit := int32(1)
 	runAsNonRoot := true
@@ -54,7 +84,6 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 	}
 
 	tlsVolumeDefaultMode := utils.VolumeRestrictedMode
-	httpsPort := intstr.FromInt32(utils.RHOOKPImageHTTPSPort)
 
 	// Use ephemeral-storage from resolved resources (CRD override or default).
 	resources := getResources(cr)
@@ -115,37 +144,20 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 								},
 							},
 							StartupProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   utils.RHOOKPReadinessHTTPPath,
-										Port:   httpsPort,
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
+								ProbeHandler:        rhokpSolrProbeHandler(),
 								InitialDelaySeconds: utils.RHOOKPStartupProbeInitialDelaySeconds,
 								PeriodSeconds:       utils.RHOOKPStartupProbePeriodSeconds,
 								FailureThreshold:    utils.RHOOKPStartupProbeFailureThreshold,
+								TimeoutSeconds:      utils.RHOOKPProbeTimeoutSeconds,
 							},
 							ReadinessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   utils.RHOOKPReadinessHTTPPath,
-										Port:   httpsPort,
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
+								ProbeHandler:     rhokpReadinessProbeHandler(),
 								PeriodSeconds:    utils.RHOOKPProbePeriodSeconds,
-								TimeoutSeconds:   utils.RHOOKPProbeTimeoutSeconds,
+								TimeoutSeconds:   utils.RHOOKPReadinessProbeTimeoutSeconds,
 								FailureThreshold: utils.RHOKPReadinessProbeFailureThreshold,
 							},
 							LivenessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   utils.RHOOKPReadinessHTTPPath,
-										Port:   httpsPort,
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
+								ProbeHandler:     rhokpSolrProbeHandler(),
 								PeriodSeconds:    utils.RHOOKPProbePeriodSeconds,
 								TimeoutSeconds:   utils.RHOOKPProbeTimeoutSeconds,
 								FailureThreshold: utils.RHOKPProbeFailureThreshold,

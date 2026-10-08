@@ -597,14 +597,19 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	RosaOKPProductClassic = "red_hat_openshift_service_on_aws_classic_architecture"
 	// RHOOKPSolrCollection is the Solr core served by RHOKP (matches lightspeed-service portal-rag client).
 	RHOOKPSolrCollection = "portal-rag"
-	// RHOOKPReadinessHTTPPath hits the portal-rag core admin ping (Apache / alone is not Solr-ready).
+	// RHOOKPReadinessHTTPPath hits the portal-rag core admin ping on Solr loopback.
+	// The RHOKP Apache proxy does not expose admin endpoints.
 	RHOOKPReadinessHTTPPath = "/solr/" + RHOOKPSolrCollection + "/admin/ping"
+	// RHOOKPClientProbeHTTPPath checks the non-admin select route through Apache without returning documents.
+	RHOOKPClientProbeHTTPPath = "/solr/" + RHOOKPSolrCollection + "/select?q=%2A%3A%2A&rows=0"
+	RHOOKPSolrLocalPort       = 8983
 	// RHOKP startup probe: Solr can take several minutes on cold start (portal-rag core load).
 	RHOOKPStartupProbeInitialDelaySeconds = 20
 	RHOOKPStartupProbePeriodSeconds       = 10
 	RHOOKPStartupProbeFailureThreshold    = 34 // 20s delay + 34*10s = 6 min before startup fails
 	RHOOKPProbePeriodSeconds              = 10
 	RHOOKPProbeTimeoutSeconds             = 5
+	RHOOKPReadinessProbeTimeoutSeconds    = 7 // Two sequential curl calls, each bounded to 3s.
 	RHOOKPProbeFailureThreshold           = 3
 	RHOOKPAccessKeySecretName             = "rhokp-access-key" // #nosec G101 -- user-created secret for RHOKP portal access
 	RHOOKPAccessKeySecretKey              = "ACCESS_KEY"
