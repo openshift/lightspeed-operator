@@ -5,7 +5,7 @@ The operator reconciles the OLSConfig CR into Kubernetes resources through a two
 ## Behavioral Rules
 
 ### Reconciliation Trigger
-1. Reconciliation is triggered by changes to the OLSConfig CR, any owned resource, or annotated external resources (including deletes of referenced external Secrets/ConfigMaps). No periodic reconciliation.
+1. Reconciliation is triggered by changes to the OLSConfig CR, any owned resource, or annotated external resources (including deletes of referenced external Secrets/ConfigMaps). No periodic reconciliation. [PLANNED: OLS-4391] Relevant FlowCollector CRD changes also trigger reconciliation for NetObserv API-presence gating; refresh discovery and retry API establishment races as specified in `ocpmcp.md`, rules 21–26.
 2. The controller handles error retries via controller-runtime exponential backoff. No custom retry logic.
 
 ### Reconciliation Order
@@ -77,5 +77,6 @@ Reconciliation behavior is not directly user-configurable. It is driven by the O
 |---|---|
 | OLS-3236 | Remove duplicate agentic console deployment from agentic-operator CSV; productize agentic operand images |
 | OLS-3594 | Deferred optional agentic auto-injection for MCP into agent runs |
+| OLS-4391 | Add event-driven FlowCollector API-presence gating for the managed MCP server's NetObserv toolset; preserve base MCP operation and retry discovery errors. |
 | OLS-3685+ | Agentic-operator consumption of `lightspeed-agentic-configuration` / CA Secrets |
 | OLS-4324 | Validate local alerts-adapter egress connectivity and selector/port assumptions on a target cluster before release. |
