@@ -380,16 +380,14 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 	}
 
 	_, alertsAdapterConfigMapEnabled := utils.AlertsAdapterConfigMapRef(olsconfig)
-	if gate == utils.AgenticGateEnabled && r.Options.AlertsAdapterImage != "" && alertsAdapterConfigMapEnabled {
+	if r.Options.AlertsAdapterImage != "" && alertsAdapterConfigMapEnabled {
 		resourceSteps = append(resourceSteps, utils.ReconcileSteps{
 			Name: "alerts adapter resources",
 			Fn: func(ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
 				return alertsadapter.ReconcileAlertsAdapterResources(r, ctx, cr)
 			},
 		})
-	} else if gate == utils.AgenticGateEnabled && wasComponentEnabled(olsconfig, utils.TypeAlertsAdapterReady) {
-		// Clean up an explicit opt-out only when the Version gate is Enabled.
-		// Disabled and Unknown both preserve existing operands.
+	} else if wasComponentEnabled(olsconfig, utils.TypeAlertsAdapterReady) {
 		if err := alertsadapter.RemoveAlertsAdapter(r, ctx); err != nil {
 			resourceFailures["alerts adapter cleanup"] = fmt.Errorf("%s: %w", utils.ErrRemoveAlertsAdapterResources, err)
 		}
@@ -582,7 +580,7 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		})
 	}
 
-	if gate == utils.AgenticGateEnabled && r.Options.AlertsAdapterImage != "" {
+	if r.Options.AlertsAdapterImage != "" {
 		if _, enabled := utils.AlertsAdapterConfigMapRef(olsconfig); enabled {
 			deploymentSteps = append(deploymentSteps, utils.ReconcileSteps{
 				Name: "alerts adapter deployment",
@@ -611,16 +609,7 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 				})
 			}
 		}
-	} else if gate == utils.AgenticGateDisabled {
-		newStatus.Conditions = append(newStatus.Conditions, metav1.Condition{
-			Type:               utils.TypeAlertsAdapterReady,
-			Status:             metav1.ConditionFalse,
-			ObservedGeneration: olsconfig.Generation,
-			Reason:             "UnsupportedOCPVersion",
-			Message:            "Alerts adapter requires OpenShift 5.0 or newer",
-			LastTransitionTime: metav1.Now(),
-		})
-	} else if gate == utils.AgenticGateEnabled {
+	} else {
 		message := "Alerts adapter is disabled; image not provided"
 		if r.Options.AlertsAdapterImage != "" {
 			message = "Alerts adapter is disabled; spec.ols.deployment.alertsAdapter.configMapRef is not set"
@@ -639,7 +628,7 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 		// The current reconcile cannot make an agentic decision. Preserve existing
 		// conditions instead of incorrectly publishing UnsupportedOCPVersion.
 		for _, condition := range olsconfig.Status.Conditions {
-			if condition.Type == utils.TypeAgenticConsolePluginReady || condition.Type == utils.TypeAlertsAdapterReady {
+			if condition.Type == utils.TypeAgenticConsolePluginReady {
 				newStatus.Conditions = append(newStatus.Conditions, condition)
 			}
 		}
@@ -734,13 +723,11 @@ func (r *OLSConfigReconciler) reconcileDeploymentsAndStatus(ctx context.Context,
 	// agenticintegration on OTEL±MCP Service + client CA Secret presence; updates
 	// to an existing ConfigMap are not gated.
 	var agenticIntegrationErr error
-	if gate == utils.AgenticGateEnabled {
-		if err := agenticintegration.ReconcileAgenticIntegrationResources(r, ctx, olsconfig); err != nil {
-			agenticIntegrationErr = fmt.Errorf("failed to reconcile agentic integration handoff: %w", err)
-			r.Logger.Error(agenticIntegrationErr, "Failed to reconcile agentic integration handoff")
-			failedTasks["agentic integration handoff"] = agenticIntegrationErr
-			newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
-		}
+	if err := agenticintegration.ReconcileAgenticIntegrationResources(r, ctx, olsconfig); err != nil {
+		agenticIntegrationErr = fmt.Errorf("failed to reconcile agentic integration handoff: %w", err)
+		r.Logger.Error(agenticIntegrationErr, "Failed to reconcile agentic integration handoff")
+		failedTasks["agentic integration handoff"] = agenticIntegrationErr
+		newStatus.OverallStatus = olsv1alpha1.OverallStatusNotReady
 	}
 
 	// Update status once, regardless of outcome (with retry on conflict)
@@ -795,21 +782,21 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	// 2. Handle the finalizer before version gating. Explicit OLSConfig deletion
+	// 2. Handle the finalizer before console version gating. Explicit OLSConfig deletion
 	// must clean up owned resources regardless of whether ClusterVersion is readable.
 	finalizerResult, err := r.handleFinalizer(ctx, req, olsconfig)
 	if finalizerResult != nil {
 		return *finalizerResult, err
 	}
 
-	// Snapshot the completed version once for all Agentic decisions in normal
-	// reconciliation. Unknown skips Agentic mutations and schedules a retry.
+	// Snapshot the completed version once for console decisions. Unknown skips
+	// console mutations and schedules a retry; backend work continues.
 	version, versionErr := utils.ReadAgenticVersion(r, ctx)
 	if versionErr != nil {
-		r.Logger.Error(versionErr, "failed to read ClusterVersion; agentic work is paused")
+		r.Logger.Error(versionErr, "failed to read ClusterVersion; agentic console decision is paused")
 	}
 	if version.State == utils.AgenticGateUnknown {
-		r.Logger.Info("ClusterVersion does not establish a completed release; skipping agentic mutations and retrying")
+		r.Logger.Info("ClusterVersion does not establish a completed release; skipping agentic console mutations and retrying")
 		defer func() {
 			if reconcileErr == nil && result.RequeueAfter == 0 && !result.Requeue {
 				result.RequeueAfter = time.Minute

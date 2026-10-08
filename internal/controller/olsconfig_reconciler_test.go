@@ -468,6 +468,16 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("does not install the console on 4.x even when an image is configured", func() {
+			fourX := utils.WithAgenticVersion(ctx, utils.AgenticVersion{State: utils.AgenticGateDisabled, Major: "4", Minor: "22"})
+			emptyImageReconciler.Options.AgenticConsoleUIImage = "agentic-console:latest"
+			_ = emptyImageReconciler.reconcileIndependentResources(fourX, cr)
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name: utils.AgenticConsoleUIServiceAccountName, Namespace: namespace,
+			}, &corev1.ServiceAccount{})
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "console resources must not be installed on 4.x")
+		})
+
 		Context("when the Version CR is unknown (Phase 1 - resources)", func() {
 			It("preserves existing Agentic operands instead of cleaning them up", func() {
 				seedSA := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
@@ -544,7 +554,7 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 				seedServiceCATLSSecrets()
 			})
 
-			It("preserves Agentic conditions and avoids UnsupportedOCPVersion when the gate is Unknown", func() {
+			It("preserves console status but updates adapter status when console version is Unknown", func() {
 				cr.Status.Conditions = []metav1.Condition{
 					{Type: utils.TypeAgenticConsolePluginReady, Status: metav1.ConditionFalse, Reason: "Progressing", Message: "existing console status", LastTransitionTime: metav1.Now()},
 					{Type: utils.TypeAlertsAdapterReady, Status: metav1.ConditionTrue, Reason: "Available", Message: "existing adapter status", LastTransitionTime: metav1.Now()},
@@ -562,7 +572,7 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 					Expect(condition.Reason).NotTo(Equal("UnsupportedOCPVersion"))
 				}
 				Expect(conditions[utils.TypeAgenticConsolePluginReady].Reason).To(Equal("Progressing"))
-				Expect(conditions[utils.TypeAlertsAdapterReady].Reason).To(Equal("Available"))
+				Expect(conditions[utils.TypeAlertsAdapterReady].Reason).To(Equal("Disabled"))
 			})
 
 			It("should not create agentic console or alerts adapter Deployments and should set Disabled conditions", func() {

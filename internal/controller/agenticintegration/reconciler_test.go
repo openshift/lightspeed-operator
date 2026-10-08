@@ -56,6 +56,18 @@ var _ = Describe("Agentic integration reconciler", Ordered, func() {
 		})
 	})
 
+	It("maintains handoff and reloads CA material on OCP 4.x without a console", func() {
+		ensureHandoffCreatePrerequisites(false)
+		fourX := utils.WithAgenticVersion(ctx, utils.AgenticVersion{State: utils.AgenticGateDisabled, Major: "4", Minor: "22"})
+		Expect(ReconcileAgenticIntegrationResources(testReconcilerInstance, fourX, testCR)).To(Succeed())
+		Expect(TouchAgenticConfiguration(testReconcilerInstance, fourX)).To(Succeed())
+		cm := &corev1.ConfigMap{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{
+			Name: utils.AgenticConfigurationConfigMapName, Namespace: utils.OLSNamespaceDefault,
+		}, cm)).To(Succeed())
+		Expect(cm.Annotations).To(HaveKey(utils.AgenticConfigurationCertReloadAnnotation))
+	})
+
 	Context("terminal TTL handoff", func() {
 		It("creates, updates, and removes the optional day count", func() {
 			cm := &corev1.ConfigMap{}

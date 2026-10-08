@@ -1170,8 +1170,8 @@ var clientCASecrets = []clientCAConfig{
 	{
 		SecretName: utils.AgenticOtelCASecretName,
 		DataKey:    utils.AgenticOtelCASecretDataKey,
-		Enabled: func(r reconciler.Reconciler, ctx context.Context, _ *olsv1alpha1.OLSConfig) bool {
-			return utils.AgenticGate(r, ctx) == utils.AgenticGateEnabled
+		Enabled: func(_ reconciler.Reconciler, _ context.Context, _ *olsv1alpha1.OLSConfig) bool {
+			return true
 		},
 		ErrSource:   utils.ErrGetAgenticOtelCASourceConfigMap,
 		ErrOwnerRef: utils.ErrSetAgenticOtelCASecretOwnerRef,
@@ -1183,8 +1183,8 @@ var clientCASecrets = []clientCAConfig{
 	{
 		SecretName: utils.AgenticMCPCASecretName,
 		DataKey:    utils.AgenticMCPCASecretDataKey,
-		Enabled: func(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) bool {
-			return utils.AgenticGate(r, ctx) == utils.AgenticGateEnabled && utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true)
+		Enabled: func(_ reconciler.Reconciler, _ context.Context, cr *olsv1alpha1.OLSConfig) bool {
+			return utils.BoolDeref(cr.Spec.OLSConfig.IntrospectionEnabled, true)
 		},
 		ErrSource:   utils.ErrAgenticMCPCANotReady,
 		ErrOwnerRef: utils.ErrSetAgenticMCPCASecretOwnerRef,
@@ -1196,8 +1196,8 @@ var clientCASecrets = []clientCAConfig{
 	{
 		SecretName: utils.AgenticRHOKPCASecretName,
 		DataKey:    utils.AgenticRHOKPCASecretDataKey,
-		Enabled: func(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) bool {
-			return utils.AgenticGate(r, ctx) == utils.AgenticGateEnabled && !cr.Spec.OLSConfig.ByokRAGOnly
+		Enabled: func(_ reconciler.Reconciler, _ context.Context, cr *olsv1alpha1.OLSConfig) bool {
+			return !cr.Spec.OLSConfig.ByokRAGOnly
 		},
 		ErrSource:   utils.ErrGetAgenticRHOKPCASourceConfigMap,
 		ErrOwnerRef: utils.ErrSetAgenticRHOKPCASecretOwnerRef,
@@ -1259,15 +1259,7 @@ func deleteClientCA(r reconciler.Reconciler, ctx context.Context, cfg clientCACo
 // RefreshClientCASecrets updates all client CA Secrets from the cluster service-ca ConfigMap.
 // When a component is disabled, the corresponding Secret is deleted.
 func RefreshClientCASecrets(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	gate := utils.AgenticGate(r, ctx)
 	for _, cfg := range clientCASecrets {
-		isAgenticSecret := cfg.SecretName == utils.AgenticOtelCASecretName ||
-			cfg.SecretName == utils.AgenticMCPCASecretName || cfg.SecretName == utils.AgenticRHOKPCASecretName
-		if isAgenticSecret && gate != utils.AgenticGateEnabled {
-			// Disabled and Unknown both preserve existing secrets and avoid all
-			// reads/writes/deletes. Only an Enabled gate may reconcile Agentic CAs.
-			continue
-		}
 		secret, err := generateClientCA(r, ctx, cr, cfg)
 		if err != nil {
 			return err

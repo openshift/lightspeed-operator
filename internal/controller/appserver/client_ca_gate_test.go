@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestClientCAsFollowLiveVersionWithoutBreakingClassic(t *testing.T) {
+func TestClientCAsAreIndependentOfConsoleVersion(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 	for _, add := range []func(*runtime.Scheme) error{corev1.AddToScheme, configv1.AddToScheme, olsv1alpha1.AddToScheme} {
@@ -58,23 +58,21 @@ func TestClientCAsFollowLiveVersionWithoutBreakingClassic(t *testing.T) {
 	for _, tc := range []struct {
 		version string
 		state   configv1.UpdateState
-		agentic bool
 	}{
-		{"4.23.0", configv1.CompletedUpdate, false},
-		{"5.0.0", configv1.PartialUpdate, false},
-		{"5.0.0", configv1.CompletedUpdate, true},
+		{"4.23.0", configv1.CompletedUpdate},
+		{"5.0.0", configv1.PartialUpdate},
+		{"5.0.0", configv1.CompletedUpdate},
 	} {
 		setVersion(tc.version, tc.state)
 		for _, name := range []string{utils.AppOtelCASecretName, utils.AppMCPCASecretName, utils.AppRHOKPCASecretName} {
 			check(name, true)
 		}
 		for _, name := range []string{utils.AgenticOtelCASecretName, utils.AgenticMCPCASecretName, utils.AgenticRHOKPCASecretName} {
-			check(name, tc.agentic)
+			check(name, true)
 		}
 	}
 
-	// When the completed release cannot be established, neither update nor
-	// delete existing Agentic CA Secrets. Classic CA Secrets still reconcile.
+	// Agentic CA Secrets must rotate even while the console version is unknown.
 	source.Data[utils.AppOtelCollectorCACertFile] = "rotated-ca"
 	if err := c.Update(ctx, source); err != nil {
 		t.Fatal(err)
@@ -90,8 +88,8 @@ func TestClientCAsFollowLiveVersionWithoutBreakingClassic(t *testing.T) {
 		if err := c.Get(ctx, client.ObjectKey{Name: name, Namespace: ns}, secret); err != nil {
 			t.Fatal(err)
 		}
-		if got := string(secret.Data[key]); got != "test-ca" {
-			t.Fatalf("unknown gate changed %s data to %q, want existing CA preserved", name, got)
+		if got := string(secret.Data[key]); got != "rotated-ca" {
+			t.Fatalf("unknown console version blocked %s CA rotation: %q", name, got)
 		}
 	}
 	for _, cfg := range clientCASecrets[:3] {
@@ -111,17 +109,17 @@ func TestClientCAsFollowLiveVersionWithoutBreakingClassic(t *testing.T) {
 			t.Fatal(err)
 		}
 		if got := string(secret.Data[key]); got != "rotated-ca" {
-			t.Fatalf("enabled gate did not reconcile %s: got %q", name, got)
+			t.Fatalf("CA Secret %s was not reconciled: got %q", name, got)
 		}
 	}
 	setVersion("4.23.0", configv1.CompletedUpdate)
 	for name, key := range agenticKeys {
 		secret := &corev1.Secret{}
 		if err := c.Get(ctx, client.ObjectKey{Name: name, Namespace: ns}, secret); err != nil {
-			t.Fatalf("known Disabled gate deleted existing Agentic CA Secret %s: %v", name, err)
+			t.Fatalf("console version removed Agentic CA Secret %s: %v", name, err)
 		}
 		if got := string(secret.Data[key]); got != "rotated-ca" {
-			t.Fatalf("known Disabled gate changed %s data to %q, want existing CA preserved", name, got)
+			t.Fatalf("console version changed %s CA data unexpectedly: %q", name, got)
 		}
 	}
 }
