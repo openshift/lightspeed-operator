@@ -108,6 +108,8 @@ spec:
               ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.20/index.yaml -m
               ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.21/index.yaml -m
               ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.22/index.yaml -m
+              # Generate 5.0 from the same released bundle snapshot as 4.x.
+              ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-5.0/index.yaml -m
 
             workingDir: /workspace
             env:
@@ -142,7 +144,7 @@ spec:
               cd repo
               git add lightspeed-catalog-4.16/ lightspeed-catalog-4.17/ \
                 lightspeed-catalog-4.18/ lightspeed-catalog-4.19/ lightspeed-catalog-4.20/ \
-                lightspeed-catalog-4.21/ lightspeed-catalog-4.22/
+                lightspeed-catalog-4.21/ lightspeed-catalog-4.22/ lightspeed-catalog-5.0/
               git add related_images.json
               git commit -m "Update catalog with bundle snapshot $(params.snapshot)"
               git config credential.helper '!f() { sleep 1; echo "username=git"; echo "password=$GITHUB_TOKEN"; }; f'
