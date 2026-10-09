@@ -33,6 +33,7 @@ type OLSConfigReconcilerOptions struct {
 	ConsoleUIImage                 string
 	AgenticConsoleUIImage          string
 	AlertsAdapterImage             string
+	AgenticSkillsImage             string
 	AgenticSandboxImage            string
 	OtelCollectorImage             string
 	DataverseExporterImage         string

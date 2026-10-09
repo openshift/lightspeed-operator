@@ -143,7 +143,11 @@ var _ = Describe("Alerts adapter assets", func() {
 		Expect(np.OwnerReferences[0].Name).To(Equal(cr.Name))
 	})
 
-	It("should generate the deployment without a config volume when configMapRef is unset", func() {
+	It("should generate the deployment without a config volume and with the operator-provided skills image", func() {
+		tr := testReconcilerInstance.(*utils.TestReconciler)
+		previous := tr.AgenticSkillsImage
+		tr.AgenticSkillsImage = "registry.example.com/agentic-skills@sha256:abc123"
+		DeferCleanup(func() { tr.AgenticSkillsImage = previous })
 		deployment, err := GenerateDeployment(testReconcilerInstance, ctx, cr)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(deployment.Name).To(Equal(utils.AlertsAdapterDeploymentName))
@@ -151,6 +155,9 @@ var _ = Describe("Alerts adapter assets", func() {
 		Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 		Expect(deployment.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.AlertsAdapterContainerName))
 		Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal(testReconcilerInstance.GetAlertsAdapterImage()))
+		Expect(deployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(corev1.EnvVar{
+			Name: utils.AgenticSkillsImageEnvVar, Value: testReconcilerInstance.GetAgenticSkillsImage(),
+		}))
 		Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(1))
 		Expect(deployment.Spec.Template.Spec.Volumes[0].Name).To(Equal(utils.TmpVolumeName))
 	})

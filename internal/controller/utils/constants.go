@@ -497,6 +497,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AlertsAdapterAlertmanagerURL = "https://alertmanager-main.openshift-monitoring.svc:9094"
 	// AlertsAdapterAlertmanagerURLEnvVar is the deployment env var for the Alertmanager URL
 	AlertsAdapterAlertmanagerURLEnvVar = "ALERTMANAGER_URL"
+	// AgenticSkillsImageEnvVar is the default skills image passed to AgenticRun creators.
+	AgenticSkillsImageEnvVar = "AGENTIC_SKILLS_IMAGE"
 	// AlertsAdapterComponentLabel is the app.kubernetes.io/component label value for alerts adapter resources
 	AlertsAdapterComponentLabel = "alerts-adapter"
 	// PostgresTerminationGracePeriodSeconds is the grace period for postgres pod termination.
@@ -740,6 +742,7 @@ var (
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
 	AgenticConsoleUIImageDefault   = imageDefaultOr("lightspeed-agentic-console-plugin", agenticConsoleUIImageFallback)
 	AlertsAdapterImageDefault      = imageDefaultOr("lightspeed-agentic-alerts-adapter", alertsAdapterImageFallback)
+	AgenticSkillsImageDefault      = relatedimages.GetDefaultImage("agentic-skills")
 	AgenticSandboxImageDefault     = imageDefaultOr("lightspeed-agentic-sandbox", agenticSandboxImageFallback)
 	OtelCollectorImageDefault      = imageDefaultOr("lightspeed-otel-collector", otelCollectorImageFallback)
 	RHOOKPImageDefault             = imageDefaultOr("rhokp", rhokpImageFallback)
