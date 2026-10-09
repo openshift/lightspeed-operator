@@ -108,6 +108,16 @@ spec:
               ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.20/index.yaml -m
               ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.21/index.yaml -m
               ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-4.22/index.yaml -m
+              # Use the same released ols-bundle for 4.x and 5.0. Do not
+              # publish a Classic-only bundle into the 5.0 index while the
+              # single full bundle is still awaiting release.
+              BUNDLE_NAME=$(yq eval -r 'select(.schema == "olm.channel" and .name == "stable") | .entries[-1].name' lightspeed-catalog-4.22/index.yaml)
+              BUNDLE_FILE="lightspeed-catalog-4.22/bundle-v${BUNDLE_NAME#lightspeed-operator.v}.yaml"
+              if [ -f "${BUNDLE_FILE}" ] && [ "$(yq eval '[.properties[] | select(.type == "olm.gvk" and .value.group == "agentic.openshift.io")] | length' "${BUNDLE_FILE}")" -gt 0 ]; then
+                ./hack/bundle_to_catalog.sh -b ${SNAPSHOT_NAME} -n stable,alpha -c lightspeed-catalog-5.0/index.yaml -m
+              else
+                echo "Skipping OCP 5 catalog: released bundle does not contain agentic CRDs"
+              fi
 
             workingDir: /workspace
             env:
@@ -142,7 +152,7 @@ spec:
               cd repo
               git add lightspeed-catalog-4.16/ lightspeed-catalog-4.17/ \
                 lightspeed-catalog-4.18/ lightspeed-catalog-4.19/ lightspeed-catalog-4.20/ \
-                lightspeed-catalog-4.21/ lightspeed-catalog-4.22/
+                lightspeed-catalog-4.21/ lightspeed-catalog-4.22/ lightspeed-catalog-5.0/
               git add related_images.json
               git commit -m "Update catalog with bundle snapshot $(params.snapshot)"
               git config credential.helper '!f() { sleep 1; echo "username=git"; echo "password=$GITHUB_TOKEN"; }; f'
