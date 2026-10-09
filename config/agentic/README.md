@@ -1,45 +1,30 @@
-# Agentic controller bundle inputs (OLS-3188)
+# Agentic manifest inputs (OLS-3189)
 
-These manifests supply the **agentic layer** shipped only in the **v2 bundle**
-(OCP >= 5.0). They are the kustomize inputs that `operator-sdk generate bundle`
-folds into the v2 CSV, so the v2 CSV differs from v1 by:
+`make sync-agentic-crds` fetches the ten agentic CRDs and manager/approver RBAC
+from the agentic-operator repo at the exact commit pinned in the root `Makefile`.
+The source URL and fetch ref are also recorded there. The ref points to the
+upstream main branch, and the script verifies its full pinned commit SHA before
+updating any files; moving that branch cannot silently change the bundle.
+Advance the commit pin deliberately when resyncing.
 
-- a **second deployment** — `lightspeed-agentic-operator-controller-manager`
-  (`manager.yaml`), alongside the classic `lightspeed-operator-controller-manager`;
-- agentic **`clusterPermissions`** — the `agentic-operator-manager-role` rules
-  (`role.yaml` + `role_binding.yaml`);
-- static v2 bundle RBAC manifests — the `agentic-run-approver` ClusterRole and
-  `agentic-run-approver-binding` ClusterRoleBinding (`run_approver_role.yaml`,
-  `run_approver_binding.yaml`) for human (cluster-admin) run approval.
+The synced CRDs live in `config/agentic/crds/`; the RBAC inputs and service
+account live in `config/agentic/`. These are checked-in source inputs, not
+files to edit by hand. Run the sync target explicitly when the source pin
+changes, review its CRD and RBAC diff, then regenerate the bundle. Routine
+`make bundle` runs use checked-in inputs and do not need GitHub access. This
+repo does not import the agentic-operator Go API module.
 
-The v1 (classic, OCP 4.x) bundle contains none of these.
+The single-bundle assembly in PR #2113 includes these inputs for **both** OCP
+4.x and 5.x: the CSV owns the agentic CRDs, installs a second controller, and
+includes its manager RBAC as `clusterPermissions`; the approver ClusterRole and
+ClusterRoleBinding are standalone bundle manifests. The Classic operator currently gates the agentic console, alerts adapter,
+and integration handoff by OCP version; the agentic operator does not gate its
+backend on OCP version. Per-run sandbox RBAC is created by the agentic controller
+at runtime, not included as static bundle RBAC. Until #2113 lands, this branch supplies only the synced inputs: its
+current bundle generation does not prove that full composition.
 
-## Source of truth / sync
-
-Per `bundle-composition.md` (Constraint 2), the agentic CRDs and RBAC are owned
-by the **agentic-operator** repo and synced here — do not hand-edit the rule or
-spec content. These files were transcribed from:
-
-| This file | agentic-operator source |
-|---|---|
-| `manager.yaml` | `config/manager/manager.yaml`, `config/rbac/service_account.yaml` |
-| `role.yaml` | `config/rbac/role.yaml` |
-| `role_binding.yaml` | `config/rbac/role_binding.yaml` |
-| `run_approver_role.yaml` | `config/rbac/run_approver_role.yaml` |
-| `run_approver_binding.yaml` | `config/rbac/run_approver_binding.yaml` |
-
-Names/namespaces were adapted to the bundle (`lightspeed-agentic-operator-controller-manager`,
-`openshift-lightspeed`). The controller image is a placeholder substituted by
-`update_bundle.sh v2` from `related_images.json`.
-
-## Wiring status (IMPORTANT)
-
-On `main`, this directory is **not yet referenced** by `config/default` or
-`config/manifests`, and there is no v2 kustomize assembly to include it. The
-selector-driven build (`update_bundle.sh v1|v2`, OLS-4008), the `-v1`/`-v2` CSV
-base selection (OLS-4009), and the agentic CRD sync make target (OLS-3189) are
-the pieces that wire these inputs into a buildable v2 bundle. That wiring is
-applied when those changes land / at merge time.
-
-The target runtime contract these inputs must satisfy is asserted by the
-version-gating e2e (OLS-4012).
+The manager deployment (`manager.yaml`) has bundle-specific naming and image
+wiring; update that separately from the CRD/RBAC sync. After #2113 merges,
+run `make bundle` and verify the resulting single CSV contains both controller
+deployments, all ten owned CRDs, the agentic manager permissions and the
+standalone approver RBAC.
