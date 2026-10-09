@@ -47,7 +47,7 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 
 ### Security
 16. TOML denies `core/v1` `Secret` and all `rbac.authorization.k8s.io/v1` resources so Secret/RBAC data cannot reach the LLM via the shipped server.
-17. Toolsets are pinned to `core`, `config`, `helm`, `metrics`. Metrics uses in-cluster Thanos Querier and Alertmanager URLs. Metrics `guardrails = "!tsdb"` (PromQL query safety, not RBAC) follows upstream OpenShift guidance when Thanos lacks the TSDB status API; auth remains the caller's bearer token.
+17. Base toolsets are pinned to `core`, `config`, `helm`, `observability/metrics`, `kubevirt`. [PLANNED: OLS-4391] See rules 21–28 for NetObserv configuration and filtering. Metrics uses in-cluster Thanos Querier and Alertmanager URLs. Metrics `guardrails = "!tsdb"` (PromQL query safety, not RBAC) follows upstream OpenShift guidance when Thanos lacks the TSDB status API; auth remains the caller's bearer token.
 18. User-defined MCP servers (`spec.mcpServers`) are out of scope for this operand.
 
 ### Monitoring
@@ -55,6 +55,36 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 
 ### Finalizer
 20. On CR deletion, `ocpmcp.Remove()` deletes Deployment, Service, NetworkPolicy, ConfigMap, ServiceAccount, TLS Secret (`openshift-mcp-server-tls`), and ServiceMonitor (`openshift-mcp-server-monitor`) before owned-resource sweep.
+
+### NetObserv Compatibility Filtering in the OCP MCP server [PLANNED: OLS-4391]
+21. With introspection enabled, default TOML contains the base toolsets from rule 17 plus `netobserv` exactly once from OCP MCP server startup, independent of API presence. Keep `experimental_enable_target_compatibility_tool_filters = true`; base toolset configuration and its existing compatibility behavior remain unchanged.
+22. The OCP MCP server owns advertised tool visibility. With compatibility filtering enabled, it advertises `netobserv_list_flows`, `netobserv_get_flow_metrics`, and `netobserv_export_flows` when at least one target exposes kind `FlowCollector` in any served version of `flows.netobserv.io`. Confirmed absence across all targets hides them. The predicate checks kind discovery, not resource-name spelling or FlowCollector instances. An explicit nonblank `[toolset_configs.netobserv].url` bypasses this check; disabling compatibility filtering also leaves tools visible. OLS generates neither override.
+23. Discovery follows the OCP MCP server's fail-open policy: permission errors, timeouts, relevant partial-discovery failures, and missing inspector/group-discovery support keep tools available. An unrelated stale API group alone does not enable NetObserv. Discovery errors do not block operator reconciliation or alter OCP MCP server readiness.
+24. The operator adds no NetObserv-specific API discovery, CRD watches, retries, or RBAC bindings, and does not inspect NetObserv Deployments/OLM resources or probe backend readiness. It generates no new OLSConfig fields or NetObserv-specific TOML section; endpoint defaults belong to the OCP MCP server. FlowCollector auto-configuration, backend provisioning, network-policy changes, TLS relaxation, and caller-permission grants are outside scope.
+25. The OCP MCP server's cluster-state polling invalidates discovery caches and triggers tool re-evaluation when API-group names change. Configuration reloads also re-evaluate tools, but do not themselves guarantee fresh discovery. Resource/served-version-only changes within an unchanged group do not trigger the cluster-state callback; re-evaluation after discovery refresh or an OCP MCP server restart may be needed. Refresh is not immediate and uses no periodic operator reconciliation.
+26. Runtime API-presence changes affect only OCP MCP server tool visibility, not the generated TOML; they cause no operator ConfigMap writes or Deployment rollouts. Introspection disablement follows rule 2 and takes precedence over filtering.
+27. API presence is an installation proxy, not proof of a healthy or usable NetObserv backend; retained CRDs can yield false positives. Successful calls still require plugin connectivity, service-CA trust, caller authorization, and the appropriate flow/metrics backends.
+28. Before enabling this configuration in a release, select an OCP MCP server image containing both the NetObserv toolset and its compatibility filter, and verify the acceptance scenarios below. Image pinning and bundle regeneration follow constraint 3. Administrator-configurable toolsets remain separate work under OLS-2715; agentic auto-injection remains deferred under OLS-3594.
+
+## Acceptance Coverage [PLANNED: OLS-4391]
+
+| Scenario | Required result |
+|---|---|
+| Initial config, with or without FlowCollector API | Default toolsets include `netobserv` exactly once; compatibility filtering is enabled (rule 21). |
+| FlowCollector kind present in any served version on any target | Advertise all three NetObserv tools. |
+| Successful discovery confirms FlowCollector absence on all targets | Hide all three tools; base tools remain usable. |
+| API present but no FlowCollector instance | Advertise tools without reading instances. |
+| API group installed/removed while the OCP MCP server runs | Refresh visibility through the OCP MCP server's cluster-state path (rule 25). |
+| Resource/served-version change within an unchanged API group | Re-evaluate after discovery refresh; do not assume an automatic callback. |
+| Permission, timeout, or relevant partial-discovery error, including after restart | Keep tools available; operator readiness is unaffected. |
+| Unrelated stale group with confirmed FlowCollector absence | Hide tools. |
+| Inspector/group-discovery support unavailable | Keep tools available. |
+| Repeated reconciliation or runtime API-presence change | No identical-config rewrite or detection-only rollout (rule 26). |
+| Introspection disabled | Existing removal/`NotConfigured` behavior applies (rule 2). |
+| Backend absent/unreachable despite API presence | The OCP MCP server starts and base tools work; NetObserv calls may return backend errors. |
+| Security and scope regression | Preserve Secret/RBAC denials and caller-token authorization; verify rule 24's exclusions. |
+
+Operator tests cover default TOML, security regressions, idempotence, and introspection disablement. OCP MCP server tests cover discovery/filtering outcomes, multi-target aggregation, explicit-URL bypass, and reloads. Validate the selected shipped image on OpenShift with `tools/list`, runtime API-group changes, and base-tool calls when the plugin is absent.
 
 ## Configuration Surface
 
@@ -74,4 +104,7 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 
 ## Planned Changes
 
-None for the standalone HTTPS cutover itself. Optional agentic auto-injection remains planned (OLS-3594).
+| Ticket | Summary |
+|---|---|
+| [OLS-4391](https://redhat.atlassian.net/browse/OLS-4391) | NetObserv defaults and OCP MCP server compatibility filtering (rules 21–28); rationale in [decision 0001](../decisions/0001-netobserv-api-presence-gating.md). |
+| OLS-3594 | Deferred optional agentic auto-injection. |
