@@ -1,6 +1,8 @@
 package ocpmcp
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -55,6 +57,7 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(cm)
 			Expect(cm.Data[utils.OpenShiftMCPServerConfigFilename]).To(ContainSubstring(`kind = "Secret"`))
+			Expect(cm.Data[utils.OpenShiftMCPServerConfigFilename]).To(ContainSubstring(`"netobserv"`))
 		})
 
 		It("should create the MCP ServiceAccount", func() {
@@ -98,6 +101,25 @@ var _ = Describe("OpenShift MCP Server reconciler", Ordered, func() {
 			Expect(ReconcileResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
 			Expect(k8sClient.Get(ctx, key, np)).To(Succeed())
 			Expect(np.Spec.Ingress[0].From).To(HaveLen(2))
+		})
+
+		It("should update existing OCP MCP server configuration to include NetObserv", func() {
+			key := types.NamespacedName{
+				Name:      utils.OpenShiftMCPServerConfigCmName,
+				Namespace: utils.OLSNamespaceDefault,
+			}
+			cm := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, key, cm)).To(Succeed())
+			cm.Data[utils.OpenShiftMCPServerConfigFilename] = strings.Replace(
+				cm.Data[utils.OpenShiftMCPServerConfigFilename], `, "netobserv"`, "", 1,
+			)
+			Expect(k8sClient.Update(ctx, cm)).To(Succeed())
+			oldRV := cm.ResourceVersion
+
+			Expect(ReconcileResources(testReconcilerInstance, ctx, testCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, cm)).To(Succeed())
+			Expect(cm.Data[utils.OpenShiftMCPServerConfigFilename]).To(ContainSubstring(`"netobserv"`))
+			Expect(cm.ResourceVersion).NotTo(Equal(oldRV))
 		})
 
 		It("should skip ConfigMap update when data is unchanged", func() {
