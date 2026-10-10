@@ -123,15 +123,19 @@ var _ = Describe("manager-role YAML", func() {
 				"lightspeed-app-server-sar-role":                     true,
 				"lightspeed-agentic-alerts-adapter-agenticolsconfig": true,
 				"lightspeed-agentic-alerts-adapter-agenticruns":      true,
+				"lightspeed-otel-dataverse-exporter":                 true,
+				"lightspeed-otel-dataverse-exporter-pull-secret":     true,
 			}
 			allowedCRBs := map[string]bool{
 				"lightspeed-app-server-sar-role-binding":             true,
 				"lightspeed-agentic-alerts-adapter-agenticolsconfig": true,
 				"lightspeed-agentic-alerts-adapter-agenticruns":      true,
 				"lightspeed-operator-ols-metrics-reader":             true,
+				"lightspeed-otel-dataverse-exporter-binding":         true,
 			}
 			allowedRoleBindings := map[string]bool{
 				"lightspeed-agentic-alerts-adapter-alertmanager": true,
+				"lightspeed-otel-dataverse-exporter-pull-secret": true,
 			}
 
 			for _, rule := range clusterRole.Rules {

@@ -32,8 +32,8 @@ var _ = Describe("Watcher Predicates", func() {
 				Secrets: utils.SecretWatcherConfig{
 					SystemResources: []utils.SystemSecret{
 						{
-							Name:      "pull-secret",
-							Namespace: "openshift-config",
+							Name:      utils.TelemetryPullSecretName,
+							Namespace: utils.TelemetryPullSecretNamespace,
 							AffectedDeployments: []string{
 								utils.ConsoleUIDeploymentName,
 							},
@@ -161,6 +161,33 @@ var _ = Describe("Watcher Predicates", func() {
 
 			result := reconciler.shouldWatchSecret(secret)
 			Expect(result).To(BeTrue())
+		})
+	})
+
+	Context("shouldWatchSecretCreate", func() {
+		It("allows telemetry pull-secret recreation outside the operator namespace", func() {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      utils.TelemetryPullSecretName,
+					Namespace: utils.TelemetryPullSecretNamespace,
+				},
+			}
+
+			Expect(reconciler.shouldWatchSecretCreate(secret)).To(BeTrue())
+		})
+
+		It("rejects unrelated external secret creation even when annotated", func() {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "unrelated",
+					Namespace: "external",
+					Annotations: map[string]string{
+						utils.WatcherAnnotationKey: utils.OLSConfigName,
+					},
+				},
+			}
+
+			Expect(reconciler.shouldWatchSecretCreate(secret)).To(BeFalse())
 		})
 	})
 

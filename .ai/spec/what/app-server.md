@@ -5,9 +5,9 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 ## Behavioral Rules
 
 ### Deployment Composition
-1. The deployment contains a primary API container and an optional sidecar container (data collector).
-2. The primary container (lightspeed-service-api) runs the OLS service, listening on HTTPS.
-3. The data collector sidecar (lightspeed-to-dataverse-exporter) is added when data collection is enabled AND the telemetry pull secret exists in the openshift-config namespace with a cloud.openshift.com auth entry.
+1. The deployment contains a primary API container and the optional app-server Dataverse exporter sidecar.
+2. The primary container (`lightspeed-service-api`) runs the OLS service, listening on HTTPS.
+3. The existing app-server sidecar (`lightspeed-to-dataverse-exporter`) is added when at least one of feedback or transcript collection is enabled (`!spec.ols.userDataCollection.feedbackDisabled || !spec.ols.userDataCollection.transcriptsDisabled`) and `openshift-config/pull-secret` has a `cloud.openshift.com` auth entry in `.dockerconfigjson`. Its config remains in `lightspeed-exporter-config`; the Collector-side exporter uses separate resources and is specified in `data-collection.md`.
 4. The OpenShift MCP server runs as a standalone HTTPS Deployment/Service (`ocpmcp` package) when `spec.ols.introspectionEnabled` is true. The app-server connects via `https://openshift-mcp-server.<ns>.svc:8443/mcp` and trusts client CA Secret `lightspeed-agentic-mcp-ca` (cluster service-ca PEM). See `ocpmcp.md`.
 5. OKP (Offline Knowledge Portal) / Solr hybrid RAG is operator-managed (no CR toggle besides `byokRAGOnly`). When OKP is enabled, the RHOKP standalone Deployment serves Solr via HTTPS at `https://lightspeed-rhokp.<ns>.svc:8443`. The app-server connects as a client, trusting client CA Secret `lightspeed-agentic-rhokp-ca` (cluster service-ca PEM) via `extra_ca`. OKP is on by default; set `spec.ols.byokRAGOnly` to true to skip the RHOKP standalone operand, `solr_hybrid` config, and OCP documentation retrieval via Solr. See `rhokp.md`.
 6. A PostgreSQL wait init container always runs before the main containers to ensure database readiness.
@@ -45,7 +45,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 
 ### RBAC
 22. The app-server service account (`lightspeed-app-server`) is granted SubjectAccessReview and TokenReview permissions for user authorization.
-23. The app-server service account can read the cluster version and the telemetry pull secret.
+23. The app-server service account continues to read the cluster version and telemetry pull secret for its existing exporter behavior, which is unchanged. The OTel exporter uses separate RBAC: ClusterRole `lightspeed-otel-dataverse-exporter` with its existing ClusterRoleBinding for cluster-version `get`, plus ClusterRole `lightspeed-otel-dataverse-exporter-pull-secret` with same-name RoleBinding in `openshift-config` for the named Secret read; both bindings target the Collector service account in the operator namespace, and the RoleBinding scopes that Secret access to `openshift-config`. It does not reuse the app-server role.
 
 ### Change Detection
 24. Deployment updates are triggered when: the deployment spec changes, the config ConfigMap resource version changes, or the proxy CA certificate hash changes.
@@ -90,7 +90,7 @@ The App Server is the backend deployment for OpenShift Lightspeed. It runs the l
 
 ## Constraints
 
-1. Data collection requires both: at least one of feedback/transcripts enabled, AND the telemetry pull secret present with cloud.openshift.com credentials.
+1. The app-server Dataverse exporter requires at least one of feedback/transcripts enabled (`!spec.ols.userDataCollection.feedbackDisabled || !spec.ols.userDataCollection.transcriptsDisabled`) and the telemetry pull-secret auth entry. The OTel Dataverse sidecar instead requires transcripts enabled and a nonempty (after trimming whitespace) `.dockerconfigjson.auths["cloud.openshift.com"].auth` token; local Collector FileExporter storage requires transcripts only. See [`data-collection.md`](data-collection.md).
 2. Tool filtering requires MCP servers to be configured (either introspection or user-defined).
 3. The service always connects to PostgreSQL via the internal cluster service DNS.
 4. RAG init containers run in index order, copying data to subdirectories of the shared RAG volume.

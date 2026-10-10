@@ -144,7 +144,7 @@ func GetSecretContent(rclient client.Client, ctx context.Context, secretName str
 }
 
 // podVolumEqual compares two slices of corev1.Volume and returns true if they are equal.
-// covers 3 volume types: Secret, ConfigMap, EmptyDir
+// covers Secret, ConfigMap, EmptyDir, PersistentVolumeClaim, and Projected sources.
 func PodVolumeEqual(a, b []corev1.Volume) bool {
 	if len(a) != len(b) {
 		return false
@@ -167,6 +167,12 @@ func PodVolumeEqual(a, b []corev1.Volume) bool {
 			}
 			if aVolume.ConfigMap != nil && bVolume.ConfigMap != nil {
 				if aVolume.ConfigMap.Name != bVolume.ConfigMap.Name {
+					return false
+				}
+				continue
+			}
+			if aVolume.Projected != nil && bVolume.Projected != nil {
+				if !apiequality.Semantic.DeepEqual(aVolume.Projected, bVolume.Projected) {
 					return false
 				}
 				continue

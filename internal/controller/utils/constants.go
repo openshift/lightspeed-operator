@@ -349,12 +349,12 @@ const (
 	OtelCollectorComponentLabel = "otel-collector"
 	// OtelCollectorFileStorageMountPath is the file_storage extension directory.
 	OtelCollectorFileStorageMountPath = "/var/lib/otelcol/file_storage"
-	// OtelCollectorDataCollectionVolumeName is the Collector-only emptyDir for native trace files.
+	// OtelCollectorDataCollectionVolumeName is the emptyDir for native trace files, shared read-only with the exporter.
 	OtelCollectorDataCollectionVolumeName = "data-collection"
-	// OtelCollectorDataCollectionMountPath is the writable root mounted for FileExporter output.
-	OtelCollectorDataCollectionMountPath = "/var/lib/lightspeed-data"
+	// OtelCollectorDataCollectionMountPath is the source volume root, the parent directory of the active trace file.
+	OtelCollectorDataCollectionMountPath = "/var/lib/lightspeed-data/otel"
 	// OtelCollectorDataCollectionTraceFilePath is the native trace JSONL FileExporter path.
-	OtelCollectorDataCollectionTraceFilePath = OtelCollectorDataCollectionMountPath + "/otel/traces.jsonl"
+	OtelCollectorDataCollectionTraceFilePath = OtelCollectorDataCollectionMountPath + "/traces.jsonl"
 	// OtelCollectorDataCollectionSizeLimitDefault is the emptyDir limit for trace data collection.
 	OtelCollectorDataCollectionSizeLimitDefault = "500Mi"
 	// OtelCollectorDataCollectionMaxMegabytes is the FileExporter rotation size limit.
@@ -363,6 +363,44 @@ const (
 	OtelCollectorDataCollectionMaxBackups = 40
 	// OtelCollectorDataCollectionMaxDays is the FileExporter backup retention period.
 	OtelCollectorDataCollectionMaxDays = 1
+	// OtelDataverseExporterConfigMapName is the separate OTEL exporter config map.
+	OtelDataverseExporterConfigMapName = "lightspeed-otel-dataverse-exporter-config"
+	// OtelDataverseExporterConfigMapDataKey is the YAML config key mounted into the exporter.
+	OtelDataverseExporterConfigMapDataKey = "config.yaml"
+	// OtelDataverseExporterConfigVolumeName is the exporter-only config volume.
+	OtelDataverseExporterConfigVolumeName = "dataverse-exporter-config"
+	// OtelDataverseExporterConfigMountPath is the exporter config mount directory.
+	OtelDataverseExporterConfigMountPath = "/etc/config"
+	// OtelDataverseExporterConfigPath is the mounted exporter config file path.
+	OtelDataverseExporterConfigPath = OtelDataverseExporterConfigMountPath + "/" + OtelDataverseExporterConfigMapDataKey
+	// OtelDataverseExporterDataMountPath is the source trace directory in the exporter.
+	OtelDataverseExporterDataMountPath = "/input"
+	// OtelDataverseExporterStateVolumeName is the exporter-only writable ledger volume.
+	OtelDataverseExporterStateVolumeName = "dataverse-exporter-state"
+	// OtelDataverseExporterStateMountPath is the exporter ledger mount directory.
+	OtelDataverseExporterStateMountPath = "/state"
+	// OtelDataverseExporterLedgerFilePath is the OTEL acknowledgement ledger path.
+	OtelDataverseExporterLedgerFilePath = OtelDataverseExporterStateMountPath + "/ledger.json"
+	// OtelDataverseExporterAuthVolumeName is the exporter-only projected in-cluster auth volume.
+	OtelDataverseExporterAuthVolumeName = "dataverse-exporter-auth"
+	// OtelDataverseExporterAuthMountPath is the default in-cluster auth path used by the OpenShift client.
+	OtelDataverseExporterAuthMountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
+	// OtelDataverseExporterClusterRoleName is the ClusterRole for the named ClusterVersion read.
+	OtelDataverseExporterClusterRoleName = "lightspeed-otel-dataverse-exporter"
+	// OtelDataverseExporterClusterRoleBindingName binds ClusterVersion access to the Collector ServiceAccount.
+	OtelDataverseExporterClusterRoleBindingName = "lightspeed-otel-dataverse-exporter-binding"
+	// OtelDataverseExporterPullSecretClusterRoleName is the ClusterRole for telemetry pull-secret reads.
+	OtelDataverseExporterPullSecretClusterRoleName = "lightspeed-otel-dataverse-exporter-pull-secret"
+	// OtelDataverseExporterPullSecretRoleBindingName binds that role only in openshift-config.
+	OtelDataverseExporterPullSecretRoleBindingName = OtelDataverseExporterPullSecretClusterRoleName
+	// OtelDataverseExporterConfigMapResourceVersionAnnotation tracks exporter config rollouts.
+	OtelDataverseExporterConfigMapResourceVersionAnnotation = "ols.openshift.io/otel-dataverse-exporter-configmap-version"
+	// OtelDataverseExporterCollectionIntervalSeconds is the rotated-file polling interval.
+	OtelDataverseExporterCollectionIntervalSeconds = 300
+	// OtelDataverseExporterArchivePathPrefix is the upload archive prefix for OTEL files.
+	OtelDataverseExporterArchivePathPrefix = "v1/"
+	// OtelDataverseExporterIngressServerURL is the Dataverse ingress endpoint.
+	OtelDataverseExporterIngressServerURL = "https://console.redhat.com/api/ingress/v1/upload"
 	// OtelCollectorGRPCMaxRecvMsgSizeMiB is the OTLP/gRPC request-size limit.
 	OtelCollectorGRPCMaxRecvMsgSizeMiB = 20
 	// OtelCollectorHTTPMaxRequestBodySize is the OTLP/HTTP request-size limit in bytes.

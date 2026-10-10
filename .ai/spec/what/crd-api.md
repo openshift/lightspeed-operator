@@ -216,7 +216,7 @@ Field | JSON key | Go type | Required
 
 22. `spec.ols.userDataCollection.feedbackDisabled` -- `bool`, optional. Disables user feedback collection.
 23. `spec.ols.userDataCollection.transcriptsDisabled` -- `bool`, optional. Disables transcript collection.
-23a. Collector trace-file collection uses the existing `transcriptsDisabled` opt-out: false or absent enables the branch, and true disables it. The operator adds no CRD field. See [`data-collection.md`](data-collection.md).
+23a. Collector trace routing and FileExporter storage use the existing `transcriptsDisabled` opt-out: false or absent enables them, true disables them. The OTel Dataverse sidecar has the same transcript condition plus a nonempty (after trimming whitespace) `.dockerconfigjson.auths["cloud.openshift.com"].auth` token gate; trace-file storage is independent of that credential. The operator adds no CRD field. See [`data-collection.md`](data-collection.md).
 
 #### TLS Configuration (spec.ols.tlsConfig)
 

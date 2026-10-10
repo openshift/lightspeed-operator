@@ -15,6 +15,73 @@ import (
 
 var _ = Describe("Volume Comparison", func() {
 	Describe("PodVolumeEqual", func() {
+
+		projectedAuthVolumes := func() []corev1.Volume {
+			defaultMode := VolumeRestrictedMode
+			expirationSeconds := int64(3600)
+			return []corev1.Volume{
+				{
+					Name: "auth",
+					VolumeSource: corev1.VolumeSource{
+						Projected: &corev1.ProjectedVolumeSource{
+							DefaultMode: &defaultMode,
+							Sources: []corev1.VolumeProjection{
+								{
+									ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+										Path:              "token",
+										ExpirationSeconds: &expirationSeconds,
+									},
+								},
+								{
+									ConfigMap: &corev1.ConfigMapProjection{
+										LocalObjectReference: corev1.LocalObjectReference{Name: "kube-root-ca.crt"},
+										Items: []corev1.KeyToPath{
+											{Key: "ca.crt", Path: "ca.crt"},
+										},
+									},
+								},
+								{
+									DownwardAPI: &corev1.DownwardAPIProjection{
+										Items: []corev1.DownwardAPIVolumeFile{
+											{
+												Path: "namespace",
+												FieldRef: &corev1.ObjectFieldSelector{
+													APIVersion: "v1",
+													FieldPath:  "metadata.namespace",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+		}
+
+		Describe("Projected volumes", func() {
+			It("should compare identical auth sources correctly", func() {
+				Expect(PodVolumeEqual(projectedAuthVolumes(), projectedAuthVolumes())).To(BeTrue())
+			})
+
+			It("should detect changed auth sources, tokens, and CA files", func() {
+				volumes := projectedAuthVolumes()
+
+				changedSource := projectedAuthVolumes()
+				changedSource[0].Projected.Sources = changedSource[0].Projected.Sources[:2]
+				Expect(PodVolumeEqual(volumes, changedSource)).To(BeFalse())
+
+				changedToken := projectedAuthVolumes()
+				changedToken[0].Projected.Sources[0].ServiceAccountToken.Path = "different-token"
+				Expect(PodVolumeEqual(volumes, changedToken)).To(BeFalse())
+
+				changedCA := projectedAuthVolumes()
+				changedCA[0].Projected.Sources[1].ConfigMap.Items[0].Path = "different-ca.crt"
+				Expect(PodVolumeEqual(volumes, changedCA)).To(BeFalse())
+			})
+		})
+
 		It("should return true for identical volumes", func() {
 			volumes := []corev1.Volume{
 				{
@@ -146,8 +213,8 @@ var _ = Describe("Volume Comparison", func() {
 			Expect(PodVolumeEqual([]corev1.Volume{}, []corev1.Volume{})).To(BeTrue())
 		})
 	})
-})
 
+})
 var _ = Describe("Container Comparison", func() {
 	Describe("ContainersEqual", func() {
 		It("should return true for identical containers", func() {
