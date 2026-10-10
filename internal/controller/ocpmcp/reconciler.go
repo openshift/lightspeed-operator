@@ -53,21 +53,33 @@ func Remove(r reconciler.Reconciler, ctx context.Context) error {
 }
 
 func reconcileConfigMap(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
-	cm, err := GenerateConfigMap(r, cr)
+	foundCm := &corev1.ConfigMap{}
+	err := r.GetAPIReader().Get(ctx, client.ObjectKey{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: r.GetNamespace()}, foundCm)
+	missing := errors.IsNotFound(err)
+	if err != nil && !missing {
+		return fmt.Errorf("%s: %w", utils.ErrGetOpenShiftMCPServerConfigMap, err)
+	}
+	var previous *corev1.ConfigMap
+	if !missing {
+		previous = foundCm
+	}
+	enabled, err := netObservEnabled(ctx, previous)
+	if err != nil {
+		// An unreadable prior decision is not a reason to preserve broken TOML
+		// or block Phase 2. Discovery errors remain retryable in the controller.
+		r.GetLogger().Error(err, "No usable prior NetObserv decision; repairing MCP configuration with base toolsets")
+	}
+	cm, err := GenerateConfigMap(r, cr, enabled)
 	if err != nil {
 		return err
 	}
 
-	foundCm := &corev1.ConfigMap{}
-	err = r.Get(ctx, client.ObjectKey{Name: utils.OpenShiftMCPServerConfigCmName, Namespace: r.GetNamespace()}, foundCm)
-	if err != nil && errors.IsNotFound(err) {
+	if missing {
 		r.GetLogger().Info("creating openshift-mcp-server configmap", "configmap", cm.Name)
 		if err := r.Create(ctx, cm); err != nil {
 			return fmt.Errorf("%s: %w", utils.ErrCreateOpenShiftMCPServerConfigMap, err)
 		}
 		return nil
-	} else if err != nil {
-		return fmt.Errorf("%s: %w", utils.ErrGetOpenShiftMCPServerConfigMap, err)
 	}
 
 	if utils.ConfigMapEqual(foundCm, cm) && reflect.DeepEqual(foundCm.Labels, cm.Labels) {

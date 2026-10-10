@@ -66,9 +66,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -102,11 +105,13 @@ import (
 // Controller-runtime handles error retries with exponential backoff.
 type OLSConfigReconciler struct {
 	client.Client
-	APIReader     client.Reader
-	Logger        logr.Logger
-	Options       utils.OLSConfigReconcilerOptions
-	WatcherConfig *utils.WatcherConfig
-	activeVersion atomic.Pointer[utils.AgenticVersion]
+	APIReader       client.Reader
+	DiscoveryClient ocpmcp.FlowCollectorDiscovery
+	Logger          logr.Logger
+	Options         utils.OLSConfigReconcilerOptions
+	WatcherConfig   *utils.WatcherConfig
+	activeVersion   atomic.Pointer[utils.AgenticVersion]
+	netObservState  ocpmcp.NetObservState
 }
 
 const finalizerCleanupTimeout = 3 * time.Minute
@@ -114,6 +119,8 @@ const finalizerCleanupTimeout = 3 * time.Minute
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/finalizers,verbs=update
+// Named CRD discovery lifecycle watch; never grants access to FlowCollector instances.
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,resourceNames=flowcollectors.flows.netobserv.io,verbs=get;list;watch
 // RBAC for managing deployments of OLS application server
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // RBAC for reading pod status for diagnostics
@@ -840,6 +847,13 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			"trigger app-server restarts")
 	}
 
+	// Defer discovery errors until Phase 2 has run: the base MCP configuration
+	// must remain deployable even while API presence is unknown.
+	ctx, discoveryErr := r.netObservContext(ctx, olsconfig)
+	defer func() {
+		reconcileErr = errors.Join(reconcileErr, discoveryErr)
+	}()
+
 	// 5. Phase 1: Reconcile independent resources
 	if err := r.reconcileIndependentResources(ctx, olsconfig); err != nil {
 		if errors.Is(err, alertsadapter.ErrAlertsAdapterCleanupPending) {
@@ -1205,9 +1219,22 @@ func wasComponentEnabled(cr *olsv1alpha1.OLSConfig, conditionType string) bool {
 func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Logger = ctrl.Log.WithName("Reconciler")
 	r.APIReader = mgr.GetAPIReader()
+	if r.DiscoveryClient == nil {
+		config := rest.CopyConfig(mgr.GetConfig())
+		config.Timeout = 10 * time.Second
+		var err error
+		// An uncached client avoids stale positive/negative discovery results.
+		r.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(config)
+		if err != nil {
+			return fmt.Errorf("create NetObserv discovery client: %w", err)
+		}
+	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olsv1alpha1.OLSConfig{}).
+		Watches(&apiextensionsv1.CustomResourceDefinition{},
+			handler.EnqueueRequestsFromMapFunc(flowCollectorCRDRequests),
+			builder.WithPredicates(flowCollectorCRDPredicate())).
 		Watches(&configv1.ClusterVersion{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
 			if obj.GetName() != "version" {
 				return nil

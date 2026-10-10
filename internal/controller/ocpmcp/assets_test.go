@@ -3,7 +3,10 @@ package ocpmcp
 import (
 	"fmt"
 	"path"
+	"slices"
 	"strings"
+
+	tomlparser "github.com/BurntSushi/toml"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,6 +20,15 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
+func parsedToolsets(config string) []string {
+	var parsed struct {
+		Toolsets []string `toml:"toolsets"`
+	}
+	_, err := tomlparser.Decode(config, &parsed)
+	Expect(err).NotTo(HaveOccurred())
+	return parsed.Toolsets
+}
+
 var _ = Describe("OpenShift MCP Server assets", func() {
 	var testCR *olsv1alpha1.OLSConfig
 	labels := selectorLabels()
@@ -27,7 +39,7 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 	})
 
 	It("should generate the TOML ConfigMap with denied Secret and RBAC resources", func() {
-		cm, err := GenerateConfigMap(testReconcilerInstance, testCR)
+		cm, err := GenerateConfigMap(testReconcilerInstance, testCR, false)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cm.Name).To(Equal(utils.OpenShiftMCPServerConfigCmName))
 		Expect(cm.Namespace).To(Equal(utils.OLSNamespaceDefault))
@@ -38,7 +50,7 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(toml).To(ContainSubstring(fmt.Sprintf(`tls_cert = "%s"`, path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"))))
 		Expect(toml).To(ContainSubstring(fmt.Sprintf(`tls_key = "%s"`, path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"))))
 		Expect(toml).To(ContainSubstring("read_only = false"))
-		Expect(toml).To(ContainSubstring(`toolsets = ["core", "config", "helm", "observability/metrics", "kubevirt"]`))
+		Expect(parsedToolsets(toml)).To(Equal(baseToolsets[:]))
 		Expect(toml).To(ContainSubstring(`experimental_enable_target_compatibility_tool_filters = true`))
 		Expect(toml).To(ContainSubstring(`kind = "Secret"`))
 		Expect(toml).To(ContainSubstring(`group = ""`))
@@ -49,6 +61,21 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(toml).To(ContainSubstring(`alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094"`))
 		Expect(toml).To(ContainSubstring(`guardrails = "!tsdb"`))
 		Expect(strings.Count(toml, "[[denied_resources]]")).To(Equal(2))
+	})
+
+	It("should not mutate the base toolsets when toggling NetObserv", func() {
+		original := baseToolsets
+		for _, enabled := range []bool{true, false, true, false} {
+			cm, err := GenerateConfigMap(testReconcilerInstance, testCR, enabled)
+			Expect(err).NotTo(HaveOccurred())
+			config := cm.Data[utils.OpenShiftMCPServerConfigFilename]
+			expected := slices.Clone(baseToolsets[:])
+			if enabled {
+				expected = append(expected, "netobserv")
+			}
+			Expect(parsedToolsets(config)).To(Equal(expected))
+			Expect(baseToolsets).To(Equal(original))
+		}
 	})
 
 	It("should generate the Service with HTTPS port and serving-cert annotation", func() {

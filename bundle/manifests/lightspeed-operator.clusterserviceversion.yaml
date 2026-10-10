@@ -860,6 +860,16 @@ spec:
                 - get
                 - list
             - apiGroups:
+                - apiextensions.k8s.io
+              resourceNames:
+                - flowcollectors.flows.netobserv.io
+              resources:
+                - customresourcedefinitions
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
                 - apps
               resources:
                 - deployments
