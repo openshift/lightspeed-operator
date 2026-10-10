@@ -47,7 +47,7 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 
 ### Security
 16. TOML denies `core/v1` `Secret` and all `rbac.authorization.k8s.io/v1` resources so Secret/RBAC data cannot reach the LLM via the shipped server.
-17. Toolsets are pinned to `core`, `config`, `helm`, `metrics`. Metrics uses in-cluster Thanos Querier and Alertmanager URLs. Metrics `guardrails = "!tsdb"` (PromQL query safety, not RBAC) follows upstream OpenShift guidance when Thanos lacks the TSDB status API; auth remains the caller's bearer token.
+17. Base toolsets are pinned to `core`, `config`, `helm`, `observability/metrics`, `kubevirt`. [PLANNED: OLS-4391] The operator additionally includes `netobserv` when FlowCollector API discovery confirms presence, subject to the discovery-error retention rules below. Metrics uses in-cluster Thanos Querier and Alertmanager URLs. Metrics `guardrails = "!tsdb"` (PromQL query safety, not RBAC) follows upstream OpenShift guidance when Thanos lacks the TSDB status API; auth remains the caller's bearer token.
 18. User-defined MCP servers (`spec.mcpServers`) are out of scope for this operand.
 
 ### Monitoring
@@ -55,6 +55,34 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 
 ### Finalizer
 20. On CR deletion, `ocpmcp.Remove()` deletes Deployment, Service, NetworkPolicy, ConfigMap, ServiceAccount, TLS Secret (`openshift-mcp-server-tls`), and ServiceMonitor (`openshift-mcp-server-monitor`) before owned-resource sweep.
+
+### NetObserv API-presence Gating [PLANNED: OLS-4391]
+21. With introspection enabled, the operator uses its own Kubernetes API discovery client to determine whether any served API version in group `flows.netobserv.io` advertises the resource `flowcollectors` with kind `FlowCollector`. Presence in any successfully discovered served version is sufficient. Confirmed absence requires successful discovery of the relevant API surface; permission errors, timeouts, and partial discovery failures affecting this group are unknown, not absence.
+22. On confirmed presence, generated TOML contains the base toolsets from rule 17 plus `netobserv` exactly once. On confirmed absence, it contains only the base toolsets. This decision gates only NetObserv; it must not disable the MCP operand or change the base toolsets.
+23. Detection does not read FlowCollector instances, inspect operator Deployments or OLM resources, probe plugin readiness, or derive backend settings. The operator does not generate a NetObserv-specific configuration section or add OLSConfig fields. The MCP server uses its existing NetObserv defaults.
+24. A discovery error retains the last successfully determined NetObserv inclusion state. On restart, retain that state from the existing operator-generated MCP configuration when available. If no prior decision is available, omit `netobserv` until discovery succeeds. Log the discovery failure and retry through the existing controller-runtime error backoff; reconcile the remaining MCP resources and independent components before reporting the error. Discovery uncertainty must not prevent the base MCP configuration from being deployed.
+25. Detect API installation and removal without an OLSConfig edit or operator restart. A targeted watch on the FlowCollector CRD is the preferred event-driven mechanism; relevant creation, deletion, establishment, or served-version changes must enqueue reconciliation and refresh cached discovery. If the CRD event precedes API availability, retry until discovery reflects the change rather than relying on another user action. Verify and provide the operator watch RBAC needed by the selected implementation; do not add FlowCollector-read privileges or MCP operand ServiceAccount bindings. No periodic steady-state reconciliation is introduced.
+26. When the inclusion decision changes, update `openshift-mcp-server-config` and use its existing Deployment change tracking to roll the MCP server. An unchanged decision must not rewrite identical configuration or cause a rollout solely because of detection. With introspection disabled, the existing removal/`NotConfigured` behavior takes precedence; presence detection must not recreate the operand.
+27. API presence is a minimum installation proxy, not proof that Network Observability is installed, healthy, or usable. Retained CRDs can yield a false positive, and a FlowCollector instance is not required for enablement. Plugin connectivity, service-CA trust, caller permissions, and the appropriate flow/metrics backends remain prerequisites for successful calls. The operator does not modify NetObserv network policies, provision backends, weaken TLS verification, or grant caller permissions.
+28. No OCP MCP server code change, FlowCollector auto-configuration feature, or upstream PR #1448 is required for this gate. The shipped image must contain the existing `netobserv` toolset; verification evidence for the image examined during design is recorded in decision 0001. Generic user-configurable toolsets remain separate work under OLS-2715. Agentic auto-injection remains deferred under OLS-3594.
+
+## Acceptance Coverage [PLANNED: OLS-4391]
+
+| Scenario | Required result |
+|---|---|
+| FlowCollector API present in a served version | Include `netobserv` exactly once; preserve all base toolsets. |
+| Relevant API discovery succeeds and the FlowCollector API is absent | Omit `netobserv`; deploy the remaining MCP operand normally. |
+| CRD/API present but no FlowCollector instance exists | Include `netobserv`; no instance read is performed. |
+| API installed after OLS starts | Reconcile and enable NetObserv without editing OLSConfig or restarting the operator; refresh stale negative discovery results and retry establishment races. |
+| API removed, or no FlowCollector version remains served | Reconcile and omit NetObserv; refresh stale positive discovery results. |
+| Permission, timeout, or relevant partial-discovery error | Preserve the prior inclusion state, log, and retry; do not interpret the error as absence. |
+| Operator restart followed by discovery failure | Retain the existing generated configuration's inclusion state; when no prior state exists, deploy base toolsets without NetObserv and retry. |
+| Repeated discovery with unchanged inclusion | No detection-only ConfigMap rewrite or MCP Deployment rollout. |
+| Introspection disabled, including during a CRD event | Keep MCP resources removed and `MCPServerReady=True`, `Reason=NotConfigured`. |
+| NetObserv backend absent/unreachable despite API presence | MCP server remains startable and base tools remain usable; a NetObserv invocation may return a backend error. |
+| Security and scope regression | Secret/RBAC denials, caller-token authorization, and unprivileged MCP ServiceAccount remain unchanged; no NetObserv endpoints, new OLSConfig fields, or FlowCollector-read permissions are introduced. |
+
+Use unit tests for discovery outcomes, generated TOML, error retention, and event selection. Use controller/integration tests for CRD events, discovery-cache refresh, startup/restart behavior, retry paths, and existing ConfigMap-driven rollouts. Validate on OpenShift that the selected shipped MCP image starts with NetObserv enabled and that base tools remain available when the plugin is absent. Successful NetObserv calls additionally require the prerequisites in rule 27; they are not guaranteed by this gate.
 
 ## Configuration Surface
 
@@ -74,4 +102,7 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 
 ## Planned Changes
 
-None for the standalone HTTPS cutover itself. Optional agentic auto-injection remains planned (OLS-3594).
+| Ticket | Summary |
+|---|---|
+| [OLS-4391](https://redhat.atlassian.net/browse/OLS-4391) | Gate default NetObserv enablement on FlowCollector API presence in the OLS operator; retain decisions on discovery errors and react to API installation/removal. See [decision 0001](../decisions/0001-netobserv-api-presence-gating.md). |
+| OLS-3594 | Deferred optional agentic auto-injection. |
