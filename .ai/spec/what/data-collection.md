@@ -39,7 +39,7 @@ This specification defines Collector-side capture of selected native OTLP traces
    data_dir: /input
    otel_active_file: traces.jsonl
    ledger_file: /state/ledger.json
-   archive_path_prefix: v1/
+   archive_path_prefix: agentic-v1/
    collection_interval: 300
    cleanup_after_send: false
    service_id: ols # generated as rhos-lightspeed when the CR has openstack.org/lightspeed-owner-id
