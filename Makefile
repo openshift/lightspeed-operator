@@ -33,12 +33,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # quay.io/openshift-lightspeed/lightspeed-operator-bundle:$VERSION and quay.io/openshift-lightspeed/lightspeed-operator-catalog:$VERSION.
 IMAGE_TAG_BASE ?= quay.io/openshift-lightspeed/lightspeed-operator
 
-# BUNDLE_VARIANT selects the classic v1 or agentic v2 bundle.
-BUNDLE_VARIANT ?= v1
-
-# BUNDLE_TAG defines the version of the bundle. Its default follows BUNDLE_VARIANT.
-# You can use it as an arg. (E.g make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.1.5)
-BUNDLE_TAG ?= $(if $(filter v2,$(BUNDLE_VARIANT)),2.0.0,1.1.5)
+# One bundle version is published to every supported OCP catalog.
+BUNDLE_TAG ?= 2.0.0
 
 # set the base image for docker files
 # You can use it as an arg.  (E.g make bundle BASE_IMG=registry.redhat.io/ubi9/ubi-minimal)
@@ -124,6 +120,20 @@ generate-deployment-patch: jq ## Generate config/default/deployment-patch.yaml f
 manifests: generate-deployment-patch controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook $(CONTROLLER_GEN_PATHS) output:crd:artifacts:config=config/crd/bases
 
+# Agentic CRD/RBAC sync (OLS-3189). Pin the exact upstream commit, not a
+# moving branch tip or an unmerged PR ref. Advance this pin deliberately.
+AGENTIC_OPERATOR_REPO ?= https://github.com/openshift/lightspeed-agentic-operator.git
+# Fetch the same immutable commit as the checked-in inputs and controller image.
+# Never use a moving branch ref for the default sync.
+AGENTIC_OPERATOR_REF ?= 92781751b0d7d49b33839d96633ea9d14d457536
+AGENTIC_OPERATOR_COMMIT ?= 92781751b0d7d49b33839d96633ea9d14d457536
+
+# Run this explicitly when updating the pinned agentic inputs. Bundle builds use
+# the reviewed, checked-in files so CI and disconnected builds need no GitHub access.
+.PHONY: sync-agentic-crds
+sync-agentic-crds: ## Sync agentic CRDs and RBAC from the pinned lightspeed-agentic-operator commit.
+	AGENTIC_OPERATOR_REPO=$(AGENTIC_OPERATOR_REPO) AGENTIC_OPERATOR_REF=$(AGENTIC_OPERATOR_REF) AGENTIC_OPERATOR_COMMIT=$(AGENTIC_OPERATOR_COMMIT) ./hack/sync_agentic_manifests.sh
+
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" $(CONTROLLER_GEN_PATHS)
@@ -136,8 +146,12 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet -tags=$(E2E_GO_TAGS) ./...
 
+.PHONY: test-agentic-sync
+test-agentic-sync: ## Test pinned agentic CRD/RBAC sync without network access.
+	bash ./hack/test_sync_agentic_manifests.sh
+
 .PHONY: test
-test: manifests generate fmt vet envtest test-crds ## Run local tests.
+test: test-agentic-sync manifests generate fmt vet envtest test-crds ## Run local tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./api/... ./internal/... -coverprofile cover.out -p 6 -timeout 10m
 
 # Use 4.18 release branch for CRDs in unit tests
@@ -397,7 +411,7 @@ endif
 ## to use image digests instead of version tag, set the USE_IMAGE_DIGESTS variable to true
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk yq jq ## Generate bundle manifests and metadata, then validate generated files.
-	OPERATOR_SDK=$(OPERATOR_SDK) YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh $(BUNDLE_VARIANT) -v $(BUNDLE_TAG) -i related_images.json
+	OPERATOR_SDK=$(OPERATOR_SDK) KUSTOMIZE=$(KUSTOMIZE) YQ=$(YQ) JQ=$(JQ) BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" ./hack/update_bundle.sh -v $(BUNDLE_TAG) -i related_images.json
 
 parking:
 	$(OPERATOR_SDK) generate kustomize manifests -q

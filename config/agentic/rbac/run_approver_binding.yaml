@@ -1,0 +1,14 @@
+# Binds agentic-run-approver to system:cluster-admins group.
+# Only cluster-admins can approve/deny agentic runs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: agentic-run-approver-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: agentic-run-approver
+subjects:
+  - kind: Group
+    name: system:cluster-admins
+    apiGroup: rbac.authorization.k8s.io

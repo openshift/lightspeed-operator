@@ -1,0 +1,10 @@
+# Full operator install: CRDs + RBAC + manager Deployment (see Makefile deploy / undeploy).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: __OPERATOR_NAMESPACE__
+resources:
+  - ../crd
+  - ../rbac
+  - ../manager
+  - ../webhook
+  - ../admission

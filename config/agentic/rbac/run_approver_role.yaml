@@ -1,0 +1,14 @@
+# ClusterRole for human agentic run approvers (cluster-admins).
+# Grants read + patch on AgenticRunApprovals (approve/deny) and read on AgenticRuns (context).
+# The operator's own SA uses agentic-operator-manager-role for programmatic create/patch.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agentic-run-approver
+rules:
+  - apiGroups: ["agentic.openshift.io"]
+    resources: ["agenticrunapprovals"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: ["agentic.openshift.io"]
+    resources: ["agenticruns"]
+    verbs: ["get", "list", "watch"]
