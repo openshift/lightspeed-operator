@@ -47,7 +47,7 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 
 ### Security
 16. TOML denies `core/v1` `Secret` and all `rbac.authorization.k8s.io/v1` resources so Secret/RBAC data cannot reach the LLM via the shipped server.
-17. Toolsets are pinned to `core`, `config`, `helm`, `metrics`. Metrics uses in-cluster Thanos Querier and Alertmanager URLs. Metrics `guardrails = "!tsdb"` (PromQL query safety, not RBAC) follows upstream OpenShift guidance when Thanos lacks the TSDB status API; auth remains the caller's bearer token.
+17. Toolsets are pinned to `core`, `config`, `helm`, `observability/metrics`, `kubevirt`, `tekton`. The `observability/metrics` toolset uses in-cluster Thanos Querier and Alertmanager URLs. Its `guardrails = "!tsdb"` setting (PromQL query safety, not RBAC) follows upstream OpenShift guidance when Thanos lacks the TSDB status API; auth remains the caller's bearer token.
 18. User-defined MCP servers (`spec.mcpServers`) are out of scope for this operand.
 
 ### Monitoring
