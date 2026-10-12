@@ -304,26 +304,6 @@ spec:
               git fetch --depth=1 origin "${BUNDLE_COMMIT_SHA}"
               git checkout "${BUNDLE_COMMIT_SHA}"
               bash .tekton/integration-tests/scripts/run-service-integration-tests.sh "$(params.openshift-version-prefix)"
-          - name: gather-cluster-resources
-            onError: continue
-            ref:
-              resolver: git
-              params:
-                - name: url
-                  value: https://github.com/openshift/lightspeed-operator
-                - name: revision
-                  value: $(params.commit)
-                - name: pathInRepo
-                  value: .tekton/integration-tests/stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
-            params:
-              - name: credentials
-                value: "cluster-credentials"
-              - name: kubeconfig
-                value: "kubeconfig"
-              - name: artifact-dir
-                value: "/workspace/konflux-artifacts"
-              - name: gather-script-url
-                value: "https://raw.githubusercontent.com/openshift/lightspeed-operator/$(params.commit)/.tekton/integration-tests/scripts/gather-extra.sh"
           # validate that the cluster resources are available in another tekton step
           - name: list-artifacts
             onError: continue
