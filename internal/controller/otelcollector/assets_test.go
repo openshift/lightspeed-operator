@@ -439,7 +439,7 @@ var _ = Describe("OTEL Collector assets", func() {
 			DataDir:            "/input",
 			OtelActiveFile:     "traces.jsonl",
 			LedgerFile:         "/state/ledger.json",
-			ArchivePathPrefix:  "v1/",
+			ArchivePathPrefix:  "agentic-v1/",
 			CollectionInterval: 300,
 			CleanupAfterSend:   &cleanupAfterSend,
 			ServiceID:          "ols",

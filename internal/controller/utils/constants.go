@@ -400,7 +400,7 @@ const (
 	// OtelDataverseExporterCollectionIntervalSeconds is the rotated-file polling interval.
 	OtelDataverseExporterCollectionIntervalSeconds = 300
 	// OtelDataverseExporterArchivePathPrefix is the upload archive prefix for OTEL files.
-	OtelDataverseExporterArchivePathPrefix = "v1/"
+	OtelDataverseExporterArchivePathPrefix = "agentic-v1/"
 	// OtelDataverseExporterIngressServerURL is the Dataverse ingress endpoint.
 	OtelDataverseExporterIngressServerURL = "https://console.redhat.com/api/ingress/v1/upload"
 	// OtelCollectorGRPCMaxRecvMsgSizeMiB is the OTLP/gRPC request-size limit.
