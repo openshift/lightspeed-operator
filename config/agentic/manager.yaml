@@ -1,6 +1,6 @@
 # Agentic controller manager (OLS-3188).
-# Second deployment shipped in the v2 (OCP >= 5.0) bundle only, alongside the
-# classic lightspeed-operator controller. Sourced from the agentic-operator repo
+# Second deployment in the single bundle, installed but inactive on 4.x.
+# Sourced from the agentic-operator repo
 # (config/manager/manager.yaml, config/rbac/service_account.yaml); keep in sync
 # via the CRD/RBAC sync target (OLS-3189). Do not hand-edit the rule/spec content.
 apiVersion: v1
@@ -38,7 +38,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: manager
-          # Placeholder image; update_bundle.sh v2 substitutes the pinned digest
+          # Placeholder image; update_bundle.sh substitutes the pinned digest
           # from related_images.json (entry "lightspeed-agentic-operator").
           image: lightspeed-agentic-operator:latest
           imagePullPolicy: IfNotPresent

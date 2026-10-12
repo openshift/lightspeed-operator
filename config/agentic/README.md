@@ -1,45 +1,39 @@
-# Agentic controller bundle inputs (OLS-3188)
+# Agentic inputs for the unified OLS bundle
 
-These manifests supply the **agentic layer** shipped only in the **v2 bundle**
-(OCP >= 5.0). They are the kustomize inputs that `operator-sdk generate bundle`
-folds into the v2 CSV, so the v2 CSV differs from v1 by:
+`config/manifests` includes this directory for every supported OpenShift
+version. The one bundle CSV installs both the Classic and agentic controller
+Deployments, owns the Classic and ten agentic CRDs, and includes the agentic
+manager RBAC in `clusterPermissions`. The human-approver ClusterRole and
+ClusterRoleBinding and the webhook Service are standalone bundle manifests;
+webhook configurations are embedded in the CSV.
 
-- a **second deployment** — `lightspeed-agentic-operator-controller-manager`
-  (`manager.yaml`), alongside the classic `lightspeed-operator-controller-manager`;
-- agentic **`clusterPermissions`** — the `agentic-operator-manager-role` rules
-  (`role.yaml` + `role_binding.yaml`);
-- static v2 bundle RBAC manifests — the `agentic-run-approver` ClusterRole and
-  `agentic-run-approver-binding` ClusterRoleBinding (`run_approver_role.yaml`,
-  `run_approver_binding.yaml`) for human (cluster-admin) run approval.
+The agentic CRDs and manager/approver RBAC in `config/agentic/` are checked-in
+inputs synced from lightspeed-agentic-operator at the **full pinned commit** in
+the root `Makefile` (OLS-3189). Run `make sync-agentic-crds` explicitly only
+when advancing the pin, review the resulting diff, and regenerate `bundle/`
+with `make bundle`. The sync command verifies the exact source commit before
+changing files. Routine bundle generation uses the checked-in inputs without
+network access or an agentic-operator Go API dependency; do not hand-edit the
+synced files. The manager Deployment (`manager.yaml`) has bundle-specific
+naming and image wiring and is maintained separately.
 
-The v1 (classic, OCP 4.x) bundle contains none of these.
+The webhook configurations use OpenShift service-ca injection and the Service
+uses a serving-cert Secret. A standalone NetworkPolicy cannot be emitted as a
+registry+v1 bundle manifest by operator-sdk. Do not assume the proposed
+runtime webhook ingress policy in agentic-operator #547 is available: that PR
+was closed without merging. Verify admission, ingress and TLS on both OCP 4.x
+and 5.x before releasing the bundle.
 
-## Source of truth / sync
+**Version-gating release blocker:** The intended unified-bundle contract gates
+only the agentic console on OCP 4.x. As of this bundle candidate, Classic
+operator main still gates the alerts adapter, handoff and client CA paths too;
+the console-only change (#2145) closed without merging. The agentic operator's
+broad backend gate (#546) was reverted by #559. This bundle PR does not fix
+that mismatch or prove cross-version upgrades or downgrades. Do not publish
+until the Classic gate is corrected and the combined behavior is validated.
 
-Per `bundle-composition.md` (Constraint 2), the agentic CRDs and RBAC are owned
-by the **agentic-operator** repo and synced here — do not hand-edit the rule or
-spec content. These files were transcribed from:
-
-| This file | agentic-operator source |
-|---|---|
-| `manager.yaml` | `config/manager/manager.yaml`, `config/rbac/service_account.yaml` |
-| `role.yaml` | `config/rbac/role.yaml` |
-| `role_binding.yaml` | `config/rbac/role_binding.yaml` |
-| `run_approver_role.yaml` | `config/rbac/run_approver_role.yaml` |
-| `run_approver_binding.yaml` | `config/rbac/run_approver_binding.yaml` |
-
-Names/namespaces were adapted to the bundle (`lightspeed-agentic-operator-controller-manager`,
-`openshift-lightspeed`). The controller image is a placeholder substituted by
-`update_bundle.sh v2` from `related_images.json`.
-
-## Wiring status (IMPORTANT)
-
-On `main`, this directory is **not yet referenced** by `config/default` or
-`config/manifests`, and there is no v2 kustomize assembly to include it. The
-selector-driven build (`update_bundle.sh v1|v2`, OLS-4008), the `-v1`/`-v2` CSV
-base selection (OLS-4009), and the agentic CRD sync make target (OLS-3189) are
-the pieces that wire these inputs into a buildable v2 bundle. That wiring is
-applied when those changes land / at merge time.
-
-The target runtime contract these inputs must satisfy is asserted by the
-version-gating e2e (OLS-4012).
+Per-run sandbox RBAC is created at runtime, not packaged as static bundle RBAC.
+Verify that the regenerated CSV contains both controller Deployments, all ten
+owned agentic CRDs and agentic manager permissions, and that the approver RBAC
+appears as standalone manifests. The `config/agentic/` inputs are not a
+release artifact on their own.

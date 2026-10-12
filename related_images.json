@@ -3,21 +3,13 @@
     "name": "lightspeed-to-dataverse-exporter",
     "image": "registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:1c7ffaead23adfb1dc6bd3adfe75c80f284d6d31f13ca427d754703c78514cb2",
     "revision": "",
-    "operator_arg": "dataverse-exporter-image",
-    "bundles": [
-      "v1",
-      "v2"
-    ]
+    "operator_arg": "dataverse-exporter-image"
   },
   {
     "name": "lightspeed-postgresql",
     "image": "registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b",
     "revision": "",
-    "operator_arg": "postgres-image",
-    "bundles": [
-      "v1",
-      "v2"
-    ]
+    "operator_arg": "postgres-image"
   },
   {
     "name": "lightspeed-service-api",
@@ -26,11 +18,7 @@
     "operator_arg": "service-image",
     "snapshot_component": "lightspeed-service",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9",
-    "bundles": [
-      "v1",
-      "v2"
-    ]
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9"
   },
   {
     "name": "lightspeed-console-plugin",
@@ -39,11 +27,7 @@
     "operator_arg": "console-image",
     "snapshot_component": "lightspeed-console",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9",
-    "bundles": [
-      "v1",
-      "v2"
-    ]
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9"
   },
   {
     "name": "lightspeed-operator",
@@ -52,22 +36,14 @@
     "operator_target": "image",
     "snapshot_component": "lightspeed-operator",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator",
-    "bundles": [
-      "v1",
-      "v2"
-    ]
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator"
   },
   {
     "name": "openshift-mcp-server",
     "image": "registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5",
     "operator_arg": "openshift-mcp-server-image",
     "stable_prefix": "registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9",
-    "revision": "",
-    "bundles": [
-      "v1",
-      "v2"
-    ]
+    "revision": ""
   },
   {
     "name": "lightspeed-otel-collector",
@@ -76,29 +52,18 @@
     "operator_arg": "otel-collector-image",
     "snapshot_component": "lightspeed-otel-collector",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9",
-    "bundles": [
-      "v1",
-      "v2"
-    ]
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9"
   },
   {
     "name": "rhokp",
     "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4",
     "revision": "",
-    "operator_arg": "rhokp-image",
-    "bundles": [
-      "v1",
-      "v2"
-    ]
+    "operator_arg": "rhokp-image"
   },
   {
     "name": "lightspeed-agentic-operator",
     "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-operator@sha256:68bebe528ca08a17080e4d95add87be4d8f7ad633f8b4a3c04cc2eabe095a254",
-    "revision": "",
-    "bundles": [
-      "v2"
-    ]
+    "revision": ""
   },
   {
     "name": "lightspeed-agentic-console-plugin",
@@ -107,10 +72,7 @@
     "operator_arg": "agentic-console-image",
     "snapshot_component": "lightspeed-agentic-console",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9",
-    "bundles": [
-      "v2"
-    ]
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9"
   },
   {
     "name": "lightspeed-agentic-alerts-adapter",
@@ -119,10 +81,7 @@
     "operator_arg": "alerts-adapter-image",
     "snapshot_component": "lightspeed-agentic-alerts-adapter",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9",
-    "bundles": [
-      "v2"
-    ]
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9"
   },
   {
     "name": "lightspeed-agentic-sandbox",
@@ -131,10 +90,7 @@
     "operator_arg": "agentic-sandbox-image",
     "snapshot_component": "lightspeed-agentic-sandbox",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9",
-    "bundles": [
-      "v2"
-    ]
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9"
   },
   {
     "name": "lightspeed-operator-bundle",
@@ -143,10 +99,6 @@
     "snapshot_component": "ols-bundle",
     "snapshot_source": "bundle",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle",
-    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle",
-    "bundles": [
-      "v1",
-      "v2"
-    ]
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle"
   }
 ]
