@@ -140,6 +140,8 @@ const (
 	GoogleVertexType = "google_vertex"
 	// GoogleVertexAnthropicType is the name of the Google Vertex Anthropic provider type
 	GoogleVertexAnthropicType = "google_vertex_anthropic"
+	// AnthropicType is the name of the direct Anthropic API provider type
+	AnthropicType = "anthropic"
 	// BedrockType is the name of the AWS Bedrock provider type
 	BedrockType = "bedrock"
 	// DeploymentInProgress message

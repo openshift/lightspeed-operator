@@ -146,6 +146,25 @@ func buildProviderConfigs(cr *olsv1alpha1.OLSConfig) ([]utils.ProviderConfig, er
 					AzureDeploymentName: provider.AzureDeploymentName,
 				},
 			}
+		case utils.AnthropicType:
+			if provider.CredentialKey != "" {
+				credentialPath = path.Join(utils.APIKeyMountRoot, provider.CredentialsSecretRef.Name, provider.CredentialKey)
+			} else {
+				credentialPath = path.Join(utils.APIKeyMountRoot, provider.CredentialsSecretRef.Name, utils.DefaultCredentialKey)
+			}
+			url := provider.URL
+			if url == "" {
+				url = "https://api.anthropic.com"
+			}
+			providerConfig = utils.ProviderConfig{
+				Name:   provider.Name,
+				Type:   provider.Type,
+				Models: modelConfigs,
+				AnthropicConfig: &utils.AnthropicConfig{
+					URL:             url,
+					CredentialsPath: credentialPath,
+				},
+			}
 		case utils.GoogleVertexType, utils.GoogleVertexAnthropicType:
 			if provider.CredentialKey != "" {
 				credentialPath = path.Join(utils.APIKeyMountRoot, provider.CredentialsSecretRef.Name, provider.CredentialKey)
