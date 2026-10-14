@@ -5,7 +5,7 @@ index c625871..db9bc97 100644
 @@ -55,10 +55,10 @@ LABEL io.k8s.display-name="Openshift Lightspeed"
  LABEL io.openshift.tags="openshift,lightspeed,ai,assistant"
  LABEL name="openshift-lightspeed-tech-preview/lightspeed-operator-bundle"
- LABEL cpe="cpe:/a:redhat:openshift_lightspeed:1::el9"
+ LABEL cpe="cpe:/a:redhat:openshift_lightspeed:2::el9"
 -LABEL release=<current-version>
 +LABEL release=<new-version>
  LABEL url="https://github.com/openshift/lightspeed-operator"
