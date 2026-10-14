@@ -1144,6 +1144,69 @@ cNHlzbRSivTDuHmXJdCYIdd8cnH6EbPm3zNg0jU5Au6OrvDZYifP+DtuiLmJct4=
 			Expect(err.Error()).To(ContainSubstring("aws_access_key_id"))
 		})
 
+		It("should validate anthropic provider with default credential key", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-anthropic-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					DefaultCredentialKey: []byte("test-anthropic-key"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithAnthropicProvider(GetDefaultOLSConfigCR())
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-anthropic-secret"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should validate anthropic provider with custom credentialKey", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-anthropic-custom-key-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"ANTHROPIC_API_KEY": []byte("test-anthropic-key"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithAnthropicProvider(GetDefaultOLSConfigCR())
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-anthropic-custom-key-secret"
+			testCR.Spec.LLMConfig.Providers[0].CredentialKey = "ANTHROPIC_API_KEY"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should fail when anthropic provider secret is missing the custom credentialKey", func() {
+			testSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-anthropic-wrong-key-secret",
+					Namespace: OLSNamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"wrongkey": []byte("value"),
+				},
+			}
+			err := k8sClient.Create(testCtx, testSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			testCR := WithAnthropicProvider(GetDefaultOLSConfigCR())
+			testCR.Spec.LLMConfig.Providers[0].CredentialsSecretRef.Name = "test-anthropic-wrong-key-secret"
+			testCR.Spec.LLMConfig.Providers[0].CredentialKey = "ANTHROPIC_API_KEY"
+
+			err = ValidateLLMCredentials(testReconciler, testCtx, testCR)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("missing key 'ANTHROPIC_API_KEY'"))
+		})
+
 	})
 })
 
