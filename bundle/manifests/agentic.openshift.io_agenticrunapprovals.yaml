@@ -1,0 +1,319 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  creationTimestamp: null
+  name: agenticrunapprovals.agentic.openshift.io
+spec:
+  group: agentic.openshift.io
+  names:
+    kind: AgenticRunApproval
+    listKind: AgenticRunApprovalList
+    plural: agenticrunapprovals
+    singular: agenticrunapproval
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: "AgenticRunApproval tracks per-step approval state for an AgenticRun.
+          The\noperator creates it when an AgenticRun is created. Users update it
+          to\napprove or deny individual workflow steps.\n\nAgenticRunApproval has
+          a 1:1 relationship with its AgenticRun (same name,\nsame namespace) and
+          is owned by the AgenticRun via an owner reference\nfor garbage collection.\n\nExample:\n\n\tapiVersion:
+          agentic.openshift.io/v1alpha1\n\tkind: AgenticRunApproval\n\tmetadata:\n\t
+          \ name: fix-crash\n\t  namespace: my-namespace\n\t  ownerReferences:\n\t
+          \   - apiVersion: agentic.openshift.io/v1alpha1\n\t      kind: AgenticRun\n\t
+          \     name: fix-crash\n\tspec:\n\t  approver:\n\t    uid: \"abc123\"\n\t
+          \   username: \"admin@example.com\"\n\t    approvedAt: \"2026-06-22T10:00:00Z\"\n\t
+          \ stages:\n\t    - type: Analysis\n\t      analysis: {}\n\t    - type: Execution\n\t
+          \     execution:\n\t        option: 0\n\t        agent: fast"
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired approval state.
+            minProperties: 1
+            properties:
+              approver:
+                description: |-
+                  approver captures the authenticated identity of the user who last
+                  modified this resource. Set by the mutating admission webhook;
+                  client-submitted values are overwritten.
+                minProperties: 1
+                properties:
+                  approvedAt:
+                    description: |-
+                      approvedAt is the server-side time (RFC 3339) when the webhook processed
+                      the approval request.
+                    maxLength: 64
+                    minLength: 1
+                    type: string
+                  uid:
+                    description: uid is the Kubernetes user UID from the AdmissionReview
+                      userInfo.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  username:
+                    description: username is the Kubernetes username from the AdmissionReview
+                      userInfo.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                type: object
+              stages:
+                description: |-
+                  stages lists the approved (or denied) workflow steps. Each entry is
+                  a discriminated union keyed by type. Users add stages one at a time
+                  via patch as they approve each step.
+                items:
+                  description: |-
+                    ApprovalStage is a discriminated union representing approval for one
+                    workflow step. Presence in spec.stages indicates approval; absence means
+                    not yet approved (controller checks ApprovalPolicy for auto-approve).
+                  properties:
+                    analysis:
+                      description: |-
+                        analysis contains approval parameters for the analysis step.
+                        Required when type is Analysis. Use a non-nil empty object ({}) when
+                        approving without an agent override so the field is present for CEL.
+                      properties:
+                        agent:
+                          description: |-
+                            agent is an optional override of AgenticRun.spec.analysis.agent.
+                            When omitted, the run's configured analysis agent is used.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                          x-kubernetes-validations:
+                          - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                              characters, hyphens, and dots'
+                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                      type: object
+                    decision:
+                      description: |-
+                        decision indicates whether this stage is approved or denied.
+                        Denying any stage terminates the entire agentic run, even if
+                        earlier stages were already approved. Once set to Denied,
+                        it cannot be changed.
+                      enum:
+                      - Approved
+                      - Denied
+                      type: string
+                    escalation:
+                      description: |-
+                        escalation contains approval parameters for the escalation step.
+                        Required when type is Escalation.
+                      properties:
+                        agent:
+                          description: |-
+                            agent is an optional override of the escalation agent.
+                            When omitted, the analysis agent is used (controller resolution rules).
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                          x-kubernetes-validations:
+                          - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                              characters, hyphens, and dots'
+                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                      type: object
+                    execution:
+                      description: |-
+                        execution contains approval parameters for the execution step.
+                        Required when type is Execution.
+                      properties:
+                        agent:
+                          description: |-
+                            agent is an optional override of AgenticRun.spec.execution.agent.
+                            When omitted, the run's configured execution agent is used.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                          x-kubernetes-validations:
+                          - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                              characters, hyphens, and dots'
+                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                        option:
+                          description: |-
+                            option is the 0-based index into the analysis options array
+                            selecting which remediation approach to execute.
+                          format: int32
+                          minimum: 0
+                          type: integer
+                      type: object
+                    type:
+                      description: type identifies which workflow step this approval
+                        is for.
+                      enum:
+                      - Analysis
+                      - Execution
+                      - Verification
+                      - Escalation
+                      type: string
+                    verification:
+                      description: |-
+                        verification contains approval parameters for the verification step.
+                        Required when type is Verification.
+                      properties:
+                        agent:
+                          description: |-
+                            agent is an optional override of AgenticRun.spec.verification.agent.
+                            When omitted, the run's configured verification agent is used.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                          x-kubernetes-validations:
+                          - message: 'must be a valid DNS subdomain: lowercase alphanumeric
+                              characters, hyphens, and dots'
+                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                      type: object
+                  required:
+                  - type
+                  type: object
+                  x-kubernetes-validations:
+                  - message: analysis is required when type is Analysis, and forbidden
+                      otherwise
+                    rule: 'self.type == ''Analysis'' ? has(self.analysis) : !has(self.analysis)'
+                  - message: execution is required when type is Execution, and forbidden
+                      otherwise
+                    rule: 'self.type == ''Execution'' ? has(self.execution) : !has(self.execution)'
+                  - message: verification is required when type is Verification, and
+                      forbidden otherwise
+                    rule: 'self.type == ''Verification'' ? has(self.verification)
+                      : !has(self.verification)'
+                  - message: escalation is required when type is Escalation, and forbidden
+                      otherwise
+                    rule: 'self.type == ''Escalation'' ? has(self.escalation) : !has(self.escalation)'
+                maxItems: 4
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+            x-kubernetes-validations:
+            - message: 'stages are append-only: existing stages cannot be removed'
+              rule: oldSelf.stages.all(old, self.stages.exists(s, s.type == old.type))
+            - message: decisions once set cannot be changed
+              rule: oldSelf.stages.all(old, !(has(old.decision) && old.decision ==
+                'Denied') || self.stages.exists(s, s.type == old.type && has(s.decision)
+                && s.decision == 'Denied'))
+          status:
+            description: status defines the observed approval state.
+            minProperties: 1
+            properties:
+              stages:
+                description: stages contains the per-stage approval status set by
+                  the controller.
+                items:
+                  description: ApprovalStageStatus is the observed state of a single
+                    approval stage.
+                  properties:
+                    conditions:
+                      description: conditions for this approval stage.
+                      items:
+                        description: Condition contains details for one aspect of
+                          the current state of this API Resource.
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      maxItems: 8
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    name:
+                      description: name identifies the workflow step.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 4
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: atomic
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

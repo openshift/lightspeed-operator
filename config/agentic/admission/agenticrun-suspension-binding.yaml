@@ -1,0 +1,12 @@
+# Binds the suspension ValidatingAdmissionPolicy to AgenticOLSConfig/cluster.
+# Spec: .ai/spec/what/system-config.md rules 11a–11i (OLS-3267).
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: agentic.openshift.io-agenticrun-suspension
+spec:
+  policyName: agentic.openshift.io-agenticrun-suspension
+  validationActions: [Deny]
+  paramRef:
+    name: cluster
+    parameterNotFoundAction: Allow

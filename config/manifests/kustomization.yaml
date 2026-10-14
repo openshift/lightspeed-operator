@@ -3,6 +3,7 @@
 resources:
 - bases/lightspeed-operator.clusterserviceversion.yaml
 - ../default
+- ../agentic
 - ../samples
 - ../scorecard
 

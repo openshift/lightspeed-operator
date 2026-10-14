@@ -157,9 +157,11 @@ Field reference for Konflux-managed entries:
 - `stable_prefix` — product registry prefix when refreshing with `-r stable`
 - `snapshot_source` — omit (defaults to OLS snapshot); set to `"bundle"` only for `lightspeed-operator-bundle`
 
+`lightspeed-agentic-operator` uses these snapshot and registry fields, but has no `operator_arg`: `hack/update_bundle.sh` sets its own controller Deployment image directly in the CSV. Konflux bundle updates sync its CRDs/RBAC and image from the same snapshot revision. A `stable_prefix` is a registry mapping, not proof that the snapshot digest has been published there; verify the promoted digest before release.
+
 **Workflow:**
 ```
-related_images.json → make manifests (deployment-patch.yaml) → hack/update_bundle.sh v1|v2 → variant CSV relatedImages + deployment args → Controller → Operand deployments
+related_images.json → make manifests (deployment-patch.yaml) → hack/update_bundle.sh → one CSV with all relatedImages and both controllers → runtime OCP-version gates → Classic or Classic+agentic operands
 ```
 
 **Best practice:**
@@ -216,7 +218,7 @@ grep "lightspeed-operator" bundle/manifests/*.clusterserviceversion.yaml
 
 ```bash
 vim config/rbac/role.yaml  # Update RBAC
-make manifests && make bundle BUNDLE_VARIANT=v1 BUNDLE_TAG=1.0.0
+make manifests && make bundle BUNDLE_TAG=2.0.0
 yq '.spec.install.spec.clusterPermissions[0].rules' \
   bundle/manifests/lightspeed-operator.clusterserviceversion.yaml  # Verify
 ```
@@ -247,7 +249,7 @@ operator-sdk bundle validate ./bundle -o text  # Verbose output
 ### Images Not Updated in CSV
 
 ```bash
-YQ=$(which yq) JQ=$(which jq) ./hack/update_bundle.sh v1 -v 1.0.0 -i related_images.json
+YQ=$(which yq) JQ=$(which jq) ./hack/update_bundle.sh -v 2.0.0 -i related_images.json
 ```
 
 **Common fixes:**

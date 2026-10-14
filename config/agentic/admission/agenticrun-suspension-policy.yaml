@@ -1,0 +1,22 @@
+# Rejects AgenticRun CREATE while AgenticOLSConfig.spec.suspended=true.
+# Spec: .ai/spec/what/system-config.md rules 11a–11i (OLS-3267).
+# matchPolicy defaults to Equivalent (intentionally unset) so future
+# equivalent served API versions of agenticruns remain covered — rule 11d.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: agentic.openshift.io-agenticrun-suspension
+spec:
+  paramKind:
+    apiVersion: agentic.openshift.io/v1alpha1
+    kind: AgenticOLSConfig
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["agentic.openshift.io"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE"]
+        resources: ["agenticruns"]
+  validations:
+    - expression: "!has(params.spec.suspended) || !params.spec.suspended"
+      messageExpression: "'AgenticRun creation is blocked: agentic system is suspended (AgenticOLSConfig.spec.suspended=true)'"

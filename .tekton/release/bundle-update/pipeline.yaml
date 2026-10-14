@@ -100,6 +100,18 @@ spec:
               IFS='/' read -r SNAPSHOT_NAMESPACE SNAPSHOT_NAME <<< "$(params.snapshot)"
               SNAPSHOT_IMAGES=$(oc get snapshot "${SNAPSHOT_NAME}" -n "${SNAPSHOT_NAMESPACE}" \
               -o jsonpath='{.spec.components}')
+              AGENTIC_COMMIT=$(jq -er '
+                [.[] | select(.name == "lightspeed-agentic-operator") | .source.git.revision // empty]
+                | if length == 1 then .[0] else error("snapshot must contain exactly one lightspeed-agentic-operator git revision") end
+              ' <<< "${SNAPSHOT_IMAGES}")
+              AGENTIC_IMAGE=$(jq -er '
+                [.[] | select(.name == "lightspeed-agentic-operator") | .containerImage // empty]
+                | if length == 1 then .[0] else error("snapshot must contain exactly one lightspeed-agentic-operator image") end
+              ' <<< "${SNAPSHOT_IMAGES}")
+              if [[ ! "${AGENTIC_COMMIT}" =~ ^[0-9a-f]{40}$ || "${AGENTIC_IMAGE}" != *@sha256:* ]]; then
+                echo "Invalid lightspeed-agentic-operator revision or image in snapshot ${SNAPSHOT_NAME}" >&2
+                exit 1
+              fi
               echo "Snapshot images: $SNAPSHOT_IMAGES"
               cd repo
               # back up the bundle element
@@ -108,9 +120,22 @@ spec:
               # restore the bundle element
               jq 'map(select(.name != "lightspeed-operator-bundle"))' related_images.json > tmp.json && mv tmp.json related_images.json
               jq -s '.[0] + [.[1]]' related_images.json bundle.json > tmp.json && mv tmp.json related_images.json
-              PATH=./bin:$PATH make bundle BUNDLE_VARIANT=v1
-              rm -rf bundle
-              cp -a bundle-v1 bundle
+              # Verify the image list carries the same agentic build as the synced RBAC.
+              if ! jq -e --arg revision "${AGENTIC_COMMIT}" --arg digest "${AGENTIC_IMAGE##*@}" '
+                .[] | select(.name == "lightspeed-agentic-operator")
+                | (.revision == $revision and (.image | endswith("@" + $digest)))
+              ' related_images.json > /dev/null; then
+                echo "Agentic operator image/revision does not match snapshot ${SNAPSHOT_NAME}" >&2
+                exit 1
+              fi
+              # Fetch and verify the exact agentic operator revision used by this snapshot.
+              # Do not use the moving main ref: RBAC and image must come from the same build.
+              make sync-agentic-crds AGENTIC_OPERATOR_REF="${AGENTIC_COMMIT}" AGENTIC_OPERATOR_COMMIT="${AGENTIC_COMMIT}"
+              sed -i -E "s|^AGENTIC_OPERATOR_REF \\?= .*|AGENTIC_OPERATOR_REF ?= ${AGENTIC_COMMIT}|" Makefile
+              sed -i -E "s|^AGENTIC_OPERATOR_COMMIT \\?= [0-9a-f]{40}$|AGENTIC_OPERATOR_COMMIT ?= ${AGENTIC_COMMIT}|" Makefile
+              grep -Fxq "AGENTIC_OPERATOR_REF ?= ${AGENTIC_COMMIT}" Makefile
+              grep -Fxq "AGENTIC_OPERATOR_COMMIT ?= ${AGENTIC_COMMIT}" Makefile
+              PATH=./bin:$PATH make bundle
             workingDir: /workspace
             env:
               - name: KONFLUX_TOKEN
@@ -144,7 +169,7 @@ spec:
                     key: github-token
             script: |
               cd repo
-              git add related_images.json bundle
+              git add -A -- related_images.json bundle Makefile config/agentic config/manifests/bases/lightspeed-operator.clusterserviceversion.yaml
               git commit -m "Update related_images and bundle with snapshot $(params.snapshot)"
               git rev-parse HEAD | tee $(results.commit-id.path)
               git config credential.helper '!f() { sleep 1; echo "username=git"; echo "password=$GITHUB_TOKEN"; }; f'
