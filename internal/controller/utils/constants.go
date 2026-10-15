@@ -362,7 +362,7 @@ const (
 	// OtelCollectorDataCollectionMaxMegabytes is the FileExporter rotation size limit.
 	OtelCollectorDataCollectionMaxMegabytes = 1
 	// OtelCollectorDataCollectionMaxBackups is the number of rotated FileExporter backups.
-	OtelCollectorDataCollectionMaxBackups = 100
+	OtelCollectorDataCollectionMaxBackups = 400
 	// OtelCollectorDataCollectionMaxDays is the FileExporter backup retention period.
 	OtelCollectorDataCollectionMaxDays = 1
 	// OtelDataverseExporterConfigMapName is the separate OTEL exporter config map.

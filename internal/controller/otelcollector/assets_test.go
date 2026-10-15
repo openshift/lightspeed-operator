@@ -127,7 +127,7 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(fileExporter.CreateDirectory).To(BeTrue())
 		Expect(fileExporter.Rotation).To(Equal(collectorExporterRotationForTest{
 			MaxMegabytes: 1,
-			MaxBackups:   100,
+			MaxBackups:   400,
 			MaxDays:      1,
 		}))
 
