@@ -187,6 +187,8 @@ type ProviderConfig struct {
 	GoogleVertexConfig *GoogleVertexConfig `json:"google_vertex_config,omitempty"`
 	// Google Vertex Anthropic Config
 	GoogleVertexAnthropicConfig *GoogleVertexAnthropicConfig `json:"google_vertex_anthropic_config,omitempty"`
+	// Anthropic Config
+	AnthropicConfig *AnthropicConfig `json:"anthropic_config,omitempty"`
 }
 
 type FakeProviderConfig struct {
@@ -221,6 +223,13 @@ type GoogleVertexConfig struct {
 }
 
 type GoogleVertexAnthropicConfig = GoogleVertexConfig
+
+type AnthropicConfig struct {
+	// Anthropic API URL
+	URL string `json:"url,omitempty"`
+	// Path where Anthropic API key is stored
+	CredentialsPath string `json:"credentials_path"`
+}
 
 // ModelParameters defines the parameters for a model.
 type ModelParameters struct {

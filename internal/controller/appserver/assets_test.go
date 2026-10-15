@@ -576,6 +576,40 @@ var _ = Describe("App server assets", func() {
 			Expect(err.Error()).To(ContainSubstring("googleVertexAnthropicConfig is required for google_vertex_anthropic provider"))
 		})
 
+		It("should generate configmap with anthropic provider using credentials path and default URL", func() {
+			cr := utils.WithAnthropicProvider(cr)
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
+				"name": Equal("anthropic"),
+				"type": Equal("anthropic"),
+				"anthropic_config": MatchKeys(Options(IgnoreExtras), Keys{
+					"credentials_path": Equal("/etc/apikeys/test-secret/apitoken"),
+					"url":              Equal("https://api.anthropic.com"),
+				}),
+			}))))
+		})
+
+		It("should generate configmap with anthropic provider using custom URL", func() {
+			cr := utils.WithAnthropicProvider(cr)
+			cr.Spec.LLMConfig.Providers[0].URL = "https://custom.anthropic.example.com"
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var olsConfigMap map[string]interface{}
+			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(olsConfigMap).To(HaveKeyWithValue("llm_providers", ContainElement(MatchKeys(Options(IgnoreExtras), Keys{
+				"anthropic_config": MatchKeys(Options(IgnoreExtras), Keys{
+					"url": Equal("https://custom.anthropic.example.com"),
+				}),
+			}))))
+		})
+
 		It("should generate configmap with introspectionEnabled", func() {
 			cr.Spec.OLSConfig.IntrospectionEnabled = utils.BoolPtr(true)
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)

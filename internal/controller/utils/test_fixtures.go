@@ -157,6 +157,17 @@ func WithAzureOpenAIProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
 	return cr
 }
 
+// WithAnthropicProvider configures the first LLM provider as direct Anthropic.
+// This modifies the CR in place and returns it for chaining.
+// Requires that Providers[0] already exists.
+func WithAnthropicProvider(cr *olsv1alpha1.OLSConfig) *olsv1alpha1.OLSConfig {
+	cr.Spec.LLMConfig.Providers[0].Name = "anthropic"
+	cr.Spec.LLMConfig.Providers[0].Type = "anthropic"
+	cr.Spec.LLMConfig.Providers[0].URL = ""
+	cr.Spec.OLSConfig.DefaultProvider = "anthropic"
+	return cr
+}
+
 // WithGoogleVertexProvider configures the first LLM provider as Google Vertex.
 // This modifies the CR in place and returns it for chaining.
 // Requires that Providers[0] already exists.

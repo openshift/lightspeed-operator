@@ -686,7 +686,7 @@ func GetCAFromSecret(rclient client.Client, ctx context.Context, namespace, secr
 // ValidateLLMCredentials validates that all LLM provider credentials are present and usable.
 // For each provider it requires credentialsSecretRef, loads the secret, then checks Data keys:
 // Azure OpenAI accepts the default credential key or client_id/tenant_id/client_secret;
-// Google Vertex (and Anthropic) use credentialKey when set, otherwise the default key;
+// Google Vertex, Google Vertex Anthropic, and Anthropic use credentialKey when set, otherwise the default key;
 // Bedrock accepts either the default credential key (Bearer token) or AWS IAM keys;
 // all other supported types require the default credential key
 func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
@@ -715,7 +715,7 @@ func ValidateLLMCredentials(r reconciler.Reconciler, ctx context.Context, cr *ol
 					return fmt.Errorf("LLM provider %s credential secret %s missing key '%s'", provider.Name, provider.CredentialsSecretRef.Name, key)
 				}
 			}
-		} else if provider.Type == GoogleVertexType || provider.Type == GoogleVertexAnthropicType {
+		} else if provider.Type == GoogleVertexType || provider.Type == GoogleVertexAnthropicType || provider.Type == AnthropicType {
 			credentialKey := provider.CredentialKey
 			if credentialKey == "" {
 				credentialKey = DefaultCredentialKey

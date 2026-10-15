@@ -542,6 +542,7 @@ spec:
                           - google_vertex
                           - google_vertex_anthropic
                           - bedrock
+                          - anthropic
                           type: string
                         url:
                           description: Provider API URL
