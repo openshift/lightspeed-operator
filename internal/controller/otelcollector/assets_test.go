@@ -125,10 +125,11 @@ var _ = Describe("OTEL Collector assets", func() {
 		Expect(fileExporter.Path).To(Equal("/var/lib/lightspeed-data/otel/traces.jsonl"))
 		Expect(fileExporter.Format).To(Equal("json"))
 		Expect(fileExporter.CreateDirectory).To(BeTrue())
-
-		Expect(fileExporter.Rotation.MaxMegabytes).To(Equal(10))
-		Expect(fileExporter.Rotation.MaxBackups).To(Equal(40))
-		Expect(fileExporter.Rotation.MaxDays).To(Equal(1))
+		Expect(fileExporter.Rotation).To(Equal(collectorExporterRotationForTest{
+			MaxMegabytes: 1,
+			MaxBackups:   100,
+			MaxDays:      1,
+		}))
 
 		dataCollectionRoute := decoded.Connectors["routing/data_collection"]
 		Expect(dataCollectionRoute.DefaultPipelines).To(BeEmpty())

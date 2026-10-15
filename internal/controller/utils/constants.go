@@ -360,9 +360,9 @@ const (
 	// OtelCollectorDataCollectionSizeLimitDefault is the emptyDir limit for trace data collection.
 	OtelCollectorDataCollectionSizeLimitDefault = "500Mi"
 	// OtelCollectorDataCollectionMaxMegabytes is the FileExporter rotation size limit.
-	OtelCollectorDataCollectionMaxMegabytes = 10
+	OtelCollectorDataCollectionMaxMegabytes = 1
 	// OtelCollectorDataCollectionMaxBackups is the number of rotated FileExporter backups.
-	OtelCollectorDataCollectionMaxBackups = 40
+	OtelCollectorDataCollectionMaxBackups = 100
 	// OtelCollectorDataCollectionMaxDays is the FileExporter backup retention period.
 	OtelCollectorDataCollectionMaxDays = 1
 	// OtelDataverseExporterConfigMapName is the separate OTEL exporter config map.
