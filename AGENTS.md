@@ -135,6 +135,17 @@ make test-e2e   # E2E tests (requires cluster)
 
 **External Resources**: Three-layer watcher system (predicate filtering, data comparison, restart logic). See `internal/controller/watchers/` and `cmd/main.go`.
 
+## Built-in MCP Monitoring Endpoints
+
+Optional overrides in `OLSConfig`:
+
+- `spec.ols.mcpKubeServerConfig.prometheusURL` — defaults internally to `https://thanos-querier.openshift-monitoring.svc.cluster.local:9091`.
+- `spec.ols.mcpKubeServerConfig.alertmanagerURL` — defaults internally to `https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094`.
+
+Omitted or empty values use the built-in defaults without populating these fields in `OLSConfig`. Each URL can be overridden independently; removing an override restores its default.
+
+The generated `openshift-mcp-server-config` ConfigMap remains operator-managed; direct edits are reverted by reconciliation.
+
 ## Common Development Tasks
 
 ### Adding New Reconciliation Step

@@ -24,7 +24,7 @@ import (
 // NetObserv is always configured; the OCP MCP server's compatibility filters control tool visibility.
 // read_only = false is required: openshift-mcp-server-rhel9 sets ReadOnly=true in build-time defaults;
 // omitting this leaves only readOnlyHint tools (no resources_create_or_update, etc.).
-var configTOML = fmt.Sprintf(`# Denied resources prevent the MCP server from accessing these Kubernetes resource types.
+const configTOML = `# Denied resources prevent the MCP server from accessing these Kubernetes resource types.
 # This ensures secret data never reaches the LLM through the shipped MCP server.
 # User-brought MCP servers (spec.mcpServers) are the user's responsibility to secure.
 # Toolsets are pinned explicitly so upstream default changes do not affect OLS.
@@ -46,17 +46,13 @@ group = "rbac.authorization.k8s.io"
 version = "v1"
 
 [toolset_configs."observability/metrics"]
-prometheus_url = "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091"
-alertmanager_url = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094"
+prometheus_url = %q
+alertmanager_url = %q
 # Query-safety PromQL checks (not RBAC). "!tsdb" disables TSDB-dependent guardrails that
 # OpenShift Thanos Querier often lacks (/api/v1/status/tsdb); other guardrails stay on.
 # Auth still uses the caller's bearer token forwarded to Thanos/Alertmanager.
 guardrails = "!tsdb"
-`,
-	utils.OpenShiftMCPServerHTTPSPort,
-	path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"),
-	path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"),
-)
+`
 
 func selectorLabels() map[string]string {
 	return map[string]string{
@@ -80,6 +76,17 @@ func GenerateServiceAccount(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) 
 
 // GenerateConfigMap generates the TOML ConfigMap for openshift-mcp-server.
 func GenerateConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.ConfigMap, error) {
+	prometheusURL := "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091"
+	alertmanagerURL := "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094"
+	if config := cr.Spec.OLSConfig.MCPKubeServerConfig; config != nil {
+		if config.PrometheusURL != "" {
+			prometheusURL = config.PrometheusURL
+		}
+		if config.AlertmanagerURL != "" {
+			alertmanagerURL = config.AlertmanagerURL
+		}
+	}
+
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.OpenShiftMCPServerConfigCmName,
@@ -87,7 +94,13 @@ func GenerateConfigMap(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*cor
 			Labels:    selectorLabels(),
 		},
 		Data: map[string]string{
-			utils.OpenShiftMCPServerConfigFilename: configTOML,
+			utils.OpenShiftMCPServerConfigFilename: fmt.Sprintf(configTOML,
+				utils.OpenShiftMCPServerHTTPSPort,
+				path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"),
+				path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"),
+				prometheusURL,
+				alertmanagerURL,
+			),
 		},
 	}
 	if err := controllerutil.SetControllerReference(cr, cm, r.GetScheme()); err != nil {

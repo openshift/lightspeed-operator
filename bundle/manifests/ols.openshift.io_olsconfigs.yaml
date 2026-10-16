@@ -1885,6 +1885,12 @@ spec:
                   mcpKubeServerConfig:
                     description: MCP Kubernetes server configuration
                     properties:
+                      alertmanagerURL:
+                        description: Alertmanager API URL. When empty, uses https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094.
+                        type: string
+                      prometheusURL:
+                        description: Prometheus API URL. When empty, uses https://thanos-querier.openshift-monitoring.svc.cluster.local:9091.
+                        type: string
                       timeout:
                         default: 60
                         description: Timeout for the MCP Kube server in seconds, default
