@@ -109,7 +109,7 @@ spec:
                           x-kubernetes-validations:
                           - message: 'must be a valid DNS subdomain: lowercase alphanumeric
                               characters, hyphens, and dots'
-                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                            rule: self.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$')
                       type: object
                     decision:
                       description: |-
@@ -136,7 +136,7 @@ spec:
                           x-kubernetes-validations:
                           - message: 'must be a valid DNS subdomain: lowercase alphanumeric
                               characters, hyphens, and dots'
-                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                            rule: self.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$')
                       type: object
                     execution:
                       description: |-
@@ -153,7 +153,7 @@ spec:
                           x-kubernetes-validations:
                           - message: 'must be a valid DNS subdomain: lowercase alphanumeric
                               characters, hyphens, and dots'
-                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                            rule: self.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$')
                         option:
                           description: |-
                             option is the 0-based index into the analysis options array
@@ -186,7 +186,7 @@ spec:
                           x-kubernetes-validations:
                           - message: 'must be a valid DNS subdomain: lowercase alphanumeric
                               characters, hyphens, and dots'
-                            rule: '!format.dns1123Subdomain().validate(self).hasValue()'
+                            rule: self.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$')
                       type: object
                   required:
                   - type
