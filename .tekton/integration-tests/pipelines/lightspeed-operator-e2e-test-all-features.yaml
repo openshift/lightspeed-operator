@@ -230,24 +230,6 @@ spec:
               export LLM_MODEL="gpt-4o-mini"
               echo "starting tests for $LLM_PROVIDER $LLM_MODEL"
               make test-e2e-all-features
-          - name: gather-cluster-resources
-            onError: continue
-            ref:
-              resolver: git
-              params:
-                - name: url
-                  value: https://github.com/konflux-ci/tekton-integration-catalog
-                - name: revision
-                  value: main
-                - name: pathInRepo
-                  value: stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
-            params:
-              - name: credentials
-                value: "cluster-credentials"
-              - name: kubeconfig
-                value: "kubeconfig"
-              - name: artifact-dir
-                value: "/workspace/konflux-artifacts"
           # validate that the cluster resources are available in another tekton step
           - name: list-artifacts
             onError: continue
