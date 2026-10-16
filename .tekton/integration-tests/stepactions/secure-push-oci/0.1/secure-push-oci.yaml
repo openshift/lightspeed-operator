@@ -1,0 +1,103 @@
+apiVersion: tekton.dev/v1alpha1
+kind: StepAction
+metadata:
+  name: secure-push-oci
+spec:
+  description: >-
+    Scan fresh test artifacts and publish to a PipelineRun-specific OCI tag.
+    Never pull previous artifacts into this run's workspace. Scan and upload
+    failures fail the step; callers may use onError: continue for final cleanup.
+  image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+  params:
+    - name: workdir-path
+      type: string
+    - name: oci-ref
+      type: string
+      description: Unique per-run quay.io repository tag, including the run name and tested commit.
+    - name: credentials-volume-name
+      type: string
+    - name: oci-tag-expiration
+      type: string
+      default: 1y
+    - name: scan-timeout
+      type: string
+      default: 5m
+    - name: push-timeout
+      type: string
+      default: 2m
+  volumeMounts:
+    - name: $(params.credentials-volume-name)
+      mountPath: /home/tool-box/.docker/config.json
+      subPath: oci-storage-dockerconfigjson
+  workingDir: $(params.workdir-path)
+  env:
+    - name: OCI_ARTIFACT_REFERENCE
+      value: $(params.oci-ref)
+    - name: OCI_TAG_EXPIRATION
+      value: $(params.oci-tag-expiration)
+    - name: SCAN_TIMEOUT
+      value: $(params.scan-timeout)
+    - name: PUSH_TIMEOUT
+      value: $(params.push-timeout)
+  script: |
+    #!/bin/bash
+    set -euo pipefail
+
+    log() {
+      printf '%s %s\n' "$(date -u +%FT%TZ)" "$*"
+    }
+
+    if [[ ! "${OCI_ARTIFACT_REFERENCE}" =~ ^quay\.io/[a-z0-9_-]+/[a-z0-9_-]+:[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+      log "[artifacts] invalid OCI reference or tag exceeds 128 characters"
+      exit 1
+    fi
+
+    # Keep scanner findings and temporary metadata outside the published directory.
+    temp_dir="$(mktemp -d)"
+    trap 'rm -rf -- "${temp_dir}"' EXIT
+    jq -n --arg exp "${OCI_TAG_EXPIRATION}" --arg title "Test artifacts: ${OCI_ARTIFACT_REFERENCE##*:}" \
+      '{"$manifest": {"quay.expires-after": $exp, "org.opencontainers.image.title": $title}}' \
+      > "${temp_dir}/annotations.json"
+
+    log "[artifacts] destination=${OCI_ARTIFACT_REFERENCE} size=$(du -sh . | cut -f1)"
+    started="${SECONDS}"
+    log "[scan] starting (timeout=${SCAN_TIMEOUT})"
+    # pipefail is essential: a failed scanner must not publish unscanned files.
+    # Do not stream raw scanner findings to public CI logs or upload the scan log.
+    if timeout --kill-after=10s "${SCAN_TIMEOUT}" bash -o pipefail -c \
+      'leaktk-scanner scan --kind Files --resource . | leaktk-remove-files .' \
+      > "${temp_dir}/scan.log" 2>&1; then
+      log "[scan] completed after $((SECONDS - started))s"
+    else
+      status=$?
+      log "[scan] failed exit=${status} after $((SECONDS - started))s (124 indicates timeout); not uploading"
+      # Report only fixed operational markers, never raw findings or error text.
+      if grep -q '^\[INFO\] fetching gitleaks patterns' "${temp_dir}/scan.log"; then
+        if grep -q '^\[INFO\] updated gitleaks patterns:' "${temp_dir}/scan.log"; then
+          log "[scan] pattern fetch completion marker observed before failure"
+        else
+          log "[scan] pattern fetch started; no completion marker"
+        fi
+      fi
+      exit "${status}"
+    fi
+
+    # Per-run tags avoid read/modify/write races and stale files overwriting fresh logs.
+    max_attempts=3
+    for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+      started="${SECONDS}"
+      log "[upload] starting attempt=${attempt}/${max_attempts} (timeout=${PUSH_TIMEOUT})"
+      if timeout --kill-after=10s "${PUSH_TIMEOUT}" oras push "${OCI_ARTIFACT_REFERENCE}" \
+        --annotation-file "${temp_dir}/annotations.json" \
+        ./:application/vnd.acme.rocket.docs.layer.v1+tar; then
+        log "[upload] completed after $((SECONDS - started))s"
+        exit 0
+      else
+        status=$?
+        log "[upload] failed exit=${status} after $((SECONDS - started))s (124 indicates timeout)"
+      fi
+      if ((attempt < max_attempts)); then
+        sleep "${RETRY_DELAY:-5}"
+      fi
+    done
+    exit "${status}"

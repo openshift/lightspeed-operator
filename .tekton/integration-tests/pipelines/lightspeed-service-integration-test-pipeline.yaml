@@ -13,7 +13,7 @@ spec:
     revisions and run tests/scripts/test-e2e-cluster.sh, push artifacts.
 
     Per OpenShift minor: set openshift-version-prefix (e.g. 4.16.) and test-name. For OCP 4.16 only,
-    set artifact-oci-tag-prefix to "416" so ols-service-artifacts uses tag 416<commit>; leave empty
+    set artifact-oci-tag-prefix to "416" so ols-service-artifacts uses tag <PipelineRun name>-416<commit>; leave empty
     for other versions. The run step bootstraps git then runs
     .tekton/integration-tests/scripts/run-service-integration-tests.sh (openshift-version-prefix
     is passed through; install-oc-if-missing.sh supplies the oc client for latest-<minor>).
@@ -35,7 +35,7 @@ spec:
       default: '4.22'
       type: string
     - name: artifact-oci-tag-prefix
-      description: 'Prepended to commit SHA in ols-service-artifacts Quay tag. Use "416" for OCP 4.16; empty for other minors.'
+      description: 'Version prefix before the commit in the per-run Quay tag <PipelineRun name>-<prefix><commit>.'
       default: ''
       type: string
     - name: install-mode
@@ -157,6 +157,8 @@ spec:
           value: $(tasks.ols-install.results.bundle-image)
         - name: commit
           value: $(tasks.ols-install.results.commit)
+        - name: artifact-run-name
+          value: $(context.pipelineRun.name)
         - name: namespace
           value: "$(params.namespace)"
         - name: openshift-version-prefix
@@ -173,6 +175,8 @@ spec:
           - name: bundleimage
             description: SNAPSHOT containerImage for the labeled Konflux component (bundle or operator manager image).
           - name: commit
+          - name: artifact-run-name
+            type: string
           - name: namespace
             type: string
           - name: openshift-version-prefix
@@ -333,21 +337,22 @@ spec:
               #!/bin/bash
               ls -la /workspace
           - name: push-artifacts
+            timeout: 15m
             onError: continue
             ref:
               resolver: git
               params:
                 - name: url
-                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                  value: https://github.com/openshift/lightspeed-operator
                 - name: revision
-                  value: main
+                  value: $(params.commit)
                 - name: pathInRepo
-                  value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
+                  value: .tekton/integration-tests/stepactions/secure-push-oci/0.1/secure-push-oci.yaml
             params:
               - name: workdir-path
                 value: /workspace
               - name: oci-ref
-                value: "quay.io/openshift-lightspeed/ols-service-artifacts:$(params.artifact-oci-tag-prefix)$(params.commit)"
+                value: "quay.io/openshift-lightspeed/ols-service-artifacts:$(params.artifact-run-name)-$(params.artifact-oci-tag-prefix)$(params.commit)"
               - name: credentials-volume-name
                 value: ols-konflux-artifacts-bot-creds
           - name: fail-if-any-step-failed

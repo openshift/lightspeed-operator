@@ -144,6 +144,8 @@ spec:
       params:
         - name: commit
           value: $(tasks.ols-install.results.commit)
+        - name: artifact-run-name
+          value: $(context.pipelineRun.name)
         - name: openshift-version-prefix
           value: "$(params.openshift-version-prefix)."
         - name: SNAPSHOT
@@ -155,6 +157,8 @@ spec:
       taskSpec:
         params:
           - name: commit
+          - name: artifact-run-name
+            type: string
           - name: openshift-version-prefix
             type: string
           - name: SNAPSHOT
@@ -320,21 +324,22 @@ spec:
               #!/bin/bash
               ls -la /workspace
           - name: push-artifacts
+            timeout: 15m
             onError: continue
             ref:
               resolver: git
               params:
                 - name: url
-                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                  value: https://github.com/openshift/lightspeed-operator
                 - name: revision
-                  value: main
+                  value: $(params.commit)
                 - name: pathInRepo
-                  value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
+                  value: .tekton/integration-tests/stepactions/secure-push-oci/0.1/secure-push-oci.yaml
             params:
               - name: workdir-path
                 value: /workspace
               - name: oci-ref
-                value: "quay.io/openshift-lightspeed/ols-operator-artifacts:$(params.commit)"
+                value: "quay.io/openshift-lightspeed/ols-operator-artifacts:$(params.artifact-run-name)-$(params.commit)"
               - name: credentials-volume-name
                 value: ols-konflux-artifacts-bot-creds
           - name: fail-if-any-step-failed
