@@ -32,12 +32,12 @@ The operator configures monitoring, health probes, and status reporting for all 
 19. The operator's TLS profile for metrics follows the OLSConfig CR's `spec.ols.tlsSecurityProfile` or falls back to the cluster API server's profile.
 
 ### Data Collection
-20. The app-server Dataverse exporter sidecar (`lightspeed-to-dataverse-exporter`) exports feedback and transcript data to the Red Hat data pipeline at `https://console.redhat.com/api/ingress/v1/upload`. It runs in `openshift` mode to use the cluster ID as identity.
-21. The app-server Dataverse exporter is enabled only when user data collection is not fully disabled and the `openshift-config/pull-secret` contains a `cloud.openshift.com` auth entry in its `.dockerconfigjson`.
-22. The service ID for the app-server Dataverse exporter is `ols` by default, or `rhos-lightspeed` if the OLSConfig CR has the `openstack.org/lightspeed-owner-id` label.
-23. The app-server Dataverse exporter config is generated as a ConfigMap (`lightspeed-exporter-config`) with a fixed 300-second collection interval.
-24. The Collector trace-file branch uses the existing `spec.ols.userDataCollection.transcriptsDisabled` opt-out and selects native OTLP traces from `lightspeed-agentic-operator` or `lightspeed-agentic-sandbox`. See [`data-collection.md`](data-collection.md) for its FileExporter settings and retention behavior.
-25. The trace-file branch is unbatched; configured backend trace forwarding batches on its separate pipeline. OTLP logs and their PostgreSQL handling remain separate.
+20. The existing app-server Dataverse exporter (`lightspeed-to-dataverse-exporter`) sends feedback and transcript data to `https://console.redhat.com/api/ingress/v1/upload` in `openshift` authentication mode, using the cluster ID as identity.
+21. The app-server exporter gate is at least one of feedback or transcripts enabled (`!spec.ols.userDataCollection.feedbackDisabled || !spec.ols.userDataCollection.transcriptsDisabled`) **and** a `cloud.openshift.com` auth entry in `openshift-config/pull-secret`.
+22. Its service ID is `ols` by default, or `rhos-lightspeed` when the OLSConfig CR has the `openstack.org/lightspeed-owner-id` label.
+23. The existing app-server exporter configuration remains in its own ConfigMap (`lightspeed-exporter-config`) with a 300-second collection interval.
+24. Collector trace routing and FileExporter storage use the existing `transcriptsDisabled` opt-out only, selecting native OTLP traces from `lightspeed-agentic-operator` or `lightspeed-agentic-sandbox`. The separate OTel Dataverse sidecar additionally requires a nonempty (after trimming whitespace) `.dockerconfigjson.auths["cloud.openshift.com"].auth` token. Its ConfigMap selects `data_mode: otel`, its process uses `--mode openshift` for authentication, and its collection interval is 300 seconds. The existing app-server exporter is unchanged.
+25. The Collector FileExporter branch is unbatched; configured backend trace forwarding batches on its separate pipeline. OTLP logs use the existing `templog` pipeline—PostgreSQL when `spec.audit.logging` is enabled, `nop` otherwise—and are never ingested by the Dataverse exporter. The OTel Dataverse exporter uploads rotated trace files on a best-effort basis and excludes the active file; see [`data-collection.md`](data-collection.md).
 
 ## Configuration Surface
 
@@ -46,12 +46,12 @@ The operator configures monitoring, health probes, and status reporting for all 
 | `spec.ols.logLevel` | Log level for backend service (app, lib, uvicorn levels all set to this value) |
 | `spec.olsDataCollector.logLevel` | Log level for the app-server Dataverse exporter sidecar (defaults to `info`) |
 | `spec.ols.userDataCollection.feedbackDisabled` | Disable feedback collection |
-| `spec.ols.userDataCollection.transcriptsDisabled` | Disable transcript collection by the app-server Dataverse exporter and control the Collector trace-file branch (see [`data-collection.md`](data-collection.md)) |
+| `spec.ols.userDataCollection.transcriptsDisabled` | Disable transcript collection by the app-server exporter, gate the OTel Dataverse sidecar, and control the Collector trace-file branch (see [`data-collection.md`](data-collection.md)) |
 
 ## Constraints
 
 1. ServiceMonitor and PrometheusRule are only created when Prometheus Operator CRDs are detected at operator startup. There is no runtime re-check.
-2. The app-server Dataverse exporter requires the telemetry pull secret with a `cloud.openshift.com` auth entry in `.dockerconfigjson`; removing the secret or auth entry disables that exporter.
+2. The app-server exporter retains its existing `cloud.openshift.com` auth-entry-presence check. When transcripts are enabled, the OTel Dataverse sidecar requires a nonempty (after trimming whitespace) `.dockerconfigjson.auths["cloud.openshift.com"].auth` token; a NotFound pull-secret object or valid JSON with an absent, empty, or whitespace-only token omits the sidecar. When credential checking runs, a missing `.dockerconfigjson` key on an existing Secret, malformed JSON, or an API read error other than NotFound fails reconciliation rather than disabling credentials. When transcripts remain enabled, Collector FileExporter storage continues without telemetry credentials; see [`data-collection.md`](data-collection.md).
 3. Diagnostics are cleared from status when the corresponding deployment becomes healthy (the entire `diagnosticInfo` array is rebuilt from scratch on each status update).
 4. Health probe parameters are internal constants and cannot be customized via the CR.
 

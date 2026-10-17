@@ -140,10 +140,10 @@ const finalizerCleanupTimeout = 3 * time.Minute
 // RBAC: split create (cannot use resourceNames) from get/update/delete (pinned to named resources) (OLS-3886)
 // list+watch must be unscoped because Owns() sets up a cluster-wide informer that lists all resources of the type
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=create;list;watch
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=lightspeed-app-server-sar-role;lightspeed-agentic-alerts-adapter-agenticruns;lightspeed-agentic-alerts-adapter-agenticolsconfig,verbs=get;update;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,resourceNames=lightspeed-app-server-sar-role-binding;lightspeed-agentic-alerts-adapter-agenticruns;lightspeed-agentic-alerts-adapter-agenticolsconfig;lightspeed-operator-ols-metrics-reader,verbs=get;update;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=lightspeed-app-server-sar-role;lightspeed-agentic-alerts-adapter-agenticruns;lightspeed-agentic-alerts-adapter-agenticolsconfig;lightspeed-otel-dataverse-exporter;lightspeed-otel-dataverse-exporter-pull-secret,verbs=get;update;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,resourceNames=lightspeed-app-server-sar-role-binding;lightspeed-agentic-alerts-adapter-agenticruns;lightspeed-agentic-alerts-adapter-agenticolsconfig;lightspeed-operator-ols-metrics-reader;lightspeed-otel-dataverse-exporter-binding,verbs=get;update;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create;list;watch
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,resourceNames=lightspeed-agentic-alerts-adapter-alertmanager,verbs=get;update;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,resourceNames=lightspeed-agentic-alerts-adapter-alertmanager;lightspeed-otel-dataverse-exporter-pull-secret,verbs=get;update;delete
 // AgenticRun API for alerts adapter ClusterRole (operator must hold permissions it grants to operands)
 // +kubebuilder:rbac:groups=agentic.openshift.io,resources=agenticruns,verbs=get;list;create
 // +kubebuilder:rbac:groups=agentic.openshift.io,resources=agenticolsconfigs,verbs=get
@@ -1201,6 +1201,17 @@ func wasComponentEnabled(cr *olsv1alpha1.OLSConfig, conditionType string) bool {
 	return false
 }
 
+// shouldWatchSecretCreate accepts operator-namespace secrets and telemetry pull-secret recreation outside it.
+func (r *OLSConfigReconciler) shouldWatchSecretCreate(obj client.Object) bool {
+	if obj.GetNamespace() == r.Options.Namespace {
+		return true
+	}
+	if obj.GetNamespace() != utils.TelemetryPullSecretNamespace || obj.GetName() != utils.TelemetryPullSecretName {
+		return false
+	}
+	return r.shouldWatchSecret(obj)
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Logger = ctrl.Log.WithName("Reconciler")
@@ -1218,6 +1229,7 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.ClusterRole{}).
 		Owns(&rbacv1.ClusterRoleBinding{}).
+		Owns(&rbacv1.RoleBinding{}).
 		Owns(&corev1.Service{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
@@ -1226,9 +1238,7 @@ func (r *OLSConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&watchers.SecretUpdateHandler{Reconciler: r},
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
-					// For Create events, allow all secrets in our namespace
-					// This handles recreated secrets that don't have annotations yet
-					return e.Object.GetNamespace() == r.Options.Namespace
+					return r.shouldWatchSecretCreate(e.Object)
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					// For Update events, use strict filtering
