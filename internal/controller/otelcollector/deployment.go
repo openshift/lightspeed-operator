@@ -31,6 +31,63 @@ func getOtelCollectorResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequir
 	)
 }
 
+// getOtelDataverseExporterResources uses the existing data-collector override and defaults.
+func getOtelDataverseExporterResources(cr *olsv1alpha1.OLSConfig) *corev1.ResourceRequirements {
+	return utils.GetResourcesOrDefault(
+		cr.Spec.OLSConfig.DeploymentConfig.DataCollectorContainer.Resources,
+		&corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("64Mi"),
+			},
+			Claims: []corev1.ResourceClaim{},
+		},
+	)
+}
+
+// This projection supplies the conventional in-cluster auth files while automount stays disabled.
+func generateOtelDataverseExporterAuthVolume() corev1.Volume {
+	defaultMode := utils.VolumeRestrictedMode
+	expirationSeconds := int64(3600)
+	return corev1.Volume{
+		Name: utils.OtelDataverseExporterAuthVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Projected: &corev1.ProjectedVolumeSource{
+				DefaultMode: &defaultMode,
+				Sources: []corev1.VolumeProjection{
+					{
+						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+							Path:              "token",
+							ExpirationSeconds: &expirationSeconds,
+						},
+					},
+					{
+						ConfigMap: &corev1.ConfigMapProjection{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "kube-root-ca.crt"},
+							Items: []corev1.KeyToPath{
+								{Key: "ca.crt", Path: "ca.crt"},
+							},
+						},
+					},
+					{
+						DownwardAPI: &corev1.DownwardAPIProjection{
+							Items: []corev1.DownwardAPIVolumeFile{
+								{
+									Path: "namespace",
+									FieldRef: &corev1.ObjectFieldSelector{
+										APIVersion: "v1",
+										FieldPath:  "metadata.namespace",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 // GenerateOtelCollectorDeployment generates the OTEL Collector Deployment.
 // Postgres DSN, admin port, and Postgres wait init are always present: clients call
 // postgres_admin regardless of spec.audit.logging. Only the runtime ConfigMap pipelines
@@ -43,6 +100,18 @@ func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Contex
 	configMapResourceVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OtelCollectorConfigMapName)
 	if err != nil {
 		return nil, err
+	}
+	exporterEnabled, err := dataverseExporterEnabled(r, ctx, cr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine OTEL Dataverse exporter enablement: %w", err)
+	}
+
+	var exporterConfigMapResourceVersion string
+	if exporterEnabled {
+		exporterConfigMapResourceVersion, err = utils.GetConfigMapResourceVersion(r, ctx, utils.OtelDataverseExporterConfigMapName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get OTEL Dataverse exporter ConfigMap resource version: %w", err)
+		}
 	}
 
 	volumes := []corev1.Volume{
@@ -94,6 +163,27 @@ func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Contex
 				},
 			},
 		})
+	}
+	if exporterEnabled {
+		configMapMode := utils.VolumeRestrictedMode
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: utils.OtelDataverseExporterConfigVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{Name: utils.OtelDataverseExporterConfigMapName},
+						DefaultMode:          &configMapMode,
+					},
+				},
+			},
+			corev1.Volume{
+				Name: utils.OtelDataverseExporterStateVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+			generateOtelDataverseExporterAuthVolume(),
+		)
 	}
 
 	volumeMounts := []corev1.VolumeMount{
@@ -238,6 +328,44 @@ func GenerateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Contex
 			},
 		},
 	}
+	if exporterEnabled {
+		deployment.Annotations[utils.OtelDataverseExporterConfigMapResourceVersionAnnotation] = exporterConfigMapResourceVersion
+		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, corev1.Container{
+			Name:            utils.DataverseExporterContainerName,
+			Image:           r.GetDataverseExporterImage(),
+			ImagePullPolicy: corev1.PullAlways,
+			Args: []string{
+				"--mode",
+				"openshift",
+				"--config",
+				utils.OtelDataverseExporterConfigPath,
+			},
+			Env:             append([]corev1.EnvVar{}, utils.GetProxyEnvVars()...),
+			SecurityContext: utils.RestrictedContainerSecurityContext(),
+			Resources:       *getOtelDataverseExporterResources(cr),
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      utils.OtelDataverseExporterConfigVolumeName,
+					MountPath: utils.OtelDataverseExporterConfigMountPath,
+					ReadOnly:  true,
+				},
+				{
+					Name:      utils.OtelCollectorDataCollectionVolumeName,
+					MountPath: utils.OtelDataverseExporterDataMountPath,
+					ReadOnly:  true,
+				},
+				{
+					Name:      utils.OtelDataverseExporterStateVolumeName,
+					MountPath: utils.OtelDataverseExporterStateMountPath,
+				},
+				{
+					Name:      utils.OtelDataverseExporterAuthVolumeName,
+					MountPath: utils.OtelDataverseExporterAuthMountPath,
+					ReadOnly:  true,
+				},
+			},
+		})
+	}
 
 	utils.ApplyPodDeploymentConfig(deployment, cr.Spec.OLSConfig.DeploymentConfig.OtelCollector, false)
 
@@ -253,13 +381,36 @@ func UpdateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Context,
 	utils.SetDefaults_Deployment(desiredDeployment)
 	changed := !utils.DeploymentSpecEqual(&existingDeployment.Spec, &desiredDeployment.Spec, false)
 
-	currentConfigMapVersion, err := utils.GetConfigMapResourceVersion(r, ctx, utils.OtelCollectorConfigMapName)
-	if err != nil {
-		r.GetLogger().Info("failed to get OTEL Collector ConfigMap ResourceVersion", "error", err)
-		changed = true
-	} else {
-		storedConfigMapVersion := existingDeployment.Annotations[utils.OtelCollectorConfigMapResourceVersionAnnotation]
-		if storedConfigMapVersion != currentConfigMapVersion {
+	trackedConfigMaps := []struct {
+		name       string
+		annotation string
+	}{
+		{
+			name:       utils.OtelCollectorConfigMapName,
+			annotation: utils.OtelCollectorConfigMapResourceVersionAnnotation,
+		},
+		{
+			name:       utils.OtelDataverseExporterConfigMapName,
+			annotation: utils.OtelDataverseExporterConfigMapResourceVersionAnnotation,
+		},
+	}
+	for _, configMap := range trackedConfigMaps {
+		storedVersion := existingDeployment.Annotations[configMap.annotation]
+		desiredVersion, desired := desiredDeployment.Annotations[configMap.annotation]
+		if !desired {
+			if storedVersion != "" {
+				changed = true
+			}
+			continue
+		}
+
+		currentVersion, err := utils.GetConfigMapResourceVersion(r, ctx, configMap.name)
+		if err != nil {
+			r.GetLogger().Info("failed to get OTEL ConfigMap resource version", "configmap", configMap.name, "error", err)
+			changed = true
+			continue
+		}
+		if storedVersion != currentVersion || desiredVersion != currentVersion {
 			changed = true
 		}
 	}
@@ -272,8 +423,13 @@ func UpdateOtelCollectorDeployment(r reconciler.Reconciler, ctx context.Context,
 	if existingDeployment.Annotations == nil {
 		existingDeployment.Annotations = make(map[string]string)
 	}
-	existingDeployment.Annotations[utils.OtelCollectorConfigMapResourceVersionAnnotation] =
-		desiredDeployment.Annotations[utils.OtelCollectorConfigMapResourceVersionAnnotation]
+	for _, configMap := range trackedConfigMaps {
+		if version, desired := desiredDeployment.Annotations[configMap.annotation]; desired {
+			existingDeployment.Annotations[configMap.annotation] = version
+		} else {
+			delete(existingDeployment.Annotations, configMap.annotation)
+		}
+	}
 
 	r.GetLogger().Info("updating OTEL Collector deployment", "name", existingDeployment.Name)
 	return RestartOtelCollector(r, ctx, existingDeployment)

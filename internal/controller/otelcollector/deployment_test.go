@@ -1,6 +1,8 @@
 package otelcollector
 
 import (
+	"context"
+	"errors"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -9,6 +11,7 @@ import (
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
@@ -18,6 +21,8 @@ var _ = Describe("OTEL Collector deployment", func() {
 	BeforeEach(func() {
 		testCR = utils.GetDefaultOLSConfigCR()
 		ensurePostgresSecret()
+		setTelemetryPullSecretForTest(telemetryPullSecretWithAuthForTest, corev1.SecretTypeDockerConfigJson)
+		ensureOtelDataverseExporterConfigMap(testCR)
 		ensureCollectorConfigMap(testCR)
 	})
 
@@ -97,14 +102,21 @@ var _ = Describe("OTEL Collector deployment", func() {
 		dataCollectionMount, found := findVolumeMount(container.VolumeMounts, "data-collection")
 		Expect(found).To(BeTrue())
 		Expect(dataCollectionMount).To(Equal(corev1.VolumeMount{
-			Name:      "data-collection",
-			MountPath: "/var/lib/lightspeed-data",
+			Name:      utils.OtelCollectorDataCollectionVolumeName,
+			MountPath: filepath.Dir(fileExporter.Path),
 		}))
 		Expect(dataCollectionMount.ReadOnly).To(BeFalse())
 		fileRelativePath, err := filepath.Rel(dataCollectionMount.MountPath, fileExporter.Path)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(fileRelativePath).To(Equal(filepath.Join("otel", "traces.jsonl")))
-		Expect(spec.Containers).To(HaveLen(1))
+		Expect(fileRelativePath).To(Equal("traces.jsonl"))
+		Expect(spec.Containers).To(HaveLen(2))
+		exporter := spec.Containers[1]
+		Expect(exporter.Name).To(Equal(utils.DataverseExporterContainerName))
+		Expect(exporter.Image).To(Equal("quay.io/test/dataverse-exporter:test"))
+		Expect(exporter.Args).To(Equal([]string{"--mode", "openshift", "--config", "/etc/config/config.yaml"}))
+		Expect(exporter.Env).To(Equal(utils.GetProxyEnvVars()))
+		Expect(exporter.Resources.Requests.Cpu().String()).To(Equal("50m"))
+		Expect(exporter.Resources.Requests.Memory().String()).To(Equal("64Mi"))
 
 		Expect(container.SecurityContext).NotTo(BeNil())
 		Expect(*container.SecurityContext.RunAsNonRoot).To(BeTrue())
@@ -113,7 +125,7 @@ var _ = Describe("OTEL Collector deployment", func() {
 		Expect(container.SecurityContext.Capabilities.Drop).To(ContainElement(corev1.Capability("ALL")))
 		Expect(container.SecurityContext.SeccompProfile.Type).To(Equal(corev1.SeccompProfileTypeRuntimeDefault))
 	})
-	It("should omit data collection storage when transcripts are disabled", func() {
+	It("should omit exporter-only resources when transcripts are disabled", func() {
 		testCR.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled = true
 		ensureCollectorConfigMap(testCR)
 
@@ -121,13 +133,157 @@ var _ = Describe("OTEL Collector deployment", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		spec := dep.Spec.Template.Spec
-		_, found := findVolume(spec.Volumes, "data-collection")
-		Expect(found).To(BeFalse())
-		_, found = findVolumeMount(spec.Containers[0].VolumeMounts, "data-collection")
-		Expect(found).To(BeFalse())
-		_, found = findVolume(spec.Volumes, otelCollectorFileStorageVolumeName)
-		Expect(found).To(BeTrue())
 		Expect(spec.Containers).To(HaveLen(1))
+		for _, name := range []string{
+			utils.OtelCollectorDataCollectionVolumeName,
+			utils.OtelDataverseExporterConfigVolumeName,
+			utils.OtelDataverseExporterStateVolumeName,
+			utils.OtelDataverseExporterAuthVolumeName,
+		} {
+			_, found := findVolume(spec.Volumes, name)
+			Expect(found).To(BeFalse())
+		}
+		_, found := findVolumeMount(spec.Containers[0].VolumeMounts, utils.OtelCollectorDataCollectionVolumeName)
+		Expect(found).To(BeFalse())
+	})
+
+	It("should keep native trace storage when telemetry auth is absent", func() {
+		setTelemetryPullSecretForTest(telemetryPullSecretWithoutAuthTest, corev1.SecretTypeDockerConfigJson)
+
+		dep, err := GenerateOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
+		Expect(err).NotTo(HaveOccurred())
+
+		spec := dep.Spec.Template.Spec
+		Expect(spec.Containers).To(HaveLen(1))
+		sourceVolume, found := findVolume(spec.Volumes, utils.OtelCollectorDataCollectionVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(sourceVolume.EmptyDir.SizeLimit.String()).To(Equal("500Mi"))
+		sourceMount, found := findVolumeMount(spec.Containers[0].VolumeMounts, utils.OtelCollectorDataCollectionVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(sourceMount.ReadOnly).To(BeFalse())
+		for _, name := range []string{
+			utils.OtelDataverseExporterConfigVolumeName,
+			utils.OtelDataverseExporterStateVolumeName,
+			utils.OtelDataverseExporterAuthVolumeName,
+		} {
+			_, found := findVolume(spec.Volumes, name)
+			Expect(found).To(BeFalse())
+		}
+
+		collectorConfig, err := GenerateOtelCollectorConfigMap(testReconcilerInstance, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		var generatedConfig struct {
+			Exporters map[string]struct {
+				Path string `json:"path"`
+			} `json:"exporters"`
+		}
+		Expect(yaml.Unmarshal([]byte(collectorConfig.Data[utils.OtelCollectorConfigMapDataKey]), &generatedConfig)).To(Succeed())
+		Expect(generatedConfig.Exporters["file/data_collection"].Path).To(Equal("/var/lib/lightspeed-data/otel/traces.jsonl"))
+	})
+
+	It("should omit the exporter for feedback-only collection", func() {
+		testCR.Spec.OLSConfig.UserDataCollection.FeedbackDisabled = false
+		testCR.Spec.OLSConfig.UserDataCollection.TranscriptsDisabled = true
+		ensureCollectorConfigMap(testCR)
+
+		dep, err := GenerateOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
+		_, found := findVolume(dep.Spec.Template.Spec.Volumes, utils.OtelCollectorDataCollectionVolumeName)
+		Expect(found).To(BeFalse())
+	})
+
+	It("should omit the exporter when the telemetry pull secret is not found", func() {
+		utils.DeleteTelemetryPullSecret(ctx, k8sClient)
+
+		dep, err := GenerateOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dep.Spec.Template.Spec.Containers).To(HaveLen(1))
+		_, found := findVolume(dep.Spec.Template.Spec.Volumes, utils.OtelCollectorDataCollectionVolumeName)
+		Expect(found).To(BeTrue())
+	})
+
+	It("should return errors for malformed telemetry auth configuration", func() {
+		setTelemetryPullSecretForTest("not-json", corev1.SecretTypeOpaque)
+
+		_, err := GenerateOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to decode telemetry pull secret"))
+	})
+
+	It("should return unexpected telemetry pull-secret API errors", func() {
+		base := testReconcilerInstance.(*utils.TestReconciler)
+		failingReconciler := *base
+		failingReconciler.Client = telemetryPullSecretErrorClient{
+			Client: base.Client,
+			err:    errors.New("API unavailable"),
+		}
+
+		_, err := GenerateOtelCollectorDeployment(&failingReconciler, ctx, testCR)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to read telemetry pull secret"))
+		Expect(err.Error()).To(ContainSubstring("API unavailable"))
+	})
+
+	It("should mount source read-only and keep state, config, and auth isolated to the exporter", func() {
+		dep, err := GenerateOtelCollectorDeployment(testReconcilerInstance, ctx, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		spec := dep.Spec.Template.Spec
+		Expect(spec.AutomountServiceAccountToken).NotTo(BeNil())
+		Expect(*spec.AutomountServiceAccountToken).To(BeFalse())
+		Expect(dep.Annotations).To(HaveKey(utils.OtelDataverseExporterConfigMapResourceVersionAnnotation))
+
+		exporter := spec.Containers[1]
+		Expect(exporter.SecurityContext).NotTo(BeNil())
+		Expect(exporter.SecurityContext.ReadOnlyRootFilesystem).NotTo(BeNil())
+		Expect(*exporter.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
+		Expect(exporter.SecurityContext.AllowPrivilegeEscalation).NotTo(BeNil())
+		Expect(*exporter.SecurityContext.AllowPrivilegeEscalation).To(BeFalse())
+		Expect(exporter.SecurityContext.Capabilities.Drop).To(ContainElement(corev1.Capability("ALL")))
+
+		sourceMount, found := findVolumeMount(exporter.VolumeMounts, utils.OtelCollectorDataCollectionVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(sourceMount.MountPath).To(Equal("/input"))
+		Expect(sourceMount.ReadOnly).To(BeTrue())
+		stateMount, found := findVolumeMount(exporter.VolumeMounts, utils.OtelDataverseExporterStateVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(stateMount.MountPath).To(Equal("/state"))
+		Expect(stateMount.ReadOnly).To(BeFalse())
+		configMount, found := findVolumeMount(exporter.VolumeMounts, utils.OtelDataverseExporterConfigVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(configMount.ReadOnly).To(BeTrue())
+		Expect(configMount.MountPath).To(Equal("/etc/config"))
+		configVolume, found := findVolume(spec.Volumes, utils.OtelDataverseExporterConfigVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(configVolume.ConfigMap.Name).To(Equal(utils.OtelDataverseExporterConfigMapName))
+		authMount, found := findVolumeMount(exporter.VolumeMounts, utils.OtelDataverseExporterAuthVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(authMount.MountPath).To(Equal("/var/run/secrets/kubernetes.io/serviceaccount"))
+		Expect(authMount.ReadOnly).To(BeTrue())
+
+		stateVolume, found := findVolume(spec.Volumes, utils.OtelDataverseExporterStateVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(stateVolume.EmptyDir).NotTo(BeNil())
+		authVolume, found := findVolume(spec.Volumes, utils.OtelDataverseExporterAuthVolumeName)
+		Expect(found).To(BeTrue())
+		Expect(authVolume.Projected).NotTo(BeNil())
+		Expect(authVolume.Projected.Sources[0].ServiceAccountToken.Path).To(Equal("token"))
+		Expect(authVolume.Projected.Sources[1].ConfigMap.Name).To(Equal("kube-root-ca.crt"))
+		Expect(authVolume.Projected.Sources[1].ConfigMap.Items).To(ContainElement(corev1.KeyToPath{Key: "ca.crt", Path: "ca.crt"}))
+		Expect(authVolume.Projected.Sources[2].DownwardAPI.Items[0].Path).To(Equal("namespace"))
+		Expect(authVolume.Projected.Sources[2].DownwardAPI.Items[0].FieldRef.FieldPath).To(Equal("metadata.namespace"))
+
+		collectorMountNames := make([]string, 0, len(spec.Containers[0].VolumeMounts))
+		for _, mount := range spec.Containers[0].VolumeMounts {
+			collectorMountNames = append(collectorMountNames, mount.Name)
+		}
+		for _, name := range []string{
+			utils.OtelDataverseExporterConfigVolumeName,
+			utils.OtelDataverseExporterStateVolumeName,
+			utils.OtelDataverseExporterAuthVolumeName,
+		} {
+			Expect(collectorMountNames).NotTo(ContainElement(name))
+		}
 	})
 
 	It("should keep postgres wiring when audit logging is disabled", func() {
@@ -187,4 +343,16 @@ func findVolumeMount(volumeMounts []corev1.VolumeMount, name string) (corev1.Vol
 		}
 	}
 	return corev1.VolumeMount{}, false
+}
+
+type telemetryPullSecretErrorClient struct {
+	client.Client
+	err error
+}
+
+func (c telemetryPullSecretErrorClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if key.Namespace == utils.TelemetryPullSecretNamespace && key.Name == utils.TelemetryPullSecretName {
+		return c.err
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
 }
