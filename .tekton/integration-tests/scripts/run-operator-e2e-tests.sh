@@ -26,7 +26,7 @@ echo "---------------------------------------------"
 echo "---------------------------------------------"
 export LLM_TOKEN="$(cat "${OPENAI_PROVIDER_KEY_PATH}")"
 export LLM_PROVIDER="openai"
-export LLM_MODEL="gpt-4o-mini"
+export LLM_MODEL="gpt-6-luna"
 echo "starting tests for ${LLM_PROVIDER} ${LLM_MODEL}"
 make test-e2e
 echo "---------------------------------------------"
@@ -37,6 +37,6 @@ export AZUREOPENAI_ENTRA_ID_CLIENT_ID="$(cat /var/run/azureopenai-entra-id/clien
 export AZUREOPENAI_ENTRA_ID_CLIENT_SECRET="$(cat /var/run/azureopenai-entra-id/client_secret)"
 export LLM_TOKEN="$(cat "${AZUREOPENAI_PROVIDER_KEY_PATH}")"
 export LLM_PROVIDER="azure_openai"
-export LLM_MODEL="gpt-4o-mini"
+export LLM_MODEL="gpt-6-luna"
 echo "starting tests for ${LLM_PROVIDER} ${LLM_MODEL}"
 make test-e2e

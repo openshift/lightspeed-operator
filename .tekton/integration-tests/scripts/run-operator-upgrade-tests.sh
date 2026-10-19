@@ -48,6 +48,6 @@ echo "---------------------------------------------"
 
 export LLM_TOKEN="$(cat "${OPENAI_PROVIDER_KEY_PATH}")"
 export LLM_PROVIDER="openai"
-export LLM_MODEL="gpt-4o-mini"
+export LLM_MODEL="gpt-6-luna"
 echo "starting tests for ${LLM_PROVIDER} ${LLM_MODEL}"
 make test-upgrade

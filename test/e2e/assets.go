@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
@@ -115,6 +116,15 @@ func generateBaseOLSConfig(opts olsConfigOptions, customizer func(*olsv1alpha1.O
 			secondProvider.URL = AzureURL
 		}
 		providers = append(providers, secondProvider)
+	}
+
+	// Configure reasoning only for the primary model of OpenAI-compatible providers.
+	if llmProvider == "openai" || llmProvider == "azure_openai" {
+		for i := range providers {
+			providers[i].Models[0].Parameters.ReasoningConfig = map[string]runtime.RawExtension{
+				"effort": {Raw: []byte(`"medium"`)},
+			}
+		}
 	}
 
 	// Create base deployment config
