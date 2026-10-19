@@ -11,7 +11,8 @@ metadata:
       event == "push" &&
       target_branch == "main" &&
       ("lightspeed-catalog-5.0/index.yaml".pathChanged() ||
-       "lightspeed-catalog-5.0/bundle-v*.yaml".pathChanged())
+       "lightspeed-catalog-5.0/bundle-v*.yaml".pathChanged() ||
+       "lightspeed-catalog-5.0.Dockerfile".pathChanged())
       // Enable Dockerfile-only and pipeline-only triggers after the first catalog
       // update populates the index; building the empty directory fails.
   labels:
