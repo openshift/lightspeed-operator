@@ -21,7 +21,7 @@ spec:
       default: 1y
     - name: scan-timeout
       type: string
-      default: 5m
+      default: 15m
     - name: push-timeout
       type: string
       default: 2m
