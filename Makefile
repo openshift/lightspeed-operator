@@ -125,8 +125,8 @@ manifests: generate-deployment-patch controller-gen ## Generate WebhookConfigura
 AGENTIC_OPERATOR_REPO ?= https://github.com/openshift/lightspeed-agentic-operator.git
 # Fetch the same immutable commit as the checked-in inputs and controller image.
 # Never use a moving branch ref for the default sync.
-AGENTIC_OPERATOR_REF ?= 14da92cf6efa835aff5b7e395aeced682870903b
-AGENTIC_OPERATOR_COMMIT ?= 14da92cf6efa835aff5b7e395aeced682870903b
+AGENTIC_OPERATOR_REF ?= 2bf2d99457b665afc635aa79683840ed8e59461e
+AGENTIC_OPERATOR_COMMIT ?= 2bf2d99457b665afc635aa79683840ed8e59461e
 
 # Run this explicitly when updating the pinned agentic inputs. Bundle builds use
 # the reviewed, checked-in files so CI and disconnected builds need no GitHub access.
