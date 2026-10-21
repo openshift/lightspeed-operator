@@ -14,6 +14,21 @@ spec:
     - source: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9
       mirrors:
         - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-service
+    - source: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-rhel9-operator
+      mirrors:
+        - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-operator
+    - source: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9
+      mirrors:
+        - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console
+    - source: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9
+      mirrors:
+        - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter
+    - source: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9
+      mirrors:
+        - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox
+    - source: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9
+      mirrors:
+        - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-otel-collector
     - source: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9
       mirrors:
         - quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console
