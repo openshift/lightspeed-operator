@@ -1258,7 +1258,6 @@ spec:
               spec:
                 containers:
                   - args:
-                      - --namespace=openshift-lightspeed
                       - --metrics-bind-address=:8080
                       - --health-probe-bind-address=:8081
                     command:
