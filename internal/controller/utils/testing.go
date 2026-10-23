@@ -21,6 +21,7 @@ type TestReconciler struct {
 	ConsoleImage        string
 	AgenticConsoleImage string
 	AlertsAdapterImage  string
+	AgenticSkillsImage  string
 	AgenticSandboxImage string
 	OtelCollectorImage  string
 	AppServerImage      string
@@ -60,6 +61,10 @@ func (r *TestReconciler) GetAgenticConsoleImage() string {
 
 func (r *TestReconciler) GetAlertsAdapterImage() string {
 	return r.AlertsAdapterImage
+}
+
+func (r *TestReconciler) GetAgenticSkillsImage() string {
+	return r.AgenticSkillsImage
 }
 
 func (r *TestReconciler) GetAgenticSandboxImage() string {
@@ -134,6 +139,7 @@ func NewTestReconciler(
 		ConsoleImage:        ConsoleUIImageDefault,
 		AgenticConsoleImage: AgenticConsoleUIImageDefault,
 		AlertsAdapterImage:  AlertsAdapterImageDefault,
+		AgenticSkillsImage:  AgenticSkillsImageDefault,
 		AgenticSandboxImage: AgenticSandboxImageDefault,
 		OtelCollectorImage:  OtelCollectorImageDefault,
 		AppServerImage:      OLSAppServerImageDefault,
