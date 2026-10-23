@@ -39,8 +39,9 @@ spec:
   - name: build-platforms
     value:
     - linux/x86_64
+    - linux/arm64
   - name: build-image-index
-    value: "false"
+    value: "true"
   pipelineSpec:
     description: |
       This pipeline is ideal for building container images from a Containerfile while reducing network traffic.
@@ -231,7 +232,7 @@ spec:
       - name: SOURCE_ARTIFACT
         value: $(tasks.prefetch-dependencies.results.SOURCE_ARTIFACT)
       - name: IMAGE_APPEND_PLATFORM
-        value: "false"
+        value: "true"
       - name: BUILDAH_FORMAT
         value: $(params.buildah-format)
       - name: SOURCE_DATE_EPOCH
