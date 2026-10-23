@@ -10,11 +10,10 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: |
       event == "push" &&
       target_branch == "main" &&
-      ("lightspeed-catalog-5.0/index.yaml".pathChanged() ||
+      (".tekton/fbc-v5-0-push.yaml".pathChanged() ||
+       "lightspeed-catalog-5.0/index.yaml".pathChanged() ||
        "lightspeed-catalog-5.0/bundle-v*.yaml".pathChanged() ||
        "lightspeed-catalog-5.0.Dockerfile".pathChanged())
-      // Enable Dockerfile-only and pipeline-only triggers after the first catalog
-      // update populates the index; building the empty directory fails.
   labels:
     appstudio.openshift.io/application: ols-fbc-v5-0
     appstudio.openshift.io/component: fbc-v5-0
@@ -32,6 +31,7 @@ spec:
   - name: build-platforms
     value:
     - linux/x86_64
+    - linux/arm64
   - name: dockerfile
     value: lightspeed-catalog-5.0.Dockerfile
   - name: prefetch-input
