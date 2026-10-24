@@ -28,6 +28,7 @@ spec:
   - name: build-platforms
     value:
     - linux/x86_64
+    - linux/arm64
   - name: dockerfile
     value: lightspeed-catalog-4.20.Dockerfile
   - name: prefetch-input
