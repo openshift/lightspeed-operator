@@ -152,7 +152,8 @@ test-agentic-sync: ## Test pinned agentic CRD/RBAC sync without network access.
 
 .PHONY: test
 test: test-agentic-sync manifests generate fmt vet envtest test-crds ## Run local tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./api/... ./internal/... -coverprofile cover.out -p 6 -timeout 10m
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./api/... ./internal/... ./hack/... -coverprofile cover.out -covermode=atomic -p 6 -timeout 10m
+	hack/codecov.sh cover.out unit
 
 # Use 4.18 release branch for CRDs in unit tests
 OS_CONSOLE_CRD_URL = https://raw.githubusercontent.com/openshift/api/refs/heads/release-4.18/operator/v1/zz_generated.crd-manifests/0000_50_console_01_consoles.crd.yaml
