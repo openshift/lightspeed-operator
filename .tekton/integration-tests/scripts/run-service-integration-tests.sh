@@ -11,7 +11,7 @@
 # Env (set by Tekton step): KUBECONFIG, KONFLUX_BOOL, BUNDLE_IMAGE (SNAPSHOT containerImage for the
 #   labeled Konflux component — bundle or operator image depending on scenario), BUNDLE_COMMIT_SHA,
 #   ARTIFACT_DIR, OLS_IMAGE, BAM_PROVIDER_KEY_PATH, AZUREOPENAI_PROVIDER_KEY_PATH,
-#   OPENAI_PROVIDER_KEY_PATH, WATSONX_PROVIDER_KEY_PATH,
+#   OPENAI_PROVIDER_KEY_PATH, WATSONX_PROVIDER_KEY_PATH, ANTHROPIC_PROVIDER_KEY_PATH,
 #   Azure Entra paths under /var/run/azureopenai-entra-id/
 #   OLS_NAMESPACE — optional; default openshift-lightspeed (matches pipeline params.namespace)
 

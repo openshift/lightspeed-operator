@@ -210,6 +210,9 @@ spec:
           - name: vertex-token
             secret:
               secretName: vertex-apitoken
+          - name: anthropic-token
+            secret:
+              secretName: anthropic-apitoken
           - name: bedrock-token
             secret:
               secretName: bedrock-apitoken
@@ -241,6 +244,8 @@ spec:
                 mountPath: /var/run/watsonx
               - name: vertex-token
                 mountPath: /var/run/vertex
+              - name: anthropic-token
+                mountPath: /var/run/anthropic
               - name: bedrock-token
                 mountPath: /var/run/bedrock
               - name: bedrock-role-token
@@ -260,6 +265,8 @@ spec:
                 value: "/var/run/watsonx/token"
               - name: VERTEX_PROVIDER_KEY_PATH
                 value: "/var/run/vertex/token"
+              - name: ANTHROPIC_PROVIDER_KEY_PATH
+                value: "/var/run/anthropic/apitoken"
               - name: BEDROCK_AWS_ACCESS_KEY_ID
                 valueFrom:
                   secretKeyRef:
