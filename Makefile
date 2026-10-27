@@ -34,7 +34,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 IMAGE_TAG_BASE ?= quay.io/openshift-lightspeed/lightspeed-operator
 
 # One bundle version is published to every supported OCP catalog.
-BUNDLE_TAG ?= 2.0.0
+BUNDLE_TAG ?= 2.0.1
 
 # set the base image for docker files
 # You can use it as an arg.  (E.g make bundle BASE_IMG=registry.redhat.io/ubi9/ubi-minimal)

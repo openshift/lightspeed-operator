@@ -22,7 +22,7 @@ SCRIPT_DIR=$(dirname "$0")
 
 usage() {
   echo "Usage: $0 -i related_images_filename [-v bundle_version] [-c channel_name]"
-  echo "  -v bundle_version: The version of the single full bundle (defaults to 2.0.0)"
+  echo "  -v bundle_version: The version of the single full bundle (defaults to 2.0.1)"
   echo "  -i related_images_filename: The JSON file containing the related images"
   echo "  -c channel_name: The bundle channel (defaults to alpha)"
   echo "  -h: Show this help message"
@@ -32,7 +32,7 @@ if [ "$#" -ge 1 ] && [[ "$1" == "-h" || "$1" == "--help" ]]; then
   usage
   exit 0
 fi
-BUNDLE_VERSION="${BUNDLE_VERSION:-2.0.0}"
+BUNDLE_VERSION="${BUNDLE_VERSION:-2.0.1}"
 RELATED_IMAGES_FILENAME=""
 CHANNEL_NAME="alpha"
 
