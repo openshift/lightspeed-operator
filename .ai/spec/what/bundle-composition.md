@@ -20,6 +20,7 @@ The `lightspeed-operator` package has **one unified Classic + Agentic OLM bundle
 6. Both controller images are specified in their respective CSV deployments. Their operand images are configured via controller startup flags or environment variables.
 7. `related_images.json` is the single image input to `hack/update_bundle.sh`. The unified CSV's `spec.relatedImages` includes the Classic and Agentic images for disconnected installs, regardless of OCP version. The script substitutes image digests into deployments and args; `operator_arg` names Classic controller flags. There is no per-variant `bundles` filter.
 8. The lightspeed-operator owns the chat and agentic console plugin operands and the opt-in alerts adapter; the agentic controller must not deploy a duplicate agentic console plugin. The agentic console and alerts adapter are subject to the runtime gate below, not to OLM catalog selection.
+8a. [OLS-4234] The `agentic-skills` related image is passed to the Classic controller as `--agentic-skills-image` and injected into the opt-in alerts-adapter Deployment as `AGENTIC_SKILLS_IMAGE`. The adapter uses this default for configured `tools.skills` entries without an explicit image; explicit images take precedence. Pin the production multi-architecture manifest-list digest so disconnected mirroring and both amd64 and arm64 installations use the same image set.
 
 ### Runtime Boundary
 
@@ -48,6 +49,7 @@ The `lightspeed-operator` package has **one unified Classic + Agentic OLM bundle
 | Classic `--agentic-sandbox-image` | `cmd/main.go`, `related_images.json` | Sandbox image in the handoff PodSpec |
 | Classic `--rhokp-image` | `cmd/main.go`, `related_images.json` | RHOKP image |
 | Classic `--alerts-adapter-image` / `--agentic-console-image` | `cmd/main.go`, `related_images.json` | Optional agentic operand images |
+| Classic `--agentic-skills-image` | `cmd/main.go`, `related_images.json` | Default skills image passed to the alerts adapter via `AGENTIC_SKILLS_IMAGE`; explicit skill images override it |
 
 ## Constraints
 
