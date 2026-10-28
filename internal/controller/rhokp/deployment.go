@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -43,7 +42,7 @@ func getSecretResourceVersion(r reconciler.Reconciler, ctx context.Context, secr
 }
 
 // GenerateDeployment generates the standalone RHOKP Deployment with service-ca TLS
-// mounted for Apache httpd, an EmptyDir for Solr data, and HTTPS probes.
+// mounted for Apache httpd, an EmptyDir for Solr data, and loopback Solr probes.
 func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	revisionHistoryLimit := int32(1)
 	runAsNonRoot := true
@@ -54,7 +53,6 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 	}
 
 	tlsVolumeDefaultMode := utils.VolumeRestrictedMode
-	httpsPort := intstr.FromInt32(utils.RHOOKPImageHTTPSPort)
 
 	// Use ephemeral-storage from resolved resources (CRD override or default).
 	resources := getResources(cr)
@@ -115,37 +113,20 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 								},
 							},
 							StartupProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   utils.RHOOKPReadinessHTTPPath,
-										Port:   httpsPort,
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
+								ProbeHandler:        solrProbeHandler(),
 								InitialDelaySeconds: utils.RHOOKPStartupProbeInitialDelaySeconds,
 								PeriodSeconds:       utils.RHOOKPStartupProbePeriodSeconds,
+								TimeoutSeconds:      utils.RHOOKPProbeTimeoutSeconds,
 								FailureThreshold:    utils.RHOOKPStartupProbeFailureThreshold,
 							},
 							ReadinessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   utils.RHOOKPReadinessHTTPPath,
-										Port:   httpsPort,
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
+								ProbeHandler:     solrProbeHandler(),
 								PeriodSeconds:    utils.RHOOKPProbePeriodSeconds,
 								TimeoutSeconds:   utils.RHOOKPProbeTimeoutSeconds,
 								FailureThreshold: utils.RHOKPReadinessProbeFailureThreshold,
 							},
 							LivenessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   utils.RHOOKPReadinessHTTPPath,
-										Port:   httpsPort,
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
+								ProbeHandler:     solrProbeHandler(),
 								PeriodSeconds:    utils.RHOOKPProbePeriodSeconds,
 								TimeoutSeconds:   utils.RHOOKPProbeTimeoutSeconds,
 								FailureThreshold: utils.RHOKPProbeFailureThreshold,
@@ -187,6 +168,14 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 	}
 
 	return deployment, nil
+}
+
+func solrProbeHandler() corev1.ProbeHandler {
+	return corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{
+		"/usr/bin/curl", "--fail", "--silent", "--show-error", "--noproxy", "*",
+		"--max-time", "4", "--output", "/dev/null",
+		"http://127.0.0.1:8983" + utils.RHOOKPReadinessHTTPPath,
+	}}}
 }
 
 // UpdateDeployment updates the RHOKP Deployment when the pod spec or TLS Secret changes.
