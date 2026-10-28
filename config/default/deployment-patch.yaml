@@ -30,6 +30,9 @@
   value: --alerts-adapter-image=__REPLACE_LIGHTSPEED_AGENTIC_ALERTS_ADAPTER__
 - op: add
   path: /spec/template/spec/containers/0/args/-
+  value: --agentic-skills-image=__REPLACE_AGENTIC_SKILLS__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
   value: --agentic-sandbox-image=__REPLACE_LIGHTSPEED_AGENTIC_SANDBOX__
 - op: replace
   path: /spec/template/spec/containers/0/image
