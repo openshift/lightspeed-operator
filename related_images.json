@@ -87,6 +87,13 @@
     "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9"
   },
   {
+    "name": "agentic-skills",
+    "image": "registry.stage.redhat.io/openshift5/agentic-skills:v5.0",
+    "revision": "",
+    "operator_arg": "agentic-skills-image",
+    "stable_prefix": "registry.redhat.io/openshift5/agentic-skills"
+  },
+  {
     "name": "lightspeed-agentic-sandbox",
     "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9@sha256:48a69d0c28a83495285a9e3d485597ccda87684e3bd14e5c4beed0aeb1ec7f3a",
     "revision": "ad54cb138cf45536fa7b95e39f33527dd3ca9ac3",
