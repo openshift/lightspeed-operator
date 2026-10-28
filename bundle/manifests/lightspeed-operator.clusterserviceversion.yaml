@@ -1357,6 +1357,7 @@ spec:
                       - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
                       - --agentic-console-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:3f0237538ed86d204ac30445225a2f97f260d50a0efe4975c25570ba29de9f69
                       - --alerts-adapter-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:31e97eef4cd62520b7608478225de7cd4ce0a99ae2566ca8e395b528a0c1cd3d
+                      - --agentic-skills-image=registry.stage.redhat.io/openshift5/agentic-skills:v5.0
                       - --agentic-sandbox-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9@sha256:48a69d0c28a83495285a9e3d485597ccda87684e3bd14e5c4beed0aeb1ec7f3a
                     command:
                       - /manager
@@ -1568,5 +1569,7 @@ spec:
       image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:3f0237538ed86d204ac30445225a2f97f260d50a0efe4975c25570ba29de9f69
     - name: lightspeed-agentic-alerts-adapter
       image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:31e97eef4cd62520b7608478225de7cd4ce0a99ae2566ca8e395b528a0c1cd3d
+    - name: agentic-skills
+      image: registry.stage.redhat.io/openshift5/agentic-skills:v5.0
     - name: lightspeed-agentic-sandbox
       image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9@sha256:48a69d0c28a83495285a9e3d485597ccda87684e3bd14e5c4beed0aeb1ec7f3a

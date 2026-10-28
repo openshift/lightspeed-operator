@@ -66,7 +66,8 @@ the agentic resources described here.
 ### Agentic Operand Deployment
 
 16. The lightspeed-operator reconciles the agentic console plugin as a fully managed operand: Phase 1/2 reconciliation, `AgenticConsolePluginReady` status condition, health monitoring, and finalizer cleanup via `RemoveAgenticConsole()`. The lightspeed-operator reconciles the agentic alerts adapter as a fully managed operand (OLS-3348, opt-in via `spec.ols.deployment.alertsAdapter.configMapRef`): Phase 1/2 reconciliation when enabled, `AlertsAdapterReady` status condition (`NotConfigured` when disabled), health monitoring, operand teardown on disable, ConfigMap watcher restarts, and finalizer cleanup via `RemoveAlertsAdapter()`.
-17. Operand images default from `related_images.json` (via `GetDefaultImage` in `constants.go`) and are passed to the operator through CSV deployment args defined by `operator_arg` on each `related_images.json` entry. `config/default/deployment-patch.yaml` is generated from that file (`make manifests`); `hack/update_bundle.sh` substitutes digests at bundle time.
+17. Operand images default from `related_images.json` (via `GetDefaultImage` in `constants.go`) and are passed to the operator through CSV deployment args defined by `operator_arg` on each `related_images.json` entry. `config/default/deployment-patch.yaml` is generated from that file (`make manifests`); `hack/update_bundle.sh` substitutes image references at bundle time.
+17a. [OLS-4234] The `agentic-skills` related image is passed to the Classic controller as `--agentic-skills-image` and injected into its opt-in alerts-adapter Deployment as `AGENTIC_SKILLS_IMAGE`. The adapter uses that default for configured `tools.skills` entries without an explicit `image`; explicit images remain overrides. The current OCP 5.0 staging reference uses the floating `:v5.0` tag. Resolve and pin the **multi-architecture index** digest before a reproducible GA release; an architecture-specific digest would break other platforms.
 
 ## Configuration Surface
 
@@ -79,6 +80,7 @@ the agentic resources described here.
 | Lightspeed controller `--agentic-sandbox-image` | `cmd/main.go` flag; CSV deployment spec args; `related_images.json` (`lightspeed-agentic-sandbox`) | Sandbox container image embedded in thin handoff PodSpec (OLS-3683) |
 | Lightspeed controller `--rhokp-image` | `cmd/main.go` flag; CSV deployment spec args; `related_images.json` (`rhokp`) | RHOKP sidecar image (external product image; digest-pinned) |
 | Lightspeed controller `--alerts-adapter-image` | `cmd/main.go` flag; CSV deployment spec args; `related_images.json` (`lightspeed-agentic-alerts-adapter`) | Alerts adapter container image (interim tags until productized) |
+| Lightspeed controller `--agentic-skills-image` | `cmd/main.go` flag; CSV deployment spec args; `related_images.json` (`agentic-skills`) | Default skills image handed to alerts adapter via `AGENTIC_SKILLS_IMAGE` when enabled; explicit user-configured skill image takes precedence |
 | Lightspeed controller `--agentic-console-image` | CSV deployment spec args; `related_images.json` (`lightspeed-agentic-console-plugin`) | Agentic console plugin container image (interim `:main` until productized) |
 
 ## Constraints
