@@ -38,7 +38,7 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 10. Storage: EmptyDir volume with `sizeLimit: 75Gi`. The Solr corpus is baked into the image; EmptyDir provides explicit quota.
 11. Environment: optional `ACCESS_KEY` from Secret `rhokp-access-key` (same as sidecar).
 12. Security context: restricted PSS except `readOnlyRootFilesystem: false` (Solr/httpd writes at startup).
-13. Startup probe: HTTPS GET `/solr/portal-rag/admin/ping` on port 8443. Tolerates ~6 min cold start (large corpus load). Readiness and liveness probes use the same endpoint.
+13. Startup, readiness, and liveness probes exec `curl` against `http://127.0.0.1:8983/solr/portal-rag/admin/ping` inside the RHOKP container. They fail on HTTP errors, bypass proxies, and enforce a 4s curl timeout within the 5s Kubernetes probe timeout. Startup tolerates ~6 min cold start (large corpus load). Solr admin routes are not exposed through Apache HTTPS.
 14. Resource defaults: 2 CPU, 2 GiB memory requests (no limits), per OpenShift resource conventions.
 
 ### App-server Integration
@@ -47,7 +47,7 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 17. Client CA Secrets for RHOKP are refreshed via the table-driven `RefreshClientCASecrets` in `RestartAppServer`. No hash annotation is stored on the app-server Deployment.
 
 ### Monitoring
-18. ServiceMonitor `lightspeed-rhokp-monitor` (OLS-3727) — scrapes RHOKP Solr metrics via HTTPS on port 8443, path `/solr/admin/metrics` (Solr built-in Prometheus metrics reporter). Server TLS only (service-ca CA bundle + `serverName`), 30s interval. Reconciled in Phase 2 via `utils.ReconcileServiceMonitor()`. Skipped if Prometheus Operator CRDs are not installed. The NetworkPolicy ingress in rule 3 admits the cluster Prometheus scrape (OLS-3943); the ServiceMonitor alone does not grant network access.
+18. ServiceMonitor `lightspeed-rhokp-monitor` (OLS-3727) — configured for HTTPS on port 8443, path `/solr/admin/metrics`, with service-ca trust and a 30s interval. Reconciled in Phase 2 via `utils.ReconcileServiceMonitor()`; skipped if Prometheus Operator CRDs are not installed. **Known limitation (post-RHOKP-1848):** Apache no longer proxies this admin route, so scrapes return 404 on newer RHOKP images. A separate OKP-approved secure metrics endpoint is required; do not re-expose Solr admin routes to fix scraping.
 
 ### Agentic Handoff
 19. When OKP is enabled, the inter-operator handoff ConfigMap (`lightspeed-agentic-configuration`) includes `rhokp-endpoint` and `rhokp-ca-secret` keys. When `byokRAGOnly` is true, both are absent.

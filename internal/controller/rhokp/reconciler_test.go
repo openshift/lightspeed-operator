@@ -149,6 +149,27 @@ var _ = Describe("RHOKP reconciler", Ordered, func() {
 			Expect(dep.Annotations).To(HaveKey(utils.RHOKPTLSSecretResourceVersionAnnotation))
 		})
 
+		It("should probe Solr loopback without exposing admin routes via Apache", func() {
+			dep := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name: utils.RHOKPDeploymentName, Namespace: utils.OLSNamespaceDefault,
+			}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			container := dep.Spec.Template.Spec.Containers[0]
+			for _, probe := range []*corev1.Probe{
+				container.StartupProbe, container.ReadinessProbe, container.LivenessProbe,
+			} {
+				Expect(probe.Exec).NotTo(BeNil())
+				Expect(probe.HTTPGet).To(BeNil())
+				Expect(probe.Exec.Command).To(Equal([]string{
+					"/usr/bin/curl", "--fail", "--silent", "--show-error", "--noproxy", "*",
+					"--max-time", "4", "--output", "/dev/null",
+					"http://127.0.0.1:8983/solr/portal-rag/admin/ping",
+				}))
+				Expect(probe.TimeoutSeconds).To(Equal(int32(5)))
+			}
+		})
+
 		It("should create the RHOKP ServiceMonitor", func() {
 			sm := &monv1.ServiceMonitor{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
