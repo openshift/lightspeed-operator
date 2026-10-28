@@ -56,7 +56,7 @@
   },
   {
     "name": "rhokp",
-    "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4",
+    "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:bd40f979ba70d7b25f2c81c84f4768d8d62986f87452c9acd89d08961ab2b01e",
     "revision": "",
     "operator_arg": "rhokp-image"
   },
