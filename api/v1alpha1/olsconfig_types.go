@@ -248,14 +248,15 @@ type ToolResultInspectionConfig struct {
 
 // OLSSpec defines the desired state of OLS deployment.
 //
-// OKP (Offline Knowledge Portal) / Solr hybrid RAG is operator-managed, not configured on this CR:
-//   - Enabled by default. The operator deploys the RHOKP sidecar and writes ols_config.solr_hybrid
-//     into olsconfig.yaml (Solr URL, hybrid tuning, and related keys use operator defaults).
-//   - The app-server pod receives OCP_CLUSTER_VERSION for Solr chunk_filter_query resolution.
-//   - OCP documentation is retrieved via the search_openshift_documentation tool (Solr hybrid), not
+// OKP (Offline Knowledge Portal) MCP search is operator-managed, not configured on this CR:
+//   - Enabled by default. The operator deploys RHOKP with MCP enabled and configures its
+//     HTTPS /mcp endpoint in the app-server olsconfig.yaml (no solr_hybrid section).
+//   - The app-server pod receives OCP_CLUSTER_VERSION to restrict MCP search results to
+//     documentation for the cluster's OpenShift version.
+//   - OCP documentation is retrieved via the search_openshift_documentation tool, not
 //     direct prompt RAG. BYOK content remains on spec.rag (FAISS indexes).
-//   - Set byokRAGOnly to disable OKP: no RHOKP sidecar, no solr_hybrid section, and no built-in
-//     OCP documentation retrieval—only BYOK FAISS indexes from spec.rag are used.
+//   - Set byokRAGOnly to disable OKP: no RHOKP deployment or built-in MCP server;
+//     only BYOK FAISS indexes from spec.rag are used.
 type OLSSpec struct {
 	// Guardrails configuration for untrusted model inputs and outputs.
 	// +kubebuilder:validation:Optional
@@ -329,7 +330,7 @@ type OLSSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Persistent Storage Configuration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	Storage *Storage `json:"storage,omitempty"`
-	// Only use BYOK RAG sources. Disables OKP (RHOKP sidecar, solr_hybrid config, and built-in OCP documentation retrieval).
+	// Only use BYOK RAG sources. Disables RHOKP and its built-in MCP documentation search.
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Only use BYOK RAG sources",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	ByokRAGOnly bool `json:"byokRAGOnly,omitempty"`

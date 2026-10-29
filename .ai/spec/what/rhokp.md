@@ -6,8 +6,8 @@ Standalone HTTPS RHOKP operand managed by the `rhokp` package ([OLS-3697](https:
 
 ```
 lightspeed-service (app-server)
-  └─ HTTPS Solr client
-       url: https://lightspeed-rhokp.<ns>.svc:8443/solr/portal-rag/hybrid-search
+  └─ HTTPS MCP client (streamable HTTP)
+       url: https://lightspeed-rhokp.<ns>.svc:8443/mcp
        trust: /etc/certs/rhokp-ca/service-ca.crt  (extra_ca, from Secret lightspeed-agentic-rhokp-ca)
             │
             ▼
@@ -16,7 +16,7 @@ lightspeed-rhokp Deployment + ClusterIP Service (:8443)
   └─ NetworkPolicy                   lightspeed-rhokp
 ```
 
-Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is true, the operator removes managed RHOKP resources and omits `solr_hybrid` config.
+Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is true, the operator removes managed RHOKP resources and omits the built-in `rhokp` MCP server config. Deploying this migration requires the MCP-capable OKP image and probe fix in OLS-4395.
 
 ## Behavioral Rules
 
@@ -36,18 +36,18 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 8. Container name: `rhokp`.
 9. No port remapping — standalone mode uses Apache native port 8443 for HTTPS. The sidecar-era sed-patching of Apache config is removed.
 10. Storage: EmptyDir volume with `sizeLimit: 75Gi`. The Solr corpus is baked into the image; EmptyDir provides explicit quota.
-11. Environment: optional `ACCESS_KEY` from Secret `rhokp-access-key` (same as sidecar).
+11. Environment: `MCP_ENABLED=true` enables Apache's `/mcp` proxy in the new OKP image; optional `ACCESS_KEY` from Secret `rhokp-access-key` (same as sidecar).
 12. Security context: restricted PSS except `readOnlyRootFilesystem: false` (Solr/httpd writes at startup).
-13. Startup probe: HTTPS GET `/solr/portal-rag/admin/ping` on port 8443. Tolerates ~6 min cold start (large corpus load). Readiness and liveness probes use the same endpoint.
+13. OLS-4395 supplies Solr-loopback exec probes for the MCP-capable image; Apache does not proxy admin ping. This PR does not change the probes and must not deploy before OLS-4395.
 14. Resource defaults: 2 CPU, 2 GiB memory requests (no limits), per OpenShift resource conventions.
 
 ### App-server Integration
-15. `olsconfig.yaml` `solr_hybrid.solr_http_base` is set to `https://lightspeed-rhokp.<namespace>.svc:8443` (replaces former `http://localhost:9080`).
+15. `olsconfig.yaml` configures the built-in `rhokp` MCP server at `https://lightspeed-rhokp.<namespace>.svc:8443/mcp` when OKP is enabled and omits `ols_config.solr_hybrid`. OKP computes its own search embeddings; OLS version-filters the returned docs.
 16. App-server mounts Secret `lightspeed-agentic-rhokp-ca` at `/etc/certs/rhokp-ca/` and adds `service-ca.crt` to `extra_ca`. See `tls.md`.
 17. Client CA Secrets for RHOKP are refreshed via the table-driven `RefreshClientCASecrets` in `RestartAppServer`. No hash annotation is stored on the app-server Deployment.
 
 ### Monitoring
-18. ServiceMonitor `lightspeed-rhokp-monitor` (OLS-3727) — scrapes RHOKP Solr metrics via HTTPS on port 8443, path `/solr/admin/metrics` (Solr built-in Prometheus metrics reporter). Server TLS only (service-ca CA bundle + `serverName`), 30s interval. Reconciled in Phase 2 via `utils.ReconcileServiceMonitor()`. Skipped if Prometheus Operator CRDs are not installed. The NetworkPolicy ingress in rule 3 admits the cluster Prometheus scrape (OLS-3943); the ServiceMonitor alone does not grant network access.
+18. ServiceMonitor `lightspeed-rhokp-monitor` (OLS-3727) — configured for HTTPS port 8443, `/solr/admin/metrics`. **Known limitation on the new image:** Apache no longer proxies this Solr admin route; metrics return 404. A separate OKP-approved secure metrics endpoint is needed; do not reopen Apache's Solr admin proxy. This is independent of MCP search.
 
 ### Agentic Handoff
 19. When OKP is enabled, the inter-operator handoff ConfigMap (`lightspeed-agentic-configuration`) includes `rhokp-endpoint` and `rhokp-ca-secret` keys. When `byokRAGOnly` is true, both are absent.
@@ -64,7 +64,7 @@ Gated by `!spec.ols.byokRAGOnly` (default: OKP enabled). When `byokRAGOnly` is t
 
 | Field path | Description |
 |---|---|
-| `spec.ols.byokRAGOnly` | When true, disable OKP: no standalone RHOKP, no `solr_hybrid` config |
+| `spec.ols.byokRAGOnly` | When true, disable OKP: no standalone RHOKP or built-in `rhokp` MCP server config |
 | `spec.ols.deployment.rhokp` | Standalone RHOKP `Config` (replicas, resources, tolerations, nodeSelector) |
 | `--rhokp-image` | RHOKP container image override |
 

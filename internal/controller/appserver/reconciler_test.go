@@ -992,7 +992,7 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("product_docs_index_path: " + utils.RAGVolumeMountPath + "/rag-0"))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("product_docs_index_id: ansible-docs-2_18"))
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("product_docs_index_path: " + utils.RAGVolumeMountPath + "/rag-1"))
-			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("solr_hybrid:"))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("/mcp"))
 		})
 
 	})

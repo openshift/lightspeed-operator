@@ -261,6 +261,7 @@ func Restart(r reconciler.Reconciler, ctx context.Context, deployment ...*appsv1
 func generateRHOOKPEnv() []corev1.EnvVar {
 	optional := true
 	return []corev1.EnvVar{
+		{Name: "MCP_ENABLED", Value: "true"},
 		{
 			Name: "ACCESS_KEY",
 			ValueFrom: &corev1.EnvVarSource{

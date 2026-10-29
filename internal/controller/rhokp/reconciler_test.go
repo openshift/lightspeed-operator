@@ -146,6 +146,9 @@ var _ = Describe("RHOKP reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(dep)
 			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(utils.RHOOKPImageDefault))
+			Expect(dep.Spec.Template.Spec.Containers[0].Env).To(ContainElement(corev1.EnvVar{
+				Name: "MCP_ENABLED", Value: "true",
+			}))
 			Expect(dep.Annotations).To(HaveKey(utils.RHOKPTLSSecretResourceVersionAnnotation))
 		})
 

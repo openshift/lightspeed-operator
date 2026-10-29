@@ -417,10 +417,6 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 
 	olsConfig.Audit = buildServiceAuditConfig(cr, r.GetNamespace())
 
-	if !cr.Spec.OLSConfig.ByokRAGOnly {
-		olsConfig.SolrHybrid = buildSolrHybridSettings(r.GetNamespace())
-	}
-
 	return olsConfig, nil
 }
 
@@ -443,20 +439,9 @@ func buildServiceAuditConfig(cr *olsv1alpha1.OLSConfig, namespace string) *utils
 	}
 }
 
-func buildSolrHybridSettings(namespace string) *utils.SolrHybridSettings {
-	return &utils.SolrHybridSettings{
-		SolrHTTPBase:             utils.RHOKPServiceURL(namespace),
-		MaxResults:               utils.SolrHybridMaxResultsDefault,
-		HybridVectorBoost:        utils.SolrHybridVectorBoostDefault,
-		HybridPoolDocs:           utils.SolrHybridPoolDocsDefault,
-		HybridScoreThreshold:     utils.SolrHybridScoreThresholdDefault,
-		HybridSolrTimeoutSeconds: utils.SolrHybridSolrTimeoutSecondsDefault,
-	}
-}
-
 // generateMCPServerConfigs builds MCP (Model Context Protocol) server configurations.
-// It adds the built-in OpenShift MCP server if introspection is enabled, and any user-defined
-// MCP servers with their authentication headers (Kubernetes, client, or secret-based).
+// It adds the built-in OpenShift MCP server if introspection is enabled, the built-in
+// OKP MCP server if OKP is enabled, and configured user servers with authentication.
 func generateMCPServerConfigs(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) ([]utils.MCPServerConfig, error) {
 	servers := []utils.MCPServerConfig{}
 
@@ -475,6 +460,14 @@ func generateMCPServerConfigs(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig
 			Headers: map[string]string{
 				utils.K8S_AUTH_HEADER: utils.KUBERNETES_PLACEHOLDER,
 			},
+		})
+	}
+
+	// OKP performs query embedding and version-aware documentation search itself.
+	if !cr.Spec.OLSConfig.ByokRAGOnly {
+		servers = append(servers, utils.MCPServerConfig{
+			Name: "rhokp",
+			URL:  utils.RHOKPServiceURL(r.GetNamespace()) + "/mcp",
 		})
 	}
 

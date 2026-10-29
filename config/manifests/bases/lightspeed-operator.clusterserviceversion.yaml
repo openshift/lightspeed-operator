@@ -225,8 +225,8 @@ spec:
         path: ols.auditEventsEnabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: Only use BYOK RAG sources. Disables OKP (RHOKP sidecar, solr_hybrid
-          config, and built-in OCP documentation retrieval).
+      - description: Only use BYOK RAG sources. Disables RHOKP and its built-in MCP
+          documentation search.
         displayName: Only use BYOK RAG sources
         path: ols.byokRAGOnly
         x-descriptors:
