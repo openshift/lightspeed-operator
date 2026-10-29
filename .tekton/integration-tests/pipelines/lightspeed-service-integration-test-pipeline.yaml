@@ -34,6 +34,10 @@ spec:
       description: 'OpenShift minor version to provision (for example, 4.22).'
       default: '4.22'
       type: string
+    - name: compute-node-type
+      description: 'EC2 instance type for the ephemeral cluster compute nodes; m5.2xlarge = amd64, m6g.2xlarge = arm64.'
+      type: string
+      default: 'm5.2xlarge'
     - name: artifact-oci-tag-prefix
       description: 'Version prefix before the commit in the per-run Quay tag <PipelineRun name>-<prefix><commit>.'
       default: ''
@@ -63,7 +67,7 @@ spec:
         - name: clusterProfile
           value: aws-konflux-prod
         - name: env
-          value: '{"COMPUTE_NODE_TYPE": "m5.2xlarge", "HYPERSHIFT_NODE_COUNT": "3", "HOSTED_MANAGEMENT_CLUSTER": "hosted-mgmt2"}'
+          value: '{"COMPUTE_NODE_TYPE": "$(params.compute-node-type)", "HYPERSHIFT_NODE_COUNT": "3", "HOSTED_MANAGEMENT_CLUSTER": "hosted-mgmt2"}'
         - name: releases
           value: '{"latest":{"release":{"channel":"stable","version":"$(params.openshift-version-prefix)","architecture":"multi"}}}'
     - name: ols-install
