@@ -201,3 +201,23 @@ spec:
               echo "---------------------------------------------"
               dnf -y install podman
               podman run -v ./ols-rapidast-config-updated.yaml:/opt/rapidast/config/config.yaml:Z quay.io/redhatproductsecurity/rapidast:latest ./rapidast.py
+
+  finally:
+    - name: validate-pipeline-params
+      description: Fail the run if params cannot be safely embedded in the provisioning env JSON.
+      taskSpec:
+        steps:
+          - name: validate-compute-node-type
+            image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+            env:
+              - name: COMPUTE_NODE_TYPE
+                value: $(params.compute-node-type)
+            script: |
+              #!/bin/sh
+              # compute-node-type is substituted into the provision-ephemeral-cluster env JSON;
+              # reject anything that is not a plain EC2 instance type so the JSON stays valid.
+              if ! printf '%s' "$COMPUTE_NODE_TYPE" | grep -Eq '^[a-zA-Z0-9][a-zA-Z0-9.-]*$'; then
+                echo "invalid compute-node-type: '$COMPUTE_NODE_TYPE'" >&2
+                echo "must be a plain EC2 instance type (e.g. m5.2xlarge, m6g.2xlarge); quotes and special characters break the provisioning env JSON" >&2
+                exit 1
+              fi
