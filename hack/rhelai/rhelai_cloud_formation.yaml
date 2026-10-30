@@ -95,7 +95,7 @@ Resources:
         - IpProtocol: "tcp"
           FromPort: 8443  # HTTPS
           ToPort: 8443
-          CidrIp: "0.0.0.0/0"	  
+          CidrIp: "0.0.0.0/0"
       SecurityGroupEgress:
         - IpProtocol: "-1"  # All traffic
           CidrIp: "0.0.0.0/0"
@@ -108,7 +108,7 @@ Resources:
     Type: "AWS::EC2::Instance"
     Properties:
       InstanceType: "g6.2xlarge"
-      ImageId: "ami-0aa8fc2422063977a"
+      ImageId: "ami-02990c099b7180454"
       KeyName: !Sub "${username}-keys"
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
