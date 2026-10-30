@@ -6,5 +6,24 @@ resources:
   - ../crd
   - ../rbac
   - ../manager
+  - ../metrics
+  - ../prometheus
   - ../webhook
   - ../admission
+# Prometheus connects to pod IPs but validates the serving certificate against
+# the metrics Service's DNS name. This replacement copies the Service's namespace
+# into the ServiceMonitor's TLS server name.
+replacements:
+  - source:
+      kind: Service
+      name: agentic-operator-metrics
+      fieldPath: metadata.namespace
+    targets:
+      - select:
+          kind: ServiceMonitor
+          name: agentic-operator-metrics
+        fieldPaths:
+          - spec.endpoints.0.tlsConfig.serverName
+        options:
+          delimiter: "."
+          index: 1

@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: agentic-operator-metrics
+  labels:
+    monitoring.openshift.io/collection-profile: full
+    openshift.io/user-monitoring: "false"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agentic-operator-metrics
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scheme: https
+      tlsConfig:
+        caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+        certFile: /etc/prometheus/secrets/metrics-client-certs/tls.crt
+        keyFile: /etc/prometheus/secrets/metrics-client-certs/tls.key
+        insecureSkipVerify: false
+        serverName: agentic-operator-metrics.__OPERATOR_NAMESPACE__.svc
