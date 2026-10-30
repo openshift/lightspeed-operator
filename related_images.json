@@ -31,8 +31,8 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:d416dbec289286d2899cb71eeba299e2a548e8e3b803db3e009bbf6b904c1a98",
-    "revision": "8aec56e5f87460a613fdbfdd7915ffd8043e31cd",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:193b10915f5d5890802f19d65edcccd5fec086c46bbef6f59c4d3a0493d691e6",
+    "revision": "21a4b7d6f4a7b94958af2e8c0d7e7bd4403c4151",
     "operator_target": "image",
     "snapshot_component": "lightspeed-operator",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator",
@@ -70,8 +70,8 @@
   },
   {
     "name": "lightspeed-agentic-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:a581c9c6d2adcf97a3dae8880399b6aaf029c7572f3aa8addc4dfc2c64eb9972",
-    "revision": "470d633b0cd7eed9c36e98c9640203deca7f60a6",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:de570645f96c65e0a86ea58303f18936f19da8f1df4b3f22b9b58cef1b598855",
+    "revision": "abba96ebb7c8276b7e66239e465887ebe207e97d",
     "operator_arg": "agentic-console-image",
     "snapshot_component": "lightspeed-agentic-console",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-console",
@@ -88,8 +88,8 @@
   },
   {
     "name": "lightspeed-agentic-sandbox",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9@sha256:4970fe00d93f48633b4ba3b98047b952105e5fa0cc962f4fe81910ef350ff909",
-    "revision": "0c34e422be4d73e8b72c64ab4d152dddcbe90650",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9@sha256:6fd91cf8f05871a794e0e09d3d879c6fbedc85b50220ce6096c43e2afc57b466",
+    "revision": "159d840cc7940519375c84f81d64ba5d1cbf21dd",
     "operator_arg": "agentic-sandbox-image",
     "snapshot_component": "lightspeed-agentic-sandbox",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox",
