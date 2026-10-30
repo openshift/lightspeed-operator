@@ -2,5 +2,7 @@ admission
 crd
 default
 manager
+metrics
+prometheus
 rbac
 webhook

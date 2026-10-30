@@ -271,14 +271,12 @@ spec:
                     type: object
                   modelProvider:
                     description: |-
-                      modelProvider selects which model provider stack talks to Vertex AI (required).
-                      "Anthropic" uses Anthropic models on Vertex; "Google" uses Google models on Vertex;
-                      "OpenAI" uses OpenAI-compatible models on Vertex.
+                      modelProvider selects the model family on Vertex AI (required).
+                      "Anthropic" uses Anthropic models on Vertex; "Google" uses Google models on Vertex.
                       Enum is defined on GoogleCloudVertexModelProvider.
                     enum:
                     - Anthropic
                     - Google
-                    - OpenAI
                     type: string
                   projectID:
                     description: |-
