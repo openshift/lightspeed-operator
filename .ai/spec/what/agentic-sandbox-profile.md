@@ -2,7 +2,7 @@
 
 Classic lightspeed-operator publishes cluster objects that lightspeed-agentic-operator consumes for sandbox provisioning and OTEL/MCP connectivity. Sandbox Pod/Claim lifecycle stays in agentic-operator. Stories: [OLS-3683](https://redhat.atlassian.net/browse/OLS-3683) (CRD + image), [OLS-3684](https://redhat.atlassian.net/browse/OLS-3684) (handoff artifacts). Agentic-operator consumption: OLS-3685+.
 
-See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RHOKP Service/CA), `crd-api.md` (`spec.agenticOLS`), `bundle-composition.md` (dual controller), `app-server.md` (client CA Secrets).
+See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RHOKP Service/CA), `crd-api.md` (`spec.agenticOLS`), `bundle-composition.md` (unified dual-controller bundle and runtime gating), `app-server.md` (client CA Secrets).
 
 ## Behavioral Rules
 

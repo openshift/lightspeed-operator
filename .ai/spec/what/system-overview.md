@@ -12,13 +12,13 @@ The OpenShift Lightspeed Operator is a Kubernetes operator that manages the life
 
 ### Co-deployed Agentic Controller
 
-4. The lightspeed-operator OLM bundle deploys **two controllers** side by side: the lightspeed-operator controller and the lightspeed-agentic-operator controller. OLM applies all static manifests (deployments, service accounts, roles, role bindings, CRDs) for both controllers at installation time.
+4. The unified lightspeed-operator OLM bundle is designed to deploy **two controllers** side by side on supported OCP 4.x and 5.x clusters after per-version catalog cutover: the lightspeed-operator controller and the lightspeed-agentic-operator controller. OLM applies all static manifests (deployments, service accounts, roles, role bindings, CRDs) for both controllers at installation time. Presence of the Agentic controller/APIs on 4.x does not enable Agentic workloads; runtime gating governs activity (see `bundle-composition.md`).
 5. The lightspeed-operator controller has no runtime interaction with the lightspeed-agentic-operator controller. The two reconcile different API groups (`ols.openshift.io` vs `agentic.openshift.io`) and share no runtime state.
 6. Feature gates on `OLSConfig` (`MCPServer`, `ToolFiltering`) do not control the activation of the agentic controller.
-7. The agentic controller is inert until its CRs (`AgenticOLSConfig`, `Agent`, `LLMProvider`, `ApprovalPolicy`, etc.) are created.
-8. The agentic controller image is specified in the CSV deployment spec, following the same pattern as the lightspeed-operator's own controller image. Operand images for the agentic controller (agentic console plugin, etc.) are configured via startup flags on the agentic controller deployment.
+7. Agentic workflow execution requires an explicitly created, unsuspended `AgenticOLSConfig` and a matching completed supported OCP 5.0+ version; installing the unified bundle or reaching OCP 5.0 alone is not workflow opt-in. The Classic controller gates its agentic operands, client CA Secrets, and handoff at runtime but does not check for `AgenticOLSConfig` before reconciling those operands; [PLANNED: OLS-4350] the agentic controller must independently gate its workflow reconciliation before release cutover.
+8. The agentic controller image is specified in the CSV deployment spec, following the same pattern as the lightspeed-operator's own controller image. Agentic-controller operand images (for example the sandbox) are configured via startup flags on its deployment; the Classic controller owns the agentic console plugin image.
 8a. The agentic controller accepts a `--sandbox-mode` flag (`bare-pod` default, `sandbox-claim` optional) that determines whether agent sandboxes run as bare Pods or use the Agent Sandbox API. In `bare-pod` mode, no Agent Sandbox API CRDs need to be installed. Classic operator also publishes `spec.agenticOLS.sandboxMode` and a thin PodSpec via `lightspeed-agentic-configuration` for agentic-operator to consume (see `agentic-sandbox-profile.md`); the sandbox container image in that PodSpec is set from classic `--agentic-sandbox-image`.
-9. See `bundle-composition.md` for details on the bundle structure, CRD ownership, and image references.
+9. See `bundle-composition.md` for details on the unified bundle, runtime gate, CRD ownership, and image references.
 
 ### Component Inventory
 
