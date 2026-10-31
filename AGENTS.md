@@ -148,21 +148,6 @@ make test-e2e   # E2E tests (requires cluster)
 - Sets `LOCAL_DEV_MODE=true`, which skips operator ServiceMonitor reconciliation and app-server metrics reader secret reconciliation (no local metrics scraping loop).
 - Image overrides: `--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, `--agentic-sandbox-image`, and other flags in `cmd/main.go`.
 
-## AI Assistant Skills
-
-Available skills:
-
-- **`/update-bundle dev`** - PR/CI: Konflux CI images (`-r ci`), regen bundle at current version
-- **`/update-bundle release X.Y.Z`** or **`/version-update X.Y.Z`** - Ship to `main`: see `version-update` skill for full release steps (stable images, version bump, bundle regen)
-
-Code review:
-
-- **`/go-code-review`** - Review Go code for error handling, concurrency, resource leaks, naming conventions
-- **`/go-testing-code-review`** - Review test code for table-driven tests, cleanup patterns, error messages
-- **`/review-pr`** - Structured PR review process with issue verification
-
-Invoke by typing `/skill-name` in chat.
-
 ## Git and PR Workflow
 
 ### Commit Messages
