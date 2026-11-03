@@ -6,7 +6,7 @@ Tracked by [OLS-4631](https://redhat.atlassian.net/browse/OLS-4631).
 
 The shared OLS 2.0 bundle contains both the classic and agentic operator deployments. It is built by `.tekton/ols-bundle-{pull-request,push}.yaml`; the agentic operator repository does not publish a separate OLM bundle.
 
-Bundle and FBC PipelineRuns target `linux/x86_64` and `linux/arm64`. FBC targets are OCP 4.16 through 4.22 and 5.0. Build matrices produce platform-specific intermediate tags, and index assembly publishes a combined image index. Bundle index assembly is explicitly enabled. Snapshots and promotion must use the index digest, not an architecture-specific child digest.
+The OLM bundle PipelineRuns target only `linux/x86_64`, disable image index creation, and publish a single-architecture image manifest. Enterprise Contract's `olm.olm_bundle_multi_arch` policy rejects bundle indexes, even when the bundle contents are architecture-independent. FBC PipelineRuns still target `linux/x86_64` and `linux/arm64` for OCP 4.16 through 4.22 and 5.0. Their build matrices produce platform-specific intermediate tags, and index assembly publishes combined catalog image indexes. Snapshots and promotion must use the bundle's single-image digest and each catalog's index digest, not an architecture-specific catalog child digest.
 
 Historical OLS 1.x bundle content is unchanged. These changes enable packaging and do not by themselves certify ARM support or add ARM E2E provisioning.
 
@@ -17,16 +17,16 @@ make test
 git diff --check
 ```
 
-Review all 18 descriptors for explicit platform lists, effective index enablement, build matrix and index-input wiring, intermediate-tag uniqueness, published index results, and a descriptor-change trigger. Local checks do not execute CEL, validate remote task implementations, or prove image builds succeed. OCP 5.0 descriptor-only changes now trigger builds, matching the other catalogs.
+Review the two bundle descriptors for a single platform with index creation and platform-suffixed image tags disabled. Review the 16 FBC descriptors for explicit platform lists, effective index enablement, build matrix and index-input wiring, intermediate-tag uniqueness, published index results, and a descriptor-change trigger. Local checks do not execute CEL, validate remote task implementations, or prove image builds succeed. OCP 5.0 descriptor-only changes now trigger builds, matching the other catalogs.
 
 ## Release validation checklist
 
 Before advertising ARM support:
 
 - Inspect every exact `FROM` reference in `bundle.Dockerfile` and the eight catalog Dockerfiles for both amd64 and arm64 variants. Authenticate using the normal registry login flow; do not put credentials in scripts or this document.
-- Run actual Konflux PR/push builds on both architectures, including catalog `opm` cache generation and applicable policy checks. Validate the bundle and each catalog with the supported operator-sdk/opm tooling.
-- Inspect resulting bundle/catalog image indexes for `linux/amd64` and `linux/arm64` entries.
-- Confirm snapshots, staging/production promotion, and catalog-generation automation preserve the index digest. Review external `konflux-release-data` configuration and downstream catalog architecture policy; local FBC builds do not prove downstream ARM availability.
+- Run actual Konflux PR/push builds: the bundle on amd64 only, catalogs on both architectures (including catalog `opm` cache generation and applicable policy checks). Validate the bundle and each catalog with the supported operator-sdk/opm tooling.
+- Inspect the bundle image's top-level media type to confirm it is a single image manifest, and inspect catalog image indexes for `linux/amd64` and `linux/arm64` entries.
+- Confirm snapshots, staging/production promotion, and catalog-generation automation preserve the bundle's image digest and each catalog's index digest. Review external `konflux-release-data` configuration and downstream catalog architecture policy; local FBC builds do not prove downstream ARM availability.
 - Review supported-architecture metadata/certification requirements; if labels are required, update the generation source and regenerate artifacts rather than editing only the generated CSV.
 - Inspect the exact released image references in the shared bundle, including both operator deployments and required enabled operands. Check both deployments for incompatible architecture scheduling rules. Existing dual-arch runtime build configuration is not evidence that every pinned released digest is multi-arch.
 - Verify staging publication exposes OLS 2.0 for ARM on each listed OCP catalog. Record the OCP versions actually tested; do not imply cluster qualification for untested versions.
