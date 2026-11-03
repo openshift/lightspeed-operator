@@ -27,11 +27,22 @@ The `lightspeed-operator` package has **one unified Classic + Agentic OLM bundle
 10. Normal Classic reconciliation reads one `ClusterVersion/version` snapshot. The Agentic gate is **Enabled** only if the latest update is `Completed`, matches `status.desired.version`, and the completed OCP major version is at least 5; **Disabled** for the same matching completed state on OCP 4.x; **Unknown** if the resource is unreadable, absent, incomplete, mismatched, or unparseable. Desired version alone does not establish that an upgrade has completed.
 11. Under Disabled or Unknown, Classic MUST NOT create, modify, or remove agentic operands or agentic client CA Secrets during normal reconciliation. Disabled may report `UnsupportedOCPVersion`; Unknown must preserve existing Agentic status and retry without claiming an unsupported version. Explicit OLSConfig deletion runs finalizer cleanup before version gating. When Enabled, reconciliation and explicit opt-out cleanup may proceed according to component configuration. An Enabled Classic-side gate permits configured operands (including the console) and the handoff without checking for `AgenticOLSConfig`. Agentic workflow execution requires an explicit, unsuspended `AgenticOLSConfig` and [PLANNED: OLS-4350] validation of the agentic-controller version gate before release cutover. Bundle installation or a Classic-side gate alone is not workflow opt-in. See [decision 0002](../decisions/0002-unified-bundle-runtime-gating.md).
 
+### On-Demand Hub Packaging [PLANNED: OLS-4429, OLS-4430, OLS-4784, OLS-4661]
+
+12. Synchronize HubConfig/SpokeCluster CRDs, CSV owned-CRD entries and reviewed static hub permissions from lightspeed-hub at a pinned revision. The unified bundle installs the hub ServiceAccount, ClusterRoles/Bindings and required namespace Roles/Bindings independently of HubConfig presence. Do not hand-edit synchronized assets.
+13. OLM/bundle is the sole static hub permission owner for the OLS installation lifetime. The OLS operator must neither reconcile nor delete these objects during activation/disablement. Prefer namespace-scoped credential/adapter grants; validate exact MCE permissions. Do not introduce blanket bind, escalate or cluster-admin. Hub-side RBAC does not grant remote spoke authority.
+14. Validate CSV permissions/clusterPermissions handling for a ServiceAccount not used by a CSV-managed Deployment. If unsuitable, use a supported explicit bundle-resource arrangement with the same ownership/lifetime. This mechanism remains unvalidated by this specification.
+15. The hub is an OLS-managed operand, never a third CSV install Deployment. Creating HubConfig `cluster` is activation intent, not an OLSConfig field; no hub process runs before activation. HubConfig does not bypass completed OCP 5.0+ runtime capability or independent unsuspended AgenticOLSConfig workflow opt-in. Unknown platform state is not unsupported or implicit teardown intent.
+16. Include pinned hub and required adapter images in the unified related-image set for disconnected mirroring and propagate them to their runtime deployers, honoring existing override conventions. `relatedImages` alone is not runtime wiring. Final hub startup flag/environment names must match reviewed implementation, not invented examples. Hub owns its separate multicluster adapter; Classic retains ownership of the local opt-in adapter.
+17. Before runtime creation, the OLS operator protects the HubConfig lifecycle. It reconciles image/configuration rollouts and self-heals drift; during shutdown it keeps/recreates the hub until fresh, identity-aware completion acknowledgement permits runtime removal. Static APIs/permissions remain. See [reconciliation](reconciliation.md) and [resource lifecycle](resource-lifecycle.md).
+
 ## Configuration Surface
 
 | Item | Location | Description |
 | --- | --- | --- |
 | Agentic CRD/RBAC pinned ref | Makefile / sync target | Source revision for generated Agentic static APIs and RBAC |
+| Hub CRD/RBAC pinned ref [PLANNED: OLS-4430, OLS-4784] | Hub sync configuration | Reviewed source revision for hub APIs/static permissions |
+| Hub image override [PLANNED: OLS-4429, OLS-4661] | OLS deployment startup configuration | Propagated hub image; exact flag/environment interface subject to implementation review |
 | Controller images | Unified CSV deployment specs | Classic and Agentic controller images |
 | Agentic controller `--sandbox-mode` | Unified CSV deployment args | `bare-pod` (default) or `sandbox-claim` |
 | Classic `--agentic-sandbox-image` | `cmd/main.go`, `related_images.json` | Sandbox image in the handoff PodSpec |
@@ -43,6 +54,15 @@ The `lightspeed-operator` package has **one unified Classic + Agentic OLM bundle
 1. The Classic controller does not import or reconcile `agentic.openshift.io` API types.
 2. The two controllers and their operands must support disconnected installs: include required images in the unified bundle and allow image overrides.
 3. Static Agentic RBAC and CRDs ship even on OCP 4.x. Runtime gating, not CRD absence, protects unsupported clusters. A known 4.x version does not establish a supported downgrade path from 5.x.
+
+## Planned Hub Delivery
+
+| Ticket | Required outcome |
+| --- | --- |
+| OLS-4429 / OLS-4430 | Unified hub images and pinned CRD sync |
+| OLS-4784 | Validated, solely bundle-owned hub static permissions |
+| OLS-4661 | HubConfig-driven protected runtime lifecycle |
+| OLS-4639 | Installed-bundle/hub-only verification, including images, static permissions and no idle hub Deployment |
 
 ## Migration Gates
 

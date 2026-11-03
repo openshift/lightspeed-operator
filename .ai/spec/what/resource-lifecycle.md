@@ -6,7 +6,7 @@ The operator manages two categories of Kubernetes resources: owned resources (cr
 
 ### Owned Resources
 
-1. Operator-owned resources have an OwnerReference pointing to the OLSConfig CR. Controller-runtime detects changes and triggers reconciliation for resource types registered with `Owns()`.
+1. Ordinary OLSConfig operand resources have an OwnerReference pointing to the OLSConfig CR. Controller-runtime detects changes and triggers reconciliation for resource types registered with `Owns()`.
 2. Owned resource types: Deployments, ServiceAccounts, ClusterRoles, ClusterRoleBindings, RoleBindings, Services, ConfigMaps, Secrets, PersistentVolumeClaims, ConsolePlugins, ServiceMonitors, PrometheusRules, ImageStreams.
 3. The ConsolePlugin CR is cluster-scoped and cannot use standard namespace-scoped owner references. It is cleaned up explicitly during finalizer processing.
 4. On OLSConfig deletion, the finalizer uses `listOwnedResources()` to inventory owned resources in the operator namespace by OwnerReference UID (not labels), explicitly deletes that inventory, and waits for it subject to the finalizer cleanup timeout before removing the finalizer. See `what/reconciliation.md` for finalizer sequencing.
@@ -41,6 +41,13 @@ The operator manages two categories of Kubernetes resources: owned resources (cr
 19. Before annotating resources, the operator validates LLM provider credential secrets via `ValidateLLMCredentials()` (secret must exist and contain expected key) and custom TLS secrets via `ValidateTLSSecret()` (must contain `tls.crt` and `tls.key`).
 20. Missing secrets for user-provided resources during annotation are not treated as errors. If a secret does not exist, `annotateSecretIfNeeded()` returns nil, and the resource will be picked up on the next reconciliation when it appears.
 21. If `ValidateLLMCredentials()` or `ValidateTLSSecret()` fails, the operator sets `OverallStatus=NotReady` and a `ResourceReconciliation` Failed condition (preserving existing component conditions), then returns an error so controller-runtime retries with backoff.
+
+### Hub ownership and shutdown [PLANNED: OLS-4661, OLS-4784]
+
+22. Hub runtime has a separate protected HubConfig lifecycle; do not attach an unprotected garbage-collection dependency that removes the controller or supporting connectivity before drain/decommission completes. The OLS operator retains/recreates runtime resources during termination and removes them only after identity/freshness-checked completion from the shared contract.
+23. OLM/bundle solely owns hub APIs, ServiceAccount and static roles/bindings for the OLS installation lifetime. They remain when HubConfig is absent/deleted; the OLS reconciler neither duplicates nor deletes them. Hub owns generated spoke credentials, registrations/discovery, and its dedicated multicluster adapter; Agentic operator owns per-run access/workload cleanup.
+24. Fleet deletion removes HubConfig, all registrations (including staged ones), generated credentials, and runtime, but preserves administrator source Secrets and existing run/result history subject to ordinary retention. Remote cleanup is best-effort only after drain; hub-side API/permission failures remain retryable and may not be falsely acknowledged. GitOps must stop reapplying deleted fleet resources to keep the fleet disabled.
+25. Explicit HubConfig deletion is not an inference from Unknown platform state. The finalizer/deletion ordering under uncertain platform state must be reviewed with OLS-4659/4660/4661; do not reinterpret uncertainty as cleanup intent. Direct prerequisite deletion policy remains deferred under OLS-4782.
 
 ## Configuration Surface
 

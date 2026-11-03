@@ -8,6 +8,10 @@ Each cataloged OCP version has its own FBC Konflux Application (`ols-fbc-v4-XX` 
 
 The historical Classic-only 1.x bundle may remain in older catalog history for upgrade/migration. Do not generate or publish a new v1 bundle in parallel with the unified release, or create an `ols-bundle-v2` Application. The Classic-side runtime gate currently blocks its Agentic operand reconciliation on OCP 4.x; [PLANNED: OLS-4350] an independent agentic-controller workflow gate must be validated before claiming AgenticRun execution is blocked there. The FBC Application and bundle annotation alone do not enforce either runtime boundary.
 
+### Hub assets in the unified release [PLANNED: OLS-4429, OLS-4430, OLS-4784]
+
+Hub images, pinned CRDs and reviewed static ServiceAccount/RBAC join the same unified artifact and related-image set, not a new version-specific bundle/Application. There is no third CSV-managed hub Deployment: OLS-4661 deploys the hub operand after HubConfig activation and retains it through protected shutdown. Verify image propagation/overrides and disconnected mirroring plus supported permission-only ServiceAccount packaging under OLS-4639; `relatedImages` alone is not runtime wiring. These planned additions do not establish release readiness or complete OLS-4351/4352 migration gates.
+
 ## Naming Conventions
 
 | Resource | Pattern | Example |
