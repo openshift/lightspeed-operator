@@ -22,8 +22,12 @@ import (
 // Denied resources keep Secret (and RBAC) data out of the LLM path; toolsets are pinned
 // so upstream default changes do not affect OLS. Observability metrics uses in-cluster Thanos/Alertmanager.
 // NetObserv is always configured; the OCP MCP server's compatibility filters control tool visibility.
-// read_only = false is required: openshift-mcp-server-rhel9 sets ReadOnly=true in build-time defaults;
-// omitting this leaves only readOnlyHint tools (no resources_create_or_update, etc.).
+// read_only = false and disable_destructive = false are required: openshift-mcp-server-rhel9 sets
+// ReadOnly=true and DisableDestructive=true in build-time defaults. read_only=true exposes only
+// tools annotated readOnlyHint=true and hides all others, including non-destructive writes such as
+// pods_run. disable_destructive=true hides tools annotated destructiveHint=true
+// (resources_create_or_update, resources_delete, pods_delete, pods_exec, helm_uninstall, ...).
+// Omitting either hides those tools from tools/list.
 var configTOML = fmt.Sprintf(`# Denied resources prevent the MCP server from accessing these Kubernetes resource types.
 # This ensures secret data never reaches the LLM through the shipped MCP server.
 # User-brought MCP servers (spec.mcpServers) are the user's responsibility to secure.
@@ -33,6 +37,7 @@ port = "%d"
 tls_cert = "%s"
 tls_key = "%s"
 read_only = false
+disable_destructive = false
 toolsets = ["core", "config", "helm", "observability/metrics", "observability/traces", "kubevirt", "netobserv"]
 experimental_enable_target_compatibility_tool_filters = true
 

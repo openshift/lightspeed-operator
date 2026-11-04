@@ -37,7 +37,11 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(toml).To(ContainSubstring(fmt.Sprintf(`port = "%d"`, utils.OpenShiftMCPServerHTTPSPort)))
 		Expect(toml).To(ContainSubstring(fmt.Sprintf(`tls_cert = "%s"`, path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.crt"))))
 		Expect(toml).To(ContainSubstring(fmt.Sprintf(`tls_key = "%s"`, path.Join(utils.OpenShiftMCPServerTLSMountPath, "tls.key"))))
+		// Both filters must stay disabled, otherwise openshift-mcp-server-rhel9 build-time
+		// defaults (ReadOnly=true, DisableDestructive=true) hide write tools such as
+		// resources_create_or_update. See OLS-4630.
 		Expect(toml).To(ContainSubstring("read_only = false"))
+		Expect(toml).To(ContainSubstring("disable_destructive = false"))
 		Expect(toml).To(ContainSubstring(`toolsets = ["core", "config", "helm", "observability/metrics", "observability/traces", "kubevirt", "netobserv"]`))
 		Expect(strings.Count(toml, `"netobserv"`)).To(Equal(1))
 		Expect(toml).NotTo(MatchRegexp(`(?m)^\[toolset_configs\.(?:"netobserv"|netobserv)\]`))
