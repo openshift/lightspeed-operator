@@ -32,15 +32,19 @@ type OLSConfigReconcilerOptions struct {
 	LightspeedServicePostgresImage string
 	ConsoleUIImage                 string
 	AgenticConsoleUIImage          string
-	AlertsAdapterImage             string
-	AgenticSandboxImage            string
-	OtelCollectorImage             string
-	DataverseExporterImage         string
-	OpenShiftMCPServerImage        string
-	RHOOKPImage                    string
-	RosaOKPProductEnv              *corev1.EnvVar
-	Namespace                      string
-	PrometheusAvailable            bool
+	// AlertsAdapterImage is shared by the local and hub-managed adapters.
+	AlertsAdapterImage string
+	// HubImage is the runtime image input for the HubConfig reconciler (OLS-4661).
+	// Supplying this image does not activate or deploy the hub.
+	HubImage                string
+	AgenticSandboxImage     string
+	OtelCollectorImage      string
+	DataverseExporterImage  string
+	OpenShiftMCPServerImage string
+	RHOOKPImage             string
+	RosaOKPProductEnv       *corev1.EnvVar
+	Namespace               string
+	PrometheusAvailable     bool
 }
 
 // SystemSecret represents a secret managed by Kubernetes or other applications

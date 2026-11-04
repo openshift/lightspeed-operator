@@ -542,6 +542,13 @@ spec:
       - description: Number of tools to retrieve
         displayName: Top K
         path: ols.toolFilteringConfig.topK
+      - description: |-
+          ToolOutputRedaction controls whether sensitive values in tool output are redacted.
+          Defaults to true when omitted. This setting is independent of guardrail inspection.
+        displayName: Tool Output Redaction
+        path: ols.toolOutputRedaction
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Tool execution approval configuration. Controls whether tool
           calls require user approval before execution.
         displayName: Tools Approval Configuration
