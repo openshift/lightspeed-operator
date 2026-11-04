@@ -85,6 +85,7 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 | Security and scope regression | Preserve Secret/RBAC denials and caller-token authorization; verify rule 24's exclusions. |
 
 Operator tests cover default TOML, security regressions, idempotence, and introspection disablement. OCP MCP server tests cover discovery/filtering outcomes, multi-target aggregation, explicit-URL bypass, and reloads. Validate the selected shipped image on OpenShift with `tools/list`, runtime API-group changes, and base-tool calls when the plugin is absent.
+`test/e2e/mcp_tools_test.go` calls `tools/list` on the deployed server and asserts that at least one tool is `destructiveHint=true` and at least one is `readOnlyHint=false`, so a shipped image or generated TOML that re-enables either filter fails as a regression (OLS-4630). It asserts on annotations, not tool names or counts, so renames and inventory changes do not break it.
 
 ## Configuration Surface
 

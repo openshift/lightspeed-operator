@@ -176,6 +176,9 @@ Inline in `GenerateConsoleUIConfigMap()`:
 ### MCP Server Config (TOML)
 Inline in `ocpmcp` package `configTOML` constant:
 ```toml
+read_only = false
+disable_destructive = false
+
 [[denied_resources]]
 group = ""
 version = "v1"
@@ -185,6 +188,12 @@ kind = "Secret"
 group = "rbac.authorization.k8s.io"
 version = "v1"
 ```
+Both filter flags must be set explicitly. `openshift-mcp-server-rhel9` ships build-time
+defaults `ReadOnly=true` and `DisableDestructive=true`. `read_only = true` exposes only
+tools annotated `readOnlyHint=true` and hides every other tool, including non-destructive
+writes such as `pods_run` and `helm_install`. `disable_destructive = true` hides tools
+annotated `destructiveHint=true`, such as `resources_create_or_update` and `pods_delete`.
+See OLS-4630.
 
 ## Key Abstractions
 
