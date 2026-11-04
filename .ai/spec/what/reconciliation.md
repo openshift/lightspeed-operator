@@ -60,6 +60,14 @@ The operator reconciles the OLSConfig CR into Kubernetes resources through a two
 ### Resource Lifecycle
 30. The operator tracks resources through two mechanisms: owned resources (via OwnerReferences and `Owns()`) and external resources (via annotation-based watching). See `what/resource-lifecycle.md` for the full specification of both models, including change detection, restart triggers, and cleanup behavior.
 
+### HubConfig operand lifecycle [PLANNED: OLS-4659, OLS-4661]
+
+31. Watch the cluster-scoped singleton HubConfig `cluster` even when no hub process exists. Creation is the activation intent; do not introduce an OLSConfig activation field. HubConfig intent does not bypass completed OCP 5.0+ capability gating or independent unsuspended AgenticOLSConfig workflow opt-in. Unknown platform state is retryable, not unsupported or implicit teardown intent.
+32. Persist lifecycle protection before creating the hub Deployment/supporting runtime configuration, NetworkPolicies, applicable Services/monitoring. Reconcile image/configuration rollouts, owned-resource changes and self-healing. Installation-owned ServiceAccount/RBAC is not runtime-owned; see [bundle-composition.md](bundle-composition.md).
+33. Own controller-availability reporting only; hub owns fleet/configuration/drain/decommission reporting. Use non-overlapping condition ownership and conflict-safe writes. Ready means controller available and configuration accepted, not every spoke healthy; an empty fleet may be ready. Missing prerequisites/configuration failures are actionable and retryable.
+34. On HubConfig deletion, run only protected shutdown: retain/recreate the hub as necessary, including deletion during startup, without restarting discovery/enrollment. Consume the shared OLS-4660 completion evidence before removing runtime resources and releasing the OLS lifecycle finalizer. Evidence must match the object incarnation and current shutdown state; reject stale acknowledgement. Never use the ordinary OLSConfig best-effort timeout as a fleet-drain deadline.
+35. Exact finalizer/condition identifiers, status writer boundaries, image overrides, admitted-run boundary and completion acknowledgement require S0 review with OLS-4659/4660. This specification records required behavior, not a validated wire protocol. OLS-4787 produces fleet completion; OLS-4661 owns final runtime removal.
+
 ## Configuration Surface
 
 Reconciliation behavior is not directly user-configurable. It is driven by the OLSConfig CR spec (see `what/crd-api.md`) and operator startup flags (see `what/system-overview.md`).
@@ -67,7 +75,7 @@ Reconciliation behavior is not directly user-configurable. It is driven by the O
 ## Constraints
 
 1. Phase 1 must complete before Phase 2 begins (deployments depend on ConfigMaps, Secrets, etc.).
-2. Finalizer removal must succeed even if cleanup partially fails, to prevent stuck CRs.
+2. Ordinary OLSConfig finalization retains its existing best-effort/timeout behavior. This does not apply to the separate planned HubConfig lifecycle, which must not release runtime protection before verified drain/decommission completion. Direct prerequisite OLSConfig/AgenticOLSConfig deletion policy is deferred to OLS-4782, not silently expanded here.
 3. The operator must not create ServiceMonitor or PrometheusRule resources if Prometheus Operator CRDs are not installed.
 4. Status updates must always set OverallStatus (required field after first reconciliation).
 

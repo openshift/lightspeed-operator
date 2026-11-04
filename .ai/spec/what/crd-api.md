@@ -2,6 +2,12 @@
 
 Specification of the OLSConfig Custom Resource Definition. Source of truth: `api/v1alpha1/olsconfig_types.go`.
 
+## Multicluster API boundary [PLANNED: OLS-4659, OLS-4661]
+
+Do not add an OLSConfig multicluster activation field. The cluster-scoped singleton `hub.openshift.io/v1alpha1` HubConfig `cluster` is separate activation/configuration intent, with explicit registry mode and optional MCE selector (omitted means ongoing default-all discovery). Hub APIs originate in lightspeed-hub and are synchronized into the unified bundle at a pinned revision. See [bundle composition](bundle-composition.md) and [reconciliation](reconciliation.md).
+
+HubConfig availability reporting belongs to the OLS operator; fleet/drain/decommission reporting belongs to hub. Exact condition names/writers, finalizer identifiers, gate/admitted-run boundaries, image override wiring and identity-aware shutdown acknowledgement must match reviewed OLS-4659/4660/4661 interfaces. These requirements do not add finalized fields or validated status examples. HubConfig presence does not bypass completed OCP 5.0+ gating or independent unsuspended AgenticOLSConfig workflow opt-in; Unknown does not imply unsupported/cleanup. Direct prerequisite configuration deletion policy is deferred to OLS-4782.
+
 ## Behavioral Rules
 
 ### Resource Identity
