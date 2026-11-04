@@ -385,6 +385,14 @@ type MCPKubeServerConfiguration struct {
 	// +kubebuilder:validation:Minimum=5
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Timeout (seconds)"
 	Timeout int `json:"timeout,omitempty"`
+	// Prometheus API URL. When empty, uses https://thanos-querier.openshift-monitoring.svc.cluster.local:9091.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Prometheus URL"
+	PrometheusURL string `json:"prometheusURL,omitempty"`
+	// Alertmanager API URL. When empty, uses https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094.
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Alertmanager URL"
+	AlertmanagerURL string `json:"alertmanagerURL,omitempty"`
 }
 
 // RAGSpec defines a BYOK RAG database (container image and index path).

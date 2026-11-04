@@ -53,6 +53,52 @@ var _ = Describe("OpenShift MCP Server assets", func() {
 		Expect(strings.Count(toml, "[[denied_resources]]")).To(Equal(2))
 	})
 
+	DescribeTable("should use monitoring URL overrides or built-in defaults",
+		func(config *olsv1alpha1.MCPKubeServerConfiguration, prometheusURL, alertmanagerURL string) {
+			testCR.Spec.OLSConfig.MCPKubeServerConfig = config
+			cm, err := GenerateConfigMap(testReconcilerInstance, testCR)
+			Expect(err).NotTo(HaveOccurred())
+
+			toml := cm.Data[utils.OpenShiftMCPServerConfigFilename]
+			Expect(toml).To(ContainSubstring(fmt.Sprintf("prometheus_url = %q", prometheusURL)))
+			Expect(toml).To(ContainSubstring(fmt.Sprintf("alertmanager_url = %q", alertmanagerURL)))
+			Expect(toml).To(ContainSubstring(`kind = "Secret"`))
+			Expect(toml).To(ContainSubstring(`group = "rbac.authorization.k8s.io"`))
+		},
+		Entry("with no configuration",
+			(*olsv1alpha1.MCPKubeServerConfiguration)(nil),
+			"https://thanos-querier.openshift-monitoring.svc.cluster.local:9091",
+			"https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094",
+		),
+		Entry("with empty URLs",
+			&olsv1alpha1.MCPKubeServerConfiguration{},
+			"https://thanos-querier.openshift-monitoring.svc.cluster.local:9091",
+			"https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094",
+		),
+		Entry("with only a Prometheus override",
+			&olsv1alpha1.MCPKubeServerConfiguration{
+				PrometheusURL: "https://metrics.hub.example.com",
+			},
+			"https://metrics.hub.example.com",
+			"https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094",
+		),
+		Entry("with only an Alertmanager override",
+			&olsv1alpha1.MCPKubeServerConfiguration{
+				AlertmanagerURL: "https://alerts.hub.example.com",
+			},
+			"https://thanos-querier.openshift-monitoring.svc.cluster.local:9091",
+			"https://alerts.hub.example.com",
+		),
+		Entry("with both overrides",
+			&olsv1alpha1.MCPKubeServerConfiguration{
+				PrometheusURL:   "https://metrics.hub.example.com",
+				AlertmanagerURL: "https://alerts.hub.example.com",
+			},
+			"https://metrics.hub.example.com",
+			"https://alerts.hub.example.com",
+		),
+	)
+
 	It("should generate the Service with HTTPS port and serving-cert annotation", func() {
 		svc, err := GenerateService(testReconcilerInstance, testCR)
 		Expect(err).NotTo(HaveOccurred())
