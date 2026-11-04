@@ -121,7 +121,7 @@ var _ = Describe("App server assets", func() {
 						MinTLSVersion: string(configv1.TLSProfiles[configv1.TLSProfileIntermediateType].MinTLSVersion),
 						Ciphers:       configv1.TLSProfiles[configv1.TLSProfileIntermediateType].Ciphers,
 					},
-					SolrHybrid: buildSolrHybridSettings(utils.OLSNamespaceDefault),
+					OpenShiftDocsMCP: buildOpenShiftDocsMCPSettings(utils.OLSNamespaceDefault),
 					UserDataCollection: utils.UserDataCollectionConfig{
 						FeedbackDisabled:    false,
 						FeedbackStorage:     "/app-root/ols-user-data/feedback",
@@ -630,31 +630,30 @@ var _ = Describe("App server assets", func() {
 			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("/etc/certs/openshift-mcp-server-ca/service-ca.crt"))
 		})
 
-		It("should generate configmap with solr_hybrid defaults when OKP is enabled", func() {
+		It("should generate the RHOKP docs MCP config when OKP is enabled", func() {
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 
 			var appSrvConfigFile utils.AppSrvConfigFile
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &appSrvConfigFile)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(appSrvConfigFile.OLSConfig.SolrHybrid).NotTo(BeNil())
-			Expect(appSrvConfigFile.OLSConfig.SolrHybrid).To(PointTo(MatchFields(IgnoreExtras, Fields{
-				"SolrHTTPBase":             Equal(utils.RHOKPServiceURL(utils.OLSNamespaceDefault)),
-				"MaxResults":               Equal(utils.SolrHybridMaxResultsDefault),
-				"HybridVectorBoost":        Equal(utils.SolrHybridVectorBoostDefault),
-				"HybridPoolDocs":           Equal(utils.SolrHybridPoolDocsDefault),
-				"HybridScoreThreshold":     Equal(utils.SolrHybridScoreThresholdDefault),
-				"HybridSolrTimeoutSeconds": Equal(utils.SolrHybridSolrTimeoutSecondsDefault),
-			})))
-			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("solr_direct_rag"))
+			Expect(appSrvConfigFile.OLSConfig.OpenShiftDocsMCP).To(Equal(
+				buildOpenShiftDocsMCPSettings(utils.OLSNamespaceDefault),
+			))
+			Expect(appSrvConfigFile.OLSConfig.OpenShiftDocsMCP.URL).To(Equal(
+				"https://lightspeed-rhokp.openshift-lightspeed.svc:8443/mcp",
+			))
+			Expect(appSrvConfigFile.OLSConfig.OpenShiftDocsMCP.MaxResults).To(Equal(5))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("openshift_docs_mcp:"))
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("solr_hybrid:"))
 		})
 
-		It("should omit solr_hybrid from configmap when byokRAGOnly is true", func() {
+		It("should omit the RHOKP docs MCP config when byokRAGOnly is true", func() {
 			cr.Spec.OLSConfig.ByokRAGOnly = true
 
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("solr_hybrid:"))
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("openshift_docs_mcp:"))
 		})
 
 		It("should skip MCP server with missing header secret during config generation", func() {
@@ -1306,10 +1305,10 @@ var _ = Describe("App server assets", func() {
 					ProductDocsOrigin:    "rag-ansible-docs:2.18",
 				},
 			}))
-			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).NotTo(BeNil())
+			Expect(olsconfigGenerated.OLSConfig.OpenShiftDocsMCP).NotTo(BeNil())
 		})
 
-		It("should omit reference_content and include solr_hybrid when OKP is enabled with no BYOK RAG", func() {
+		It("should omit reference_content and include docs MCP config when OKP is enabled with no BYOK RAG", func() {
 			cr.Spec.OLSConfig.RAG = nil
 
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
@@ -1319,10 +1318,10 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(olsconfigGenerated.OLSConfig.ReferenceContent).To(BeNil())
-			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).NotTo(BeNil())
+			Expect(olsconfigGenerated.OLSConfig.OpenShiftDocsMCP).NotTo(BeNil())
 		})
 
-		It("should omit solr_hybrid when byokRAGOnly is true", func() {
+		It("should omit docs MCP config when byokRAGOnly is true", func() {
 			cr.Spec.OLSConfig.ByokRAGOnly = true
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{
 				{
@@ -1338,8 +1337,8 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(BeNil())
-			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("solr_hybrid:"))
+			Expect(olsconfigGenerated.OLSConfig.OpenShiftDocsMCP).To(BeNil())
+			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("openshift_docs_mcp:"))
 			Expect(olsconfigGenerated.OLSConfig.ReferenceContent.Indexes).To(Equal([]utils.ReferenceIndex{
 				{
 					ProductDocsIndexId:   "ansible-docs-2_18",
@@ -1549,13 +1548,13 @@ var _ = Describe("App server assets", func() {
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(olsconfigGenerated.LLMProviders).To(BeEmpty())
-			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(Equal(buildSolrHybridSettings(utils.OLSNamespaceDefault)))
+			Expect(olsconfigGenerated.OLSConfig.OpenShiftDocsMCP).To(Equal(buildOpenShiftDocsMCPSettings(utils.OLSNamespaceDefault)))
 			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("reference_content:"))
 			Expect(olsconfigGenerated.OLSConfig.Audit).To(Equal(buildServiceAuditConfig(cr, utils.OLSNamespaceDefault)))
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeFalse())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeFalse())
 			Expect(olsconfigGenerated.UserDataCollectorConfig.DataStorage).To(Equal("/app-root/ols-user-data"))
-			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("solr_hybrid:"))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("openshift_docs_mcp:"))
 
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
@@ -1572,12 +1571,12 @@ var _ = Describe("App server assets", func() {
 			var olsconfigGenerated utils.AppSrvConfigFile
 			err = yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &olsconfigGenerated)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(olsconfigGenerated.OLSConfig.SolrHybrid).To(Equal(buildSolrHybridSettings(utils.OLSNamespaceDefault)))
+			Expect(olsconfigGenerated.OLSConfig.OpenShiftDocsMCP).To(Equal(buildOpenShiftDocsMCPSettings(utils.OLSNamespaceDefault)))
 			Expect(cm.Data[utils.OLSConfigFilename]).NotTo(ContainSubstring("reference_content:"))
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.FeedbackDisabled).To(BeTrue())
 			Expect(olsconfigGenerated.OLSConfig.UserDataCollection.TranscriptsDisabled).To(BeTrue())
 			Expect(olsconfigGenerated.UserDataCollectorConfig).To(Equal(utils.UserDataCollectorConfig{}))
-			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("solr_hybrid:"))
+			Expect(cm.Data[utils.OLSConfigFilename]).To(ContainSubstring("openshift_docs_mcp:"))
 
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
@@ -2346,13 +2345,13 @@ var _ = Describe("Helper function unit tests", func() {
 			Expect(config.ReferenceContent.Indexes[0].ProductDocsIndexId).To(Equal("test-index"))
 		})
 
-		It("should include solr_hybrid and omit reference_content when BYOK only mode is disabled and no RAG is configured", func() {
+		It("should include docs MCP config and omit reference_content when BYOK only mode is disabled and no RAG is configured", func() {
 			cr.Spec.OLSConfig.ByokRAGOnly = false
 			cr.Spec.OLSConfig.RAG = []olsv1alpha1.RAGSpec{}
 			config, err := buildOLSConfig(testReconcilerInstance, ctx, cr, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(config.ReferenceContent).To(BeNil())
-			Expect(config.SolrHybrid).NotTo(BeNil())
+			Expect(config.OpenShiftDocsMCP).NotTo(BeNil())
 		})
 
 		It("should disable user data collection when data collector is disabled", func() {
