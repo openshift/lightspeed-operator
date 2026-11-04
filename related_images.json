@@ -61,6 +61,15 @@
     "operator_arg": "rhokp-image"
   },
   {
+    "name": "lightspeed-hub",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-hub-rhel9-operator@sha256:a0e3f7ad4a3542e6bfcfe5061da20c22dcf42bc1f7559d49324c32bec867e14c",
+    "revision": "338658bf1759df2e1b2c6a608296bac0c7fe36b2",
+    "operator_arg": "hub-image",
+    "snapshot_component": "lightspeed-hub",
+    "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-hub",
+    "stable_prefix": "registry.redhat.io/openshift-lightspeed/lightspeed-hub-rhel9-operator"
+  },
+  {
     "name": "lightspeed-agentic-operator",
     "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-rhel9-operator@sha256:8592f021b76f8a9f654fb1c2429c5d7c4a03efade6988d3c218fe3342d29da14",
     "revision": "ca4457d804b51ee77cac391d57ff8def25db6324",

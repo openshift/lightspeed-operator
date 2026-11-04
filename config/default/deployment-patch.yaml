@@ -24,6 +24,9 @@
   value: --rhokp-image=__REPLACE_RHOKP__
 - op: add
   path: /spec/template/spec/containers/0/args/-
+  value: --hub-image=__REPLACE_LIGHTSPEED_HUB__
+- op: add
+  path: /spec/template/spec/containers/0/args/-
   value: --agentic-console-image=__REPLACE_LIGHTSPEED_AGENTIC_CONSOLE_PLUGIN__
 - op: add
   path: /spec/template/spec/containers/0/args/-
