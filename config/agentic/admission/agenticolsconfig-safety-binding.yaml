@@ -1,0 +1,7 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: agentic.openshift.io-agenticolsconfig-safety
+spec:
+  policyName: agentic.openshift.io-agenticolsconfig-safety
+  validationActions: [Deny]

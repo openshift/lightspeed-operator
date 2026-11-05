@@ -860,23 +860,6 @@ spec:
                 - ""
               resources:
                 - pods
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - ""
-              resources:
-                - secrets
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - ""
-              resources:
                 - serviceaccounts
               verbs:
                 - create
@@ -884,6 +867,17 @@ spec:
                 - get
                 - list
                 - patch
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - secrets
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - update
                 - watch
             - apiGroups:
                 - agentic.openshift.io
@@ -948,8 +942,10 @@ spec:
               resources:
                 - sandboxes
               verbs:
+                - delete
                 - get
                 - list
+                - patch
                 - watch
             - apiGroups:
                 - apiextensions.k8s.io
@@ -978,6 +974,15 @@ spec:
                 - list
                 - update
                 - watch
+            - apiGroups:
+                - extensions.agents.x-k8s.io
+              resources:
+                - sandboxwarmpools
+              verbs:
+                - create
+                - delete
+                - get
+                - list
             - apiGroups:
                 - rbac.authorization.k8s.io
               resources:
@@ -1267,7 +1272,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.namespace
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-rhel9-operator@sha256:615a03d34ada8a0826122ec396764ef5b07e3bcc4e001424dc75606fb33fb8e3
+                    image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-rhel9-operator@sha256:a88d8003f2ea03bd8a0ac36a2539258b54f7e3c4fc72389ee379a76b56d4868a
                     imagePullPolicy: IfNotPresent
                     livenessProbe:
                       httpGet:
@@ -1350,14 +1355,14 @@ spec:
                       - --cert-dir=/etc/tls/private
                       - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:dfa181d43993dce0e47c6717a10c09e5c5ee9142c65bb3f0bcb5864189b76ce8
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
-                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:7393bd30e74f5809e11ed420f30b739f621f9979ea4f53f1f396f73c061ea02f
-                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:ae068543098168505dd7cf66d4f5237d76723da5eac9cef50def265c8f3c8ff2
+                      - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:84df8bc40bafe35d911d20b99fc2cb9971dc92d006043b6bdfcc021bb526fb8a
+                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:45a72c16afd5a66d8049964046629f68ac419c1ec988b745e9dec2678b423499
                       - --openshift-mcp-server-image=registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5
-                      - --otel-collector-image=registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:121387ba8953c828cb5c7e6e4889f58c593b692a087d0d509fdf0f518dfb65a3
+                      - --otel-collector-image=registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:117be4bd065a3ae5722bca9c2522d7120b44b8c3e966a31d4613fb6ceea66778
                       - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
-                      - --agentic-console-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:4fe6d6dd34aa414d54141a869d4f379d73c9d015d9c428d45087e89aa8d32159
-                      - --alerts-adapter-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:31e97eef4cd62520b7608478225de7cd4ce0a99ae2566ca8e395b528a0c1cd3d
-                      - --agentic-sandbox-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9@sha256:621f04f9eb497923c586b4f98418e7a080de913cc2762f0fd353473c1999ff8e
+                      - --agentic-console-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:2896c5897c3e84a545814310b035bba0ed8060174d4433a544ccd8a72ae90ebb
+                      - --alerts-adapter-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:d62fca56d71773747f2a15f37409ae8256e96bf50f86f740ad3a295b366f7108
+                      - --agentic-sandbox-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9@sha256:20de242025669a58226966f1b28ef47799d935555e33952e73eb2f1e5d5a4fa1
                     command:
                       - /manager
                     env:
@@ -1365,7 +1370,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:193b10915f5d5890802f19d65edcccd5fec086c46bbef6f59c4d3a0493d691e6
+                    image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:a2a25abbf617346998b79580fb4b8ede015a05aca4bef4b1e3c12ef87ee1d46d
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1551,22 +1556,22 @@ spec:
     - name: lightspeed-postgresql
       image: registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
     - name: lightspeed-service-api
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:7393bd30e74f5809e11ed420f30b739f621f9979ea4f53f1f396f73c061ea02f
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:84df8bc40bafe35d911d20b99fc2cb9971dc92d006043b6bdfcc021bb526fb8a
     - name: lightspeed-console-plugin
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:ae068543098168505dd7cf66d4f5237d76723da5eac9cef50def265c8f3c8ff2
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:45a72c16afd5a66d8049964046629f68ac419c1ec988b745e9dec2678b423499
     - name: lightspeed-operator
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:193b10915f5d5890802f19d65edcccd5fec086c46bbef6f59c4d3a0493d691e6
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:a2a25abbf617346998b79580fb4b8ede015a05aca4bef4b1e3c12ef87ee1d46d
     - name: openshift-mcp-server
       image: registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5
     - name: lightspeed-otel-collector
-      image: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:121387ba8953c828cb5c7e6e4889f58c593b692a087d0d509fdf0f518dfb65a3
+      image: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:117be4bd065a3ae5722bca9c2522d7120b44b8c3e966a31d4613fb6ceea66778
     - name: rhokp
       image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
     - name: lightspeed-agentic-operator
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-rhel9-operator@sha256:615a03d34ada8a0826122ec396764ef5b07e3bcc4e001424dc75606fb33fb8e3
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-rhel9-operator@sha256:a88d8003f2ea03bd8a0ac36a2539258b54f7e3c4fc72389ee379a76b56d4868a
     - name: lightspeed-agentic-console-plugin
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:4fe6d6dd34aa414d54141a869d4f379d73c9d015d9c428d45087e89aa8d32159
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:2896c5897c3e84a545814310b035bba0ed8060174d4433a544ccd8a72ae90ebb
     - name: lightspeed-agentic-alerts-adapter
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:31e97eef4cd62520b7608478225de7cd4ce0a99ae2566ca8e395b528a0c1cd3d
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:d62fca56d71773747f2a15f37409ae8256e96bf50f86f740ad3a295b366f7108
     - name: lightspeed-agentic-sandbox
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9@sha256:621f04f9eb497923c586b4f98418e7a080de913cc2762f0fd353473c1999ff8e
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9@sha256:20de242025669a58226966f1b28ef47799d935555e33952e73eb2f1e5d5a4fa1

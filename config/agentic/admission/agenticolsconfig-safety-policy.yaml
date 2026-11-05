@@ -1,0 +1,46 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: agentic.openshift.io-agenticolsconfig-safety
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["agentic.openshift.io"]
+        apiVersions: ["v1alpha1"]
+        operations: ["UPDATE", "DELETE"]
+        resources: ["agenticolsconfigs"]
+        scope: Cluster
+  variables:
+    - name: oldSuspended
+      expression: >-
+        has(oldObject.spec) && has(oldObject.spec.suspended) && oldObject.spec.suspended
+    - name: completed
+      expression: >-
+        has(oldObject.status) && has(oldObject.status.conditions) &&
+        oldObject.status.conditions.exists(c,
+          c.type == 'Suspended' && c.status == 'True' &&
+          (c.reason == 'AdminActivated' || c.reason == 'AdminActivatedWithErrors') &&
+          has(c.observedGeneration) &&
+          c.observedGeneration == oldObject.metadata.generation)
+    - name: safe
+      expression: >-
+        has(oldObject.status) && has(oldObject.status.conditions) &&
+        oldObject.status.conditions.exists(c,
+          c.type == 'SafeToResume' && c.status == 'True' &&
+          has(c.observedGeneration) &&
+          c.observedGeneration == oldObject.metadata.generation)
+  validations:
+    - expression: >-
+        request.operation != 'UPDATE' || !variables.oldSuspended ||
+        (has(object.spec) && has(object.spec.suspended) && object.spec.suspended) ||
+        (variables.completed && variables.safe)
+      message: >-
+        Cannot resume while suspension cleanup or old-run stop protection is unconfirmed;
+        current terminal Suspended and SafeToResume=True conditions are required.
+    - expression: >-
+        request.operation != 'DELETE' || !variables.oldSuspended ||
+        (variables.completed && variables.safe)
+      message: >-
+        Cannot delete a suspended config while cleanup or old-run stop protection is unconfirmed;
+        current terminal Suspended and SafeToResume=True conditions are required.
