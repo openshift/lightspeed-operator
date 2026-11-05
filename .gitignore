@@ -33,3 +33,9 @@ test-artifacts/
 
 # Go workspace file
 go.work
+
+# Local build artifacts (the Dockerfile builds these in-container;
+# replicating its steps locally drops them in the tree)
+/manager
+/check-isa-level
+cmd/check-isa-level/check-isa-level

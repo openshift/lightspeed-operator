@@ -222,6 +222,8 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	checkFIPSMode(setupLog.Info)
+
 	if namespace == "" {
 		namespace = getWatchNamespace()
 	}

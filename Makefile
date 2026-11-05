@@ -152,7 +152,7 @@ test-agentic-sync: ## Test pinned agentic CRD/RBAC sync without network access.
 
 .PHONY: test
 test: test-agentic-sync manifests generate fmt vet envtest test-crds ## Run local tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./api/... ./internal/... ./hack/... -coverprofile cover.out -covermode=atomic -p 6 -timeout 10m
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./api/... ./internal/... ./hack/... ./cmd ./cmd/check-isa-level -coverprofile cover.out -covermode=atomic -p 6 -timeout 10m
 	hack/codecov.sh cover.out unit
 
 # Use 4.18 release branch for CRDs in unit tests
@@ -251,7 +251,7 @@ lint-fix: ## Fix found issues (if it's supported by the linter).
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+	GOFIPS140=certified go build -o bin/manager ./cmd/
 
 .PHONY: dev-setup
 dev-setup: manifests kustomize install ## Setup RBAC and resources for local development (idempotent, safe to run multiple times)
@@ -278,7 +278,7 @@ dev-teardown: uninstall ## Teardown local development environment (removes RBAC,
 .PHONY: run
 run: dev-setup manifests generate fmt vet ## Run a controller from your host (auto-setup RBAC if needed). Optional: make run ARGS="--agentic-console-image=..." or ARGS="--alerts-adapter-image=..."
 	@echo "🔧 Running controller locally - using default images from constants"
-	LOCAL_DEV_MODE=true go run ./cmd/main.go $(ARGS)
+	LOCAL_DEV_MODE=true GOFIPS140=certified go run ./cmd/ $(ARGS)
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
