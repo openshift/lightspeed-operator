@@ -1,0 +1,217 @@
+# x86_64-only variant of rag-content/scripts/cuda/cuda_cloud_formation.yaml.
+# Requires an existing EC2 key pair named ${username}-keys in the target region.
+# Creates the instance only; CUDA installation is a separate step.
+# Automated US-region/AZ capacity search with missing-key imports:
+#   USERNAME=your-username ./deploy_cuda_x86_64.sh
+#
+# Set AWS_REGION, USERNAME, and MY_IP_CIDR before running this Bash example.
+# Discover an AZ offering g6.2xlarge; an offering does not guarantee capacity.
+# if ! AZ_A=$(aws ec2 describe-instance-type-offerings \
+#   --region "$AWS_REGION" \
+#   --location-type availability-zone \
+#   --filters Name=instance-type,Values=g6.2xlarge \
+#   --query 'InstanceTypeOfferings[0].Location' \
+#   --output text); then
+#   echo "Failed to discover a G6 availability zone in $AWS_REGION" >&2
+#   exit 1
+# fi
+# if [[ -z "$AZ_A" || "$AZ_A" == "None" ]]; then
+#   echo "No AZ offers g6.2xlarge in $AWS_REGION" >&2
+#   exit 1
+# fi
+# aws cloudformation create-stack --region "$AWS_REGION" \
+#   --stack-name "$USERNAME-cuda-x86-64-stack" \
+#   --template-body file://cuda_cloud_formation_x86_64.yaml \
+#   --parameters ParameterKey=username,ParameterValue="$USERNAME" \
+#     ParameterKey=PublicSubnetAAvailabilityZone,ParameterValue="$AZ_A" \
+#     ParameterKey=AllowedIngressCidr,ParameterValue="$MY_IP_CIDR"
+# aws cloudformation delete-stack --region "$AWS_REGION" \
+#   --stack-name "$USERNAME-cuda-x86-64-stack"
+
+Parameters:
+  username:
+    Type: String
+    Description: "The username used to prefix AWS resource names."
+  InstanceType:
+    Type: String
+    Default: g6.2xlarge
+    Description: "x86_64 NVIDIA GPU instance type (e.g. g6.2xlarge or g5.12xlarge)."
+    AllowedPattern: '^(g4dn|g5|g6|g6e|p4d|p4de|p5|p5e|p5en)\.[a-z0-9]+$'
+  PublicSubnetAAvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: "AZ for public subnet A. Must offer the selected InstanceType."
+  AllowedIngressCidr:
+    Type: String
+    Description: "IPv4 CIDR allowed for inbound SSH (22) and HTTP/S (80, 8000, 443, 8443). Use a specific range (e.g. 203.0.113.4/32); do not use 0.0.0.0/0."
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])/(3[0-2]|[12][0-9]|[1-9])$'
+    ConstraintDescription: "Must be a valid IPv4 CIDR with prefix 1-32 (e.g. 198.51.100.0/24 or 198.51.100.7/32); /0 is not allowed."
+
+Rules:
+  DisallowWorldWideIngress:
+    Assertions:
+      - Assert: !Not [!Equals [!Ref AllowedIngressCidr, "0.0.0.0/0"]]
+        AssertDescription: "AllowedIngressCidr must not be 0.0.0.0/0; restrict SSH and app ports to your IP or network."
+
+# US regions: RHEL-9.8.0_HVM-20260728-x86_64-0-Hourly2-GP3.
+# Verified available from Red Hat (AWS owner 309956199498) via DescribeImages.
+# Existing EU mappings retain RHEL 9.4.0 Hourly2-GP3 (build 20260217).
+# Deploy only in a listed region and an AZ offering the selected InstanceType.
+Mappings:
+  RegionAMIs:
+    eu-central-1:
+      X8664: ami-028d1ae9d549ba4ac
+    eu-south-2:
+      X8664: ami-0be796bb3e0ad3fbb
+    us-east-1:
+      X8664: ami-0225644bfadc204f7
+    us-east-2:
+      X8664: ami-0fa0cf9725e3938ae
+    us-west-1:
+      X8664: ami-0fd6ac6c5f71fe86e
+    us-west-2:
+      X8664: ami-02990c099b7180454
+
+Resources:
+  # Create a VPC
+  VPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-vpc"
+
+  PublicSubnetA:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: "10.0.1.0/24"
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Ref PublicSubnetAAvailabilityZone
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-subnet-a"
+
+  # Create an Internet Gateway
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-internet-gateway"
+
+  # Attach the Internet Gateway to the VPC
+  VPCGatewayAttachment:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Create a Route Table
+  RouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-route-table"
+
+  # Create a Route for the Internet Gateway
+  Route:
+    Type: "AWS::EC2::Route"
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  # Associate the route table with the public subnet
+  SubnetRouteTableAssociationA:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref RouteTable
+
+  # Security Group for EC2 Instance
+  SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "Enable SSH, HTTP, and HTTPS access for ${username}"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 22  # SSH
+          ToPort: 22
+          CidrIp: !Ref AllowedIngressCidr
+        - IpProtocol: "tcp"
+          FromPort: 80  # HTTP
+          ToPort: 80
+          CidrIp: !Ref AllowedIngressCidr
+        - IpProtocol: "tcp"
+          FromPort: 8000  # HTTP
+          ToPort: 8000
+          CidrIp: !Ref AllowedIngressCidr
+        - IpProtocol: "tcp"
+          FromPort: 443  # HTTPS
+          ToPort: 443
+          CidrIp: !Ref AllowedIngressCidr
+        - IpProtocol: "tcp"
+          FromPort: 8443  # HTTPS
+          ToPort: 8443
+          CidrIp: !Ref AllowedIngressCidr
+      SecurityGroupEgress:
+        - IpProtocol: "-1"  # All traffic
+          CidrIp: "0.0.0.0/0"
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-security-group"
+
+  # EC2 settings (key pair, security group, root volume, and instance metadata).
+  CudaLaunchTemplate:
+    Type: "AWS::EC2::LaunchTemplate"
+    Properties:
+      LaunchTemplateName: !Sub "${AWS::StackName}-cuda-common"
+      LaunchTemplateData:
+        KeyName: !Sub "${username}-keys"
+        SecurityGroupIds:
+          - !Ref SecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: "/dev/sda1"  # Primary volume (root device)
+            Ebs:
+              VolumeSize: 200  # Size in GB
+              VolumeType: "gp3"
+        # IMDSv2 only (disables IMDSv1). Hop limit 2 for container workloads using instance metadata.
+        MetadataOptions:
+          HttpTokens: required
+          HttpPutResponseHopLimit: 2
+
+  # x86_64 NVIDIA GPU instance.
+  EC2InstanceX8664:
+    Type: "AWS::EC2::Instance"
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref CudaLaunchTemplate
+        Version: !GetAtt CudaLaunchTemplate.DefaultVersionNumber
+      InstanceType: !Ref InstanceType
+      ImageId: !FindInMap [RegionAMIs, !Ref "AWS::Region", X8664]
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${username}-cuda-x86_64"
+
+Outputs:
+  AWSRegion:
+    Description: AWS region containing the instance and stack
+    Value: !Ref AWS::Region
+  StackName:
+    Description: CloudFormation stack name (same as created name)
+    Value: !Ref AWS::StackName
+  X8664PublicIp:
+    Description: Public IPv4 of the x86_64 NVIDIA GPU instance
+    Value: !GetAtt EC2InstanceX8664.PublicIp
+  X8664InstanceId:
+    Description: Instance ID (x86_64)
+    Value: !Ref EC2InstanceX8664
