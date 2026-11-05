@@ -1355,6 +1355,7 @@ spec:
                       - --openshift-mcp-server-image=registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5
                       - --otel-collector-image=registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:121387ba8953c828cb5c7e6e4889f58c593b692a087d0d509fdf0f518dfb65a3
                       - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
+                      - --hub-image=registry.redhat.io/openshift-lightspeed/lightspeed-hub-rhel9-operator@sha256:a0e3f7ad4a3542e6bfcfe5061da20c22dcf42bc1f7559d49324c32bec867e14c
                       - --agentic-console-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-console-rhel9@sha256:4fe6d6dd34aa414d54141a869d4f379d73c9d015d9c428d45087e89aa8d32159
                       - --alerts-adapter-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:31e97eef4cd62520b7608478225de7cd4ce0a99ae2566ca8e395b528a0c1cd3d
                       - --agentic-sandbox-image=registry.redhat.io/openshift-lightspeed/lightspeed-agentic-sandbox-rhel9@sha256:621f04f9eb497923c586b4f98418e7a080de913cc2762f0fd353473c1999ff8e
@@ -1562,6 +1563,8 @@ spec:
       image: registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:121387ba8953c828cb5c7e6e4889f58c593b692a087d0d509fdf0f518dfb65a3
     - name: rhokp
       image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
+    - name: lightspeed-hub
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-hub-rhel9-operator@sha256:a0e3f7ad4a3542e6bfcfe5061da20c22dcf42bc1f7559d49324c32bec867e14c
     - name: lightspeed-agentic-operator
       image: registry.redhat.io/openshift-lightspeed/lightspeed-agentic-rhel9-operator@sha256:615a03d34ada8a0826122ec396764ef5b07e3bcc4e001424dc75606fb33fb8e3
     - name: lightspeed-agentic-console-plugin

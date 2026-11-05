@@ -146,7 +146,7 @@ make test-e2e   # E2E tests (requires cluster)
 
 ### Local Development (`make run`)
 - Sets `LOCAL_DEV_MODE=true`, which skips operator ServiceMonitor reconciliation and app-server metrics reader secret reconciliation (no local metrics scraping loop).
-- Image overrides: `--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, `--agentic-sandbox-image`, and other flags in `cmd/main.go`.
+- Image overrides: `--console-image`, `--agentic-console-image`, `--alerts-adapter-image`, `--hub-image`, `--agentic-sandbox-image`, and other flags in `cmd/main.go`. `--hub-image` supplies the hub operand image only; it does not activate the hub. The existing `--alerts-adapter-image` input is shared by the local and hub-managed adapters; OLS-4661 owns runtime forwarding to the hub.
 
 ## Git and PR Workflow
 
