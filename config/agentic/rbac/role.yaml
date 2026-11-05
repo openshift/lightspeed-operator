@@ -27,23 +27,6 @@ rules:
   - ""
   resources:
   - pods
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - serviceaccounts
   verbs:
   - create
@@ -51,6 +34,17 @@ rules:
   - get
   - list
   - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
   - watch
 - apiGroups:
   - agentic.openshift.io
@@ -115,8 +109,10 @@ rules:
   resources:
   - sandboxes
   verbs:
+  - delete
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - apiextensions.k8s.io
@@ -145,6 +141,15 @@ rules:
   - list
   - update
   - watch
+- apiGroups:
+  - extensions.agents.x-k8s.io
+  resources:
+  - sandboxwarmpools
+  verbs:
+  - create
+  - delete
+  - get
+  - list
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:

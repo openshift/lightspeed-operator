@@ -598,8 +598,8 @@ spec:
               conditions:
                 description: |-
                   conditions represent the latest available observations using the
-                  standard Kubernetes condition pattern. Condition types include:
-                  Analyzed, Approved, Executed, Verified, and Escalated.
+                  standard Kubernetes condition pattern. Condition types include Analyzed,
+                  Executed, Verified, Denied, Escalated, EmergencyStopped, and Stopping.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

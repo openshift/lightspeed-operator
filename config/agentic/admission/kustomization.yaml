@@ -3,3 +3,5 @@ kind: Kustomization
 resources:
   - agenticrun-suspension-policy.yaml
   - agenticrun-suspension-binding.yaml
+  - agenticolsconfig-safety-policy.yaml
+  - agenticolsconfig-safety-binding.yaml

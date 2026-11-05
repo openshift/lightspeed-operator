@@ -26,12 +26,12 @@ spec:
       openAPIV3Schema:
         description: "AgenticOLSConfig is a cluster-scoped singleton that controls
           system-wide\nagentic behavior. The cluster admin creates a single AgenticOLSConfig\nnamed
-          \"cluster\". When spec.suspended is true, all non-terminal agentic runs\nare
-          terminated and no new workflow steps are started.\n\nWhen no AgenticOLSConfig
-          CR exists, the system behaves as if\nsuspended is false — the CR is not
-          required for normal operation.\n\nExample:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
-          AgenticOLSConfig\n\tmetadata:\n\t  name: cluster\n\tspec:\n\t  suspended:
-          false"
+          \"cluster\". When spec.suspended is true, new work is blocked and\nin-flight
+          runs are stopped. Resumption requires SafeToResume=True for the\ncurrent
+          suspended generation.\n\nWhen no AgenticOLSConfig CR exists, the system
+          behaves as if\nsuspended is false — the CR is not required for normal operation.\n\nExample:\n\n\tapiVersion:
+          agentic.openshift.io/v1alpha1\n\tkind: AgenticOLSConfig\n\tmetadata:\n\t
+          \ name: cluster\n\tspec:\n\t  suspended: false"
         properties:
           apiVersion:
             description: |-
@@ -57,11 +57,9 @@ spec:
               suspended:
                 default: false
                 description: |-
-                  suspended halts all agentic operations cluster-wide when set to true.
-                  All non-terminal agentic runs are immediately terminated with an
-                  EmergencyStopped condition. Setting back to false re-enables the
-                  system for new agentic runs only — EmergencyStopped runs remain
-                  terminal and must be recreated explicitly.
+                  suspended halts new agentic operations cluster-wide and requests a stop
+                  for in-flight runs. A terminal run outcome does not by itself authorize
+                  resumption; the current generation must be confirmed by SafeToResume=True.
                 type: boolean
             type: object
           status:
@@ -70,9 +68,9 @@ spec:
             properties:
               conditions:
                 description: |-
-                  conditions represent the latest available observations of the
-                  config's state. The "Suspended" condition tracks whether the
-                  kill switch is active and all agentic runs have been terminated.
+                  conditions represent the latest available observations of config state.
+                  "Suspended" reports activation progress and outcome; "SafeToResume"
+                  separately reports stop safety for the current suspended generation.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
