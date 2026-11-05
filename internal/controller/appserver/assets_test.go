@@ -1885,6 +1885,65 @@ var _ = Describe("App server assets", func() {
 
 		})
 
+		It("should sort the additional CA file names", func() {
+			additionalCACm.Data["zzz.crt"] = utils.TestCACert
+			additionalCACm.Data["aaa.crt"] = utils.TestCACert
+			err := testReconcilerInstance.Update(ctx, additionalCACm)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
+				Name: caConfigMapName,
+			}
+
+			expected := []string{
+				path.Join(utils.OLSAppCertsMountRoot, utils.AppAdditionalCACertDir, "service-ca.crt"),
+				path.Join(utils.OLSAppCertsMountRoot, utils.AppOtelCollectorCACertDir, utils.AppOtelCollectorCACertFile),
+				path.Join(utils.OLSAppCertsMountRoot, utils.AppRHOKPCACertDir, utils.AppRHOKPCACertFile),
+				path.Join(utils.OLSAppCertsMountRoot, utils.UserCACertDir, "aaa.crt"),
+				path.Join(utils.OLSAppCertsMountRoot, utils.UserCACertDir, "additional-ca.crt"),
+				path.Join(utils.OLSAppCertsMountRoot, utils.UserCACertDir, "zzz.crt"),
+			}
+
+			// Generate repeatedly: one run can pass by coincidence even when
+			// the order comes from a Go map.
+			for i := range 20 {
+				olsCm, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
+				Expect(err).NotTo(HaveOccurred())
+				generated := utils.AppSrvConfigFile{}
+				Expect(yaml.Unmarshal([]byte(olsCm.Data[utils.OLSConfigFilename]), &generated)).To(Succeed())
+				Expect(generated.OLSConfig.ExtraCAs).To(Equal(expected), "generation %d", i)
+			}
+		})
+
+		It("should generate byte-identical config across repeated runs", func() {
+			// Guard against a class of bug, not one instance. Go randomizes
+			// map iteration order. A list built by ranging over a map changes
+			// the generated YAML on every reconcile. The operator compares the
+			// ConfigMap data as bytes, so a changed order bumps the
+			// resourceVersion and restarts the app server; the watch then runs
+			// the reconcile again. OLS-4563 produced 1,057 ReplicaSets in 15
+			// minutes this way. If this test fails, find the nondeterministic
+			// generator and sort or otherwise canonicalize its output. Do not
+			// rerun it or raise the iteration count. When a new map-backed
+			// input is added to the config, add it to this fixture.
+			additionalCACm.Data["zzz.crt"] = utils.TestCACert
+			additionalCACm.Data["aaa.crt"] = utils.TestCACert
+			err := testReconcilerInstance.Update(ctx, additionalCACm)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
+				Name: caConfigMapName,
+			}
+
+			first, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
+			Expect(err).NotTo(HaveOccurred())
+			for i := range 20 {
+				cm, err := GenerateOLSConfigMap(testReconcilerInstance, ctx, cr)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cm.Data).To(Equal(first.Data), "generation %d differed", i)
+			}
+		})
+
 		It("should generate ImagePullSecrets in the app server deployment pod template", func() {
 			// there should be no ImagePullSecrets in the app server deployment
 			// pod template if none are specified in OLSCconfig

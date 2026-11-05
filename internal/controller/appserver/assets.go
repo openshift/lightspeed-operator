@@ -789,6 +789,7 @@ func addAdditionalCAFileNames(r reconciler.Reconciler, ctx context.Context, cr *
 		}
 		filenames = append(filenames, key)
 	}
+	slices.Sort(filenames)
 
 	extraCAs := make([]string, len(filenames))
 	for i, caFileName := range filenames {

@@ -65,6 +65,7 @@ The selected Collector image must provide the stock contrib FileExporter v0.159.
 
 ### Change Detection Pattern
 All deployments use the same pattern in their update functions:
+**Determinism prerequisite.** ResourceVersion and content-hash comparisons assume generated data is deterministic. For identical inputs, every generated ConfigMap `Data` and desired Deployment spec MUST be identical across reconciles. A list built from a Go map without sorting changes the bytes on each reconcile, bumps the ConfigMap resourceVersion, and produces an endless restart loop. Sort or canonicalize map-derived lists before generation.
 1. Compare desired vs existing deployment spec using `DeploymentSpecEqual()` (from `utils/`), including semantic equality of `emptyDir` medium and size limit. A size-limit-only change triggers a rollout even when tracked ConfigMap ResourceVersions are unchanged.
 2. Compare ConfigMap ResourceVersions via deployment annotations (one per tracked CM)
 3. Compare content hashes (proxy CA cert hash; OpenShift MCP CA hash when introspection is enabled) via annotations

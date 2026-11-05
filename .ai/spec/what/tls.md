@@ -27,6 +27,7 @@ The operator manages TLS certificates for all inter-component communication and 
 
  1. If `spec.ols.additionalCAConfigMapRef` is set, the operator mounts the referenced ConfigMap in the backend container at `/etc/certs/ols-user-ca/` and each certificate file path is added to the `extra_ca` list in the OLS config.
  2. If `spec.ols.proxyConfig.proxyCACertificate` is set, the referenced ConfigMap key is mounted in the backend container at `/etc/certs/proxy-ca/`. The key defaults to `proxy-ca.crt` if not specified via `spec.ols.proxyConfig.proxyCACertificate.key`.
+ 3. The operator MUST emit the additional CA file paths in a stable, sorted order. Supplying the same keys in a different order MUST NOT change `olsconfig.yaml` or restart the app server. Adding or removing a key MUST cause one configuration update and at most one app-server restart.
 
 ### TLS Security Profiles
 
