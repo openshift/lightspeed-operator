@@ -91,7 +91,7 @@ ols_config:
     feedback_storage: /app-root/ols-user-data/feedback
     transcripts_disabled: <computed: CRvalue || !dataCollectorEnabled>
     transcripts_storage: /app-root/ols-user-data/transcripts
-  extra_cas: [<stable order: kube-root-ca, OTEL, MCP, RHOKP, then user CA paths sorted by file name>]
+  extra_ca: [<stable order: kube-root-ca, OTEL, MCP, RHOKP, then user CA paths sorted by file name>]
   certificate_directory: /etc/certs/cert-bundle
   proxy_config:
     proxy_url: <proxyConfig.proxyURL>

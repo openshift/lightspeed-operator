@@ -317,11 +317,26 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		defer func() {
+			appServerDeployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      AppServerDeploymentName,
+					Namespace: OLSNameSpace,
+				},
+			}
+			// Flush the rollout from the second-cert update first; otherwise the
+			// CA-removal rollout can satisfy the next spec's generation wait.
+			err = client.WaitForDeploymentRollout(appServerDeployment)
+			Expect(err).NotTo(HaveOccurred())
+			generationBeforeCARemoval := appServerDeployment.Generation
 			err = client.Update(cr, func(obj ctrlclient.Object) error {
 				config := obj.(*olsv1alpha1.OLSConfig)
 				config.Spec.OLSConfig.AdditionalCAConfigMapRef = nil
 				return nil
 			})
+			Expect(err).NotTo(HaveOccurred())
+			err = client.WaitForDeploymentNextGeneration(appServerDeployment, generationBeforeCARemoval)
+			Expect(err).NotTo(HaveOccurred())
+			err = client.WaitForDeploymentRollout(appServerDeployment)
 			Expect(err).NotTo(HaveOccurred())
 		}()
 

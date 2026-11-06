@@ -22,5 +22,5 @@ Generated configuration MUST be deterministic: identical inputs produce identica
 
 - Every new list built from a map MUST be sorted or canonicalized before marshaling.
 - The determinism guard test must include new map-backed inputs; otherwise a new section can regress unnoticed.
-- Byte-wise comparison remains intentionally strict. Whitespace or metadata-only changes still count as content changes and can trigger a restart.
+- Byte-wise comparison remains intentionally strict. Whitespace changes in `Data` or `BinaryData` count as content changes. Metadata-only changes do not, because `ConfigMapEqual` does not compare metadata.
 - `extra_ca` order is not semantically meaningful, so sorting is safe there. New list fields must be checked for order semantics before sorting.

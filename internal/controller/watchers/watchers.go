@@ -53,6 +53,21 @@ func isConfigMapReferencedInCR(cr *olsv1alpha1.OLSConfig, cmName string) bool {
 	return found
 }
 
+// isAdditionalCAConfigMap reports whether the configmap is the OLSConfig CR's
+// additional CA source. The operator mounts that configmap into its own
+// namespace, so the name is matched there only.
+func isAdditionalCAConfigMap(r reconciler.Reconciler, ctx context.Context, cm *v1.ConfigMap) bool {
+	if cm.GetNamespace() != r.GetNamespace() {
+		return false
+	}
+	cr := &olsv1alpha1.OLSConfig{}
+	if err := r.Get(ctx, types.NamespacedName{Name: utils.OLSConfigName}, cr); err != nil {
+		return false
+	}
+	ref := cr.Spec.OLSConfig.AdditionalCAConfigMapRef
+	return ref != nil && ref.Name == cm.Name
+}
+
 func ownedByOLSConfig(obj client.Object) bool {
 	for _, owner := range obj.GetOwnerReferences() {
 		if owner.Kind == utils.OLSConfigKind && owner.APIVersion == utils.OLSConfigAPIVersion {
@@ -285,6 +300,15 @@ func (h *ConfigMapUpdateHandler) Update(ctx context.Context, evt event.UpdateEve
 	if apiequality.Semantic.DeepEqual(oldCM.Data, newCM.Data) &&
 		apiequality.Semantic.DeepEqual(oldCM.BinaryData, newCM.BinaryData) {
 		// Data hasn't changed, skip
+		return
+	}
+
+	// The additional CA configmap feeds the generated olsconfig configmap.
+	// Reconciliation rewrites that configmap and restarts the app server once
+	// for the new file set, so restarting here as well would roll the
+	// deployment twice for a single key addition or removal.
+	if isAdditionalCAConfigMap(h.Reconciler, ctx, newCM) {
+		enqueueOLSConfig(q)
 		return
 	}
 
