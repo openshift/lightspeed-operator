@@ -68,12 +68,12 @@ All deployments use the same pattern in their update functions:
 **Determinism prerequisite.** ResourceVersion and content-hash comparisons assume generated data is deterministic. For identical inputs, every generated ConfigMap `Data` and desired Deployment spec MUST be identical across reconciles. A list built from a Go map without sorting changes the bytes on each reconcile, bumps the ConfigMap resourceVersion, and produces an endless restart loop. Sort or canonicalize map-derived lists before generation.
 1. Compare desired vs existing deployment spec using `DeploymentSpecEqual()` (from `utils/`), including semantic equality of `emptyDir` medium and size limit. A size-limit-only change triggers a rollout even when tracked ConfigMap ResourceVersions are unchanged.
 2. Compare ConfigMap ResourceVersions via deployment annotations (one per tracked CM)
-3. Compare content hashes (proxy CA cert hash; additional CA ConfigMap content hash; OpenShift MCP CA hash when introspection is enabled) via annotations
+3. Compare content hashes (proxy CA cert hash; additional CA ConfigMap content hash) via annotations
 4. If any differ: update spec + annotations, call RestartX() function
    - RestartX() sets `ols.openshift.io/force-reload` annotation to `time.Now().Format(time.RFC3339Nano)`
    - This triggers a rolling restart by changing the pod template
 
-**AppServer tracks:** OLS config CM version, MCP server config CM version, proxy CA cert hash, additional CA ConfigMap content hash, MCP client CA Secret content hash (when introspection is enabled)
+**AppServer tracks:** OLS config CM version, proxy CA cert hash, additional CA ConfigMap content hash, RAG spec hash
 **Otelcollector tracks:** Collector runtime ConfigMap and dedicated OTel exporter ConfigMap contents/resource versions. An exporter ConfigMap change rolls the Collector Deployment. Source and ledger `emptyDir` data are pod-local and are lost on Pod replacement.
 
 ## Key Abstractions
