@@ -323,9 +323,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 					Namespace: OLSNameSpace,
 				},
 			}
-			// Flush the rollout from the second-cert update first; otherwise the
-			// CA-removal rollout can satisfy the next spec's generation wait.
-			err = client.WaitForDeploymentRollout(appServerDeployment)
+			err = client.Get(appServerDeployment)
 			Expect(err).NotTo(HaveOccurred())
 			generationBeforeCARemoval := appServerDeployment.Generation
 			err = client.Update(cr, func(obj ctrlclient.Object) error {
@@ -334,9 +332,11 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
+			// Wait for the cleanup's generation bump so the next spec cannot
+			// mistake it for its own CR change. Do not wait for rollout
+			// readiness: app server readiness depends on the external LLM and
+			// is not part of this spec's contract.
 			err = client.WaitForDeploymentNextGeneration(appServerDeployment, generationBeforeCARemoval)
-			Expect(err).NotTo(HaveOccurred())
-			err = client.WaitForDeploymentRollout(appServerDeployment)
 			Expect(err).NotTo(HaveOccurred())
 		}()
 
