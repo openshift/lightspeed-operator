@@ -465,10 +465,16 @@ func GenerateOLSDeployment(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 		return nil, fmt.Errorf("failed to get Proxy CA certificate hash: %w", err)
 	}
 
+	additionalCAHash, err := utils.GetAdditionalCAHash(r, ctx, cr)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get additional CA certificate hash: %w", err)
+	}
+
 	annotations := map[string]string{
 		utils.OLSConfigMapResourceVersionAnnotation: configMapResourceVersion,
 		utils.RAGSpecHashAnnotation:                 ragSpecHash(cr),
 		utils.ProxyCACertHashAnnotation:             proxyCACMResourceVersion,
+		utils.AdditionalCAHashAnnotation:            additionalCAHash,
 	}
 
 	deployment := appsv1.Deployment{
@@ -618,7 +624,17 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 		}
 	}
 
-	// Step 4: Check if RAG spec has changed
+	// Step 4: Check if additional CA certificate content has changed
+	currentAdditionalCAHash, err := utils.GetAdditionalCAHash(r, ctx, cr)
+	if err != nil && !apierrors.IsNotFound(err) {
+		r.GetLogger().Info("failed to get additional CA certificate hash", "error", err)
+		changed = true
+	} else if existingDeployment.Annotations[utils.AdditionalCAHashAnnotation] != currentAdditionalCAHash {
+		r.GetLogger().Info("Additional CA certificate content changed, updating deployment")
+		changed = true
+	}
+
+	// Step 5: Check if RAG spec has changed
 	currentRAGHash := ragSpecHash(cr)
 	if existingDeployment.Annotations[utils.RAGSpecHashAnnotation] != currentRAGHash {
 		r.GetLogger().Info("RAG spec changed, updating deployment")
@@ -641,6 +657,7 @@ func updateOLSDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	existingDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation] = desiredDeployment.Annotations[utils.OLSConfigMapResourceVersionAnnotation]
 	existingDeployment.Annotations[utils.RAGSpecHashAnnotation] = currentRAGHash
 	existingDeployment.Annotations[utils.ProxyCACertHashAnnotation] = currentProxyCACMHash
+	existingDeployment.Annotations[utils.AdditionalCAHashAnnotation] = currentAdditionalCAHash
 
 	r.GetLogger().Info("updating OLS deployment", "name", existingDeployment.Name)
 

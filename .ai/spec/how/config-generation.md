@@ -91,7 +91,7 @@ ols_config:
     feedback_storage: /app-root/ols-user-data/feedback
     transcripts_disabled: <computed: CRvalue || !dataCollectorEnabled>
     transcripts_storage: /app-root/ols-user-data/transcripts
-  extra_cas: [<list of cert file paths from kube-root-ca.crt + additional CA CM>]
+  extra_ca: [<stable order: kube-root-ca, OTEL, MCP, RHOKP, then user CA paths sorted by file name>]
   certificate_directory: /etc/certs/cert-bundle
   proxy_config:
     proxy_url: <proxyConfig.proxyURL>
@@ -209,6 +209,14 @@ Provider credentials are mounted as files at `/etc/apikeys/<secretName>/`. The O
 
 ### Config Building Pattern
 Config is built programmatically using typed Go structs from the `utils/` package (e.g., `utils.AppSrvConfigFile`) and marshaled with `yaml.Marshal()`. No templates are used.
+
+### Deterministic Generated Data
+
+`GenerateOLSConfigMap()` MUST return byte-identical `Data` for identical CR, Secret, and ConfigMap inputs. `utils.ConfigMapEqual()` compares the marshaled YAML string, so any byte difference is a content change and triggers a ConfigMap rewrite.
+
+A list built by ranging over a Go map MUST be sorted before marshaling. Go randomizes map iteration order, so an unsorted list changes the generated YAML on every reconcile. The `extra_ca` list keeps the fixed kube-root-ca, OTEL, MCP, and RHOKP paths in their defined order, then appends the user-provided additional CA paths sorted by file name.
+
+A unit test in `assets_test.go` generates the ConfigMap 20 times from a fixture with multi-key maps and requires byte-identical data. When a new map-backed config input is added, add it to that fixture.
 
 ### PostgreSQL Schema Isolation
 PostgreSQL schemas isolate data from different components within the same database:

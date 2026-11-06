@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -883,6 +884,41 @@ func GetProxyCACertHash(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 
 	hash := sha256.Sum256([]byte(certData))
 	return hex.EncodeToString(hash[:]), nil
+}
+
+// GetAdditionalCAHash returns a SHA256 hash of the referenced additional CA
+// ConfigMap content. The generated extra_ca list contains file paths only, so
+// replacing a certificate without changing file names leaves the generated
+// configuration unchanged. Tracking this hash on the deployment makes
+// reconciliation roll the app server once for a content change, so the new
+// trust bundle is loaded at startup.
+// Returns empty string and nil error when no additional CA ConfigMap is configured.
+func GetAdditionalCAHash(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (string, error) {
+	ref := cr.Spec.OLSConfig.AdditionalCAConfigMapRef
+	if ref == nil || ref.Name == "" {
+		return "", nil
+	}
+
+	cm := &corev1.ConfigMap{}
+	err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: r.GetNamespace()}, cm)
+	if err != nil {
+		return "", err
+	}
+
+	keys := make([]string, 0, len(cm.Data))
+	for key := range cm.Data {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+
+	hash := sha256.New()
+	for _, key := range keys {
+		hash.Write([]byte(key))
+		hash.Write([]byte{0})
+		hash.Write([]byte(cm.Data[key]))
+		hash.Write([]byte{0})
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // The callback function receives:
