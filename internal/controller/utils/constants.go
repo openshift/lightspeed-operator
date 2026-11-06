@@ -637,7 +637,7 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	RosaOKPProductClassic = "red_hat_openshift_service_on_aws_classic_architecture"
 	// RHOOKPSolrCollection is the Solr core served by RHOKP (matches lightspeed-service portal-rag client).
 	RHOOKPSolrCollection = "portal-rag"
-	// RHOOKPReadinessHTTPPath hits the portal-rag core admin ping (Apache / alone is not Solr-ready).
+	// RHOOKPReadinessHTTPPath is only probed on Solr loopback; Apache does not expose admin routes.
 	RHOOKPReadinessHTTPPath = "/solr/" + RHOOKPSolrCollection + "/admin/ping"
 	// RHOKP startup probe: Solr can take several minutes on cold start (portal-rag core load).
 	RHOOKPStartupProbeInitialDelaySeconds = 20
