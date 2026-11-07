@@ -284,7 +284,7 @@ const (
 	AgenticConfigurationMCPEndpointKey = "mcp-endpoint"
 	// AgenticConfigurationMCPCASecretKey is the ConfigMap data key naming the MCP client-CA Secret.
 	AgenticConfigurationMCPCASecretKey = "mcp-ca-secret" // #nosec G101
-	// AgenticConfigurationRHOKPEndpointKey is the standalone RHOKP HTTPS endpoint URL.
+	// AgenticConfigurationRHOKPEndpointKey is the standalone RHOKP MCP HTTPS endpoint URL.
 	AgenticConfigurationRHOKPEndpointKey = "rhokp-endpoint"
 	// AgenticConfigurationRHOKPCASecretKey is the ConfigMap data key naming the RHOKP client-CA Secret.
 	AgenticConfigurationRHOKPCASecretKey = "rhokp-ca-secret" // #nosec G101
@@ -627,9 +627,9 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	RHOOKPHTTPPort = 9080
 	// RHOOKPHTTPSPort is the RH OKP Apache HTTPS port (remapped from image default 8443; OLS uses 8443).
 	RHOOKPHTTPSPort = 9443
-	// OCPClusterVersionEnvVar is read by lightspeed-service to resolve Solr chunk_filter_query at startup.
+	// OCPClusterVersionEnvVar is read by lightspeed-service to filter RHOKP documentation search results.
 	OCPClusterVersionEnvVar = "OCP_CLUSTER_VERSION"
-	// OLSRosaProductEnvVar is read by lightspeed-service to scope OKP retrieval on ROSA clusters.
+	// OLSRosaProductEnvVar is read by lightspeed-service to scope RHOKP documentation search on ROSA clusters.
 	OLSRosaProductEnvVar = "OLS_ROSA_PRODUCT"
 	// RosaOKPProductHCP is the OKP product identifier for ROSA hosted control planes.
 	RosaOKPProductHCP = "red_hat_openshift_service_on_aws"
@@ -655,12 +655,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	RHOOKPImageHTTPSPort      = 8443
 	RHOOKPContainerEntrypoint = "/usr/bin/container-entrypoint"
 	RHOOKPMainCommand         = "/usr/local/bin/mel"
-	// Solr hybrid defaults written to the OLS config file (not exposed on OLSConfig CR).
-	SolrHybridMaxResultsDefault         = 5
-	SolrHybridVectorBoostDefault        = 8.0
-	SolrHybridPoolDocsDefault           = 100
-	SolrHybridScoreThresholdDefault     = 0.0
-	SolrHybridSolrTimeoutSecondsDefault = 60.0
+	// OpenShiftDocsMCPMaxResultsDefault is the number of documentation results requested from RHOKP.
+	OpenShiftDocsMCPMaxResultsDefault = 5
 	// MCP server timeout, sec
 	OpenShiftMCPServerTimeout = 60
 	// MCP server SSE read timeout, sec
@@ -806,7 +802,12 @@ func OpenShiftMCPServerServiceURL(namespace string) string {
 	return fmt.Sprintf("https://%s.%s.svc:%d/mcp", OpenShiftMCPServerServiceName, namespace, OpenShiftMCPServerHTTPSPort)
 }
 
-// RHOKPServiceURL returns the in-cluster HTTPS RHOKP Solr endpoint for the given namespace.
+// RHOKPServiceURL returns the in-cluster HTTPS RHOKP base URL for the given namespace.
 func RHOKPServiceURL(namespace string) string {
 	return fmt.Sprintf("https://%s.%s.svc:%d", RHOKPServiceName, namespace, RHOOKPImageHTTPSPort)
+}
+
+// RHOKPMCPURL returns the in-cluster HTTPS RHOKP MCP endpoint for the given namespace.
+func RHOKPMCPURL(namespace string) string {
+	return RHOKPServiceURL(namespace) + "/mcp"
 }

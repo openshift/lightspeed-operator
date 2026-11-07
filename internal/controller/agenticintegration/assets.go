@@ -149,7 +149,7 @@ func GenerateAgenticConfigurationConfigMap(r reconciler.Reconciler, cr *olsv1alp
 		data[utils.AgenticConfigurationMCPCASecretKey] = utils.AgenticMCPCASecretName
 	}
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
-		data[utils.AgenticConfigurationRHOKPEndpointKey] = utils.RHOKPServiceURL(ns)
+		data[utils.AgenticConfigurationRHOKPEndpointKey] = utils.RHOKPMCPURL(ns)
 		data[utils.AgenticConfigurationRHOKPCASecretKey] = utils.AgenticRHOKPCASecretName
 	}
 
