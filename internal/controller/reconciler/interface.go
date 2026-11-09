@@ -56,6 +56,9 @@ type Reconciler interface {
 	// GetAlertsAdapterImage returns the alerts adapter image to use
 	GetAlertsAdapterImage() string
 
+	// GetAgenticSkillsImage returns the default OCI image for AgenticRun skills.
+	GetAgenticSkillsImage() string
+
 	// GetAgenticSandboxImage returns the agentic sandbox container image to use
 	GetAgenticSandboxImage() string
 
