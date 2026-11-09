@@ -31,17 +31,18 @@ spec:
           \"smart\", \"fast\").\nThe cluster admin creates Agent resources to configure
           LLM infrastructure\nand runtime settings. AgenticRuns reference agents by
           name per step.\n\nAgent is cluster-scoped. The metadata.name serves as the
-          tier identifier.\nThe \"default\" agent must exist; \"smart\" and \"fast\"
-          are optional (the\noperator auto-links to \"default\" if absent).\n\nExample
-          — a high-capability agent tier with extended thinking:\n\n\tapiVersion:
-          agentic.openshift.io/v1alpha1\n\tkind: Agent\n\tmetadata:\n\t  name: smart\n\tspec:\n\t
-          \ llmProvider:\n\t    name: vertex-ai\n\t  model: claude-opus-4-6\n\t  timeouts:\n\t
-          \   analysisSeconds: 300\n\t    executionSeconds: 600\n\t  maxTurns: 200\n\t
-          \ reasoningConfig:\n\t    thinking: \"enabled\"\n\t    effort: \"high\"\n\nExample
-          — a fast, cost-efficient agent tier:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
-          Agent\n\tmetadata:\n\t  name: fast\n\tspec:\n\t  llmProvider:\n\t    name:
-          vertex-ai\n\t  model: claude-haiku-4-5\n\t  timeouts:\n\t    analysisSeconds:
-          120\n\t    executionSeconds: 300\n\t  maxTurns: 100"
+          tier identifier.\nThe \"default\" agent must exist. Any other named agent
+          is optional;\nwhen an AgenticRun references a non-existent agent, the operator\nfalls
+          back to \"default\" and logs a warning.\n\nExample — a high-capability agent
+          tier with extended thinking:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind:
+          Agent\n\tmetadata:\n\t  name: smart\n\tspec:\n\t  llmProvider:\n\t    name:
+          vertex-ai\n\t  model: claude-opus-4-6\n\t  timeouts:\n\t    analysisSeconds:
+          300\n\t    executionSeconds: 600\n\t  maxTurns: 200\n\t  reasoningConfig:\n\t
+          \   thinking: \"enabled\"\n\t    effort: \"high\"\n\nExample — a fast, cost-efficient
+          agent tier:\n\n\tapiVersion: agentic.openshift.io/v1alpha1\n\tkind: Agent\n\tmetadata:\n\t
+          \ name: fast\n\tspec:\n\t  llmProvider:\n\t    name: vertex-ai\n\t  model:
+          claude-haiku-4-5\n\t  timeouts:\n\t    analysisSeconds: 120\n\t    executionSeconds:
+          300\n\t  maxTurns: 100"
         properties:
           apiVersion:
             description: |-
