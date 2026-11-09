@@ -463,6 +463,31 @@ var _ = Describe("Watchers", func() {
 			h.Update(ctx, event.UpdateEvent{ObjectOld: cm, ObjectNew: cm.DeepCopy()}, nil)
 		})
 
+		It("Update enqueues OLSConfig for an additional CA configmap instead of restarting deployments", func() {
+			cr := utils.GetDefaultOLSConfigCR()
+			cr.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{Name: "extra-ca"}
+			r := createTestReconciler(cr, newTestDeployment(utils.OLSAppServerDeploymentName))
+			h := &ConfigMapUpdateHandler{Reconciler: r}
+			q := &recordingQueue{}
+			oldCM := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   utils.OLSNamespaceDefault,
+					Name:        "extra-ca",
+					Annotations: map[string]string{utils.WatcherAnnotationKey: "1"},
+				},
+				Data: map[string]string{"ca.crt": "old"},
+			}
+			newCM := oldCM.DeepCopy()
+			newCM.Data["ca.crt"] = "new"
+
+			h.Update(ctx, event.UpdateEvent{ObjectOld: oldCM, ObjectNew: newCM}, q)
+
+			Expect(q.items).To(Equal([]reconcile.Request{{NamespacedName: types.NamespacedName{Name: utils.OLSConfigName}}}))
+			dep := &appsv1.Deployment{}
+			Expect(r.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)).To(Succeed())
+			Expect(dep.Spec.Template.Annotations).NotTo(HaveKey(utils.ForceReloadAnnotationKey))
+		})
+
 		It("Create is a no-op for non-ConfigMap objects", func() {
 			r := createTestReconciler()
 			h := &ConfigMapUpdateHandler{Reconciler: r}

@@ -316,6 +316,30 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
+		defer func() {
+			appServerDeployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      AppServerDeploymentName,
+					Namespace: OLSNameSpace,
+				},
+			}
+			err = client.Get(appServerDeployment)
+			Expect(err).NotTo(HaveOccurred())
+			generationBeforeCARemoval := appServerDeployment.Generation
+			err = client.Update(cr, func(obj ctrlclient.Object) error {
+				config := obj.(*olsv1alpha1.OLSConfig)
+				config.Spec.OLSConfig.AdditionalCAConfigMapRef = nil
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+			// Wait for the cleanup's generation bump so the next spec cannot
+			// mistake it for its own CR change. Do not wait for rollout
+			// readiness: app server readiness depends on the external LLM and
+			// is not part of this spec's contract.
+			err = client.WaitForDeploymentNextGeneration(appServerDeployment, generationBeforeCARemoval)
+			Expect(err).NotTo(HaveOccurred())
+		}()
+
 		By("check the OLS configmap to contain the additional CA cert")
 		olsConfigMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -382,7 +406,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			return certVolumeExist && certBundleVolumeExist && certVolumeMountExist && certBundleVolumeMountExist, nil
 		})
 		Expect(err).NotTo(HaveOccurred())
-		firstCmHash := deployment.Spec.Template.Annotations[AdditionalCAHashKey]
+		generationBeforeSecondCert := deployment.Generation
 
 		By("check the app deployment and OLS config adapted to modified CA cert configmap")
 		err = client.Update(caCertConfigMap, func(obj ctrlclient.Object) error {
@@ -393,10 +417,8 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		err = client.WaitForConfigMapContainString(olsConfigMap, AppServerConfigMapKey, "/etc/certs/ols-user-ca/"+caCert2FileName)
 		Expect(err).NotTo(HaveOccurred())
-		err = client.WaitForDeploymentCondition(deployment, func(dep *appsv1.Deployment) (bool, error) {
-			newCmHash := dep.Spec.Template.Annotations[AdditionalCAHashKey]
-			return newCmHash != firstCmHash, nil
-		})
+		err = client.WaitForDeploymentNextGeneration(deployment, generationBeforeSecondCert)
+		Expect(err).NotTo(HaveOccurred())
 
 	})
 
@@ -433,9 +455,7 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 			config := obj.(*olsv1alpha1.OLSConfig)
 			hotReload := true
 			config.Spec.OLSConfig.CredentialHotReload = &hotReload
-			// The previous CA-cert test deletes its ConfigMap via defer but
-			// leaves the dangling ref on the CR.  Clear it so
-			// GenerateOLSConfigMap won't fail with a NotFound error.
+			// Defensive: clear any additional CA ref an earlier spec may have left.
 			config.Spec.OLSConfig.AdditionalCAConfigMapRef = nil
 			return nil
 		})

@@ -244,6 +244,59 @@ var _ = Describe("App server reconciliator", Ordered, func() {
 			Expect(dep.Spec.Template.Spec.NodeSelector).To(Equal(olsConfig.Spec.OLSConfig.DeploymentConfig.APIContainer.NodeSelector))
 		})
 
+		It("should trigger rolling update of the deployment when additional CA content changes without key changes", func() {
+			By("create the additional CA configmap")
+			caConfigMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "additional-ca-content-rotation",
+					Namespace: utils.OLSNamespaceDefault,
+				},
+				Data: map[string]string{
+					"ca.crt": utils.TestCACert,
+				},
+			}
+			err := testReconcilerInstance.Create(ctx, caConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				_ = testReconcilerInstance.Delete(ctx, caConfigMap)
+			})
+
+			By("reference the configmap from the OLSConfig")
+			olsConfig := &olsv1alpha1.OLSConfig{}
+			err = k8sClient.Get(ctx, crNamespacedName, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			olsConfig.Spec.OLSConfig.AdditionalCAConfigMapRef = &corev1.LocalObjectReference{
+				Name: caConfigMap.Name,
+			}
+
+			By("Reconcile the app server")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("get the deployment after the first reconcile")
+			dep := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			firstHash := dep.Annotations[utils.AdditionalCAHashAnnotation]
+			Expect(firstHash).NotTo(BeEmpty())
+			firstReload := dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]
+
+			By("rotate the certificate content without changing the key")
+			caConfigMap.Data["ca.crt"] = utils.TestCACert + "\n" + utils.TestCACert
+			err = testReconcilerInstance.Update(ctx, caConfigMap)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Reconcile the app server again")
+			err = ReconcileAppServer(testReconcilerInstance, ctx, olsConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("verify the deployment rolled for the content change")
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: utils.OLSAppServerDeploymentName, Namespace: utils.OLSNamespaceDefault}, dep)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dep.Annotations[utils.AdditionalCAHashAnnotation]).NotTo(Equal(firstHash))
+			Expect(dep.Spec.Template.Annotations[utils.ForceReloadAnnotationKey]).NotTo(Equal(firstReload))
+		})
+
 		// This is specific for hash based implementation. Now done by watcher
 		XIt("should trigger rolling update of the deployment when changing tls secret content", func() {
 
