@@ -97,8 +97,8 @@
   },
   {
     "name": "lightspeed-operator-bundle",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:9a3888a3a451e99f14a58d48f1dd1ba480655cdf2cf9ef4ae2d4dfb3b9f7bb52",
-    "revision": "73adc1b9b50f3f57b5245730f93566c2866da62b",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-operator-bundle@sha256:8847f1405b4c96eca7b677e10f139026bd37ed8163e32b70fe2b411b605494e9",
+    "revision": "5d7df7672c7840be4f4c4af9825121f37e354e20",
     "snapshot_component": "ols-bundle",
     "snapshot_source": "bundle",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle",
