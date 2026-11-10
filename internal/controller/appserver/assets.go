@@ -371,6 +371,7 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 
 	// Assemble the main OLS configuration
 	olsConfig := utils.OLSConfig{
+		ToolOutputRedaction: utils.ToolOutputRedactionEnabled(cr),
 		Guardrails: utils.GuardrailsConfig{
 			ToolResultInspection: utils.ToolResultInspectionConfig{
 				Enabled: utils.ToolResultInspectionEnabled(cr),

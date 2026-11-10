@@ -97,6 +97,7 @@ ols_config:
     proxy_url: <proxyConfig.proxyURL>
     proxy_ca_cert_path: /etc/certs/cm-proxycacert/<certKey>
   query_filters: [{name, pattern, replace_with}]   # if spec.ols.queryFilters set
+  tool_output_redaction: <spec.ols.toolOutputRedaction, default true>
   system_prompt_path: /etc/ols/system_prompt        # if spec.ols.querySystemPrompt set
   quota_handlers_config:                             # if spec.ols.quotaHandlersConfig set
     storage: <postgres cache config>
@@ -241,6 +242,7 @@ PostgreSQL schemas isolate data from different components within the same databa
 | Tool filtering | CR `spec.ols.toolFilteringConfig` | Feature gated by `ToolFiltering` gate; requires MCP servers |
 | Proxy config | CR `spec.ols.proxyConfig` | Proxy URL + optional CA cert configmap |
 | Query filters | CR `spec.ols.queryFilters[]` | Regex patterns for content filtering |
+| Tool-output redaction | CR `spec.ols.toolOutputRedaction` | [DONE: OLS-4879] Writes `ols_config.tool_output_redaction`; defaults to `true` and preserves explicit `false` |
 | Quota config | CR `spec.ols.quotaHandlersConfig` | Rate limiting with scheduler period fixed at 300s |
 | Tool-result inspection | CR `spec.ols.guardrails.toolResultInspection.enabled` | [PLANNED: OLS-3928] Writes `ols_config.guardrails.tool_result_inspection.enabled`; same effective value enters the agentic handoff |
 

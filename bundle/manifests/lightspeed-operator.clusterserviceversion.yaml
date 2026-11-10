@@ -426,6 +426,13 @@ spec:
             path: ols.deployment.rhokp.replicas
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:podCount
+          - description: |-
+              ToolOutputRedaction controls whether sensitive values in tool output are redacted.
+              Defaults to true when omitted. This setting is independent of guardrail inspection.
+            displayName: Tool Output Redaction
+            path: ols.toolOutputRedaction
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: Guardrails configuration for untrusted model inputs and outputs.
             displayName: Guardrails
             path: ols.guardrails

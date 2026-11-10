@@ -256,6 +256,8 @@ type ModelConfig struct {
 }
 
 type OLSConfig struct {
+	// Tool-output redaction policy, enabled unless explicitly disabled.
+	ToolOutputRedaction bool `json:"tool_output_redaction"`
 	// Guardrails configuration for untrusted model inputs and outputs.
 	Guardrails GuardrailsConfig `json:"guardrails,omitempty"`
 	// Default model for usage

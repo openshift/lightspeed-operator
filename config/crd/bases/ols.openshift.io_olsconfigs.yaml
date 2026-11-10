@@ -2275,6 +2275,12 @@ spec:
                       rule: self.alpha >= 0.0 && self.alpha <= 1.0
                     - message: threshold must be between 0.0 and 1.0
                       rule: self.threshold >= 0.0 && self.threshold <= 1.0
+                  toolOutputRedaction:
+                    default: true
+                    description: |-
+                      ToolOutputRedaction controls whether sensitive values in tool output are redacted.
+                      Defaults to true when omitted. This setting is independent of guardrail inspection.
+                    type: boolean
                   toolsApprovalConfig:
                     description: Tool execution approval configuration. Controls whether
                       tool calls require user approval before execution.

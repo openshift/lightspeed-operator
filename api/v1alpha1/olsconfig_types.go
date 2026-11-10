@@ -257,6 +257,13 @@ type ToolResultInspectionConfig struct {
 //   - Set byokRAGOnly to disable OKP: no RHOKP sidecar, no solr_hybrid section, and no built-in
 //     OCP documentation retrieval—only BYOK FAISS indexes from spec.rag are used.
 type OLSSpec struct {
+	// ToolOutputRedaction controls whether sensitive values in tool output are redacted.
+	// Defaults to true when omitted. This setting is independent of guardrail inspection.
+	// +kubebuilder:default=true
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Tool Output Redaction",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	ToolOutputRedaction *bool `json:"toolOutputRedaction,omitempty"`
+
 	// Guardrails configuration for untrusted model inputs and outputs.
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Guardrails"

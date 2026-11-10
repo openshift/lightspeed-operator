@@ -158,6 +158,28 @@ var _ = Describe("OLSConfig Reconciler Helper Functions", Ordered, func() {
 		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected long provider and model names to be rejected, got %v", err)
 	})
 
+	Describe("tool-output redaction CRD defaulting", func() {
+		It("defaults an omitted value to true when persisted", func() {
+			Expect(cr.Spec.OLSConfig.ToolOutputRedaction).To(BeNil())
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			stored := &olsv1alpha1.OLSConfig{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, stored)).To(Succeed())
+			Expect(stored.Spec.OLSConfig.ToolOutputRedaction).NotTo(BeNil())
+			Expect(*stored.Spec.OLSConfig.ToolOutputRedaction).To(BeTrue())
+		})
+
+		It("preserves an explicit false value when persisted", func() {
+			cr.Spec.OLSConfig.ToolOutputRedaction = utils.BoolPtr(false)
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			stored := &olsv1alpha1.OLSConfig{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name}, stored)).To(Succeed())
+			Expect(stored.Spec.OLSConfig.ToolOutputRedaction).NotTo(BeNil())
+			Expect(*stored.Spec.OLSConfig.ToolOutputRedaction).To(BeFalse())
+		})
+	})
+
 	Describe("terminalTTL admission validation", func() {
 		DescribeTable("accepts only positive whole days", func(days int32, accepted bool) {
 			cr.Spec.AgenticOLS = &olsv1alpha1.AgenticOLSSpec{TerminalTTL: &days}

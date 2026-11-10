@@ -21,6 +21,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
 4a. `spec.agenticOLS.terminalTTL` is optional, positive whole days (minimum 1) and has no OLSConfig default. When omitted, the agentic operator supplies its own 14-day fallback; the classic operator does not materialize it.
 7a. [PLANNED: OLS-3928] The handoff MUST conform to `openshift/ols/.ai/spec/what/tool-result-inspection.md`. `spec.ols.guardrails.toolResultInspection.enabled` is optional and defaults to `true`.
 7b. The classic operator MUST use one effective value for the Classic service and the agentic handoff.
+7c. [DONE: OLS-4879] The optional `spec.ols.toolOutputRedaction` boolean defaults to `true`; the classic operator publishes its effective value to both Classic service configuration and the Agentic handoff. This specifies publication only; Agentic-operator consumption is separate work.
 
 ### Handoff ConfigMap (`lightspeed-agentic-configuration`)
 
@@ -38,6 +39,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
    - `tls-min-version` — resolved minimum TLS version for agentic provider egress
    - `tls-cipher-suites` — JSON-serialized resolved cipher-suite list for agentic provider egress
    - [PLANNED: OLS-3928] `tool-output-inspection-enabled` — effective `spec.ols.guardrails.toolResultInspection.enabled` value as `"true"` or `"false"`
+   - [DONE: OLS-4879] `tool-output-redaction-enabled` — effective `spec.ols.toolOutputRedaction` value as `"true"` or `"false"` (defaults to `"true"`)
 2a. Optional `terminal-ttl-days` key: decimal positive whole days from `spec.agenticOLS.terminalTTL`. Omit/remove this key on every reconcile when that field or `spec.agenticOLS` is absent; never publish the 14-day fallback. Updates do not change deadlines already recorded on terminal runs.
 3. When `spec.ols.introspectionEnabled` is true (default), also set:
 
@@ -112,6 +114,7 @@ See also: `templog.md` (collector), `ocpmcp.md` (MCP Service/CA), `rhokp.md` (RH
 | `spec.ols.introspectionEnabled` | Gates MCP keys and MCP client CA Secret |
 | `spec.ols.additionalCAConfigMapRef` | Conditionally publishes the referenced ConfigMap name as `additional-ca-configmap` |
 | `spec.ols.guardrails.toolResultInspection.enabled` | [PLANNED: OLS-3928] Publishes `tool-output-inspection-enabled`; defaults to `true` |
+| `spec.ols.toolOutputRedaction` | [DONE: OLS-4879] Publishes `tool-output-redaction-enabled`; defaults to `true` |
 | `--agentic-sandbox-image` | Sandbox container image in thin PodSpec |
 
 ## Constraints

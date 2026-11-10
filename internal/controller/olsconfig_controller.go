@@ -811,7 +811,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if version.State == utils.AgenticGateUnknown {
 		r.Logger.Info("ClusterVersion does not establish a completed release; skipping agentic mutations and retrying")
 		defer func() {
-			if reconcileErr == nil && result.RequeueAfter == 0 && !result.Requeue {
+			if reconcileErr == nil && result.RequeueAfter == 0 && !result.Requeue { //nolint:staticcheck // Preserve explicitly requested rate-limited requeues from reconcile steps.
 				result.RequeueAfter = time.Minute
 			}
 		}()
