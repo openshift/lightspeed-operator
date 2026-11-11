@@ -272,6 +272,8 @@ const (
 	AgenticConfigurationSandboxModeKey = "sandbox-mode"
 	// AgenticConfigurationToolOutputInspectionEnabledKey controls tool-result inspection in agentic sandboxes.
 	AgenticConfigurationToolOutputInspectionEnabledKey = "tool-output-inspection-enabled"
+	// AgenticConfigurationToolOutputRedactionEnabledKey controls tool-output redaction in agentic sandboxes.
+	AgenticConfigurationToolOutputRedactionEnabledKey = "tool-output-redaction-enabled"
 	// AgenticConfigurationSandboxPodSpecKey is JSON-serialized thin corev1.PodSpec.
 	AgenticConfigurationSandboxPodSpecKey = "sandbox-pod-spec"
 	// AgenticConfigurationTerminalTTLDaysKey is the optional terminal-run retention ceiling in days.
@@ -394,7 +396,7 @@ const (
 	// OtelDataverseExporterClusterRoleBindingName binds ClusterVersion access to the Collector ServiceAccount.
 	OtelDataverseExporterClusterRoleBindingName = "lightspeed-otel-dataverse-exporter-binding"
 	// OtelDataverseExporterPullSecretClusterRoleName is the ClusterRole for telemetry pull-secret reads.
-	OtelDataverseExporterPullSecretClusterRoleName = "lightspeed-otel-dataverse-exporter-pull-secret"
+	OtelDataverseExporterPullSecretClusterRoleName = "lightspeed-otel-dataverse-exporter-pull-secret" // #nosec G101 -- Kubernetes RBAC resource name, not a credential.
 	// OtelDataverseExporterPullSecretRoleBindingName binds that role only in openshift-config.
 	OtelDataverseExporterPullSecretRoleBindingName = OtelDataverseExporterPullSecretClusterRoleName
 	// OtelDataverseExporterConfigMapResourceVersionAnnotation tracks exporter config rollouts.

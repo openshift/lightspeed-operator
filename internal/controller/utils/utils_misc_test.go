@@ -62,6 +62,33 @@ var _ = Describe("ToolResultInspectionEnabled", func() {
 	})
 })
 
+var _ = Describe("ToolOutputRedactionEnabled", func() {
+	It("defaults to enabled when the setting is omitted", func() {
+		cr := &olsv1alpha1.OLSConfig{}
+		Expect(ToolOutputRedactionEnabled(cr)).To(BeTrue())
+	})
+
+	It("returns true when explicitly enabled", func() {
+		enabled := true
+		cr := &olsv1alpha1.OLSConfig{
+			Spec: olsv1alpha1.OLSConfigSpec{
+				OLSConfig: olsv1alpha1.OLSSpec{ToolOutputRedaction: &enabled},
+			},
+		}
+		Expect(ToolOutputRedactionEnabled(cr)).To(BeTrue())
+	})
+
+	It("returns false when explicitly disabled", func() {
+		enabled := false
+		cr := &olsv1alpha1.OLSConfig{
+			Spec: olsv1alpha1.OLSConfigSpec{
+				OLSConfig: olsv1alpha1.OLSSpec{ToolOutputRedaction: &enabled},
+			},
+		}
+		Expect(ToolOutputRedactionEnabled(cr)).To(BeFalse())
+	})
+})
+
 var _ = Describe("StatusHasCondition", func() {
 	var testStatus olsv1alpha1.OLSConfigStatus
 

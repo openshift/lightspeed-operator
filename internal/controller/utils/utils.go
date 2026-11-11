@@ -1440,3 +1440,9 @@ func ToolResultInspectionEnabled(cr *olsv1alpha1.OLSConfig) bool {
 	}
 	return *cr.Spec.OLSConfig.Guardrails.ToolResultInspection.Enabled
 }
+
+// ToolOutputRedactionEnabled returns the effective tool-output redaction setting.
+// Redaction is enabled unless the administrator explicitly sets enabled to false.
+func ToolOutputRedactionEnabled(cr *olsv1alpha1.OLSConfig) bool {
+	return BoolDeref(cr.Spec.OLSConfig.ToolOutputRedaction, true)
+}

@@ -448,6 +448,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.defaultModel` | `string` | -- | Yes | -- | Default model name
 `spec.ols.defaultProvider` | `string` | -- | Yes | -- | Default provider name
 `spec.ols.logLevel` | `LogLevel` | `INFO` | No | Enum: DEBUG/INFO/WARNING/ERROR/CRITICAL | Log level
+`spec.ols.toolOutputRedaction` | `*bool` | `true` | No | -- | Enable tool-output redaction; explicit `false` is an administrator opt-out
 `spec.ols.guardrails` | `GuardrailsSpec` | -- | No | -- | Cluster-wide guardrail configuration
 `spec.ols.guardrails.toolResultInspection` | `ToolResultInspectionSpec` | -- | No | -- | Tool-result inspection configuration
 `spec.ols.guardrails.toolResultInspection.enabled` | `*bool` | `true` | No | -- | Enable LLM inspection in Classic OLS and DeepAgents
@@ -589,6 +590,7 @@ Path | Type | Default | Required | Validation | Description
 ## Verification
 
 - [OLS-4290] Tests cover `terminalTTL` validation, absent-field semantics, and publication/removal of `terminal-ttl-days` in the handoff ConfigMap.
+- [DONE: OLS-4879] Tests cover the default-on and explicit opt-out values in generated Classic config and Agentic handoff, including coexistence with `queryFilters`.
 - [PLANNED: OLS-3928] Operator tests cover explicit values, the default value, generated Classic configuration, and the `tool-output-inspection-enabled` handoff key.
 
 ## Planned Changes

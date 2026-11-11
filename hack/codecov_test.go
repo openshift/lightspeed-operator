@@ -31,6 +31,14 @@ fi
 exit "${STUB_EXIT_CODE:-0}"
 `
 
+// timeoutStub makes the timeout wrapper available on platforms such as macOS,
+// where the GNU timeout utility is not installed. The tests exercise codecov.sh,
+// not timeout's timing behavior, so the shim forwards the command after its duration.
+const timeoutStub = `#!/usr/bin/env bash
+shift
+exec "$@"
+`
+
 // codecovScriptResult captures the outcome of one hack/codecov.sh run,
 // including the directory holding the codecovcli stub's recorded files.
 type codecovScriptResult struct {
@@ -89,6 +97,9 @@ func runCodecovScript(t *testing.T, overrides map[string]string) codecovScriptRe
 	stub := filepath.Join(stubDir, "codecovcli")
 	if err := os.WriteFile(stub, []byte(cliStub), 0o755); err != nil {
 		t.Fatalf("failed to write codecovcli stub: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(stubDir, "timeout"), []byte(timeoutStub), 0o755); err != nil {
+		t.Fatalf("failed to write timeout stub: %v", err)
 	}
 	reportFile := filepath.Join(dir, "cover.out")
 	if err := os.WriteFile(reportFile, []byte("mode: atomic\n"), 0o644); err != nil {

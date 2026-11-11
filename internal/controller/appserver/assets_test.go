@@ -90,6 +90,7 @@ var _ = Describe("App server assets", func() {
 			Expect(err).NotTo(HaveOccurred())
 			olsConfigExpected := utils.AppSrvConfigFile{
 				OLSConfig: utils.OLSConfig{
+					ToolOutputRedaction: true,
 					Guardrails: utils.GuardrailsConfig{
 						ToolResultInspection: utils.ToolResultInspectionConfig{Enabled: true},
 					},
@@ -222,6 +223,31 @@ var _ = Describe("App server assets", func() {
 			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
 		})
 
+		It("should default tool-output redaction to enabled in service configuration", func() {
+			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var generated map[string]interface{}
+			Expect(yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &generated)).To(Succeed())
+			olsConfig := generated["ols_config"].(map[string]interface{})
+			Expect(olsConfig["tool_output_redaction"]).To(BeTrue())
+			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
+		})
+
+		It("should preserve an explicit false tool-output redaction setting in service configuration", func() {
+			utils.CreateTelemetryPullSecret(ctx, k8sClient, true)
+			cr.Spec.OLSConfig.ToolOutputRedaction = utils.BoolPtr(false)
+			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			var generated map[string]interface{}
+			Expect(yaml.Unmarshal([]byte(cm.Data[utils.OLSConfigFilename]), &generated)).To(Succeed())
+			olsConfig := generated["ols_config"].(map[string]interface{})
+			Expect(olsConfig["tool_output_redaction"]).To(BeFalse())
+			utils.DeleteTelemetryPullSecret(ctx, k8sClient)
+		})
+
 		It("should apply default tool_budget_ratio when parameters are not specified", func() {
 			crNoParams := &olsv1alpha1.OLSConfig{
 				ObjectMeta: metav1.ObjectMeta{
@@ -298,10 +324,11 @@ var _ = Describe("App server assets", func() {
 			}
 		})
 
-		It("should generate configmap with queryFilters", func() {
+		It("should preserve queryFilters with tool-output redaction configured", func() {
 			cr.Spec.OLSConfig.QueryFilters = []olsv1alpha1.QueryFiltersSpec{
 				{Name: "testFilter", Pattern: "testPattern", ReplaceWith: "testReplace"},
 			}
+			cr.Spec.OLSConfig.ToolOutputRedaction = utils.BoolPtr(false)
 			cm, err := GenerateOLSConfigMap(testReconcilerInstance, context.TODO(), cr)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cm.Name).To(Equal(utils.OLSConfigCmName))
@@ -314,6 +341,7 @@ var _ = Describe("App server assets", func() {
 				"pattern":      Equal("testPattern"),
 				"replace_with": Equal("testReplace"),
 			})))))
+			Expect(olsConfigMap).To(HaveKeyWithValue("ols_config", HaveKeyWithValue("tool_output_redaction", BeFalse())))
 		})
 
 		It("should generate configmap with tools approval configuration", func() {

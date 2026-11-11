@@ -97,28 +97,28 @@ for src in "${tmp}"/config/*; do
   fi
   source_dirs+=("${dir}")
 done
-old_dirs=()
 if [ -f "${SOURCE_DIRS_FILE}" ]; then
-  mapfile -t old_dirs < "${SOURCE_DIRS_FILE}"
+  while IFS= read -r dir || [ -n "${dir:-}" ]; do
+    if [[ ! "${dir}" =~ ^[a-zA-Z0-9_-]+$ || "${dir}" = "crds" || "${dir}" = "samples" || "${dir}" = "upstream" ]]; then
+      echo "error: unsafe or reserved synced config directory: ${dir}" >&2
+      exit 1
+    fi
+  done < "${SOURCE_DIRS_FILE}"
 fi
-for dir in "${old_dirs[@]}"; do
-  if [[ ! "${dir}" =~ ^[a-zA-Z0-9_-]+$ || "${dir}" = "crds" || "${dir}" = "samples" || "${dir}" = "upstream" ]]; then
-    echo "error: unsafe or reserved synced config directory: ${dir}" >&2
-    exit 1
-  fi
-done
 # Refuse collisions with an unrelated directory before deleting any mirror.
 for dir in "${source_dirs[@]}"; do
   if [ -e "${RBAC_DEST}/${dir}" ]; then
-    case " ${old_dirs[*]} " in
-      *" ${dir} "*) ;;
-      *) echo "error: refusing to overwrite an unmanaged config directory: ${dir}" >&2; exit 1 ;;
-    esac
+    if [ ! -f "${SOURCE_DIRS_FILE}" ] || ! grep -F -x -q -e "${dir}" "${SOURCE_DIRS_FILE}"; then
+      echo "error: refusing to overwrite an unmanaged config directory: ${dir}" >&2
+      exit 1
+    fi
   fi
 done
-for dir in "${old_dirs[@]}"; do
-  rm -rf "${RBAC_DEST}/${dir}"
-done
+if [ -f "${SOURCE_DIRS_FILE}" ]; then
+  while IFS= read -r dir || [ -n "${dir:-}" ]; do
+    rm -rf "${RBAC_DEST}/${dir}"
+  done < "${SOURCE_DIRS_FILE}"
+fi
 # Remove the previous nested mirror when upgrading to the flat layout.
 rm -rf "${RBAC_DEST}/upstream"
 : > "${SOURCE_DIRS_FILE}"

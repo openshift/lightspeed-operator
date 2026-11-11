@@ -129,6 +129,7 @@ func GenerateAgenticConfigurationConfigMap(r reconciler.Reconciler, cr *olsv1alp
 	data := map[string]string{
 		utils.AgenticConfigurationSandboxModeKey:                 string(SandboxModeFromCR(cr)),
 		utils.AgenticConfigurationToolOutputInspectionEnabledKey: strconv.FormatBool(utils.ToolResultInspectionEnabled(cr)),
+		utils.AgenticConfigurationToolOutputRedactionEnabledKey:  strconv.FormatBool(utils.ToolOutputRedactionEnabled(cr)),
 
 		utils.AgenticConfigurationSandboxPodSpecKey:        string(podSpecJSON),
 		utils.AgenticConfigurationOtelCollectorEndpointKey: fmt.Sprintf("%s:%d", otelHost, utils.OtelCollectorGRPCPort),

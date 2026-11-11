@@ -9,7 +9,6 @@ output:
       text:
          path: stdout
          colors: true
-   sort-results: true
 linters:
    default: none
    enable:
@@ -19,12 +18,13 @@ linters:
    - ineffassign
    - staticcheck
    - unused
+   exclusions:
+      paths:
+      - test/
 formatters:
    enable:
    - goimports
    settings:
       goimports:
-         local-prefixes: github.com/openshift/lightspeed-operator
-issues:
-   exclude-dirs:
-     - test/
+         local-prefixes:
+         - github.com/openshift/lightspeed-operator
