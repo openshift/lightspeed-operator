@@ -1356,7 +1356,7 @@ spec:
                       - --dataverse-exporter-image=registry.redhat.io/lightspeed-core/dataverse-exporter-rhel9@sha256:dfa181d43993dce0e47c6717a10c09e5c5ee9142c65bb3f0bcb5864189b76ce8
                       - --postgres-image=registry.redhat.io/rhel9/postgresql-16@sha256:42f385ac3c9b8913426da7c57e70bc6617cd237aaf697c667f6385a8c0b0118b
                       - --service-image=registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:e084a7fb179284fd2e8c4b5a1bee6f26e22287c1db6a6bc85eff0a120feafd89
-                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:6f6cb23c73b08ce43115b57ad554dce7df7cad57be1dc967afc07dbdb182f8d7
+                      - --console-image=registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:523d691fd1f810e929e1dd7190eed5380265a5a82c1921567b2e8dfb7da52103
                       - --openshift-mcp-server-image=registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5
                       - --otel-collector-image=registry.redhat.io/openshift-lightspeed/otelcol-lightspeed-rhel9@sha256:0322a008dd854b206ea0ddf0a9efb5cde4c27289c1fed51ad13be9537564ccce
                       - --rhokp-image=registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:adbe513585a026c8392e27e7a8f3618d4edb5a90a8ec2bb79914765cb9e929e4
@@ -1558,7 +1558,7 @@ spec:
     - name: lightspeed-service-api
       image: registry.redhat.io/openshift-lightspeed/lightspeed-service-api-rhel9@sha256:e084a7fb179284fd2e8c4b5a1bee6f26e22287c1db6a6bc85eff0a120feafd89
     - name: lightspeed-console-plugin
-      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:6f6cb23c73b08ce43115b57ad554dce7df7cad57be1dc967afc07dbdb182f8d7
+      image: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:523d691fd1f810e929e1dd7190eed5380265a5a82c1921567b2e8dfb7da52103
     - name: lightspeed-operator
       image: registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:c927a087825b393087e56c180d25896e915c03d9dfa9ea5e491cf598a4322a81
     - name: openshift-mcp-server
