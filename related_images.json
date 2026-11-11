@@ -22,8 +22,8 @@
   },
   {
     "name": "lightspeed-console-plugin",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:6f6cb23c73b08ce43115b57ad554dce7df7cad57be1dc967afc07dbdb182f8d7",
-    "revision": "739101bdacc8e2cdfc4ed6d728561bc30f3c623f",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9@sha256:523d691fd1f810e929e1dd7190eed5380265a5a82c1921567b2e8dfb7da52103",
+    "revision": "2fc7b22dd85493b49923e27ede1283f89a623a3d",
     "operator_arg": "console-image",
     "snapshot_component": "lightspeed-console",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-console",
