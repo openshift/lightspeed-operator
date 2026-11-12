@@ -123,6 +123,7 @@ var _ = Describe("manager-role YAML", func() {
 				"lightspeed-app-server-sar-role":                     true,
 				"lightspeed-agentic-alerts-adapter-agenticolsconfig": true,
 				"lightspeed-agentic-alerts-adapter-agenticruns":      true,
+				"lightspeed-agentic-alerts-adapter-tokenreviews":     true,
 				"lightspeed-otel-dataverse-exporter":                 true,
 				"lightspeed-otel-dataverse-exporter-pull-secret":     true,
 			}
@@ -130,6 +131,7 @@ var _ = Describe("manager-role YAML", func() {
 				"lightspeed-app-server-sar-role-binding":             true,
 				"lightspeed-agentic-alerts-adapter-agenticolsconfig": true,
 				"lightspeed-agentic-alerts-adapter-agenticruns":      true,
+				"lightspeed-agentic-alerts-adapter-tokenreviews":     true,
 				"lightspeed-operator-ols-metrics-reader":             true,
 				"lightspeed-otel-dataverse-exporter-binding":         true,
 			}

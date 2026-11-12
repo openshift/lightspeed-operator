@@ -496,6 +496,38 @@ var _ = Describe("Resource Comparison Functions", func() {
 			Expect(ServiceEqual(service1, service2)).To(BeFalse())
 		})
 
+		It("should treat an omitted type as ClusterIP without modifying either service", func() {
+			service2.Spec.Type = corev1.ServiceTypeClusterIP
+			Expect(ServiceEqual(service1, service2)).To(BeTrue())
+			Expect(ServiceEqual(service2, service1)).To(BeTrue())
+			Expect(service1.Spec.Type).To(BeEmpty())
+		})
+
+		It("should detect type-only drift", func() {
+			service2.Spec.Type = corev1.ServiceTypeNodePort
+			Expect(ServiceEqual(service1, service2)).To(BeFalse())
+			Expect(ServiceEqual(service2, service1)).To(BeFalse())
+		})
+
+		It("should compare external IPs while treating nil and empty slices equally", func() {
+			service2.Spec.ExternalIPs = []string{}
+			Expect(ServiceEqual(service1, service2)).To(BeTrue())
+			service2.Spec.ExternalIPs = []string{"192.0.2.10"}
+			Expect(ServiceEqual(service1, service2)).To(BeFalse())
+			Expect(ServiceEqual(service2, service1)).To(BeFalse())
+			service1.Spec.ExternalIPs = []string{"192.0.2.10"}
+			Expect(ServiceEqual(service1, service2)).To(BeTrue())
+		})
+
+		It("should compare PublishNotReadyAddresses", func() {
+			service2.Spec.PublishNotReadyAddresses = true
+			Expect(ServiceEqual(service1, service2)).To(BeFalse())
+			Expect(ServiceEqual(service2, service1)).To(BeFalse())
+
+			service1.Spec.PublishNotReadyAddresses = true
+			Expect(ServiceEqual(service1, service2)).To(BeTrue())
+		})
+
 		It("should return false when selector differs", func() {
 			service2.Spec.Selector = map[string]string{"app": "different"}
 
