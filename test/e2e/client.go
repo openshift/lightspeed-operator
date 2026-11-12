@@ -226,7 +226,15 @@ func (c *Client) List(o client.ObjectList, opts ...client.ListOption) (err error
 }
 
 func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
-	err := c.WaitForDeploymentCondition(dep, func(dep *appsv1.Deployment) (bool, error) {
+	return c.waitForDeploymentRollout(dep, c.conditionCheckTimeout)
+}
+
+func (c *Client) WaitForDeploymentRolloutWithTimeout(dep *appsv1.Deployment, timeout time.Duration) error {
+	return c.waitForDeploymentRollout(dep, timeout)
+}
+
+func (c *Client) waitForDeploymentRollout(dep *appsv1.Deployment, timeout time.Duration) error {
+	err := c.waitForDeploymentCondition(dep, func(dep *appsv1.Deployment) (bool, error) {
 		if dep.Generation > dep.Status.ObservedGeneration {
 			return false, fmt.Errorf("current generation %d, observed generation %d",
 				dep.Generation, dep.Status.ObservedGeneration)
@@ -241,7 +249,7 @@ func (c *Client) WaitForDeploymentRollout(dep *appsv1.Deployment) error {
 				dep.Status.UnavailableReplicas)
 		}
 		return true, nil
-	})
+	}, timeout)
 	if err == nil {
 		return nil
 	}
@@ -302,8 +310,12 @@ func (c *Client) getUnavailablePodReadiness(dep *appsv1.Deployment) (string, err
 }
 
 func (c *Client) WaitForDeploymentCondition(dep *appsv1.Deployment, condition func(*appsv1.Deployment) (bool, error)) error {
+	return c.waitForDeploymentCondition(dep, condition, c.conditionCheckTimeout)
+}
+
+func (c *Client) waitForDeploymentCondition(dep *appsv1.Deployment, condition func(*appsv1.Deployment) (bool, error), timeout time.Duration) error {
 	var lastErr error
-	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, c.conditionCheckTimeout, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(c.ctx, DefaultPollInterval, timeout, true, func(ctx context.Context) (bool, error) {
 		err := c.Get(dep)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get Deployment: %w", err)

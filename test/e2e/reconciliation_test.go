@@ -80,7 +80,8 @@ var _ = Describe("Reconciliation From OLSConfig CR", Ordered, func() {
 				Namespace: OLSNameSpace,
 			},
 		}
-		err = client.WaitForDeploymentRollout(deployment)
+		// The first RHOKP image pull can take several minutes on a fresh cluster.
+		err = client.WaitForDeploymentRolloutWithTimeout(deployment, 15*time.Minute)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("exposing its HTTPS port in a service")
