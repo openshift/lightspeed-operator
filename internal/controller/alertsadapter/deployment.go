@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
@@ -41,11 +42,24 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
+		{
+			Name: utils.AlertsAdapterTLSVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: utils.AlertsAdapterCertsSecretName,
+				},
+			},
+		},
 	}
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      utils.TmpVolumeName,
 			MountPath: utils.TmpVolumeMountPath,
+		},
+		{
+			Name:      utils.AlertsAdapterTLSVolumeName,
+			MountPath: utils.AlertsAdapterTLSVolumeMountPath,
+			ReadOnly:  true,
 		},
 	}
 
@@ -100,6 +114,31 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 							ImagePullPolicy: corev1.PullAlways,
 							SecurityContext: utils.RestrictedContainerSecurityContext(),
 							Resources:       *resources,
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "https",
+									ContainerPort: utils.AlertsAdapterHTTPSPort,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/",
+										Port:   intstr.FromString("https"),
+										Scheme: corev1.URISchemeHTTPS,
+									},
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/",
+										Port:   intstr.FromString("https"),
+										Scheme: corev1.URISchemeHTTPS,
+									},
+								},
+							},
 							Env: append(utils.GetProxyEnvVars(),
 								corev1.EnvVar{
 									Name:  utils.AlertsAdapterAlertmanagerURLEnvVar,
@@ -113,6 +152,18 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 											FieldPath:  "metadata.namespace",
 										},
 									},
+								},
+								corev1.EnvVar{
+									Name:  "HTTPS_PORT",
+									Value: "8443",
+								},
+								corev1.EnvVar{
+									Name:  "TLS_CERT_FILE",
+									Value: utils.AlertsAdapterTLSVolumeMountPath + "/tls.crt",
+								},
+								corev1.EnvVar{
+									Name:  "TLS_KEY_FILE",
+									Value: utils.AlertsAdapterTLSVolumeMountPath + "/tls.key",
 								},
 							),
 							VolumeMounts: volumeMounts,
