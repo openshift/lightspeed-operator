@@ -131,7 +131,7 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.95.1
 	github.com/spf13/cobra v1.10.2
 	go.podman.io/image/v5 v5.41.2
-	k8s.io/cli-runtime v0.37.1
+	k8s.io/cli-runtime v0.37.2
 )
 
 require (
