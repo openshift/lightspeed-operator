@@ -31,8 +31,8 @@
   },
   {
     "name": "lightspeed-operator",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:c927a087825b393087e56c180d25896e915c03d9dfa9ea5e491cf598a4322a81",
-    "revision": "4c9acb8a9448283449dd81a7a347b4771f54f998",
+    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-rhel9-operator@sha256:ea941a23732870f074c727365264fa461af1aab04f79aed82516659d4975ee15",
+    "revision": "d0956ca97bd30e64791813ff2e0b678b55f252c7",
     "operator_target": "image",
     "snapshot_component": "lightspeed-operator",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols/lightspeed-operator",
@@ -56,7 +56,7 @@
   },
   {
     "name": "rhokp",
-    "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:bd40f979ba70d7b25f2c81c84f4768d8d62986f87452c9acd89d08961ab2b01e",
+    "image": "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9@sha256:541b04ab7cc6d5995d50e754fe36c179dd9c1d2a1d74d304b8318746d340ea76",
     "revision": "",
     "operator_arg": "rhokp-image"
   },
