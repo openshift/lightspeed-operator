@@ -18,16 +18,35 @@
 #   CODECOV_TOKEN               repository upload token (prow secret)
 #   ARTIFACT_DIR                writable directory for the upload log
 #
-# The codecov CLI is a static binary downloaded from GitHub releases because
-# the CI build root is a pure Go image without Python.
+# The CI build root is a pure Go image without Python, so the codecov CLI is a
+# static binary downloaded from GitHub releases. Releases are published per
+# platform, so the asset name depends on both the OS and the architecture.
 
 set -o nounset
 set -o pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 CODECOV_CLI_VERSION="11.3.1"
 MAX_ATTEMPTS="${CODECOV_MAX_ATTEMPTS:-2}"
 RETRY_SLEEP_SECONDS="${CODECOV_RETRY_SLEEP_SECONDS:-15}"
 UPLOAD_TIMEOUT_SECONDS="${CODECOV_TIMEOUT_SECONDS:-300}"
+
+# GNU timeout is absent on stock macOS, so fall back to a Perl wrapper that also
+# kills the command's process group. Without that, a timed-out upload can leave
+# the real CLI running as an orphan.
+if command -v timeout > /dev/null 2>&1; then
+    run_with_timeout() { timeout "$@"; }
+elif command -v gtimeout > /dev/null 2>&1; then
+    run_with_timeout() { gtimeout "$@"; }
+elif command -v perl > /dev/null 2>&1; then
+    run_with_timeout() { perl "${SCRIPT_DIR}/run_with_timeout.pl" "$@"; }
+else
+    run_with_timeout() {
+        echo "[codecov] no timeout command or Perl available" >&2
+        return 127
+    }
+fi
 
 log() {
     echo "[codecov] $*"
@@ -101,27 +120,60 @@ if [ -n "$pr" ]; then
     cli_args+=(--pr "$pr")
 fi
 
+cli_cache_dir() {
+    local dir="${TMPDIR:-/tmp}"
+    printf '%s\n' "${dir%/}"
+}
+
+cli_runs() {
+    "$1" --version > /dev/null 2>&1
+}
+
+# download_cli <asset> <destination>
+download_cli() {
+    local asset="$1" dest="$2"
+    log "codecovcli not found on PATH, downloading ${asset} v${CODECOV_CLI_VERSION}"
+    if ! curl -fsSL --retry 3 -o "$dest" \
+        "https://github.com/codecov/codecov-cli/releases/download/v${CODECOV_CLI_VERSION}/${asset}"; then
+        rm -f "$dest"
+        return 1
+    fi
+    if ! chmod +x "$dest"; then
+        rm -f "$dest"
+        return 1
+    fi
+    return 0
+}
+
 resolve_cli() {
     if command -v codecovcli > /dev/null 2>&1; then
         CLI=(codecovcli)
         return 0
     fi
-    case "$(uname -m)" in
-        x86_64) asset="codecovcli_linux" ;;
-        aarch64 | arm64) asset="codecovcli_linux_arm64" ;;
+
+    local asset
+    case "$(uname -s)/$(uname -m)" in
+        Linux/x86_64) asset="codecovcli_linux" ;;
+        Linux/aarch64 | Linux/arm64) asset="codecovcli_linux_arm64" ;;
+        # One universal binary covers both Apple Silicon and Intel Macs.
+        Darwin/x86_64 | Darwin/arm64) asset="codecovcli_macos" ;;
         *)
-            report_not_uploaded "unsupported architecture $(uname -m) for the codecov CLI"
+            report_not_uploaded "no codecov CLI binary for $(uname -s)/$(uname -m); install codecovcli on PATH"
             ;;
     esac
+
     local cli_bin
-    cli_bin="${TMPDIR:-/tmp}/codecovcli-${CODECOV_CLI_VERSION}"
+    cli_bin="$(cli_cache_dir)/codecovcli-${CODECOV_CLI_VERSION}-${asset}"
+    # A cached binary may belong to another platform or be truncated (an
+    # interrupted download). Reusing it forever would keep the upload broken
+    # until TMPDIR is wiped, so validate it and re-download when unusable.
+    if [ -x "$cli_bin" ] && ! cli_runs "$cli_bin"; then
+        log "cached codecovcli at ${cli_bin} is unusable, re-downloading"
+        rm -f "$cli_bin"
+    fi
     if [ ! -x "$cli_bin" ]; then
-        log "codecovcli not found on PATH, downloading ${asset} v${CODECOV_CLI_VERSION}"
-        if ! curl -fsSL --retry 3 -o "$cli_bin" \
-            "https://github.com/codecov/codecov-cli/releases/download/v${CODECOV_CLI_VERSION}/${asset}"; then
-            report_not_uploaded "failed to download the codecov CLI"
-        fi
-        chmod +x "$cli_bin"
+        download_cli "$asset" "$cli_bin" || report_not_uploaded "failed to download the codecov CLI"
+        cli_runs "$cli_bin" || report_not_uploaded "downloaded codecov CLI cannot run on this host"
     fi
     CLI=("$cli_bin")
 }
@@ -137,7 +189,7 @@ resolve_cli
 attempt=1
 while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
     log "upload attempt ${attempt}/${MAX_ATTEMPTS} (flag: ${flag:-none}, branch: ${branch}${pr_note})"
-    if timeout "$UPLOAD_TIMEOUT_SECONDS" "${CLI[@]}" "${cli_args[@]}" > "$upload_log" 2>&1; then
+    if run_with_timeout "$UPLOAD_TIMEOUT_SECONDS" "${CLI[@]}" "${cli_args[@]}" > "$upload_log" 2>&1; then
         cat "$upload_log"
         log "upload succeeded - report available on codecov.io"
         exit 0
