@@ -176,6 +176,7 @@ rules:
   resourceNames:
   - lightspeed-agentic-alerts-adapter-agenticolsconfig
   - lightspeed-agentic-alerts-adapter-agenticruns
+  - lightspeed-agentic-alerts-adapter-tokenreviews
   - lightspeed-app-server-sar-role-binding
   - lightspeed-operator-ols-metrics-reader
   - lightspeed-otel-dataverse-exporter-binding
@@ -200,6 +201,7 @@ rules:
   resourceNames:
   - lightspeed-agentic-alerts-adapter-agenticolsconfig
   - lightspeed-agentic-alerts-adapter-agenticruns
+  - lightspeed-agentic-alerts-adapter-tokenreviews
   - lightspeed-app-server-sar-role
   - lightspeed-otel-dataverse-exporter
   - lightspeed-otel-dataverse-exporter-pull-secret

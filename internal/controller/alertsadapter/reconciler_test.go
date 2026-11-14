@@ -54,10 +54,22 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("retains the egress policy until adapter pods are gone", func() {
-		np, err := GenerateEgressNetworkPolicy(testReconcilerInstance, cr)
+	It("retains both network policies until the adapter deployment and pods are gone", func() {
+		ingress, err := GenerateNetworkPolicy(testReconcilerInstance, cr)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(k8sClient.Create(ctx, np)).To(Succeed())
+		Expect(k8sClient.Create(ctx, ingress)).To(Succeed())
+		egress, err := GenerateEgressNetworkPolicy(testReconcilerInstance, cr)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.Create(ctx, egress)).To(Succeed())
+
+		deployment, err := GenerateDeployment(testReconcilerInstance, ctx, cr)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.Create(ctx, deployment)).To(Succeed())
+		Expect(errors.Is(deleteNetworkPolicy(testReconcilerInstance, ctx), ErrAlertsAdapterCleanupPending)).To(BeTrue())
+		Expect(errors.Is(deleteEgressNetworkPolicy(testReconcilerInstance, ctx), ErrAlertsAdapterCleanupPending)).To(BeTrue())
+		for _, policy := range []*networkingv1.NetworkPolicy{ingress, egress} {
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(policy), &networkingv1.NetworkPolicy{})).To(Succeed())
+		}
 
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -74,14 +86,16 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 		err = RemoveAlertsAdapter(testReconcilerInstance, ctx)
 		Expect(errors.Is(err, ErrAlertsAdapterCleanupPending)).To(BeTrue())
 
-		found := &networkingv1.NetworkPolicy{}
-		key := types.NamespacedName{Name: utils.AlertsAdapterEgressNetworkPolicyName, Namespace: utils.OLSNamespaceDefault}
-		Expect(k8sClient.Get(ctx, key, found)).To(Succeed())
+		for _, policy := range []*networkingv1.NetworkPolicy{ingress, egress} {
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(policy), &networkingv1.NetworkPolicy{})).To(Succeed())
+		}
 
 		Expect(k8sClient.Delete(ctx, pod)).To(Succeed())
 		Expect(RemoveAlertsAdapter(testReconcilerInstance, ctx)).To(Succeed())
-		err = k8sClient.Get(ctx, key, found)
-		Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		for _, policy := range []*networkingv1.NetworkPolicy{ingress, egress} {
+			err = k8sClient.Get(ctx, client.ObjectKeyFromObject(policy), &networkingv1.NetworkPolicy{})
+			Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		}
 	})
 
 	Context("ConfigMap without operator validation", func() {
@@ -132,7 +146,7 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 				Namespace: utils.OLSNamespaceDefault,
 			}, deployment)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(2))
+			Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(3))
 		})
 	})
 
@@ -182,6 +196,124 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 			}, sa)
 			Expect(err).NotTo(HaveOccurred())
 			expectOwnedByOLSConfig(sa)
+		})
+
+		It("creates and repairs the HTTPS Service without changing its allocated IP", func() {
+			service := &corev1.Service{}
+			key := client.ObjectKey{Name: utils.AlertsAdapterServiceName, Namespace: utils.OLSNamespaceDefault}
+			Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
+			expectOwnedByOLSConfig(service)
+			clusterIP := service.Spec.ClusterIP
+			Expect(clusterIP).NotTo(BeEmpty())
+
+			delete(service.Annotations, utils.ServingCertSecretAnnotationKey)
+			service.Spec.Ports[0].Port = 9443
+			service.Spec.Selector = map[string]string{"app": "wrong-adapter"}
+			Expect(k8sClient.Update(ctx, service)).To(Succeed())
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
+			desired, err := GenerateService(testReconcilerInstance, enabledCR)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(utils.ServiceEqual(service, desired)).To(BeTrue())
+			Expect(service.Annotations[utils.ServingCertSecretAnnotationKey]).To(Equal(utils.AlertsAdapterCertsSecretName))
+			Expect(service.Spec.ClusterIP).To(Equal(clusterIP))
+
+			// Drift only this field so the equality check cannot rely on other differences.
+			service.Spec.PublishNotReadyAddresses = true
+			Expect(k8sClient.Update(ctx, service)).To(Succeed())
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
+			Expect(service.Spec.PublishNotReadyAddresses).To(BeFalse())
+			Expect(service.Spec.ClusterIP).To(Equal(clusterIP))
+
+			service.Spec.ExternalIPs = []string{"192.0.2.10"}
+			Expect(k8sClient.Update(ctx, service)).To(Succeed())
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
+			Expect(service.Spec.ExternalIPs).To(BeEmpty())
+			Expect(service.Spec.ClusterIP).To(Equal(clusterIP))
+
+			service.Spec.Type = corev1.ServiceTypeNodePort
+			Expect(k8sClient.Update(ctx, service)).To(Succeed())
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
+			Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+			Expect(service.Spec.Ports[0].NodePort).To(BeZero())
+			Expect(service.Spec.ClusterIP).To(Equal(clusterIP))
+
+			version := service.ResourceVersion
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
+			Expect(service.ResourceVersion).To(Equal(version))
+		})
+
+		It("creates and repairs the TokenReview role without updating an unchanged role", func() {
+			role := &rbacv1.ClusterRole{}
+			key := client.ObjectKey{Name: utils.AlertsAdapterTokenReviewsClusterRoleName}
+			Expect(k8sClient.Get(ctx, key, role)).To(Succeed())
+			expectOwnedByOLSConfig(role)
+			role.Rules = nil
+			Expect(k8sClient.Update(ctx, role)).To(Succeed())
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, role)).To(Succeed())
+			desired, err := GenerateTokenReviewsClusterRole(testReconcilerInstance, enabledCR)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(role.Rules).To(Equal(desired.Rules))
+
+			// Aggregation must be removed even when Rules already match.
+			role.AggregationRule = &rbacv1.AggregationRule{
+				ClusterRoleSelectors: []metav1.LabelSelector{{
+					MatchLabels: map[string]string{"aggregate-to-adapter": "true"},
+				}},
+			}
+			Expect(k8sClient.Update(ctx, role)).To(Succeed())
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, role)).To(Succeed())
+			Expect(role.AggregationRule).To(BeNil())
+			Expect(role.Rules).To(Equal(desired.Rules))
+
+			role.Labels["rbac.authorization.k8s.io/aggregate-to-view"] = "true"
+			Expect(k8sClient.Update(ctx, role)).To(Succeed())
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, role)).To(Succeed())
+			Expect(role.Labels).To(Equal(desired.Labels))
+			Expect(role.Rules).To(Equal(desired.Rules))
+			Expect(role.AggregationRule).To(BeNil())
+
+			version := role.ResourceVersion
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, role)).To(Succeed())
+			Expect(role.ResourceVersion).To(Equal(version))
+		})
+
+		It("repairs TokenReview binding subjects and replaces an incorrect immutable roleRef", func() {
+			binding := &rbacv1.ClusterRoleBinding{}
+			key := client.ObjectKey{Name: utils.AlertsAdapterTokenReviewsClusterRoleBindingName}
+			Expect(k8sClient.Get(ctx, key, binding)).To(Succeed())
+			expectOwnedByOLSConfig(binding)
+			desired, err := GenerateTokenReviewsClusterRoleBinding(testReconcilerInstance, enabledCR)
+			Expect(err).NotTo(HaveOccurred())
+
+			binding.Subjects[0].Name = "wrong-service-account"
+			Expect(k8sClient.Update(ctx, binding)).To(Succeed())
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, binding)).To(Succeed())
+			Expect(binding.Subjects).To(Equal(desired.Subjects))
+
+			Expect(k8sClient.Delete(ctx, binding)).To(Succeed())
+			wrongBinding := desired.DeepCopy()
+			wrongBinding.RoleRef.Name = utils.AlertsAdapterAgenticOLSConfigClusterRoleName
+			Expect(k8sClient.Create(ctx, wrongBinding)).To(Succeed())
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, binding)).To(Succeed())
+			Expect(binding.RoleRef).To(Equal(desired.RoleRef))
+			Expect(binding.Subjects).To(Equal(desired.Subjects))
+			expectOwnedByOLSConfig(binding)
+
+			version := binding.ResourceVersion
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, binding)).To(Succeed())
+			Expect(binding.ResourceVersion).To(Equal(version))
 		})
 
 		It("should create the agenticruns Role and RoleBinding", func() {
@@ -248,13 +380,19 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should create the network policy", func() {
+		It("should upgrade an ingress policy restricted to same-namespace pods", func() {
 			np := &networkingv1.NetworkPolicy{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      utils.AlertsAdapterNetworkPolicyName,
-				Namespace: utils.OLSNamespaceDefault,
-			}, np)
+			key := client.ObjectKey{Name: utils.AlertsAdapterNetworkPolicyName, Namespace: utils.OLSNamespaceDefault}
+			Expect(k8sClient.Get(ctx, key, np)).To(Succeed())
+			Expect(np.Spec.Ingress).To(HaveLen(1))
+			np.Spec.Ingress[0].From = []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{}}}
+			Expect(k8sClient.Update(ctx, np)).To(Succeed())
+
+			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, np)).To(Succeed())
+			desired, err := GenerateNetworkPolicy(testReconcilerInstance, enabledCR)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(utils.NetworkPolicyEqual(desired, np)).To(BeTrue())
 		})
 
 		It("should create the egress network policy", func() {
@@ -316,13 +454,23 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 			}))
 			Expect(deployment.Spec.Template.Spec.Containers[0].SecurityContext).NotTo(BeNil())
 			Expect(*deployment.Spec.Template.Spec.Containers[0].SecurityContext.RunAsNonRoot).To(BeTrue())
-			Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(2))
-			Expect(deployment.Spec.Template.Spec.Volumes[1].ConfigMap.Name).To(Equal(utils.AlertsAdapterConfigMapName))
+			Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(3))
+			Expect(deployment.Spec.Template.Spec.Volumes[2].ConfigMap.Name).To(Equal(utils.AlertsAdapterConfigMapName))
 			Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
 				Name:      utils.AlertsAdapterConfigVolumeName,
 				MountPath: utils.AlertsAdapterConfigVolumeMountPath,
 				ReadOnly:  true,
 			}))
+		})
+
+		It("does not roll an unchanged deployment after API defaulting of TLS volumes and probes", func() {
+			deployment := &appsv1.Deployment{}
+			key := client.ObjectKey{Name: utils.AlertsAdapterDeploymentName, Namespace: utils.OLSNamespaceDefault}
+			Expect(k8sClient.Get(ctx, key, deployment)).To(Succeed())
+			version := deployment.ResourceVersion
+			Expect(ReconcileAlertsAdapterDeployment(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
+			Expect(k8sClient.Get(ctx, key, deployment)).To(Succeed())
+			Expect(deployment.ResourceVersion).To(Equal(version))
 		})
 
 		It("should trigger a rolling restart via ForceReload annotation", func() {
@@ -360,6 +508,17 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 			disabledCR := cr.DeepCopy()
 			err = ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, disabledCR)
 			Expect(err).NotTo(HaveOccurred())
+
+			for _, obj := range []client.Object{
+				&corev1.Service{ObjectMeta: metav1.ObjectMeta{
+					Name: utils.AlertsAdapterServiceName, Namespace: utils.OLSNamespaceDefault,
+				}},
+				&rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: utils.AlertsAdapterTokenReviewsClusterRoleName}},
+				&rbacv1.ClusterRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: utils.AlertsAdapterTokenReviewsClusterRoleBindingName}},
+			} {
+				Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj))).To(BeTrue(),
+					"expected %T %s to be removed", obj, obj.GetName())
+			}
 
 			removedEgressPolicy := &networkingv1.NetworkPolicy{}
 			err = k8sClient.Get(ctx, egressPolicyKey, removedEgressPolicy)
