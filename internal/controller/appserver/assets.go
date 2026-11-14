@@ -358,7 +358,7 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 		}
 	}
 
-	// Build BYOK reference indexes from spec.ols.rag. OCP product docs are served via solr_hybrid (OKP).
+	// Build BYOK reference indexes from spec.ols.rag. OCP product docs are served via RHOKP MCP.
 	referenceIndexes := []utils.ReferenceIndex{}
 	for i, index := range cr.Spec.OLSConfig.RAG {
 		referenceIndex := utils.ReferenceIndex{
@@ -419,7 +419,7 @@ func buildOLSConfig(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha
 	olsConfig.Audit = buildServiceAuditConfig(cr, r.GetNamespace())
 
 	if !cr.Spec.OLSConfig.ByokRAGOnly {
-		olsConfig.SolrHybrid = buildSolrHybridSettings(r.GetNamespace())
+		olsConfig.OpenShiftDocsMCP = buildOpenShiftDocsMCPSettings(r.GetNamespace())
 	}
 
 	return olsConfig, nil
@@ -444,14 +444,10 @@ func buildServiceAuditConfig(cr *olsv1alpha1.OLSConfig, namespace string) *utils
 	}
 }
 
-func buildSolrHybridSettings(namespace string) *utils.SolrHybridSettings {
-	return &utils.SolrHybridSettings{
-		SolrHTTPBase:             utils.RHOKPServiceURL(namespace),
-		MaxResults:               utils.SolrHybridMaxResultsDefault,
-		HybridVectorBoost:        utils.SolrHybridVectorBoostDefault,
-		HybridPoolDocs:           utils.SolrHybridPoolDocsDefault,
-		HybridScoreThreshold:     utils.SolrHybridScoreThresholdDefault,
-		HybridSolrTimeoutSeconds: utils.SolrHybridSolrTimeoutSecondsDefault,
+func buildOpenShiftDocsMCPSettings(namespace string) *utils.OpenShiftDocsMCPSettings {
+	return &utils.OpenShiftDocsMCPSettings{
+		URL:        utils.RHOKPMCPURL(namespace),
+		MaxResults: utils.OpenShiftDocsMCPMaxResultsDefault,
 	}
 }
 

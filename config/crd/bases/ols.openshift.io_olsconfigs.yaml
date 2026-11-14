@@ -673,14 +673,15 @@ spec:
                 description: |-
                   OLSSpec defines the desired state of OLS deployment.
 
-                  OKP (Offline Knowledge Portal) / Solr hybrid RAG is operator-managed, not configured on this CR:
-                    - Enabled by default. The operator deploys the RHOKP sidecar and writes ols_config.solr_hybrid
-                      into olsconfig.yaml (Solr URL, hybrid tuning, and related keys use operator defaults).
-                    - The app-server pod receives OCP_CLUSTER_VERSION for Solr chunk_filter_query resolution.
-                    - OCP documentation is retrieved via the search_openshift_documentation tool (Solr hybrid), not
-                      direct prompt RAG. BYOK content remains on spec.rag (FAISS indexes).
-                    - Set byokRAGOnly to disable OKP: no RHOKP sidecar, no solr_hybrid section, and no built-in
-                      OCP documentation retrieval—only BYOK FAISS indexes from spec.rag are used.
+                  OKP (Offline Knowledge Portal) is operator-managed, not configured on this CR:
+                    - Enabled by default. The operator deploys standalone RHOKP and writes
+                      ols_config.openshift_docs_mcp into olsconfig.yaml with the RHOKP MCP endpoint.
+                    - The app-server pod receives cluster-version and ROSA product environment variables for
+                      service-side documentation search filtering; ROSA product is detected from cluster APIs.
+                    - OCP documentation is retrieved via the built-in documentation tool backed by RHOKP MCP.
+                      BYOK content remains on spec.rag (FAISS indexes).
+                    - Set byokRAGOnly to disable OKP: no RHOKP operand, no docs-MCP config, and no built-in OCP
+                      documentation retrieval—only BYOK FAISS indexes from spec.rag are used.
                 properties:
                   additionalCAConfigMapRef:
                     description: Additional CA certificates for TLS communication
@@ -703,8 +704,8 @@ spec:
                       Default: true when absent. Does not affect collector storage (see spec.audit).
                     type: boolean
                   byokRAGOnly:
-                    description: Only use BYOK RAG sources. Disables OKP (RHOKP sidecar,
-                      solr_hybrid config, and built-in OCP documentation retrieval).
+                    description: Only use BYOK RAG sources. Disables OKP (RHOKP operand,
+                      docs MCP config, and built-in OCP documentation retrieval).
                     type: boolean
                   conversationCache:
                     description: Conversation cache settings
