@@ -222,8 +222,8 @@ github.com/opencontainers/runtime-spec v1.3.0 h1:YZupQUdctfhpZy3TM39nN9Ika5CBWT5
 github.com/opencontainers/runtime-spec v1.3.0/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
 github.com/opencontainers/selinux v1.15.1 h1:ERxeh5caJvCzNAKdI8WQbJmB1LDTn4BuaAg8wihLBpA=
 github.com/opencontainers/selinux v1.15.1/go.mod h1:LenyElirjUHszfxrjuFqC85HIeXZKumHcKMQtnaDlQQ=
-github.com/openshift/api v0.0.0-20261112171031-b027bed8bb3f h1:zGE/h33E0MVf5FAdW8r0IJZss+wx3C9XMRiQF7NdTGg=
-github.com/openshift/api v0.0.0-20261112171031-b027bed8bb3f/go.mod h1:2oI3aXQFDjjl7l4xA9ZPSkB+l+lyfWLg7P2sWg9yEvM=
+github.com/openshift/api v0.0.0-20261113224656-2662c7aa27ef h1:Pv+YuuIzdzyo9FDdKWx/lAszdAUVrX1ee73eURdIWKo=
+github.com/openshift/api v0.0.0-20261113224656-2662c7aa27ef/go.mod h1:2oI3aXQFDjjl7l4xA9ZPSkB+l+lyfWLg7P2sWg9yEvM=
 github.com/openshift/client-go v0.0.0-20261109191322-505de3dc15d7 h1:vCHmeOhlE9nXBMSsOmH2/mxrAGBmyJ0IOlywALQGzrw=
 github.com/openshift/client-go v0.0.0-20261109191322-505de3dc15d7/go.mod h1:iXbWwV8wHiQpPucLemE9vFlBQH540BnOh1+FpVpSD6g=
 github.com/peterbourgon/diskv v2.0.1+incompatible h1:UBdAOUP5p4RWqPBg048CAvpKN+vxiaj6gdUUzhl4XmI=
