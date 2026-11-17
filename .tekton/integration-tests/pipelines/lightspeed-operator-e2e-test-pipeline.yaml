@@ -51,6 +51,17 @@ spec:
     - name: validate-pipeline-params
       description: Reject params that cannot be safely embedded in the provisioning env JSON before provisioning starts.
       taskSpec:
+        stepTemplate:
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          computeResources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
         steps:
           - name: validate-compute-node-type
             image: registry.access.redhat.com/ubi9/ubi-minimal:latest
@@ -61,11 +72,19 @@ spec:
               #!/bin/sh
               # compute-node-type is substituted into the provision-ephemeral-cluster env JSON;
               # reject anything that is not a plain EC2 instance type so the JSON stays valid.
-              if ! printf '%s' "$COMPUTE_NODE_TYPE" | grep -Eq '^[a-zA-Z0-9][a-zA-Z0-9.-]*$'; then
-                echo "invalid compute-node-type: '$COMPUTE_NODE_TYPE'" >&2
-                echo "must be a plain EC2 instance type (e.g. m5.2xlarge, m6g.2xlarge); quotes and special characters break the provisioning env JSON" >&2
-                exit 1
-              fi
+              # Use a whole-value case check (not grep): grep anchors apply per line, so a
+              # value like 'm5.2xlarge\n"bad"' would pass and break the JSON.
+              case "$COMPUTE_NODE_TYPE" in
+                '')
+                  echo "invalid compute-node-type: value is empty" >&2
+                  exit 1
+                  ;;
+                *[!a-zA-Z0-9.-]*)
+                  echo "invalid compute-node-type: '$COMPUTE_NODE_TYPE'" >&2
+                  echo "must be a plain EC2 instance type (e.g. m5.2xlarge, m6g.2xlarge); quotes, spaces, newlines and special characters break the provisioning env JSON" >&2
+                  exit 1
+                  ;;
+              esac
           - name: validate-node-arch
             image: registry.access.redhat.com/ubi9/ubi-minimal:latest
             env:
@@ -92,6 +111,15 @@ spec:
               # instances) creates a cluster whose nodes cannot boot the payload.
               FAMILY=$(printf '%s' "$COMPUTE_NODE_TYPE" | sed -E 's/\..*$//')
               case "$FAMILY" in
+                # g5g instances are arm64 (Graviton2) GPU instances; check them
+                # before the generic GPU branch below, which assumes x86_64.
+                g5g*)
+                  if [ "$NODE_ARCH" != "arm64" ]; then
+                    echo "incompatible params: compute-node-type '$COMPUTE_NODE_TYPE' is an arm64 (Graviton2, g5g) GPU instance family but node-arch is '$NODE_ARCH'" >&2
+                    echo "set node-arch: arm64 for this instance type" >&2
+                    exit 1
+                  fi
+                  ;;
                 # Graviton (arm64) families carry a 'g' after the leading letter
                 # (m6g, c7gn, m6gd, t4g, r7gz, ...); GPU families (g*, p*) are x86_64.
                 g*|p*)
