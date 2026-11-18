@@ -42,8 +42,8 @@ func getSecretResourceVersion(r reconciler.Reconciler, ctx context.Context, secr
 	return secret.ResourceVersion, nil
 }
 
-// GenerateDeployment generates the standalone openshift-mcp-server Deployment with
-// service-ca TLS (--tls-cert/--tls-key), HTTPS probes on /healthz, and user-configurable replicas.
+// GenerateDeployment generates the single-replica standalone openshift-mcp-server Deployment
+// with service-ca TLS (--tls-cert/--tls-key) and HTTPS probes on /healthz.
 func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) (*appsv1.Deployment, error) {
 	revisionHistoryLimit := int32(1)
 	runAsNonRoot := true
@@ -73,6 +73,9 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: selectorLabels(),
 			},
@@ -166,7 +169,7 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 		},
 	}
 
-	utils.ApplyPodDeploymentConfig(deployment, cr.Spec.OLSConfig.DeploymentConfig.MCPServerContainer, true)
+	utils.ApplyPodDeploymentConfig(deployment, cr.Spec.OLSConfig.DeploymentConfig.MCPServerContainer, false)
 
 	if err := controllerutil.SetControllerReference(cr, deployment, r.GetScheme()); err != nil {
 		return nil, fmt.Errorf("%s: %w", utils.ErrSetOpenShiftMCPServerDeploymentOwnerReference, err)
