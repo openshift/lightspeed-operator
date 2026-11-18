@@ -96,7 +96,7 @@ Volumes and mounts are built as slices and conditionally appended using inline a
 ### Init Container Generation
 - **PostgreSQL wait:** `utils.GeneratePostgresWaitInitContainer()` generates a container that polls the PostgreSQL service until it responds.
 - **RHOKP wait (when `!byokRAGOnly`):** [PLANNED: OLS-3799] — not yet implemented. When added, `utils.GenerateRHOKPWaitInitContainer()` would poll the RHOKP Solr ping endpoint until it responds (~360s budget), following the PostgreSQL wait pattern. No such function exists today.
-- **RAG (AppServer only):** `GenerateRAGInitContainers()` creates one init container per RAG entry, each copying data from the RAG image to the shared emptyDir volume at `/app-root/rag/rag-<index>`.
+- **RAG (AppServer only):** `GenerateRAGInitContainers()` creates one init container per RAG entry (`rag-<n>`), each copying the index from the RAG image's `indexPath` into the shared emptyDir volume at `/rag-data/rag-<n>`.
 
 ### ImageStream Triggers (AppServer only)
 RAG images use OpenShift ImageStreams for automatic updates. The deployment is annotated with `image.openshift.io/triggers` JSON that maps ImageStreamTag changes to init container image fields. This allows RAG content updates without operator intervention.

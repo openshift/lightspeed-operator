@@ -74,10 +74,10 @@ ols_config:
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
   reference_content:
     indexes:                                  # one per spec.ols.rag entry; empty when no BYOK RAG
-      - path: /app-root/rag/rag-0
-        index_id: <rag.IndexID>
-        origin: <rag.Image>
-    embeddings_model_path: /app-root/embeddings_model
+      - product_docs_index_path: /rag-data/rag-0
+        product_docs_index_id: <rag.IndexID>
+        product_docs_origin: <rag.Image>
+    embeddings_model_path: /app-root/embeddings_model   # written but not read by the service; model is fixed and bundled in the service image
 
   solr_hybrid:                                # unless byokRAGOnly
     solr_http_base: "https://lightspeed-rhokp.<ns>.svc:8443"
