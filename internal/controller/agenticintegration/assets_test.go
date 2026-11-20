@@ -150,7 +150,7 @@ var _ = Describe("Agentic integration assets", func() {
 		Expect(cm.Data).NotTo(HaveKey(utils.AgenticConfigurationMCPCASecretKey))
 		// RHOKP keys present (byokRAGOnly defaults to false)
 		Expect(cm.Data[utils.AgenticConfigurationRHOKPEndpointKey]).To(Equal(
-			utils.RHOKPServiceURL(utils.OLSNamespaceDefault),
+			utils.RHOKPMCPURL(utils.OLSNamespaceDefault),
 		))
 		Expect(cm.Data[utils.AgenticConfigurationRHOKPCASecretKey]).To(Equal(utils.AgenticRHOKPCASecretName))
 
@@ -177,7 +177,7 @@ var _ = Describe("Agentic integration assets", func() {
 		Expect(cm.Data[utils.AgenticConfigurationMCPCASecretKey]).To(Equal(utils.AgenticMCPCASecretName))
 		// RHOKP also present (byokRAGOnly defaults to false)
 		Expect(cm.Data[utils.AgenticConfigurationRHOKPEndpointKey]).To(Equal(
-			utils.RHOKPServiceURL(utils.OLSNamespaceDefault),
+			utils.RHOKPMCPURL(utils.OLSNamespaceDefault),
 		))
 		Expect(cm.Data[utils.AgenticConfigurationRHOKPCASecretKey]).To(Equal(utils.AgenticRHOKPCASecretName))
 	})
