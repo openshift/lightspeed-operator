@@ -66,6 +66,8 @@ var _ = Describe("Resource defaults and test reconciler", func() {
 		Expect(r.GetConsoleUIImage()).To(Equal(ConsoleUIImageDefault))
 		Expect(r.GetAgenticConsoleImage()).To(Equal(AgenticConsoleUIImageDefault))
 		Expect(r.GetAlertsAdapterImage()).To(Equal(AlertsAdapterImageDefault))
+		Expect(AgenticSkillsImageDefault).To(Equal("registry.redhat.io/openshift5/agentic-skills@sha256:7e81473538c050a9db38b68b728d6fee1324c41e6b6a1a5f4313679ce9e54e3c"))
+		Expect(r.GetAgenticSkillsImage()).To(Equal(AgenticSkillsImageDefault))
 		Expect(r.GetAgenticSandboxImage()).To(Equal(AgenticSandboxImageDefault))
 		Expect(r.GetOtelCollectorImage()).To(Equal(OtelCollectorImageDefault))
 		Expect(r.GetOpenShiftMajor()).To(Equal("123"))
