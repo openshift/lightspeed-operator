@@ -1,10 +1,12 @@
 # IntegrationTestScenario resources for Konflux (appstudio.redhat.com/v1beta2).
 # Apply to your tenant namespace (e.g. crt-nshift-lightspeed-tenant). Each scenario points at the
-# per-minor pipeline file in this repo (stable pathInRepo for Konflux) and passes pipeline parameters.
+# shared pipeline files in this repo and passes the OpenShift minor as a pipeline parameter.
 #
-# Bundle builds: contexts name component_bundle, install-mode defaults to bundle on the Pipeline.
-# Operator image builds: *-direct scenarios use component_lightspeed-operator and install-mode direct
-# (same pathInRepo as the matching bundle scenario; IMG from lightspeed-operator in the snapshot).
+# All E2E scenarios run only for pull-request snapshots; push builds still produce images.
+# Bundle scenarios default to bundle install-mode; *-direct scenarios use direct install-mode.
+# Konflux contexts are OR-ed, so do not add a component_* context alongside pull_request.
+# PRs for any component in the shared ols application start a scenario PipelineRun;
+# the pipeline checks the component label before provisioning a cluster.
 #
 # Resolver paths are relative to repo root (leading slash optional; Konflux accepts both).
 ---
@@ -19,7 +21,7 @@ spec:
   application: ols
   contexts:
     - description: Operator bundle e2e on OCP 4.16
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.16
@@ -38,7 +40,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-416.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -51,7 +53,7 @@ spec:
   application: ols
   contexts:
     - description: Operator bundle e2e on OCP 4.17
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.17
@@ -70,7 +72,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-417.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -83,7 +85,7 @@ spec:
   application: ols
   contexts:
     - description: Operator bundle e2e on OCP 4.18
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.18
@@ -102,7 +104,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-418.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -115,7 +117,7 @@ spec:
   application: ols
   contexts:
     - description: Operator bundle e2e on OCP 4.19
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.19
@@ -134,7 +136,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-419.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -147,7 +149,7 @@ spec:
   application: ols
   contexts:
     - description: Operator upgrade e2e on OCP 4.16
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-upgrade-e2e-tests-4.16
@@ -164,7 +166,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline-419.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -177,7 +179,7 @@ spec:
   application: ols
   contexts:
     - description: Operator upgrade e2e on OCP 4.17
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-upgrade-e2e-tests-4.17
@@ -194,7 +196,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline-419.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -207,7 +209,7 @@ spec:
   application: ols
   contexts:
     - description: Operator upgrade e2e on OCP 4.18
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-upgrade-e2e-tests-4.18
@@ -224,7 +226,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline-419.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -237,7 +239,7 @@ spec:
   application: ols
   contexts:
     - description: Operator upgrade e2e on OCP 4.19
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-upgrade-e2e-tests-4.19
@@ -254,7 +256,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline-419.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -267,7 +269,7 @@ spec:
   application: ols
   contexts:
     - description: Operator upgrade e2e on OCP 4.20
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-upgrade-e2e-tests-4.20
@@ -284,7 +286,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline-420.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-upgrade-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -297,7 +299,7 @@ spec:
   application: ols
   contexts:
     - description: Lightspeed service integration on OCP 4.16
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.16
@@ -316,7 +318,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.16.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -329,7 +331,7 @@ spec:
   application: ols
   contexts:
     - description: Lightspeed service integration on OCP 4.17
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.17
@@ -348,7 +350,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.17.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -361,7 +363,7 @@ spec:
   application: ols
   contexts:
     - description: Lightspeed service integration on OCP 4.18
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.18
@@ -380,7 +382,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.18.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -393,7 +395,7 @@ spec:
   application: ols
   contexts:
     - description: Lightspeed service integration on OCP 4.19
-      name: component_bundle
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.19
@@ -412,7 +414,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.19.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -425,7 +427,7 @@ spec:
   application: ols
   contexts:
     - description: Operator e2e on OCP 4.16 (direct deploy; lightspeed-operator snapshot)
-      name: component_lightspeed-operator
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.16
@@ -446,7 +448,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-416.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -459,7 +461,7 @@ spec:
   application: ols
   contexts:
     - description: Operator e2e on OCP 4.17 (direct deploy; lightspeed-operator snapshot)
-      name: component_lightspeed-operator
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.17
@@ -480,7 +482,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-417.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -493,7 +495,7 @@ spec:
   application: ols
   contexts:
     - description: Operator e2e on OCP 4.18 (direct deploy; lightspeed-operator snapshot)
-      name: component_lightspeed-operator
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.18
@@ -514,7 +516,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-418.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -527,7 +529,7 @@ spec:
   application: ols
   contexts:
     - description: Operator e2e on OCP 4.19 (direct deploy; lightspeed-operator snapshot)
-      name: component_lightspeed-operator
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.19
@@ -548,7 +550,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline-419.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-operator-e2e-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -561,7 +563,7 @@ spec:
   application: ols
   contexts:
     - description: Lightspeed service integration on OCP 4.16 (direct deploy; lightspeed-operator snapshot)
-      name: component_lightspeed-operator
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.16
@@ -582,7 +584,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.16.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -595,7 +597,7 @@ spec:
   application: ols
   contexts:
     - description: Lightspeed service integration on OCP 4.17 (direct deploy; lightspeed-operator snapshot)
-      name: component_lightspeed-operator
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.17
@@ -616,7 +618,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.17.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -629,7 +631,7 @@ spec:
   application: ols
   contexts:
     - description: Lightspeed service integration on OCP 4.18 (direct deploy; lightspeed-operator snapshot)
-      name: component_lightspeed-operator
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.18
@@ -650,7 +652,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.18.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline.yaml
 ---
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
@@ -663,7 +665,7 @@ spec:
   application: ols
   contexts:
     - description: Lightspeed service integration on OCP 4.19 (direct deploy; lightspeed-operator snapshot)
-      name: component_lightspeed-operator
+      name: pull_request
   params:
     - name: test-name
       value: ols-e2e-tests-4.19
@@ -684,4 +686,4 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline-4.19.yaml
+        value: .tekton/integration-tests/pipelines/lightspeed-service-integration-test-pipeline.yaml
