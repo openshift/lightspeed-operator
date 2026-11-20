@@ -181,7 +181,7 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 ---|---|---|---
 `api` | `api` | `Config` | API container. Replicas configurable (default 1, min 0)
 `dataCollector` | `dataCollector` | `ContainerConfig` | Data collector container. Resources only
-`mcpServer` | `mcpServer` | `Config` | Standalone OpenShift MCP server Deployment (replicas, resources, tolerations, nodeSelector)
+`mcpServer` | `mcpServer` | `Config` | Standalone OpenShift MCP server Deployment (replicas forced to 1; resources, tolerations, nodeSelector configurable)
 `rhokp` | `rhokp` | `Config` | Standalone RHOKP Deployment (Solr / OKP). Replicas (forced to 1), resources, tolerations, nodeSelector
 `console` | `console` | `Config` | Console container. Has replicas field but operator forces 1
 `database` | `database` | `Config` | Database container. Has replicas field but operator forces 1
@@ -191,7 +191,7 @@ Field path (relative to `spec.ols.deployment`) | JSON key | Go type | Notes
 `agenticConsole` | `agenticConsole` | `Config` | Agentic console plugin container. Replicas forced to 1
 `otelCollector` | `otelCollector` | `Config` | OTEL Collector container ([OLS-3510](https://redhat.atlassian.net/browse/OLS-3510)). Replicas forced to 1
 
-20. Replicas are user-configurable for the API container (`spec.ols.deployment.api.replicas`). For console, database, alerts adapter, agentic console, otel collector, and RHOKP, the operator always overrides replicas to 1 regardless of spec value.
+20. Replicas are user-configurable only for the API container (`spec.ols.deployment.api.replicas`). For the MCP server, console, database, alerts adapter, agentic console, otel collector, and RHOKP, the operator always overrides replicas to 1 regardless of spec value.
 
 ##### Config Fields
 
@@ -465,7 +465,7 @@ Path | Type | Default | Required | Validation | Description
 `spec.ols.deployment.api.nodeSelector` | `map[string]string` | -- | No | -- | API node selector
 `spec.ols.deployment.dataCollector` | `ContainerConfig` | -- | No | -- | Data collector container
 `spec.ols.deployment.dataCollector.resources` | `*ResourceRequirements` | -- | No | -- | Data collector resources
-`spec.ols.deployment.mcpServer` | `Config` | -- | No | -- | Standalone OpenShift MCP server Deployment
+`spec.ols.deployment.mcpServer` | `Config` | -- | No | -- | Standalone OpenShift MCP server Deployment; replicas forced to 1
 `spec.ols.deployment.mcpServer.resources` | `*ResourceRequirements` | -- | No | -- | MCP server resources
 `spec.ols.deployment.rhokp` | `Config` | -- | No | -- | Standalone RHOKP Deployment
 `spec.ols.deployment.rhokp.replicas` | `*int32` | `1` | No | Min=0 | RHOKP replicas (operator forces 1)

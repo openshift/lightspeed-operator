@@ -117,9 +117,9 @@ spec:
             path: agenticOLS.agenticSandboxConfig
           - description: |-
               Defines the number of desired pods. Default: "1"
-              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
-              For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
-              Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+              Replicas are configurable only for APIContainer. For the MCP server, PostgreSQL,
+              Console, Agentic Console, Alerts Adapter, OTEL Collector, RHOKP, and Agentic Sandbox
+              (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
             displayName: Number of replicas
             path: agenticOLS.agenticSandboxConfig.replicas
             x-descriptors:
@@ -323,9 +323,9 @@ spec:
             path: ols.deployment.agenticConsole
           - description: |-
               Defines the number of desired pods. Default: "1"
-              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
-              For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
-              Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+              Replicas are configurable only for APIContainer. For the MCP server, PostgreSQL,
+              Console, Agentic Console, Alerts Adapter, OTEL Collector, RHOKP, and Agentic Sandbox
+              (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.agenticConsole.replicas
             x-descriptors:
@@ -344,9 +344,9 @@ spec:
             path: ols.deployment.alertsAdapter.configMapRef
           - description: |-
               Defines the number of desired pods. Default: "1"
-              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
-              For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
-              Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+              Replicas are configurable only for APIContainer. For the MCP server, PostgreSQL,
+              Console, Agentic Console, Alerts Adapter, OTEL Collector, RHOKP, and Agentic Sandbox
+              (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.alertsAdapter.replicas
             x-descriptors:
@@ -356,9 +356,9 @@ spec:
             path: ols.deployment.api
           - description: |-
               Defines the number of desired pods. Default: "1"
-              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
-              For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
-              Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+              Replicas are configurable only for APIContainer. For the MCP server, PostgreSQL,
+              Console, Agentic Console, Alerts Adapter, OTEL Collector, RHOKP, and Agentic Sandbox
+              (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.api.replicas
             x-descriptors:
@@ -368,9 +368,9 @@ spec:
             path: ols.deployment.console
           - description: |-
               Defines the number of desired pods. Default: "1"
-              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
-              For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
-              Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+              Replicas are configurable only for APIContainer. For the MCP server, PostgreSQL,
+              Console, Agentic Console, Alerts Adapter, OTEL Collector, RHOKP, and Agentic Sandbox
+              (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.console.replicas
             x-descriptors:
@@ -383,9 +383,9 @@ spec:
             path: ols.deployment.database
           - description: |-
               Defines the number of desired pods. Default: "1"
-              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
-              For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
-              Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+              Replicas are configurable only for APIContainer. For the MCP server, PostgreSQL,
+              Console, Agentic Console, Alerts Adapter, OTEL Collector, RHOKP, and Agentic Sandbox
+              (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.database.replicas
             x-descriptors:
@@ -395,9 +395,9 @@ spec:
             path: ols.deployment.mcpServer
           - description: |-
               Defines the number of desired pods. Default: "1"
-              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
-              For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
-              Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+              Replicas are configurable only for APIContainer. For the MCP server, PostgreSQL,
+              Console, Agentic Console, Alerts Adapter, OTEL Collector, RHOKP, and Agentic Sandbox
+              (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.mcpServer.replicas
             x-descriptors:
@@ -407,9 +407,9 @@ spec:
             path: ols.deployment.otelCollector
           - description: |-
               Defines the number of desired pods. Default: "1"
-              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
-              For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
-              Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+              Replicas are configurable only for APIContainer. For the MCP server, PostgreSQL,
+              Console, Agentic Console, Alerts Adapter, OTEL Collector, RHOKP, and Agentic Sandbox
+              (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.otelCollector.replicas
             x-descriptors:
@@ -419,20 +419,13 @@ spec:
             path: ols.deployment.rhokp
           - description: |-
               Defines the number of desired pods. Default: "1"
-              Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
-              For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
-              Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+              Replicas are configurable only for APIContainer. For the MCP server, PostgreSQL,
+              Console, Agentic Console, Alerts Adapter, OTEL Collector, RHOKP, and Agentic Sandbox
+              (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
             displayName: Number of replicas
             path: ols.deployment.rhokp.replicas
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:podCount
-          - description: |-
-              ToolOutputRedaction controls whether sensitive values in tool output are redacted.
-              Defaults to true when omitted. This setting is independent of guardrail inspection.
-            displayName: Tool Output Redaction
-            path: ols.toolOutputRedaction
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: Guardrails configuration for untrusted model inputs and outputs.
             displayName: Guardrails
             path: ols.guardrails
@@ -595,6 +588,13 @@ spec:
           - description: Number of tools to retrieve
             displayName: Top K
             path: ols.toolFilteringConfig.topK
+          - description: |-
+              ToolOutputRedaction controls whether sensitive values in tool output are redacted.
+              Defaults to true when omitted. This setting is independent of guardrail inspection.
+            displayName: Tool Output Redaction
+            path: ols.toolOutputRedaction
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: Tool execution approval configuration. Controls whether tool calls require user approval before execution.
             displayName: Tools Approval Configuration
             path: ols.toolsApprovalConfig
