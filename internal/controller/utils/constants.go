@@ -94,6 +94,14 @@ const (
 	RAGVolumeName = "rag"
 	// RAGVolumeMountPath is the path of the volume hosting customized RAG content
 	RAGVolumeMountPath = "/rag-data"
+	// RAGUtilVolumeName is the name of the volume hosting the copy binary
+	// staged for the RAG data init containers (customer RAG images are
+	// data-only; the binary comes from the service image, OLM-bundle style)
+	RAGUtilVolumeName = "rag-util"
+	// RAGUtilVolumeMountPath is the path of the volume hosting the staged copy binary
+	RAGUtilVolumeMountPath = "/rag-util"
+	// RAGUtilInitContainerName is the name of the init container staging the copy binary
+	RAGUtilInitContainerName = "rag-util"
 	// OLSAppServerNetworkPolicyName is the name of the network policy for the OLS application server
 	OLSAppServerNetworkPolicyName = "lightspeed-app-server"
 	// FeatureGateMCPServer is the feature gate flag activating the MCP server

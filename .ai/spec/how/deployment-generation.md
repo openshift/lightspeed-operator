@@ -31,7 +31,7 @@ GenerateOLSDeployment(r, cr)
   11. Add MCP header secret volumes (via ForEachExternalSecret, source "mcp-*")
   12. Build init containers:
       a. PostgreSQL wait init container (polls pg service)
-      b. RAG init containers (one per RAG entry, copies data to shared emptyDir)
+      b. RAG init containers (`rag-util` staging container plus one per RAG entry, copying data to shared emptyDir; see "Init Container Generation")
       c. [PLANNED: OLS-3799] RHOKP wait init container (when `!byokRAGOnly`) — not yet implemented; today only the PostgreSQL wait + RAG init containers are generated.
   13. Get ConfigMap ResourceVersions for tracking annotations
   14. Get proxy CA cert hash for tracking annotation
@@ -96,7 +96,7 @@ Volumes and mounts are built as slices and conditionally appended using inline a
 ### Init Container Generation
 - **PostgreSQL wait:** `utils.GeneratePostgresWaitInitContainer()` generates a container that polls the PostgreSQL service until it responds.
 - **RHOKP wait (when `!byokRAGOnly`):** [PLANNED: OLS-3799] — not yet implemented. When added, `utils.GenerateRHOKPWaitInitContainer()` would poll the RHOKP Solr ping endpoint until it responds (~360s budget), following the PostgreSQL wait pattern. No such function exists today.
-- **RAG (AppServer only):** `GenerateRAGInitContainers()` creates one init container per RAG entry, each copying data from the RAG image to the shared emptyDir volume at `/app-root/rag/rag-<index>`.
+- **RAG (AppServer only):** `GenerateRAGInitContainers()` creates one init container per RAG entry, each copying data from the RAG image to the shared emptyDir volume at `/rag-data/rag-<index>`. Customer RAG images are data-only (single `/rag/vector_db` layer, no base layer, no shell), so nothing from the image is ever executed — the OLM-bundle pattern: a leading `rag-util` init container (service image, which the pod runs anyway and therefore matches the node architecture) creates the per-index directories and stages `/usr/bin/cp` into a separate `rag-util` emptyDir; each per-index container then runs that staged binary as its command, overriding the image entrypoint. A customer image only needs to be pullable, never executable — and as a single-platform manifest it is pullable on any node architecture.
 
 ### ImageStream Triggers (AppServer only)
 RAG images use OpenShift ImageStreams for automatic updates. The deployment is annotated with `image.openshift.io/triggers` JSON that maps ImageStreamTag changes to init container image fields. This allows RAG content updates without operator intervention.

@@ -74,7 +74,7 @@ ols_config:
     tls_key_path: /etc/certs/lightspeed-tls/tls.key
   reference_content:
     indexes:                                  # one per spec.ols.rag entry; empty when no BYOK RAG
-      - path: /app-root/rag/rag-0
+      - path: /rag-data/rag-0
         index_id: <rag.IndexID>
         origin: <rag.Image>
     embeddings_model_path: /app-root/embeddings_model
