@@ -779,6 +779,7 @@ var (
 	OpenShiftMCPServerImageDefault = relatedimages.GetDefaultImage("openshift-mcp-server")
 	DataverseExporterImageDefault  = relatedimages.GetDefaultImage("lightspeed-to-dataverse-exporter")
 	AgenticConsoleUIImageDefault   = imageDefaultOr("lightspeed-agentic-console-plugin", agenticConsoleUIImageFallback)
+	HubImageDefault                = relatedimages.GetDefaultImage("lightspeed-hub")
 	AlertsAdapterImageDefault      = imageDefaultOr("lightspeed-agentic-alerts-adapter", alertsAdapterImageFallback)
 	AgenticSandboxImageDefault     = imageDefaultOr("lightspeed-agentic-sandbox", agenticSandboxImageFallback)
 	OtelCollectorImageDefault      = imageDefaultOr("lightspeed-otel-collector", otelCollectorImageFallback)

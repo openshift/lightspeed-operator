@@ -33,8 +33,15 @@ The `lightspeed-operator` package has **one unified Classic + Agentic OLM bundle
 13. OLM/bundle is the sole static hub permission owner for the OLS installation lifetime. The OLS operator must neither reconcile nor delete these objects during activation/disablement. Prefer namespace-scoped credential/adapter grants; validate exact MCE permissions. Do not introduce blanket bind, escalate or cluster-admin. Hub-side RBAC does not grant remote spoke authority.
 14. Validate CSV permissions/clusterPermissions handling for a ServiceAccount not used by a CSV-managed Deployment. If unsuitable, use a supported explicit bundle-resource arrangement with the same ownership/lifetime. This mechanism remains unvalidated by this specification.
 15. The hub is an OLS-managed operand, never a third CSV install Deployment. Creating HubConfig `cluster` is activation intent, not an OLSConfig field; no hub process runs before activation. HubConfig does not bypass completed OCP 5.0+ runtime capability or independent unsuspended AgenticOLSConfig workflow opt-in. Unknown platform state is not unsupported or implicit teardown intent.
-16. Include pinned hub and required adapter images in the unified related-image set for disconnected mirroring and propagate them to their runtime deployers, honoring existing override conventions. `relatedImages` alone is not runtime wiring. Final hub startup flag/environment names must match reviewed implementation, not invented examples. Hub owns its separate multicluster adapter; Classic retains ownership of the local opt-in adapter.
+16. Include pinned hub and required adapter images in the unified related-image set for disconnected mirroring and propagate them to their runtime deployers, honoring existing override conventions. `relatedImages` alone is not runtime wiring. Classic receives the hub image through `--hub-image`. The existing Classic `--alerts-adapter-image` input supplies both the local adapter and the hub-managed multicluster adapter; do not introduce a separate hub adapter image entry or override. OLS-4661 forwards this selected adapter image to the hub's required `--alerts-adapter-image` argument. Hub owns its separate multicluster adapter; Classic retains ownership of the local opt-in adapter.
 17. Before runtime creation, the OLS operator protects the HubConfig lifecycle. It reconciles image/configuration rollouts and self-heals drift; during shutdown it keeps/recreates the hub until fresh, identity-aware completion acknowledgement permits runtime removal. Static APIs/permissions remain. See [reconciliation](reconciliation.md) and [resource lifecycle](resource-lifecycle.md).
+
+### Hub Image Wiring [PLANNED: OLS-4429]
+
+18. Verify and reuse the delivered build/release artifacts from Closed OLS-4263 and OLS-4264 before implementing remaining gaps. Do not recreate their Konflux application, build pipelines or completed release setup. Closed ticket status alone does not establish that the current bundle contains the required image wiring.
+19. The hub entry in `related_images.json` uses `name: lightspeed-hub`, `operator_arg: hub-image`, and `snapshot_component: lightspeed-hub`, with a verified production repository, immutable image digest, source revision and registry mappings. Use `operator_arg`, not `operator_target: image`: the hub is an operand, not a CSV install Deployment. Supply a supported digest-pinned default and the `--hub-image` override through the existing image-loading conventions; no development-image fallback is permitted in released wiring.
+20. OLS-4429 owns remaining related-image/default/override and generated Classic CSV startup-argument integration. It supplies the selected hub image and shared adapter image as inputs to OLS-4661's runtime reconciler. OLS-4661 owns hub Deployment creation and forwarding the adapter image to the hub. CRD synchronization belongs to OLS-4430, static-permission packaging to OLS-4784, and activation/shutdown reconciliation to OLS-4661 and its lifecycle dependencies; do not implement those concerns as part of image wiring.
+21. Generation/validation tests must verify that the hub and shared adapter images appear exactly once in the unified CSV `spec.relatedImages`, the generated Classic startup arguments carry the selected hub and adapter images, and supported override/mirroring paths preserve the selected image references without development-image fallback. Assert that no third CSV-managed Deployment is introduced. Image availability alone does not authorize hub activation or bypass runtime platform gating. Installed-bundle and end-to-end adapter-forwarding coverage belongs to OLS-4639, coordinated with OLS-4661.
 
 ## Configuration Surface
 
@@ -42,12 +49,13 @@ The `lightspeed-operator` package has **one unified Classic + Agentic OLM bundle
 | --- | --- | --- |
 | Agentic CRD/RBAC pinned ref | Makefile / sync target | Source revision for generated Agentic static APIs and RBAC |
 | Hub CRD/RBAC pinned ref [PLANNED: OLS-4430, OLS-4784] | Hub sync configuration | Reviewed source revision for hub APIs/static permissions |
-| Hub image override [PLANNED: OLS-4429, OLS-4661] | OLS deployment startup configuration | Propagated hub image; exact flag/environment interface subject to implementation review |
+| Classic `--hub-image` [PLANNED: OLS-4429, OLS-4661] | `cmd/main.go`, `related_images.json` | Hub operand image; `operator_arg: hub-image` generates the Classic CSV startup argument |
 | Controller images | Unified CSV deployment specs | Classic and Agentic controller images |
 | Agentic controller `--sandbox-mode` | Unified CSV deployment args | `bare-pod` (default) or `sandbox-claim` |
 | Classic `--agentic-sandbox-image` | `cmd/main.go`, `related_images.json` | Sandbox image in the handoff PodSpec |
 | Classic `--rhokp-image` | `cmd/main.go`, `related_images.json` | RHOKP image |
-| Classic `--alerts-adapter-image` / `--agentic-console-image` | `cmd/main.go`, `related_images.json` | Optional agentic operand images |
+| Classic `--alerts-adapter-image` | `cmd/main.go`, `related_images.json` | Local adapter image; [PLANNED: OLS-4429, OLS-4661] the same selected image also supplies the hub-managed multicluster adapter via the hub's `--alerts-adapter-image` argument |
+| Classic `--agentic-console-image` | `cmd/main.go`, `related_images.json` | Agentic console plugin image |
 
 ## Constraints
 
@@ -59,7 +67,8 @@ The `lightspeed-operator` package has **one unified Classic + Agentic OLM bundle
 
 | Ticket | Required outcome |
 | --- | --- |
-| OLS-4429 / OLS-4430 | Unified hub images and pinned CRD sync |
+| OLS-4429 | Verify/reuse OLS-4263/4264; complete digest-pinned hub/shared-adapter image inputs, defaults/overrides and generated Classic CSV arguments |
+| OLS-4430 | Pinned hub CRD synchronization |
 | OLS-4784 | Validated, solely bundle-owned hub static permissions |
 | OLS-4661 | HubConfig-driven protected runtime lifecycle |
 | OLS-4639 | Installed-bundle/hub-only verification, including images, static permissions and no idle hub Deployment |
