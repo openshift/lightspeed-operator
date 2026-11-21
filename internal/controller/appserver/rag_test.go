@@ -44,27 +44,37 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate initContainer for each RAG", func() {
-			initContainers := GenerateRAGInitContainers(cr)
-			Expect(initContainers).To(HaveLen(2))
+			initContainers := GenerateRAGInitContainers(cr, "ols-service-image:latest")
+			Expect(initContainers).To(HaveLen(3))
 			Expect(initContainers[0]).To(MatchFields(IgnoreExtras, Fields{
+				"Name":            Equal("rag-util"),
+				"Image":           Equal("ols-service-image:latest"),
+				"ImagePullPolicy": Equal(corev1.PullAlways),
+				"Command":         Equal([]string{"/bin/sh", "-c", "mkdir -p /rag-data/rag-0 /rag-data/rag-1 && cp /usr/bin/cp /rag-util/cp"}),
+				"VolumeMounts": ConsistOf(
+					corev1.VolumeMount{Name: "rag", MountPath: "/rag-data"},
+					corev1.VolumeMount{Name: "rag-util", MountPath: "/rag-util"},
+				),
+			}))
+			Expect(initContainers[1]).To(MatchFields(IgnoreExtras, Fields{
 				"Name":            Equal("rag-0"),
 				"Image":           Equal("rag-image-1"),
 				"ImagePullPolicy": Equal(corev1.PullAlways),
-				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-0 && cp -a /path/to/index-1/. /rag-data/rag-0"}),
-				"VolumeMounts": ConsistOf(corev1.VolumeMount{
-					Name:      utils.RAGVolumeName,
-					MountPath: "/rag-data",
-				}),
+				"Command":         Equal([]string{"/rag-util/cp", "-a", "/path/to/index-1/.", "/rag-data/rag-0"}),
+				"VolumeMounts": ConsistOf(
+					corev1.VolumeMount{Name: "rag", MountPath: "/rag-data"},
+					corev1.VolumeMount{Name: "rag-util", MountPath: "/rag-util", ReadOnly: true},
+				),
 			}))
-			Expect(initContainers[1]).To(MatchFields(IgnoreExtras, Fields{
+			Expect(initContainers[2]).To(MatchFields(IgnoreExtras, Fields{
 				"Name":            Equal("rag-1"),
 				"Image":           Equal("rag-image-2"),
 				"ImagePullPolicy": Equal(corev1.PullAlways),
-				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-1 && cp -a /path/to/index-2/. /rag-data/rag-1"}),
-				"VolumeMounts": ConsistOf(corev1.VolumeMount{
-					Name:      utils.RAGVolumeName,
-					MountPath: "/rag-data",
-				}),
+				"Command":         Equal([]string{"/rag-util/cp", "-a", "/path/to/index-2/.", "/rag-data/rag-1"}),
+				"VolumeMounts": ConsistOf(
+					corev1.VolumeMount{Name: "rag", MountPath: "/rag-data"},
+					corev1.VolumeMount{Name: "rag-util", MountPath: "/rag-util", ReadOnly: true},
+				),
 			}))
 		})
 

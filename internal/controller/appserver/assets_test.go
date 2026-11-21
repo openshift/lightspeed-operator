@@ -1237,17 +1237,46 @@ var _ = Describe("App server assets", func() {
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				}))
+			Expect(deployment.Spec.Template.Spec.Volumes).To(ContainElement(
+				corev1.Volume{
+					Name: utils.RAGUtilVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				}))
 
 			Expect(deployment.Spec.Template.Spec.InitContainers).To(ConsistOf(
 				utils.GeneratePostgresWaitInitContainer(testReconcilerInstance.GetPostgresImage()),
 				corev1.Container{
-					Name:    "rag-0",
-					Image:   "rag-ocp-product-docs:4.19",
-					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-0 && cp -a /rag/vector_db/ocp_product_docs/4.19/. %s/rag-0", utils.RAGVolumeMountPath, utils.RAGVolumeMountPath)},
+					Name:    utils.RAGUtilInitContainerName,
+					Image:   testReconcilerInstance.GetAppServerImage(),
+					Command: []string{"/bin/sh", "-c", fmt.Sprintf("mkdir -p %s/rag-0 %s/rag-1 && cp /usr/bin/cp %s/cp", utils.RAGVolumeMountPath, utils.RAGVolumeMountPath, utils.RAGUtilVolumeMountPath)},
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      utils.RAGVolumeName,
 							MountPath: utils.RAGVolumeMountPath,
+						},
+						{
+							Name:      utils.RAGUtilVolumeName,
+							MountPath: utils.RAGUtilVolumeMountPath,
+						},
+					},
+					ImagePullPolicy: corev1.PullAlways,
+					SecurityContext: utils.RestrictedContainerSecurityContext(),
+				},
+				corev1.Container{
+					Name:    "rag-0",
+					Image:   "rag-ocp-product-docs:4.19",
+					Command: []string{fmt.Sprintf("%s/cp", utils.RAGUtilVolumeMountPath), "-a", "/rag/vector_db/ocp_product_docs/4.19/.", fmt.Sprintf("%s/rag-0", utils.RAGVolumeMountPath)},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      utils.RAGVolumeName,
+							MountPath: utils.RAGVolumeMountPath,
+						},
+						{
+							Name:      utils.RAGUtilVolumeName,
+							MountPath: utils.RAGUtilVolumeMountPath,
+							ReadOnly:  true,
 						},
 					},
 					ImagePullPolicy: corev1.PullAlways,
@@ -1255,11 +1284,16 @@ var _ = Describe("App server assets", func() {
 				corev1.Container{
 					Name:    "rag-1",
 					Image:   "rag-ansible-docs:2.18",
-					Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s/rag-1 && cp -a /rag/vector_db/ansible_docs/2.18/. %s/rag-1", utils.RAGVolumeMountPath, utils.RAGVolumeMountPath)},
+					Command: []string{fmt.Sprintf("%s/cp", utils.RAGUtilVolumeMountPath), "-a", "/rag/vector_db/ansible_docs/2.18/.", fmt.Sprintf("%s/rag-1", utils.RAGVolumeMountPath)},
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      utils.RAGVolumeName,
 							MountPath: utils.RAGVolumeMountPath,
+						},
+						{
+							Name:      utils.RAGUtilVolumeName,
+							MountPath: utils.RAGUtilVolumeMountPath,
+							ReadOnly:  true,
 						},
 					},
 					ImagePullPolicy: corev1.PullAlways,
