@@ -119,6 +119,11 @@ func ReconcileConsolePluginService(r reconciler.Reconciler, ctx context.Context,
 		return nil
 	}
 
+	// Preserve API-allocated addresses and IP families when repairing Service drift.
+	desired.Spec.ClusterIP = foundService.Spec.ClusterIP
+	desired.Spec.ClusterIPs = foundService.Spec.ClusterIPs
+	desired.Spec.IPFamilies = foundService.Spec.IPFamilies
+	desired.Spec.IPFamilyPolicy = foundService.Spec.IPFamilyPolicy
 	foundService.Spec = desired.Spec
 	foundService.Annotations = desired.Annotations
 	foundService.Labels = desired.Labels

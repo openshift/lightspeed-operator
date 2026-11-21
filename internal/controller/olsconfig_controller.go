@@ -140,8 +140,8 @@ const finalizerCleanupTimeout = 3 * time.Minute
 // RBAC: split create (cannot use resourceNames) from get/update/delete (pinned to named resources) (OLS-3886)
 // list+watch must be unscoped because Owns() sets up a cluster-wide informer that lists all resources of the type
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=create;list;watch
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=lightspeed-app-server-sar-role;lightspeed-agentic-alerts-adapter-agenticruns;lightspeed-agentic-alerts-adapter-agenticolsconfig;lightspeed-otel-dataverse-exporter;lightspeed-otel-dataverse-exporter-pull-secret,verbs=get;update;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,resourceNames=lightspeed-app-server-sar-role-binding;lightspeed-agentic-alerts-adapter-agenticruns;lightspeed-agentic-alerts-adapter-agenticolsconfig;lightspeed-operator-ols-metrics-reader;lightspeed-otel-dataverse-exporter-binding,verbs=get;update;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=lightspeed-app-server-sar-role;lightspeed-agentic-alerts-adapter-agenticruns;lightspeed-agentic-alerts-adapter-agenticolsconfig;lightspeed-agentic-alerts-adapter-tokenreviews;lightspeed-otel-dataverse-exporter;lightspeed-otel-dataverse-exporter-pull-secret,verbs=get;update;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,resourceNames=lightspeed-app-server-sar-role-binding;lightspeed-agentic-alerts-adapter-agenticruns;lightspeed-agentic-alerts-adapter-agenticolsconfig;lightspeed-agentic-alerts-adapter-tokenreviews;lightspeed-operator-ols-metrics-reader;lightspeed-otel-dataverse-exporter-binding,verbs=get;update;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create;list;watch
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,resourceNames=lightspeed-agentic-alerts-adapter-alertmanager;lightspeed-otel-dataverse-exporter-pull-secret,verbs=get;update;delete
 // AgenticRun API for alerts adapter ClusterRole (operator must hold permissions it grants to operands)
@@ -154,7 +154,7 @@ const finalizerCleanupTimeout = 3 * time.Minute
 // +kubebuilder:rbac:urls=/ls-access,verbs=get
 // +kubebuilder:rbac:urls=/ols-metrics-access,verbs=get
 
-// RBAC for application server to authorize user for API access
+// RBAC for application server authorization and alerts adapter caller authentication
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 
@@ -221,7 +221,7 @@ func (r *OLSConfigReconciler) handleFinalizer(ctx context.Context, req ctrl.Requ
 			// Run finalizer cleanup logic
 			if err := r.finalizeOLSConfig(ctx, olsconfig); err != nil {
 				if errors.Is(err, alertsadapter.ErrAlertsAdapterCleanupPending) {
-					r.Logger.Info("Alerts adapter pods remain; retaining egress policy and retrying finalization")
+					r.Logger.Info("Alerts adapter pods remain; retaining network policies and retrying finalization")
 					return &ctrl.Result{RequeueAfter: time.Second}, nil
 				}
 				r.Logger.Error(err, "Failed to finalize OLSConfig CR")
@@ -438,7 +438,7 @@ func (r *OLSConfigReconciler) reconcileIndependentResources(ctx context.Context,
 				Status:             metav1.ConditionFalse,
 				ObservedGeneration: olsconfig.Generation,
 				Reason:             "CleanupPending",
-				Message:            "Waiting for alerts adapter pods to terminate before deleting the egress NetworkPolicy",
+				Message:            "Waiting for alerts adapter pods to terminate before deleting ingress and egress NetworkPolicies",
 				LastTransitionTime: metav1.Now(),
 			})
 		}
@@ -843,7 +843,7 @@ func (r *OLSConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// 5. Phase 1: Reconcile independent resources
 	if err := r.reconcileIndependentResources(ctx, olsconfig); err != nil {
 		if errors.Is(err, alertsadapter.ErrAlertsAdapterCleanupPending) {
-			r.Logger.Info("Alerts adapter pods remain; retaining egress policy and retrying cleanup")
+			r.Logger.Info("Alerts adapter pods remain; retaining network policies and retrying cleanup")
 			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
 		if isRESTMappingError(err) {

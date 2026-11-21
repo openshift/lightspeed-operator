@@ -159,8 +159,94 @@ func GenerateAlertmanagerRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OL
 	return &rb, nil
 }
 
-// GenerateNetworkPolicy generates the NetworkPolicy restricting adapter egress and ingress.
+// GenerateService generates the ClusterIP Service exposing the adapter HTTPS
+// investigation API, with a service-ca serving-cert annotation.
+func GenerateService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev1.Service, error) {
+	service := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.AlertsAdapterServiceName,
+			Namespace: r.GetNamespace(),
+			Labels:    utils.GenerateAlertsAdapterSelectorLabels(),
+			Annotations: map[string]string{
+				utils.ServingCertSecretAnnotationKey: utils.AlertsAdapterCertsSecretName,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: utils.GenerateAlertsAdapterSelectorLabels(),
+			Type:     corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "https",
+					Port:       utils.AlertsAdapterHTTPSPort,
+					Protocol:   corev1.ProtocolTCP,
+					TargetPort: intstr.FromString("https"),
+				},
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(cr, &service, r.GetScheme()); err != nil {
+		return nil, fmt.Errorf("%s: %w", utils.ErrSetAlertsAdapterServiceOwnerReference, err)
+	}
+	return &service, nil
+}
+
+// GenerateTokenReviewsClusterRole generates the ClusterRole granting TokenReview
+// create, used to authenticate investigation API callers.
+func GenerateTokenReviewsClusterRole(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRole, error) {
+	role := rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   utils.AlertsAdapterTokenReviewsClusterRoleName,
+			Labels: utils.GenerateAlertsAdapterSelectorLabels(),
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"authentication.k8s.io"},
+				Resources: []string{"tokenreviews"},
+				Verbs:     []string{"create"},
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &role, r.GetScheme()); err != nil {
+		return nil, fmt.Errorf("%s: %w", utils.ErrSetAlertsAdapterTokenReviewsClusterRoleOwnerReference, err)
+	}
+
+	return &role, nil
+}
+
+// GenerateTokenReviewsClusterRoleBinding binds the TokenReview ClusterRole to the alerts adapter SA.
+func GenerateTokenReviewsClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRoleBinding, error) {
+	rb := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   utils.AlertsAdapterTokenReviewsClusterRoleBindingName,
+			Labels: utils.GenerateAlertsAdapterSelectorLabels(),
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      utils.AlertsAdapterServiceAccountName,
+				Namespace: r.GetNamespace(),
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     utils.AlertsAdapterTokenReviewsClusterRoleName,
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(cr, &rb, r.GetScheme()); err != nil {
+		return nil, fmt.Errorf("%s: %w", utils.ErrSetAlertsAdapterTokenReviewsClusterRoleBindingOwnerReference, err)
+	}
+
+	return &rb, nil
+}
+
+// GenerateNetworkPolicy generates the ingress NetworkPolicy allowing HTTPS access
+// to the adapter investigation API from pods in the operator and openshift-console namespaces.
 func GenerateNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
+	protocolTCP := corev1.ProtocolTCP
+	httpsPort := intstr.FromInt32(utils.AlertsAdapterHTTPSPort)
 	np := networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.AlertsAdapterNetworkPolicyName,
@@ -171,8 +257,24 @@ func GenerateNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: utils.GenerateAlertsAdapterSelectorLabels(),
 			},
-			Ingress: []networkingv1.NetworkPolicyIngressRule{},
-			Egress:  []networkingv1.NetworkPolicyEgressRule{},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					From: []networkingv1.NetworkPolicyPeer{
+						{PodSelector: &metav1.LabelSelector{}},
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": "openshift-console",
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{{
+						Protocol: &protocolTCP,
+						Port:     &httpsPort,
+					}},
+				},
+			},
 			PolicyTypes: []networkingv1.PolicyType{
 				networkingv1.PolicyTypeIngress,
 			},
