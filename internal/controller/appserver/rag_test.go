@@ -44,27 +44,49 @@ var _ = Describe("App server assets", func() {
 		})
 
 		It("should generate initContainer for each RAG", func() {
-			initContainers := GenerateRAGInitContainers(cr)
-			Expect(initContainers).To(HaveLen(2))
+			initContainers := GenerateRAGInitContainers(cr, "ols-service-image:latest")
+			Expect(initContainers).To(HaveLen(3))
+			utilScript := `set -eu
+mkdir -p /rag-data/rag-0 /rag-data/rag-1
+mkdir -p /rag-util/lib
+if [ -x /usr/bin/coreutils ]; then CPBIN=/usr/bin/coreutils; else CPBIN=$(readlink -f /usr/bin/cp); fi
+cp -L "$CPBIN" /rag-util/cp
+# Loader names differ per architecture: ld-linux-x86-64.so.2 (x86_64),
+# ld-linux-aarch64.so.1 (aarch64), ld64.so.2 (ppc64le), ld64.so.1 (s390x).
+# /lib64/ld*.so* covers all four; a failed glob would abort staging here.
+set -- /lib64/ld*.so*
+[ -e "$1" ] || { echo "no dynamic loader found in /lib64" >&2; exit 1; }
+cp -L "$1" /rag-util/ld.so
+ldd "$CPBIN" | awk '/=> \//{print $3}' | xargs -r -I{} cp -L "{}" /rag-util/lib/`
 			Expect(initContainers[0]).To(MatchFields(IgnoreExtras, Fields{
+				"Name":            Equal("rag-util"),
+				"Image":           Equal("ols-service-image:latest"),
+				"ImagePullPolicy": Equal(corev1.PullAlways),
+				"Command":         Equal([]string{"/bin/sh", "-c", utilScript}),
+				"VolumeMounts": ConsistOf(
+					corev1.VolumeMount{Name: "rag", MountPath: "/rag-data"},
+					corev1.VolumeMount{Name: "rag-util", MountPath: "/rag-util"},
+				),
+			}))
+			Expect(initContainers[1]).To(MatchFields(IgnoreExtras, Fields{
 				"Name":            Equal("rag-0"),
 				"Image":           Equal("rag-image-1"),
 				"ImagePullPolicy": Equal(corev1.PullAlways),
-				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-0 && cp -a /path/to/index-1/. /rag-data/rag-0"}),
-				"VolumeMounts": ConsistOf(corev1.VolumeMount{
-					Name:      utils.RAGVolumeName,
-					MountPath: "/rag-data",
-				}),
+				"Command":         Equal([]string{"/rag-util/ld.so", "--library-path", "/rag-util/lib", "/rag-util/cp", "-a", "/path/to/index-1/.", "/rag-data/rag-0"}),
+				"VolumeMounts": ConsistOf(
+					corev1.VolumeMount{Name: "rag", MountPath: "/rag-data"},
+					corev1.VolumeMount{Name: "rag-util", MountPath: "/rag-util", ReadOnly: true},
+				),
 			}))
-			Expect(initContainers[1]).To(MatchFields(IgnoreExtras, Fields{
+			Expect(initContainers[2]).To(MatchFields(IgnoreExtras, Fields{
 				"Name":            Equal("rag-1"),
 				"Image":           Equal("rag-image-2"),
 				"ImagePullPolicy": Equal(corev1.PullAlways),
-				"Command":         Equal([]string{"sh", "-c", "mkdir -p /rag-data/rag-1 && cp -a /path/to/index-2/. /rag-data/rag-1"}),
-				"VolumeMounts": ConsistOf(corev1.VolumeMount{
-					Name:      utils.RAGVolumeName,
-					MountPath: "/rag-data",
-				}),
+				"Command":         Equal([]string{"/rag-util/ld.so", "--library-path", "/rag-util/lib", "/rag-util/cp", "-a", "/path/to/index-2/.", "/rag-data/rag-1"}),
+				"VolumeMounts": ConsistOf(
+					corev1.VolumeMount{Name: "rag", MountPath: "/rag-data"},
+					corev1.VolumeMount{Name: "rag-util", MountPath: "/rag-util", ReadOnly: true},
+				),
 			}))
 		})
 
