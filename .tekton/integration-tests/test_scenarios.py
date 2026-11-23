@@ -30,6 +30,11 @@ class ScenarioTests(unittest.TestCase):
                 tasks = {task["name"]: task for task in pipeline["spec"]["tasks"]}
                 gate = "check-snapshot-component"
                 self.assertIn(gate, tasks)
+                gate_spec = tasks[gate]["taskSpec"]
+                self.assertIn("matches", [result["name"] for result in gate_spec["results"]])
+                script = gate_spec["steps"][0]["script"]
+                self.assertEqual(script.count('> "$(results.matches.path)"'), 2)
+                self.assertNotIn("$(step.results.matches.path)", script)
                 self.assertIn(
                     "metadata.labels['appstudio.openshift.io/component']",
                     str(tasks[gate]),

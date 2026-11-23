@@ -53,9 +53,9 @@ spec:
             script: |
               #!/bin/sh
               if [ "$COMPONENT" = bundle ]; then
-                printf true > $(step.results.matches.path)
+                printf true > "$(results.matches.path)"
               else
-                printf false > $(step.results.matches.path)
+                printf false > "$(results.matches.path)"
               fi
     - name: provision-ephemeral-cluster
       when:

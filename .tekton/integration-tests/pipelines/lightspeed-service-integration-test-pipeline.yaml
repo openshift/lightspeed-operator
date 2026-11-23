@@ -73,9 +73,9 @@ spec:
               expected=bundle
               if [ "$INSTALL_MODE" = direct ]; then expected=lightspeed-operator; fi
               if [ "$COMPONENT" = "$expected" ]; then
-                printf true > $(step.results.matches.path)
+                printf true > "$(results.matches.path)"
               else
-                printf false > $(step.results.matches.path)
+                printf false > "$(results.matches.path)"
               fi
     - name: provision-ephemeral-cluster
       when:
