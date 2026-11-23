@@ -32,7 +32,7 @@ Gated by `spec.ols.introspectionEnabled` (default `true` when absent). When fals
 ### Phase 2 Resources
 6. Service `openshift-mcp-server` — ClusterIP, port `https` `:8443`, serving-cert annotation → Secret `openshift-mcp-server-tls`.
 7. Wait for TLS Secret keys `tls.crt` / `tls.key` before creating/updating the Deployment.
-8. Deployment `openshift-mcp-server` — HTTPS (`--tls-cert` / `--tls-key`), probes on `/healthz` (HTTPS), image from `--openshift-mcp-server-image`, `PullIfNotPresent`. Replicas/resources/tolerations/nodeSelector from `spec.ols.deployment.mcpServer` (`Config`).
+8. Deployment `openshift-mcp-server` — HTTPS (`--tls-cert` / `--tls-key`), probes on `/healthz` (HTTPS), image from `--openshift-mcp-server-image`, `PullIfNotPresent`. The operator always forces one desired replica and uses the `Recreate` strategy because Streamable HTTP sessions are pod-local; old and replacement pods MUST NOT serve concurrently. Resources/tolerations/nodeSelector come from `spec.ols.deployment.mcpServer` (`Config`), while its `replicas` value is ignored. A rollout interrupts active sessions and briefly makes the Service unavailable until the replacement pod is ready.
 
 ### App-server Integration
 9. olsconfig `mcp_servers` includes an `openshift` entry pointing at `https://openshift-mcp-server.<namespace>.svc:8443/mcp` with `Authorization: ols` when introspection is enabled. See `app-server.md` and `config-generation.md`.
@@ -93,12 +93,12 @@ Operator tests cover default TOML, security regressions, idempotence, and intros
 |---|---|
 | `spec.ols.introspectionEnabled` | Enable/disable standalone MCP (`*bool`, default true) |
 | `spec.ols.mcpKubeServerConfig.timeout` | Timeout seconds for the built-in openshift MCP entry in olsconfig |
-| `spec.ols.deployment.mcpServer` | Standalone MCP `Config` (replicas, resources, tolerations, nodeSelector) |
+| `spec.ols.deployment.mcpServer` | Standalone MCP `Config` (replicas forced to 1; resources, tolerations, nodeSelector configurable) |
 | `--openshift-mcp-server-image` | MCP container image override |
 
 ## Constraints
 
-1. Multi-replica is allowed; Streamable HTTP is configured for stateless operation upstream.
+1. The operator always forces one desired replica and uses `Recreate` so multiple MCP pods do not serve concurrently. Streamable HTTP session state is pod-local; rollouts interrupt active sessions and briefly make the Service unavailable while the replacement starts.
 2. The MCP ServiceAccount has no cluster RBAC; authorization uses the calling user's token.
 3. The `openshift-mcp-server` image is shipped by the OCP MCP team from `registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9`. OLS does not build or release this image. Digest/tag updates track the OCP MCP team's releases; bump `related_images.json` and regenerate the bundle when a new release is available.
 4. Agentic/sandbox reuse of the MCP Service URL is published in the handoff ConfigMap; the MCP client CA Secret is owned by appserver when introspection is enabled — see `agentic-sandbox-profile.md`. Optional auto-injection into agent runs remains deferred (OLS-3594).

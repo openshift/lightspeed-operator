@@ -496,9 +496,9 @@ type AlertsAdapterSpec struct {
 // Config defines pod configuration using standard Kubernetes types
 type Config struct {
 	// Defines the number of desired pods. Default: "1"
-	// Note: Replicas are configurable for APIContainer and MCP server (mcpServer).
-	// For PostgreSQL, Console, Agentic Console, Alerts Adapter, OTEL Collector, and
-	// Agentic Sandbox (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
+	// Replicas are configurable only for APIContainer. For the MCP server, PostgreSQL,
+	// Console, Agentic Console, Alerts Adapter, OTEL Collector, RHOKP, and Agentic Sandbox
+	// (spec.agenticOLS.agenticSandboxConfig), the number of replicas is always set to 1.
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Number of replicas",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}

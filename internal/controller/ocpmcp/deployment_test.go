@@ -3,6 +3,7 @@ package ocpmcp
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +29,7 @@ var _ = Describe("OpenShift MCP Server deployment", func() {
 		Expect(dep.Labels).To(Equal(selectorLabels()))
 		Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerConfigMapResourceVersionAnnotation))
 		Expect(dep.Annotations).To(HaveKey(utils.OpenShiftMCPServerTLSSecretResourceVersionAnnotation))
+		Expect(dep.Spec.Strategy.Type).To(Equal(appsv1.RecreateDeploymentStrategyType))
 
 		spec := dep.Spec.Template.Spec
 		Expect(spec.ServiceAccountName).To(Equal(utils.OpenShiftMCPServerServiceAccountName))
@@ -59,6 +61,15 @@ var _ = Describe("OpenShift MCP Server deployment", func() {
 			MountPath: utils.OpenShiftMCPServerTLSMountPath,
 			ReadOnly:  true,
 		}))
+	})
+
+	It("should always use one MCP server replica", func() {
+		configuredReplicas := int32(2)
+		testCR.Spec.OLSConfig.DeploymentConfig.MCPServerContainer.Replicas = &configuredReplicas
+
+		dep, err := GenerateDeployment(testReconcilerInstance, ctx, testCR)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dep.Spec.Replicas).To(HaveValue(Equal(int32(1))))
 	})
 
 	It("should apply MCP server resource overrides from the CR", func() {
