@@ -226,15 +226,45 @@ spec:
                     format: int64
                     minimum: 0
                     type: integer
+                  model:
+                    description: |-
+                      model is the observed response model of the sandbox invocation.
+                      Set by the sandbox on Result CRs only; never populated on
+                      AgenticRun.status (spec: token-usage.md rule 9).
+                    maxLength: 256
+                    minLength: 1
+                    type: string
                   outputTokens:
-                    description: outputTokens is the number of output (completion)
-                      tokens consumed.
+                    description: |-
+                      outputTokens is the number of output (completion) tokens consumed. It is
+                      the provider-reported total and includes reasoning tokens.
                     format: int64
                     minimum: 0
                     type: integer
-                required:
-                - inputTokens
-                - outputTokens
+                  peakInputTokens:
+                    description: |-
+                      peakInputTokens is the largest provider-reported input of any single
+                      main-agent call: observed context occupancy, not the configured limit.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  reasoningTokens:
+                    description: |-
+                      reasoningTokens is the reasoning portion of outputTokens. An "of which"
+                      subset: absent means not reported (partial coverage), never zero-filled.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  toolTokens:
+                    description: |-
+                      toolTokens is a lower-bound estimate of the portion of inputTokens
+                      contributed by tool results; it is not a provider-reported count. The
+                      sandbox omits it when reasoning coverage or input growth makes attribution
+                      unreliable. Skill content is read through tools, so it is included here and
+                      there is deliberately no separate skillTokens field.
+                    format: int64
+                    minimum: 0
+                    type: integer
                 type: object
             type: object
         required:
