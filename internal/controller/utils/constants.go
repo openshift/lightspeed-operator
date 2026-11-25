@@ -553,6 +553,10 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AlertsAdapterTLSVolumeMountPath = "/etc/tls/private"
 	// AlertsAdapterHTTPSPort is the adapter investigation API port.
 	AlertsAdapterHTTPSPort = 8443
+	// AlertsAdapterHealthPort is the adapter plain-HTTP health server port (/healthz).
+	AlertsAdapterHealthPort = 8081
+	// AlertsAdapterHealthPath is the adapter health endpoint path.
+	AlertsAdapterHealthPath = "/healthz"
 	// AlertsAdapterTokenReviewsClusterRoleName grants TokenReview create for caller authentication.
 	AlertsAdapterTokenReviewsClusterRoleName = "lightspeed-agentic-alerts-adapter-tokenreviews"
 	// AlertsAdapterTokenReviewsClusterRoleBindingName binds the TokenReview ClusterRole to the adapter SA.

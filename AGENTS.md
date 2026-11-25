@@ -69,7 +69,7 @@ OLSConfigReconciler.Reconcile() →
     │   (when !byokRAGOnly; else RHOKPReady=False, Reason=Disabled)
     ├── appserver.ReconcileAppServerDeployment()         → ApiReady
     ├── alertsadapter.ReconcileAlertsAdapterDeployment() → AlertsAdapterReady
-    │   (TLS-mounted HTTPS :8443 with TCP probes; optional user CM at /etc/alerts-adapter;
+    │   (TLS-mounted HTTPS :8443; HTTP probes on the adapter /healthz server, port 8081; optional user CM at /etc/alerts-adapter;
     │    only when configMapRef set; else AlertsAdapterReady=True, Reason=NotConfigured)
     └── agenticintegration.ReconcileAgenticIntegrationResources()
         (last: handoff ConfigMap only; client CA Secrets owned by appserver)

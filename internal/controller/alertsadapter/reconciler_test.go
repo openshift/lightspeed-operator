@@ -384,8 +384,10 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 			np := &networkingv1.NetworkPolicy{}
 			key := client.ObjectKey{Name: utils.AlertsAdapterNetworkPolicyName, Namespace: utils.OLSNamespaceDefault}
 			Expect(k8sClient.Get(ctx, key, np)).To(Succeed())
-			Expect(np.Spec.Ingress).To(HaveLen(1))
-			np.Spec.Ingress[0].From = []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{}}}
+			// simulate an old policy restricted to a single same-namespace ingress rule
+			np.Spec.Ingress = []networkingv1.NetworkPolicyIngressRule{{
+				From: []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{}}},
+			}}
 			Expect(k8sClient.Update(ctx, np)).To(Succeed())
 
 			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())

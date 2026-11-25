@@ -247,6 +247,7 @@ func GenerateTokenReviewsClusterRoleBinding(r reconciler.Reconciler, cr *olsv1al
 func GenerateNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
 	protocolTCP := corev1.ProtocolTCP
 	httpsPort := intstr.FromInt32(utils.AlertsAdapterHTTPSPort)
+	healthPort := intstr.FromInt32(utils.AlertsAdapterHealthPort)
 	np := networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.AlertsAdapterNetworkPolicyName,
@@ -272,6 +273,16 @@ func GenerateNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 					Ports: []networkingv1.NetworkPolicyPort{{
 						Protocol: &protocolTCP,
 						Port:     &httpsPort,
+					}},
+				},
+				{
+					// kubelet health probes: /healthz on the plain-HTTP port from node IPs
+					From: []networkingv1.NetworkPolicyPeer{
+						{IPBlock: &networkingv1.IPBlock{CIDR: "0.0.0.0/0"}},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{{
+						Protocol: &protocolTCP,
+						Port:     &healthPort,
 					}},
 				},
 			},

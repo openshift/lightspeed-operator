@@ -115,6 +115,7 @@ var _ = Describe("Alerts adapter assets", func() {
 		Expect(np.Spec.Egress).To(BeEmpty())
 		tcp := corev1.ProtocolTCP
 		httpsPort := intstr.FromInt32(utils.AlertsAdapterHTTPSPort)
+		healthPort := intstr.FromInt32(utils.AlertsAdapterHealthPort)
 		Expect(np.Spec.Ingress).To(Equal([]networkingv1.NetworkPolicyIngressRule{{
 			From: []networkingv1.NetworkPolicyPeer{
 				{PodSelector: &metav1.LabelSelector{}},
@@ -123,6 +124,11 @@ var _ = Describe("Alerts adapter assets", func() {
 				}},
 			},
 			Ports: []networkingv1.NetworkPolicyPort{{Protocol: &tcp, Port: &httpsPort}},
+		}, {
+			From: []networkingv1.NetworkPolicyPeer{
+				{IPBlock: &networkingv1.IPBlock{CIDR: "0.0.0.0/0"}},
+			},
+			Ports: []networkingv1.NetworkPolicyPort{{Protocol: &tcp, Port: &healthPort}},
 		}}))
 	})
 
@@ -208,11 +214,17 @@ var _ = Describe("Alerts adapter assets", func() {
 			Name:          "https",
 			ContainerPort: utils.AlertsAdapterHTTPSPort,
 			Protocol:      corev1.ProtocolTCP,
+		}, {
+			Name:          "health",
+			ContainerPort: utils.AlertsAdapterHealthPort,
+			Protocol:      corev1.ProtocolTCP,
 		}}))
-		Expect(container.LivenessProbe.HTTPGet.Port.String()).To(Equal("https"))
-		Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))
-		Expect(container.ReadinessProbe.HTTPGet.Port.String()).To(Equal("https"))
-		Expect(container.ReadinessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))
+		Expect(container.LivenessProbe.HTTPGet.Path).To(Equal(utils.AlertsAdapterHealthPath))
+		Expect(container.LivenessProbe.HTTPGet.Port.String()).To(Equal("health"))
+		Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTP))
+		Expect(container.ReadinessProbe.HTTPGet.Path).To(Equal(utils.AlertsAdapterHealthPath))
+		Expect(container.ReadinessProbe.HTTPGet.Port.String()).To(Equal("health"))
+		Expect(container.ReadinessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTP))
 		Expect(container.Env).To(ContainElements(
 			corev1.EnvVar{Name: "HTTPS_PORT", Value: "8443"},
 			corev1.EnvVar{Name: "TLS_CERT_FILE", Value: utils.AlertsAdapterTLSVolumeMountPath + "/tls.crt"},

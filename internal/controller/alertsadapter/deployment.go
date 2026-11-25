@@ -120,22 +120,29 @@ func GenerateDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1a
 									ContainerPort: utils.AlertsAdapterHTTPSPort,
 									Protocol:      corev1.ProtocolTCP,
 								},
+								{
+									Name:          "health",
+									ContainerPort: utils.AlertsAdapterHealthPort,
+									Protocol:      corev1.ProtocolTCP,
+								},
 							},
+							// Liveness/readiness hit the adapter's plain-HTTP /healthz server (port 8081);
+							// the HTTPS investigation API on 8443 serves no health path.
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/",
-										Port:   intstr.FromString("https"),
-										Scheme: corev1.URISchemeHTTPS,
+										Path:   utils.AlertsAdapterHealthPath,
+										Port:   intstr.FromString("health"),
+										Scheme: corev1.URISchemeHTTP,
 									},
 								},
 							},
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/",
-										Port:   intstr.FromString("https"),
-										Scheme: corev1.URISchemeHTTPS,
+										Path:   utils.AlertsAdapterHealthPath,
+										Port:   intstr.FromString("health"),
+										Scheme: corev1.URISchemeHTTP,
 									},
 								},
 							},
