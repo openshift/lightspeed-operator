@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package controller implements the main Kubernetes controller for managing
-// the OpenShift Lightspeed operator lifecycle.
+// the OpenShift Lightspeed operator lifecycle. (codecov token verification test - second run)
 //
 // This package contains the OLSConfigReconciler, which is the central orchestrator
 // for the entire operator. It coordinates reconciliation across all components
