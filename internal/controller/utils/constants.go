@@ -557,10 +557,6 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AlertsAdapterHealthPort = 8081
 	// AlertsAdapterHealthPath is the adapter health endpoint path.
 	AlertsAdapterHealthPath = "/healthz"
-	// AlertsAdapterTokenReviewsClusterRoleName grants TokenReview create for caller authentication.
-	AlertsAdapterTokenReviewsClusterRoleName = "lightspeed-agentic-alerts-adapter-tokenreviews"
-	// AlertsAdapterTokenReviewsClusterRoleBindingName binds the TokenReview ClusterRole to the adapter SA.
-	AlertsAdapterTokenReviewsClusterRoleBindingName = "lightspeed-agentic-alerts-adapter-tokenreviews"
 	// PostgresTerminationGracePeriodSeconds is the grace period for postgres pod termination.
 	// This must be greater than PostgresShutdownTimeoutSeconds to allow pg_ctl to complete.
 	PostgresTerminationGracePeriodSeconds = int64(60)

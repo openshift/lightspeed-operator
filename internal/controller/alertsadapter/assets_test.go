@@ -87,27 +87,6 @@ var _ = Describe("Alerts adapter assets", func() {
 		Expect(svc.Spec.Ports[0].TargetPort.String()).To(Equal("https"))
 	})
 
-	It("should generate the tokenreviews ClusterRole and ClusterRoleBinding", func() {
-		role, err := GenerateTokenReviewsClusterRole(testReconcilerInstance, cr)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(role.Name).To(Equal(utils.AlertsAdapterTokenReviewsClusterRoleName))
-		Expect(role.Rules).To(Equal([]rbacv1.PolicyRule{{
-			APIGroups: []string{"authentication.k8s.io"},
-			Resources: []string{"tokenreviews"},
-			Verbs:     []string{"create"},
-		}}))
-
-		rb, err := GenerateTokenReviewsClusterRoleBinding(testReconcilerInstance, cr)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(rb.Name).To(Equal(utils.AlertsAdapterTokenReviewsClusterRoleBindingName))
-		Expect(rb.RoleRef.Name).To(Equal(utils.AlertsAdapterTokenReviewsClusterRoleName))
-		Expect(rb.Subjects).To(Equal([]rbacv1.Subject{{
-			Kind:      "ServiceAccount",
-			Name:      utils.AlertsAdapterServiceAccountName,
-			Namespace: utils.OLSNamespaceDefault,
-		}}))
-	})
-
 	It("should allow only HTTPS ingress from same-namespace and openshift-console pods", func() {
 		np, err := GenerateNetworkPolicy(testReconcilerInstance, cr)
 		Expect(err).NotTo(HaveOccurred())
@@ -115,7 +94,6 @@ var _ = Describe("Alerts adapter assets", func() {
 		Expect(np.Spec.Egress).To(BeEmpty())
 		tcp := corev1.ProtocolTCP
 		httpsPort := intstr.FromInt32(utils.AlertsAdapterHTTPSPort)
-		healthPort := intstr.FromInt32(utils.AlertsAdapterHealthPort)
 		Expect(np.Spec.Ingress).To(Equal([]networkingv1.NetworkPolicyIngressRule{{
 			From: []networkingv1.NetworkPolicyPeer{
 				{PodSelector: &metav1.LabelSelector{}},
@@ -124,11 +102,6 @@ var _ = Describe("Alerts adapter assets", func() {
 				}},
 			},
 			Ports: []networkingv1.NetworkPolicyPort{{Protocol: &tcp, Port: &httpsPort}},
-		}, {
-			From: []networkingv1.NetworkPolicyPeer{
-				{IPBlock: &networkingv1.IPBlock{CIDR: "0.0.0.0/0"}},
-			},
-			Ports: []networkingv1.NetworkPolicyPort{{Protocol: &tcp, Port: &healthPort}},
 		}}))
 	})
 

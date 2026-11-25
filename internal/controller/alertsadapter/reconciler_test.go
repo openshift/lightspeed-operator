@@ -247,75 +247,6 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 			Expect(service.ResourceVersion).To(Equal(version))
 		})
 
-		It("creates and repairs the TokenReview role without updating an unchanged role", func() {
-			role := &rbacv1.ClusterRole{}
-			key := client.ObjectKey{Name: utils.AlertsAdapterTokenReviewsClusterRoleName}
-			Expect(k8sClient.Get(ctx, key, role)).To(Succeed())
-			expectOwnedByOLSConfig(role)
-			role.Rules = nil
-			Expect(k8sClient.Update(ctx, role)).To(Succeed())
-			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
-			Expect(k8sClient.Get(ctx, key, role)).To(Succeed())
-			desired, err := GenerateTokenReviewsClusterRole(testReconcilerInstance, enabledCR)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(role.Rules).To(Equal(desired.Rules))
-
-			// Aggregation must be removed even when Rules already match.
-			role.AggregationRule = &rbacv1.AggregationRule{
-				ClusterRoleSelectors: []metav1.LabelSelector{{
-					MatchLabels: map[string]string{"aggregate-to-adapter": "true"},
-				}},
-			}
-			Expect(k8sClient.Update(ctx, role)).To(Succeed())
-			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
-			Expect(k8sClient.Get(ctx, key, role)).To(Succeed())
-			Expect(role.AggregationRule).To(BeNil())
-			Expect(role.Rules).To(Equal(desired.Rules))
-
-			role.Labels["rbac.authorization.k8s.io/aggregate-to-view"] = "true"
-			Expect(k8sClient.Update(ctx, role)).To(Succeed())
-			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
-			Expect(k8sClient.Get(ctx, key, role)).To(Succeed())
-			Expect(role.Labels).To(Equal(desired.Labels))
-			Expect(role.Rules).To(Equal(desired.Rules))
-			Expect(role.AggregationRule).To(BeNil())
-
-			version := role.ResourceVersion
-			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
-			Expect(k8sClient.Get(ctx, key, role)).To(Succeed())
-			Expect(role.ResourceVersion).To(Equal(version))
-		})
-
-		It("repairs TokenReview binding subjects and replaces an incorrect immutable roleRef", func() {
-			binding := &rbacv1.ClusterRoleBinding{}
-			key := client.ObjectKey{Name: utils.AlertsAdapterTokenReviewsClusterRoleBindingName}
-			Expect(k8sClient.Get(ctx, key, binding)).To(Succeed())
-			expectOwnedByOLSConfig(binding)
-			desired, err := GenerateTokenReviewsClusterRoleBinding(testReconcilerInstance, enabledCR)
-			Expect(err).NotTo(HaveOccurred())
-
-			binding.Subjects[0].Name = "wrong-service-account"
-			Expect(k8sClient.Update(ctx, binding)).To(Succeed())
-			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
-			Expect(k8sClient.Get(ctx, key, binding)).To(Succeed())
-			Expect(binding.Subjects).To(Equal(desired.Subjects))
-
-			Expect(k8sClient.Delete(ctx, binding)).To(Succeed())
-			wrongBinding := desired.DeepCopy()
-			wrongBinding.RoleRef.Name = utils.AlertsAdapterAgenticOLSConfigClusterRoleName
-			Expect(k8sClient.Create(ctx, wrongBinding)).To(Succeed())
-			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
-			Expect(k8sClient.Get(ctx, key, binding)).To(Succeed())
-			Expect(binding.RoleRef).To(Equal(desired.RoleRef))
-			Expect(binding.Subjects).To(Equal(desired.Subjects))
-			expectOwnedByOLSConfig(binding)
-
-			version := binding.ResourceVersion
-			Expect(ReconcileAlertsAdapterResources(testReconcilerInstance, ctx, enabledCR)).To(Succeed())
-			Expect(k8sClient.Get(ctx, key, binding)).To(Succeed())
-			Expect(binding.ResourceVersion).To(Equal(version))
-		})
-
 		It("should create the agenticruns Role and RoleBinding", func() {
 			role := &rbacv1.Role{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
@@ -515,8 +446,6 @@ var _ = Describe("Alerts adapter reconciler", Ordered, func() {
 				&corev1.Service{ObjectMeta: metav1.ObjectMeta{
 					Name: utils.AlertsAdapterServiceName, Namespace: utils.OLSNamespaceDefault,
 				}},
-				&rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: utils.AlertsAdapterTokenReviewsClusterRoleName}},
-				&rbacv1.ClusterRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: utils.AlertsAdapterTokenReviewsClusterRoleBindingName}},
 			} {
 				Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj))).To(BeTrue(),
 					"expected %T %s to be removed", obj, obj.GetName())

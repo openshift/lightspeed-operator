@@ -50,7 +50,7 @@ OLSConfigReconciler.Reconcile() →
 │   ├── console.ReconcileConsoleUIResources()
 │   ├── agenticconsole.ReconcileAgenticConsoleUIResources()
 │   ├── alertsadapter.ReconcileAlertsAdapterResources()
-│   │   (opt-in via configMapRef; HTTPS Service + service-ca, TokenReview RBAC;
+│   │   (opt-in via configMapRef; HTTPS Service + service-ca;
 │   │    RemoveAlertsAdapter() when unset; retain both NetworkPolicies until pods are gone)
 │   ├── otelcollector.ReconcileOtelCollectorResources()
 │   ├── ocpmcp.ReconcileResources()
@@ -114,7 +114,7 @@ make test-e2e   # E2E tests (requires cluster)
 - `internal/controller/rhokp/` - Standalone RHOKP (Red Hat Offline Knowledge Portal) for Solr RAG (gated by `!byokRAGOnly`; HTTPS via service-ca)
 - `internal/controller/console/` - Chat console plugin (Lightspeed assistant UI)
 - `internal/controller/agenticconsole/` - Agentic console plugin (AI Hub / proposals UI)
-- `internal/controller/alertsadapter/` - Agentic alerts adapter (opt-in via `configMapRef`; mounts user CM at `/etc/alerts-adapter` when present; adapter validates config). Exposes the investigation API over HTTPS on port 8443 using an OpenShift service-ca certificate. Reconciles dedicated TokenReview RBAC and allows HTTPS ingress from pods in the operator namespace and `openshift-console`. Requires an adapter image with HTTPS API support.
+- `internal/controller/alertsadapter/` - Agentic alerts adapter (opt-in via `configMapRef`; mounts user CM at `/etc/alerts-adapter` when present; adapter validates config). Exposes the investigation API over HTTPS on port 8443 using an OpenShift service-ca certificate. Allows HTTPS ingress from pods in the operator namespace and `openshift-console`. Requires an adapter image with HTTPS API support.
 - `internal/controller/watchers/` - External resource watching
 - `internal/controller/utils/` - Shared utilities, constants
   - `constants.go` - Includes `OLSConfigFinalizer` constant

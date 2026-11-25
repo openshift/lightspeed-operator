@@ -190,64 +190,11 @@ func GenerateService(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*corev
 	return &service, nil
 }
 
-// GenerateTokenReviewsClusterRole generates the ClusterRole granting TokenReview
-// create, used to authenticate investigation API callers.
-func GenerateTokenReviewsClusterRole(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRole, error) {
-	role := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   utils.AlertsAdapterTokenReviewsClusterRoleName,
-			Labels: utils.GenerateAlertsAdapterSelectorLabels(),
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{"authentication.k8s.io"},
-				Resources: []string{"tokenreviews"},
-				Verbs:     []string{"create"},
-			},
-		},
-	}
-
-	if err := controllerutil.SetControllerReference(cr, &role, r.GetScheme()); err != nil {
-		return nil, fmt.Errorf("%s: %w", utils.ErrSetAlertsAdapterTokenReviewsClusterRoleOwnerReference, err)
-	}
-
-	return &role, nil
-}
-
-// GenerateTokenReviewsClusterRoleBinding binds the TokenReview ClusterRole to the alerts adapter SA.
-func GenerateTokenReviewsClusterRoleBinding(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*rbacv1.ClusterRoleBinding, error) {
-	rb := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   utils.AlertsAdapterTokenReviewsClusterRoleBindingName,
-			Labels: utils.GenerateAlertsAdapterSelectorLabels(),
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      utils.AlertsAdapterServiceAccountName,
-				Namespace: r.GetNamespace(),
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     utils.AlertsAdapterTokenReviewsClusterRoleName,
-		},
-	}
-
-	if err := controllerutil.SetControllerReference(cr, &rb, r.GetScheme()); err != nil {
-		return nil, fmt.Errorf("%s: %w", utils.ErrSetAlertsAdapterTokenReviewsClusterRoleBindingOwnerReference, err)
-	}
-
-	return &rb, nil
-}
-
 // GenerateNetworkPolicy generates the ingress NetworkPolicy allowing HTTPS access
 // to the adapter investigation API from pods in the operator and openshift-console namespaces.
 func GenerateNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (*networkingv1.NetworkPolicy, error) {
 	protocolTCP := corev1.ProtocolTCP
 	httpsPort := intstr.FromInt32(utils.AlertsAdapterHTTPSPort)
-	healthPort := intstr.FromInt32(utils.AlertsAdapterHealthPort)
 	np := networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.AlertsAdapterNetworkPolicyName,
@@ -273,16 +220,6 @@ func GenerateNetworkPolicy(r reconciler.Reconciler, cr *olsv1alpha1.OLSConfig) (
 					Ports: []networkingv1.NetworkPolicyPort{{
 						Protocol: &protocolTCP,
 						Port:     &httpsPort,
-					}},
-				},
-				{
-					// kubelet health probes: /healthz on the plain-HTTP port from node IPs
-					From: []networkingv1.NetworkPolicyPeer{
-						{IPBlock: &networkingv1.IPBlock{CIDR: "0.0.0.0/0"}},
-					},
-					Ports: []networkingv1.NetworkPolicyPort{{
-						Protocol: &protocolTCP,
-						Port:     &healthPort,
 					}},
 				},
 			},
