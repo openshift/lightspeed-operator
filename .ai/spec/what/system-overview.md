@@ -47,6 +47,7 @@ The OpenShift Lightspeed Operator is a Kubernetes operator that manages the life
 23. The operator detects Prometheus Operator availability and conditionally creates ServiceMonitor and PrometheusRule resources (operator, app-server, and OTEL Collector monitors).
 24. The operator uses the OpenShift service-ca operator for automatic TLS certificate generation (unless custom certificates are provided).
 25. The operator watches `openshift-config/pull-secret`. The existing app-server exporter gate uses `cloud.openshift.com` auth-entry presence; the OTel Dataverse sidecar requires a nonempty (after trimming whitespace) `.dockerconfigjson.auths["cloud.openshift.com"].auth` token. Neither gate controls local Collector trace-file storage. The sidecars also have different transcript gates; see [`data-collection.md`](data-collection.md).
+   - [PLANNED: OLS-4493] The nonempty-token gate controls the whole Collector product branch and its in-Collector `dataverse` exporter; no OTel sidecar or local trace-file storage remains.
 
 ## Configuration Surface
 
@@ -61,7 +62,7 @@ The OpenShift Lightspeed Operator is a Kubernetes operator that manages the life
 | `--console-image` | string | built-in default | Override console plugin image |
 | `--postgres-image` | string | built-in default | Override PostgreSQL image |
 | `--openshift-mcp-server-image` | string | built-in default | Override OpenShift MCP server image |
-| `--dataverse-exporter-image` | string | built-in default | Override the existing Dataverse exporter image used by the app-server and OTel Collector sidecars |
+| `--dataverse-exporter-image` | string | built-in default | Override the existing Dataverse exporter image used by the app-server and OTel Collector sidecars; [PLANNED: OLS-4493] app-server sidecar only |
 | `--rhokp-image` | string | `related_images.json` (`rhokp`) | Override RHOKP (Solr / OKP) sidecar image |
 | `--agentic-sandbox-image` | string | `related_images.json` (`lightspeed-agentic-sandbox`) | Override sandbox container image embedded in the handoff PodSpec |
 

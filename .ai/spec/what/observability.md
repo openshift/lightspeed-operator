@@ -37,7 +37,9 @@ The operator configures monitoring, health probes, and status reporting for all 
 22. Its service ID is `ols` by default, or `rhos-lightspeed` when the OLSConfig CR has the `openstack.org/lightspeed-owner-id` label.
 23. The existing app-server exporter configuration remains in its own ConfigMap (`lightspeed-exporter-config`) with a 300-second collection interval.
 24. Collector trace routing and FileExporter storage use the existing `transcriptsDisabled` opt-out only, selecting native OTLP traces from `lightspeed-agentic-operator` or `lightspeed-agentic-sandbox`. The separate OTel Dataverse sidecar additionally requires a nonempty (after trimming whitespace) `.dockerconfigjson.auths["cloud.openshift.com"].auth` token. Its ConfigMap selects `data_mode: otel`, its process uses `--mode openshift` for authentication, and its collection interval is 300 seconds. The existing app-server exporter is unchanged.
+   - [PLANNED: OLS-4493] Routing and the in-Collector `dataverse` exporter use one gate: transcripts enabled and the nonempty token. The exporter batches in memory and uploads by size or after a time limit; no sidecar, `data_mode`, or collection interval remains.
 25. The Collector FileExporter branch is unbatched; configured backend trace forwarding batches on its separate pipeline. OTLP logs use the existing `templog` pipeline—PostgreSQL when `spec.audit.logging` is enabled, `nop` otherwise—and are never ingested by the Dataverse exporter. The OTel Dataverse exporter uploads rotated trace files on a best-effort basis and excludes the active file; see [`data-collection.md`](data-collection.md).
+   - [PLANNED: OLS-4493] The product branch stays unbatched at the pipeline level; the `dataverse` exporter batches in its own queue and uploads every accepted trace without waiting for file rotation. Its upload failures are silent to users and visible in Collector logs and metrics.
 
 ## Configuration Surface
 
@@ -46,12 +48,13 @@ The operator configures monitoring, health probes, and status reporting for all 
 | `spec.ols.logLevel` | Log level for backend service (app, lib, uvicorn levels all set to this value) |
 | `spec.olsDataCollector.logLevel` | Log level for the app-server Dataverse exporter sidecar (defaults to `info`) |
 | `spec.ols.userDataCollection.feedbackDisabled` | Disable feedback collection |
-| `spec.ols.userDataCollection.transcriptsDisabled` | Disable transcript collection by the app-server exporter, gate the OTel Dataverse sidecar, and control the Collector trace-file branch (see [`data-collection.md`](data-collection.md)) |
+| `spec.ols.userDataCollection.transcriptsDisabled` | Disable transcript collection by the app-server exporter, gate the OTel Dataverse sidecar, and control the Collector trace-file branch; [PLANNED: OLS-4493] gate the Collector product branch and its `dataverse` exporter (see [`data-collection.md`](data-collection.md)) |
 
 ## Constraints
 
 1. ServiceMonitor and PrometheusRule are only created when Prometheus Operator CRDs are detected at operator startup. There is no runtime re-check.
 2. The app-server exporter retains its existing `cloud.openshift.com` auth-entry-presence check. When transcripts are enabled, the OTel Dataverse sidecar requires a nonempty (after trimming whitespace) `.dockerconfigjson.auths["cloud.openshift.com"].auth` token; a NotFound pull-secret object or valid JSON with an absent, empty, or whitespace-only token omits the sidecar. When credential checking runs, a missing `.dockerconfigjson` key on an existing Secret, malformed JSON, or an API read error other than NotFound fails reconciliation rather than disabling credentials. When transcripts remain enabled, Collector FileExporter storage continues without telemetry credentials; see [`data-collection.md`](data-collection.md).
+   - [PLANNED: OLS-4493] Without the nonempty token, the operator omits the whole Collector product branch; no FileExporter storage continues.
 3. Diagnostics are cleared from status when the corresponding deployment becomes healthy (the entire `diagnosticInfo` array is rebuilt from scratch on each status update).
 4. Health probe parameters are internal constants and cannot be customized via the CR.
 
