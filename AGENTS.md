@@ -113,7 +113,7 @@ make test-e2e   # E2E tests (requires cluster)
 - `internal/controller/ocpmcp/` - Standalone OpenShift MCP server (gated by `introspectionEnabled`; HTTPS via service-ca)
 - `internal/controller/rhokp/` - Standalone RHOKP (Red Hat Offline Knowledge Portal) for Solr RAG (gated by `!byokRAGOnly`; HTTPS via service-ca)
 - `internal/controller/console/` - Chat console plugin (Lightspeed assistant UI)
-- `internal/controller/agenticconsole/` - Agentic console plugin (AI Hub / proposals UI)
+- `internal/controller/agenticconsole/` - Agentic console plugin (AI Hub / proposals UI). When the alerts adapter is enabled, its ConsolePlugin CR declares a `spec.proxy` entry (alias `alerts-adapter`, `Authorization: UserToken`) to the adapter HTTPS Service :8443 so console frontend code can reach the investigation API via `/api/proxy/plugin/lightspeed-agentic-console-plugin/alerts-adapter/`.
 - `internal/controller/alertsadapter/` - Agentic alerts adapter (opt-in via `configMapRef`; mounts user CM at `/etc/alerts-adapter` when present; adapter validates config). Exposes the investigation API over HTTPS on port 8443 using an OpenShift service-ca certificate. Allows HTTPS ingress from pods in the operator namespace and `openshift-console`. Requires an adapter image with HTTPS API support.
 - `internal/controller/watchers/` - External resource watching
 - `internal/controller/utils/` - Shared utilities, constants

@@ -4,6 +4,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	consolev1 "github.com/openshift/api/console/v1"
+	corev1 "k8s.io/api/core/v1"
+
 	olsv1alpha1 "github.com/openshift/lightspeed-operator/api/v1alpha1"
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
@@ -68,6 +71,40 @@ var _ = Describe("Agentic Console UI assets", func() {
 			Expect(plugin.Spec.DisplayName).To(Equal(utils.AgenticConsoleUIPluginDisplayName))
 			Expect(plugin.Spec.Backend.Service.Name).To(Equal(utils.AgenticConsoleUIServiceName))
 			Expect(plugin.Spec.Backend.Service.Port).To(Equal(int32(utils.AgenticConsoleUIHTTPSPort)))
+			Expect(plugin.Spec.Proxy).To(BeNil())
+		})
+
+		It("should add an alerts-adapter proxy entry when the adapter is enabled", func() {
+			tr := testReconcilerInstance.(*utils.TestReconciler)
+			tr.AlertsAdapterImage = "quay.io/test/alerts-adapter:latest"
+			DeferCleanup(func() { tr.AlertsAdapterImage = "" })
+			crWithRef := utils.GetDefaultOLSConfigCR()
+			crWithRef.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{Name: "alerts-adapter-config"}
+
+			plugin, err := GenerateAgenticConsoleUIPlugin(testReconcilerInstance, crWithRef)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(plugin.Spec.Proxy).To(Equal([]consolev1.ConsolePluginProxy{
+				{
+					Alias:         utils.AlertsAdapterProxyAlias,
+					Authorization: consolev1.UserToken,
+					Endpoint: consolev1.ConsolePluginProxyEndpoint{
+						Service: &consolev1.ConsolePluginProxyServiceConfig{
+							Name:      utils.AlertsAdapterServiceName,
+							Namespace: utils.OLSNamespaceDefault,
+							Port:      utils.AlertsAdapterHTTPSPort,
+						},
+						Type: consolev1.ProxyTypeService,
+					},
+				},
+			}))
+		})
+
+		It("should not add the alerts-adapter proxy when the adapter image is unset", func() {
+			crWithRef := utils.GetDefaultOLSConfigCR()
+			crWithRef.Spec.OLSConfig.DeploymentConfig.AlertsAdapter.ConfigMapRef = &corev1.LocalObjectReference{Name: "alerts-adapter-config"}
+
+			plugin, err := GenerateAgenticConsoleUIPlugin(testReconcilerInstance, crWithRef)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(plugin.Spec.Proxy).To(BeNil())
 		})
 

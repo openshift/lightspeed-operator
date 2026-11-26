@@ -545,6 +545,8 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AlertsAdapterComponentLabel = "alerts-adapter"
 	// AlertsAdapterServiceName is the Service exposing the adapter HTTPS investigation API.
 	AlertsAdapterServiceName = "lightspeed-agentic-alerts-adapter"
+	// AlertsAdapterProxyAlias is the ConsolePlugin proxy alias for the adapter investigation API.
+	AlertsAdapterProxyAlias = "alerts-adapter"
 	// AlertsAdapterCertsSecretName is the service-ca TLS secret for the adapter investigation API.
 	AlertsAdapterCertsSecretName = "lightspeed-agentic-alerts-adapter-tls" // #nosec G101
 	// AlertsAdapterTLSVolumeName is the pod volume name for the serving-cert Secret.
