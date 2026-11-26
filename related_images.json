@@ -79,8 +79,8 @@
   },
   {
     "name": "lightspeed-agentic-alerts-adapter",
-    "image": "registry.redhat.io/openshift-lightspeed/lightspeed-agentic-alerts-adapter-rhel9@sha256:ad537672f23372b9ea0430c7f67def1cbcb9499fa915f956d07c73e0329c79cb",
-    "revision": "38c4edc0d7414a0f05843ea09446d63789db0129",
+    "image": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter@sha256:4ff132a0426b916f4b1f6cefe421a6721d131bb3afcb25ea401f4eb4932bbd82",
+    "revision": "e5cd5196f6fac43434b5746f1c481591fac0b253",
     "operator_arg": "alerts-adapter-image",
     "snapshot_component": "lightspeed-agentic-alerts-adapter",
     "konflux_prefix": "quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-alerts-adapter",
