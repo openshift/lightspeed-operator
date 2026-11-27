@@ -37,7 +37,31 @@ spec:
       type: string
       default: 'm5.2xlarge'
   tasks:
+    - name: check-snapshot-component
+      taskSpec:
+        results:
+          - name: matches
+            description: Whether the PR snapshot belongs to a bundle build.
+        steps:
+          - name: check
+            image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+            env:
+              - name: COMPONENT
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['appstudio.openshift.io/component']
+            script: |
+              #!/bin/sh
+              if [ "$COMPONENT" = bundle ]; then
+                printf true > "$(results.matches.path)"
+              else
+                printf false > "$(results.matches.path)"
+              fi
     - name: provision-ephemeral-cluster
+      when:
+        - input: $(tasks.check-snapshot-component.results.matches)
+          operator: in
+          values: ["true"]
       taskRef:
         resolver: git
         params:
@@ -356,6 +380,10 @@ spec:
                 exit 1
               fi
     - name: export-logs-for-retention
+      when:
+        - input: $(tasks.check-snapshot-component.results.matches)
+          operator: in
+          values: ["true"]
       taskRef:
         resolver: git
         params:
