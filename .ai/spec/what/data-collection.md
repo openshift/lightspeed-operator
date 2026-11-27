@@ -1,11 +1,14 @@
 # Trace Data Collection — Operator
 
-This specification defines Collector-side capture of selected native OTLP traces and best-effort Dataverse forwarding by the lightspeed-operator.
+This specification defines how the lightspeed-operator configures Collector-side capture of selected native OTLP traces and their upload to Dataverse.
+
+[PLANNED: OLS-4493] The released operator stores selected traces with the stock FileExporter on a pod-local volume, and an OTel Dataverse exporter sidecar uploads rotated backups. OLS-4493 replaces that file transport with the OLS `dataverse` exporter inside the Collector. The rules below describe the target. The parent contract is `ols/.ai/spec/what/agentic-data-collection.md` rules 24-37 and decision 0052.
 
 ## Behavioral Rules
 
-1. The existing `spec.ols.userDataCollection.transcriptsDisabled` field controls trace routing and FileExporter storage: `false` or unset enables them; `true` disables them. The operator adds no CRD field. This local trace-file branch does not require telemetry credentials.
-2. The `routing/data_collection` connector selects OTLP traces whose resource `service.name` is exactly `lightspeed-agentic-operator` or `lightspeed-agentic-sandbox` and routes them to `traces/data_collection`.
+1. [PLANNED: OLS-4493] The product branch is enabled only when transcripts are enabled (`!spec.ols.userDataCollection.transcriptsDisabled`) and `openshift-config/pull-secret` is successfully read with valid `.dockerconfigjson` JSON containing a nonempty (after trimming whitespace) `.dockerconfigjson.auths["cloud.openshift.com"].auth` token. Feedback enablement does not gate it. The operator adds no CRD field.
+2. [PLANNED: OLS-4493] When the gate is off (transcripts disabled, pull-secret object NotFound, or valid JSON with an absent, empty, or whitespace-only token), the operator omits `routing/data_collection`, `traces/data_collection`, the `dataverse` exporter, the Collector credential mount, the trusted CA bundle ConfigMap and mount, and the exporter-only RBAC: ClusterRoles `lightspeed-otel-dataverse-exporter` and `lightspeed-otel-dataverse-exporter-pull-secret`, ClusterRoleBinding `lightspeed-otel-dataverse-exporter-binding`, and RoleBinding `lightspeed-otel-dataverse-exporter-pull-secret` in `openshift-config`. No local trace copy exists without upload credentials. When credential checking runs (with transcripts enabled), a failed API read other than NotFound, a missing `.dockerconfigjson` key on an existing Secret, or malformed JSON is a reconciliation error, not a disabled-auth result, and does not trigger cleanup. The existing app-server auth-entry-presence gate and its invalid-pull-secret Phase 1 error behavior remain unchanged.
+3. The `routing/data_collection` connector selects OTLP traces whose resource `service.name` is exactly `lightspeed-agentic-operator` or `lightspeed-agentic-sandbox` and routes them to `traces/data_collection`.
 
    ```yaml
    routing/data_collection:
@@ -15,45 +18,40 @@ This specification defines Collector-side capture of selected native OTLP traces
          pipelines: [traces/data_collection]
    ```
 
-3. `traces/data_collection` sends selected traces directly to `file/data_collection` without a batch processor. When trace forwarding is configured, its separate pipeline applies batching independently. The file branch stores traces and their native span events. OTLP logs remain in the existing `templog` pipeline: they are exported to PostgreSQL when `spec.audit.logging` is enabled and use the `nop` exporter otherwise. OTLP logs are never ingested by the Dataverse exporter.
-4. The stock FileExporter writes each selected OTLP trace batch as JSONL, retaining raw, unredacted native trace content: every resource and scope, span, and attached event in the original nested structure `resourceSpans[] → scopeSpans[] → spans[] → events[]`. Its operator-generated settings are:
+4. [PLANNED: OLS-4493] `traces/data_collection` sends selected traces directly to the `dataverse` exporter without a batch processor; the exporter batches with its own sending queue. When trace forwarding is configured, its separate pipeline applies batching independently. OTLP logs remain in the existing `templog` pipeline: they are exported to PostgreSQL when `spec.audit.logging` is enabled and use the `nop` exporter otherwise. OTLP logs are never sent to Dataverse.
+5. [PLANNED: OLS-4493] The operator generates the `dataverse` exporter in the Collector runtime ConfigMap with these settings. Values not shown use the exporter defaults defined in the Collector repository spec.
 
    ```yaml
-   file/data_collection:
-     path: /var/lib/lightspeed-data/otel/traces.jsonl
-     format: json
-     create_directory: true
-     rotation:
-       max_megabytes: 1
-       max_backups: 400
-       max_days: 1
+   dataverse:
+     endpoint: https://console.redhat.com/api/ingress/v1/upload
+     tls:
+       min_version: "1.2"          # from the effective TLS profile (rule 6)
+       cipher_suites: [ ... ]      # from the effective TLS profile, IANA names
+       ca_file: /etc/certs/trusted-ca/ca-bundle.crt
+     service_id: ols               # rhos-lightspeed when the CR has openstack.org/lightspeed-owner-id
+     archive_path_prefix: agentic-v1/
+     pull_secret:
+       namespace: openshift-config
+       name: pull-secret
+       registry: cloud.openshift.com
    ```
 
-5. The `data-collection` source `emptyDir` has `sizeLimit: 500Mi`. The Collector mounts its root at `/var/lib/lightspeed-data/otel`, preserving the FileExporter path above. The Collector's `file_storage` queue uses a separate volume.
-6. One active file plus up to 400 1MiB backups implies about 401MiB of active-plus-backup data. This is a nominal sizing estimate, not a quota; the pod-local source `emptyDir` remains limited to `500Mi`.
-7. The OTel Dataverse exporter sidecar is enabled only when transcripts are enabled (`!spec.ols.userDataCollection.transcriptsDisabled`) and `openshift-config/pull-secret` is successfully read with valid `.dockerconfigjson` JSON containing a nonempty (after trimming whitespace) `.dockerconfigjson.auths["cloud.openshift.com"].auth` token. Feedback enablement does not gate this sidecar. If transcripts are disabled, the pull-secret object is NotFound, or valid JSON has no telemetry auth entry or an absent, empty, or whitespace-only `.auth` value, the sidecar and exporter-only resources—the dedicated ConfigMap, ClusterRoles `lightspeed-otel-dataverse-exporter` and `lightspeed-otel-dataverse-exporter-pull-secret`, ClusterRoleBinding `lightspeed-otel-dataverse-exporter-binding`, and RoleBinding `lightspeed-otel-dataverse-exporter-pull-secret` in `openshift-config`—are omitted or removed. Transcript-gated trace routing and FileExporter storage remain credential-independent. When credential checking runs (with transcripts enabled), a failed API read other than NotFound, a missing `.dockerconfigjson` key on an existing Secret, or malformed JSON is a reconciliation error, not a disabled-auth result, and does not trigger exporter-resource cleanup. The existing app-server auth-entry-presence gate and its invalid-pull-secret Phase 1 error behavior remain unchanged.
-8. The sidecar reads a dedicated OTel exporter ConfigMap, separate from the Collector runtime ConfigMap and the existing app-server exporter ConfigMap. Its generated settings include:
+   The service-ID selection and ingress URL match the existing app-server exporter. The operator never sets `proxy_url`. The configuration holds no credentials.
+6. [PLANNED: OLS-4493] The operator resolves the effective TLS profile with the existing resolver: `spec.ols.tlsSecurityProfile`, then the cluster `APIServer` profile, then the default. It writes the profile's minimum version as `tls.min_version` and converts its OpenSSL cipher names to the IANA names that `configtls` accepts. It leaves out and logs ciphers Go does not support. A profile change regenerates the Collector ConfigMap and rolls the Collector.
+7. [PLANNED: OLS-4493] The operator creates a ConfigMap labeled `config.openshift.io/inject-trusted-cabundle: "true"` in the operator namespace and mounts it read-only in the Collector container. The Cluster Network Operator fills it with the system CAs plus the cluster proxy's trusted CA. The operator does not overwrite the injected data during reconcile. `tls.ca_file` points at its `ca-bundle.crt`.
+8. [PLANNED: OLS-4493] The Collector container keeps the cluster-wide proxy environment variables from `utils.GetProxyEnvVars()`; the exporter's uploads follow them. `spec.ols.proxyConfig` does not apply to the exporter.
+9. [PLANNED: OLS-4493] The Collector Pod keeps `automountServiceAccountToken: false`. While the gate is on, the operator mounts the projected ServiceAccount token, `kube-root-ca.crt` CA, and namespace read-only at the default in-cluster auth path in the Collector container. The exporter reads the pull-secret token and `ClusterVersion` cluster ID through the Kubernetes API with that token. The operator does not copy the pull-secret token.
+10. [PLANNED: OLS-4493] The operator keeps the exporter RBAC from rule 2, bound to the Collector ServiceAccount: cluster-version `get`, and `get` on the named pull secret only.
+11. [PLANNED: OLS-4493] The operator generates no OTel Dataverse exporter sidecar, no dedicated OTel exporter ConfigMap or its version annotation, no `data-collection` source volume, no `dataverse-exporter-state` ledger volume, and no `file/data_collection` exporter. On upgrade, the operator removes the old sidecar ConfigMap. The old pod's unuploaded files are lost once with its `emptyDir`.
+12. [PLANNED: OLS-4493] Exporter failures do not change `OLSConfig` status and raise no alert. `transcriptsDisabled: true` is the only user control. The Collector log level stays as generated today, so the exporter's info-level upload lines with `request_id` appear in Collector logs.
+13. [PLANNED: OLS-4493] The Collector image must contain the OLS `dataverse` exporter; `--otel-collector-image` selects it, and the image and generated configuration ship in one bundle. The operator no longer uses `r.GetDataverseExporterImage()` for the Collector Pod; the app-server exporter still uses it.
+14. The separate app-server Dataverse exporter and its configuration remain unchanged. The existing `lightspeed-agentic-configuration` handoff continues to publish its current OTLP/admin endpoints and CA Secret names.
 
-   ```yaml
-   data_mode: otel
-   data_dir: /input
-   otel_active_file: traces.jsonl
-   ledger_file: /state/ledger.json
-   archive_path_prefix: agentic-v1/
-   collection_interval: 300
-   cleanup_after_send: false
-   service_id: ols # generated as rhos-lightspeed when the CR has openstack.org/lightspeed-owner-id
-   ingress_server_url: https://console.redhat.com/api/ingress/v1/upload
-   ```
+## Planned Changes
 
-   The sidecar runs with `--mode openshift` for Kubernetes authentication; `data_mode: otel` selects the ingestion format. It obtains the telemetry token and cluster identity through the OpenShift API, not from the ConfigMap. Its service-ID selection and ingress URL match the existing app-server exporter. ConfigMap content changes roll the OTel Collector Deployment.
-9. The Collector mounts the source volume read/write at `/var/lib/lightspeed-data/otel`; the exporter mounts that same volume read-only at `/input`, so the active file and rotated siblings appear directly under `/input`. A separate writable pod-local `emptyDir` is mounted at `/state` for the exporter ledger. The exporter does not delete or modify Collector source files.
-10. The exporter polls every 300 seconds and considers rotated trace backups only. It excludes the active `traces.jsonl`, so an active file is not ingested until rotation. Upload is best-effort, not a delivery guarantee; successful acknowledgements are recorded in `/state/ledger.json`.
-11. FileExporter rotates by size and retains up to 400 backups for at most one day; the age limit can remove backups before the count limit is reached or before upload. When an inventory no longer contains a source file, the exporter prunes that file's ledger entry. A quiet active file can remain unuploaded until it rotates.
-12. Both the source and ledger volumes are pod-local `emptyDir` volumes. They persist across container restarts within a Pod, but not Pod replacement; a rollout can therefore lose unuploaded backups and ledger state.
-13. A serialized trace write larger than 1MiB fails as an export error; FileExporter does not split the trace batch. The existing 20MiB OTLP receiver request limit does not ensure a serialized FileExporter write fits within 1MiB. Stock FileExporter errors can propagate through the shared trace request and affect delivery to other trace destinations.
-14. The Collector image must contain the stock contrib FileExporter v0.159.0; `--otel-collector-image` selects it. The OTel Dataverse sidecar reuses `r.GetDataverseExporterImage()` and the existing `--dataverse-exporter-image` override, which requires PR #147's OTel ingestion support. `related_images.json` is the source pin; keep the bundle deployment argument and CSV `spec.relatedImages` in sync. The checked-in default is the released OTel-capable exporter image, not a main/CI test image.
-15. The separate app-server Dataverse exporter and its configuration remain unchanged. The existing `lightspeed-agentic-configuration` handoff continues to publish its current OTLP/admin endpoints and CA Secret names.
+| Ticket | Summary |
+|---|---|
+| OLS-4493 | Replace the FileExporter branch and the OTel Dataverse exporter sidecar with the in-Collector `dataverse` exporter. Gate the whole product branch on transcripts plus the pull-secret token. Generate the exporter config with the TLS profile and trusted CA bundle. Mount the projected token into the Collector container. Remove the sidecar, its ConfigMap, and both data volumes. |
 
 ## Cross-References
 
@@ -61,6 +59,7 @@ This specification defines Collector-side capture of selected native OTLP traces
 - [`templog.md`](templog.md) — Collector OTLP pipelines and PostgreSQL logs
 - [`observability.md`](observability.md) — collection gates and behavior
 - [`security.md`](security.md) — exporter token, RBAC, and mount isolation
+- [`tls.md`](tls.md) — TLS security profile resolution
 - [`resource-lifecycle.md`](resource-lifecycle.md) — telemetry-secret gate changes
 - [`agentic-sandbox-profile.md`](agentic-sandbox-profile.md) — unchanged handoff
-- [`deployment-generation.md`](../how/deployment-generation.md) — Collector source/state volumes, Dataverse sidecar configuration, and image selection
+- [`deployment-generation.md`](../how/deployment-generation.md) — Collector credential and trusted CA mounts, and image selection

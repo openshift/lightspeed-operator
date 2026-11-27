@@ -8,7 +8,7 @@
 | `internal/controller/postgres/deployment.go` | `GeneratePostgresDeployment()`, `UpdatePostgresDeployment()` | PostgreSQL deployment spec |
 | `internal/controller/console/deployment.go` | `GenerateConsoleUIDeployment()` | Console UI deployment spec |
 | `internal/controller/agenticconsole/deployment.go` | `GenerateAgenticConsoleUIDeployment()` | Agentic console plugin deployment spec |
-| `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector Deployment; conditional FileExporter storage and transcript-plus-credential-gated Dataverse sidecar |
+| `internal/controller/otelcollector/deployment.go` | `GenerateOtelCollectorDeployment()`, `UpdateOtelCollectorDeployment()` | OTEL Collector Deployment; conditional FileExporter storage and transcript-plus-credential-gated Dataverse sidecar; [PLANNED: OLS-4493] gated Collector token and trusted CA mounts instead |
 | `internal/controller/ocpmcp/deployment.go` | `GenerateDeployment()`, `UpdateDeployment()` | Standalone OpenShift MCP deployment spec |
 | `internal/controller/rhokp/deployment.go` | `GenerateDeployment()`, `UpdateDeployment()` | Standalone RHOKP deployment spec |
 | `internal/controller/alertsadapter/deployment.go` | `GenerateDeployment()` | Alerts adapter deployment spec |
@@ -63,6 +63,17 @@ The source `emptyDir` is mounted read/write in the Collector at `/var/lib/lights
 
 The selected Collector image must provide the stock contrib FileExporter v0.159.0; the existing `--otel-collector-image` override selects it. The Dataverse sidecar reuses `r.GetDataverseExporterImage()` and the existing `--dataverse-exporter-image` override. The released default pin in `related_images.json` is the released exporter image with PR #147's OTel ingestion support. Keep the bundle deployment argument and CSV `spec.relatedImages` synchronized with that pin; do not use a temporary main/CI image for production.
 
+### [PLANNED: OLS-4493] In-Collector Dataverse Exporter
+
+OLS-4493 replaces the trace storage and sidecar above. The authoritative rules are in [`data-collection.md`](../what/data-collection.md).
+
+- Gate: reuse `dataverseExporterEnabled` (`dataverse_exporter.go`) for the whole product branch. With the gate off, the runtime ConfigMap has no `routing/data_collection`, `traces/data_collection`, or `dataverse` exporter.
+- Runtime ConfigMap: generate `dataverse` in place of `file/data_collection`, with `service_id` from the existing label logic and `tls.min_version` / `tls.cipher_suites` from `ResolveTLSProfile` and `CipherCodes` (`internal/tls`).
+- Collector container: mount `generateOtelDataverseExporterAuthVolume()` read-only at `/var/run/secrets/kubernetes.io/serviceaccount` and the trusted CA bundle ConfigMap read-only, with `tls.ca_file` pointing at its `ca-bundle.crt`. Keep `automountServiceAccountToken: false` and `utils.GetProxyEnvVars()`.
+- Remove the sidecar container, its ConfigMap and ConfigMap-version annotation, the `data-collection` and `dataverse-exporter-state` volumes, the FileExporter config and constants, and the related tests.
+- The Collector image must contain the OLS `dataverse` exporter; `--otel-collector-image` selects it. The Collector Pod no longer uses `r.GetDataverseExporterImage()`.
+- Whether a trusted CA bundle change rolls the Collector through a content-hash annotation or `configtls` `reload_interval` is left to implementation.
+
 ### Change Detection Pattern
 All deployments use the same pattern in their update functions:
 **Determinism prerequisite.** ResourceVersion and content-hash comparisons assume generated data is deterministic. For identical inputs, every generated ConfigMap `Data` and desired Deployment spec MUST be identical across reconciles. A list built from a Go map without sorting changes the bytes on each reconcile, bumps the ConfigMap resourceVersion, and produces an endless restart loop. Sort or canonicalize map-derived lists before generation.
@@ -75,6 +86,7 @@ All deployments use the same pattern in their update functions:
 
 **AppServer tracks:** OLS config CM version, proxy CA cert hash, additional CA ConfigMap content hash, RAG spec hash
 **Otelcollector tracks:** Collector runtime ConfigMap and dedicated OTel exporter ConfigMap contents/resource versions. An exporter ConfigMap change rolls the Collector Deployment. Source and ledger `emptyDir` data are pod-local and are lost on Pod replacement.
+[PLANNED: OLS-4493] **Otelcollector tracks:** the Collector runtime ConfigMap; the trusted CA bundle per the note above. No exporter ConfigMap and no data volumes remain; the in-memory exporter queue is lost on Pod replacement.
 
 ## Key Abstractions
 
@@ -113,6 +125,8 @@ Both conditions must hold. The OTel Dataverse sidecar has a separate gate:
 
 The Collector trace-file branch depends only on the transcript condition and does not require telemetry credentials. Both exporters use service ID `"ols"` unless the CR has `openstack.org/lightspeed-owner-id`, in which case they use `"rhos-lightspeed"`. The app-server keeps `lightspeed-exporter-config`; the Collector uses its separate exporter ConfigMap.
 
+[PLANNED: OLS-4493] The OTel Dataverse sidecar gate becomes the gate of the whole Collector product branch; the separate transcript-only trace-file branch is removed.
+
 ### Pod Scheduling Configuration
 `utils.ApplyPodDeploymentConfig()` applies scheduling from `cr.Spec.OLSConfig.DeploymentConfig.APIContainer`:
 - Replicas (configurable for API container; forced to 1 for postgres and console)
@@ -129,13 +143,13 @@ Affinity and topology spread constraints are not exposed on `Config` (CRD size);
 | Container resources | CR `spec.ols.deployment.api.resources` | User-overridable CPU/memory |
 | RHOKP resources | CR `spec.ols.deployment.rhokp.resources` | User-overridable CPU/memory/ephemeral storage |
 | Pod scheduling | CR `spec.ols.deployment.api` | Tolerations, nodeSelector |
-| Projected in-cluster auth | OTel Collector ServiceAccount, `kube-root-ca.crt`, namespace | Token, CA, and namespace mounted at the default in-cluster auth path in the OTel exporter container only |
+| Projected in-cluster auth | OTel Collector ServiceAccount, `kube-root-ca.crt`, namespace | Token, CA, and namespace mounted at the default in-cluster auth path in the OTel exporter container only; [PLANNED: OLS-4493] in the Collector container instead |
 | Volume secrets | Kubernetes Secrets | LLM credentials, TLS certs, PostgreSQL password, MCP header values |
-| Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config, app-server Dataverse exporter ConfigMap (`lightspeed-exporter-config`), and separate OTel Dataverse exporter ConfigMap; Collector runtime config includes the FileExporter trace branch. |
-| Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY; provided to Collector and OTel Dataverse exporter |
+| Volume configmaps | Generated ConfigMaps | OLS config, nginx config, MCP server config, app-server Dataverse exporter ConfigMap (`lightspeed-exporter-config`), and separate OTel Dataverse exporter ConfigMap; Collector runtime config includes the FileExporter trace branch. [PLANNED: OLS-4493] The trusted CA bundle ConfigMap replaces the OTel exporter ConfigMap; the runtime config includes the `dataverse` exporter. |
+| Proxy env vars | `utils.GetProxyEnvVars()` | HTTP_PROXY, HTTPS_PROXY, NO_PROXY; provided to Collector and OTel Dataverse exporter; [PLANNED: OLS-4493] Collector only, used by the `dataverse` exporter |
 | RAG images | CR `spec.ols.rag[].image` | Container images for init containers |
 | RHOKP image | `--rhokp-image` flag | Standalone RHOKP Deployment container image; default from `related_images.json` (`rhokp`) |
-| Dataverse exporter image | `GetDataverseExporterImage()` / `--dataverse-exporter-image` | Existing image getter and override used by both exporters; OTel mode requires PR #147 support |
+| Dataverse exporter image | `GetDataverseExporterImage()` / `--dataverse-exporter-image` | Existing image getter and override used by both exporters; OTel mode requires PR #147 support; [PLANNED: OLS-4493] app-server exporter only |
 
 ## Agentic Controller Deployment (OLM-managed)
 
