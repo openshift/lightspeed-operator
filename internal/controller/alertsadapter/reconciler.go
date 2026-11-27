@@ -21,7 +21,7 @@ import (
 	"github.com/openshift/lightspeed-operator/internal/controller/utils"
 )
 
-// ErrAlertsAdapterCleanupPending indicates cleanup is pending and the egress policy must be retained until the Deployment and matching pods are gone.
+// ErrAlertsAdapterCleanupPending indicates cleanup is pending and both network policies must be retained until the Deployment and matching pods are gone.
 var ErrAlertsAdapterCleanupPending = errors.New("alerts adapter cleanup pending")
 
 // ReconcileAlertsAdapterResources reconciles Phase 1 alerts adapter resources.
@@ -36,6 +36,7 @@ func ReconcileAlertsAdapterResources(r reconciler.Reconciler, ctx context.Contex
 
 	tasks := []utils.ReconcileTask{
 		{Name: "reconcile alerts adapter ServiceAccount", Task: reconcileServiceAccount},
+		{Name: "reconcile alerts adapter Service", Task: reconcileService},
 		{Name: "reconcile alerts adapter agenticruns Role", Task: reconcileAgenticRunsRole},
 		{Name: "reconcile alerts adapter agenticruns RoleBinding", Task: reconcileAgenticRunsRoleBinding},
 		{Name: "reconcile alerts adapter agenticolsconfig ClusterRole", Task: reconcileAgenticOLSConfigClusterRole},
@@ -83,6 +84,7 @@ func ReconcileAlertsAdapterDeployment(r reconciler.Reconciler, ctx context.Conte
 func RemoveAlertsAdapter(r reconciler.Reconciler, ctx context.Context) error {
 	tasks := []utils.DeleteTask{
 		{Name: "delete alerts adapter deployment", Task: deleteDeployment},
+		{Name: "delete alerts adapter service", Task: deleteService},
 		{Name: "delete alerts adapter network policy", Task: deleteNetworkPolicy},
 		{Name: "delete alerts adapter egress network policy", Task: deleteEgressNetworkPolicy},
 		{Name: "delete alerts adapter config RoleBinding", Task: deleteConfigRoleBinding},
@@ -130,6 +132,14 @@ func reconcileServiceAccount(r reconciler.Reconciler, ctx context.Context, cr *o
 
 	r.GetLogger().Info("alerts adapter service account reconciled", "serviceAccount", sa.Name)
 	return nil
+}
+
+func reconcileService(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
+	service, err := GenerateService(r, cr)
+	if err != nil {
+		return fmt.Errorf("%s: %w", utils.ErrGenerateAlertsAdapterService, err)
+	}
+	return utils.ReconcileConsolePluginService(r, ctx, service)
 }
 
 func reconcileAgenticRunsRole(r reconciler.Reconciler, ctx context.Context, cr *olsv1alpha1.OLSConfig) error {
@@ -325,6 +335,28 @@ func reconcileDeployment(r reconciler.Reconciler, ctx context.Context, cr *olsv1
 	return nil
 }
 
+func deleteService(r reconciler.Reconciler, ctx context.Context) error {
+	svc := &corev1.Service{}
+	err := r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterServiceName, Namespace: r.GetNamespace()}, svc)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.GetLogger().Info("alerts adapter service not found, skip deletion")
+			return nil
+		}
+		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterService, err)
+	}
+
+	if err := r.Delete(ctx, svc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("%s: %w", utils.ErrDeleteAlertsAdapterService, err)
+	}
+
+	r.GetLogger().Info("alerts adapter service deleted")
+	return nil
+}
+
 func deleteDeployment(r reconciler.Reconciler, ctx context.Context) error {
 	dep := &appsv1.Deployment{}
 	err := r.Get(ctx, client.ObjectKey{Name: utils.AlertsAdapterDeploymentName, Namespace: r.GetNamespace()}, dep)
@@ -358,6 +390,10 @@ func deleteNetworkPolicy(r reconciler.Reconciler, ctx context.Context) error {
 		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterNetworkPolicy, err)
 	}
 
+	if err := checkAdapterPodsGone(r, ctx); err != nil {
+		return err
+	}
+
 	if err := r.Delete(ctx, np); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -380,6 +416,23 @@ func deleteEgressNetworkPolicy(r reconciler.Reconciler, ctx context.Context) err
 		return fmt.Errorf("%s: %w", utils.ErrGetAlertsAdapterNetworkPolicy, err)
 	}
 
+	if err := checkAdapterPodsGone(r, ctx); err != nil {
+		return err
+	}
+
+	if err := r.Delete(ctx, np); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to delete alerts adapter egress network policy: %w", err)
+	}
+
+	r.GetLogger().Info("alerts adapter egress network policy deleted")
+	return nil
+}
+
+// checkAdapterPodsGone keeps ingress and egress isolation until the adapter is gone.
+func checkAdapterPodsGone(r reconciler.Reconciler, ctx context.Context) error {
 	deployment := &appsv1.Deployment{}
 	deploymentKey := client.ObjectKey{Name: utils.AlertsAdapterDeploymentName, Namespace: r.GetNamespace()}
 	if err := r.Get(ctx, deploymentKey, deployment); err == nil {
@@ -395,15 +448,6 @@ func deleteEgressNetworkPolicy(r reconciler.Reconciler, ctx context.Context) err
 	if len(pods.Items) > 0 {
 		return fmt.Errorf("%w: %d matching pods still exist", ErrAlertsAdapterCleanupPending, len(pods.Items))
 	}
-
-	if err := r.Delete(ctx, np); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to delete alerts adapter egress network policy: %w", err)
-	}
-
-	r.GetLogger().Info("alerts adapter egress network policy deleted")
 	return nil
 }
 

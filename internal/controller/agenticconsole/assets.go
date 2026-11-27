@@ -103,6 +103,25 @@ func GenerateAgenticConsoleUIPlugin(r reconciler.Reconciler, cr *olsv1alpha1.OLS
 		},
 	}
 
+	// The alerts adapter investigation API is only proxied when the adapter
+	// operand is enabled; without the Service the proxy entry would 502.
+	if _, adapterEnabled := utils.AlertsAdapterConfigMapRef(cr); adapterEnabled && r.GetAlertsAdapterImage() != "" {
+		plugin.Spec.Proxy = []consolev1.ConsolePluginProxy{
+			{
+				Alias:         utils.AlertsAdapterProxyAlias,
+				Authorization: consolev1.UserToken,
+				Endpoint: consolev1.ConsolePluginProxyEndpoint{
+					Service: &consolev1.ConsolePluginProxyServiceConfig{
+						Name:      utils.AlertsAdapterServiceName,
+						Namespace: r.GetNamespace(),
+						Port:      utils.AlertsAdapterHTTPSPort,
+					},
+					Type: consolev1.ProxyTypeService,
+				},
+			},
+		}
+	}
+
 	if err := controllerutil.SetControllerReference(cr, plugin, r.GetScheme()); err != nil {
 		return nil, err
 	}

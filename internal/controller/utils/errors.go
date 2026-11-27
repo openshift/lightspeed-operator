@@ -202,6 +202,8 @@ const (
 	ErrGenerateAlertsAdapterAgenticOLSConfigClusterRole        = "failed to generate alerts adapter agenticolsconfig cluster role"
 	ErrGenerateAlertsAdapterAgenticOLSConfigClusterRoleBinding = "failed to generate alerts adapter agenticolsconfig cluster role binding"
 	ErrGenerateAlertsAdapterAlertmanagerRoleBinding            = "failed to generate alerts adapter alertmanager role binding"
+	ErrGenerateAlertsAdapterService                            = "failed to generate alerts adapter service"
+	ErrSetAlertsAdapterServiceOwnerReference                   = "failed to set alerts adapter service owner reference"
 	ErrGetAlertsAdapterDeployment                              = "failed to get alerts adapter deployment"
 	ErrGetAlertsAdapterNetworkPolicy                           = "failed to get alerts adapter network policy"
 	ErrGetAlertsAdapterServiceAccount                          = "failed to get alerts adapter service account"
@@ -211,11 +213,14 @@ const (
 	ErrGetAlertsAdapterAgenticOLSConfigClusterRoleBinding      = "failed to get alerts adapter agenticolsconfig cluster role binding"
 	ErrUpdateAlertsAdapterAgenticOLSConfigClusterRole          = "failed to update alerts adapter agenticolsconfig cluster role"
 	ErrGetAlertsAdapterAlertmanagerRoleBinding                 = "failed to get alerts adapter alertmanager role binding"
+	ErrGetAlertsAdapterService                                 = "failed to get alerts adapter service"
 	ErrGetAlertsAdapterConfigMap                               = "failed to get alerts adapter configmap"
 	ErrGetAlertsAdapterConfigRole                              = "failed to get alerts adapter config role"
 	ErrGetAlertsAdapterConfigRoleBinding                       = "failed to get alerts adapter config role binding"
 	ErrUpdateAlertsAdapterDeployment                           = "failed to update alerts adapter deployment"
 	ErrUpdateAlertsAdapterNetworkPolicy                        = "failed to update alerts adapter network policy"
+
+	ErrDeleteAlertsAdapterService = "failed to delete alerts adapter service"
 
 	// OpenShift MCP server (ocpmcp) generate / owner-ref / CRUD errors
 	ErrGenerateOpenShiftMCPServerConfigMap               = "failed to generate openshift-mcp-server configmap"

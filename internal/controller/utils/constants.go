@@ -543,6 +543,22 @@ ssl_ca_file = '/etc/certs/cm-olspostgresca/service-ca.crt'
 	AlertsAdapterAlertmanagerURLEnvVar = "ALERTMANAGER_URL"
 	// AlertsAdapterComponentLabel is the app.kubernetes.io/component label value for alerts adapter resources
 	AlertsAdapterComponentLabel = "alerts-adapter"
+	// AlertsAdapterServiceName is the Service exposing the adapter HTTPS investigation API.
+	AlertsAdapterServiceName = "lightspeed-agentic-alerts-adapter"
+	// AlertsAdapterProxyAlias is the ConsolePlugin proxy alias for the adapter investigation API.
+	AlertsAdapterProxyAlias = "alerts-adapter"
+	// AlertsAdapterCertsSecretName is the service-ca TLS secret for the adapter investigation API.
+	AlertsAdapterCertsSecretName = "lightspeed-agentic-alerts-adapter-tls" // #nosec G101
+	// AlertsAdapterTLSVolumeName is the pod volume name for the serving-cert Secret.
+	AlertsAdapterTLSVolumeName = "tls-certs"
+	// AlertsAdapterTLSVolumeMountPath is where the adapter reads tls.crt/tls.key.
+	AlertsAdapterTLSVolumeMountPath = "/etc/tls/private"
+	// AlertsAdapterHTTPSPort is the adapter investigation API port.
+	AlertsAdapterHTTPSPort = 8443
+	// AlertsAdapterHealthPort is the adapter plain-HTTP health server port (/healthz).
+	AlertsAdapterHealthPort = 8081
+	// AlertsAdapterHealthPath is the adapter health endpoint path.
+	AlertsAdapterHealthPath = "/healthz"
 	// PostgresTerminationGracePeriodSeconds is the grace period for postgres pod termination.
 	// This must be greater than PostgresShutdownTimeoutSeconds to allow pg_ctl to complete.
 	PostgresTerminationGracePeriodSeconds = int64(60)

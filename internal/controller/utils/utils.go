@@ -343,8 +343,19 @@ func ProbeEqual(a, b *corev1.Probe) bool {
 
 // serviceEqual compares two v1.Service and returns true if they are equal.
 func ServiceEqual(a *corev1.Service, b *corev1.Service) bool {
-	if !apiequality.Semantic.DeepEqual(a.Labels, b.Labels) ||
+	// Kubernetes defaults an omitted Service type to ClusterIP.
+	typeA, typeB := a.Spec.Type, b.Spec.Type
+	if typeA == "" {
+		typeA = corev1.ServiceTypeClusterIP
+	}
+	if typeB == "" {
+		typeB = corev1.ServiceTypeClusterIP
+	}
+	if typeA != typeB ||
+		!slices.Equal(a.Spec.ExternalIPs, b.Spec.ExternalIPs) ||
+		!apiequality.Semantic.DeepEqual(a.Labels, b.Labels) ||
 		!apiequality.Semantic.DeepEqual(a.Spec.Selector, b.Spec.Selector) ||
+		a.Spec.PublishNotReadyAddresses != b.Spec.PublishNotReadyAddresses ||
 		len(a.Spec.Ports) != len(b.Spec.Ports) {
 		return false
 	}

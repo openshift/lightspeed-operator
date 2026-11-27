@@ -74,12 +74,35 @@ var _ = Describe("Alerts adapter assets", func() {
 		Expect(rb.RoleRef.Name).To(Equal(utils.MonitoringAlertmanagerViewRoleName))
 	})
 
-	It("should keep the existing ingress-deny policy ingress-only", func() {
+	It("should generate the investigation API service with serving-cert annotation", func() {
+		svc, err := GenerateService(testReconcilerInstance, cr)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(svc.Name).To(Equal(utils.AlertsAdapterServiceName))
+		Expect(svc.Namespace).To(Equal(utils.OLSNamespaceDefault))
+		Expect(svc.Annotations[utils.ServingCertSecretAnnotationKey]).To(Equal(utils.AlertsAdapterCertsSecretName))
+		Expect(svc.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+		Expect(svc.Spec.Ports).To(HaveLen(1))
+		Expect(svc.Spec.Ports[0].Name).To(Equal("https"))
+		Expect(svc.Spec.Ports[0].Port).To(Equal(int32(utils.AlertsAdapterHTTPSPort)))
+		Expect(svc.Spec.Ports[0].TargetPort.String()).To(Equal("https"))
+	})
+
+	It("should allow only HTTPS ingress from same-namespace and openshift-console pods", func() {
 		np, err := GenerateNetworkPolicy(testReconcilerInstance, cr)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(np.Spec.PolicyTypes).To(Equal([]networkingv1.PolicyType{networkingv1.PolicyTypeIngress}))
-		Expect(np.Spec.Ingress).To(BeEmpty())
 		Expect(np.Spec.Egress).To(BeEmpty())
+		tcp := corev1.ProtocolTCP
+		httpsPort := intstr.FromInt32(utils.AlertsAdapterHTTPSPort)
+		Expect(np.Spec.Ingress).To(Equal([]networkingv1.NetworkPolicyIngressRule{{
+			From: []networkingv1.NetworkPolicyPeer{
+				{PodSelector: &metav1.LabelSelector{}},
+				{NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"kubernetes.io/metadata.name": "openshift-console"},
+				}},
+			},
+			Ports: []networkingv1.NetworkPolicyPort{{Protocol: &tcp, Port: &httpsPort}},
+		}}))
 	})
 
 	It("should generate an egress-only policy for the API, platform Alertmanager, and DNS", func() {
@@ -151,8 +174,40 @@ var _ = Describe("Alerts adapter assets", func() {
 		Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 		Expect(deployment.Spec.Template.Spec.Containers[0].Name).To(Equal(utils.AlertsAdapterContainerName))
 		Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal(testReconcilerInstance.GetAlertsAdapterImage()))
-		Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(2))
 		Expect(deployment.Spec.Template.Spec.Volumes[0].Name).To(Equal(utils.TmpVolumeName))
+		Expect(deployment.Spec.Template.Spec.Volumes[1].Secret.SecretName).To(Equal(utils.AlertsAdapterCertsSecretName))
+	})
+
+	It("should expose the HTTPS investigation API with TLS and probes", func() {
+		deployment, err := GenerateDeployment(testReconcilerInstance, ctx, cr)
+		Expect(err).NotTo(HaveOccurred())
+		container := deployment.Spec.Template.Spec.Containers[0]
+		Expect(container.Ports).To(Equal([]corev1.ContainerPort{{
+			Name:          "https",
+			ContainerPort: utils.AlertsAdapterHTTPSPort,
+			Protocol:      corev1.ProtocolTCP,
+		}, {
+			Name:          "health",
+			ContainerPort: utils.AlertsAdapterHealthPort,
+			Protocol:      corev1.ProtocolTCP,
+		}}))
+		Expect(container.LivenessProbe.HTTPGet.Path).To(Equal(utils.AlertsAdapterHealthPath))
+		Expect(container.LivenessProbe.HTTPGet.Port.String()).To(Equal("health"))
+		Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTP))
+		Expect(container.ReadinessProbe.HTTPGet.Path).To(Equal(utils.AlertsAdapterHealthPath))
+		Expect(container.ReadinessProbe.HTTPGet.Port.String()).To(Equal("health"))
+		Expect(container.ReadinessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTP))
+		Expect(container.Env).To(ContainElements(
+			corev1.EnvVar{Name: "HTTPS_PORT", Value: "8443"},
+			corev1.EnvVar{Name: "TLS_CERT_FILE", Value: utils.AlertsAdapterTLSVolumeMountPath + "/tls.crt"},
+			corev1.EnvVar{Name: "TLS_KEY_FILE", Value: utils.AlertsAdapterTLSVolumeMountPath + "/tls.key"},
+		))
+		Expect(container.VolumeMounts).To(ContainElement(corev1.VolumeMount{
+			Name:      utils.AlertsAdapterTLSVolumeName,
+			MountPath: utils.AlertsAdapterTLSVolumeMountPath,
+			ReadOnly:  true,
+		}))
 	})
 
 	It("should mount the referenced ConfigMap when it exists", func() {
@@ -173,8 +228,8 @@ var _ = Describe("Alerts adapter assets", func() {
 
 		deployment, err := GenerateDeployment(testReconcilerInstance, ctx, crWithRef)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(2))
-		Expect(deployment.Spec.Template.Spec.Volumes[1].ConfigMap.Name).To(Equal(utils.AlertsAdapterConfigMapName))
+		Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(3))
+		Expect(deployment.Spec.Template.Spec.Volumes[2].ConfigMap.Name).To(Equal(utils.AlertsAdapterConfigMapName))
 		Expect(deployment.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
 			Name:      utils.AlertsAdapterConfigVolumeName,
 			MountPath: utils.AlertsAdapterConfigVolumeMountPath,
@@ -191,8 +246,9 @@ var _ = Describe("Alerts adapter assets", func() {
 
 		deployment, err := GenerateDeployment(testReconcilerInstance, ctx, crWithRef)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(2))
 		Expect(deployment.Spec.Template.Spec.Volumes[0].Name).To(Equal(utils.TmpVolumeName))
+		Expect(deployment.Spec.Template.Spec.Volumes[1].Secret.SecretName).To(Equal(utils.AlertsAdapterCertsSecretName))
 	})
 
 	It("should mount the referenced ConfigMap even when config.yaml is absent", func() {
@@ -213,8 +269,8 @@ var _ = Describe("Alerts adapter assets", func() {
 
 		deployment, err := GenerateDeployment(testReconcilerInstance, ctx, crWithRef)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(2))
-		Expect(deployment.Spec.Template.Spec.Volumes[1].ConfigMap.Name).To(Equal(utils.AlertsAdapterConfigMapName))
+		Expect(deployment.Spec.Template.Spec.Volumes).To(HaveLen(3))
+		Expect(deployment.Spec.Template.Spec.Volumes[2].ConfigMap.Name).To(Equal(utils.AlertsAdapterConfigMapName))
 	})
 
 	It("does not enable the adapter when configMapRef is unset", func() {
